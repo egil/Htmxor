@@ -32,22 +32,6 @@ h1:focus {
 
 /* Contacts app specific CSS */
 
-.flash {
-    display: block;
-    background-color: #2fdc2f !important;
-    color: white;
-    font-weight: bold;
-    padding: 12px;
-    border: 1px solid black;
-    border-radius: 8px;
-    margin: 16px;
-}
-
-table {
-    width: 100%;
-    margin-bottom: 12px;
-}
-
 .error {
     display: inline-block;
     color: darkred;

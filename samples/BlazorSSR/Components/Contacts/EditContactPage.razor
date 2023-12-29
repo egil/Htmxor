@@ -1,25 +1,32 @@
-﻿@page "/contacts/new"
+﻿@page "/contacts/{id:int}/edit"
 @inject ContactsRepository Repo
 @inject NavigationManager NavMan
 @code {
-    [CascadingParameter()]
-    public required FlashMessage FlashMessages { get; init; }
-
     [SupplyParameterFromForm]
     public Contact? Contact { get; set; }
 
-    protected override void OnInitialized() => Contact ??= new();
+    [CascadingParameter]
+    public required FlashMessageQueue FlashMessages { get; init; }
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Contact = await Repo.Find(Id);
+    }
 
     private async Task OnSubmit()
     {
-        if (await Repo.Save(Contact!))
+        if (Contact is not null && await Repo.Save(Contact))
         {
-            FlashMessages.Add("Created New Contact!");
-            NavMan.NavigateTo("/contacts");
+            FlashMessages.Add("Updated Contact!");
+            NavMan.NavigateTo($"/contacts/{Contact.Id}");
         }
     }
 }
-<EditForm Model="Contact" OnValidSubmit="OnSubmit" FormName="add-contact-form">
+@if (Contact is null) return;
+<EditForm Model="Contact" OnValidSubmit="OnSubmit" FormName="edit-contact-form">
     <FluentValidationValidator />
     <fieldset>
         <legend>Contact Values</legend>
@@ -47,6 +54,11 @@
     </fieldset>
 </EditForm>
 
+<form action="/contacts/@Contact.Id/delete" method="post" @formname="delete-contact-form">
+    <AntiforgeryToken />
+    <button>Delete Contact</button>
+</form>
+
 <p>
-    <a href="/contacts">Back</a>
+    <a href="/contacts/">Back</a>
 </p>

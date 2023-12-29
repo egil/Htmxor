@@ -1,5 +1,7 @@
 using BlazorSSR;
 using BlazorSSR.Components;
+using BlazorSSR.Components.Contacts;
+using BlazorSSR.Components.FlashMessages;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,9 +12,7 @@ builder.Services.AddScoped<DiskStorage>();
 builder.Services.AddScoped<ContactsRepository>();
 builder.Services.AddScoped<Contact.Validator>();
 
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddMemoryCache();
-builder.Services.AddScoped<FlashMessage>();
+builder.Services.AddFlashMessages();
 
 var app = builder.Build();
 
@@ -30,5 +30,5 @@ app.UseStaticFiles();
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>();
-
+app.MapContactsDelete();
 app.Run();

@@ -1,5 +1,5 @@
 ﻿@inherits LayoutComponentBase
-@inject FlashMessage FlashMessages
+@inject FlashMessageQueue FlashMessages
 <div class="container">
     <header>
         <h1>
@@ -8,14 +8,7 @@
         </h1>
     </header>
     <hr />
-    @if (FlashMessages.Count > 0)
-    {
-        @foreach (var message in FlashMessages)
-        {
-            <div class="flash">@message</div>
-        }
-        <hr />
-    }
+    <FlashMessagesView />
     <CascadingValue IsFixed="true" Value="FlashMessages">
         @Body
     </CascadingValue>

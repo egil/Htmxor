@@ -1,17 +1,18 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Caching.Memory;
 using System.Collections;
 
-namespace BlazorSSR;
+namespace BlazorSSR.Components.FlashMessages;
 
-public class FlashMessage : IEnumerable<string>
+public class FlashMessageQueue : IEnumerable<FlashMessage>
 {
     private const string FlashMsgCookieName = ".flash-messages-id";
 
     private readonly IHttpContextAccessor httpContextAccessor;
     private readonly IMemoryCache memoryCache;
-    private Queue<string>? messages;
+    private Queue<FlashMessage>? messages;
 
-    private Queue<string> Messages
+    private Queue<FlashMessage> Messages
     {
         get
         {
@@ -34,25 +35,32 @@ public class FlashMessage : IEnumerable<string>
                 httpContextAccessor?.HttpContext?.Response.Cookies.Append(FlashMsgCookieName, flashMsgId, cookieOptions);
             }
 
-            messages = memoryCache.GetOrCreate(flashMsgId, _ => new Queue<string>())!;
+            messages = memoryCache.GetOrCreate(flashMsgId, _ => new Queue<FlashMessage>())!;
             return messages;
         }
     }
 
     public int Count => Messages.Count;
 
-    public FlashMessage(IHttpContextAccessor httpContextAccessor, IMemoryCache memoryCache)
+    public FlashMessageQueue(IHttpContextAccessor httpContextAccessor, IMemoryCache memoryCache)
     {
         this.httpContextAccessor = httpContextAccessor;
         this.memoryCache = memoryCache;
     }
 
-    public void Add(string message)
+    public void Add(string message, FlashMessageType type = FlashMessageType.Info)
     {
-        Messages.Enqueue(message);
+        Add(new() { Content = b => b.AddContent(0, message), Type = type });
     }
 
-    public IEnumerator<string> GetEnumerator()
+    public void Add(RenderFragment message, FlashMessageType type = FlashMessageType.Info)
+    {
+        Add(new() { Content = message, Type = type });
+    }
+
+    public void Add(FlashMessage message) => Messages.Enqueue(message);
+
+    public IEnumerator<FlashMessage> GetEnumerator()
     {
         while (Count > 0)
         {
