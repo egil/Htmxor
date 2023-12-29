@@ -117,47 +117,5 @@
     "last": null,
     "phone": null,
     "email": "restexample2@example.com"
-  },
-  {
-    "id": 20,
-    "first": "",
-    "last": "",
-    "phone": "",
-    "email": "egil@example.com"
-  },
-  {
-    "id": 21,
-    "first": "Egil",
-    "last": "",
-    "phone": "",
-    "email": "egil@example.com2"
-  },
-  {
-    "id": 22,
-    "first": "Egil",
-    "last": "2nd",
-    "phone": "",
-    "email": "egil@example2.com"
-  },
-  {
-    "id": 23,
-    "first": "asdf",
-    "last": "qwer",
-    "phone": "",
-    "email": "asdf@asdf.com"
-  },
-  {
-    "id": 24,
-    "first": "Foo",
-    "last": "Bar",
-    "phone": "",
-    "email": "foo@bar.com"
-  },
-  {
-    "id": 25,
-    "first": "bar ",
-    "last": "baz",
-    "phone": "",
-    "email": "bar@baz.com"
   }
 ]
