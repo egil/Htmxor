@@ -26,6 +26,9 @@
     If we do not want to rely on API endpoints to handle the delete operation,
     this dummy form seems to be necessary to be able to receive the HTTP POST
     from the other page.
+
+    If this is not present, the following error message is returned: 
+    "Cannot submit the form 'delete-contact-form' because no form on the page currently has that name."
 *@
 <form action="/contacts/@Id/delete" method="post" @formname="delete-contact-form">
     <AntiforgeryToken />
