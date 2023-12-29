@@ -1,9 +1,8 @@
 ﻿@page "/"
-@inject NavigationManager NavMan
+@inject IHttpContextAccessor HttpContextAccessor
 @code {
-    protected override Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        NavMan.NavigateTo("/contacts");
-        return Task.CompletedTask;
+        HttpContextAccessor.HttpContext.Response.Redirect("/contacts");
     }
 }
