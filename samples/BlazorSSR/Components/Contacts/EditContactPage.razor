@@ -26,35 +26,10 @@
     }
 }
 @if (Contact is null) return;
-<EditForm Model="Contact" OnValidSubmit="OnSubmit" FormName="edit-contact-form">
-    <FluentValidationValidator />
-    <fieldset>
-        <legend>Contact Values</legend>
-        <p>
-            <label for="email">Email</label>
-            <InputText @bind-Value="Contact!.Email" id="email" placeholder="Email" type="email" DisplayName="Email" />
-            <ValidationMessage For="() => Contact.Email" />
-        </p>
-        <p>
-            <label for="first_name">First Name</label>
-            <InputText id="first_name" placeholder="First Name" @bind-Value="@Contact.First" />
-            <ValidationMessage For="() => Contact.First" />
-        </p>
-        <p>
-            <label for="last_name">Last Name</label>
-            <InputText id="last_name" placeholder="Last Name" @bind-Value="@Contact.Last" />
-            <ValidationMessage For="() => Contact.Last" />
-        </p>
-        <p>
-            <label for="phone">Phone</label>
-            <InputText id="phone" placeholder="Phone" @bind-Value="@Contact.Phone" />
-            <ValidationMessage For="() => Contact.Phone" />
-        </p>
-        <button>Save</button>
-    </fieldset>
-</EditForm>
 
-<form action="/contacts/@Contact.Id/delete" method="post" @formname="delete-contact-form">
+<ContactForm Contact="@Contact" OnValidSubmit="OnSubmit" />
+
+<form action="/contacts/@Contact.Id/delete" method="post" @formname="delete-contact-form" data-enhance>
     <AntiforgeryToken />
     <button>Delete Contact</button>
 </form>

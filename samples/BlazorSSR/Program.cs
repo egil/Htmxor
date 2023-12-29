@@ -30,5 +30,5 @@ app.UseStaticFiles();
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>();
-app.MapContactsDelete();
+
 app.Run();

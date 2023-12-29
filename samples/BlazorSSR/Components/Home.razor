@@ -3,6 +3,6 @@
 @code {
     protected override void OnInitialized()
     {
-        HttpContextAccessor.HttpContext.Response.Redirect("/contacts");
+        HttpContextAccessor.HttpContext?.Response.Redirect("/contacts");
     }
 }
