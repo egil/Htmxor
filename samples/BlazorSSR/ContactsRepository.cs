@@ -60,6 +60,18 @@ public class ContactsRepository
         return true;
     }
 
+    public async Task<bool> Delete(int id, CancellationToken cancellationToken = default)
+    {
+        var contacts = await disk.Load(cancellationToken);
+        if (contacts.RemoveAll(c => c.Id == id) > 0)
+        {
+            await disk.Save(contacts, cancellationToken);
+            return true;
+        }
+
+        return false;
+    }
+
     public async Task<bool> Validate(Contact contact, CancellationToken cancellationToken = default)
     {
         var validator = new Contact.Validator(this);

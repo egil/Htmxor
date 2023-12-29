@@ -1,0 +1,33 @@
+﻿@* @page "/contacts/{id:int}/delete" *@
+@inject ContactsRepository Repo
+@inject NavigationManager NavMan
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [CascadingParameter]
+    public required FlashMessageQueue FlashMessages { get; init; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Repo.Delete(Id))
+        {
+            FlashMessages.Add("Deleted contact!", FlashMessageType.Success);
+            NavMan.NavigateTo("/contacts");
+        }
+        else
+        {
+            FlashMessages.Add("Failed to delete contact!", FlashMessageType.Error);
+            NavMan.NavigateTo($"/contacts/{Id}/edit");
+        }
+    }
+}
+@*
+    If we do not want to rely on API endpoints to handle the delete operation,
+    this dummy form seems to be necessary to be able to receive the HTTP POST
+    from the other page.
+*@
+<form action="/contacts/@Id/delete" method="post" @formname="delete-contact-form">
+    <AntiforgeryToken />
+    <button>Delete Contact</button>
+</form>
