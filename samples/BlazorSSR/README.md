@@ -17,7 +17,6 @@ The implementation is based on the HTMX sample app from https://hypermedia.syste
 ## Notes:
 
 - The `contacts.json` file is not ignored by the GIT, but still included. To toggle this behavior:
-   
-  Disable tracking: `git update-index --skip-worktree contacts.json`
-  Enable tracking: `git update-index --no-skip-worktree contacts.json`
+  - Disable tracking: `git update-index --skip-worktree contacts.json`  
+  - Enable tracking: `git update-index --no-skip-worktree contacts.json`
 
