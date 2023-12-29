@@ -1,8 +1,9 @@
 ﻿@page "/"
 @inject NavigationManager NavMan
 @code {
-    protected override void OnInitialized()
+    protected override Task OnInitializedAsync()
     {
         NavMan.NavigateTo("/contacts");
+        return Task.CompletedTask;
     }
 }

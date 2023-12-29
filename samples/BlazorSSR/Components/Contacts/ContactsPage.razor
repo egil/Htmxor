@@ -1,0 +1,49 @@
+﻿@page "/contacts"
+@inject ContactsRepository Repo
+@code {
+    private IEnumerable<Contact> contacts = Enumerable.Empty<Contact>();
+
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Query { get; set; }
+
+    protected override async Task OnInitializedAsync()
+        => contacts = string.IsNullOrWhiteSpace(Query)
+            ? await Repo.All()
+            : await Repo.Search(Query);
+}
+<PageTitle>Contacts</PageTitle>
+<form action="/contacts" method="get" class="tool-bar">
+    <label for="search">Search Term</label>
+    <input id="search" type="search" name="q" value="@Query" />
+    <input type="submit" value="Search" />
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>First</th>
+            <th>Last</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var contact in contacts)
+        {
+            <tr>
+                <td>@contact.First</td>
+                <td>@contact.Last</td>
+                <td>@contact.Phone</td>
+                <td>@contact.Email</td>
+                <td>
+                    <a href="/contacts/@contact.Id/edit">Edit</a>
+                    <a href="/contacts/@contact.Id">View</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+<p>
+    <a href="/contacts/new">Add Contact</a>
+</p>

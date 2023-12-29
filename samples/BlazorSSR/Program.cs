@@ -1,9 +1,18 @@
+using BlazorSSR;
 using BlazorSSR.Components;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents();
+builder.Services.AddScoped<DiskStorage>();
+builder.Services.AddScoped<ContactsRepository>();
+builder.Services.AddScoped<Contact.Validator>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<FlashMessage>();
 
 var app = builder.Build();
 
