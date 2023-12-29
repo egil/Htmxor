@@ -1,0 +1,26 @@
+﻿@page "/contacts/{id:int}"
+@inject ContactsRepository repo
+@code {
+    private Contact? contact;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        contact = await repo.Find(Id);
+    }
+}
+@if(contact is null) return;
+
+<h1>@contact.First @contact.Last</h1>
+
+<div>
+    <div>Phone: @contact.Phone</div>
+    <div>Email: @contact.Email</div>
+</div>
+
+<p>
+    <a href="/contacts/@contact.Id/edit">Edit</a>
+    <a href="/contacts">Back</a>
+</p>

@@ -24,6 +24,12 @@ public class ContactsRepository
          || c.Email?.Contains(query, StringComparison.OrdinalIgnoreCase) == true);
     }
 
+    public async Task<Contact?> Find(int id, CancellationToken cancellationToken = default)
+    {
+        var contacts = await disk.Load(cancellationToken);
+        return contacts.FirstOrDefault(c => c.Id == id);
+    }
+
     public async Task<bool> Save(Contact contact, CancellationToken cancellationToken = default)
     {
         if (!await Validate(contact, cancellationToken))
