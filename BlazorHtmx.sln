@@ -3,12 +3,31 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlazorSSR", "samples\BlazorSSR\BlazorSSR.csproj", "{7058400A-CF52-44D4-8AB1-A5D3B1248E09}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".items", ".items", "{8B71162C-C904-4C9B-A939-6B1A9DC3871F}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		README.md = README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7058400A-CF52-44D4-8AB1-A5D3B1248E09}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7058400A-CF52-44D4-8AB1-A5D3B1248E09}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7058400A-CF52-44D4-8AB1-A5D3B1248E09}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7058400A-CF52-44D4-8AB1-A5D3B1248E09}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{7058400A-CF52-44D4-8AB1-A5D3B1248E09} = {8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}
 	EndGlobalSection
 EndGlobal
