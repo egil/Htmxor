@@ -2,12 +2,11 @@
 @inject FlashMessageQueue FlashMessages
 <main class="container">
     <header>
-        <h1>
-            <span class="text-uppercase">contacts.app</span><br />
-            <span class="text-capitalize">A Demo Contacts Application</span>
+        <h1 class="text-uppercase">
+            contacts.app
         </h1>
+        <p class="text-capitalize">A Demo Contacts Application</p>
     </header>
-    <hr />
     <FlashMessagesView />
     <CascadingValue IsFixed="true" Value="FlashMessages">
         @Body
