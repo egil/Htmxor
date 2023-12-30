@@ -11,6 +11,7 @@ The implementation is based on the HTMX sample app from https://hypermedia.syste
 - All pages are reached using enhanced navigation. 
 - All forms are enhanced, with no full page loads between adding, editing and deleting. This works even across redirects instigated by `NavigationManager`.
 - The view contacts page uses streaming rendering.
+- With streaming rendering it is easy to show a loading indicator while the page is loading.
 
 ### Cons:
 
