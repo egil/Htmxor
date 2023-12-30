@@ -15,7 +15,7 @@ The implementation is based on the HTMX sample app from https://hypermedia.syste
 
 ### Cons:
 
-- The [delete component seems to require the originating form](https://github.com/egil/BlazorHtmx/blob/974e3ba24382fa2b2aab0a14b0f50426a29161af/samples/BlazorSSR/Components/Contacts/DeleteContactPage.razor#L33-L36) to be present in the new component, otherwise, it fails with a "Cannot submit the form 'delete-contact-form' because no form on the page currently has that name." error.
+- The [delete component seems to require the originating form](https://github.com/egil/BlazorHtmx/blob/974e3ba24382fa2b2aab0a14b0f50426a29161af/samples/BlazorSSR/Components/Contacts/DeleteContactPage.razor#L33-L36) to be present in the new component, otherwise, it fails with a "Cannot submit the form 'delete-contact-form' because no form on the page currently has that name." error. Note, that when posting to the same component this is not a problem.
 - Using other HTTP verbs than GET and POST is not supported.
 - Interactive features such as live search needs custom JS to be supported.
 - Even with enhanced navigation and forms, the entire page is generated on the backend and sent to the client. 

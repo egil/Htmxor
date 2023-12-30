@@ -1,7 +1,11 @@
 ﻿@page "/contacts/{id:int}/edit"
+@page "/contacts/{id:int}/delete"
 @inject ContactsRepository Repo
 @inject NavigationManager NavMan
 @code {
+    private bool IsDelete => NavMan.Uri.EndsWith("delete", StringComparison.OrdinalIgnoreCase);
+    private bool IsEdit => NavMan.Uri.EndsWith("edit", StringComparison.OrdinalIgnoreCase);
+
     [SupplyParameterFromForm]
     public Contact? Contact { get; set; }
 
@@ -11,10 +15,7 @@
     [Parameter]
     public int Id { get; set; }
 
-    protected override async Task OnInitializedAsync()
-    {
-        Contact = await Repo.Find(Id);
-    }
+    protected override async Task OnInitializedAsync() => Contact = await Repo.Find(Id);
 
     private async Task OnSubmit()
     {
@@ -24,12 +25,29 @@
             NavMan.NavigateTo($"/contacts/{Contact.Id}");
         }
     }
+
+    private async Task OnDelete()
+    {
+        if (await Repo.Delete(Id))
+        {
+            FlashMessages.Add("Deleted contact!", FlashMessageType.Success);
+            NavMan.NavigateTo("/contacts");
+        }
+        else
+        {
+            FlashMessages.Add("Failed to delete contact!", FlashMessageType.Error);
+            NavMan.NavigateTo($"/contacts/{Id}/edit");
+        }
+    }
 }
 @if (Contact is null) return;
 
-<ContactForm Contact="@Contact" OnValidSubmit="OnSubmit" />
+@if (IsEdit)
+{
+    <ContactForm Contact="@Contact" OnValidSubmit="OnSubmit" />
+}
 
-<form action="/contacts/@Contact.Id/delete" method="post" @formname="delete-contact-form" data-enhance>
+<form action="/contacts/@Contact.Id/delete" @onsubmit="OnDelete" method="post" @formname="delete-contact-form" data-enhance>
     <AntiforgeryToken />
     <button>Delete Contact</button>
 </form>
