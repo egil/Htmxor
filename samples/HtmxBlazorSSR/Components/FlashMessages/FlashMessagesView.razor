@@ -1,0 +1,18 @@
+﻿@inject FlashMessageQueue FlashMessages
+@code {
+    private string GetBootstrapAlertType(FlashMessageType type) => type switch
+    {
+        FlashMessageType.Error => "alert-danger",
+        FlashMessageType.Info => "alert-info",
+        FlashMessageType.Success => "alert-success",
+        FlashMessageType.Warning => "alert-warning",
+        _ => ""
+    };
+}
+@foreach (var message in FlashMessages)
+{
+    <div class="flash-message alert @GetBootstrapAlertType(message.Type) alert-dismissible fade show" role="alert">
+        @message.Content
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}

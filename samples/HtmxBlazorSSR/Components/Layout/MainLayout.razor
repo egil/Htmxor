@@ -1,0 +1,6 @@
+﻿@inherits LayoutComponentBase
+@inject FlashMessageQueue FlashMessages
+<FlashMessagesView />
+<CascadingValue IsFixed="true" Value="FlashMessages">
+    @Body
+</CascadingValue>

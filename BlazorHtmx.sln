@@ -13,6 +13,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".items", ".items", "{8B7116
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HtmxBlazorSSR", "samples\HtmxBlazorSSR\HtmxBlazorSSR.csproj", "{AF1A487F-CE27-48EB-8390-04C5EC1F34F8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,12 +25,17 @@ Global
 		{7058400A-CF52-44D4-8AB1-A5D3B1248E09}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7058400A-CF52-44D4-8AB1-A5D3B1248E09}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7058400A-CF52-44D4-8AB1-A5D3B1248E09}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF1A487F-CE27-48EB-8390-04C5EC1F34F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF1A487F-CE27-48EB-8390-04C5EC1F34F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF1A487F-CE27-48EB-8390-04C5EC1F34F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF1A487F-CE27-48EB-8390-04C5EC1F34F8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{7058400A-CF52-44D4-8AB1-A5D3B1248E09} = {8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}
+		{AF1A487F-CE27-48EB-8390-04C5EC1F34F8} = {8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {430F7B4E-864E-44B7-84A0-A903E7386E3B}

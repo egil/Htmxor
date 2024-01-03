@@ -1,0 +1,8 @@
+﻿@page "/"
+@inject IHttpContextAccessor HttpContextAccessor
+@code {
+    protected override void OnInitialized()
+    {
+        HttpContextAccessor.HttpContext?.Response.Redirect("/contacts");
+    }
+}
