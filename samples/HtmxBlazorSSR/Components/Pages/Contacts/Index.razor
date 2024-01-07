@@ -14,10 +14,8 @@
     }
 }
 <HtmxRequestView>
-    <HtmxContent>
-        <ContactRows Contacts="@contacts" />
-    </HtmxContent>
-    <RegularContent>
+    <FullPageContent>
+        <ArchiveUI />
         <form action="/contacts" method="get" class="tool-bar">
             <label for="search">Search Term</label>
             <input id="search" type="search" name="q" value="@Query"
@@ -57,7 +55,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <ContactRows Contacts="@contacts" />
+                    @context.HtmxContent
                 </tbody>
             </table>
             <button hx-delete="/contacts"
@@ -72,5 +70,8 @@
                 <img id="spinner" style="height: 20px" class="htmx-indicator" src="/img/spinning-circles.svg" />
             </span>
         </p>
-    </RegularContent>
+    </FullPageContent>
+    <HtmxContent>
+        <ContactRows Contacts="@contacts" />
+    </HtmxContent>
 </HtmxRequestView>
