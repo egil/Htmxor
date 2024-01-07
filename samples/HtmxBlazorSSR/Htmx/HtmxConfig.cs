@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.Extensions.Options;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HtmxBlazorSSR.Htmx;
@@ -7,189 +10,224 @@ namespace HtmxBlazorSSR.Htmx;
 /// </summary>
 public class HtmxConfig
 {
+    public readonly static JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters =
+        {
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
+        },
+    };
+
     /// <summary>
-    /// Defaults to true, really only useful for testing
+    /// Defaults to <see langword="true" /> if this property is null. really only useful for testing
     /// </summary>
     [JsonPropertyName("historyEnabled")]
-    public bool HistoryEnabled { get; set; } = true;
+    public bool? HistoryEnabled { get; set; }
 
     /// <summary>
-    /// defaults to 10
+    /// Defaults to <see langword="10"/> if this property is null.
     /// </summary>
     [JsonPropertyName("historyCacheSize")]
-    public int HistoryCacheSize { get; set; } = 10;
+    public int? HistoryCacheSize { get; set; }
 
     /// <summary>
-    /// defaults to false, if set to true htmx will issue a full page refresh on history misses rather than use an AJAX request
+    /// Defaults to <see langword="false" /> if this property is null.
+    /// If set to <see langword="true" /> htmx will issue a full page refresh on history misses rather than use an AJAX request.
     /// </summary>
     [JsonPropertyName("refreshOnHistoryMiss")]
-    public bool RefreshOnHistoryMiss { get; set; } = false;
+    public bool? RefreshOnHistoryMiss { get; set; }
 
     /// <summary>
-    /// defaults to innerHTML
+    /// Defaults to <see cref="SwapStyle.InnerHTML"/> if this property is null.
     /// </summary>
     [JsonPropertyName("defaultSwapStyle")]
-    public string DefaultSwapStyle { get; set; } = "innerHTML";
+    public SwapStyle? DefaultSwapStyle { get; set; }
 
     /// <summary>
-    /// defaults to 0
+    /// Defaults to <see langword="0"/> if this property is null.
     /// </summary>
     [JsonPropertyName("defaultSwapDelay")]
-    public int DefaultSwapDelay { get; set; } = 0;
+    public int? DefaultSwapDelay { get; set; }
 
     /// <summary>
-    /// defaults to 20
+    /// Defaults to <see langword="20"/> if this property is null.
     /// </summary>
     [JsonPropertyName("defaultSettleDelay")]
-    public int DefaultSettleDelay { get; set; } = 20;
+    public int? DefaultSettleDelay { get; set; }
 
     /// <summary>
-    /// defaults to true (determines if the indicator styles are loaded)
+    /// Defaults to <see langword="true" /> if this property is null.
+    /// Determines if the indicator styles are loaded.
     /// </summary>
     [JsonPropertyName("includeIndicatorStyles")]
-    public bool IncludeIndicatorStyles { get; set; } = true;
+    public bool? IncludeIndicatorStyles { get; set; }
 
     /// <summary>
-    /// defaults to htmx-indicator
+    /// Defaults to <c>htmx-indicator</c> if this property is null.
     /// </summary>
     [JsonPropertyName("indicatorClass")]
-    public string IndicatorClass { get; set; } = "htmx-indicator";
+    public string? IndicatorClass { get; set; }
 
     /// <summary>
-    /// defaults to htmx-request
+    /// Defaults to <c>htmx-request</c> if this property is null.
     /// </summary>
     [JsonPropertyName("requestClass")]
-    public string RequestClass { get; set; } = "htmx-request";
+    public string? RequestClass { get; set; }
 
     /// <summary>
-    /// defaults to htmx-added
+    /// Defaults to <c>htmx-added</c> if this property is null. 
     /// </summary>
     [JsonPropertyName("addedClass")]
-    public string AddedClass { get; set; } = "htmx-added";
+    public string? AddedClass { get; set; }
 
     /// <summary>
-    /// defaults to htmx-settling
+    /// Defaults to <c>htmx-settling</c> if this property is null. 
     /// </summary>
     [JsonPropertyName("settlingClass")]
-    public string SettlingClass { get; set; } = "htmx-settling";
+    public string? SettlingClass { get; set; }
 
     /// <summary>
-    /// defaults to htmx-swapping
+    /// Defaults to <c>htmx-swapping</c> if this property is null. 
     /// </summary>
     [JsonPropertyName("swappingClass")]
-    public string SwappingClass { get; set; } = "htmx-swapping";
+    public string? SwappingClass { get; set; }
 
     /// <summary>
-    /// defaults to true, can be used to disable htmx’s use of eval for certain features (e.g. trigger filters)
+    /// Defaults to <see langword="true" /> if this property is null. 
+    /// Can be used to disable htmx’s use of eval for certain features (e.g. trigger filters).
     /// </summary>
     [JsonPropertyName("allowEval")]
-    public bool AllowEval { get; set; } = true;
+    public bool? AllowEval { get; set; }
 
     /// <summary>
-    /// defaults to true, determines if htmx will process script tags found in new content
+    /// Defaults to <see langword="true" /> if this property is null.
+    /// Determines if htmx will process script tags found in new content
     /// </summary>
     [JsonPropertyName("allowScriptTags")]
-    public bool AllowScriptTags { get; set; } = true;
+    public bool? AllowScriptTags { get; set; }
 
     /// <summary>
-    /// defaults to '', meaning that no nonce will be added to inline scripts
+    /// Defaults to <c>''</c> (empty string) if this property is null,
+    /// meaning that no nonce will be added to inline scripts
     /// </summary>
     [JsonPropertyName("inlineScriptNonce")]
-    public string InlineScriptNonce { get; set; } = "";
+    public string? InlineScriptNonce { get; set; }
 
     /// <summary>
-    /// defaults to ["class", "style", "width", "height"], the attributes to settle during the settling phase
+    /// Defaults to <c>["class", "style", "width", "height"]</c> if this property is null.
+    /// The attributes to settle during the settling phase
     /// </summary>
     [JsonPropertyName("attributesToSettle")]
-    public string[] AttributesToSettle { get; set; } = [ "class", "style", "width", "height" ];
+    public string[]? AttributesToSettle { get; set; }
 
     /// <summary>
-    /// defaults to false, HTML template tags for parsing content from the server (not IE11 compatible!)
+    /// Defaults to <see langword="false" /> if this property is null.
+    /// HTML template tags for parsing content from the server (not IE11 compatible!).
     /// </summary>
     [JsonPropertyName("useTemplateFragments")]
-    public bool UseTemplateFragments { get; set; } = false;
+    public bool? UseTemplateFragments { get; set; }
 
     /// <summary>
-    /// defaults to full-jitter
+    /// Defaults to <c>full-jitter</c> if this property is null.
     /// </summary>
     [JsonPropertyName("wsReconnectDelay")]
-    public string WsReconnectDelay { get; set; } = "full-jitter";
+    public string? WsReconnectDelay { get; set; }
 
     /// <summary>
-    /// defaults to blob, the type of binary data being received over the WebSocket connection
+    /// Defaults to <c>blob</c> if this property is null.
+    /// The type of binary data being received over the WebSocket connection.
     /// </summary>
     [JsonPropertyName("wsBinaryType")]
-    public string WsBinaryType { get; set; } = "blob";
+    public string? WsBinaryType { get; set; }
 
     /// <summary>
-    /// defaults to [hx-disable], [data-hx-disable], htmx will not process elements with this attribute on it or a parent
+    /// Defaults to <c>[hx-disable], [data-hx-disable]</c> if this property is null.
+    /// Htmx will not process elements with this attribute on it or a parent.
     /// </summary>
     [JsonPropertyName("disableSelector")]
-    public string DisableSelector { get; set; } = "[hx-disable], [data-hx-disable]";
+    public string? DisableSelector { get; set; }
 
     /// <summary>
-    /// defaults to false, allow cross-site Access-Control requests using credentials such as cookies, authorization headers or TLS client certificates
+    /// Defaults to <see langword="false" /> if this property is null.
+    /// Allow cross-site Access-Control requests using credentials such as cookies, authorization headers or TLS client certificates.
     /// </summary>
     [JsonPropertyName("withCredentials")]
-    public bool WithCredentials { get; set; } = false;
+    public bool? WithCredentials { get; set; }
 
     /// <summary>
-    /// defaults to 0, the number of milliseconds a request can take before automatically being terminated
+    /// Defaults to <see langword="0" /> if this property is null.
+    /// The number of milliseconds a request can take before automatically being terminated
     /// </summary>
     [JsonPropertyName("timeout")]
-    public int Timeout { get; set; } = 0;
+    public int? Timeout { get; set; }
 
     /// <summary>
-    /// defaults to ‘smooth’, the behavior for a boosted link on page transitions. The allowed values are auto and smooth. Smooth will smoothscroll to the top of the page while auto will behave like a vanilla link.
+    /// Defaults to <see cref="ScrollBehavior.Smooth" /> if this property is null.
+    /// The behavior for a boosted link on page transitions. 
+    /// Smooth will smooth scroll to the top of the page while auto will behave like a vanilla link.
     /// </summary>
     [JsonPropertyName("scrollBehavior")]
-    public string ScrollBehavior { get; set; } = "smooth";
+    public ScrollBehavior? ScrollBehavior { get; set; }
 
     /// <summary>
-    /// if the focused element should be scrolled into view, defaults to false and can be overridden using the focus-scroll swap modifier.
+    /// Defaults to <see langword="false" /> if this property is null. 
+    /// If the focused element should be scrolled into view, and can be overridden using the focus-scroll swap modifier.
     /// </summary>
     [JsonPropertyName("defaultFocusScroll")]
-    public bool DefaultFocusScroll { get; set; } = false;
+    public bool? DefaultFocusScroll { get; set; }
 
     /// <summary>
-    /// defaults to false, if set to true htmx will include a cache-busting parameter in GET requests to avoid caching partial responses by the browser
+    /// Defaults to <see langword="false" /> if this property is null.
+    /// If set to <see langword="true" /> htmx will include a cache-busting parameter in GET requests to avoid caching partial responses by the browser.
     /// </summary>
     [JsonPropertyName("getCacheBusterParam")]
-    public bool GetCacheBusterParam { get; set; } = false;
+    public bool? GetCacheBusterParam { get; set; }
 
     /// <summary>
-    /// if set to true, htmx will use the View Transition API when swapping in new content.
+    /// Defaults to <see langword="false" /> if this property is null.
+    /// If set to <see langword="true" />, htmx will use the View Transition API when swapping in new content.
     /// </summary>
     [JsonPropertyName("globalViewTransitions")]
-    public bool GlobalViewTransitions { get; set; } = false;
+    public bool? GlobalViewTransitions { get; set; }
 
     /// <summary>
-    /// defaults to ["get"], htmx will format requests with these methods by encoding their parameters in the URL, not the request body
+    /// Defaults to <c>["get"]</c> if this property is null.
+    /// Htmx will format requests with these methods by encoding their parameters in the URL, not the request body.
     /// </summary>
     [JsonPropertyName("methodsThatUseUrlParams")]
-    public string[] MethodsThatUseUrlParams { get; set; } = new string[] { "get" };
+    public string[]? MethodsThatUseUrlParams { get; set; }
 
     /// <summary>
-    /// defaults to false, if set to true will only allow AJAX requests to the same domain as the current document
+    /// Defaults to <see langword="false" /> if this property is null.
+    /// If set to <see langword="true" /> will only allow AJAX requests to the same domain as the current document.
     /// </summary>
     [JsonPropertyName("selfRequestsOnly")]
-    public bool SelfRequestsOnly { get; set; } = false;
+    public bool? SelfRequestsOnly { get; set; }
 
     /// <summary>
-    /// defaults to false, if set to true htmx will not update the title of the document when a title tag is found in new content
+    /// Defaults to <see langword="false" /> if this property is null.
+    /// If set to <see langword="true" /> htmx will not update the title of the document when a title tag is found in new content.
     /// </summary>
     [JsonPropertyName("ignoreTitle")]
-    public bool IgnoreTitle { get; set; } = false;
+    public bool? IgnoreTitle { get; set; }
 
     /// <summary>
-    /// defaults to true, whether or not the target of a boosted element is scrolled into the viewport. If hx-target is omitted on a boosted element, the target defaults to body, causing the page to scroll to the top.
+    /// Defaults to <see langword="true" /> if this property is null. 
+    /// Whether or not the target of a boosted element is scrolled into the viewport. 
+    /// If hx-target is omitted on a boosted element, the target defaults to body, causing the page to scroll to the top.
     /// </summary>
     [JsonPropertyName("scrollIntoViewOnBoost")]
-    public bool ScrollIntoViewOnBoost { get; set; } = true;
+    public bool? ScrollIntoViewOnBoost { get; set; }
 
-    /// <summary>
-    /// defaults to null, the cache to store evaluated trigger specifications into, improving parsing performance at the cost of more memory usage. You may define a simple object to use a never-clearing cache, or implement your own system using a proxy object
-    /// </summary>
-    [JsonPropertyName("triggerSpecsCache")]
-    public object? TriggerSpecsCache { get; set; } = null;
+    [JsonInclude]
+    internal HtmxAntiforgeryOptions? Antiforgery { get; set; }
+}
+
+internal class HtmxAntiforgeryOptions(IOptions<AntiforgeryOptions> antiforgeryOptions)
+{
+    public string FormFieldName { get; } = antiforgeryOptions.Value.FormFieldName;
+
+    public string? HeaderName { get; } = antiforgeryOptions.Value.HeaderName;
 }

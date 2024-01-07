@@ -2,16 +2,22 @@ using HtmxBlazorSSR;
 using HtmxBlazorSSR.Components;
 using HtmxBlazorSSR.Components.FlashMessages;
 using HtmxBlazorSSR.Htmx;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Components.Forms;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents();
+builder.Services.AddScoped<Archiver>();
 builder.Services.AddScoped<DiskStorage>();
 builder.Services.AddScoped<ContactsRepository>();
 builder.Services.AddFlashMessages();
 
-builder.AddHtmx();
+builder.AddHtmx(config =>
+{
+    config.SelfRequestsOnly = true;
+});
 
 var app = builder.Build();
 
@@ -27,6 +33,7 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseAntiforgery();
+app.UseMiddleware<HtmxAntiforgeryMiddleware>();
 
 app.MapGet("/contacts/count", async (ContactsRepository repo) =>
 {
