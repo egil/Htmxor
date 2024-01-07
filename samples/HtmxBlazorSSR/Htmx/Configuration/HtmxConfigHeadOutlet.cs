@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 
-namespace HtmxBlazorSSR.Htmx;
+namespace HtmxBlazorSSR.Htmx.Configuration;
 
 public class HtmxConfigHeadOutlet : IComponent
 {

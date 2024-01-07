@@ -1,14 +1,14 @@
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.Extensions.Options;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using HtmxBlazorSSR.Htmx.Antiforgery;
 
-namespace HtmxBlazorSSR.Htmx;
+namespace HtmxBlazorSSR.Htmx.Configuration;
 
 /// <summary>
 /// Htmx configuration options.
 /// </summary>
-public class HtmxConfig
+public record class HtmxConfig
 {
     public readonly static JsonSerializerOptions SerializerOptions = new()
     {
@@ -222,12 +222,5 @@ public class HtmxConfig
     public bool? ScrollIntoViewOnBoost { get; set; }
 
     [JsonInclude]
-    internal HtmxAntiforgeryOptions? Antiforgery { get; set; }
-}
-
-internal class HtmxAntiforgeryOptions(IOptions<AntiforgeryOptions> antiforgeryOptions)
-{
-    public string FormFieldName { get; } = antiforgeryOptions.Value.FormFieldName;
-
-    public string? HeaderName { get; } = antiforgeryOptions.Value.HeaderName;
+    public required HtmxAntiforgeryOptions Antiforgery { get; init; }
 }

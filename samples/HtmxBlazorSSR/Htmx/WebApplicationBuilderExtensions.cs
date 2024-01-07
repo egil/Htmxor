@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Antiforgery;
+﻿using HtmxBlazorSSR.Htmx.Antiforgery;
+using HtmxBlazorSSR.Htmx.Configuration;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -10,9 +12,11 @@ public static class WebApplicationBuilderExtensions
     {
         builder.Services.AddSingleton<HtmxConfig>(x =>
         {
-            var config = new HtmxConfig();
+            var config = new HtmxConfig
+            {
+                Antiforgery = new HtmxAntiforgeryOptions(x.GetRequiredService<IOptions<AntiforgeryOptions>>()),
+            };
             configBuilder?.Invoke(config);
-            config.Antiforgery = new HtmxAntiforgeryOptions(x.GetRequiredService<IOptions<AntiforgeryOptions>>());
             return config;
         });
 

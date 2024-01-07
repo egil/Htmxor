@@ -1,18 +1,25 @@
-﻿using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.Extensions.Options;
+﻿using HtmxBlazorSSR.Htmx.Configuration;
+using Microsoft.AspNetCore.Antiforgery;
 
 namespace HtmxBlazorSSR.Htmx;
 
-internal sealed class HtmxAntiforgeryMiddleware(IAntiforgery antiforgery, IOptions<AntiforgeryOptions> options, RequestDelegate next)
+/// <summary>
+/// This will add a HX-XSRF-TOKEN to each response, no matter if it was initiated by HTMX or not.
+/// The 
+/// </summary>
+internal sealed class HtmxAntiforgeryMiddleware(IAntiforgery antiforgery, HtmxConfig htmxConfig, RequestDelegate next)
 {
-    private const string AntiforgeryMiddlewareSetKey = "__AntiforgeryMiddlewareSet";
-    private const string AntiforgeryMiddlewareWithEndpointInvokedKey = "__AntiforgeryMiddlewareWithEndpointInvoked";
+    private static readonly CookieOptions cookieOptions = new CookieOptions
+    {
+        HttpOnly = false,
+        SameSite = SameSiteMode.Strict,
+        IsEssential = true
+    };
 
     public async Task Invoke(HttpContext context)
     {
-        var opt = options.Value;
         var tokens = antiforgery.GetAndStoreTokens(context);
-        context.Response.Cookies.Append("HX-XSRF-TOKEN", tokens.RequestToken!, new CookieOptions { HttpOnly = false });
+        context.Response.Cookies.Append(htmxConfig.Antiforgery.CookieName, tokens.RequestToken!, cookieOptions);
         await next.Invoke(context);
     }
 }

@@ -13,7 +13,7 @@ document.addEventListener('htmx:configRequest', (evt) => {
 
         const requestToken = document.cookie
             .split("; ")
-            .find(row => row.startsWith("HX-XSRF-TOKEN="))
+            .find(row => row.startsWith(antiforgery.cookieName + "="))
             .split("=")[1];
 
         if (antiforgery.headerName) {
