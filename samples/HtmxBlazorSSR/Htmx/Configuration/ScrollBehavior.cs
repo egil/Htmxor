@@ -1,4 +1,4 @@
-﻿namespace HtmxBlazorSSR.Htmx;
+﻿namespace HtmxBlazorSSR.Htmx.Configuration;
 
 public enum ScrollBehavior
 {
