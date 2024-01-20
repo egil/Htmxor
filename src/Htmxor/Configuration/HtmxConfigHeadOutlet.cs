@@ -1,9 +1,7 @@
-﻿using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Components;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.AspNetCore.Components;
 using System.Text.Json;
 
-namespace HtmxBlazorSSR.Htmx.Configuration;
+namespace Htmxor.Configuration;
 
 public class HtmxConfigHeadOutlet : IComponent
 {

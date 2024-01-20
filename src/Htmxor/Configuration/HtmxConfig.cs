@@ -1,9 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using HtmxBlazorSSR.Htmx.Antiforgery;
+using Htmxor.Antiforgery;
 
-namespace HtmxBlazorSSR.Htmx.Configuration;
+namespace Htmxor.Configuration;
 
 /// <summary>
 /// Htmx configuration options.
@@ -222,5 +221,5 @@ public record class HtmxConfig
     public bool? ScrollIntoViewOnBoost { get; set; }
 
     [JsonInclude]
-    public required HtmxAntiforgeryOptions Antiforgery { get; init; }
+    internal HtmxAntiforgeryOptions? Antiforgery { get; init; }
 }

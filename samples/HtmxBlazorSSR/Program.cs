@@ -1,9 +1,8 @@
 using HtmxBlazorSSR;
 using HtmxBlazorSSR.Components;
 using HtmxBlazorSSR.Components.FlashMessages;
-using HtmxBlazorSSR.Htmx;
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Components.Forms;
+using Htmxor;
+using Htmxor.Antiforgery;
 
 var builder = WebApplication.CreateBuilder(args);
 

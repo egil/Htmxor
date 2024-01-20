@@ -1,4 +1,6 @@
-﻿namespace HtmxBlazorSSR.Htmx;
+﻿using Microsoft.AspNetCore.Http;
+
+namespace Htmxor.Http;
 
 public class HtmxRequest(HttpContext context)
 {
@@ -31,31 +33,31 @@ public class HtmxRequest(HttpContext context)
     /// <summary>
     /// Gets the `id` of the target element if it exists.
     /// </summary>
-    public string? Target 
-        => IsHtmxRequest 
-        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.Target, out var values) 
-        && values.Count > 0 
-        ? values[0] 
+    public string? Target
+        => IsHtmxRequest
+        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.Target, out var values)
+        && values.Count > 0
+        ? values[0]
         : null;
 
     /// <summary>
     /// Gets the `name` of the triggered element if it exists.
     /// </summary>
-    public string? TriggerName 
-        => IsHtmxRequest 
-        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.TriggerName, out var values) 
-        && values.Count > 0 
-        ? values[0] 
+    public string? TriggerName
+        => IsHtmxRequest
+        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.TriggerName, out var values)
+        && values.Count > 0
+        ? values[0]
         : null;
 
     /// <summary>
     /// Gets the `id` of the triggered element if it exists.
     /// </summary>
-    public string? Trigger 
-        => IsHtmxRequest 
-        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.Trigger, out var values) 
-        && values.Count > 0 
-        ? values[0] 
+    public string? Trigger
+        => IsHtmxRequest
+        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.Trigger, out var values)
+        && values.Count > 0
+        ? values[0]
         : null;
 
     /// <summary>

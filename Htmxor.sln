@@ -10,12 +10,15 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".items", ".items", "{8B71162C-C904-4C9B-A939-6B1A9DC3871F}"
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
+		CHANGELOG.md = CHANGELOG.md
 		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HtmxBlazorSSR", "samples\HtmxBlazorSSR\HtmxBlazorSSR.csproj", "{AF1A487F-CE27-48EB-8390-04C5EC1F34F8}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{A50FFB42-310B-45BC-BDDF-ADE3B61D61EB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Htmxor", "src\Htmxor\Htmxor.csproj", "{8E83BAAD-08DC-4CAC-AFE7-5E82D5FCAF41}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,6 +34,10 @@ Global
 		{AF1A487F-CE27-48EB-8390-04C5EC1F34F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AF1A487F-CE27-48EB-8390-04C5EC1F34F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AF1A487F-CE27-48EB-8390-04C5EC1F34F8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E83BAAD-08DC-4CAC-AFE7-5E82D5FCAF41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E83BAAD-08DC-4CAC-AFE7-5E82D5FCAF41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E83BAAD-08DC-4CAC-AFE7-5E82D5FCAF41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E83BAAD-08DC-4CAC-AFE7-5E82D5FCAF41}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -38,6 +45,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{7058400A-CF52-44D4-8AB1-A5D3B1248E09} = {8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}
 		{AF1A487F-CE27-48EB-8390-04C5EC1F34F8} = {8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}
+		{8E83BAAD-08DC-4CAC-AFE7-5E82D5FCAF41} = {A50FFB42-310B-45BC-BDDF-ADE3B61D61EB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {430F7B4E-864E-44B7-84A0-A903E7386E3B}

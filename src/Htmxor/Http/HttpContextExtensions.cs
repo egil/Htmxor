@@ -1,5 +1,6 @@
-﻿
-namespace HtmxBlazorSSR.Htmx;
+﻿using Microsoft.AspNetCore.Http;
+
+namespace Htmxor.Http;
 
 public static class HttpContextExtensions
 {

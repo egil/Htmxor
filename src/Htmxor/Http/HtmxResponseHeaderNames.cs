@@ -1,5 +1,9 @@
-﻿namespace HtmxBlazorSSR.Htmx;
+﻿namespace Htmxor.Http;
 
+/// <summary>
+/// The HTMX response header names.
+/// Based on this version: <seealso href="https://github.com/bigskysoftware/htmx/blob/5aa0ec7e27c0dc282dd728886a77c0e321d3ca67/www/content/reference.md#response-headers-reference-response_headers"/>
+/// </summary>
 public static class HtmxResponseHeaderNames
 {
     /// <summary>

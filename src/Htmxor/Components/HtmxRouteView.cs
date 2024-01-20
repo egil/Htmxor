@@ -1,9 +1,8 @@
 ﻿using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components;
-using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
+using Htmxor.Http;
 
-namespace HtmxBlazorSSR.Htmx;
+namespace Htmxor.Components;
 
 /// <summary>
 /// Displays the specified page component, rendering it inside its layout

@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Deterministic>true</Deterministic>
+		<LangVersion>preview</LangVersion>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<DebugType>embedded</DebugType>
+
+		<PackageId>Htmxor</PackageId>
+		<Company>Egil Hansen</Company>
+		<Authors>Egil Hansen</Authors>
+		<Title>Htmxor - supercharging Blazor Static SSR with Htmx</Title>
+		<Description>
+			This packages enables Blazor static SSR to be used seamlessly with Htmx. Blazor static SSR
+			comes with basic interactivity via enhanced navigation and enhanced form handling.
+			Adding Htmx (htmx.org) to the mix gives you access to another level of interactivity while still
+			retaining all the advantages of Blazor SSR stateless nature.
+		</Description>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageTags>Blazor, Htmx, BlazorSSR</PackageTags>
+		<Copyright>Egil Hansen</Copyright>
+		<PackageIconUrl>https://github.com/egil/Htmxor/docs/htmxor-icon.svg</PackageIconUrl>
+		<PackageProjectUrl>https://github.com/egil/Htmxor</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/egil/Htmxor</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<MinVerTagPrefix>v</MinVerTagPrefix>
+		<EnablePackageValidation>true</EnablePackageValidation>
+		<GenerateCompatibilitySuppressionFile>true</GenerateCompatibilitySuppressionFile>
+		<!--<PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion>-->
+	</PropertyGroup>
+
+	<!-- This only seems relevant for Blazor WASM apps which this library probably won't be used in -->
+	<!--
+	<ItemGroup>
+		<SupportedPlatform Include="browser" />
+	</ItemGroup>
+	-->
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
+
+		<PackageReference Include="MinVer" Version="4.3.0" PrivateAssets="All" />
+		<PackageReference Include="DotNet.ReproducibleBuilds" Version="1.1.1">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\LICENSE">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include="..\..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+
+	<Target Name="SetPackageReleaseNotes" BeforeTargets="GenerateNuspec">
+		<PropertyGroup>
+			<PackageReleaseNotes>$([System.IO.File]::ReadAllText("$(MSBuildProjectDirectory)/../../CHANGELOG.md"))</PackageReleaseNotes>
+		</PropertyGroup>
+	</Target>
+
+</Project>

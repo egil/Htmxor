@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.Extensions.Options;
 
-namespace HtmxBlazorSSR.Htmx.Antiforgery;
+namespace Htmxor.Antiforgery;
 
 public class HtmxAntiforgeryOptions(IOptions<AntiforgeryOptions> antiforgeryOptions)
 {

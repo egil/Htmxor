@@ -1,8 +1,6 @@
 using BlazorSSR;
 using BlazorSSR.Components;
-using BlazorSSR.Components.Contacts;
 using BlazorSSR.Components.FlashMessages;
-using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
