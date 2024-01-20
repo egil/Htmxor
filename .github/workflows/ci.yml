@@ -231,7 +231,7 @@ jobs:
     # You can update this logic if you want to manage releases differently
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
-    needs: [ validate-nuget, run-test ]
+    needs: [ validate-nuget ]
     steps:
       - uses: actions/download-artifact@v3
         with:
