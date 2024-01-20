@@ -10,6 +10,8 @@ retaining all the advantages of Blazor SSR stateless nature.
 
 **NOTE:** _This package is highly experimental!_
 
+**Nuget:** https://www.nuget.org/packages/Htmxor
+
 ## Samples used for comparison:
 
 - [BlazorSSR - pure Blazor SSR](https://github.com/egil/Htmxor/tree/main/samples/BlazorSSR)

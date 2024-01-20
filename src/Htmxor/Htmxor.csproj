@@ -8,6 +8,7 @@
 		<LangVersion>preview</LangVersion>
 		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 		<DebugType>embedded</DebugType>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 
 		<PackageId>Htmxor</PackageId>
 		<Company>Egil Hansen</Company>
