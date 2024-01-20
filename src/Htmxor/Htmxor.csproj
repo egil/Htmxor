@@ -14,15 +14,16 @@
 		<Authors>Egil Hansen</Authors>
 		<Title>Htmxor - supercharging Blazor Static SSR with Htmx</Title>
 		<Description>
-			This packages enables Blazor static SSR to be used seamlessly with Htmx. Blazor static SSR
-			comes with basic interactivity via enhanced navigation and enhanced form handling.
+			This packages enables Blazor static SSR to be used seamlessly with Htmx. 
+			
+			Blazor static SSR comes with basic interactivity via enhanced navigation and enhanced form handling.
 			Adding Htmx (htmx.org) to the mix gives you access to another level of interactivity while still
 			retaining all the advantages of Blazor SSR stateless nature.
 		</Description>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>Blazor, Htmx, BlazorSSR</PackageTags>
 		<Copyright>Egil Hansen</Copyright>
-		<PackageIconUrl>https://github.com/egil/Htmxor/docs/htmxor-icon.svg</PackageIconUrl>
+		<PackageIconUrl>https://raw.githubusercontent.com/egil/Htmxor/main/docs/htmxor-icon.svg</PackageIconUrl>
 		<PackageProjectUrl>https://github.com/egil/Htmxor</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/egil/Htmxor</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
