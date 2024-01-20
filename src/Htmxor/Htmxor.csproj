@@ -14,8 +14,8 @@
 		<Authors>Egil Hansen</Authors>
 		<Title>Htmxor - supercharging Blazor Static SSR with Htmx</Title>
 		<Description>
-			This packages enables Blazor static SSR to be used seamlessly with Htmx. 
-			
+			This packages enables Blazor static SSR to be used seamlessly with Htmx.
+
 			Blazor static SSR comes with basic interactivity via enhanced navigation and enhanced form handling.
 			Adding Htmx (htmx.org) to the mix gives you access to another level of interactivity while still
 			retaining all the advantages of Blazor SSR stateless nature.
@@ -23,7 +23,7 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>Blazor, Htmx, BlazorSSR</PackageTags>
 		<Copyright>Egil Hansen</Copyright>
-		<PackageIconUrl>https://raw.githubusercontent.com/egil/Htmxor/main/docs/htmxor-icon.svg</PackageIconUrl>
+		<PackageIcon>htmxor-icon-light-mode.png</PackageIcon>
 		<PackageProjectUrl>https://github.com/egil/Htmxor</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/egil/Htmxor</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
@@ -46,7 +46,6 @@
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
-
 		<PackageReference Include="MinVer" Version="4.3.0" PrivateAssets="All" />
 		<PackageReference Include="DotNet.ReproducibleBuilds" Version="1.1.1">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -55,14 +54,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="..\..\LICENSE">
-			<Pack>True</Pack>
-			<PackagePath>\</PackagePath>
-		</None>
-		<None Include="..\..\README.md">
-			<Pack>True</Pack>
-			<PackagePath>\</PackagePath>
-		</None>
+		<None Include="..\..\LICENSE"  Pack="true" PackagePath="\" />
+		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
+		<None Include="..\..\docs\htmxor-icon-light-mode.png" Pack="true" PackagePath="\"/>
 	</ItemGroup>
 
 	<Target Name="SetPackageReleaseNotes" BeforeTargets="GenerateNuspec">
