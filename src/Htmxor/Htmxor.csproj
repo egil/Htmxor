@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Razor">
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
@@ -21,7 +21,7 @@
 			retaining all the advantages of Blazor SSR stateless nature.
 		</Description>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageTags>Blazor, Htmx, BlazorSSR</PackageTags>
+		<PackageTags>blazor, htmx, blazor-ssr, blazor-web-app</PackageTags>
 		<Copyright>Egil Hansen</Copyright>
 		<PackageIcon>htmxor-icon-light-mode.png</PackageIcon>
 		<PackageProjectUrl>https://github.com/egil/Htmxor</PackageProjectUrl>
