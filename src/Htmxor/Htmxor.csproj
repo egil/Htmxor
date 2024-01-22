@@ -24,7 +24,7 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>blazor, htmx, blazor-ssr, blazor-web-app</PackageTags>
 		<Copyright>Egil Hansen</Copyright>
-		<PackageIcon>htmxor-icon-light-mode.png</PackageIcon>
+		<PackageIcon>htmxor-icon-square.png</PackageIcon>
 		<PackageProjectUrl>https://github.com/egil/Htmxor</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/egil/Htmxor</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
@@ -57,7 +57,7 @@
 	<ItemGroup>
 		<None Include="..\..\LICENSE"  Pack="true" PackagePath="\" />
 		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
-		<None Include="..\..\docs\htmxor-icon-light-mode.png" Pack="true" PackagePath="\"/>
+		<None Include="..\..\docs\htmxor-icon-square.png" Pack="true" PackagePath="\"/>
 	</ItemGroup>
 
 	<Target Name="SetPackageReleaseNotes" BeforeTargets="GenerateNuspec">
