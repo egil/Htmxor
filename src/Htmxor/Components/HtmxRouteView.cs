@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components.Rendering;
+﻿using Htmx;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components;
 using Htmxor.Http;
 
@@ -15,7 +16,7 @@ public class HtmxRouteView : RouteView
 
     protected override void Render(RenderTreeBuilder builder)
     {
-        if (Context.Request.IsHtmxRequest && Context.Request.Trigger is not null)
+        if (Context.IsHtmx && !string.IsNullOrEmpty(Context.Trigger))
         {
             builder.OpenComponent(0, RouteData.PageType);
             foreach (var kvp in RouteData.RouteValues)

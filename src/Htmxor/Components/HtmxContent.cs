@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿using Htmx;
+using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Components;
 
@@ -16,7 +17,7 @@ public class HtmxContent : IComponent
     {
         parameters.SetParameterProperties(this);
         ViewContext.SetHtmxContent(ChildContent);
-        if (ViewContext.Context.Request.IsHtmxRequest)
+        if (ViewContext.Context.IsHtmx)
         {
             renderHandle.Render(ChildContent);
         }

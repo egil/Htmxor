@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿using Htmx;
+using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Components;
 
@@ -15,7 +16,7 @@ public class FullPageContent : IComponent
     public Task SetParametersAsync(ParameterView parameters)
     {
         parameters.SetParameterProperties(this);
-        if (!ViewContext.Context.Request.IsHtmxRequest)
+        if (!ViewContext.Context.IsHtmx)
         {
             renderHandle.Render(ChildContent);
         }
