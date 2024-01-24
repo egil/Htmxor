@@ -1,5 +1,7 @@
-﻿@code {
-    [Parameter, EditorRequired] public required IEnumerable<Contact> Contacts { get; set; }
+﻿@attribute [HxRoute("/contacts", Methods = HttpMethod.Get | HttpMethod.Post, Trigger = "search")]
+@code {
+    [Parameter, EditorRequired] 
+    public required IEnumerable<Contact> Contacts { get; set; }
 }
 @foreach (var contact in Contacts)
 {
