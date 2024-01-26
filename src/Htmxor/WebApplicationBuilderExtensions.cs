@@ -14,7 +14,7 @@ namespace Htmxor;
 
 public static class WebApplicationBuilderExtensions
 {
-	public static HtmxorConfigBuilder AddHtmx(this IHostApplicationBuilder builder) =>
+	public static HtmxorConfigBuilder AddHtmxor(this IHostApplicationBuilder builder) =>
 		new HtmxorConfigBuilder(builder);
 
 }

@@ -13,7 +13,7 @@ builder.Services.AddScoped<DiskStorage>();
 builder.Services.AddScoped<ContactsRepository>();
 builder.Services.AddFlashMessages();
 
-builder.AddHtmx()
+builder.AddHtmxor()
 	.WithDefaultConfiguration(config =>
 	{
 		config.SelfRequestsOnly = true;
