@@ -13,10 +13,16 @@ builder.Services.AddScoped<DiskStorage>();
 builder.Services.AddScoped<ContactsRepository>();
 builder.Services.AddFlashMessages();
 
-builder.AddHtmx(config =>
-{
-    config.SelfRequestsOnly = true;
-});
+builder.AddHtmx()
+	.WithDefaultConfiguration(config =>
+	{
+		config.SelfRequestsOnly = true;
+	})
+	.WithNamedConfiguration("articles", config =>
+	{
+		config.SelfRequestsOnly = true;
+		config.GlobalViewTransitions = true;
+	});
 
 var app = builder.Build();
 

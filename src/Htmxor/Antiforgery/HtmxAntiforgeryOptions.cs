@@ -3,11 +3,10 @@ using Microsoft.Extensions.Options;
 
 namespace Htmxor.Antiforgery;
 
-public class HtmxAntiforgeryOptions(IOptions<AntiforgeryOptions> antiforgeryOptions)
+public class HtmxAntiforgeryOptions
 {
-    public string FormFieldName { get; } = antiforgeryOptions.Value.FormFieldName;
-
-    public string? HeaderName { get; } = antiforgeryOptions.Value.HeaderName;
-
-    public string CookieName { get; } = "HX-XSRF-TOKEN";
+	public bool IncludeAntiForgery { get; set; }
+    public string FormFieldName { get; set; } 
+	public string? HeaderName { get; set; }
+    public string CookieName { get; set; }
 }
