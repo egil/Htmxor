@@ -14,15 +14,15 @@ builder.Services.AddScoped<ContactsRepository>();
 builder.Services.AddFlashMessages();
 
 builder.AddHtmxor()
-	.WithDefaultConfiguration(config =>
-	{
-		config.SelfRequestsOnly = true;
-	})
-	.WithNamedConfiguration("articles", config =>
-	{
-		config.SelfRequestsOnly = true;
-		config.GlobalViewTransitions = true;
-	});
+    .WithDefaultConfiguration(config =>
+    {
+        config.SelfRequestsOnly = true;
+    })
+    .WithNamedConfiguration("articles", config =>
+    {
+        config.SelfRequestsOnly = true;
+        config.GlobalViewTransitions = true;
+    });
 
 var app = builder.Build();
 

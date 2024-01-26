@@ -6,7 +6,7 @@ namespace Htmxor.Configuration;
 
 public class HtmxConfigHeadOutlet : IComponent
 {
-	private string _jsonConfig = string.Empty;
+    private string _jsonConfig = string.Empty;
 
     [Inject] private IOptionsSnapshot<HtmxConfig> Options { get; set; } = default!;
 
@@ -25,13 +25,13 @@ public class HtmxConfigHeadOutlet : IComponent
 
     public Task SetParametersAsync(ParameterView parameters)
     {
-	    Configuration = parameters.GetValueOrDefault<string?>("Configuration");
+        Configuration = parameters.GetValueOrDefault<string?>("Configuration");
 
-	    var config = string.IsNullOrEmpty(Configuration) ? 
-		    Options.Value : Options.Get(Configuration);
+        var config = string.IsNullOrEmpty(Configuration) ?
+            Options.Value : Options.Get(Configuration);
 
-	    _jsonConfig = JsonSerializer.Serialize(config, HtmxConfig.SerializerOptions);
+        _jsonConfig = JsonSerializer.Serialize(config, HtmxConfig.SerializerOptions);
 
         return Task.CompletedTask;
-	}
+    }
 }
