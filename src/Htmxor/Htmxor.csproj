@@ -9,7 +9,7 @@
 		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 		<DebugType>embedded</DebugType>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
 		<PackageId>Htmxor</PackageId>
 		<Company>Egil Hansen</Company>
 		<Authors>Egil Hansen</Authors>

@@ -5,7 +5,9 @@ namespace Htmxor.Configuration.Serialization;
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    Converters = [typeof(JsonCamelCaseStringEnumConverter), typeof(TimespanMillisecondJsonConverter)])]
+    UseStringEnumConverter = true,
+    GenerationMode = JsonSourceGenerationMode.Default,
+    Converters = [typeof(TimespanMillisecondJsonConverter), typeof(JsonCamelCaseStringEnumConverter<SwapStyle>), typeof(JsonCamelCaseStringEnumConverter<ScrollBehavior>)])]
 [JsonSerializable(typeof(HtmxConfig))]
 internal sealed partial class HtmxConfigJsonSerializerContext : JsonSerializerContext
 {
