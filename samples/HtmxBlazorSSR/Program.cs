@@ -32,7 +32,7 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseAntiforgery();
-app.UseMiddleware<HtmxAntiforgeryMiddleware>();
+app.UseHtmxorAntiforgery();
 
 app.MapGet("/contacts/count", async (ContactsRepository repo) =>
 {

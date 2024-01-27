@@ -7,7 +7,7 @@ namespace Htmxor.Antiforgery;
 /// <summary>
 /// This will add a HX-XSRF-TOKEN to each response, no matter if it was initiated by HTMX or not.
 /// </summary>
-public sealed class HtmxAntiforgeryMiddleware(IAntiforgery antiforgery, HtmxConfig htmxConfig, RequestDelegate next)
+internal sealed class HtmxAntiforgeryMiddleware(IAntiforgery antiforgery, HtmxConfig htmxConfig, RequestDelegate next)
 {
     private static readonly CookieOptions cookieOptions = new CookieOptions
     {
