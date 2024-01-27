@@ -9,8 +9,16 @@ using Microsoft.Extensions.Options;
 
 namespace Htmxor;
 
+/// <summary>
+/// This class has extension methods for <see cref="IHostApplicationBuilder"/> that enable configuration of Htmx in the application.
+/// </summary>
 public static class WebApplicationBuilderExtensions
 {
+    /// <summary>
+    /// Add and configure Htmx.
+    /// </summary>
+    /// <param name="builder"></param>
+    /// <param name="configBuilder"></param>
     public static void AddHtmx(this IHostApplicationBuilder builder, Action<HtmxConfig>? configBuilder = null)
     {
         builder.Services.AddSingleton<HtmxConfig>(x =>
