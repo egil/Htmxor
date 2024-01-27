@@ -80,17 +80,17 @@ jobs:
     permissions:
       checks: write
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
 
     - name: Run tests
       run: dotnet test --configuration Release --logger trx --results-directory "${{ env.TestResultsDirectory }}" --collect:"XPlat Code Coverage" --blame-hang --blame-hang-timeout 5min
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results
@@ -147,7 +147,7 @@ jobs:
         sha: ${{ github.event.pull_request.head.sha || github.sha }}
         target_url:  https://dashboard.stryker-mutator.io/reports/github.com/egil/Htmxor/${{ env.BRANCH_NAME }}
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: steps.stryker.conclusion == 'success' || steps.stryker.conclusion == 'failure'
       with:
         name: stryker-reports
@@ -162,7 +162,7 @@ jobs:
     if: github.event_name == 'pull_request' && github.repository_owner == 'egil'
     steps:
       - name: 'Checkout Repository'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: 'Dependency Review'
         uses: actions/dependency-review-action@v3
 
@@ -172,12 +172,12 @@ jobs:
     permissions:
       security-events: write
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
 
@@ -198,7 +198,7 @@ jobs:
         echo ``` >> $GITHUB_STEP_SUMMARY
 
     - name: Upload Infer# report as an artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: infer-sharp-report
         path: infer-out/report.txt
