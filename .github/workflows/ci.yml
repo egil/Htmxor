@@ -36,10 +36,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: |
-          3.1.x
-          6.0.x
-          8.0.x
+        dotnet-version: 8.0.x
 
     # Create the NuGet package in the folder from the environment variable NuGetDirectory
     - run: dotnet pack --configuration Release --output ${{ env.NuGetDirectory }}
@@ -75,98 +72,92 @@ jobs:
         shell: pwsh
         run: meziantou.validate-nuget-package (Get-ChildItem "${{ env.NuGetDirectory }}/*.nupkg") --excluded-rules IconMustBeSet
 
-  # run-test:
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 30
-  #   strategy:
-  #     matrix:
-  #       framework: [ net8.0 ]
-  #     fail-fast: false
-  #   env:
-  #     TestResultsDirectory: ${{ github.workspace }}/TestResults
-  #   permissions:
-  #     checks: write
-  #   steps:
-  #   - uses: actions/checkout@v3
+  run-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        framework: [ net8.0 ]
+      fail-fast: false
+    env:
+      TestResultsDirectory: ${{ github.workspace }}/TestResults
+    permissions:
+      checks: write
+    steps:
+    - uses: actions/checkout@v3
 
-  #   - name: Setup .NET
-  #     uses: actions/setup-dotnet@v3
-  #     with:
-  #       dotnet-version: |
-  #         3.1.x
-  #         6.0.x
-  #         8.0.x
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
 
-  #   - name: Run tests
-  #     run: dotnet test --configuration Release --framework ${{ matrix.framework }} --logger trx --results-directory "${{ env.TestResultsDirectory }}" --collect:"XPlat Code Coverage" --blame-hang --blame-hang-timeout 5min
+    - name: Run tests
+      run: dotnet test --configuration Release --framework ${{ matrix.framework }} --logger trx --results-directory "${{ env.TestResultsDirectory }}" --collect:"XPlat Code Coverage" --blame-hang --blame-hang-timeout 5min
 
-  #   - uses: actions/upload-artifact@v3
-  #     if: always()
-  #     with:
-  #       name: test-results-${{ matrix.framework }}
-  #       if-no-files-found: error
-  #       retention-days: 3
-  #       path: ${{ env.TestResultsDirectory }}/**/*
+    - uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.framework }}
+        if-no-files-found: error
+        retention-days: 3
+        path: ${{ env.TestResultsDirectory }}/**/*
 
-  #   - name: Test Report
-  #     uses: dorny/test-reporter@v1
-  #     if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository_owner == 'egil'
-  #     with:
-  #       name: test-results-${{ matrix.framework }}
-  #       path: ${{ env.TestResultsDirectory }}/**/*.trx
-  #       path-replace-backslashes: 'true'
-  #       reporter: dotnet-trx
+    - name: Test Report
+      uses: dorny/test-reporter@v1
+      if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository_owner == 'egil'
+      with:
+        name: test-results-${{ matrix.framework }}
+        path: ${{ env.TestResultsDirectory }}/**/*.trx
+        path-replace-backslashes: 'true'
+        reporter: dotnet-trx
 
-  # run-stryker:
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name != 'release'
-  #   env:
-  #     StrykerDirectory: ${{ github.workspace }}/Stryker
-  #   permissions:
-  #     statuses: write
-  #   steps:
-  #   - uses: actions/checkout@v3
+  run-stryker:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'release'
+    env:
+      StrykerDirectory: ${{ github.workspace }}/Stryker
+    permissions:
+      statuses: write
+    steps:
+    - uses: actions/checkout@v3
 
-  #   - name: Setup .NET
-  #     uses: actions/setup-dotnet@v3
-  #     with:
-  #       dotnet-version: |
-  #         3.1.x
-  #         6.0.x
-  #         8.0.x
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
 
-  #   - name: Install Stryker.NET
-  #     run: dotnet tool install -g dotnet-stryker
+    - name: Install Stryker.NET
+      run: dotnet tool install -g dotnet-stryker
 
-  #   - name: Run Stryker.NET
-  #     id: stryker
-  #     run: |
-  #       cd test/TimeProviderExtensions.Tests
-  #       dotnet stryker --config-file "../../stryker-config.json" --dashboard-api-key "${{ secrets.STRYKER_DASHBOARD_API_KEY }}" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
+    - name: Run Stryker.NET
+      id: stryker
+      run: |
+        cd test/TimeProviderExtensions.Tests
+        dotnet stryker --config-file "../../stryker-config.json" --dashboard-api-key "${{ secrets.STRYKER_DASHBOARD_API_KEY }}" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
 
-  #   - run: |
-  #       cat ${{ env.StrykerDirectory }}/reports/mutation-report.md >> $GITHUB_STEP_SUMMARY
-  #       echo "" >> $GITHUB_STEP_SUMMARY
-  #       echo "View the [full report](https://dashboard.stryker-mutator.io/reports/github.com/egil/TimeProviderExtensions/${{ env.BRANCH_NAME }})." >> $GITHUB_STEP_SUMMARY
+    - run: |
+        cat ${{ env.StrykerDirectory }}/reports/mutation-report.md >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "View the [full report](https://dashboard.stryker-mutator.io/reports/github.com/egil/TimeProviderExtensions/${{ env.BRANCH_NAME }})." >> $GITHUB_STEP_SUMMARY
 
-  #   - name: Stryker Report
-  #     if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository_owner == 'egil'
-  #     uses: Sibz/github-status-action@v1
-  #     with:
-  #       authToken: ${{secrets.GITHUB_TOKEN}}
-  #       context: stryker-report"
-  #       description: "See report"
-  #       state: ${{ steps.stryker.conclusion }}
-  #       sha: ${{ github.event.pull_request.head.sha || github.sha }}
-  #       target_url:  https://dashboard.stryker-mutator.io/reports/github.com/egil/TimeProviderExtensions/${{ env.BRANCH_NAME }}
+    - name: Stryker Report
+      if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository_owner == 'egil'
+      uses: Sibz/github-status-action@v1
+      with:
+        authToken: ${{secrets.GITHUB_TOKEN}}
+        context: stryker-report"
+        description: "See report"
+        state: ${{ steps.stryker.conclusion }}
+        sha: ${{ github.event.pull_request.head.sha || github.sha }}
+        target_url:  https://dashboard.stryker-mutator.io/reports/github.com/egil/TimeProviderExtensions/${{ env.BRANCH_NAME }}
 
-  #   - uses: actions/upload-artifact@v3
-  #     if: steps.stryker.conclusion == 'success' || steps.stryker.conclusion == 'failure'
-  #     with:
-  #       name: stryker-reports
-  #       if-no-files-found: error
-  #       retention-days: 3
-  #       path: ${{ env.StrykerDirectory }}/**/*
+    - uses: actions/upload-artifact@v3
+      if: steps.stryker.conclusion == 'success' || steps.stryker.conclusion == 'failure'
+      with:
+        name: stryker-reports
+        if-no-files-found: error
+        retention-days: 3
+        path: ${{ env.StrykerDirectory }}/**/*
 
   dependency-review:
     runs-on: ubuntu-latest
@@ -192,10 +183,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: |
-          3.1.x
-          6.0.x
-          8.0.x
+        dotnet-version: 8.0.x
 
     - run: dotnet build --configuration Release
 
@@ -231,7 +219,7 @@ jobs:
     # You can update this logic if you want to manage releases differently
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
-    needs: [ validate-nuget ]
+    needs: [ validate-nuget, run-test ]
     steps:
       - uses: actions/download-artifact@v3
         with:
