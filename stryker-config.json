@@ -1,0 +1,25 @@
+{
+    "stryker-config": {
+        "mutate": [
+            "!**/System.*/*"
+        ],
+        "language-version": "Preview",
+        "target-framework": "net8.0",
+        "mutation-level": "Complete",
+        "reporters": [
+            "markdown",
+            "dashboard",
+            "html"
+        ],
+        "baseline": {
+            "enabled": false,
+            "fallback-version": "main",
+            "provider": "Dashboard"
+        },
+        "thresholds": {
+            "high": 80,
+            "low": 60,
+            "break": 60
+        }
+    }
+}
