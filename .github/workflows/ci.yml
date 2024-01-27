@@ -75,10 +75,6 @@ jobs:
   run-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      matrix:
-        framework: [ net8.0 ]
-      fail-fast: false
     env:
       TestResultsDirectory: ${{ github.workspace }}/TestResults
     permissions:
@@ -92,12 +88,12 @@ jobs:
         dotnet-version: 8.0.x
 
     - name: Run tests
-      run: dotnet test --configuration Release --framework ${{ matrix.framework }} --logger trx --results-directory "${{ env.TestResultsDirectory }}" --collect:"XPlat Code Coverage" --blame-hang --blame-hang-timeout 5min
+      run: dotnet test --configuration Release --logger trx --results-directory "${{ env.TestResultsDirectory }}" --collect:"XPlat Code Coverage" --blame-hang --blame-hang-timeout 5min
 
     - uses: actions/upload-artifact@v3
       if: always()
       with:
-        name: test-results-${{ matrix.framework }}
+        name: test-results
         if-no-files-found: error
         retention-days: 3
         path: ${{ env.TestResultsDirectory }}/**/*
@@ -106,7 +102,7 @@ jobs:
       uses: dorny/test-reporter@v1
       if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository_owner == 'egil'
       with:
-        name: test-results-${{ matrix.framework }}
+        name: test-results
         path: ${{ env.TestResultsDirectory }}/**/*.trx
         path-replace-backslashes: 'true'
         reporter: dotnet-trx
@@ -132,13 +128,13 @@ jobs:
     - name: Run Stryker.NET
       id: stryker
       run: |
-        cd test/TimeProviderExtensions.Tests
+        cd test/Htmxor.Tests
         dotnet stryker --config-file "../../stryker-config.json" --dashboard-api-key "${{ secrets.STRYKER_DASHBOARD_API_KEY }}" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
 
     - run: |
         cat ${{ env.StrykerDirectory }}/reports/mutation-report.md >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "View the [full report](https://dashboard.stryker-mutator.io/reports/github.com/egil/TimeProviderExtensions/${{ env.BRANCH_NAME }})." >> $GITHUB_STEP_SUMMARY
+        echo "View the [full report](https://dashboard.stryker-mutator.io/reports/github.com/egil/Htmxor/${{ env.BRANCH_NAME }})." >> $GITHUB_STEP_SUMMARY
 
     - name: Stryker Report
       if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository_owner == 'egil'
@@ -149,7 +145,7 @@ jobs:
         description: "See report"
         state: ${{ steps.stryker.conclusion }}
         sha: ${{ github.event.pull_request.head.sha || github.sha }}
-        target_url:  https://dashboard.stryker-mutator.io/reports/github.com/egil/TimeProviderExtensions/${{ env.BRANCH_NAME }}
+        target_url:  https://dashboard.stryker-mutator.io/reports/github.com/egil/Htmxor/${{ env.BRANCH_NAME }}
 
     - uses: actions/upload-artifact@v3
       if: steps.stryker.conclusion == 'success' || steps.stryker.conclusion == 'failure'
