@@ -20,7 +20,7 @@
         "thresholds": {
             "high": 80,
             "low": 60,
-            "break": 60
+            "break": 0
         }
     }
 }
