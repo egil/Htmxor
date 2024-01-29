@@ -1,5 +1,10 @@
-﻿namespace Htmxor.Configuration;
+﻿using System.Text.Json.Serialization;
 
+namespace Htmxor.Configuration;
+
+/// <summary>
+/// How to swap the response into the target element.
+/// </summary>
 public enum SwapStyle
 {
     /// <summary>

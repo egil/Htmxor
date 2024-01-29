@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Htmxor.Antiforgery;
+using Htmxor.Configuration.Serialization;
 
 namespace Htmxor.Configuration;
 
@@ -9,15 +11,10 @@ namespace Htmxor.Configuration;
 /// </summary>
 public record class HtmxConfig
 {
-    public readonly static JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters =
-        {
-            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
-        },
-    };
+    /// <summary>
+    /// Default <see cref="JsonSerializerOptions"/> used with <see cref="HtmxConfig"/>.
+    /// </summary>
+    public readonly static JsonTypeInfo<HtmxConfig> JsonTypeInfo = HtmxConfigJsonSerializerContext.Default.HtmxConfig;
 
     /// <summary>
     /// Defaults to <see langword="true" /> if this property is null. really only useful for testing
@@ -48,13 +45,13 @@ public record class HtmxConfig
     /// Defaults to <see langword="0"/> if this property is null.
     /// </summary>
     [JsonPropertyName("defaultSwapDelay")]
-    public int? DefaultSwapDelay { get; set; }
+    public TimeSpan? DefaultSwapDelay { get; set; }
 
     /// <summary>
     /// Defaults to <see langword="20"/> if this property is null.
     /// </summary>
     [JsonPropertyName("defaultSettleDelay")]
-    public int? DefaultSettleDelay { get; set; }
+    public TimeSpan? DefaultSettleDelay { get; set; }
 
     /// <summary>
     /// Defaults to <see langword="true" /> if this property is null.
@@ -160,7 +157,7 @@ public record class HtmxConfig
     /// The number of milliseconds a request can take before automatically being terminated
     /// </summary>
     [JsonPropertyName("timeout")]
-    public int? Timeout { get; set; }
+    public TimeSpan? Timeout { get; set; }
 
     /// <summary>
     /// Defaults to <see cref="ScrollBehavior.Smooth" /> if this property is null.
@@ -203,7 +200,7 @@ public record class HtmxConfig
     /// If set to <see langword="true" /> will only allow AJAX requests to the same domain as the current document.
     /// </summary>
     [JsonPropertyName("selfRequestsOnly")]
-    public bool? SelfRequestsOnly { get; set; }
+    public bool SelfRequestsOnly { get; set; } = true;
 
     /// <summary>
     /// Defaults to <see langword="false" /> if this property is null.
@@ -220,6 +217,6 @@ public record class HtmxConfig
     [JsonPropertyName("scrollIntoViewOnBoost")]
     public bool? ScrollIntoViewOnBoost { get; set; }
 
-    [JsonInclude]
+    [JsonInclude, JsonPropertyName("antiforgery")]
     internal HtmxAntiforgeryOptions? Antiforgery { get; init; }
 }
