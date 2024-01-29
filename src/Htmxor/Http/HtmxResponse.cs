@@ -159,15 +159,20 @@ public class HtmxResponse(HttpContext context)
         // don't have details we can simplify the output to comma-delimited event names
         if (detail == null && !isComplex)
         {
-	        HashSet<string> events = new();
+	        bool exists = false;
+	        List<string> events = new();
 
             foreach (var property in json.AsEnumerable())
 	        {
                 events.Add(property.Key);
+
+                if (property.Key == eventName)
+	                exists = true;
 	        }
 
             // Add additional event
-	        events.Add(eventName);
+            if (!exists)
+		        events.Add(eventName);
 
             _headers[headerKey] = String.Join(',', events);
         }
