@@ -133,7 +133,7 @@ public class HtmxResponseTests : TestContext
         var response = new HtmxResponse(context);
 
         // Act
-        response.Trigger("event1", timing: TriggerStyle.AfterSwap);
+        response.Trigger("event1", timing: TriggerTiming.AfterSwap);
 
         // Assert
         var result = context.Response.Headers[HtmxResponseHeaderNames.TriggerAfterSwap];
@@ -148,7 +148,7 @@ public class HtmxResponseTests : TestContext
         var response = new HtmxResponse(context);
 
         // Act
-        response.Trigger("event2", timing: TriggerStyle.AfterSettle);
+        response.Trigger("event2", timing: TriggerTiming.AfterSettle);
 
         // Assert
         var result = context.Response.Headers[HtmxResponseHeaderNames.TriggerAfterSettle];
@@ -195,7 +195,7 @@ public class HtmxResponseTests : TestContext
         var triggerObject = new { level = "info", message = "Here Is A Message" };
 
         // Act
-        response.Trigger("showMessage", triggerObject, timing: TriggerStyle.AfterSettle);
+        response.Trigger("showMessage", triggerObject, timing: TriggerTiming.AfterSettle);
 
         // Assert
         var result = context.Response.Headers[HtmxResponseHeaderNames.TriggerAfterSettle];

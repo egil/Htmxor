@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Htmxor.Configuration;
 
-public enum TriggerStyle
+public enum TriggerTiming
 {
     /// <summary>
     /// Trigger events as soon as the response is received

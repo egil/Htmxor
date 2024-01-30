@@ -130,12 +130,12 @@ public class HtmxResponse(HttpContext context)
     /// <param name="detail"></param>
     /// <param name="timing"></param>
     /// <returns></returns>
-    public HtmxResponse Trigger(string eventName, object? detail = null, TriggerStyle timing = TriggerStyle.Default)
+    public HtmxResponse Trigger(string eventName, object? detail = null, TriggerTiming timing = TriggerTiming.Default)
     {
         var headerKey = timing switch
         {
-            TriggerStyle.AfterSwap => HtmxResponseHeaderNames.TriggerAfterSwap,
-            TriggerStyle.AfterSettle => HtmxResponseHeaderNames.TriggerAfterSettle,
+            TriggerTiming.AfterSwap => HtmxResponseHeaderNames.TriggerAfterSwap,
+            TriggerTiming.AfterSettle => HtmxResponseHeaderNames.TriggerAfterSettle,
             _ => HtmxResponseHeaderNames.Trigger
         };
 
