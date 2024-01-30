@@ -102,7 +102,7 @@ jobs:
 
     - name: Test Report
       uses: dorny/test-reporter@v1
-      if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository == 'egil/Htmxor'
+      if: github.actor != 'dependabot[bot]' && (success() || failure()) && ${{ github.repository_owner == 'egil' }}
       with:
         name: test-results
         path: ${{ env.TestResultsDirectory }}/**/*.trx
