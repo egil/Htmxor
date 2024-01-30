@@ -102,7 +102,7 @@ jobs:
 
     - name: Test Report
       uses: dorny/test-reporter@v1
-      if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository_owner == 'egil'
+      if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository == 'egil/Htmxor'
       with:
         name: test-results
         path: ${{ env.TestResultsDirectory }}/**/*.trx
@@ -130,10 +130,18 @@ jobs:
       run: dotnet tool install -g dotnet-stryker
 
     - name: Run Stryker.NET
-      id: stryker
+      id: strykerLocal
+      if: github.repository == 'egil/Htmxor'      
       run: |
         cd test/Htmxor.Tests
         dotnet stryker --config-file "../../stryker-config.json" --dashboard-api-key "${{ secrets.STRYKER_DASHBOARD_API_KEY }}" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
+
+    - name: Run Stryker.NET
+      id: strykerFork
+      if: github.repository != 'egil/Htmxor'      
+      run: |
+        cd test/Htmxor.Tests
+        dotnet stryker --config-file "../../stryker-config.json" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
 
     - run: |
         cat ${{ env.StrykerDirectory }}/reports/mutation-report.md >> $GITHUB_STEP_SUMMARY
@@ -141,7 +149,7 @@ jobs:
         echo "View the [full report](https://dashboard.stryker-mutator.io/reports/github.com/egil/Htmxor/${{ env.BRANCH_NAME }})." >> $GITHUB_STEP_SUMMARY
 
     - name: Stryker Report
-      if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository_owner == 'egil'
+      if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository == 'egil/Htmxor'
       uses: Sibz/github-status-action@v1
       with:
         authToken: ${{secrets.GITHUB_TOKEN}}
@@ -152,7 +160,6 @@ jobs:
         target_url:  https://dashboard.stryker-mutator.io/reports/github.com/egil/Htmxor/${{ env.BRANCH_NAME }}
 
     - uses: actions/upload-artifact@v4
-      if: steps.stryker.conclusion == 'success' || steps.stryker.conclusion == 'failure'
       with:
         name: stryker-reports
         if-no-files-found: error
@@ -163,7 +170,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: github.event_name == 'pull_request' && github.repository_owner == 'egil'
+    if: github.event_name == 'pull_request' && github.repository == 'egil/Htmxor'
     steps:
       - name: 'Checkout Repository'
         uses: actions/checkout@v4
