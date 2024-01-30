@@ -10,6 +10,7 @@ using Htmxor.Http.Mock;
 using Microsoft.Extensions.Primitives;
 
 namespace Htmxor.Http;
+
 public class HtmxResponseTests : TestContext
 {
     [Fact]
