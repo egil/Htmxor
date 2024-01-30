@@ -3,47 +3,46 @@
 namespace Htmxor.Http.Mock;
 
 /// <summary>
-/// Mock implementation of the <see cref="HttpResponse"/> class for testing purposes.
+///     Mock implementation of the <see cref="HttpResponse" /> class for testing purposes.
 /// </summary>
 internal class MockHttpResponse : HttpResponse
 {
-	/// <inheritdoc/>
+	/// <inheritdoc />
 	public override IHeaderDictionary Headers { get; } = new MockHeaderDictionary();
 
-	/// <inheritdoc/>
+	/// <inheritdoc />
 	public override IResponseCookies Cookies { get; } = new MockResponseCookies();
 
-	/// <inheritdoc/>
+	/// <inheritdoc />
+	public override HttpContext HttpContext { get; } = default!;
+
+	/// <inheritdoc />
+	public override int StatusCode { get; set; }
+
+	/// <inheritdoc />
+	public override Stream Body { get; set; } = default!;
+
+	/// <inheritdoc />
+	public override long? ContentLength { get; set; }
+
+	/// <inheritdoc />
+	public override string? ContentType { get; set; }
+
+	/// <inheritdoc />
+	public override bool HasStarted { get; } = default!;
+
+	/// <inheritdoc />
 	public override void OnStarting(Func<object, Task> callback, object state)
 	{
 	}
 
-	/// <inheritdoc/>
+	/// <inheritdoc />
 	public override void OnCompleted(Func<object, Task> callback, object state)
 	{
 	}
 
-	/// <inheritdoc/>
+	/// <inheritdoc />
 	public override void Redirect(string location, bool permanent)
 	{
 	}
-
-	/// <inheritdoc/>
-	public override HttpContext HttpContext { get; } = default!;
-
-	/// <inheritdoc/>
-	public override int StatusCode { get; set; }
-
-	/// <inheritdoc/>
-	public override Stream Body { get; set; } = default!;
-
-	/// <inheritdoc/>
-	public override long? ContentLength { get; set; }
-
-	/// <inheritdoc/>
-	public override string? ContentType { get; set; }
-
-	/// <inheritdoc/>
-	public override bool HasStarted { get; } = default!;
 }
-
