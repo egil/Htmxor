@@ -207,7 +207,7 @@ public class HtmxResponse(HttpContext context)
 
 		    if (headerValue.StartsWith("{"))
 		    {
-			    var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(header.ToString()));
+			    var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(headerValue));
 			    var detail = JsonNode.Parse(ref reader)?.AsObject();
 
 			    if (detail is null) continue;
@@ -218,9 +218,11 @@ public class HtmxResponse(HttpContext context)
 
 			    foreach (var property in detail.AsEnumerable())
 			    {
-				    if (!json.TryAdd(property.Key, property.Value))
+				    var clone = property.Value?.DeepClone();
+
+                    if (!json.TryAdd(property.Key, clone))
 				    {
-					    json[property.Key] = property.Value;
+					    json[property.Key] = clone;
  				    }
 			    }
             }
