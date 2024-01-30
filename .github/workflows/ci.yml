@@ -78,7 +78,9 @@ jobs:
     env:
       TestResultsDirectory: ${{ github.workspace }}/TestResults
     permissions:
+      contents: read
       checks: write
+      statuses: write
     steps:
     - uses: actions/checkout@v4
 
@@ -113,6 +115,8 @@ jobs:
     env:
       StrykerDirectory: ${{ github.workspace }}/Stryker
     permissions:
+      contents: read
+      checks: write
       statuses: write
     steps:
     - uses: actions/checkout@v4
