@@ -18,22 +18,22 @@ internal class MockHttpRequest : HttpRequest
 	}
 
 	/// <inheritdoc/>
-	public override HttpContext HttpContext { get; }
+	public override HttpContext HttpContext { get; } = default!;
 
 	/// <inheritdoc/>
-	public override string Method { get; set; }
+	public override string Method { get; set; } = default!;
 
-	/// <inheritdoc/>
-	public override string Scheme { get; set; }
+    /// <inheritdoc/>
+    public override string Scheme { get; set; } = default!;
 
-	/// <inheritdoc/>
-	public override bool IsHttps { get; set; }
+    /// <inheritdoc/>
+    public override bool IsHttps { get; set; } = default!;
 
-	/// <inheritdoc/>
-	public override HostString Host { get; set; }
+    /// <inheritdoc/>
+    public override HostString Host { get; set; } = default!;
 
-	/// <inheritdoc/>
-	public override PathString PathBase { get; set; }
+    /// <inheritdoc/>
+    public override PathString PathBase { get; set; }
 
 	/// <inheritdoc/>
 	public override PathString Path { get; set; }
@@ -42,26 +42,26 @@ internal class MockHttpRequest : HttpRequest
 	public override QueryString QueryString { get; set; }
 
 	/// <inheritdoc/>
-	public override IQueryCollection Query { get; set; }
+	public override IQueryCollection Query { get; set; } = default!;
 
-	/// <inheritdoc/>
-	public override string Protocol { get; set; }
+    /// <inheritdoc/>
+    public override string Protocol { get; set; } = default!;
 
-	/// <inheritdoc/>
-	public override IRequestCookieCollection Cookies { get; set; }
+    /// <inheritdoc/>
+    public override IRequestCookieCollection Cookies { get; set; } = default!;
 
-	/// <inheritdoc/>
-	public override long? ContentLength { get; set; }
+    /// <inheritdoc/>
+    public override long? ContentLength { get; set; }
 
 	/// <inheritdoc/>
 	public override string? ContentType { get; set; }
 
 	/// <inheritdoc/>
-	public override Stream Body { get; set; }
+	public override Stream Body { get; set; } = default!;
 
-	/// <inheritdoc/>
-	public override bool HasFormContentType { get; }
+    /// <inheritdoc/>
+    public override bool HasFormContentType { get; } = default!;
 
-	/// <inheritdoc/>
-	public override IFormCollection Form { get; set; }
+    /// <inheritdoc/>
+    public override IFormCollection Form { get; set; } = default!;
 }

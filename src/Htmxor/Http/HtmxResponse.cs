@@ -24,7 +24,7 @@ public class HtmxResponse(HttpContext context)
 	/// <summary>
 	///     Allows you to do a client-side redirect that does not do a full page reload.
 	/// </summary>
-	/// <param name="location"></param>
+	/// <param name="url"></param>
 	/// <returns></returns>
 	public HtmxResponse Location(string url)
 	{
