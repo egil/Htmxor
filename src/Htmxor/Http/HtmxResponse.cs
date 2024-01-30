@@ -179,8 +179,7 @@ public class HtmxResponse(HttpContext context)
 		{
 			var detailNode = JsonSerializer.SerializeToNode(detail, _serializerOptions);
 
-			if (!json.TryAdd(eventName, detailNode ?? JsonValue.Create(string.Empty)))
-				json[eventName] = detailNode ?? JsonValue.Create(string.Empty);
+			json[eventName] = detailNode ?? JsonValue.Create(string.Empty);
 
 			_headers[headerKey] = json.ToJsonString(_serializerOptions);
 		}
@@ -221,8 +220,7 @@ public class HtmxResponse(HttpContext context)
 				{
 					var clone = property.Value?.DeepClone();
 
-					if (!json.TryAdd(property.Key, clone)) 
-						json[property.Key] = clone;
+					json[property.Key] = clone;
 				}
 			}
 			else
@@ -232,8 +230,7 @@ public class HtmxResponse(HttpContext context)
 
 				// Merge all events into the json object
 				foreach (var eventName in eventNames)
-					if (!json.TryAdd(eventName, JsonValue.Create(string.Empty)))
-						json[eventName] = JsonValue.Create(string.Empty);
+					json[eventName] = JsonValue.Create(string.Empty);
 			}
 		}
 
