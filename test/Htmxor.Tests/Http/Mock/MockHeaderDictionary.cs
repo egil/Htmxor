@@ -6,7 +6,7 @@ namespace Htmxor.Http.Mock;
 /// <summary>
 /// Mock implementation of the <see cref="IHeaderDictionary"/> interface for testing purposes.
 /// </summary>
-internal class MockHeaderDictionary : IHeaderDictionary
+public class MockHeaderDictionary : IHeaderDictionary
 {
     private readonly Dictionary<string, StringValues> _headers = new Dictionary<string, StringValues>();
 

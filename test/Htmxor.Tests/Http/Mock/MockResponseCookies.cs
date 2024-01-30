@@ -5,7 +5,7 @@ namespace Htmxor.Http.Mock;
 /// <summary>
 ///     Mock implementation of the <see cref="IResponseCookies" /> interface for testing purposes.
 /// </summary>
-internal class MockResponseCookies : IResponseCookies
+public class MockResponseCookies : IResponseCookies
 {
 	private readonly Dictionary<string, CookieOptions> cookies = new();
 

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http.Features;
 
 namespace Htmxor.Http.Mock;
 
-internal class MockHttpContext : HttpContext
+public class MockHttpContext : HttpContext
 {
 	public override HttpRequest Request { get; } = new MockHttpRequest();
 	public override HttpResponse Response { get; } = new MockHttpResponse();

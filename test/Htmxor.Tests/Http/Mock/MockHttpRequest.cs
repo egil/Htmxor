@@ -5,7 +5,7 @@ namespace Htmxor.Http.Mock;
 /// <summary>
 ///     Mock implementation of the <see cref="HttpRequest" /> class for testing purposes.
 /// </summary>
-internal class MockHttpRequest : HttpRequest
+public class MockHttpRequest : HttpRequest
 {
 	/// <inheritdoc />
 	public override IHeaderDictionary Headers { get; } = new MockHeaderDictionary();
