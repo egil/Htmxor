@@ -274,43 +274,46 @@ public class HtmxResponseTests : TestContext
     [Fact]
     public void Trigger_CanUseExistingSimpleExternalTriggerWithMultipleTriggersWithDetail()
     {
-	    const string expected = @"{""event1"":"""",""event2"":"""",""event3"":"""",""wow"":{""display"":true},""cool"":{""magic"":""something""},""neat"":{""moremagic"":false}}";
+        const string expected = @"{""event1"":"""",""event2"":"""",""event3"":"""",""wow"":{""display"":true},""cool"":{""magic"":""something""},""neat"":{""moremagic"":false}}";
 
-	    // Arrange
-	    var context = new DefaultHttpContext();
-	    var response = new HtmxResponse(context);
+        // Arrange
+        var context = new DefaultHttpContext();
+        var response = new HtmxResponse(context);
 
         context.Response.Headers[HtmxRequestHeaderNames.Trigger] = new StringValues("event1,event2,event3".Split(","));
 
-	    // Act
-	    response.Trigger("wow", new { display = true });
-	    response.Trigger("cool", new { magic = "something" })
-		    .Trigger("neat", new { moremagic = false });
+        // Act
+        response.Trigger("wow", new { display = true });
+        response.Trigger("cool", new { magic = "something" })
+            .Trigger("neat", new { moremagic = false });
 
-	    // Assert
-	    Assert.Equal(expected, context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
+        // Assert
+        Assert.Equal(expected, context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
     }
 
     [Fact]
     public void Trigger_CanUseExistingMixedSimpleAndComplexExternalTriggerWithMultipleTriggersWithDetail()
     {
-	    const string expected = @"{""event1"":"""",""event2"":"""",""event3"":"""",""event4"":"""",""showMessage"":{""level"":""info"",""message"":""Here Is A Message""},""wow"":{""display"":true},""cool"":{""magic"":""something""},""neat"":{""moremagic"":false}}";
+        const string expected = @"{""event1"":"""",""event2"":"""",""event3"":"""",""event4"":"""",""showMessage"":{""level"":""info"",""message"":""Here Is A Message""},""wow"":{""display"":true},""cool"":{""magic"":""something""},""neat"":{""moremagic"":false}}";
 
-	    // Arrange
-	    var context = new DefaultHttpContext();
-	    var response = new HtmxResponse(context);
+        // Arrange
+        var context = new DefaultHttpContext();
+        var response = new HtmxResponse(context);
 
-        string[] mixed = ["event1", "event2", "event3,event4", "{\"showMessage\":{\"level\":\"info\",\"message\":\"Here Is A Message\"}}"
+        string[] mixed = ["event1",
+            "event2",
+            "event3,event4",
+            "{\"showMessage\":{\"level\":\"info\",\"message\":\"Here Is A Message\"}}"
         ];
 
-	    context.Response.Headers[HtmxRequestHeaderNames.Trigger] = new StringValues(mixed);
+        context.Response.Headers[HtmxRequestHeaderNames.Trigger] = new StringValues(mixed);
 
-	    // Act
-	    response.Trigger("wow", new { display = true });
-	    response.Trigger("cool", new { magic = "something" })
-		    .Trigger("neat", new { moremagic = false });
+        // Act
+        response.Trigger("wow", new { display = true });
+        response.Trigger("cool", new { magic = "something" })
+            .Trigger("neat", new { moremagic = false });
 
-	    // Assert
-	    Assert.Equal(expected, context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
+        // Assert
+        Assert.Equal(expected, context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
     }
 }
