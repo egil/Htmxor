@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Htmxor.Http.Mock;
+using Htmxor.Http.Models;
 using Microsoft.Extensions.Primitives;
 
 namespace Htmxor.Http;
@@ -25,6 +26,25 @@ public class HtmxResponseTests : TestContext
 
         // Assert
         Assert.Equal("/new-location", context.Response.Headers[HtmxResponseHeaderNames.Location]);
+    }
+
+    [Fact]
+    public void Location_AddsLocationWIthAjaxContextHeader()
+    {
+	    // Arrange
+	    var context = new MockHttpContext();
+	    var response = new HtmxResponse(context);
+
+	    var ajc = new AjaxContext
+	    {
+		    Target = "#testdiv"
+	    };
+
+	    // Act
+	    response.Location("/new-location", ajc);
+
+	    // Assert
+	    Assert.Equal("{\"path\":\"/new-location\",\"target\":\"#testdiv\"}", context.Response.Headers[HtmxResponseHeaderNames.Location]);
     }
 
     [Fact]
@@ -81,6 +101,34 @@ public class HtmxResponseTests : TestContext
 
         // Assert
         Assert.Equal("/new-replace-url", context.Response.Headers[HtmxResponseHeaderNames.ReplaceUrl]);
+    }
+
+    [Fact]
+    public void PushUrl_AddsPushUrlBrowserHistoryHeader()
+    {
+	    // Arrange
+	    var context = new DefaultHttpContext();
+	    var response = new HtmxResponse(context);
+
+	    // Act
+	    response.PreventBrowserHistoryUpdate();
+
+	    // Assert
+	    Assert.Equal("false", context.Response.Headers[HtmxResponseHeaderNames.PushUrl]);
+    }
+
+    [Fact]
+    public void ReplaceUrl_AddsReplaceUrlBrowserCUrrentUrlHeader()
+    {
+	    // Arrange
+	    var context = new DefaultHttpContext();
+	    var response = new HtmxResponse(context);
+
+	    // Act
+	    response.PreventBrowserCurrentUrlUpdate();
+
+	    // Assert
+	    Assert.Equal("false", context.Response.Headers[HtmxResponseHeaderNames.ReplaceUrl]);
     }
 
     [Fact]

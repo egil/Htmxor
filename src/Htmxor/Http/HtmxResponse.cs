@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Htmxor.Configuration;
+using Htmxor.Http.Models;
 using Microsoft.AspNetCore.Http;
 
 namespace Htmxor.Http;
@@ -13,22 +14,39 @@ public class HtmxResponse(HttpContext context)
 
     private readonly JsonSerializerOptions _serializerOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         Converters =
         {
-            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false)
+            new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower, false)
         }
     };
 
     /// <summary>
     ///     Allows you to do a client-side redirect that does not do a full page reload.
     /// </summary>
-    /// <param name="url"></param>
+    /// <param name="path"></param>
+    /// <param name="context"></param>
     /// <returns></returns>
-    public HtmxResponse Location(string url)
+    public HtmxResponse Location(string path, AjaxContext? context = null)
     {
-        _headers[HtmxResponseHeaderNames.Location] = url;
+        if (context == null)
+	        _headers[HtmxResponseHeaderNames.Location] = path;
+        else
+        {
+	        JsonObject json = new();
+            json.Add("path", JsonValue.Create(path));
+
+            var ctxNode = JsonSerializer.SerializeToNode(context)!.AsObject();
+
+            foreach (var prop in ctxNode.AsEnumerable())
+            {
+                if (prop.Value != null)
+	                json.Add(prop.Key, prop.Value.DeepClone());
+            }
+
+            _headers[HtmxResponseHeaderNames.Location] = JsonSerializer.Serialize(json);
+        }
 
         return this;
     }
@@ -43,6 +61,30 @@ public class HtmxResponse(HttpContext context)
         _headers[HtmxResponseHeaderNames.PushUrl] = url;
 
         return this;
+    }
+
+    /// <summary>
+    ///     Prevents the browser’s history from being updated.
+    ///     Overwrites PushUrl response if already present.
+    /// </summary>
+    /// <returns></returns>
+    public HtmxResponse PreventBrowserHistoryUpdate()
+    {
+	    _headers[HtmxResponseHeaderNames.PushUrl] = "false";
+
+	    return this;
+    }
+
+    /// <summary>
+    ///     Prevents the browser’s current url from being updated
+    ///     Overwrites ReplaceUrl response if already present.
+    /// </summary>
+    /// <returns></returns>
+    public HtmxResponse PreventBrowserCurrentUrlUpdate()
+    {
+	    _headers[HtmxResponseHeaderNames.ReplaceUrl] = "false";
+
+	    return this;
     }
 
     /// <summary>
