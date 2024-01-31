@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Htmxor.Configuration;
 using Htmxor.Http.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 
 namespace Htmxor.Http;
 
@@ -187,56 +188,52 @@ public class HtmxResponse(HttpContext context)
     }
 
     /// <summary>
-    ///     Clean up any duplicated headers and merge event with detail into the result
+    ///     Aggregate existing headers and merge event with detail into the result
     /// </summary>
     /// <param name="headerKey"></param>
     /// <param name="eventName"></param>
     /// <param name="detail"></param>
     private void MergeTrigger(string headerKey, string eventName, object? detail = null)
     {
-        var (json, isComplex) = BuildExistingTriggerJson(headerKey);
+        var (sb, isComplex) = BuildExistingTriggerJson(headerKey);
 
         // If this event doesn't have a detail and any existing events also
         // don't have details we can simplify the output to comma-delimited event names
         if (detail == null && !isComplex)
         {
-            var exists = false;
-            List<string> events = new();
-
-            foreach (var property in json.AsEnumerable())
-            {
-                events.Add(property.Key);
-
-                if (property.Key == eventName)
-                    exists = true;
-            }
-
-            // Add additional event
-            if (!exists)
-                events.Add(eventName);
-
-            _headers[headerKey] = string.Join(',', events);
+            var header = _headers[headerKey];
+            _headers[headerKey] = StringValues.Concat(header, eventName).ToString();
         }
         else
         {
-            var detailNode = JsonSerializer.SerializeToNode(detail, _serializerOptions);
+            var detailJson = JsonSerializer.Serialize(detail, _serializerOptions);
 
-            json[eventName] = detailNode ?? JsonValue.Create(string.Empty);
+            if (sb.Length > 0) sb.Append(',');
 
-            _headers[headerKey] = json.ToJsonString(_serializerOptions);
+            // Append the key/value to the output json
+            sb.Append($"\"{eventName}\":{detailJson}");
+
+            // Wrap the entire sb contents to turn it into valid json
+            sb.Insert(0, '{');
+            sb.Append('}');
+
+            _headers[headerKey] = sb.ToString();
         }
     }
 
     /// <summary>
-    ///     Create a JsonObject representing the aggregated properties across
-    ///     all header values that exist for this header key
+    ///     Create a stringBuilder containing the serialized json for the aggregated properties across
+    ///     all header values that exist for this header key - duplicate keys are not removed for performance
+    ///     reasons because the json produced is still valid
+    ///     This approach does not validate any syntax of existing headers as a performance consideration.
     /// </summary>
     /// <param name="headerKey"></param>
     /// <returns></returns>
-    private (JsonObject, bool) BuildExistingTriggerJson(string headerKey)
+    private (StringBuilder, bool) BuildExistingTriggerJson(string headerKey)
     {
         var isComplex = false;
-        var json = new JsonObject();
+        StringBuilder sb = new();
+
         var header = _headers[headerKey];
 
         // header as StringValues can have no values, one value, or many values
@@ -248,34 +245,23 @@ public class HtmxResponse(HttpContext context)
             // Is this headerValue possibly a Json object?
             if (headerValue.StartsWith("{"))
             {
-                var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(headerValue));
-                var detail = JsonNode.Parse(ref reader)?.AsObject();
-
-                if (detail is null) continue;
-
-                // Once we see a single instance of a json header we assume
-                // the header is complex
                 isComplex = true;
 
-                // Copy all properties from the existing header into the json object
-                foreach (var property in detail.AsEnumerable())
-                {
-                    var clone = property.Value?.DeepClone();
-
-                    json[property.Key] = clone;
-                }
+                if (sb.Length > 0) sb.Append(',');
+                sb.Append(headerValue.Substring(1, headerValue.Length - 2));
             }
             else
             {
-                // These are simple comma-delimited string trigger events
-                var eventNames = headerValue.Split(",");
+                var eventNames = headerValue.Split(',');
 
-                // Merge all events into the json object
-                foreach (var eventName in eventNames)
-                    json[eventName] = JsonValue.Create(string.Empty);
+                foreach (var name in eventNames)
+                {
+                    if (sb.Length > 0) sb.Append(',');
+                    sb.Append("\"" + name + "\":\"\"");
+                }
             }
         }
 
-        return (json, isComplex);
+        return (sb, isComplex);
     }
 }
