@@ -12,7 +12,7 @@ public class HtmxResponse(HttpContext context)
 {
     private readonly IHeaderDictionary _headers = context.Response.Headers;
 
-    private readonly JsonSerializerOptions _serializerOptions = new()
+    private static readonly JsonSerializerOptions _serializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
