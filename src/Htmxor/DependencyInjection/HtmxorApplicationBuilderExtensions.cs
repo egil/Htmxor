@@ -1,6 +1,6 @@
 ﻿using Htmxor.Antiforgery;
+using Htmxor.Builder;
 using Htmxor.Configuration;
-using Htmxor.Endpoints;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;

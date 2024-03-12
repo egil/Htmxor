@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Matching;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Htmxor.Endpoints;
+namespace Htmxor.Builder;
 
 internal class HtmxorComponentEndpointMatcherPolicy : MatcherPolicy, IEndpointSelectorPolicy
 {
@@ -13,10 +13,11 @@ internal class HtmxorComponentEndpointMatcherPolicy : MatcherPolicy, IEndpointSe
     // policies can see the resulting dynamicComponentEndpoint.
     public override int Order => int.MinValue + 150;
 
+    /// <inheritdoc/>
     public bool AppliesToEndpoints(IReadOnlyList<Endpoint> endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
-        return endpoints.Any(endpoint => endpoint.Metadata.GetMetadata<HxRouteAttribute>() is not null);
+        return endpoints.Any(endpoint => endpoint.Metadata.GetMetadata<HtmxorEndpointMetadata>() is not null);
     }
 
     public Task ApplyAsync(HttpContext httpContext, CandidateSet candidates)
@@ -34,14 +35,8 @@ internal class HtmxorComponentEndpointMatcherPolicy : MatcherPolicy, IEndpointSe
 
             var endpoint = candidates[i].Endpoint;
             var htmxorEndpointMetadata = endpoint.Metadata.GetMetadata<HtmxorEndpointMetadata>();
-  
-            if (htmxorEndpointMetadata is null && htmxContext.Request.IsHtmxRequest)
-            {
-                candidates.SetValidity(i, false);
-                continue;
-            }
 
-            if (htmxorEndpointMetadata is not null && !htmxContext.Request.IsHtmxRequest)
+            if (htmxorEndpointMetadata is null && htmxContext.Request.IsHtmxRequest)
             {
                 candidates.SetValidity(i, false);
                 continue;

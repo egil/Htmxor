@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components.Endpoints;
 
-namespace Htmxor.Endpoints;
+namespace Htmxor;
 
 public interface IHtmxorComponentEndpointInvoker : IRazorComponentEndpointInvoker
 {

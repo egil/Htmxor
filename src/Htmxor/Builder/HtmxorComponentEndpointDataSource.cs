@@ -1,6 +1,4 @@
 ﻿using System.Reflection;
-using Htmxor.Configuration;
-using Htmxor.Http;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
@@ -10,18 +8,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Primitives;
 
-namespace Htmxor.Endpoints;
+namespace Htmxor.Builder;
 
 internal class HtmxorComponentEndpointDataSource : EndpointDataSource
 {
-    private readonly IEnumerable<Type> componentTypes;
+    private readonly IReadOnlyList<ComponentInfo> components;
     private IReadOnlyList<Endpoint>? endpoints;
 
     public override IReadOnlyList<Endpoint> Endpoints => endpoints ??= UpdateEndpoints();
 
-    public HtmxorComponentEndpointDataSource(IEnumerable<Type> componentTypes)
+    public HtmxorComponentEndpointDataSource(IReadOnlyList<ComponentInfo> components)
     {
-        this.componentTypes = componentTypes;
+        this.components = components;
         UpdateEndpoints();
     }
 
@@ -30,9 +28,10 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
     private IReadOnlyList<Endpoint> UpdateEndpoints()
     {
         var endpoints = new List<Endpoint>();
-        foreach (var componentType in componentTypes)
+
+        foreach (var componentInfo in components.Where(x => x.IsHtmxorCompatible))
         {
-            foreach (var hxRoute in componentType.GetCustomAttributes<HxRouteAttribute>(true))
+            foreach (var hxRoute in componentInfo.HxRoutes)
             {
                 var builder = new RouteEndpointBuilder(
                     null,
@@ -42,7 +41,7 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
                 builder.Metadata.Add(new RequireAntiforgeryTokenAttribute());
 
                 // All attributes defined for the type are included as metadata.
-                foreach (var attribute in componentType.GetCustomAttributes())
+                foreach (var attribute in componentInfo.ComponentType.GetCustomAttributes())
                 {
                     builder.Metadata.Add(attribute);
                 }
@@ -50,7 +49,7 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
                 // We do not support link generation, so explicitly opt-out.
                 builder.Metadata.Add(new SuppressLinkGenerationMetadata());
                 builder.Metadata.Add(new HttpMethodMetadata(hxRoute.Methods, false));
-                builder.Metadata.Add(new ComponentTypeMetadata(componentType));
+                builder.Metadata.Add(new ComponentTypeMetadata(componentInfo.ComponentType));
                 builder.Metadata.Add(new HtmxorEndpointMetadata(hxRoute));
 
                 builder.RequestDelegate = static httpContext =>
@@ -63,45 +62,12 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
                 builder.Order = 0;
 
                 // The display name is for debug purposes by endpoint routing.
-                builder.DisplayName = $"{builder.RoutePattern.RawText} ({componentType.Name}) (HTMX route)";
+                builder.DisplayName = $"{builder.RoutePattern.RawText} ({componentInfo.ComponentType.Name}) (HTMX route)";
 
                 endpoints.Add(builder.Build());
             }
         }
 
         return endpoints;
-    }
-}
-
-internal sealed class HtmxorEndpointMetadata(HxRouteAttribute hxRoute)
-{
-    private readonly Uri? currentUrl = string.IsNullOrWhiteSpace(hxRoute.CurrentURL)
-        ? null
-        : new Uri(hxRoute.CurrentURL, UriKind.RelativeOrAbsolute);
-
-    public bool IsValidFor(HtmxRequest htmxRequest)
-    {
-        if (htmxRequest is null)
-            return false;
-
-        if (!htmxRequest.IsHtmxRequest)
-            return false;
-
-        if (!string.IsNullOrWhiteSpace(hxRoute.CurrentURL) && currentUrl != htmxRequest.CurrentURL)
-            return false;
-
-        if (!string.IsNullOrWhiteSpace(hxRoute.Target) && !hxRoute.Target.Equals(htmxRequest.Target, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        if (hxRoute.Targets.Count > 0 && !hxRoute.Targets.Contains(htmxRequest.Target, StringComparer.OrdinalIgnoreCase))
-            return false;
-
-        if (!string.IsNullOrWhiteSpace(hxRoute.Trigger) && !hxRoute.Trigger.Equals(htmxRequest.Trigger, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        if (!string.IsNullOrWhiteSpace(hxRoute.TriggerName) && !hxRoute.TriggerName.Equals(htmxRequest.TriggerName, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        return true;
     }
 }

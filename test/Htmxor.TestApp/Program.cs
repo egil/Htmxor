@@ -1,4 +1,4 @@
-using Htmxor.Endpoints;
+using Htmxor.Builder;
 using Htmxor.TestApp.Components;
 
 var builder = WebApplication.CreateBuilder(args);
