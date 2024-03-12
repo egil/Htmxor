@@ -1,11 +1,11 @@
-using Htmxor;
+using Htmxor.Endpoints;
 using Htmxor.TestApp.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents();
-builder.AddHtmx();
+builder.Services.AddHtmx();
 
 var app = builder.Build();
 
@@ -18,9 +18,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseStaticFiles();
-app.UseAntiforgery();
+app.UseAntiforgery()
+   .UseHtmxAntiforgery();
 
 app.MapRazorComponents<App>();
 
