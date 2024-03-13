@@ -53,10 +53,6 @@
 		<None Include="..\..\docs\htmxor-icon-square.png" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<Folder Include="Renderer\" />
-	</ItemGroup>
-
 	<Target Name="SetPackageReleaseNotes" BeforeTargets="GenerateNuspec">
 		<PropertyGroup>
 			<PackageReleaseNotes>$([System.IO.File]::ReadAllText("$(MSBuildProjectDirectory)/../../CHANGELOG.md"))</PackageReleaseNotes>

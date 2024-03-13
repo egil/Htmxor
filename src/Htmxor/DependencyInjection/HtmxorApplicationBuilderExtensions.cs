@@ -38,6 +38,26 @@ public static class HtmxorApplicationBuilderExtensions
         services.AddScoped(srv => srv.GetRequiredService<IHttpContextAccessor>().HttpContext!.GetHtmxContext());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, HtmxorComponentEndpointMatcherPolicy>());
 
+        // services.TryAddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
+
+        // Common services required for components server side rendering
+        //services.TryAddSingleton<ServerComponentSerializer>(services => new ServerComponentSerializer(services.GetRequiredService<IDataProtectionProvider>()));
+        //services.TryAddScoped<EndpointHtmxorRenderer>();
+        //services.TryAddScoped<IComponentPrerenderer>(services => services.GetRequiredService<EndpointHtmlRenderer>());
+        //services.TryAddScoped<NavigationManager, HttpNavigationManager>();
+        //services.TryAddScoped<IJSRuntime, UnsupportedJavaScriptRuntime>();
+        //services.TryAddScoped<INavigationInterception, UnsupportedNavigationInterception>();
+        //services.TryAddScoped<IScrollToLocationHash, UnsupportedScrollToLocationHash>();
+        //services.TryAddScoped<ComponentStatePersistenceManager>();
+        //services.TryAddScoped<PersistentComponentState>(sp => sp.GetRequiredService<ComponentStatePersistenceManager>().State);
+        //services.TryAddScoped<IErrorBoundaryLogger, PrerenderingErrorBoundaryLogger>();
+        //services.TryAddEnumerable(
+        //ServiceDescriptor.Singleton<IPostConfigureOptions<RazorComponentsServiceOptions>, DefaultRazorComponentsServiceOptionsConfiguration>());
+        //services.TryAddScoped<EndpointRoutingStateProvider>();
+        //services.TryAddScoped<IRoutingStateProvider>(sp => sp.GetRequiredService<EndpointRoutingStateProvider>());
+        //services.AddSupplyValueFromQueryProvider();
+        //services.TryAddCascadingValue(sp => sp.GetRequiredService<EndpointHtmlRenderer>().HttpContext);
+
         return services;
     }
 }
