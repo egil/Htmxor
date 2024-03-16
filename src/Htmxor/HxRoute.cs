@@ -13,7 +13,7 @@ namespace Htmxor;
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 public sealed class HxRouteAttribute : Attribute, IEquatable<HxRouteAttribute>
 {
-    public static readonly IReadOnlyList<string> DefaultHttpMethods = [HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Patch, HttpMethods.Delete];
+    public static readonly string[] DefaultHttpMethods = [HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Patch, HttpMethods.Delete];
 
     /// <summary>
     /// Gets the route template.
@@ -25,7 +25,7 @@ public sealed class HxRouteAttribute : Attribute, IEquatable<HxRouteAttribute>
     /// Gets the HTTP methods supported by the route.
     /// If null or empty, this route allow all HTTP methods Htmx supports (<see cref="DefaultHttpMethods"/>).
     /// </summary>
-    public IReadOnlyList<string> Methods { get; init; } = DefaultHttpMethods;
+    public string[] Methods { get; init; } = DefaultHttpMethods;
 
     /// <summary>
     /// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.CurrentURL"/> header matches the specified value. 
@@ -43,7 +43,7 @@ public sealed class HxRouteAttribute : Attribute, IEquatable<HxRouteAttribute>
     /// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.Target"/> header matches one of the specified values.
     /// If null or empty, this route is not limited to a specific set of targets.
     /// </summary>
-    public IReadOnlyList<string> Targets { get; init; } = [];
+    public string[] Targets { get; init; } = [];
 
     /// <summary>
     /// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.Trigger"/> header matches the specified value. 
@@ -87,7 +87,7 @@ public sealed class HxRouteAttribute : Attribute, IEquatable<HxRouteAttribute>
     {
         var hash = new HashCode();
         hash.Add(Template);
-        for (int i = 0; i < Methods.Count; i++)
+        for (int i = 0; i < Methods.Length; i++)
         {
             hash.Add(Methods[i]);
         }
@@ -102,7 +102,7 @@ public sealed class HxRouteAttribute : Attribute, IEquatable<HxRouteAttribute>
             hash.Add(Target);
         }
 
-        for (int i = 0; i < Targets.Count; i++)
+        for (int i = 0; i < Targets.Length; i++)
         {
             hash.Add(Targets[i]);
         }

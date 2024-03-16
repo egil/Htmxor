@@ -22,7 +22,7 @@ internal sealed record class HtmxorEndpointMetadata(HxRouteAttribute HxRoute)
         if (!string.IsNullOrWhiteSpace(HxRoute.Target) && !HxRoute.Target.Equals(htmxRequest.Target, StringComparison.OrdinalIgnoreCase))
             return false;
 
-        if (HxRoute.Targets.Count > 0 && !HxRoute.Targets.Contains(htmxRequest.Target, StringComparer.OrdinalIgnoreCase))
+        if (HxRoute.Targets.Length > 0 && !HxRoute.Targets.Contains(htmxRequest.Target, StringComparer.OrdinalIgnoreCase))
             return false;
 
         if (!string.IsNullOrWhiteSpace(HxRoute.Trigger) && !HxRoute.Trigger.Equals(htmxRequest.Trigger, StringComparison.OrdinalIgnoreCase))
