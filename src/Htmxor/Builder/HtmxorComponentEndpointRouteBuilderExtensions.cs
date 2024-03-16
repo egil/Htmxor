@@ -13,17 +13,6 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
         this RazorComponentsEndpointConventionBuilder builder,
         IEndpointRouteBuilder endpoints)
     {
-        // Replace the request delegate so we have complete control over both 
-        // full page requests and HX requests.
-        builder.Finally(eb =>
-        {
-            eb.RequestDelegate = static httpContext =>
-            {
-                var invoker = httpContext.RequestServices.GetRequiredService<IHtmxorComponentEndpointInvoker>();
-                return invoker.Render(httpContext);
-            };
-        });
-
         var componentTypes = builder.GetDiscoveredComponents();
         endpoints.DataSources.Add(new HtmxorComponentEndpointDataSource(componentTypes));
 

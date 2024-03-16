@@ -1,9 +1,12 @@
-﻿using Htmxor.Antiforgery;
+﻿using Htmxor;
+using Htmxor.Antiforgery;
 using Htmxor.Builder;
 using Htmxor.Configuration;
 using Htmxor.Http;
+using Htmxor.Rendering;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -38,11 +41,13 @@ public static class HtmxorApplicationBuilderExtensions
         services.AddScoped(srv => srv.GetRequiredService<IHttpContextAccessor>().HttpContext!.GetHtmxContext());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, HtmxorComponentEndpointMatcherPolicy>());
 
-        // services.TryAddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
+        services.AddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
+        services.AddScoped<IRazorComponentEndpointInvoker>(x => x.GetRequiredService<IHtmxorComponentEndpointInvoker>());
+        services.AddScoped<EndpointHtmxorRenderer>();
+        services.TryAddCascadingValue(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext);
 
         // Common services required for components server side rendering
         //services.TryAddSingleton<ServerComponentSerializer>(services => new ServerComponentSerializer(services.GetRequiredService<IDataProtectionProvider>()));
-        //services.TryAddScoped<EndpointHtmxorRenderer>();
         //services.TryAddScoped<IComponentPrerenderer>(services => services.GetRequiredService<EndpointHtmlRenderer>());
         //services.TryAddScoped<NavigationManager, HttpNavigationManager>();
         //services.TryAddScoped<IJSRuntime, UnsupportedJavaScriptRuntime>();
@@ -56,7 +61,6 @@ public static class HtmxorApplicationBuilderExtensions
         //services.TryAddScoped<EndpointRoutingStateProvider>();
         //services.TryAddScoped<IRoutingStateProvider>(sp => sp.GetRequiredService<EndpointRoutingStateProvider>());
         //services.AddSupplyValueFromQueryProvider();
-        //services.TryAddCascadingValue(sp => sp.GetRequiredService<EndpointHtmlRenderer>().HttpContext);
 
         return services;
     }
