@@ -50,6 +50,7 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
                 builder.Metadata.Add(new SuppressLinkGenerationMetadata());
                 builder.Metadata.Add(new HttpMethodMetadata(hxRoute.Methods, false));
                 builder.Metadata.Add(new ComponentTypeMetadata(componentInfo.ComponentType));
+                builder.Metadata.Add(new RootComponentMetadata(componentInfo.ComponentType));
                 builder.Metadata.Add(new HtmxorEndpointMetadata(hxRoute));
 
                 builder.RequestDelegate = static httpContext =>
