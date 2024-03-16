@@ -374,8 +374,7 @@ internal partial class StaticHtmxorRenderer
                 }
             }
 
-            if (isForm && frame.AttributeName.Equals("action", StringComparison.OrdinalIgnoreCase) &&
-                !string.IsNullOrEmpty(frame.AttributeValue as string))
+            if (isForm && HasActionAttribute(ref frame))
             {
                 hasExplicitActionValue = true;
             }
@@ -415,6 +414,15 @@ internal partial class StaticHtmxorRenderer
                 output.Write('\"');
             }
         }
+
+        bool HasActionAttribute(ref RenderTreeFrame frame)
+            => (frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Get, StringComparison.OrdinalIgnoreCase)
+            || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Post, StringComparison.OrdinalIgnoreCase)
+            || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Put, StringComparison.OrdinalIgnoreCase)
+            || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Delete, StringComparison.OrdinalIgnoreCase)
+            || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Patch, StringComparison.OrdinalIgnoreCase)
+            || frame.AttributeName.Equals("action", StringComparison.OrdinalIgnoreCase))
+            && !string.IsNullOrEmpty(frame.AttributeValue as string);
     }
 
     private static string GetRootRelativeUrlForFormAction(NavigationManager navigationManager)
