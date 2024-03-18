@@ -3,15 +3,11 @@
 
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using Htmxor.DependencyInjection;
 using Htmxor.FormMapping;
-using Htmxor.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Endpoints;
-using Microsoft.AspNetCore.Components.Endpoints.DependencyInjection;
-using Microsoft.AspNetCore.Components.Endpoints.Forms;
-using Microsoft.AspNetCore.Components.Forms;
-using Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure;
 using Microsoft.AspNetCore.Components.Infrastructure;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
@@ -24,6 +20,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using static Htmxor.LinkerFlags;
+using RouteData = Microsoft.AspNetCore.Components.RouteData;
 
 namespace Htmxor.Rendering;
 
@@ -104,16 +101,16 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
         var componentApplicationLifetime = httpContext.RequestServices.GetRequiredService<ComponentStatePersistenceManager>();
         await componentApplicationLifetime.RestoreStateAsync(new PrerenderComponentApplicationStore());
 
-        //if (componentType != null)
-        //{
-        //    // Saving RouteData to avoid routing twice in Router component
-        //    var routingStateProvider = httpContext.RequestServices.GetRequiredService<EndpointRoutingStateProvider>();
-        //    routingStateProvider.RouteData = new RouteData(componentType, httpContext.GetRouteData().Values);
-        //    if (httpContext.GetEndpoint() is RouteEndpoint endpoint)
-        //    {
-        //        routingStateProvider.RouteData.Template = endpoint.RoutePattern.RawText;
-        //    }
-        //}
+        if (componentType != null)
+        {
+            // Saving RouteData to avoid routing twice in Router component
+            var routingStateProvider = httpContext.RequestServices.GetRequiredService<EndpointRoutingStateProvider>();
+            routingStateProvider.RouteData = new RouteData(componentType, httpContext.GetRouteData().Values);
+            if (httpContext.GetEndpoint() is RouteEndpoint endpoint)
+            {
+                routingStateProvider.RouteData.Template = endpoint.RoutePattern.RawText;
+            }
+        }
     }
 
     protected override ComponentState CreateComponentState(int componentId, IComponent component, ComponentState? parentComponentState)
