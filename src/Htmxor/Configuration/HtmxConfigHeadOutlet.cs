@@ -11,7 +11,7 @@ namespace Htmxor.Configuration;
 /// </summary>
 /// <remarks>
 /// Configure the <see cref="HtmxConfig"/> via the 
-/// <see cref="HtmxorApplicationBuilderExtensions.AddHtmx(IServiceCollection, Action{Htmxor.Configuration.HtmxConfig}?)"/> 
+/// <see cref="HtmxorApplicationBuilderExtensions.AddHtmx(IRazorComponentsBuilder, Action{Htmxor.Configuration.HtmxConfig}?)"/> 
 /// method.
 /// </remarks>
 public class HtmxConfigHeadOutlet : IComponent
