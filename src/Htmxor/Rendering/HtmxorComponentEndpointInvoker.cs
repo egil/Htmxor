@@ -128,7 +128,6 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             // Disable all response buffering and compression on IIS like SignalR's ServerSentEventsServerTransport does.
             var bufferingFeature = context.Features.GetRequiredFeature<IHttpResponseBodyFeature>();
             bufferingFeature.DisableBuffering();
-
             context.Response.Headers.ContentEncoding = "identity";
         }
 

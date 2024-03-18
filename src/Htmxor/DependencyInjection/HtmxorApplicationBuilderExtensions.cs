@@ -2,11 +2,15 @@
 using Htmxor.Antiforgery;
 using Htmxor.Builder;
 using Htmxor.Configuration;
+using Htmxor.DependencyInjection;
 using Htmxor.Http;
 using Htmxor.Rendering;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -24,10 +28,24 @@ public static class HtmxorApplicationBuilderExtensions
     /// <summary>
     /// Add and configure Htmx.
     /// </summary>
-    /// <param name="services"></param>
+    /// <param name="razorComponentsBuilder"></param>
     /// <param name="configurHtmx"></param>
-    public static IServiceCollection AddHtmx(this IServiceCollection services, Action<HtmxConfig>? configurHtmx = null)
+    public static IRazorComponentsBuilder AddHtmx(this IRazorComponentsBuilder razorComponentsBuilder, Action<HtmxConfig>? configurHtmx = null)
     {
+        var services = razorComponentsBuilder.Services;
+
+        // Override routing
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, HtmxorComponentEndpointMatcherPolicy>());
+        services.AddScoped<EndpointRoutingStateProvider>();
+        services.AddScoped<IRoutingStateProvider>(sp => sp.GetRequiredService<EndpointRoutingStateProvider>());
+
+        // Override rendering
+        services.AddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
+        services.AddScoped<IRazorComponentEndpointInvoker>(x => x.GetRequiredService<IHtmxorComponentEndpointInvoker>());
+        services.AddScoped<EndpointHtmxorRenderer>();
+        services.TryAddCascadingValue(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext);
+
+        // Add Htmxor services
         services.AddSingleton<HtmxConfig>(x =>
         {
             var config = new HtmxConfig
@@ -37,31 +55,8 @@ public static class HtmxorApplicationBuilderExtensions
             configurHtmx?.Invoke(config);
             return config;
         });
-
         services.AddScoped(srv => srv.GetRequiredService<IHttpContextAccessor>().HttpContext!.GetHtmxContext());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, HtmxorComponentEndpointMatcherPolicy>());
 
-        services.AddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
-        services.AddScoped<IRazorComponentEndpointInvoker>(x => x.GetRequiredService<IHtmxorComponentEndpointInvoker>());
-        services.AddScoped<EndpointHtmxorRenderer>();
-        services.TryAddCascadingValue(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext);
-
-        // Common services required for components server side rendering
-        //services.TryAddSingleton<ServerComponentSerializer>(services => new ServerComponentSerializer(services.GetRequiredService<IDataProtectionProvider>()));
-        //services.TryAddScoped<IComponentPrerenderer>(services => services.GetRequiredService<EndpointHtmlRenderer>());
-        //services.TryAddScoped<NavigationManager, HttpNavigationManager>();
-        //services.TryAddScoped<IJSRuntime, UnsupportedJavaScriptRuntime>();
-        //services.TryAddScoped<INavigationInterception, UnsupportedNavigationInterception>();
-        //services.TryAddScoped<IScrollToLocationHash, UnsupportedScrollToLocationHash>();
-        //services.TryAddScoped<ComponentStatePersistenceManager>();
-        //services.TryAddScoped<PersistentComponentState>(sp => sp.GetRequiredService<ComponentStatePersistenceManager>().State);
-        //services.TryAddScoped<IErrorBoundaryLogger, PrerenderingErrorBoundaryLogger>();
-        //services.TryAddEnumerable(
-        //ServiceDescriptor.Singleton<IPostConfigureOptions<RazorComponentsServiceOptions>, DefaultRazorComponentsServiceOptionsConfiguration>());
-        //services.TryAddScoped<EndpointRoutingStateProvider>();
-        //services.TryAddScoped<IRoutingStateProvider>(sp => sp.GetRequiredService<EndpointRoutingStateProvider>());
-        //services.AddSupplyValueFromQueryProvider();
-
-        return services;
+        return razorComponentsBuilder;
     }
 }

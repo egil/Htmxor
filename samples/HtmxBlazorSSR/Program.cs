@@ -7,13 +7,12 @@ using Htmxor.Antiforgery;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents();
 builder.Services.AddScoped<Archiver>();
 builder.Services.AddScoped<DiskStorage>();
 builder.Services.AddScoped<ContactsRepository>();
 builder.Services.AddFlashMessages();
 
-builder.Services.AddHtmx(config =>
+builder.Services.AddRazorComponents().AddHtmx(config =>
 {
     config.SelfRequestsOnly = true;
 });
