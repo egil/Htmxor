@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using Htmxor.Rendering;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
@@ -50,7 +51,7 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
                 builder.Metadata.Add(new SuppressLinkGenerationMetadata());
                 builder.Metadata.Add(new HttpMethodMetadata(hxRoute.Methods, false));
                 builder.Metadata.Add(new ComponentTypeMetadata(componentInfo.ComponentType));
-                builder.Metadata.Add(new RootComponentMetadata(componentInfo.ComponentType));
+                builder.Metadata.Add(new RootComponentMetadata(typeof(HtmxorComponentRequestHost)));
                 builder.Metadata.Add(new HtmxorEndpointMetadata(hxRoute));
 
                 builder.RequestDelegate = static httpContext =>

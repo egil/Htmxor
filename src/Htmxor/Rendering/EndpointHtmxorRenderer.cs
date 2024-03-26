@@ -3,6 +3,7 @@
 
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using Htmxor.DependencyInjection;
 using Htmxor.FormMapping;
 using Microsoft.AspNetCore.Components;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -101,15 +103,21 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
         var componentApplicationLifetime = httpContext.RequestServices.GetRequiredService<ComponentStatePersistenceManager>();
         await componentApplicationLifetime.RestoreStateAsync(new PrerenderComponentApplicationStore());
 
-        if (componentType != null)
+        if (componentType is not null)
         {
-            // Saving RouteData to avoid routing twice in Router component
-            var routingStateProvider = httpContext.RequestServices.GetRequiredService<EndpointRoutingStateProvider>();
-            routingStateProvider.RouteData = new RouteData(componentType, httpContext.GetRouteData().Values);
-            if (httpContext.GetEndpoint() is RouteEndpoint endpoint)
-            {
-                routingStateProvider.RouteData.Template = endpoint.RoutePattern.RawText;
-            }
+            SetRouteData(httpContext, componentType);
+        }
+    }
+
+    private static void SetRouteData(HttpContext httpContext, Type componentType)
+    {
+        // Saving RouteData to avoid routing twice in Router component
+        var routingStateProvider = httpContext.RequestServices.GetRequiredService<EndpointRoutingStateProvider>();
+        routingStateProvider.RouteData = new RouteData(componentType, httpContext.GetRouteData().Values);
+        if (httpContext.GetEndpoint() is RouteEndpoint endpoint)
+        {
+            routingStateProvider.RoutePattern = endpoint.RoutePattern;
+            routingStateProvider.RouteData.Template = endpoint.RoutePattern.RawText;
         }
     }
 
