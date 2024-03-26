@@ -27,8 +27,13 @@ internal sealed class HttpContextFormValueMapper : IFormValueMapper
         IOptions<RazorComponentsServiceOptions> options)
     {
         _formData = formData;
-        _options = (FormDataMapperOptions)typeof(RazorComponentsServiceOptions).GetField("_formMappingOptions", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(options.Value)!;
-        //_options = options.Value._formMappingOptions;
+        _options = new()
+        {
+            MaxCollectionSize = options.Value.MaxFormMappingCollectionSize,
+            MaxRecursionDepth = options.Value.MaxFormMappingRecursionDepth,
+            MaxErrorCount = options.Value.MaxFormMappingErrorCount,
+            MaxKeyBufferSize = options.Value.MaxFormMappingKeySize,
+        };
     }
 
     public bool CanMap(Type valueType, string scopeName, string? formName)

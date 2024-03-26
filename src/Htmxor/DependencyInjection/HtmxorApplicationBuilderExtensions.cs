@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
+using Microsoft.AspNetCore.Components.Forms.Mapping;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Http;
@@ -38,8 +39,11 @@ public static class HtmxorApplicationBuilderExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, HtmxorComponentEndpointMatcherPolicy>());
         services.AddScoped<EndpointRoutingStateProvider>();
         services.AddScoped<IRoutingStateProvider>(sp => sp.GetRequiredService<EndpointRoutingStateProvider>());
-
+        
         // Override rendering
+        services.AddScoped<Htmxor.FormMapping.HttpContextFormDataProvider>();
+        services.AddScoped<IFormValueMapper, Htmxor.FormMapping.HttpContextFormValueMapper>();
+
         services.AddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
         services.AddScoped<IRazorComponentEndpointInvoker>(x => x.GetRequiredService<IHtmxorComponentEndpointInvoker>());
         services.AddScoped<EndpointHtmxorRenderer>();

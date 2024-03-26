@@ -25,7 +25,7 @@ internal partial class StaticHtmxorRenderer
             typeof(CascadingParameterInfo),
             BindingFlags.NonPublic | BindingFlags.Instance,
             binder: null,
-            args: [(CascadingParameterAttributeBase)new CascadingParameterAttribute(), string.Empty, typeof(FormMappingContext)],
+            args: [new CascadingParameterAttribute(), string.Empty, typeof(FormMappingContext)],
             culture: CultureInfo.InvariantCulture)!;
 
     private readonly TextEncoder _javaScriptEncoder;
