@@ -1,0 +1,35 @@
+﻿@page "/click-to-edit-1/contact/{id:int}"
+@attribute [HxRoute("/click-to-edit-1/contact/{id:int}", Methods = ["GET", "PUT"])]
+@inject DataStore store
+@code {
+    [SupplyParameterFromForm]
+    public Contact? Contact { get; set; }
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (Contact is not null)
+        {
+            store.Store(Contact with
+            {
+                Id = Id,
+            });
+        }
+
+        Contact = store.GetOrDefault<Contact>(Id);
+    }
+}
+@if (Contact is null)
+{
+    return;
+}
+<div hx-target="this" hx-swap="outerHTML">
+    <div><label>First Name</label>: @Contact.FirstName</div>
+    <div><label>Last Name</label>: @Contact.LastName</div>
+    <div><label>Email</label>: @Contact.Email</div>
+    <button hx-get="/click-to-edit-1/contact/@Id/edit" class="btn btn-primary">
+        Click To Edit
+    </button>
+</div>

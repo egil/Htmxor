@@ -1,10 +1,12 @@
 using Htmxor.Builder;
+using Htmxor.TestApp;
 using Htmxor.TestApp.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents().AddHtmx();
+builder.Services.AddSingleton<DataStore>();
 
 var app = builder.Build();
 
