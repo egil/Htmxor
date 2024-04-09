@@ -4,11 +4,12 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Reflection;
 using Htmxor.DependencyInjection;
-using Htmxor.FormMapping;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Endpoints;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Infrastructure;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
@@ -42,6 +43,7 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
 {
     private readonly IServiceProvider _services;
     private readonly RazorComponentsServiceOptions _options;
+    private readonly static Type httpContextFormDataProviderType;
     private Task? _servicesInitializedTask;
     private HttpContext _httpContext = default!; // Always set at the start of an inbound call
 
@@ -50,6 +52,15 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
     // the subset of those that are from the non-streaming subtrees, since we want the response to
     // wait for the non-streaming tasks (these ones), then start streaming until full quiescence.
     private readonly List<Task> _nonStreamingPendingTasks = new();
+
+    static EndpointHtmxorRenderer()
+    {
+        httpContextFormDataProviderType = AppDomain
+            .CurrentDomain
+            .GetAssemblies()
+            .SelectMany(assembly => assembly.GetTypes())
+            .First(t => t.FullName == "Microsoft.AspNetCore.Components.Endpoints.HttpContextFormDataProvider");
+    }
 
     public EndpointHtmxorRenderer(IServiceProvider serviceProvider, ILoggerFactory loggerFactory)
         : base(serviceProvider, loggerFactory)
@@ -87,16 +98,22 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
             authenticationStateProvider.SetAuthenticationState(Task.FromResult(authenticationState));
         }
 
-        if (handler != null && form != null)
+        if (form is not null)
         {
-            httpContext.RequestServices.GetRequiredService<HttpContextFormDataProvider>()
-                .SetFormData(handler, new FormCollectionReadOnlyDictionary(form), form.Files);
+            var httpContextFormDataProvider = httpContext.RequestServices.GetService(httpContextFormDataProviderType);
+            httpContextFormDataProviderType.GetMethod("SetFormData", BindingFlags.Instance | BindingFlags.Public)!
+                .Invoke(httpContextFormDataProvider, [handler ?? "", new FormCollectionReadOnlyDictionary(form), form.Files]);
+
+            //httpContext
+            //    .RequestServices
+            //    .GetRequiredService<HttpContextFormDataProvider>()
+            //    .SetFormData(handler ?? "", new FormCollectionReadOnlyDictionary(form), form.Files);
         }
 
-        //if (httpContext.RequestServices.GetService<AntiforgeryStateProvider>() is EndpointAntiforgeryStateProvider antiforgery)
-        //{
-        //    antiforgery.SetRequestContext(httpContext);
-        //}
+        if (httpContext.RequestServices.GetService<AntiforgeryStateProvider>() is EndpointAntiforgeryStateProvider antiforgery)
+        {
+            antiforgery.SetRequestContext(httpContext);
+        }
 
         // It's important that this is initialized since a component might try to restore state during prerendering
         // (which will obviously not work, but should not fail)

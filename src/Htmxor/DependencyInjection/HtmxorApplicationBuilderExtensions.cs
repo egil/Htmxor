@@ -41,16 +41,13 @@ public static class HtmxorApplicationBuilderExtensions
         services.AddScoped<IRoutingStateProvider>(sp => sp.GetRequiredService<EndpointRoutingStateProvider>());
         
         // Override rendering
-        services.AddScoped<Htmxor.FormMapping.HttpContextFormDataProvider>();
-        services.AddScoped<IFormValueMapper, Htmxor.FormMapping.HttpContextFormValueMapper>();
-
         services.AddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
         services.AddScoped<IRazorComponentEndpointInvoker>(x => x.GetRequiredService<IHtmxorComponentEndpointInvoker>());
         services.AddScoped<EndpointHtmxorRenderer>();
-        services.TryAddCascadingValue(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext);
+        services.AddCascadingValue(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext!);
 
         // Add Htmxor services
-        services.AddSingleton<HtmxConfig>(x =>
+        services.AddSingleton(x =>
         {
             var config = new HtmxConfig
             {
@@ -60,6 +57,7 @@ public static class HtmxorApplicationBuilderExtensions
             return config;
         });
         services.AddScoped(srv => srv.GetRequiredService<IHttpContextAccessor>().HttpContext!.GetHtmxContext());
+        services.AddCascadingValue(sp => sp.GetRequiredService<HtmxContext>());
 
         return razorComponentsBuilder;
     }

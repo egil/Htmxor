@@ -5,6 +5,7 @@ using System.Buffers;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Encodings.Web;
+using Htmxor.Http;
 using Htmxor.Rendering.Buffering;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
@@ -81,7 +82,9 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             context,
             componentType: pageComponent,
             handler: result.HandlerName,
-            form: result.HandlerName != null && context.Request.HasFormContentType ? await context.Request.ReadFormAsync() : null);
+            form: result.IsFormDataRequest && context.Request.HasFormContentType 
+                ? await context.Request.ReadFormAsync() 
+                : null);
 
         // Matches MVC's MemoryPoolHttpResponseStreamWriterFactory.DefaultBufferSize
         var defaultBufferSize = 16 * 1024;
@@ -95,10 +98,10 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             context,
             rootComponent,
             ParameterView.Empty,
-            waitForQuiescence: result.IsPost || isErrorHandler);
+            waitForQuiescence: result.IsFormDataRequest || isErrorHandler);
 
         Task quiesceTask;
-        if (!result.IsPost)
+        if (!result.IsFormDataRequest)
         {
             quiesceTask = htmlContent.QuiescenceTask;
         }
@@ -147,11 +150,13 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
         }
 
         // Emit comment containing state.
-        if (!isErrorHandler)
-        {
-            var componentStateHtmlContent = await _renderer.PrerenderPersistedStateAsync(context);
-            componentStateHtmlContent.WriteTo(bufferWriter, HtmlEncoder.Default);
-        }
+        // <!--Blazor-Server-Component-State:... -->
+        // <!--Blazor-WebAssembly-Component-State:...-->
+        //if (!isErrorHandler)
+        //{
+        //    var componentStateHtmlContent = await _renderer.PrerenderPersistedStateAsync(context);
+        //    componentStateHtmlContent.WriteTo(bufferWriter, HtmlEncoder.Default);
+        //}
 
         // Invoke FlushAsync to ensure any buffered content is asynchronously written to the underlying
         // response asynchronously. In the absence of this line, the buffer gets synchronously written to the
@@ -161,11 +166,14 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 
     private async Task<RequestValidationState> ValidateRequestAsync(HttpContext context, IAntiforgery? antiforgery)
     {
-        var processPost = HttpMethods.IsPost(context.Request.Method) &&
+        var processPost = HttpMethods.IsPost(context.Request.Method)
+            // Htmx supports both PUT and PATCH in addition to POST.
+            || HttpMethods.IsPut(context.Request.Method)
+            || HttpMethods.IsPatch(context.Request.Method)
             // Disable POST functionality during exception handling.
             // The exception handler middleware will not update the request method, and we don't
             // want to run the form handling logic against the error page.
-            context.Features.Get<IExceptionHandlerFeature>() == null;
+            && context.Features.Get<IExceptionHandlerFeature>() == null;
 
         if (processPost)
         {
@@ -213,17 +221,20 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
                 {
                     await context.Response.WriteAsync("A valid antiforgery token was not provided with the request. Add an antiforgery token, or disable antiforgery validation for this endpoint.");
                 }
+
                 return RequestValidationState.InvalidPostRequest;
             }
 
             // Read the form asynchronously to ensure Request.Form has been populated.
             await context.Request.ReadFormAsync();
 
-            var handler = GetFormHandler(context, out var isBadRequest);
-            return new(valid && !isBadRequest, processPost, handler);
+            var handler = GetFormHandler(context, out var isBadRequest);            
+            return handler is null && !isBadRequest 
+                ? RequestValidationState.ValidHtmxorFormDataRequest
+                : new RequestValidationState(valid && !isBadRequest, processPost, handler);
         }
 
-        return RequestValidationState.ValidNonPostRequest;
+        return RequestValidationState.ValidNonFormDataRequest;
     }
 
     private static string? GetFormHandler(HttpContext context, out bool isBadRequest)
@@ -245,20 +256,21 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
     }
 
     [DebuggerDisplay($"{{{nameof(GetDebuggerDisplay)}(),nq}}")]
-    private readonly struct RequestValidationState(bool isValid, bool isPost, string? handlerName)
+    private readonly struct RequestValidationState(bool isValid, bool isFormDataRequest, string? handlerName)
     {
-        public static readonly RequestValidationState ValidNonPostRequest = new(true, false, null);
+        public static readonly RequestValidationState ValidHtmxorFormDataRequest = new(true, true, null);
+        public static readonly RequestValidationState ValidNonFormDataRequest = new(true, false, null);
         public static readonly RequestValidationState InvalidPostRequest = new(false, true, null);
 
         public bool IsValid => isValid;
 
-        public bool IsPost => isPost;
+        public bool IsFormDataRequest => isFormDataRequest;
 
         public string? HandlerName => handlerName;
 
         private string GetDebuggerDisplay()
         {
-            return $"IsValid = {IsValid}, IsPost = {IsPost}, HandlerName = {HandlerName}";
+            return $"IsValid = {IsValid}, IsFormDataRequest = {IsFormDataRequest}, HandlerName = {HandlerName}";
         }
     }
 
