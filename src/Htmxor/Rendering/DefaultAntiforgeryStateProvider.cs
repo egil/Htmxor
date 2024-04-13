@@ -15,9 +15,9 @@ internal class DefaultAntiforgeryStateProvider : AntiforgeryStateProvider, IDisp
     private readonly AntiforgeryRequestToken? _currentToken;
 
     [UnconditionalSuppressMessage(
-    "Trimming",
-    "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
-    Justification = $"{nameof(DefaultAntiforgeryStateProvider)} uses the {nameof(PersistentComponentState)} APIs to deserialize the token, which are already annotated.")]
+        "Trimming",
+        "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
+        Justification = $"{nameof(DefaultAntiforgeryStateProvider)} uses the {nameof(PersistentComponentState)} APIs to deserialize the token, which are already annotated.")]
     public DefaultAntiforgeryStateProvider(PersistentComponentState state)
     {
         // Automatically flow the Request token to server/wasm through

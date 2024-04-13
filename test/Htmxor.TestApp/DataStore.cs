@@ -1,11 +1,12 @@
 ﻿using System.Collections.Concurrent;
+using Htmxor.TestApp.Components.Pages.ClickToEdit1;
 
 namespace Htmxor.TestApp;
 
 public class DataStore
 {
     private ConcurrentDictionary<(int Id, Type Type), object?> data = new();
-
+    
     public int GetNextId<T>() where T : IStoreItem
         => data.Keys
             .Where(x => x.Type == typeof(T))

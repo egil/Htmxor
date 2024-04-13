@@ -37,15 +37,4 @@ public class TestAppTestBase : IClassFixture<TestAppFixture>
             </html>
             """;
     }
-
-    public async Task<AntiforgeryTokenSet> GetAntiforgeryToken()
-    {
-        var response = await Host.Scenario(s =>
-        {
-            s.Get.Url("/");
-            s.StatusCodeShouldBeOk();
-        });
-        var options = Host.Services.GetRequiredService<IAntiforgery>();
-        return options.GetTokens(response.Context);
-    }
 }

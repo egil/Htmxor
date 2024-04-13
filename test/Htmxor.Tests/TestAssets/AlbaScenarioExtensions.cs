@@ -4,10 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Htmxor.Http;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.TestAssets;
 
-internal static class AlbaUrlExpressionExtensions
+internal static class AlbaScenarioExtensions
 {
     public static Scenario WithHxHeaders(
         this Scenario scenario,
@@ -55,6 +58,24 @@ internal static class AlbaUrlExpressionExtensions
         {
             scenario.WithRequestHeader(HtmxRequestHeaderNames.Prompt, prompt);
         }
+
+        return scenario;
+    }
+
+    public static Scenario WithAntiforgeryTokensFrom(this Scenario scenario, IAlbaHost host)
+    {
+        var tempContext = new DefaultHttpContext();
+
+        var defaultTokenSet = host.Services.GetRequiredService<IAntiforgery>().GetAndStoreTokens(tempContext);
+
+        var cookieTokenSet = tempContext
+            .Response
+            .Headers["Set-Cookie"]
+            .Single(x => x is not null && x.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal))!
+            .Split('=', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        scenario.WithRequestHeader(defaultTokenSet.HeaderName!, defaultTokenSet.RequestToken!);
+        scenario.WithRequestHeader("Cookie", $"{cookieTokenSet[0]}={defaultTokenSet.CookieToken}");
 
         return scenario;
     }

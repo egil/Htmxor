@@ -82,8 +82,8 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             context,
             componentType: pageComponent,
             handler: result.HandlerName,
-            form: result.IsFormDataRequest && context.Request.HasFormContentType 
-                ? await context.Request.ReadFormAsync() 
+            form: result.IsFormDataRequest && context.Request.HasFormContentType
+                ? await context.Request.ReadFormAsync()
                 : null);
 
         // Matches MVC's MemoryPoolHttpResponseStreamWriterFactory.DefaultBufferSize
@@ -109,11 +109,19 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
         {
             try
             {
-                var isBadRequest = false;
-                quiesceTask = _renderer.DispatchSubmitEventAsync(result.HandlerName, out isBadRequest);
-                if (isBadRequest)
+                // For now, only attemp to dispatch events if this is not a HX request
+                if (!context.GetHtmxContext().Request.IsHtmxRequest)
                 {
-                    return;
+                    var isBadRequest = false;
+                    quiesceTask = _renderer.DispatchSubmitEventAsync(result.HandlerName, out isBadRequest);
+                    if (isBadRequest)
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    quiesceTask = Task.CompletedTask;
                 }
 
                 await _renderer.WaitForNonStreamingPendingTasks();
@@ -228,8 +236,8 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             // Read the form asynchronously to ensure Request.Form has been populated.
             await context.Request.ReadFormAsync();
 
-            var handler = GetFormHandler(context, out var isBadRequest);            
-            return handler is null && !isBadRequest 
+            var handler = GetFormHandler(context, out var isBadRequest);
+            return handler is null && !isBadRequest
                 ? RequestValidationState.ValidHtmxorFormDataRequest
                 : new RequestValidationState(valid && !isBadRequest, processPost, handler);
         }

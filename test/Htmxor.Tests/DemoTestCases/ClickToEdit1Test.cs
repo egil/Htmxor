@@ -2,6 +2,7 @@
 using Htmxor.TestApp;
 using Htmxor.TestApp.Components.Pages.ClickToEdit1;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.DemoTestCases;
@@ -142,6 +143,44 @@ public class ClickToEdit1Test : TestAppTestBase
                   <button class="btn">Submit</button>
                   <button class="btn" hx-get="/click-to-edit-1/contact/{contact.Id}">Cancel</button>
                 </form>
+                """);
+        });
+    }
+
+    [Fact]
+    public async Task Hx_put_view()
+    {
+        var contact = new Contact
+        {
+            Id = DataStore.GetNextId<Contact>(),
+            FirstName = "Joe",
+            LastName = "Blow",
+            Email = "joe@blow.com",
+        };
+        DataStore.Store(contact);
+
+        await Host.Scenario(s =>
+        {
+            s.Put.FormData(new()
+                {
+                    { "Contact.FirstName", "Foo" },
+                    { "Contact.LastName", "Bar" },
+                    { "Contact.Email", "foo@bar.com" },
+                })
+                .ToUrl($"/click-to-edit-1/contact/{contact.Id}");
+            s.WithAntiforgeryTokensFrom(Host);
+            s.WithHxHeaders();
+
+            s.StatusCodeShouldBe(HttpStatusCode.OK);
+            s.ContentShouldBeHtml($"""
+                <div hx-target="this" hx-swap="outerHTML">
+                    <div><label>First Name</label>: Foo</div>
+                    <div><label>Last Name</label>: Bar</div>
+                    <div><label>Email</label>: foo@bar.com</div>
+                    <button hx-get="/click-to-edit-1/contact/{contact.Id}/edit" class="btn btn-primary">
+                        Click To Edit
+                    </button>
+                </div>
                 """);
         });
     }

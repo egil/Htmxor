@@ -2,22 +2,21 @@
 @page "/click-to-edit-1/contact/{Id:int}/edit"
 @inject DataStore store
 @code {
-    private Contact? contact;
+    private Contact contact = default!;
 
     [Parameter]
     public int Id { get; set; }
 
     protected override void OnInitialized()
     {
-        contact = store.GetOrDefault<Contact>(Id);
+        contact = store.GetOrDefault<Contact>(Id) ?? new Contact
+        {
+            Id = store.GetNextId<Contact>()
+        };
+        Id = contact.Id;
     }
 }
-@if (contact is null)
-{
-    return;
-}
 <form hx-put="/click-to-edit-1/contact/@Id" hx-target="this" hx-swap="outerHTML">
-    @*     <input type="hidden" name="Contact.Id" value="@contact.Id" /> *@
     <div>
         <label>First Name</label>
         <input type="text" name="Contact.FirstName" value="@contact.FirstName">
