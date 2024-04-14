@@ -41,9 +41,9 @@ namespace Htmxor.Rendering;
 /// </summary>
 internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponentPrerenderer
 {
+    private readonly static Type httpContextFormDataProviderType;
     private readonly IServiceProvider _services;
     private readonly RazorComponentsServiceOptions _options;
-    private readonly static Type httpContextFormDataProviderType;
     private Task? _servicesInitializedTask;
     private HttpContext _httpContext = default!; // Always set at the start of an inbound call
 
@@ -100,14 +100,18 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
 
         if (form is not null)
         {
-            var httpContextFormDataProvider = httpContext.RequestServices.GetService(httpContextFormDataProviderType);
-            httpContextFormDataProviderType.GetMethod("SetFormData", BindingFlags.Instance | BindingFlags.Public)!
-                .Invoke(httpContextFormDataProvider, [handler ?? "", new FormCollectionReadOnlyDictionary(form), form.Files]);
-
+            // This code has been replaced by the reflection based code below it.
             //httpContext
             //    .RequestServices
             //    .GetRequiredService<HttpContextFormDataProvider>()
             //    .SetFormData(handler ?? "", new FormCollectionReadOnlyDictionary(form), form.Files);
+
+            var httpContextFormDataProvider = httpContext
+                .RequestServices
+                .GetService(httpContextFormDataProviderType);
+            httpContextFormDataProviderType
+                .GetMethod("SetFormData", BindingFlags.Instance | BindingFlags.Public)!
+                .Invoke(httpContextFormDataProvider, [handler ?? "", new FormCollectionReadOnlyDictionary(form), form.Files]);
         }
 
         if (httpContext.RequestServices.GetService<AntiforgeryStateProvider>() is EndpointAntiforgeryStateProvider antiforgery)
