@@ -56,7 +56,7 @@ public static class HtmxorApplicationBuilderExtensions
             configurHtmx?.Invoke(config);
             return config;
         });
-        services.AddScoped(srv => srv.GetRequiredService<IHttpContextAccessor>().HttpContext!.GetHtmxContext());
+        services.AddScoped(srv => srv.GetRequiredService<EndpointHtmxorRenderer>().HttpContext!.GetHtmxContext());
         services.AddCascadingValue(sp => sp.GetRequiredService<HtmxContext>());
 
         return razorComponentsBuilder;
