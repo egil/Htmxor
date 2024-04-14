@@ -1,6 +1,5 @@
 ﻿@attribute [HxRoute("/click-to-edit-1/contact/{id:int}/edit", Methods = ["GET", "PUT"])]
 @page "/click-to-edit-1/contact/{Id:int}/edit"
-@inject DataStore store
 @code {
     private Contact contact = default!;
 
@@ -9,9 +8,9 @@
 
     protected override void OnInitialized()
     {
-        contact = store.GetOrDefault<Contact>(Id) ?? new Contact
+        contact = DataStore.GetOrDefault<Contact>(Id) ?? new Contact
         {
-            Id = store.GetNextId<Contact>()
+                Id = DataStore.GetNextId<Contact>()
         };
         Id = contact.Id;
     }

@@ -8,12 +8,9 @@ public class TestAppTestBase : IClassFixture<TestAppFixture>
 {
     public IAlbaHost Host { get; private set; }
 
-    public DataStore DataStore { get; private set; }
-
     protected TestAppTestBase(TestAppFixture fixture)
     {
         Host = fixture.Host;
-        DataStore = fixture.Host.Services.GetRequiredService<DataStore>();
     }
 
     public static string FullPageContent(string bodyInnerHtml, string? title = null)

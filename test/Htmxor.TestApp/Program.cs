@@ -6,7 +6,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents().AddHtmx();
-builder.Services.AddSingleton<DataStore>();
 
 var app = builder.Build();
 

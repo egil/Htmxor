@@ -1,6 +1,5 @@
 ﻿@page "/click-to-edit-1/contact/{id:int}"
 @attribute [HxRoute("/click-to-edit-1/contact/{id:int}", Methods = ["GET", "PUT"])]
-@inject DataStore store
 @code {
     [SupplyParameterFromForm]
     public Contact? Contact { get; set; }
@@ -12,13 +11,13 @@
     {
         if (Contact is not null)
         {
-            store.Store(Contact with
+            DataStore.Store(Contact with
             {
                 Id = Id,
             });
         }
 
-        Contact = store.GetOrDefault<Contact>(Id);
+        Contact = DataStore.GetOrDefault<Contact>(Id);
     }
 }
 @if (Contact is null)
