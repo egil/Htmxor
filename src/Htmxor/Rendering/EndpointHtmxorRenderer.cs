@@ -167,29 +167,7 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
     {
         UpdateNamedSubmitEvents(in renderBatch);
 
-        if (_streamingUpdatesWriter is { } writer)
-        {
-            // Important: SendBatchAsStreamingUpdate *must* be invoked synchronously
-            // before any 'await' in this method. That's enforced by the compiler
-            // (the method has an 'in' parameter) but even if it wasn't, it would still
-            // be important, because the RenderBatch buffers may be overwritten as soon
-            // as we yield the sync context. The only alternative would be to clone the
-            // batch deeply, or serialize it synchronously (e.g., via RenderBatchWriter).
-            SendBatchAsStreamingUpdate(renderBatch, writer);
-            return FlushThenComplete(writer, base.UpdateDisplayAsync(renderBatch));
-        }
-        else
-        {
-            return base.UpdateDisplayAsync(renderBatch);
-        }
-
-        // Workaround for methods with "in" parameters not being allowed to be async
-        // We resolve the "result" first and then combine it with the FlushAsync task here
-        static async Task FlushThenComplete(TextWriter writerToFlush, Task completion)
-        {
-            await writerToFlush.FlushAsync();
-            await completion;
-        }
+        return base.UpdateDisplayAsync(renderBatch);
     }
 
     private static string GetFullUri(HttpRequest request)

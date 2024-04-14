@@ -19,11 +19,6 @@ internal partial class EndpointHtmxorRenderer
 
     protected override IComponent ResolveComponentForRenderMode([DynamicallyAccessedMembers(Component)] Type componentType, int? parentComponentId, IComponentActivator componentActivator, IComponentRenderMode renderMode)
     {
-        if (_isHandlingErrors)
-        {
-            // Ignore the render mode boundary in error scenarios.
-            return componentActivator.CreateInstance(componentType);
-        }
         var closestRenderModeBoundary = parentComponentId.HasValue
             ? GetClosestRenderModeBoundary(parentComponentId.Value)
             : null;
@@ -202,8 +197,7 @@ internal partial class EndpointHtmxorRenderer
                 "Navigation commands can not be issued during server-side prerendering after the response from the server has started. Applications must buffer the" +
                 "response and avoid using features like FlushAsync() before all components on the page have been rendered to prevent failed navigation commands.");
         }
-        else if (IsPossibleExternalDestination(httpContext.Request, navigationException.Location)
-            && IsProgressivelyEnhancedNavigation(httpContext.Request))
+        else if (IsPossibleExternalDestination(httpContext.Request, navigationException.Location))
         {
             // For progressively-enhanced nav, we prefer to use opaque redirections for external URLs rather than
             // forcing the request to be retried, since that allows post-redirect-get to work, plus avoids a

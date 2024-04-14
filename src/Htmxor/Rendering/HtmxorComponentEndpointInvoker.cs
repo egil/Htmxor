@@ -47,7 +47,6 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
         {
             Log.InteractivityDisabledForErrorHandling(_logger);
         }
-        _renderer.InitializeStreamingRenderingFraming(context, isErrorHandler);
         EndpointHtmxorRenderer.MarkAsAllowingEnhancedNavigation(context);
 
         var endpoint = context.GetEndpoint() ?? throw new InvalidOperationException($"An endpoint must be set on the '{nameof(HttpContext)}'.");
@@ -147,24 +146,6 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
         // streaming SSR batches (inside SendStreamingUpdatesAsync). Otherwise some other code might dispatch to the
         // renderer sync context and cause a batch that would get missed.
         htmlContent.WriteTo(bufferWriter, HtmlEncoder.Default); // Don't use WriteToAsync, as per the comment above
-
-        if (!quiesceTask.IsCompletedSuccessfully)
-        {
-            await _renderer.SendStreamingUpdatesAsync(context, quiesceTask, bufferWriter);
-        }
-        else
-        {
-            //_renderer.EmitInitializersIfNecessary(context, bufferWriter);
-        }
-
-        // Emit comment containing state.
-        // <!--Blazor-Server-Component-State:... -->
-        // <!--Blazor-WebAssembly-Component-State:...-->
-        //if (!isErrorHandler)
-        //{
-        //    var componentStateHtmlContent = await _renderer.PrerenderPersistedStateAsync(context);
-        //    componentStateHtmlContent.WriteTo(bufferWriter, HtmlEncoder.Default);
-        //}
 
         // Invoke FlushAsync to ensure any buffered content is asynchronously written to the underlying
         // response asynchronously. In the absence of this line, the buffer gets synchronously written to the
