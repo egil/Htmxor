@@ -1,6 +1,6 @@
 ﻿using Htmxor.Blazewright;
 using Htmxor.TestApp;
-using Htmxor.TestApp.Components.Pages.ClickToEdit1;
+using Htmxor.TestApp.Components.Pages.Examples;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Playwright;
 using Xunit.Abstractions;

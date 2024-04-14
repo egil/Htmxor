@@ -1,4 +1,4 @@
-﻿namespace Htmxor.TestApp.Components.Pages.ClickToEdit1;
+﻿namespace Htmxor.TestApp.Components.Pages.Examples;
 
 public record class Contact : IStoreItem
 {

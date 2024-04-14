@@ -1,0 +1,63 @@
+﻿@page "/click-to-edit-3/contact/{id:int}"
+@page "/click-to-edit-3/contact/{id:int}/edit"
+@attribute [HxRoute("/click-to-edit-3/contact/{id:int}", Methods = ["GET", "PUT"])]
+@attribute [HxRoute("/click-to-edit-3/contact/{id:int}/edit", Methods = ["GET"])]
+@inject NavigationManager navMan
+@code {
+    private bool editMode;
+
+    [SupplyParameterFromForm]
+    public Contact Contact { get; set; } = null!;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override void OnInitialized()
+    {
+        editMode = navMan.Uri.EndsWith("/edit", StringComparison.OrdinalIgnoreCase);
+
+        if (Contact is not null)
+        {
+            DataStore.Store(Contact with
+            {
+                Id = Id,
+            });
+        }
+
+        Contact = DataStore.GetOrDefault<Contact>(Id) ?? new Contact
+        {
+            Id = DataStore.GetNextId<Contact>()
+        };
+        Id = Contact.Id;
+    }
+}
+@if (editMode)
+{
+    <EditForm Model="@Contact" hx-put=@($"/click-to-edit-3/contact/{Id}") hx-target="this" hx-swap="outerHTML">
+        <div>
+            <label>First Name</label>
+            <InputText @bind-Value="@Contact.FirstName" />
+        </div>
+        <div class="form-group">
+            <label>Last Name</label>
+            <InputText @bind-Value="@Contact.LastName" />
+        </div>
+        <div class="form-group">
+            <label>Email Address</label>
+            <InputText type="email" @bind-Value="@Contact.Email" />
+        </div>
+        <button class="btn">Submit</button>
+        <button class="btn" hx-get="/click-to-edit-3/contact/@Id">Cancel</button>
+    </EditForm>
+}
+else
+{
+    <div hx-target="this" hx-swap="outerHTML">
+        <div><label>First Name</label>: @Contact.FirstName</div>
+        <div><label>Last Name</label>: @Contact.LastName</div>
+        <div><label>Email</label>: @Contact.Email</div>
+        <button hx-get="/click-to-edit-3/contact/@Id/edit" class="btn btn-primary">
+            Click To Edit
+        </button>
+    </div>
+}

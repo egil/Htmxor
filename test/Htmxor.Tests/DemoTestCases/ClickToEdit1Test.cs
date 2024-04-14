@@ -1,6 +1,6 @@
 ﻿using System.Net;
 using Htmxor.TestApp;
-using Htmxor.TestApp.Components.Pages.ClickToEdit1;
+using Htmxor.TestApp.Components.Pages.Examples;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;

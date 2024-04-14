@@ -1,5 +1,5 @@
 ﻿using System.Collections.Concurrent;
-using Htmxor.TestApp.Components.Pages.ClickToEdit1;
+using Htmxor.TestApp.Components.Pages.Examples;
 
 namespace Htmxor.TestApp;
 
@@ -9,9 +9,12 @@ public static class DataStore
 
     static DataStore()
     {
-        data.TryAdd(
-            (1, typeof(Contact)),
-            new Contact { Id = 1, FirstName = "Joe", LastName = "Blow", Email = "joe@blow.com" });
+        data.TryAdd((1, typeof(Contact)), new Contact { Id = 1, FirstName = "Joe", LastName = "Blow", Email = "joe@blow.com" });
+
+        data.TryAdd((1, typeof(User)), new User { Id = 1, Name = "Alice", Email = "alice@example.com", Active = true });
+        data.TryAdd((2, typeof(User)), new User { Id = 2, Name = "Bob", Email = "bob@example.com", Active = true });
+        data.TryAdd((3, typeof(User)), new User { Id = 3, Name = "Charlie", Email = "charlie@example.com", Active = true });
+        data.TryAdd((4, typeof(User)), new User { Id = 4, Name = "Dave", Email = "dave@example.com", Active = true });
     }
 
     public static int GetNextId<T>() where T : IStoreItem
@@ -27,6 +30,11 @@ public static class DataStore
         return data.TryGetValue((id, typeof(T)), out var value) && value is T result
             ? result
             : default(T);
+    }
+
+    public static IEnumerable<T> OfType<T>()
+    {
+        return data.Values.OfType<T>();
     }
 
     public static void Store<T>(T value)
