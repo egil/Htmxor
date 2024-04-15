@@ -16,3 +16,4 @@ retaining all the advantages of Blazor SSR stateless nature.
 
 - [BlazorSSR - pure Blazor SSR](https://github.com/egil/Htmxor/tree/main/samples/BlazorSSR)
 - [HtmxBlazorSSR - pure Blazor SSR](https://github.com/egil/Htmxor/tree/main/samples/HtmxBlazorSSR)
+- [Htmxor - TestApp](https://github.com/egil/Htmxor/tree/main/test/Htmxor.TestApp)

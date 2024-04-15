@@ -27,3 +27,13 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+#toast.htmx-settling {
+    opacity: 100;
+}
+
+#toast {
+    background: #E1F0DA;
+    opacity: 0;
+    transition: opacity 3s ease-out;
+}

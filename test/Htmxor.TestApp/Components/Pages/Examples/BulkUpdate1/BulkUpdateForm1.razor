@@ -1,0 +1,68 @@
+﻿@page "/bulk-update-1"
+@attribute [HxRoute("/bulk-update-1")]
+@inject HtmxContext hxContext
+@code {
+    private string? toast;
+
+    [SupplyParameterFromForm]
+    public List<int>? Active { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (Active is not null)
+        {
+            var activated = 0;
+            var deactivated = 0;
+            foreach (var user in DataStore.OfType<User>())
+            {
+                var current = user.Active;
+                user.Active = Active.Contains(user.Id);
+                if (current != user.Active)
+                {
+                    if (user.Active)
+                    {
+                        activated++;
+                    }
+                    else
+                    {
+                        deactivated++;
+                    }
+                }
+            }
+
+            toast = $"Activated {activated} and deactivated {deactivated} users.";
+        }
+        else
+        {
+            toast = null;
+        }
+    }
+}
+<form id="checked-contacts"
+      hx-post="/bulk-update-1"
+      hx-swap="outerHTML settle:3s"
+      hx-target="#toast">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Active</th>
+            </tr>
+        </thead>
+        <tbody id="tbody">
+            @foreach (var user in DataStore.OfType<User>())
+            {
+                <tr>
+                    <td>@user.Name</td>
+                    <td>@user.Email</td>
+                    <td><input type="checkbox" name=@nameof(Active) value=@user.Id checked=@user.Active></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <input type="submit" value="Bulk Update">
+    <HtmxPartial>
+        <span id="toast" aria-live="polite">@toast</span>
+    </HtmxPartial>
+</form>

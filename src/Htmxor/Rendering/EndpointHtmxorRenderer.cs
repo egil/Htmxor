@@ -5,7 +5,9 @@ using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using Htmxor.Components;
 using Htmxor.DependencyInjection;
+using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Endpoints;
@@ -130,6 +132,49 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
         }
     }
 
+    protected internal override void WriteComponentHtml(int componentId, TextWriter output)
+    {
+        var htmxContext = _httpContext.GetHtmxContext();
+        if (htmxContext.Request.IsHtmxRequest)
+        {
+            var matchingPartialComponentId = FindPartialComponentMatchingRequest(componentId, htmxContext);
+            base.WriteComponentHtml(
+                matchingPartialComponentId.HasValue ? matchingPartialComponentId.Value : componentId,
+                output);
+        }
+        else
+        {
+            base.WriteComponentHtml(componentId, output);
+        }
+    }
+
+    private int? FindPartialComponentMatchingRequest(int componentId, HtmxContext htmxContext)
+    {
+        var frames = GetCurrentRenderTreeFrames(componentId);
+
+        for (int i = 0; i < frames.Count; i++)
+        {
+            ref var frame = ref frames.Array[i];
+
+            if (frame.FrameType is RenderTreeFrameType.Component)
+            {
+                if (frame.Component is HtmxPartial partial && partial.IsMatchingRequest(htmxContext))
+                {
+                    return frame.ComponentId;
+                }
+
+                var candidate = FindPartialComponentMatchingRequest(frame.ComponentId, htmxContext);
+
+                if (candidate.HasValue)
+                {
+                    return candidate.Value;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static void SetRouteData(HttpContext httpContext, Type componentType)
     {
         // Saving RouteData to avoid routing twice in Router component
@@ -166,7 +211,6 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
     protected override Task UpdateDisplayAsync(in RenderBatch renderBatch)
     {
         UpdateNamedSubmitEvents(in renderBatch);
-
         return base.UpdateDisplayAsync(renderBatch);
     }
 
