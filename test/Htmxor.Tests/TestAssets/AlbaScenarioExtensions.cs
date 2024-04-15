@@ -79,4 +79,24 @@ internal static class AlbaScenarioExtensions
 
         return scenario;
     }
+
+    /// <summary>
+    /// Write the dictionary values to the HttpContext.Request.Body.
+    /// Also sets content-length and content-type header to
+    /// application/x-www-form-urlencoded
+    /// </summary>
+    /// <param name="context"></param>
+    /// <param name="values"></param>
+    public static void WithFormData(this Scenario scenario, params (string Key, string Value)[] values)
+    {
+        scenario.ConfigureHttpContext(context =>
+        {
+            using var form = new FormUrlEncodedContent(values.Select(x => new KeyValuePair<string, string>(x.Key, x.Value)));
+
+            form.CopyTo(context.Request.Body, null, CancellationToken.None);
+
+            context.Request.Headers.ContentType = form.Headers.ContentType!.ToString();
+            context.Request.Headers.ContentLength = form.Headers.ContentLength;
+        });
+    }
 }
