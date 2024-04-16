@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-namespace Htmxor.Configuration;
+﻿namespace Htmxor.Configuration;
 
 /// <summary>
 /// How to swap the response into the target element.

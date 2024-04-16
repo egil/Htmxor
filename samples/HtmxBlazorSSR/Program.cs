@@ -13,7 +13,7 @@ builder.Services.AddScoped<DiskStorage>();
 builder.Services.AddScoped<ContactsRepository>();
 builder.Services.AddFlashMessages();
 
-builder.AddHtmx(config =>
+builder.Services.AddHtmx(config =>
 {
     config.SelfRequestsOnly = true;
 });
@@ -32,7 +32,7 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseAntiforgery();
-app.UseHtmxorAntiforgery();
+app.UseHtmxAntiforgery();
 
 app.MapGet("/contacts/count", async (ContactsRepository repo) =>
 {

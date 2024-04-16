@@ -1,4 +1,4 @@
-﻿@attribute [HxRoute("/contacts", Methods = HttpMethod.Get | HttpMethod.Post, Trigger = "search")]
+﻿@attribute [HxRoute("/contacts", Trigger = "search")]
 @code {
     [Parameter, EditorRequired] 
     public required IEnumerable<Contact> Contacts { get; set; }

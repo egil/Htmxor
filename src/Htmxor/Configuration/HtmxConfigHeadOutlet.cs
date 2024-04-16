@@ -1,5 +1,6 @@
 ﻿using Htmxor.Configuration.Serialization;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 
 namespace Htmxor.Configuration;
@@ -10,7 +11,7 @@ namespace Htmxor.Configuration;
 /// </summary>
 /// <remarks>
 /// Configure the <see cref="HtmxConfig"/> via the 
-/// <see cref="HtmxorApplicationBuilderExtensions.AddHtmx(Microsoft.Extensions.Hosting.IHostApplicationBuilder, Action{Htmxor.Configuration.HtmxConfig}?)"/> 
+/// <see cref="HtmxorApplicationBuilderExtensions.AddHtmx(IServiceCollection, Action{Htmxor.Configuration.HtmxConfig}?)"/> 
 /// method.
 /// </remarks>
 public class HtmxConfigHeadOutlet : IComponent

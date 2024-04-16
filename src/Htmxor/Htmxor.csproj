@@ -37,13 +37,6 @@
 		<!--<PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion>-->
 	</PropertyGroup>
 
-	<!-- This only seems relevant for Blazor WASM apps which this library probably won't be used in -->
-	<!--
-	<ItemGroup>
-		<SupportedPlatform Include="browser" />
-	</ItemGroup>
-	-->
-
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.1" />
@@ -65,5 +58,9 @@
 			<PackageReleaseNotes>$([System.IO.File]::ReadAllText("$(MSBuildProjectDirectory)/../../CHANGELOG.md"))</PackageReleaseNotes>
 		</PropertyGroup>
 	</Target>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="$(AssemblyName).Tests" />
+	</ItemGroup>
 
 </Project>
