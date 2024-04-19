@@ -1,0 +1,45 @@
+﻿@page "/delete-row-1"
+@attribute [HxRoute("/delete-row-1/{id:int}", Methods = ["Delete"])]
+@code {
+    [CascadingParameter]
+    public required HtmxContext HxContext { get; set; }
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (HxContext.Request.IsHtmxRequest && HttpMethods.IsDelete(HxContext.Request.Method))
+        {
+            DataStore.Remove<User>(Id);
+            HxContext.NoContentResponse();
+        }
+    }
+}
+<table class="table delete-row-example">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody hx-confirm="Are you sure?" hx-target="closest tr" hx-swap="outerHTML swap:1s">
+        @foreach (var user in DataStore.OfType<User>())
+        {
+            <tr>
+                <td>@user.Name</td>
+                <td>@user.Email</td>
+                <td>@(user.Active ? "Active" : "Inactive")</td>
+                <td>
+                    <button class="btn btn-danger"
+                            hx-delete="/delete-row-1/@user.Id"
+                            hx-swap="outerHTML">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

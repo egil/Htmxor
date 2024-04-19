@@ -3,6 +3,7 @@
 
 using System.Buffers;
 using System.Diagnostics;
+using System.Net;
 using System.Text;
 using System.Text.Encodings.Web;
 using Htmxor.Http;
@@ -82,14 +83,7 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             context,
             componentType: pageComponent,
             handler: result.HandlerName,
-            form: result.IsFormDataRequest && context.Request.HasFormContentType
-                ? await context.Request.ReadFormAsync()
-                : null);
-
-        // Matches MVC's MemoryPoolHttpResponseStreamWriterFactory.DefaultBufferSize
-        var defaultBufferSize = 16 * 1024;
-        await using var writer = new HttpResponseStreamWriter(context.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
-        using var bufferWriter = new BufferedTextWriter(writer);
+            form: result.IsFormDataRequest && context.Request.HasFormContentType ? await context.Request.ReadFormAsync() : null);
 
         // Note that we always use Static rendering mode for the top-level output from a RazorComponentResult,
         // because you never want to serialize the invocation of RazorComponentResultHost. Instead, that host
@@ -137,6 +131,17 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             bufferingFeature.DisableBuffering();
             context.Response.Headers.ContentEncoding = "identity";
         }
+
+        if (htmxContext.NoContentResponseRequested)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.NoContent;
+            return;
+        }
+
+        // Matches MVC's MemoryPoolHttpResponseStreamWriterFactory.DefaultBufferSize
+        var defaultBufferSize = 16 * 1024;
+        await using var writer = new HttpResponseStreamWriter(context.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
+        using var bufferWriter = new BufferedTextWriter(writer);
 
         // Importantly, we must not yield this thread (which holds exclusive access to the renderer sync context)
         // in between the first call to htmlContent.WriteTo and the point where we start listening for subsequent
