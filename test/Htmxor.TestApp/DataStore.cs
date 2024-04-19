@@ -40,6 +40,10 @@ public static class DataStore
     public static void Store<T>(T value)
         where T : IStoreItem
         => data[(value.Id, typeof(T))] = value;
+
+    public static void Remove<T>(int id)
+        where T : IStoreItem
+        => data.TryRemove((id, typeof(T)), out _);
 }
 
 public interface IStoreItem

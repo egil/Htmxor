@@ -37,3 +37,8 @@ h1:focus {
     opacity: 0;
     transition: opacity 3s ease-out;
 }
+
+tr.htmx-swapping td {
+    opacity: 0;
+    transition: opacity 1s ease-out;
+}
