@@ -1,0 +1,55 @@
+﻿@page "/click-to-load-1/load"
+@inject TimeProvider timeProvider
+@code {
+    private const int PageSize = 10;
+    private static readonly Contact[] AllItems = Enumerable
+        .Range(1, 1000)
+        .Select(i => new Contact
+            {
+                Id = i,
+                FirstName = "Agent",
+                LastName = "Smith",
+                Email = $"void{i}@null.org",
+            })
+        .ToArray();
+
+    private IEnumerable<Contact> items = Enumerable.Empty<Contact>();
+
+    [SupplyParameterFromQuery(Name = "page")]
+    public int Page { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // fake loading from async data source
+        await Task.Delay(TimeSpan.FromMilliseconds(500), timeProvider);
+        items = AllItems.Skip(Page * PageSize).Take(PageSize);
+    }
+}
+<table class="table">
+    <thead>
+        <tr><th>Name</th><th>Email</th><th>ID</th></tr>
+    </thead>
+    <tbody>
+        <HtmxPartial>
+            @foreach (var item in items)
+            {
+                <tr>
+                    <td>@item.FirstName @item.LastName</td>
+                    <td>@item.Email</td>
+                    <td>@item.Id</td>
+                </tr>
+            }
+            <tr id="loadMoreRow">
+                <td colspan="3">
+                    <center>
+                        <button class="btn btn-secondary"
+                                hx-get="/click-to-load-1/load?page=@(Page + 1)"
+                                hx-target="#loadMoreRow" hx-swap="outerHTML">
+                            Load More Agents... <img class="htmx-indicator" src="/img/bars.svg">
+                        </button>
+                    </center>
+                </td>
+            </tr>
+        </HtmxPartial>
+    </tbody>
+</table>

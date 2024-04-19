@@ -5,7 +5,9 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using System.Text;
 using System.Text.Encodings.Web;
+using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -116,6 +118,7 @@ internal partial class StaticHtmxorRenderer
         int afterElement;
         var isTextArea = string.Equals(frame.ElementName, "textarea", StringComparison.OrdinalIgnoreCase);
         var isForm = string.Equals(frame.ElementName, "form", StringComparison.OrdinalIgnoreCase);
+
         // We don't want to include value attribute of textarea element.
         var afterAttributes = RenderAttributes(output, frames, position + 1, frame.ElementSubtreeLength - 1, !isTextArea, isForm: isForm, out var capturedValueAttribute);
 
@@ -253,7 +256,6 @@ internal partial class StaticHtmxorRenderer
 
     private FormMappingContext? FindFormMappingContext(int forComponentId)
     {
-
         var componentState = GetComponentState(forComponentId);
 
         // This code was replaced by the reflection based code below
@@ -262,7 +264,7 @@ internal partial class StaticHtmxorRenderer
         //    this,
         //    componentState);
 
-        var serviceProviderCascadingValueSuppliersProperty = typeof(Renderer).GetProperty("ServiceProviderCascadingValueSuppliers", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var serviceProviderCascadingValueSuppliersProperty = typeof(Renderer).GetProperty("ServiceProviderCascadingValueSuppliers", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var rendererValueCascadingValueSuppliers = (object[])serviceProviderCascadingValueSuppliersProperty.GetValue(this)!;
         var valueSupplierType = rendererValueCascadingValueSuppliers.GetType().GetElementType()!;
 
@@ -274,7 +276,7 @@ internal partial class StaticHtmxorRenderer
 
         if (supplier is not null)
         {
-            var getCurrentValueMethod = valueSupplierType.GetMethod("GetCurrentValue", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            var getCurrentValueMethod = valueSupplierType.GetMethod("GetCurrentValue", BindingFlags.Instance | BindingFlags.Public)!;
             return (FormMappingContext?)getCurrentValueMethod.Invoke(supplier, [_findFormMappingContext]);
         }
 
@@ -287,7 +289,7 @@ internal partial class StaticHtmxorRenderer
         object[] rendererValueCascadingValueSuppliers,
         Type valueSupplierType)
     {
-        var canSupplyValueMethod = valueSupplierType.GetMethod("CanSupplyValue", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var canSupplyValueMethod = valueSupplierType.GetMethod("CanSupplyValue", BindingFlags.Instance | BindingFlags.Public)!;
 
         // First scan up through the component hierarchy
         var candidate = componentState;
@@ -348,7 +350,9 @@ internal partial class StaticHtmxorRenderer
             return position;
         }
 
+        var hasHxAction = false;
         var hasExplicitActionValue = false;
+        ulong hxEventHandlerId = 0;
         for (var i = 0; i < maxElements; i++)
         {
             var candidateIndex = position + i;
@@ -362,6 +366,8 @@ internal partial class StaticHtmxorRenderer
                 }
 
                 EmitFormActionIfNotExplicit(output, isForm, hasExplicitActionValue);
+                EmitHtmxorEventHandlerId(output);
+
                 return candidateIndex;
             }
 
@@ -378,6 +384,15 @@ internal partial class StaticHtmxorRenderer
             if (isForm && HasActionAttribute(ref frame))
             {
                 hasExplicitActionValue = true;
+            }
+
+            if (!hasHxAction && IsHxActionAttribute(ref frame))
+            {
+                hasHxAction = true;
+            }
+            else if (hxEventHandlerId == 0 && IsHxEventActionAttribute(ref frame) && frame.AttributeEventHandlerId > 0)
+            {
+                hxEventHandlerId = frame.AttributeEventHandlerId;
             }
 
             switch (frame.AttributeValue)
@@ -400,7 +415,7 @@ internal partial class StaticHtmxorRenderer
         }
 
         EmitFormActionIfNotExplicit(output, isForm, hasExplicitActionValue);
-
+        EmitHtmxorEventHandlerId(output);
         return position + maxElements;
 
         void EmitFormActionIfNotExplicit(TextWriter output, bool isForm, bool hasExplicitActionValue)
@@ -416,14 +431,56 @@ internal partial class StaticHtmxorRenderer
             }
         }
 
-        bool HasActionAttribute(ref RenderTreeFrame frame)
-            => (frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Get, StringComparison.OrdinalIgnoreCase)
-            || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Post, StringComparison.OrdinalIgnoreCase)
-            || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Put, StringComparison.OrdinalIgnoreCase)
-            || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Delete, StringComparison.OrdinalIgnoreCase)
-            || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Patch, StringComparison.OrdinalIgnoreCase)
-            || frame.AttributeName.Equals("action", StringComparison.OrdinalIgnoreCase))
-            && !string.IsNullOrEmpty(frame.AttributeValue as string);
+        void EmitHtmxorEventHandlerId(TextWriter output)
+        {
+            // TODO: handle hx-header already existing.
+            // hx-headers='{"myHeader": "My Value"}'
+            if (hasHxAction && hxEventHandlerId > 0)
+            {
+                output.Write(' ');
+                output.Write("hx-headers");
+                output.Write('=');
+                output.Write("'{\"");
+                output.Write(HtmxRequestHeaderNames.EventHandlerId);
+                output.Write("\":\"");
+                output.Write(htmxorEventsByEventHandlerId[hxEventHandlerId].HtmxorEventId);
+                output.Write("\"}'");
+            }
+        }
+    }
+
+    internal static bool HasActionAttribute(ref RenderTreeFrame frame)
+        => (IsHxActionAttribute(ref frame) || frame.AttributeName.Equals("action", StringComparison.OrdinalIgnoreCase))
+        && !string.IsNullOrEmpty(frame.AttributeValue as string);
+
+    internal static bool IsHxActionAttribute(ref RenderTreeFrame frame)
+        => frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Get, StringComparison.OrdinalIgnoreCase)
+        || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Post, StringComparison.OrdinalIgnoreCase)
+        || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Put, StringComparison.OrdinalIgnoreCase)
+        || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Delete, StringComparison.OrdinalIgnoreCase)
+        || frame.AttributeName.Equals(HtmxConstants.ActionAttributes.Patch, StringComparison.OrdinalIgnoreCase);
+
+    internal static bool IsHxEventActionAttribute(ref RenderTreeFrame frame)
+        => frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Get, StringComparison.OrdinalIgnoreCase)
+        || frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Post, StringComparison.OrdinalIgnoreCase)
+        || frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Put, StringComparison.OrdinalIgnoreCase)
+        || frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Delete, StringComparison.OrdinalIgnoreCase)
+        || frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Patch, StringComparison.OrdinalIgnoreCase);
+
+    internal static string CreateHxActionHash(ref RenderTreeFrame hxActionFrame)
+    {
+        // Implementation of the 32 bit Fnv1a hash function
+        const uint offsetBasis = 2166136261;
+        const uint fnvPrime = 16777619;
+
+        uint hash = offsetBasis;
+        foreach (byte datum in Encoding.UTF8.GetBytes($"{hxActionFrame.AttributeName}={hxActionFrame.AttributeValue}"))
+        {
+            hash ^= datum;
+            hash *= fnvPrime;
+        }
+
+        return hash.ToString("X8");
     }
 
     private static string GetRootRelativeUrlForFormAction(NavigationManager navigationManager)

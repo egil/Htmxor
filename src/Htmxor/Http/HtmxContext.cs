@@ -11,6 +11,6 @@ public class HtmxContext
     public HtmxContext(HttpContext context)
     {
         Request = new HtmxRequest(context);
-        Response = new HtmxResponse(context);
+        Response = new HtmxResponse();
     }
 }

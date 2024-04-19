@@ -23,6 +23,7 @@ internal partial class StaticHtmxorRenderer : Renderer
 {
     private static readonly Task CanceledRenderTask = Task.FromCanceled(new CancellationToken(canceled: true));
     private readonly NavigationManager? _navigationManager;
+    protected readonly Dictionary<ulong, (string HtmxorEventId, Delegate Handler)> htmxorEventsByEventHandlerId = new();
 
     /// <summary>
     /// Constructs an instance of <see cref="StaticHtmxorRenderer"/>.

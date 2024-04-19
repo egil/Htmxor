@@ -210,6 +210,7 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
 
     protected override Task UpdateDisplayAsync(in RenderBatch renderBatch)
     {
+        UpdateHtmxorEvents(in renderBatch);
         UpdateNamedSubmitEvents(in renderBatch);
         return base.UpdateDisplayAsync(renderBatch);
     }

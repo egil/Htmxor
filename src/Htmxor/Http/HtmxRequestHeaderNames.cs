@@ -45,4 +45,9 @@ public static class HtmxRequestHeaderNames
     /// The `id` of the triggered element if it exists.
     /// </summary>
     public const string Trigger = "HX-Trigger";
+
+    /// <summary>
+    /// The `id` of the event handler to trigger on request.
+    /// </summary>
+    internal const string EventHandlerId = "Htmxor-Event-Handler-Id";
 }

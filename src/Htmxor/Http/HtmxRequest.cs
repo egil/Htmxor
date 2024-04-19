@@ -5,6 +5,11 @@ namespace Htmxor.Http;
 public class HtmxRequest(HttpContext context)
 {
     /// <summary>
+    /// Gets the HTTP method of the current request.
+    /// </summary>
+    public string Method => context.Request.Method;
+
+    /// <summary>
     /// Gets whether or not the current request is an Htmx triggered request.
     /// </summary>
     public bool IsHtmxRequest => context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
@@ -66,6 +71,16 @@ public class HtmxRequest(HttpContext context)
     public string? Prompt => IsHtmxRequest
         && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.Prompt, out var values)
         && values.Count > 0
+        ? values[0]
+        : null;
+
+    /// <summary>
+    /// The `id` of the event handler to trigger on request.
+    /// </summary>
+    internal string? EventHandlerId => IsHtmxRequest
+        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.EventHandlerId, out var values)
+        && values.Count > 0
+        && !string.IsNullOrWhiteSpace(values[0])
         ? values[0]
         : null;
 }

@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Components.Endpoints.Rendering;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.HttpSys;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -99,28 +100,24 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             ParameterView.Empty,
             waitForQuiescence: result.IsFormDataRequest || isErrorHandler);
 
-        Task quiesceTask;
-        if (!result.IsFormDataRequest)
+        var htmxContext = context.GetHtmxContext();
+        Task quiesceTask = Task.CompletedTask;
+        if (!result.IsFormDataRequest && htmxContext.Request.EventHandlerId is null)
         {
             quiesceTask = htmlContent.QuiescenceTask;
         }
-        else
+        else if (result.HandlerName is not null || htmxContext.Request.EventHandlerId is not null)
         {
             try
             {
-                // For now, only attemp to dispatch events if this is not a HX request
-                if (!context.GetHtmxContext().Request.IsHtmxRequest)
+                var isBadRequest = false;
+                quiesceTask = htmxContext.Request.EventHandlerId is not null
+                    ? _renderer.DispatchHtmxorEventAsync(htmxContext, out isBadRequest)
+                    : _renderer.DispatchSubmitEventAsync(result.HandlerName, out isBadRequest);
+
+                if (isBadRequest)
                 {
-                    var isBadRequest = false;
-                    quiesceTask = _renderer.DispatchSubmitEventAsync(result.HandlerName, out isBadRequest);
-                    if (isBadRequest)
-                    {
-                        return;
-                    }
-                }
-                else
-                {
-                    quiesceTask = Task.CompletedTask;
+                    return;
                 }
 
                 await _renderer.WaitForNonStreamingPendingTasks();
@@ -155,7 +152,7 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 
     private async Task<RequestValidationState> ValidateRequestAsync(HttpContext context, IAntiforgery? antiforgery)
     {
-        var processPost = HttpMethods.IsPost(context.Request.Method)
+        var processFormDataRequest = HttpMethods.IsPost(context.Request.Method)
             // Htmx supports both PUT and PATCH in addition to POST.
             || HttpMethods.IsPut(context.Request.Method)
             || HttpMethods.IsPatch(context.Request.Method)
@@ -164,7 +161,8 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             // want to run the form handling logic against the error page.
             && context.Features.Get<IExceptionHandlerFeature>() == null;
 
-        if (processPost)
+        var request = context.GetHtmxContext().Request;
+        if (processFormDataRequest)
         {
             var valid = false;
             // Respect the token validation done by the middleware _if_ it has been set, otherwise
@@ -220,7 +218,7 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             var handler = GetFormHandler(context, out var isBadRequest);
             return handler is null && !isBadRequest
                 ? RequestValidationState.ValidHtmxorFormDataRequest
-                : new RequestValidationState(valid && !isBadRequest, processPost, handler);
+                : new RequestValidationState(valid && !isBadRequest, processFormDataRequest, handler);
         }
 
         return RequestValidationState.ValidNonFormDataRequest;

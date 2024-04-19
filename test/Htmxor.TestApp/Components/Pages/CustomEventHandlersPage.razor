@@ -1,0 +1,110 @@
+﻿@page "/custom-event-handler"
+@attribute [HxRoute("/custom-event-handler")]
+@code {
+    private string content = "";
+
+    private void OnGet(HtmxContextEventArgs e)
+    {
+        content = nameof(OnGet);
+    }
+
+    private void OnPost(HtmxContextEventArgs e)
+    {
+        content = nameof(OnPost);
+    }
+
+    private void OnPut(HtmxContextEventArgs e)
+    {
+        content = nameof(OnPut);
+    }
+
+    private void OnPatch(HtmxContextEventArgs e)
+    {
+        content = nameof(OnPatch);
+    }
+
+    private void OnDelete(HtmxContextEventArgs e)
+    {
+        content = nameof(OnDelete);
+    }
+
+    private void OnSubmit(EventArgs e)
+    {
+        content = nameof(OnSubmit);
+    }
+
+    private void OnClick(MouseEventArgs e)
+    {
+        content = nameof(OnClick);
+    }
+}
+<button @onget=OnGet
+        hx-get="/custom-event-handler"
+        hx-target="#post-request">
+    GET
+</button>
+
+<button @onget=OnGet
+        hx-get="/custom-event-handler"
+        hx-target="#post-request">
+    GET
+</button>
+
+<button @onget=OnGet
+        hx-get="/custom-event-handler"
+        hx-target="#post-request">
+    GET
+</button>
+
+<button @onget=@(e => content = "OnGetInline")
+        hx-get="/custom-event-handler?inline#foo"
+        hx-target="#post-request">
+    GET INLINE
+</button>
+
+<button @onget=@(e => content = "OnGetInline2")
+        hx-get="/custom-event-handler?inline#foo"
+        hx-target="#post-request">
+    GET INLINE 2
+</button>
+
+<button @onclick="() => {}"
+        onget="foo"
+        hx-get="/custom-event-handler"
+        hx-target="#post-request">
+    FAUX GET
+</button>
+
+<button @onpost=OnPost
+        hx-post="/custom-event-handler"
+        hx-target="#post-request">
+    POST
+</button>
+
+<button @onput=OnPut
+        hx-put="/custom-event-handler"
+        hx-target="#post-request">
+    PUT
+</button>
+
+<button @onpatch=OnPatch
+        hx-patch="/custom-event-handler"
+        hx-target="#post-request">
+    PATCH
+</button>
+
+<button @ondelete=OnDelete
+        hx-delete="/custom-event-handler"
+        hx-target="#post-request">
+    DELETE
+</button>
+
+<form @onsubmit=OnSubmit @formname="classic-form">
+    <button type="submit">Submit</button>
+</form>
+
+<HtmxPartial>
+    <div id="post-request">
+        @content
+    </div>
+</HtmxPartial>

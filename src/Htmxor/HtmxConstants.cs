@@ -10,4 +10,13 @@ internal static class HtmxConstants
         internal const string Delete = "hx-delete";
         internal const string Patch = "hx-patch";
     }
+
+    internal static class EventActionAttributes
+    {
+        internal const string Get = "onget";
+        internal const string Post = "onpost";
+        internal const string Put = "onput";
+        internal const string Delete = "ondelete";
+        internal const string Patch = "onpatch";
+    }
 }

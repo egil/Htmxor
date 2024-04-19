@@ -9,7 +9,7 @@ using Microsoft.Extensions.Primitives;
 
 namespace Htmxor.Http;
 
-public class HtmxResponse(HttpContext context)
+public class HtmxResponse
 {
     private readonly IHeaderDictionary _headers = context.Response.Headers;
 
