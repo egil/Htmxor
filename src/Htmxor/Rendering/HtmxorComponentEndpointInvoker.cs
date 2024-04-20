@@ -132,9 +132,8 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             context.Response.Headers.ContentEncoding = "identity";
         }
 
-        if (htmxContext.NoContentResponseRequested)
+        if (context.Response.StatusCode == (int)HttpStatusCode.NoContent || htmxContext.Response.EmptyResponseBodyRequested)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.NoContent;
             return;
         }
 

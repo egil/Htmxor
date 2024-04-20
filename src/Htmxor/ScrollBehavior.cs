@@ -1,4 +1,4 @@
-﻿namespace Htmxor.Configuration;
+﻿namespace Htmxor;
 
 /// <summary>
 /// The behavior for a boosted link on page transitions.

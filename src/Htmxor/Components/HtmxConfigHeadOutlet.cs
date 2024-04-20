@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 
-namespace Htmxor.Configuration;
+namespace Htmxor.Components;
 
 /// <summary>
 /// This component will render a meta tag with the serialized <see cref="HtmxConfig"/> object,
@@ -11,7 +11,7 @@ namespace Htmxor.Configuration;
 /// </summary>
 /// <remarks>
 /// Configure the <see cref="HtmxConfig"/> via the 
-/// <see cref="HtmxorApplicationBuilderExtensions.AddHtmx(IRazorComponentsBuilder, Action{Htmxor.Configuration.HtmxConfig}?)"/> 
+/// <see cref="HtmxorApplicationBuilderExtensions.AddHtmx(IRazorComponentsBuilder, Action{Htmxor.HtmxConfig}?)"/> 
 /// method.
 /// </remarks>
 public class HtmxConfigHeadOutlet : IComponent
@@ -21,7 +21,7 @@ public class HtmxConfigHeadOutlet : IComponent
     /// <inheritdoc/>
     public void Attach(RenderHandle renderHandle)
     {
-        var json = JsonSerializer.Serialize(Config, HtmxConfigJsonSerializerContext.Default.HtmxConfig);
+        var json = JsonSerializer.Serialize(Config, HtmxJsonSerializerContext.Default.HtmxConfig);
         renderHandle.Render(builder =>
         {
             builder.AddMarkupContent(0, @$"<meta name=""htmx-config"" content='{json}'>");

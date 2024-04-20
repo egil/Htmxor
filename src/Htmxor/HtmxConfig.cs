@@ -4,18 +4,13 @@ using System.Text.Json.Serialization.Metadata;
 using Htmxor.Antiforgery;
 using Htmxor.Configuration.Serialization;
 
-namespace Htmxor.Configuration;
+namespace Htmxor;
 
 /// <summary>
 /// Htmx configuration options.
 /// </summary>
 public record class HtmxConfig
 {
-    /// <summary>
-    /// Default <see cref="JsonSerializerOptions"/> used with <see cref="HtmxConfig"/>.
-    /// </summary>
-    public readonly static JsonTypeInfo<HtmxConfig> JsonTypeInfo = HtmxConfigJsonSerializerContext.Default.HtmxConfig;
-
     /// <summary>
     /// Defaults to <see langword="true" /> if this property is null. really only useful for testing
     /// </summary>
@@ -217,6 +212,27 @@ public record class HtmxConfig
     [JsonPropertyName("scrollIntoViewOnBoost")]
     public bool? ScrollIntoViewOnBoost { get; set; }
 
+    //// V2 feature
+    //[JsonPropertyName("responseHandling")]
+    //public IList<ResponseHandlingRule>? ResponseHandling { get; set; }
+
     [JsonInclude, JsonPropertyName("antiforgery")]
     internal HtmxAntiforgeryOptions? Antiforgery { get; init; }
 }
+
+//public record class ResponseHandlingRule
+//{
+//    public required string Code { get; set; }
+//
+//    public bool Swap { get; set; }
+//
+//    public bool? Error { get; set; }
+//
+//    public bool? IgnoreTitle { get; set; }
+//
+//    public string? Select { get; set; }
+//
+//    public string? Target { get; set; }
+//
+//    public string? SwapOverride { get; set; }
+//}

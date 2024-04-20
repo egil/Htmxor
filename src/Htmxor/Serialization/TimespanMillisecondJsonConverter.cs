@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Htmxor.Configuration.Serialization;
+namespace Htmxor.Serialization;
 
 internal sealed class TimespanMillisecondJsonConverter : JsonConverter<TimeSpan?>
 {

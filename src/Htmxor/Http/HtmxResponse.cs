@@ -1,179 +1,197 @@
-﻿using System.Text;
+﻿using System.Net;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
-using Htmxor.Configuration;
-using Htmxor.Http.Models;
+using Htmxor.Configuration.Serialization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 
 namespace Htmxor.Http;
 
-public class HtmxResponse
+public class HtmxResponse(HttpContext context)
 {
-    private readonly IHeaderDictionary _headers = context.Response.Headers;
+    private const string ItemsKeyPrefix = "02E0A668-6E6B-4C53-83A6-17E576073E96";
+    private readonly IHeaderDictionary headers = context.Response.Headers;
 
-    private static readonly JsonSerializerOptions _serializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters =
-        {
-            new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower, false)
-        }
-    };
+    internal bool EmptyResponseBodyRequested { get; private set; }
 
     /// <summary>
-    ///     Allows you to do a client-side redirect that does not do a full page reload.
+    /// Sets the response status code to <paramref name="statusCode"/>.
+    /// </summary>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse StatusCode(HttpStatusCode statusCode)
+    {
+        context.Response.StatusCode = (int)statusCode;
+        return this;
+    }
+
+    /// <summary>
+    /// Do not render any component markup to the client, even if the component would have
+    /// produced markup normally. Headers and cookies are still returned as normal.
+    /// </summary>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse EmptyBody()
+    {
+        EmptyResponseBodyRequested = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Allows you to do a client-side redirect that does not do a full page reload.
     /// </summary>
     /// <param name="path"></param>
-    /// <param name="context"></param>
-    /// <returns></returns>
-    public HtmxResponse Location(string path, AjaxContext? context = null)
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse Location(string path)
     {
-        if (context == null)
-	        _headers[HtmxResponseHeaderNames.Location] = path;
-        else
-        {
-	        JsonObject json = new();
-            json.Add("path", JsonValue.Create(path));
-
-            var ctxNode = JsonSerializer.SerializeToNode(context)!.AsObject();
-
-            foreach (var prop in ctxNode.AsEnumerable())
-            {
-                if (prop.Value != null)
-	                json.Add(prop.Key, prop.Value.DeepClone());
-            }
-
-            _headers[HtmxResponseHeaderNames.Location] = JsonSerializer.Serialize(json);
-        }
+        headers[HtmxResponseHeaderNames.Location] = path;
 
         return this;
     }
 
     /// <summary>
-    ///     Pushes a new url onto the history stack.
+    /// Allows you to do a client-side redirect that does not do a full page reload.
+    /// </summary>
+    /// <param name="locationTarget"></param>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse Location(LocationTarget locationTarget)
+    {
+        var json = JsonSerializer.Serialize(locationTarget, HtmxJsonSerializerContext.Default.LocationTarget);
+        headers[HtmxResponseHeaderNames.Location] = json;
+
+        return this;
+    }
+
+    /// <summary>
+    /// Pushes a new url onto the history stack.
     /// </summary>
     /// <param name="url"></param>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse PushUrl(string url)
     {
-        _headers[HtmxResponseHeaderNames.PushUrl] = url;
+        headers[HtmxResponseHeaderNames.PushUrl] = url;
 
         return this;
     }
 
     /// <summary>
-    ///     Prevents the browser’s history from being updated.
-    ///     Overwrites PushUrl response if already present.
+    /// Prevents the browser’s history from being updated.
+    /// Overwrites PushUrl response if already present.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse PreventBrowserHistoryUpdate()
     {
-	    _headers[HtmxResponseHeaderNames.PushUrl] = "false";
+        headers[HtmxResponseHeaderNames.PushUrl] = "false";
 
-	    return this;
+        return this;
     }
 
     /// <summary>
-    ///     Prevents the browser’s current url from being updated
-    ///     Overwrites ReplaceUrl response if already present.
+    /// Prevents the browser’s current url from being updated
+    /// Overwrites ReplaceUrl response if already present.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse PreventBrowserCurrentUrlUpdate()
     {
-	    _headers[HtmxResponseHeaderNames.ReplaceUrl] = "false";
+        headers[HtmxResponseHeaderNames.ReplaceUrl] = "false";
 
-	    return this;
+        return this;
     }
 
     /// <summary>
-    ///     Can be used to do a client-side redirect to a new location.
+    /// Can be used to do a client-side redirect to a new location.
     /// </summary>
     /// <param name="url"></param>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Redirect(string url)
     {
-        _headers[HtmxResponseHeaderNames.Redirect] = url;
+        headers[HtmxResponseHeaderNames.Redirect] = url;
 
         return this;
     }
 
     /// <summary>
-    ///     Enables a client-side full refresh of the page
+    /// Enables a client-side full refresh of the page.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Refresh()
     {
-        _headers[HtmxResponseHeaderNames.Refresh] = "true";
+        headers[HtmxResponseHeaderNames.Refresh] = "true";
 
         return this;
     }
 
     /// <summary>
-    ///     Replaces the current URL in the location bar
+    /// Replaces the current URL in the location bar.
     /// </summary>
     /// <param name="url"></param>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse ReplaceUrl(string url)
     {
-        _headers[HtmxResponseHeaderNames.ReplaceUrl] = url;
+        headers[HtmxResponseHeaderNames.ReplaceUrl] = url;
 
         return this;
     }
 
     /// <summary>
-    ///     Allows you to specify how the response will be swapped.
+    /// Allows you to specify how the response will be swapped.
     /// </summary>
     /// <param name="swapStyle"></param>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Reswap(SwapStyle swapStyle)
     {
         var style = swapStyle switch
         {
             SwapStyle.InnerHTML => "innerHTML",
             SwapStyle.OuterHTML => "outerHTML",
-            _ => swapStyle.ToString().ToLowerInvariant()
+            //SwapStyle.TextContent => "textContent",
+            SwapStyle.BeforeBegin => "beforebegin",
+            SwapStyle.AfterBegin => "afterbegin",
+            SwapStyle.BeforeEnd => "beforeend",
+            SwapStyle.AfterEnd => "afterend",
+            SwapStyle.Delete => "delete",
+            SwapStyle.None => "none",
+            _ => throw new SwitchExpressionException(swapStyle),
         };
 
-        _headers[HtmxResponseHeaderNames.Reswap] = style;
+        headers[HtmxResponseHeaderNames.Reswap] = style;
 
         return this;
     }
 
     /// <summary>
-    ///     A CSS selector that updates the target of the content update to a different element on the page.
+    /// A CSS selector that updates the target of the content update to a different element on the page.
     /// </summary>
     /// <param name="selector"></param>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Retarget(string selector)
     {
-        _headers[HtmxResponseHeaderNames.Retarget] = selector;
+        headers[HtmxResponseHeaderNames.Retarget] = selector;
 
         return this;
     }
 
     /// <summary>
-    ///     A CSS selector that allows you to choose which part of the response is used to be swapped in.
+    /// A CSS selector that allows you to choose which part of the response is used to be swapped in.
     /// </summary>
     /// <param name="selector"></param>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Reselect(string selector)
     {
-        _headers[HtmxResponseHeaderNames.Reselect] = selector;
+        headers[HtmxResponseHeaderNames.Reselect] = selector;
 
         return this;
     }
 
     /// <summary>
-    ///     Allows you to trigger client-side events.
+    /// Allows you to trigger client-side events.
     /// </summary>
-    /// <param name="eventName"></param>
-    /// <param name="detail"></param>
-    /// <param name="timing"></param>
-    /// <returns></returns>
-    public HtmxResponse Trigger(string eventName, object? detail = null, TriggerTiming timing = TriggerTiming.Default)
+    /// <param name="eventName">The name of client side event to trigger.</param>
+    /// <param name="timing">When the event should be triggered.</param>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse Trigger(string eventName, TriggerTiming timing = TriggerTiming.Default)
     {
         var headerKey = timing switch
         {
@@ -182,86 +200,65 @@ public class HtmxResponse
             _ => HtmxResponseHeaderNames.Trigger
         };
 
-        MergeTrigger(headerKey, eventName, detail);
+        MergeTrigger(headerKey, eventName, default(object), null);
 
         return this;
     }
 
     /// <summary>
-    ///     Aggregate existing headers and merge event with detail into the result
+    /// Allows you to trigger client-side events.
     /// </summary>
-    /// <param name="headerKey"></param>
-    /// <param name="eventName"></param>
-    /// <param name="detail"></param>
-    private void MergeTrigger(string headerKey, string eventName, object? detail = null)
+    /// <param name="eventName">The name of client side event to trigger.</param>
+    /// <param name="detail">The details to pass the client side event.</param>
+    /// <param name="timing">When the event should be triggered.</param>
+    /// <param name="jsonSerializerOptions">The <see cref="JsonSerializerOptions"/> to use to convert the <paramref name="detail"/> into JSON. 
+    /// If not specified, a <see cref="JsonOptions.SerializerOptions"/> is retrieved <see cref="HttpContext.RequestServices"/> and used if available.</param>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse Trigger<TEventDetail>(string eventName, TEventDetail detail, TriggerTiming timing = TriggerTiming.Default, JsonSerializerOptions? jsonSerializerOptions = null)
     {
-        var (sb, isComplex) = BuildExistingTriggerJson(headerKey);
-
-        // If this event doesn't have a detail and any existing events also
-        // don't have details we can simplify the output to comma-delimited event names
-        if (detail == null && !isComplex)
+        var headerKey = timing switch
         {
-            var header = _headers[headerKey];
-            _headers[headerKey] = StringValues.Concat(header, eventName).ToString();
+            TriggerTiming.AfterSwap => HtmxResponseHeaderNames.TriggerAfterSwap,
+            TriggerTiming.AfterSettle => HtmxResponseHeaderNames.TriggerAfterSettle,
+            _ => HtmxResponseHeaderNames.Trigger
+        };
+
+        MergeTrigger(headerKey, eventName, detail, jsonSerializerOptions);
+
+        return this;
+    }
+
+    private void MergeTrigger<TEventDetail>(string headerKey, string eventName, TEventDetail? detail, JsonSerializerOptions? jsonSerializerOptions)
+    {
+        jsonSerializerOptions ??= context.RequestServices.GetService<JsonOptions>()?.SerializerOptions;
+        var itemsKey = ItemsKeyPrefix + headerKey;
+        if (!context.Items.TryGetValue(itemsKey, out var current) || current is not List<TriggerHeaderEventSet> headerValueSet)
+        {
+            headerValueSet = [];
+        }
+
+        if (headerValueSet.Count == 0 || !headerValueSet.Exists(other => other.EventName.Equals(eventName)))
+        {
+            headerValueSet.Add(new(eventName, detail is not null ? JsonSerializer.Serialize(detail, jsonSerializerOptions) : null));
+        }
+
+        context.Items[itemsKey] = headerValueSet;
+
+        if (headerValueSet.TrueForAll(x => x.Detail is null))
+        {
+            headers[headerKey] = string.Join(',', headerValueSet.Select(x => x.EventName));
         }
         else
         {
-            var detailJson = JsonSerializer.Serialize(detail, _serializerOptions);
-
-            if (sb.Length > 0) sb.Append(',');
-
-            // Append the key/value to the output json
-            sb.Append($"\"{eventName}\":{detailJson}");
-
-            // Wrap the entire sb contents to turn it into valid json
-            sb.Insert(0, '{');
-            sb.Append('}');
-
-            _headers[headerKey] = sb.ToString();
+            headers[headerKey] = $"{{{string.Join(',', headerValueSet)}}}";
         }
     }
 
-    /// <summary>
-    ///     Create a stringBuilder containing the serialized json for the aggregated properties across
-    ///     all header values that exist for this header key - duplicate keys are not removed for performance
-    ///     reasons because the json produced is still valid
-    ///     This approach does not validate any syntax of existing headers as a performance consideration.
-    /// </summary>
-    /// <param name="headerKey"></param>
-    /// <returns></returns>
-    private (StringBuilder, bool) BuildExistingTriggerJson(string headerKey)
+    private readonly record struct TriggerHeaderEventSet(string EventName, string? Detail)
     {
-        var isComplex = false;
-        StringBuilder sb = new();
-
-        var header = _headers[headerKey];
-
-        // header as StringValues can have no values, one value, or many values
-        // so foreach is safest way to iterate through multiple possible headers
-        foreach (var headerValue in header)
-        {
-            if (headerValue is null) continue;
-
-            // Is this headerValue possibly a Json object?
-            if (headerValue.StartsWith("{"))
-            {
-                isComplex = true;
-
-                if (sb.Length > 0) sb.Append(',');
-                sb.Append(headerValue.Substring(1, headerValue.Length - 2));
-            }
-            else
-            {
-                var eventNames = headerValue.Split(',');
-
-                foreach (var name in eventNames)
-                {
-                    if (sb.Length > 0) sb.Append(',');
-                    sb.Append("\"" + name + "\":\"\"");
-                }
-            }
-        }
-
-        return (sb, isComplex);
+        public override string ToString()
+            => Detail is null
+            ? $"\"{EventName}\":null"
+            : $"\"{EventName}\":{Detail}";
     }
 }

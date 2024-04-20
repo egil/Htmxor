@@ -27,6 +27,7 @@ public sealed class HtmxPartial : IComponent
         return Task.CompletedTask;
     }
 
-    internal bool IsMatchingRequest(HtmxContext htmxContext) => true;
+    internal bool IsMatchingRequest(HtmxContext htmxContext)
+        => true;
 }
 

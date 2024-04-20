@@ -7,7 +7,7 @@
     private void Delete(HtmxContextEventArgs e)
     {
         DataStore.Remove<User>(Id);
-        e.NoContentResponse();
+        e.Response.EmptyBody();
     }
 }
 <table class="table delete-row-example">
@@ -28,8 +28,8 @@
                 <td>@(user.Active ? "Active" : "Inactive")</td>
                 <td>
                     <button class="btn btn-danger"
-                            hx-delete="/delete-row-1/@user.Id"
-                            @onhxdelete="Delete"
+                            hx-delete="/delete-row-2/@user.Id"
+                            @ondelete="Delete"
                             hx-swap="outerHTML">
                         Delete
                     </button>

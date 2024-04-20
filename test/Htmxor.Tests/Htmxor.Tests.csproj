@@ -10,6 +10,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Meziantou.Xunit.ParallelTestFramework" Version="2.1.0" />
 		<PackageReference Include="Alba" Version="7.4.1" />
 		<PackageReference Include="bunit" Version="1.27.17" />
 		<PackageReference Include="FluentAssertions" Version="6.12.0" />

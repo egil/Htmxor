@@ -1,7 +1,6 @@
 ﻿using Htmxor;
 using Htmxor.Antiforgery;
 using Htmxor.Builder;
-using Htmxor.Configuration;
 using Htmxor.DependencyInjection;
 using Htmxor.Http;
 using Htmxor.Rendering;

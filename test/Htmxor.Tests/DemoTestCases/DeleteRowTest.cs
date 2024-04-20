@@ -29,7 +29,7 @@ public class DeleteRowTest : TestAppTestBase
             s.WithAntiforgeryTokensFrom(Host);
             s.WithHxHeaders();
 
-            s.StatusCodeShouldBe(HttpStatusCode.NoContent);
+            s.StatusCodeShouldBe(HttpStatusCode.OK);
             s.ContentShouldBe("");
         });
     }

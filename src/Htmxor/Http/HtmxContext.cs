@@ -4,8 +4,6 @@ namespace Htmxor.Http;
 
 public class HtmxContext
 {
-    internal bool NoContentResponseRequested { get; private set; }
-
     public HtmxRequest Request { get; }
 
     public HtmxResponse Response { get; }
@@ -13,9 +11,6 @@ public class HtmxContext
     public HtmxContext(HttpContext context)
     {
         Request = new HtmxRequest(context);
-        Response = new HtmxResponse();
+        Response = new HtmxResponse(context);
     }
-
-    public void NoContentResponse()
-        => NoContentResponseRequested = true;
 }

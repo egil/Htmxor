@@ -16,6 +16,4 @@ public class HtmxContextEventArgs : EventArgs
         Response = context.Response;
         this.context = context;
     }
-
-    public void NoContentResponse() => context.NoContentResponse();
 }

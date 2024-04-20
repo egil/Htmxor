@@ -1,4 +1,5 @@
 ﻿using Bunit;
+using Htmxor.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Configuration;

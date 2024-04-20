@@ -1,18 +1,19 @@
 ﻿@page "/delete-row-1"
+@using System.Net
 @attribute [HxRoute("/delete-row-1/{id:int}", Methods = ["Delete"])]
 @code {
     [CascadingParameter]
-    public required HtmxContext HxContext { get; set; }
+    public required HtmxContext Context { get; set; }
 
     [Parameter]
     public int Id { get; set; }
 
     protected override void OnInitialized()
     {
-        if (HxContext.Request.IsHtmxRequest && HttpMethods.IsDelete(HxContext.Request.Method))
+        if (Context.Request.IsHtmxRequest && HttpMethods.IsDelete(Context.Request.Method))
         {
             DataStore.Remove<User>(Id);
-            HxContext.NoContentResponse();
+            Context.Response.EmptyBody();
         }
     }
 }

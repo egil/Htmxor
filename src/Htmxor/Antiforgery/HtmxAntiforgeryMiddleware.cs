@@ -1,5 +1,4 @@
-﻿using Htmxor.Configuration;
-using Microsoft.AspNetCore.Antiforgery;
+﻿using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http;
 
 namespace Htmxor.Antiforgery;

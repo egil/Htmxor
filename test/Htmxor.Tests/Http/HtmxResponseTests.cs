@@ -1,25 +1,29 @@
 ﻿using Bunit;
-using Htmxor.Configuration;
 using Microsoft.AspNetCore.Http;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Htmxor.Http.Mock;
-using Htmxor.Http.Models;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Http;
 
 public class HtmxResponseTests : TestContext
 {
+    private static HttpContext CreateHttpContext()
+    {
+        var result = new DefaultHttpContext()
+        {
+            RequestServices = new ServiceCollection().BuildServiceProvider()
+        };
+        result.GetHtmxContext();
+        return result;
+    }
+
     [Fact]
     public void Location_AddsLocationHeader()
     {
         // Arrange
-        var context = new MockHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
         response.Location("/new-location");
@@ -31,28 +35,35 @@ public class HtmxResponseTests : TestContext
     [Fact]
     public void Location_AddsLocationWIthAjaxContextHeader()
     {
-	    // Arrange
-	    var context = new MockHttpContext();
-	    var response = new HtmxResponse(context);
+        // Arrange
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
+        var locationTarget = new LocationTarget
+        {
+            Path = "/new-location",
+            Target = "#testdiv"
+        };
 
-	    var ajc = new AjaxContext
-	    {
-		    Target = "#testdiv"
-	    };
+        // Act
+        response.Location(locationTarget);
 
-	    // Act
-	    response.Location("/new-location", ajc);
-
-	    // Assert
-	    Assert.Equal("{\"path\":\"/new-location\",\"target\":\"#testdiv\"}", context.Response.Headers[HtmxResponseHeaderNames.Location]);
+        // Assert
+        context.Response.Headers[HtmxResponseHeaderNames.Location]
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .BeJsonSemanticallyEqualTo("""
+                { "path": "/new-location", "target": "#testdiv" }
+                """);
     }
 
     [Fact]
     public void PushUrl_AddsPushUrlHeader()
     {
         // Arrange
-        var context = new MockHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
         response.PushUrl("/new-url");
@@ -65,8 +76,8 @@ public class HtmxResponseTests : TestContext
     public void Redirect_AddsRedirectHeader()
     {
         // Arrange
-        var context = new MockHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
         response.Redirect("/new-redirect");
@@ -79,8 +90,8 @@ public class HtmxResponseTests : TestContext
     public void Refresh_AddsRefreshHeader()
     {
         // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
         response.Refresh();
@@ -93,8 +104,8 @@ public class HtmxResponseTests : TestContext
     public void ReplaceUrl_AddsReplaceUrlHeader()
     {
         // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
         response.ReplaceUrl("/new-replace-url");
@@ -106,37 +117,37 @@ public class HtmxResponseTests : TestContext
     [Fact]
     public void PushUrl_AddsPushUrlBrowserHistoryHeader()
     {
-	    // Arrange
-	    var context = new DefaultHttpContext();
-	    var response = new HtmxResponse(context);
+        // Arrange
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
-	    // Act
-	    response.PreventBrowserHistoryUpdate();
+        // Act
+        response.PreventBrowserHistoryUpdate();
 
-	    // Assert
-	    Assert.Equal("false", context.Response.Headers[HtmxResponseHeaderNames.PushUrl]);
+        // Assert
+        Assert.Equal("false", context.Response.Headers[HtmxResponseHeaderNames.PushUrl]);
     }
 
     [Fact]
     public void ReplaceUrl_AddsReplaceUrlBrowserCUrrentUrlHeader()
     {
-	    // Arrange
-	    var context = new DefaultHttpContext();
-	    var response = new HtmxResponse(context);
+        // Arrange
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
-	    // Act
-	    response.PreventBrowserCurrentUrlUpdate();
+        // Act
+        response.PreventBrowserCurrentUrlUpdate();
 
-	    // Assert
-	    Assert.Equal("false", context.Response.Headers[HtmxResponseHeaderNames.ReplaceUrl]);
+        // Assert
+        Assert.Equal("false", context.Response.Headers[HtmxResponseHeaderNames.ReplaceUrl]);
     }
 
     [Fact]
     public void Reswap_AddsReswapHeader()
     {
         // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
         response.Reswap(SwapStyle.InnerHTML);
@@ -149,8 +160,8 @@ public class HtmxResponseTests : TestContext
     public void Retarget_AddsRetargetHeader()
     {
         // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
         response.Retarget(".new-target");
@@ -163,8 +174,8 @@ public class HtmxResponseTests : TestContext
     public void Reselect_AddsReselectHeader()
     {
         // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
         response.Reselect(".new-selection");
@@ -173,195 +184,122 @@ public class HtmxResponseTests : TestContext
         Assert.Equal(".new-selection", context.Response.Headers[HtmxResponseHeaderNames.Reselect]);
     }
 
-    [Fact]
-    public void Trigger_AfterSwap_AddsTriggerAfterSwapHeader()
+    [Theory]
+    [InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
+    [InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
+    [InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
+    public void Trigger_without_details(TriggerTiming triggerTiming, string expectedHeaderKey)
     {
         // Arrange
-        var context = new MockHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
-        response.Trigger("event1", timing: TriggerTiming.AfterSwap);
+        response.Trigger("event1", timing: triggerTiming);
 
         // Assert
-        var result = context.Response.Headers[HtmxResponseHeaderNames.TriggerAfterSwap];
-        Assert.Contains("event1", result.ToList());
+        context.Response.Headers[expectedHeaderKey]
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .Be("event1");
     }
 
-    [Fact]
-    public void Trigger_AfterSettle_AddsTriggerAfterSettleHeader()
+    [Theory]
+    [InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
+    [InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
+    [InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
+    public void Multiple_trigger_events_without_details(TriggerTiming triggerTiming, string expectedHeaderKey)
     {
         // Arrange
-        var context = new MockHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
-        response.Trigger("event2", timing: TriggerTiming.AfterSettle);
+        response.Trigger("event1", timing: triggerTiming);
+        response.Trigger("event2", timing: triggerTiming);
 
         // Assert
-        var result = context.Response.Headers[HtmxResponseHeaderNames.TriggerAfterSettle];
-        Assert.Contains("event2", result.ToList());
+        context.Response.Headers[expectedHeaderKey]
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .Be("event1,event2");
     }
 
-    [Fact]
-    public void Trigger_Default_AddsTriggerHeader()
+    [Theory]
+    [InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
+    [InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
+    [InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
+    public void Same_trigger_event_twice_without_details(TriggerTiming triggerTiming, string expectedHeaderKey)
     {
         // Arrange
-        var context = new MockHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
-        response.Trigger("event3");
+        response.Trigger("event1", timing: triggerTiming);
+        response.Trigger("event1", timing: triggerTiming);
 
         // Assert
-        var result = context.Response.Headers[HtmxResponseHeaderNames.Trigger];
-        Assert.Contains("event3", result.ToList());
+        context.Response.Headers[expectedHeaderKey]
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .Be("event1");
     }
 
-    [Fact]
-    public void Trigger_DefaultObject_AddsTriggerHeaderWithJsonString()
+    [Theory]
+    [InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
+    [InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
+    [InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
+    public void Trigger_DefaultObject_AddsTriggerHeaderWithJsonString(TriggerTiming triggerTiming, string expectedHeaderKey)
     {
         // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
         var triggerObject = new { level = "info", message = "Here Is A Message" };
 
         // Act
-        response.Trigger("showMessage", triggerObject);
+        response.Trigger("showMessage", triggerObject, triggerTiming);
 
         // Assert
-        var result = context.Response.Headers[HtmxResponseHeaderNames.Trigger];
-        Assert.Contains("{\"showMessage\":{\"level\":\"info\",\"message\":\"Here Is A Message\"}}", result.ToString());
+        context.Response.Headers[expectedHeaderKey]
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .BeJsonSemanticallyEqualTo("""
+                { "showMessage": { "level": "info", "message": "Here Is A Message" } }
+                """);
     }
 
-    [Fact]
-    public void Trigger_DefaultObjectWithTiming_AddsCorrectTriggerHeader()
+    [Theory]
+    [InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
+    [InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
+    [InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
+    public void Trigger_CanUseExistingTriggerWithMultipleTriggersWithDetail_AddsCorrectTriggerHeader(TriggerTiming triggerTiming, string expectedHeaderKey)
     {
         // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
-        var triggerObject = new { level = "info", message = "Here Is A Message" };
+        var context = CreateHttpContext();
+        var response = context.GetHtmxContext().Response;
 
         // Act
-        response.Trigger("showMessage", triggerObject, timing: TriggerTiming.AfterSettle);
+        response.Trigger("event1", triggerTiming);
+        response.Trigger("event2", new { magic = "something" }, triggerTiming);
+        response.Trigger("event3", new { moremagic = false }, triggerTiming);
 
         // Assert
-        var result = context.Response.Headers[HtmxResponseHeaderNames.TriggerAfterSettle];
-        Assert.Contains("{\"showMessage\":{\"level\":\"info\",\"message\":\"Here Is A Message\"}}", result.ToString());
-    }
-
-    [Fact]
-    public void Trigger_DefaultObjectWithoutDetail_AddsCorrectTriggerHeader()
-    {
-        // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
-        var triggerObject = new { level = "info", message = "Here Is A Message" };
-
-        // Act
-        response.Trigger("showMessage", triggerObject);
-
-        // Assert
-        var result = context.Response.Headers[HtmxResponseHeaderNames.Trigger];
-        Assert.Contains("{\"showMessage\":{\"level\":\"info\",\"message\":\"Here Is A Message\"}}", result.ToList());
-    }
-
-    [Fact]
-    public void Trigger_CanUseExistingTriggerWithTrigger_AddsCorrectTriggerHeader()
-    {
-        const string expected = @"cool,neat";
-
-        // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
-
-        // Act
-        response.Trigger("cool")
-            .Trigger("neat");
-
-        // Assert
-        Assert.Equal(expected, context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
-    }
-
-    [Fact]
-    public void Trigger_CanUseExistingTriggerWithMultipleTriggersWithDetail_AddsCorrectTriggerHeader()
-    {
-        const string expected = @"{""wow"":"""",""cool"":{""magic"":""something""},""neat"":{""moremagic"":false}}";
-
-        // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
-
-        // Act
-        response.Trigger("wow");
-        response.Trigger("cool", new { magic = "something" })
-            .Trigger("neat", new { moremagic = false });
-
-        // Assert
-        Assert.Equal(expected, context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
-    }
-
-    [Fact]
-    public void Trigger_CanUseExistingTriggerWithDetailWithMultipleTriggersWithDetail_AddsCorrectTriggerHeader()
-    {
-        const string expected = @"{""wow"":{""display"":true},""cool"":{""magic"":""something""},""neat"":{""moremagic"":false}}";
-
-        // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
-
-        // Act
-        response.Trigger("wow", new { display = true });
-        response.Trigger("cool", new { magic = "something" })
-            .Trigger("neat", new { moremagic = false });
-
-        // Assert
-        Assert.Equal(expected, context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
-    }
-
-    [Fact]
-    public void Trigger_CanUseExistingSimpleExternalTriggerWithMultipleTriggersWithDetail()
-    {
-        const string expected = @"{""event1"":"""",""event2"":"""",""event3"":"""",""wow"":{""display"":true},""cool"":{""magic"":""something""},""neat"":{""moremagic"":false}}";
-
-        // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
-
-        context.Response.Headers[HtmxRequestHeaderNames.Trigger] = new StringValues("event1,event2,event3".Split(","));
-
-        // Act
-        response.Trigger("wow", new { display = true });
-        response.Trigger("cool", new { magic = "something" })
-            .Trigger("neat", new { moremagic = false });
-
-        // Assert
-        Assert.Equal(expected, context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
-    }
-
-    [Fact]
-    public void Trigger_CanUseExistingMixedSimpleAndComplexExternalTriggerWithMultipleTriggersWithDetail()
-    {
-        const string expected = @"{""event1"":"""",""event2"":"""",""event3"":"""",""event4"":"""",""showMessage"":{""level"":""info"",""message"":""Here Is A Message""},""wow"":{""display"":true},""cool"":{""magic"":""something""},""neat"":{""moremagic"":false}}";
-
-        // Arrange
-        var context = new DefaultHttpContext();
-        var response = new HtmxResponse(context);
-
-        string[] mixed = ["event1",
-            "event2",
-            "event3,event4",
-            "{\"showMessage\":{\"level\":\"info\",\"message\":\"Here Is A Message\"}}"
-        ];
-
-        context.Response.Headers[HtmxRequestHeaderNames.Trigger] = new StringValues(mixed);
-
-        // Act
-        response.Trigger("wow", new { display = true });
-        response.Trigger("cool", new { magic = "something" })
-            .Trigger("neat", new { moremagic = false });
-
-        // Assert
-        Assert.Equal(expected, context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
+        context.Response.Headers[expectedHeaderKey]
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .BeJsonSemanticallyEqualTo("""
+                { "event1": null, "event2": { "magic": "something" }, "event3": { "moremagic": false } }
+                """);
     }
 }
