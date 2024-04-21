@@ -1,0 +1,8 @@
+﻿@page "/lazy-loading-1/graph"
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(2000);
+    }
+}
+<img src="/img/tokyo.png" alt='Tokyo Climate' />
