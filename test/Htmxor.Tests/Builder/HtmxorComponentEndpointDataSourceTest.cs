@@ -15,9 +15,10 @@ public class HtmxorComponentEndpointDataSourceTest
             ]);
 
         var endpoints = cut.Endpoints;
-        endpoints.Should().HaveCount(2);
-        endpoints[0].Metadata.Should().Contain(new HxRouteAttribute("/hx-only"));
-        endpoints[1].Metadata.Should().Contain(new HxRouteAttribute("/hx-and-route"));
+        endpoints.Should().HaveCount(3);
+        endpoints[0].Metadata.Should().Contain(new HtmxorEndpointMetadata(new HxRouteAttribute("/route-only")));
+        endpoints[1].Metadata.Should().Contain(new HtmxorEndpointMetadata(new HxRouteAttribute("/hx-only")));
+        endpoints[2].Metadata.Should().Contain(new HtmxorEndpointMetadata(new HxRouteAttribute("/hx-and-route") { Target = "target" }));
     }
 
     [Route("/route-only")]
@@ -31,7 +32,7 @@ public class HtmxorComponentEndpointDataSourceTest
     }
 
     [Route("/hx-and-route")]
-    [HxRoute("/hx-and-route")]
+    [HxRoute("/hx-and-route", Target = "target")]
     private sealed class HxAndRouteOnly : NoopComponentBase
     {
     }

@@ -1,7 +1,5 @@
 ﻿@page "/click-to-edit-3/contact/{id:int}"
 @page "/click-to-edit-3/contact/{id:int}/edit"
-@attribute [HxRoute("/click-to-edit-3/contact/{id:int}", Methods = ["GET", "PUT"])]
-@attribute [HxRoute("/click-to-edit-3/contact/{id:int}/edit", Methods = ["GET"])]
 @inject NavigationManager navMan
 @code {
     private bool editMode;

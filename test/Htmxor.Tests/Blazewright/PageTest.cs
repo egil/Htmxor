@@ -3,7 +3,8 @@ using Microsoft.Playwright;
 
 namespace Htmxor.Blazewright;
 
-public class PageTest : IClassFixture<PlaywrightFixture>, IAsyncLifetime
+[Collection("PlaywrightTests")]
+public class PageTest : IAsyncLifetime
 {
     private readonly PlaywrightFixture fixture;
 

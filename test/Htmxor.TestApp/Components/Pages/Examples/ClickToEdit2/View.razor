@@ -1,5 +1,4 @@
 ﻿@page "/click-to-edit-2/contact/{id:int}"
-@attribute [HxRoute("/click-to-edit-2/contact/{id:int}", Methods = ["GET", "PUT"])]
 @code {
     [SupplyParameterFromForm]
     public Contact? Contact { get; set; }

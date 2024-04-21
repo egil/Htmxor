@@ -38,7 +38,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
         {
             var type = (Type)getComponentTypeProperty!.GetValue(componentInfo)!;
             var renderMode = (IComponentRenderMode?)getRenderModeProperty!.GetValue(componentInfo);
-            componentTypes.Add(new(type, renderMode));
+            componentTypes.Add(new ComponentInfo(type, renderMode));
         }
 
         return componentTypes;
