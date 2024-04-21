@@ -10,6 +10,8 @@ public static class DataStore
     static DataStore()
     {
         data.TryAdd((1, typeof(Contact)), new Contact { Id = 1, FirstName = "Joe", LastName = "Blow", Email = "joe@blow.com" });
+        data.TryAdd((2, typeof(Contact)), new Contact { Id = 2, FirstName = "Alice", LastName = "Blow", Email = "alice@example.com" });
+        data.TryAdd((3, typeof(Contact)), new Contact { Id = 3, FirstName = "Bob", LastName = "Blow", Email = "bob@example.com" });
 
         data.TryAdd((1, typeof(User)), new User { Id = 1, Name = "Alice", Email = "alice@example.com", Active = true });
         data.TryAdd((2, typeof(User)), new User { Id = 2, Name = "Bob", Email = "bob@example.com", Active = true });

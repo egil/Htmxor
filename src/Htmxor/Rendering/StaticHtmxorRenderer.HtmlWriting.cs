@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
+using Htmxor.Components;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -514,7 +515,10 @@ internal partial class StaticHtmxorRenderer
     {
         ref var frame = ref frames.Array[position];
 
-        RenderChildComponent(output, ref frame);
+        if (frame.Component is not HtmxPartial htmxPartial || htmxPartial.ShouldRender())
+        {
+            RenderChildComponent(output, ref frame);
+        }
 
         return position + frame.ComponentSubtreeLength;
     }

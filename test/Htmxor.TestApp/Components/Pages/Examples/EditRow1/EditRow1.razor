@@ -1,0 +1,59 @@
+﻿@page "/edit-row-1/edit-row"
+@page "/edit-row-1/edit-row/{id:int}"
+@page "/edit-row-1/edit-row/{id:int}/edit"
+@attribute [HxRoute("/edit-row-1/edit-row/{id:int}")]
+@inject NavigationManager NavMan
+@code {
+    [SupplyParameterFromForm]
+    public Contact? Contact { get; set; }
+
+    [Parameter]
+    public int Id { get; set; }
+
+    bool RenderCondition(int id)
+    {
+        return Id == 0 || (id == Id && !NavMan.Uri.EndsWith("/edit"));
+    }
+}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody hx-target="closest tr" hx-swap="outerHTML">
+        @foreach (var contact in DataStore.OfType<Contact>())
+        {
+            <HtmxPartial Condition=@RenderCondition(contact.Id)>
+                <tr>
+                    <td>@contact.FirstName</td>
+                    <td>@contact.Email</td>
+                    <td>
+                        <button class="btn btn-danger"
+                                hx-get="/edit-row-1/edit-row/@(contact.Id)/edit">
+                            Edit
+                        </button>
+                    </td>
+                </tr>
+            </HtmxPartial>
+            <HtmxPartial Condition=@(NavMan.Uri.EndsWith($"/{contact.Id}/edit"))>
+                <tr hx-trigger='cancel' class='editing' hx-get="/edit-row-1/edit-row/@(contact.Id)">
+                    <td><input name='Contact.Name' value=@contact.FirstName></td>
+                    <td><input name='Contact.Email' value=@contact.Email></td>
+                    <td>
+                        <button class="btn btn-danger" hx-get="/edit-row-1/edit-row/@(contact.Id)">
+                            Cancel
+                        </button>
+                        <button class="btn btn-danger"
+                                hx-put="/edit-row-1/edit-row/@(contact.Id)"
+                                hx-include="closest tr">
+                            Save
+                        </button>
+                    </td>
+                </tr>
+            </HtmxPartial>
+        }
+    </tbody>
+</table>

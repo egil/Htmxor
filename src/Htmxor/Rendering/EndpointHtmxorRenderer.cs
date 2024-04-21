@@ -137,7 +137,7 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
         var htmxContext = _httpContext.GetHtmxContext();
         if (htmxContext.Request.IsHtmxRequest)
         {
-            var matchingPartialComponentId = FindPartialComponentMatchingRequest(componentId, htmxContext);
+            var matchingPartialComponentId = FindPartialComponentMatchingRequest(componentId);
             base.WriteComponentHtml(
                 matchingPartialComponentId.HasValue ? matchingPartialComponentId.Value : componentId,
                 output);
@@ -148,7 +148,7 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
         }
     }
 
-    private int? FindPartialComponentMatchingRequest(int componentId, HtmxContext htmxContext)
+    private int? FindPartialComponentMatchingRequest(int componentId)
     {
         var frames = GetCurrentRenderTreeFrames(componentId);
 
@@ -158,12 +158,20 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
 
             if (frame.FrameType is RenderTreeFrameType.Component)
             {
-                if (frame.Component is HtmxPartial partial && partial.IsMatchingRequest(htmxContext))
+                if (frame.Component is HtmxPartial partial)
                 {
-                    return frame.ComponentId;
+                    if (partial.ShouldRender())
+                    {
+                        return frame.ComponentId;
+                    }
+                    else
+                    {
+                        // if the partial should not render, none of it children should render either.
+                        continue;
+                    }
                 }
 
-                var candidate = FindPartialComponentMatchingRequest(frame.ComponentId, htmxContext);
+                var candidate = FindPartialComponentMatchingRequest(frame.ComponentId);
 
                 if (candidate.HasValue)
                 {
@@ -188,7 +196,9 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
     }
 
     protected override ComponentState CreateComponentState(int componentId, IComponent component, ComponentState? parentComponentState)
-        => new HtmxorComponentState(this, componentId, component, parentComponentState);
+    {
+        return new HtmxorComponentState(this, componentId, component, parentComponentState);
+    }
 
     protected override void AddPendingTask(ComponentState? componentState, Task task)
     {

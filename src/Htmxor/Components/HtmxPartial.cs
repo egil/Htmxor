@@ -10,6 +10,9 @@ public sealed class HtmxPartial : IComponent
     [Parameter, EditorRequired]
     public required RenderFragment ChildContent { get; set; }
 
+    [Parameter]
+    public bool Condition { get; set; } = true;
+
     public void Attach(RenderHandle renderHandle)
     {
         this.renderHandle = renderHandle;
@@ -23,11 +26,11 @@ public sealed class HtmxPartial : IComponent
         }
 
         ChildContent = childContent;
+        Condition = parameters.GetValueOrDefault(nameof(Condition), true);
         renderHandle.Render(childContent);
         return Task.CompletedTask;
     }
 
-    internal bool IsMatchingRequest(HtmxContext htmxContext)
-        => true;
+    internal bool ShouldRender() => Condition;
 }
 
