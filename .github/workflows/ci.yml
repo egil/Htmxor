@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-
 name: ci
 on:
   workflow_dispatch: # Allow running the workflow manually from the GitHub UI
@@ -89,6 +88,12 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
+    - name: Build solution
+      run: dotnet build -c Release
+
+    - name: Ensure browsers are installed
+      run: pwsh /home/runner/work/Htmxor/Htmxor/test/Htmxor.Tests/bin/Release/net8.0/playwright.ps1 install --with-deps
+
     - name: Run tests
       run: dotnet test --configuration Release --logger trx --results-directory "${{ env.TestResultsDirectory }}" --collect:"XPlat Code Coverage" --blame-hang --blame-hang-timeout 5min
 
@@ -126,19 +131,25 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
+    - name: Build solution
+      run: dotnet build -c Release
+
+    - name: Ensure browsers are installed
+      run: pwsh /home/runner/work/Htmxor/Htmxor/test/Htmxor.Tests/bin/Release/net8.0/playwright.ps1 install --with-deps
+
     - name: Install Stryker.NET
       run: dotnet tool install -g dotnet-stryker
 
     - name: Run Stryker.NET
       id: strykerLocal
-      if: github.repository == 'egil/Htmxor'      
+      if: github.repository == 'egil/Htmxor'
       run: |
         cd test/Htmxor.Tests
         dotnet stryker --config-file "../../stryker-config.json" --dashboard-api-key "${{ secrets.STRYKER_DASHBOARD_API_KEY }}" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
 
     - name: Run Stryker.NET
       id: strykerFork
-      if: github.repository != 'egil/Htmxor'      
+      if: github.repository != 'egil/Htmxor'
       run: |
         cd test/Htmxor.Tests
         dotnet stryker --config-file "../../stryker-config.json" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
