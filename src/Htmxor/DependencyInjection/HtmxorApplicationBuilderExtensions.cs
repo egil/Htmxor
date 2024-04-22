@@ -38,14 +38,13 @@ public static class HtmxorApplicationBuilderExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, HtmxorComponentEndpointMatcherPolicy>());
         services.AddScoped<EndpointRoutingStateProvider>();
         services.AddScoped<IRoutingStateProvider>(sp => sp.GetRequiredService<EndpointRoutingStateProvider>());
-        
+
         // Override rendering
         services.AddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
         services.AddScoped<IRazorComponentEndpointInvoker>(x => x.GetRequiredService<IHtmxorComponentEndpointInvoker>());
         services.AddScoped<EndpointHtmxorRenderer>();
         services.AddCascadingValue(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext!);
         services.AddScoped(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext!);
-
 
         // Add Htmxor services
         services.AddSingleton(x =>

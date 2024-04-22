@@ -8,6 +8,7 @@ using System.Reflection;
 using Htmxor.Components;
 using Htmxor.DependencyInjection;
 using Htmxor.Http;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Endpoints;
@@ -116,9 +117,10 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
                 .Invoke(httpContextFormDataProvider, [handler ?? "", new FormCollectionReadOnlyDictionary(form), form.Files]);
         }
 
-        if (httpContext.RequestServices.GetService<AntiforgeryStateProvider>() is EndpointAntiforgeryStateProvider antiforgery)
+        var antiforgery = httpContext.RequestServices.GetRequiredService<AntiforgeryStateProvider>();
+        if (antiforgery.GetType().GetMethod("SetRequestContext", BindingFlags.Instance | BindingFlags.NonPublic) is MethodInfo setRequestContextMethod)
         {
-            antiforgery.SetRequestContext(httpContext);
+            setRequestContextMethod.Invoke(antiforgery, [httpContext]);
         }
 
         // It's important that this is initialized since a component might try to restore state during prerendering

@@ -1,0 +1,40 @@
+﻿@page "/form-validation-1/form-validation"
+@inject IServiceProvider Services
+@code {
+    [SupplyParameterFromForm]
+    public required Contact Model { get; set; }
+
+    override protected void OnInitialized()
+    {
+        Model ??= new Contact() { Id = DataStore.GetNextId<Contact>() };
+    }
+
+    private void OnValidSubmit()
+    {
+        DataStore.Store(Model);
+    }
+
+    private void OnSubmit()
+    {
+    }
+}
+<EditForm Model=@Model FormName="contacts" OnValidSubmit="OnValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="form-group">
+        <label for="FirstName">First Name</label>
+        <InputText @bind-Value=Model.FirstName class="form-control" id="FirstName" />
+        <ValidationMessage For="() => Model.FirstName" />
+    </div>
+    <div class="form-group">
+        <label for="LastName">LastName</label>
+        <InputText @bind-Value=Model.LastName class="form-control" id="LastName" />
+        <ValidationMessage For=@(() => Model.LastName) />
+    </div>
+    <div class="form-group">
+        <label for="Email">Email</label>
+        <InputText type="email" @bind-Value=Model.Email class="form-control" id="Email" />
+        <ValidationMessage For=@(() => Model.Email) />
+    </div>
+    <input type="submit" class="btn btn-primary" value="Save" />
+</EditForm>
