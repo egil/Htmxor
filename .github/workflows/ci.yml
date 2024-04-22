@@ -166,7 +166,7 @@ jobs:
         authToken: ${{secrets.GITHUB_TOKEN}}
         context: stryker-report"
         description: "See report"
-        state: ${{ steps.stryker.conclusion }}
+        state: ${{ steps.strykerLocal.conclusion }}
         sha: ${{ github.event.pull_request.head.sha || github.sha }}
         target_url:  https://dashboard.stryker-mutator.io/reports/github.com/egil/Htmxor/${{ env.BRANCH_NAME }}
 
