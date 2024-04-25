@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Configuration;
 
-public class HtmxConfigHeadOutletTest : TestContext
+public class HtmxHeadOutletTest : TestContext
 {
     [Fact]
     public void HtmxConfig_serializer()
@@ -44,7 +44,7 @@ public class HtmxConfigHeadOutletTest : TestContext
         };
         Services.AddSingleton(config);
 
-        var cut = RenderComponent<HtmxConfigHeadOutlet>();
+        var cut = RenderComponent<HtmxHeadOutlet>();
 
         var meta = cut.Find("meta");
         meta.GetAttribute("name").Should().Be("htmx-config");
