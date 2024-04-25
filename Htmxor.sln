@@ -27,6 +27,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Htmxor.Tests", "test\Htmxor
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Htmxor.TestApp", "test\Htmxor.TestApp\Htmxor.TestApp.csproj", "{0347D883-0078-4F68-BA24-DA7E3004D31D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazingPizza", "samples\BlazingPizza\BlazingPizza.csproj", "{59324821-EF01-40F6-9674-81094C4229A7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -53,6 +55,10 @@ Global
 		{0347D883-0078-4F68-BA24-DA7E3004D31D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0347D883-0078-4F68-BA24-DA7E3004D31D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0347D883-0078-4F68-BA24-DA7E3004D31D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{59324821-EF01-40F6-9674-81094C4229A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{59324821-EF01-40F6-9674-81094C4229A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{59324821-EF01-40F6-9674-81094C4229A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{59324821-EF01-40F6-9674-81094C4229A7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -63,6 +69,7 @@ Global
 		{8E83BAAD-08DC-4CAC-AFE7-5E82D5FCAF41} = {A50FFB42-310B-45BC-BDDF-ADE3B61D61EB}
 		{DBF3F19B-27E8-4971-BDCF-ECC021D55BFA} = {BB63193F-EEC0-4EE6-B89E-9B4E1983E2FF}
 		{0347D883-0078-4F68-BA24-DA7E3004D31D} = {BB63193F-EEC0-4EE6-B89E-9B4E1983E2FF}
+		{59324821-EF01-40F6-9674-81094C4229A7} = {8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {430F7B4E-864E-44B7-84A0-A903E7386E3B}
