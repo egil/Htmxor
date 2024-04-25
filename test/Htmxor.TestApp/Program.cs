@@ -25,7 +25,6 @@ app.UseStaticFiles();
 app.UseAntiforgery()
    .UseHtmxAntiforgery();
 
-app.MapRazorComponents<App>()
-   .AddHtmxorComponentEndpoints(app);
+app.MapRazorComponents<App>().AddHtmxorComponentEndpoints(app);
 
 app.Run();

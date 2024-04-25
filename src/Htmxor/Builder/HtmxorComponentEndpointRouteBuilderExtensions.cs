@@ -1,11 +1,9 @@
 ﻿using System.Reflection;
-using Microsoft.AspNetCore.Builder;
+using Htmxor.Builder;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 
-namespace Htmxor.Builder;
+namespace Microsoft.AspNetCore.Builder;
 
 public static class HtmxorComponentEndpointRouteBuilderExtensions
 {
