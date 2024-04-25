@@ -36,7 +36,7 @@ internal class HtmxorComponentEndpointMatcherPolicy : MatcherPolicy, IEndpointSe
             var endpoint = candidates[i].Endpoint;
             var htmxorEndpointMetadata = endpoint.Metadata.GetMetadata<HtmxorEndpointMetadata>();
 
-            if (htmxorEndpointMetadata is null && htmxContext.Request.IsHtmxRequest)
+            if (htmxorEndpointMetadata is null && htmxContext.Request.IsHtmxRequest && !htmxContext.Request.IsBoosted)
             {
                 candidates.SetValidity(i, false);
                 continue;

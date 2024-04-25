@@ -138,7 +138,7 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
     protected internal override void WriteComponentHtml(int componentId, TextWriter output)
     {
         var htmxContext = _httpContext.GetHtmxContext();
-        if (htmxContext.Request.IsHtmxRequest)
+        if (htmxContext.Request.IsHtmxRequest && !htmxContext.Request.IsBoosted)
         {
             var matchingPartialComponentId = FindPartialComponentMatchingRequest(componentId);
             base.WriteComponentHtml(

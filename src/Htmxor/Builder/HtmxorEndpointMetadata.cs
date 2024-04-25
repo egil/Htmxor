@@ -17,6 +17,9 @@ internal sealed record class HtmxorEndpointMetadata(HxRouteAttribute HxRoute)
         if (!htmxRequest.IsHtmxRequest)
             return false;
 
+        if (htmxRequest.IsBoosted)
+            return false;
+
         if (currentUrl is not null && Uri.Compare(currentUrl, htmxRequest.CurrentURL, UriComponents.HttpRequestUrl, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
             return false;
 
