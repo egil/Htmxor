@@ -89,6 +89,7 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
     internal static async Task InitializeStandardComponentServicesAsync(
         HttpContext httpContext,
         [DynamicallyAccessedMembers(Component)] Type? componentType = null,
+        [DynamicallyAccessedMembers(Component)] Type? layoutType = null,
         string? handler = null,
         IFormCollection? form = null)
     {
@@ -130,7 +131,7 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
 
         if (componentType is not null)
         {
-            SetRouteData(httpContext, componentType);
+            SetRouteData(httpContext, componentType, layoutType);
         }
     }
 
@@ -185,10 +186,11 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
         return null;
     }
 
-    private static void SetRouteData(HttpContext httpContext, Type componentType)
+    private static void SetRouteData(HttpContext httpContext, Type componentType, Type? layoutType)
     {
         // Saving RouteData to avoid routing twice in Router component
         var routingStateProvider = httpContext.RequestServices.GetRequiredService<EndpointRoutingStateProvider>();
+        routingStateProvider.LayoutType = layoutType;
         routingStateProvider.RouteData = new RouteData(componentType, httpContext.GetRouteData().Values);
         if (httpContext.GetEndpoint() is RouteEndpoint endpoint)
         {

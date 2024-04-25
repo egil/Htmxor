@@ -1,0 +1,4 @@
+﻿@page "/replace-head-elements"
+@attribute [HxLayout(typeof(HtmxorLayout))]
+<PageTitle>Request @DateTimeOffset.UtcNow</PageTitle>
+<button hx-get="/replace-head-elements" type="button" hx-target="this" hx-swap="outerHTML">Change title</button>

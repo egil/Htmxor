@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Encodings.Web;
+using Htmxor.Builder;
 using Htmxor.Http;
 using Htmxor.Rendering.Buffering;
 using Microsoft.AspNetCore.Antiforgery;
@@ -55,7 +56,7 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 
         var rootComponent = endpoint.Metadata.GetRequiredMetadata<RootComponentMetadata>().Type;
         var pageComponent = endpoint.Metadata.GetRequiredMetadata<ComponentTypeMetadata>().Type;
-
+        var layoutComponent = endpoint.Metadata.GetMetadata<HtmxorLayoutComponentMetadata>()?.Type;
         Log.BeginRenderRootComponent(_logger, rootComponent.Name, pageComponent.Name);
 
         // Metadata controls whether we require antiforgery protection for this endpoint or we should skip it.
@@ -82,6 +83,7 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
         await EndpointHtmxorRenderer.InitializeStandardComponentServicesAsync(
             context,
             componentType: pageComponent,
+            layoutType: layoutComponent,
             handler: result.HandlerName,
             form: result.IsFormDataRequest && context.Request.HasFormContentType ? await context.Request.ReadFormAsync() : null);
 

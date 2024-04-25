@@ -54,6 +54,11 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
                 builder.Metadata.Add(new RootComponentMetadata(typeof(HtmxorComponentRequestHost)));
                 builder.Metadata.Add(new HtmxorEndpointMetadata(hxRoute));
 
+                if (componentInfo.ComponentLayoutType is not null)
+                {
+                    builder.Metadata.Add(new HtmxorLayoutComponentMetadata(componentInfo.ComponentLayoutType));
+                }
+
                 builder.RequestDelegate = static httpContext =>
                 {
                     var invoker = httpContext.RequestServices.GetRequiredService<IHtmxorComponentEndpointInvoker>();

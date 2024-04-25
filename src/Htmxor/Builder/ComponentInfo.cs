@@ -6,7 +6,11 @@ namespace Htmxor.Builder;
 
 internal sealed record class ComponentInfo
 {
+    [DynamicallyAccessedMembers(LinkerFlags.Component)]
     public Type ComponentType { get; }
+
+    [DynamicallyAccessedMembers(LinkerFlags.Component)]
+    public Type? ComponentLayoutType { get; }
 
     public IComponentRenderMode? RenderMode { get; }
 
@@ -20,6 +24,8 @@ internal sealed record class ComponentInfo
     {
         ComponentType = componentType;
         RenderMode = renderMode;
+
+        ComponentLayoutType = componentType.GetCustomAttribute<HxLayoutAttribute>(true)?.LayoutType;
 
         var hxRoutes = componentType
             .GetCustomAttributes<HxRouteAttribute>(true)

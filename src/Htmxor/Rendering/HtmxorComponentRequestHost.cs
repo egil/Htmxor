@@ -37,16 +37,30 @@ internal class HtmxorComponentRequestHost : IComponent
 
     private void BuildRenderTree(RenderTreeBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(RoutingStateProvider.RoutePattern);
-        ArgumentNullException.ThrowIfNull(RoutingStateProvider.RouteData);
+        if (RoutingStateProvider.LayoutType is not null)
+        {
+            builder.OpenComponent(0, RoutingStateProvider.LayoutType);
+            builder.AddAttribute(1, "Body", RenderRouteComponent(RoutingStateProvider));
+            builder.CloseComponent();
+        }
+        else
+        {
+            RenderRouteComponent(RoutingStateProvider)(builder);
+        }
+    }
 
-        builder.OpenComponent(0, RoutingStateProvider.RouteData.PageType);
-        foreach (var (name, value) in GetRouteParameters(RoutingStateProvider.RoutePattern, RoutingStateProvider.RouteData.RouteValues))
+    private static RenderFragment RenderRouteComponent(EndpointRoutingStateProvider routingStateProvider) => builder =>
+    {
+        ArgumentNullException.ThrowIfNull(routingStateProvider.RoutePattern);
+        ArgumentNullException.ThrowIfNull(routingStateProvider.RouteData);
+
+        builder.OpenComponent(0, routingStateProvider.RouteData.PageType);
+        foreach (var (name, value) in GetRouteParameters(routingStateProvider.RoutePattern, routingStateProvider.RouteData.RouteValues))
         {
             builder.AddComponentParameter(1, name, value);
         }
         builder.CloseComponent();
-    }
+    };
 
     private static IEnumerable<(string Name, object? Value)> GetRouteParameters(RoutePattern routePattern, IReadOnlyDictionary<string, object?> routeValues)
     {
