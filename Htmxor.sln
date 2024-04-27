@@ -27,7 +27,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Htmxor.Tests", "test\Htmxor
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Htmxor.TestApp", "test\Htmxor.TestApp\Htmxor.TestApp.csproj", "{0347D883-0078-4F68-BA24-DA7E3004D31D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazingPizza", "samples\BlazingPizza\BlazingPizza.csproj", "{59324821-EF01-40F6-9674-81094C4229A7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlazingPizza", "samples\BlazingPizza\BlazingPizza.csproj", "{59324821-EF01-40F6-9674-81094C4229A7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

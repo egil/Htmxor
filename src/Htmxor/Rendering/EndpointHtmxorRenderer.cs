@@ -189,7 +189,7 @@ internal partial class EndpointHtmxorRenderer : StaticHtmxorRenderer, IComponent
     private static void SetRouteData(HttpContext httpContext, Type componentType, Type? layoutType)
     {
         // Saving RouteData to avoid routing twice in Router component
-        var routingStateProvider = httpContext.RequestServices.GetRequiredService<EndpointRoutingStateProvider>();
+        var routingStateProvider = httpContext.RequestServices.GetRequiredService<HtmxorEndpointRoutingStateProvider>();
         routingStateProvider.LayoutType = layoutType;
         routingStateProvider.RouteData = new RouteData(componentType, httpContext.GetRouteData().Values);
         if (httpContext.GetEndpoint() is RouteEndpoint endpoint)

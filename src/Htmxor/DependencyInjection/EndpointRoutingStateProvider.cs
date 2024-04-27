@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Routing.Patterns;
 
 namespace Htmxor.DependencyInjection;
 
-internal sealed class EndpointRoutingStateProvider : IRoutingStateProvider
+internal sealed class HtmxorEndpointRoutingStateProvider : IRoutingStateProvider
 {
     [DynamicallyAccessedMembers(LinkerFlags.Component)]
     public Type? LayoutType { get; internal set; }

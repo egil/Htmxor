@@ -23,7 +23,7 @@ internal class HtmxorComponentRequestHost : IComponent
     private RenderHandle _renderHandle;
 
     [Inject]
-    public EndpointRoutingStateProvider RoutingStateProvider { get; set; } = default!;
+    public HtmxorEndpointRoutingStateProvider RoutingStateProvider { get; set; } = default!;
 
     public void Attach(RenderHandle renderHandle)
         => _renderHandle = renderHandle;
@@ -49,7 +49,7 @@ internal class HtmxorComponentRequestHost : IComponent
         }
     }
 
-    private static RenderFragment RenderRouteComponent(EndpointRoutingStateProvider routingStateProvider) => builder =>
+    private static RenderFragment RenderRouteComponent(HtmxorEndpointRoutingStateProvider routingStateProvider) => builder =>
     {
         ArgumentNullException.ThrowIfNull(routingStateProvider.RoutePattern);
         ArgumentNullException.ThrowIfNull(routingStateProvider.RouteData);
