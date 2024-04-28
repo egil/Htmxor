@@ -62,6 +62,9 @@ public static class HtmxorApplicationBuilderExtensions
         services.AddCascadingValue(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext);
         services.AddScoped(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext!);
 
+        services.Remove(services.Single(x => x.ServiceType == typeof(NavigationManager)));
+        services.AddScoped<NavigationManager, HtmxorNavigationManager>();
+
         // Add Htmxor services
         services.AddSingleton(x =>
         {

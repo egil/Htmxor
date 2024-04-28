@@ -118,9 +118,9 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 
                 await _renderer.WaitForNonStreamingPendingTasks();
             }
-            catch (NavigationException ex)
+            catch (HtmxorNavigationException navigationException)
             {
-                await EndpointHtmxorRenderer.HandleNavigationException(context, ex);
+                await EndpointHtmxorRenderer.HandleNavigationException(context, navigationException);
                 quiesceTask = Task.CompletedTask;
             }
         }

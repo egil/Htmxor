@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Encodings.Web;
+using Htmxor.Http;
 using Htmxor.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -123,7 +124,7 @@ internal partial class EndpointHtmxorRenderer
 
             return result;
         }
-        catch (NavigationException navigationException)
+        catch (HtmxorNavigationException navigationException)
         {
             return await HandleNavigationException(httpContext, navigationException);
         }
@@ -146,7 +147,7 @@ internal partial class EndpointHtmxorRenderer
 
             return result;
         }
-        catch (NavigationException navigationException)
+        catch (HtmxorNavigationException navigationException)
         {
             return await HandleNavigationException(_httpContext, navigationException);
         }
@@ -186,8 +187,9 @@ internal partial class EndpointHtmxorRenderer
         }
     }
 
-    public static ValueTask<PrerenderedComponentHtmlContent> HandleNavigationException(HttpContext httpContext, NavigationException navigationException)
+    public static ValueTask<PrerenderedComponentHtmlContent> HandleNavigationException(HttpContext httpContext, HtmxorNavigationException navigationException)
     {
+        var htmxContext = httpContext.GetHtmxContext();
         if (httpContext.Response.HasStarted)
         {
             // If we're not doing streaming SSR, this has no choice but to be a fatal error because there's no way to
@@ -206,14 +208,52 @@ internal partial class EndpointHtmxorRenderer
             // forcing the request to be retried, since that allows post-redirect-get to work, plus avoids a
             // duplicated request. The client can't rely on receiving this header, though, since non-Blazor endpoints
             // wouldn't return it.
-            httpContext.Response.Headers["blazor-enhanced-nav-redirect-location"] = OpaqueRedirection.CreateProtectedRedirectionUrl(httpContext, navigationException.Location);
+
+            // Originally Blazor would return a blazor-enhanced-nav-redirect-location header. Here we rely on Htmx's
+            // handling of headers for htmx requests and uses the built in browser redirect for non-htmx requests.
+            // TODO: validate that this works as intended.
+            if (htmxContext.Request.IsHtmxRequest)
+            {
+                htmxContext.Response.Redirect(OpaqueRedirection.CreateProtectedRedirectionUrl(httpContext, navigationException.Location));
+            }
+            else
+            {
+                httpContext.Response.Redirect(OpaqueRedirection.CreateProtectedRedirectionUrl(httpContext, navigationException.Location));
+            }
+
             return new ValueTask<PrerenderedComponentHtmlContent>(PrerenderedComponentHtmlContent.Empty);
+        }
+
+        var options = navigationException.Options;
+        if (htmxContext.Request.IsHtmxRequest)
+        {
+            if (options.ForceLoad)
+            {
+                htmxContext.Response.Redirect(navigationException.Location);
+
+                if (options.ReplaceHistoryEntry)
+                {
+                    htmxContext.Response.ReplaceUrl(navigationException.Location);
+                }
+            }
+            else
+            {
+                if (options.ReplaceHistoryEntry)
+                {
+                    htmxContext.Response.ReplaceUrl(navigationException.Location);
+                }
+                else
+                {
+                    htmxContext.Response.Redirect(navigationException.Location);
+                }
+            }
         }
         else
         {
             httpContext.Response.Redirect(navigationException.Location);
-            return new ValueTask<PrerenderedComponentHtmlContent>(PrerenderedComponentHtmlContent.Empty);
         }
+
+        return new ValueTask<PrerenderedComponentHtmlContent>(PrerenderedComponentHtmlContent.Empty);
     }
 
     private static bool IsPossibleExternalDestination(HttpRequest request, string destinationUrl)

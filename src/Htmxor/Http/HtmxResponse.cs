@@ -47,7 +47,6 @@ public class HtmxResponse(HttpContext context)
     public HtmxResponse Location(string path)
     {
         headers[HtmxResponseHeaderNames.Location] = path;
-
         return this;
     }
 
@@ -60,7 +59,6 @@ public class HtmxResponse(HttpContext context)
     {
         var json = JsonSerializer.Serialize(locationTarget, HtmxJsonSerializerContext.Default.LocationTarget);
         headers[HtmxResponseHeaderNames.Location] = json;
-
         return this;
     }
 
@@ -72,7 +70,6 @@ public class HtmxResponse(HttpContext context)
     public HtmxResponse PushUrl(string url)
     {
         headers[HtmxResponseHeaderNames.PushUrl] = url;
-
         return this;
     }
 
@@ -108,7 +105,7 @@ public class HtmxResponse(HttpContext context)
     public HtmxResponse Redirect(string url)
     {
         headers[HtmxResponseHeaderNames.Redirect] = url;
-
+        EmptyResponseBodyRequested = true;
         return this;
     }
 
@@ -119,7 +116,7 @@ public class HtmxResponse(HttpContext context)
     public HtmxResponse Refresh()
     {
         headers[HtmxResponseHeaderNames.Refresh] = "true";
-
+        EmptyResponseBodyRequested = true;
         return this;
     }
 
@@ -131,7 +128,6 @@ public class HtmxResponse(HttpContext context)
     public HtmxResponse ReplaceUrl(string url)
     {
         headers[HtmxResponseHeaderNames.ReplaceUrl] = url;
-
         return this;
     }
 
