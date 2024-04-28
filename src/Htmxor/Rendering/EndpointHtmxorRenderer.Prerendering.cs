@@ -229,22 +229,22 @@ internal partial class EndpointHtmxorRenderer
         {
             if (options.ForceLoad)
             {
-                htmxContext.Response.Redirect(navigationException.Location);
+                htmxContext.Response.Redirect(navigationException.RequestedLocation);
 
                 if (options.ReplaceHistoryEntry)
                 {
-                    htmxContext.Response.ReplaceUrl(navigationException.Location);
+                    htmxContext.Response.ReplaceUrl(navigationException.RequestedLocation);
                 }
             }
             else
             {
                 if (options.ReplaceHistoryEntry)
                 {
-                    htmxContext.Response.ReplaceUrl(navigationException.Location);
+                    htmxContext.Response.ReplaceUrl(navigationException.RequestedLocation);
                 }
                 else
                 {
-                    htmxContext.Response.Redirect(navigationException.Location);
+                    htmxContext.Response.Location(navigationException.RequestedLocation);
                 }
             }
         }
