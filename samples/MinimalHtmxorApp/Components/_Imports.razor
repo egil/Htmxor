@@ -6,8 +6,11 @@
 @using static Microsoft.AspNetCore.Components.Web.RenderMode
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @using Microsoft.JSInterop
-@using MinimalHtmxorApp
+@using MinimalHtmxorApp.Components.Layout
 @using MinimalHtmxorApp.Components
+@using MinimalHtmxorApp
 @using Htmxor.Components
 @using Htmxor.Http
 @using Htmxor
+
+@attribute [HxLayout(typeof(HtmxorLayout))]

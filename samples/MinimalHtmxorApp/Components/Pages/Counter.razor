@@ -2,14 +2,25 @@
 <PageTitle>Counter</PageTitle>
 
 <h1>Counter</h1>
+<p>
+    This is a htmx enabled counter. It uses the <code>&lt;HtmxPartial&gt;</code> to
+    enable the concept <a href="https://htmx.org/essays/template-fragments/" target="_blank">template fragments</a>.
+</p>
+<p>
+    When Htmxor sees a <code>&lt;HtmxPartial&gt;</code> component, it will only render it's content, and not the surrounding
+    content, like these paragraph elements.
+</p>
 
 <HtmxPartial>
     <div id="counter">
         <p role="status">
             Current count: @CurrentCount
         </p>
-        <button class="btn btn-primary" hx-put="/counter" hx-vals='{ "CurrentCount": @(CurrentCount) }'
-            hx-target="#counter" @onput="IncrementCount">Click me</button>
+        <button class="btn btn-primary" 
+                hx-put="/counter" 
+                hx-vals='{ "CurrentCount": @(CurrentCount) }'
+                hx-target="#counter" 
+                @onput="IncrementCount">Click me</button>
     </div>
 </HtmxPartial>
 
@@ -17,8 +28,12 @@
     [SupplyParameterFromForm]
     private int CurrentCount { get; set; } = 0;
 
-    private void IncrementCount()
+    private void IncrementCount(HtmxContextEventArgs args)
     {
+        // Access the HtmxContextEventArgs to control
+        // the response headers to the client.
+        // E.g.: args.Response.StatusCode(201);
+        
         CurrentCount++;
     }
 }
