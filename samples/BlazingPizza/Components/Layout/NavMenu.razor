@@ -1,0 +1,78 @@
+﻿@implements IDisposable
+@inject NavigationManager NavigationManager
+@code {
+    private string? currentUrl;
+
+    protected override void OnInitialized()
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}
+<a class="navbar-brand px-5" href="/">
+    <img src="/img/logo.svg" alt="Blazing Pizza logo" width="140">
+</a>
+<ul class="nav me-auto">
+    <li class="nav-item text-center">
+        <NavLink href="/" class="nav-link px-4" ActiveClass="active" Match="NavLinkMatch.All">
+            <img src="img/pizza-slice.svg" alt="Pizza slice">
+            <div class="text-uppercase pt-2">Get Pizza</div>
+        </NavLink>
+    </li>
+    <AuthorizeView>
+        <Authorized>
+            <li class="nav-item text-center">
+                <NavLink href="/myorders" class="nav-link px-4" ActiveClass="active">
+                    <img src="img/bike.svg" alt="Orders">
+                    <div class="text-uppercase pt-2">My Orders</div>
+                </NavLink>
+            </li>
+        </Authorized>
+    </AuthorizeView>
+</ul>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="nav-item px-3 d-flex text-white align-items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16">
+                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+                <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1" />
+            </svg>
+            <div>
+                <NavLink class="fw-bold btn btn-link link-light link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href="Account/Manage" title="Manage user account">
+                    @context.User.Identity?.Name
+                </NavLink>
+                <form action="Account/Logout" method="post">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                    <button type="submit" class="btn btn-link btn-sm ms-1 link-light text-blazing-yellow link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" title="Logout">
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="nav-item px-3">
+            <NavLink class="btn btn-outline-light" href="Account/Register">
+                <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="btn btn-outline-light" href="Account/Login">
+                <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
+            </NavLink>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>

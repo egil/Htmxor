@@ -1,47 +1,48 @@
-﻿<div class="form-field">
-    <label>Name:</label>
-    <div>
-        <InputText @bind-Value="Address.Name" />
+﻿<DataAnnotationsValidator />
+<div class="mb-3 row">
+    <label for="addressName" class="col-sm-2 col-form-label">Name:</label>
+    <div class="col-sm-10">
+        <InputText @bind-Value="Address.Name" class="form-control" id="addressName" />
         <ValidationMessage For="@(() => Address.Name)" />
     </div>
 </div>
 
-<div class="form-field">
-    <label>Line 1:</label>
-    <div>
-        <InputText @bind-Value="Address.Line1" />
+<div class="mb-3 row">
+    <label for="addressLine1" class="col-sm-2 col-form-label">Line 1:</label>
+    <div class="col-sm-10">
+        <InputText @bind-Value="Address.Line1" class="form-control" id="addressLine1" />
         <ValidationMessage For="@(() => Address.Line1)" />
     </div>
 </div>
 
-<div class="form-field">
-    <label>Line 2:</label>
-    <div>
-        <InputText @bind-Value="Address.Line2" />
+<div class="mb-3 row">
+    <label for="addressLine2" class="col-sm-2 col-form-label">Line 2:</label>
+    <div class="col-sm-10">
+        <InputText @bind-Value="Address.Line2" class="form-control" id="addressLine2" />
         <ValidationMessage For="@(() => Address.Line2)" />
     </div>
 </div>
 
-<div class="form-field">
-    <label>City:</label>
-    <div>
-        <InputText @bind-Value="Address.City" />
+<div class="mb-3 row">
+    <label for="addressCity" class="col-sm-2 col-form-label">City:</label>
+    <div class="col-sm-10">
+        <InputText @bind-Value="Address.City" class="form-control" id="addressCity" />
         <ValidationMessage For="@(() => Address.City)" />
     </div>
 </div>
 
-<div class="form-field">
-    <label>Region:</label>
-    <div>
-        <InputText @bind-Value="Address.Region" />
+<div class="mb-3 row">
+    <label for="addressRegion" class="col-sm-2 col-form-label">Region:</label>
+    <div class="col-sm-10">
+        <InputText @bind-Value="Address.Region" class="form-control" id="addressRegion" />
         <ValidationMessage For="@(() => Address.Region)" />
     </div>
 </div>
 
-<div class="form-field">
-    <label>Postal code:</label>
-    <div>
-        <InputText @bind-Value="Address.PostalCode" />
+<div class="mb-3 row">
+    <label for="addressPostal" class="col-sm-2 col-form-label">Postal code:</label>
+    <div class="col-sm-10">
+        <InputText @bind-Value="Address.PostalCode" class="form-control" id="addressPostal" />
         <ValidationMessage For="@(() => Address.PostalCode)" />
     </div>
 </div>

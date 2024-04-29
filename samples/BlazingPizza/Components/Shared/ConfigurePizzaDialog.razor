@@ -1,96 +1,152 @@
 ﻿@inject PizzaClient PizzaClient
-
-<div class="dialog-title">
-    <h2>@Pizza.Special?.Name</h2>
-    @Pizza.Special?.Description
-</div>
-<form class="dialog-body">
-    <div>
-        <label>Size:</label>
-        <input type="range" min="@Pizza.MinimumSize" max="@Pizza.MaximumSize" step="1" @bind="Pizza.Size" @bind:event="oninput" />
-        <span class="size-label">
-            @(Pizza.Size)" (£@(Pizza.GetFormattedTotalPrice()))
-        </span>
-    </div>
-    <div>
-        <label>Extra Toppings:</label>
-        @if (toppings is null)
-        {
-            <select class="custom-select" disabled>
-                <option>(loading...)</option>
-            </select>
-        }
-        else if (Pizza.Toppings.Count >= 6)
-        {
-            <div>(maximum reached)</div>
-        }
-        else
-        {
-            <select class="custom-select" @onchange="ToppingSelected">
-                <option value="-1" disabled selected>(select)</option>
-                @for (var i = 0; i < toppings.Count; i++)
-                {
-                    <option value="@i">@toppings[i].Name - (£@(toppings[i].GetFormattedPrice()))</option>
-                }
-            </select>
-        }
-    </div>
-
-    <div class="toppings">
-        @foreach (var topping in Pizza.Toppings)
-        {
-            if (topping?.Topping is not null)
-            {
-                <div class="topping">
-                    @topping.Topping.Name
-                    <span class="topping-price">@topping.Topping.GetFormattedPrice()</span>
-                    <button type="button" class="delete-topping" @onclick="@(() => RemoveTopping(topping.Topping))">x</button>
+@page "/configure-pizza"
+<div class="modal-dialog modal-dialog-centered" role="document" id="configure-pizza-modal">
+    <div class="modal-content">
+        <div class="modal-header bg-blazing-grey text-white flex-column align-items-start">
+            <h5 class="modal-title text-uppercase">@pizza.Special?.Name</h5>
+            <p class="text-blazing-yellow mb-0">@pizza.Special?.Description</p>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" name="ConfigurePizzaForm.SpecialId" value=@SpecialId />
+            <div class="row align-items-center mb-3">
+                <div class="col-4 text-end">
+                    <label for="sizeInput" class="col-form-label">Size:</label>
                 </div>
-            }
-        }
+                <div class="col-5">
+                    <input id="sizeInput" class="form-range" aria-describedby="sizeInputText"
+                           type="range" min="@Pizza.MinimumSize" max="@Pizza.MaximumSize" step="1"
+                           value="@ConfigurePizzaForm.Size"
+                           name="ConfigurePizzaForm.Size"
+                           hx-put="/configure-pizza?specialId=@SpecialId"
+                           hx-target="#configure-pizza-modal"
+                           hx-swap="outerHTML" />
+                </div>
+                <div class="col-3">
+                    <span id="sizeInputText" class="form-text">
+                        @(pizza.Size)" (£@(pizza.GetFormattedTotalPrice()))
+                    </span>
+                </div>
+            </div>
+            <div class="row align-items-center my-3">
+                <div class="col-4 text-end">
+                    <label for="toppingsSelector" class="col-form-label">Extra toppings:</label>
+                </div>
+                <div class="col-8">
+                    @if (pizza.Toppings.Count < 6)
+                    {
+                        <select class="form-select" id="toppingsSelector"
+                                name="ConfigurePizzaForm.SelectTopping"
+                                hx-put="/configure-pizza?specialId=@SpecialId"
+                                hx-target="#configure-pizza-modal"
+                                hx-swap="outerHTML"
+                                @onput=AddTopping>
+                            <option value="0" disabled selected=@(ConfigurePizzaForm.SelectTopping == 0)>(select)</option>
+                            @foreach (var topping in toppings)
+                            {
+                                <option value="@topping.Id"
+                                        disabled=@pizza.Toppings.Exists(pt => pt.Topping == topping)
+                                        selected=@(ConfigurePizzaForm.SelectTopping == topping.Id)>
+                                    @topping.Name - (£@(topping.GetFormattedPrice()))
+                                </option>
+                            }
+                        </select>
+                    }
+                    else
+                    {
+                        <span>(maximum reached)</span>
+                    }
+                </div>
+            </div>
+            <div class="text-center">
+                @foreach (var topping in pizza.Toppings)
+                {
+                    if (topping?.Topping is not null)
+                    {
+                        <div class="topping">
+                            <input type="hidden" name="ConfigurePizzaForm.Toppings" value=@topping.ToppingId />
+                            @topping.Topping.Name
+                            <span class="topping-price">£@topping.Topping.GetFormattedPrice()</span>
+                            <button type="button"
+                                    class="delete-topping"
+                                    hx-put="/configure-pizza?specialId=@(SpecialId)&removeTopping=@(topping.ToppingId)"
+                                    hx-target="#configure-pizza-modal"
+                                    hx-swap="outerHTML"
+                                    name="ConfigurePizzaForm.RemoveTopping"
+                                    value=@(topping.ToppingId)
+                                    @onput=RemoveTopping>
+                                x
+                            </button>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+        <div class="modal-footer bg-blazing-light-grey d-flex justify-content-between">
+            <button class="btn btn-secondary" type="reset"
+                    data-bs-dismiss="modal" aria-label="Close">
+                Cancel
+            </button>
+            <span>
+                Price: <span class="fs-5">£@pizza.GetFormattedTotalPrice()</span>
+            </span>
+            <button class="btn btn-success"
+                    type="submit"
+                    data-bs-dismiss="modal"
+                    hx-post="/"
+                    hx-target="#sidebar"
+                    hx-swap="outerHTML"
+                    method="post">
+                Order &gt;
+            </button>
+        </div>
     </div>
-</form>
-
-<div class="dialog-buttons">
-    <button class="btn btn-secondary mr-auto" @onclick="OnCancel">Cancel</button>
-    <span class="mr-center">
-        Price: <span class="price">@(Pizza.GetFormattedTotalPrice())</span>
-    </span>
-    <button class="btn btn-success ml-auto" @onclick="OnConfirm">Order ></button>
 </div>
-
-
 @code {
-    List<Topping>? toppings;
+    private List<Topping> toppings = [];
+    private Pizza pizza { get; set; } = new();
 
-    [Parameter, EditorRequired] public Pizza Pizza { get; set; } = new();
-    [Parameter, EditorRequired] public EventCallback OnCancel { get; set; }
-    [Parameter, EditorRequired] public EventCallback OnConfirm { get; set; }
+    [SupplyParameterFromQuery(Name = "specialId")]
+    private int SpecialId { get; set; }
+
+    [SupplyParameterFromForm]
+    private ConfigurePizzaFormData ConfigurePizzaForm { get; set; } = default!;
 
     protected async override Task OnInitializedAsync()
     {
+        ConfigurePizzaForm ??= new ConfigurePizzaFormData
+            {
+                SpecialId = SpecialId,
+                Size = Pizza.DefaultSize,
+            };
+
         toppings = await PizzaClient.GetToppings();
+        pizza.Special = await PizzaClient.FindSpecial(SpecialId);
+        pizza.SpecialId = SpecialId;
+        pizza.Size = ConfigurePizzaForm.Size;
+        pizza.Toppings = ConfigurePizzaForm.Toppings?.Count > 0
+            ? ConfigurePizzaForm.Toppings.Join(
+                toppings,
+                id => id,
+                topping => topping.Id,
+                (id, topping) => new PizzaTopping { ToppingId = id, Topping = topping }).ToList()
+            : [];
     }
 
-    void ToppingSelected(ChangeEventArgs e)
+    private void AddTopping()
     {
-        if (toppings is null) return;
-        if (int.TryParse((string?)e.Value, out var index) && index >= 0)
-        {
-            AddTopping(toppings[index]);
-        }
+        if (toppings.Find(x => x.Id == ConfigurePizzaForm.SelectTopping) is not { } topping)
+            return;
+
+        if (pizza.Toppings.Exists(pt => pt.Topping == topping))
+            return;
+
+        pizza.Toppings.Add(new PizzaTopping() { ToppingId = topping.Id, Topping = topping });
     }
 
-    void AddTopping(Topping topping)
+    private void RemoveTopping()
     {
-        if (Pizza.Toppings.Find(pt => pt.Topping == topping) is null)
-        {
-            Pizza.Toppings.Add(new PizzaTopping() { Topping = topping });
-        }
-    }
-
-    void RemoveTopping(Topping topping)
-    {
-        Pizza.Toppings.RemoveAll(pt => pt.Topping == topping);
+        pizza.Toppings.RemoveAll(pt => pt.ToppingId == ConfigurePizzaForm.RemoveTopping);
+        ConfigurePizzaForm.SelectTopping = 0;
+        ConfigurePizzaForm.RemoveTopping = 0;
     }
 }

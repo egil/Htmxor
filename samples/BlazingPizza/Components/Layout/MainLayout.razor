@@ -1,23 +1,11 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="top-bar">
-    <a class="logo" href="">
-        <img src="img/logo.svg" />
-    </a>
+<nav class="navbar py-0 bg-blazing">
+    <div class="container-fluid">
+        <NavMenu />
+    </div>
+</nav>
 
-    <NavLink href="" class="nav-tab" Match="NavLinkMatch.All">
-        <img src="img/pizza-slice.svg" />
-        <div>Get Pizza</div>
-    </NavLink>
-
-    <NavLink href="myorders" class="nav-tab">
-        <img src="img/bike.svg" />
-        <div>My Orders</div>
-    </NavLink>
-
-    @* <LoginDisplay /> *@
-</div>
-
-<div class="content">
+<div class="container-fluid d-flex p-0 h-100" id="main">
     @Body
 </div>

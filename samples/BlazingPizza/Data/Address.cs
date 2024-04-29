@@ -18,7 +18,7 @@ public class Address
     [Required, MaxLength(50)]
     public string City { get; set; } = string.Empty;
 
-    [Required, MaxLength(20)]
+    [MaxLength(20)]
     public string Region { get; set; } = string.Empty;
 
     [Required, MaxLength(20)]

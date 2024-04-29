@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
-namespace BlazingPizza.Server;
+namespace BlazingPizza.Data;
 
 public class PizzaStoreUser : IdentityUser { }

@@ -1,13 +1,11 @@
-﻿@if (Show)
-{
-    <div class="dialog-container">
-        <div class="dialog">
-            @ChildContent
-        </div>
+﻿<div class="dialog-container" id="@DialogId">
+    <div class="dialog">
+        @ChildContent
     </div>
-}
+</div>
 
 @code {
-    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
-    [Parameter] public bool Show { get; set; }
+    [Parameter, EditorRequired] public required string DialogId { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
 }
