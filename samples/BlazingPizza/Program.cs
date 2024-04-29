@@ -68,9 +68,10 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseAntiforgery();
-app.UseHtmxAntiforgery();
 
-app.MapRazorComponents<App>().AddHtmxorComponentEndpoints(app);
+app.UseHtmxAntiforgery();
+app.MapRazorComponents<App>()
+   .AddHtmxorComponentEndpoints(app);
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();

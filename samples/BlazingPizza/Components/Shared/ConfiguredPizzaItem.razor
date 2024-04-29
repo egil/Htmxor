@@ -2,6 +2,7 @@
     <button @onput="() => OnRemoved.InvokeAsync()"
             role="button"
             hx-put="?removePizza=@(Pizza.Id)"
+            hx-target="#sidebar"
             hx-confirm=@($"Remove {Pizza.Special?.Name} pizza from the order?")
             class="btn btn-sm float-end text-white lh-1">
         x
