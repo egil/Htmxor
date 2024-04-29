@@ -1,74 +1,94 @@
 ﻿@page "/checkout"
-@inject OrderState OrderState
+@inject PizzaClient PizzaClient
 @inject OrdersClient OrdersClient
 @inject NavigationManager NavigationManager
 
 <PageTitle>Blazing Pizza - Checkout</PageTitle>
 
-<div class="main">
-    <EditForm Model="OrderState.Order.DeliveryAddress" OnValidSubmit="PlaceOrder">
-        <div class="checkout-cols">
-            <div class="checkout-order-details">
+<div class="container-fluid p-3">
+    <EditForm Model=@Address OnValidSubmit="PlaceOrder" OnInvalidSubmit=InvalidOrder FormName="address-form">
+        <div class="row">
+            <div class="col p-3 m-3 border">
                 <h4>Review order</h4>
-                <OrderReview Order="OrderState.Order" />
+                <OrderReview Order=@order />
+                @for (var i = 0; i < order.Pizzas.Count; i++)
+                {
+                    var pizza = @order.Pizzas[i];
+                    <input type="hidden" name="OrderForm.Pizzas[@(i)].SpecialId" value="@pizza.SpecialId" />
+                    <input type="hidden" name="OrderForm.Pizzas[@(i)].Size" value="@pizza.Size" />
+                    foreach (var topping in pizza.Toppings)
+                    {
+                        <input type="hidden" name="OrderForm.Pizzas[@(i)].Toppings" value="@topping.ToppingId" />
+                    }
+                }
             </div>
-
-            <div class="checkout-delivery-address">
+            <div class="col p-3 m-3 border">
                 <h4>Deliver to...</h4>
-                <AddressEditor Address="OrderState.Order.DeliveryAddress" />
+                <AddressEditor Address=@Address />                
             </div>
         </div>
-
-        <button type="submit" class="checkout-button btn btn-warning" disabled="@isSubmitting">
-            Place order
-        </button>
-
-        <DataAnnotationsValidator />
+        <div class="text-center">
+            <button type="submit" class="btn btn-warning" hx-target="#main" hx-post="/checkout" hx-disabled-elt="this">
+                Place order
+            </button>
+        </div>
     </EditForm>
 </div>
 
 @code {
-    bool isSubmitting;
+    private IReadOnlyList<PizzaSpecial> specials = [];
+    private List<Topping> toppings = [];
+    private Order order = new();
 
-    protected override void OnInitialized()
+    [SupplyParameterFromForm]
+    public Address? Address { get; set; }
+
+    [SupplyParameterFromForm]
+    private OrderFormData? OrderForm { get; set; }
+
+    protected override async Task OnInitializedAsync()
     {
-        // In the background, ask if they want to be notified about order updates
-        _ = RequestNotificationSubscriptionAsync();
+        Address ??= new Address();
+
+        specials = await PizzaClient.GetSpecials();
+        toppings = await PizzaClient.GetToppings();
+
+        foreach (var special in OrderForm?.Pizzas ?? Enumerable.Empty<ConfigurePizzaFormData>())
+        {
+            AddPizza(special);
+        }
     }
 
-    async Task RequestNotificationSubscriptionAsync()
+    private void AddPizza(ConfigurePizzaFormData form)
     {
-        // var subscription = await JSRuntime.InvokeAsync<NotificationSubscription>("blazorPushNotifications.requestSubscription");
-        // if (subscription is not null)
-        // {
-        //     await OrdersClient.SubscribeToNotifications(subscription);
-        //     // try
-        //     // {
-        //     //     await OrdersClient.SubscribeToNotifications(subscription);
-        //     // }
-        //     // catch (AccessTokenNotAvailableException ex)
-        //     // {
-        //     //     ex.Redirect();
-        //     // }
-        // }
+        order.Pizzas.Add(new Pizza
+            {
+                Id = order.Pizzas.Count + 1,
+                Size = form.Size,
+                SpecialId = form.SpecialId,
+                Special = specials.Single(x => x.Id == form.SpecialId),
+                Toppings = form.Toppings?.Select(toppingId => new PizzaTopping
+                {
+                    ToppingId = toppingId,
+                    Topping = toppings.Single(x => x.Id == toppingId)
+                }).ToList() ?? [],
+            });
     }
 
-    async Task PlaceOrder()
+    private async Task InvalidOrder()
     {
-        isSubmitting = true;
 
-        var newOrderId = await OrdersClient.PlaceOrder(OrderState.Order);
-        OrderState.ResetOrder();
+    }
+
+
+    private async Task CheckOrder()
+    {
+        
+    }
+
+    private async Task PlaceOrder()
+    {
+        var newOrderId = await OrdersClient.PlaceOrder(order);
         NavigationManager.NavigateTo($"myorders/{newOrderId}");
-        // try
-        // {
-        //     var newOrderId = await OrdersClient.PlaceOrder(OrderState.Order);
-        //     OrderState.ResetOrder();
-        //     NavigationManager.NavigateTo($"myorders/{newOrderId}");
-        // }
-        // catch (AccessTokenNotAvailableException ex)
-        // {
-        //     ex.Redirect();
-        // }
     }
 }

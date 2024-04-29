@@ -6,8 +6,11 @@ namespace BlazingPizza.Components;
 
 public class PizzaClient(PizzaStoreContext db)
 {
-    public Task<List<PizzaSpecial>> GetSpecials()
-        => db.Specials.ToListAsync();
+    public Task<PizzaSpecial?> FindSpecial(int id)
+        => db.Specials.SingleOrDefaultAsync(x => x.Id == id);
+
+    public async Task<IReadOnlyList<PizzaSpecial>> GetSpecials()
+        => await db.Specials.ToListAsync();
 
     public Task<List<Topping>> GetToppings()
         => db.Toppings.ToListAsync();

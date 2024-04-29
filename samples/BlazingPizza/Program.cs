@@ -1,6 +1,11 @@
 using BlazingPizza.Components;
 using BlazingPizza.Server;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server;
+using Microsoft.AspNetCore.Identity;
+using BlazingPizza.Data;
+using BlazingPizza.Components.Account;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,7 +14,31 @@ builder.Services
     .AddRazorComponents()
     .AddHtmx();
 
-builder.Services.AddDbContext<PizzaStoreContext>(options => options.UseSqlite("Data Source=data/pizza.db"));
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<IdentityUserAccessor>();
+builder.Services.AddScoped<IdentityRedirectManager>();
+builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
+
+builder.Services.AddAuthorization();
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+})
+    .AddIdentityCookies();
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+builder.Services.AddDbContext<PizzaStoreContext>(options =>
+    options.UseSqlite(connectionString));
+builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+builder.Services.AddIdentityCore<PizzaStoreUser>(options => options.SignIn.RequireConfirmedAccount = true)
+    .AddEntityFrameworkStores<PizzaStoreContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddSingleton<IEmailSender<PizzaStoreUser>, IdentityNoOpEmailSender>();
+
 builder.Services.AddScoped<OrdersClient>();
 builder.Services.AddScoped<PizzaClient>();
 builder.Services.AddScoped<OrderState>();
@@ -39,9 +68,11 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseAntiforgery();
-
-app.MapPizzaApi();
+app.UseHtmxAntiforgery();
 
 app.MapRazorComponents<App>().AddHtmxorComponentEndpoints(app);
+
+// Add additional endpoints required by the Identity /Account Razor components.
+app.MapAdditionalIdentityEndpoints();
 
 app.Run();

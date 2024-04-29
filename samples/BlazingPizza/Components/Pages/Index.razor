@@ -1,73 +1,140 @@
 ﻿@page "/"
-@inject OrderState OrderState
 @inject NavigationManager NavigationManager
 @inject PizzaClient PizzaClient
-
-<div class="main">
-    <ul class="pizza-cards">
-        @if (specials is not null)
-        {
-            @foreach (var special in specials)
-            {
-                <li @onclick="@(() => OrderState.ShowConfigurePizzaDialog(special))" style="background-image: url('@special.ImageUrl')">
-                    <div class="pizza-info">
-                        <span class="title">@special.Name</span>
-                        @special.Description
-                        <span class="price">@special.GetFormattedBasePrice()</span>
-                    </div>
-                </li>
-            }
-        }
-    </ul>
-</div>
-
-<div class="sidebar">
-    @if (Order.Pizzas.Any())
+@inject HtmxContext HtmxContext
+<PageTitle>Blazing Pizza - Pick your poison</PageTitle>
+<div class="d-flex flex-wrap p-4 gap-4 justify-content-center align-content-start">
+    @foreach (var special in specials)
     {
-        <div class="order-contents">
-            <h2>Your order</h2>
-
-            @foreach (var configuredPizza in Order.Pizzas)
-            {
-                <ConfiguredPizzaItem Pizza="configuredPizza" OnRemoved="@(() => RemovePizza(configuredPizza))" />
-            }
+        <div class="card text-bg-dark pizza-card rounded shadow border-0 growable"
+             hx-get="/configure-pizza?specialId=@(special.Id)"
+             hx-trigger="click"
+             hx-target="#configure-dialog"
+             data-bs-toggle="modal"
+             data-bs-target="#configure-dialog">
+            <img src="@special.ImageUrl" class="card-img" alt="Photo of @special.Name">
+            <div class="card-img-overlay">
+                <h5 class="card-title">@special.Name</h5>
+                <p class="card-text">@special.Description</p>
+                <p class="card-text position-absolute bottom-0 end-0 me-3 mb-3 p-2 rounded fs-4 bg-success text-white lh-1">
+                    £@special.GetFormattedBasePrice()
+                </p>
+            </div>
         </div>
     }
-    else
-    {
-        <div class="empty-cart">Choose a pizza<br>to get started</div>
-    }
-
-    <div class="order-total @(Order.Pizzas.Any() ? "" : "hidden")">
-        Total:
-        <span class="total-price">@Order.GetFormattedTotalPrice()</span>
-        <a href="checkout" class="@(Order.Pizzas.Count == 0 ? "btn btn-warning disabled" : "btn btn-warning")">
-            Order >
-        </a>
-    </div>
 </div>
 
-<TemplatedDialog Show="OrderState.ShowingConfigureDialog">
-    <ConfigurePizzaDialog
-        Pizza="OrderState.ConfiguringPizza"
-        OnCancel="OrderState.CancelConfigurePizzaDialog"
-        OnConfirm="OrderState.ConfirmConfigurePizzaDialog" />
-</TemplatedDialog>
+<form>
+    <HtmxPartial>
+        <div id="sidebar" class="bg-dark text-white ms-auto d-flex flex-column fw-lighter">
+            @if (order.Pizzas.Any())
+            {
+                <div class="flex-grow-1 p-3 d-flex gap-3 flex-column">
+                    <h2 class="fs-5 text-uppercase text-blazing-yellow m-0">Your order</h2>
+
+                    @for (var i = 0; i < order.Pizzas.Count; i++)
+                    {
+                        var pizza = @order.Pizzas[i];
+                        <ConfiguredPizzaItem Pizza=@pizza OnRemoved="() => RemovePizza(pizza)" />
+
+                        <input type="hidden" name="OrderForm.Pizzas[@(i)].SpecialId" value="@pizza.SpecialId" />
+                        <input type="hidden" name="OrderForm.Pizzas[@(i)].Size" value="@pizza.Size" />
+                        foreach (var topping in pizza.Toppings)
+                        {
+                            <input type="hidden" name="OrderForm.Pizzas[@(i)].Toppings" value="@topping.ToppingId" />
+                        }
+                    }
+                </div>
+
+                <div class="bg-blazing fs-5 d-flex px-3 py-3 align-items-center">
+                    Total:
+                    <span class="ps-2 fs-3 fw-bold">£@order.GetFormattedTotalPrice()</span>
+                    <a hx-push-url="/checkout" hx-post="/checkout" hx-target="#main" class="btn btn-warning ms-auto fw-bold rounded-pill" disabled=@(order.Pizzas.Count == 0)>
+                        Order &gt;
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="d-flex justify-content-center align-items-center h-100">
+                    <span class="text-secondary fs-3">
+                        Choose a pizza<br>to get started
+                    </span>
+                </div>
+            }
+        </div>
+
+        @if (HtmxContext.Request.IsBoosted)
+        {
+            <div id="configure-dialog"
+                 class="modal modal-blur fade"
+                 style="display: none"
+                 aria-hidden="false"
+                 tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered" role="document" id="configure-pizza-modal">
+                </div>
+            </div>
+        }
+        else
+        {
+            <div id="configure-dialog"
+                 hx-swap-oob="true"
+                 class="modal modal-blur fade"
+                 style="display: none"
+                 aria-hidden="false"
+                 tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered" role="document" id="configure-pizza-modal">
+                </div>
+            </div>
+        }
+    </HtmxPartial>
+</form>
 
 @code {
-    List<PizzaSpecial>? specials;
-    Order Order => OrderState.Order;
+    private IReadOnlyList<PizzaSpecial> specials = [];
+    private List<Topping> toppings = [];
+    private Order order = new Order();
+
+    [SupplyParameterFromForm]
+    private ConfigurePizzaFormData? ConfigurePizzaForm { get; set; }
+
+    [SupplyParameterFromForm]
+    private OrderFormData? OrderForm { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
         specials = await PizzaClient.GetSpecials();
+        toppings = await PizzaClient.GetToppings();
+
+        foreach (var special in OrderForm?.Pizzas ?? Enumerable.Empty<ConfigurePizzaFormData>())
+        {
+            AddPizza(special);
+        }
+
+        if (ConfigurePizzaForm is not null)
+        {
+            AddPizza(ConfigurePizzaForm);
+        }
     }
 
-    async Task RemovePizza(Pizza configuredPizza)
+    private void AddPizza(ConfigurePizzaFormData form)
     {
-        // if (await JS.Confirm($"Remove {configuredPizza.Special?.Name} pizza from the order?"))
-        // {
-        //     OrderState.RemoveConfiguredPizza(configuredPizza);
-        // }
+        order.Pizzas.Add(new Pizza
+            {
+                Id = order.Pizzas.Count + 1,
+                Size = form.Size,
+                SpecialId = form.SpecialId,
+                Special = specials.Single(x => x.Id == form.SpecialId),
+                Toppings = form.Toppings?.Select(toppingId => new PizzaTopping
+                {
+                    ToppingId = toppingId,
+                    Topping = toppings.Single(x => x.Id == toppingId)
+                }).ToList() ?? [],
+            });
+    }
+
+    private void RemovePizza(Pizza pizza)
+    {
+        order.Pizzas.Remove(pizza);
     }
 }

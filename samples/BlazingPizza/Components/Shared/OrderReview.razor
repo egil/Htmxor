@@ -8,10 +8,10 @@
         </strong>
     </p>
 
-    <ul>
+    <ul class="list-unstyled">
         @foreach (var topping in pizza.Toppings)
         {
-            <li>+ @topping.Topping?.Name</li>
+            <li class="ps-4">+ @topping.Topping?.Name</li>
         }
     </ul>
 }
@@ -24,5 +24,6 @@
 </p>
 
 @code {
-    [Parameter, EditorRequired] public Order Order { get; set; } = new();
+    [Parameter, EditorRequired] 
+    public Order Order{ get; set; } = new();
 }

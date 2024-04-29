@@ -482,3 +482,5 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+/samples/BlazingPizza/Data/pizza.db-wal
+/samples/BlazingPizza/Data/pizza.db-shm

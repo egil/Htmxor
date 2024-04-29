@@ -1,14 +1,11 @@
 ﻿using BlazingPizza.Data;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace BlazingPizza.Server;
 
-public class PizzaStoreContext : DbContext
+public class PizzaStoreContext(DbContextOptions options) : IdentityDbContext<PizzaStoreUser>(options)
 {
-    public PizzaStoreContext(DbContextOptions options) : base(options)
-    {
-    }
-
     public DbSet<Order> Orders { get; set; }
 
     public DbSet<Pizza> Pizzas { get; set; }

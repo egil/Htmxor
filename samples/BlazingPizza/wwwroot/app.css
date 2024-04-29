@@ -1,0 +1,164 @@
+﻿@import url('css/font/quicksand.css');
+
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.bg-blazing {
+    background-color: rgb(192,0,0);
+}
+
+.bg-blazing-grey {
+    background-color: #444;
+}
+
+.bg-blazing-light-grey {
+    background-color: #eee;
+}
+
+.text-blazing-yellow {
+    color: #fff2cc;
+}
+
+.navbar {
+    background-image: linear-gradient(rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.25) 25%, rgba(0,0,0,0) 70%);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    height: 80px;
+}
+
+.nav-link {
+    background-color: rgba(0,0,0,0.1);
+    min-width: 128px;
+    transition: 0.3s ease-out;
+}
+
+    .nav-link:hover {
+        background-color: rgba(255,255,255,0.3);
+    }
+
+    .nav-link.active {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .nav-link div {
+        color: #ffffff;
+        font-size: 0.9rem;
+    }
+
+    .nav-link img {
+        height: 2rem;
+    }
+
+    .nav-link.active div {
+        color: #fff2cc;
+    }
+
+    .nav-link.active img {
+        filter: brightness(0) saturate(100%) invert(93%) sepia(18%) saturate(797%) hue-rotate(316deg) brightness(109%) contrast(101%);
+    }
+
+.pizza-card {
+    width: 18em;
+    height: 10rem;
+}
+
+    .pizza-card img {
+        min-width: 18rem;
+        min-height: 10rem;
+        overflow: hidden;
+    }
+
+    .pizza-card .card-img-overlay {
+        background: linear-gradient(rgba(0, 0, 0, 0.7) 30%, rgba(0, 0, 0, 0) 80%);
+        padding: 1rem 1rem;
+        color: #fff2cc;
+        cursor: pointer;
+        text-shadow: 0 2px 2px rgba(0, 0, 0, 0.5);
+        line-height: 1.25rem;
+    }
+
+.growable {
+    transition: 0.1s ease-out;
+}
+
+    .growable:hover {
+        transform: scale(1.02);
+    }
+
+#sidebar {
+    height: calc(100vh - 80px);
+    min-width: 20rem;
+    overflow-y: auto;
+    background-color: #2b2b2b;
+}
+
+input[type=range] {
+    -webkit-appearance: none;
+    margin: 7.1px 0;
+    height: 21px;
+}
+
+    input[type=range]:focus {
+        outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+        background: #d45352;
+    }
+
+    input[type=range]::-moz-range-thumb {
+        background: #d45352;
+    }
+
+    input[type=range]::-ms-thumb {
+        background: #d45352;
+    }
+
+.topping {
+    display: inline-block;
+    background-color: #a04343;
+    color: white;
+    padding: 0.2rem 1rem;
+    border-radius: 2rem;
+    margin: 0.4rem 0.3rem;
+    font-weight: 700;
+}
+
+.topping-price {
+    font-weight: 100;
+    font-size: 0.8rem;
+}
+
+.delete-topping {
+    background: none;
+    border: none;
+    color: white;
+    padding: 0.2rem 0.2rem 0.3rem 0.2rem;
+    cursor: pointer;
+}
+
+    .delete-topping:hover {
+        color: yellow;
+    }
+
+.cart-item {
+    background-color: #333333;
+}
+
+    .cart-item button:hover {
+        background-color: #444;
+    }
+
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid #e50000;
+}
+
+.validation-message {
+    color: #e50000;
+}

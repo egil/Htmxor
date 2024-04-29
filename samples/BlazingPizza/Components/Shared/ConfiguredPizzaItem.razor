@@ -1,14 +1,23 @@
-﻿<div class="cart-item">
-    <a @onclick="OnRemoved" class="delete-item">x</a>
-    <div class="title">@(Pizza.Size)" @Pizza.Special?.Name</div>
-    <ul>
-        @foreach (var topping in Pizza.Toppings)
-        {
-            <li>+ @topping.Topping?.Name</li>
-        }
-    </ul>
-    <div class="item-price">
-        @Pizza.GetFormattedTotalPrice()
+﻿<div class="cart-item rounded-3">
+    <button @onput="() => OnRemoved.InvokeAsync()"
+            role="button"
+            hx-put="?removePizza=@(Pizza.Id)"
+            hx-confirm=@($"Remove {Pizza.Special?.Name} pizza from the order?")
+            class="btn btn-sm float-end text-white lh-1">
+        x
+    </button>
+    <h3 class="fs-6 p-3 m-0">@(Pizza.Size)" @Pizza.Special?.Name</h3>
+    @if (Pizza.Toppings.Any())
+    {
+        <ul class="list-unstyled fw-light">
+            @foreach (var topping in Pizza.Toppings)
+            {
+                <li class="ps-4">+ @topping.Topping?.Name</li>
+            }
+        </ul>
+    }
+    <div class="fw-bold pb-3 px-3">
+        £ @Pizza.GetFormattedTotalPrice()
     </div>
 </div>
 
