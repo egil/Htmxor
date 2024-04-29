@@ -17,12 +17,9 @@ The following Blazor Web Apps (Htmxor) are used to test Htmxor and demo the capa
 
 - [Blazing Pizza workshop as Htmxor App](https://github.com/egil/Htmxor/tree/main/samples/BlazingPizza)
 - [Htmxor - TestApp](https://github.com/egil/Htmxor/tree/main/test/Htmxor.TestApp)
-- [Minimal Htmxor App](https://github.com/egil/Htmxor/tree/main/test/MinimalHtmxorApp)
 - [Minimal Htmxor App](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp)
 
 
 ## Getting started
 
-Download the [Minimal Htmxor App](https://github.com/egil/Htmxor/tree/main/test/MinimalHtmxorApp).
 Download the [Minimal Htmxor App](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
-
