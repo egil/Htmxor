@@ -1,17 +1,17 @@
 ﻿@page "/edit-row-1/edit-row"
-@page "/edit-row-1/edit-row/{id:int}"
-@page "/edit-row-1/edit-row/{id:int}/edit"
+@page "/edit-row-1/edit-row/{id:guid}"
+@page "/edit-row-1/edit-row/{id:guid}/edit"
 @inject NavigationManager NavMan
 @code {
     [SupplyParameterFromForm]
     public Contact? Contact { get; set; }
 
     [Parameter]
-    public int Id { get; set; }
+    public Guid Id { get; set; }
 
-    bool RenderCondition(int id)
+    bool RenderCondition(Guid id)
     {
-        return Id == 0 || (id == Id && !NavMan.Uri.EndsWith("/edit"));
+        return Id == Guid.Empty || (id == Id && !NavMan.Uri.EndsWith("/edit"));
     }
 }
 <table class="table">

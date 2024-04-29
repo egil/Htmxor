@@ -1,5 +1,4 @@
-﻿using Htmxor.TestAssets;
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Builder;
 public class HtmxorComponentEndpointDataSourceTest

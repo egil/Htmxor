@@ -6,7 +6,6 @@ using System.Text;
 using AngleSharp;
 using AngleSharp.Diffing.Core;
 using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using Bunit;
 using Bunit.Diffing;

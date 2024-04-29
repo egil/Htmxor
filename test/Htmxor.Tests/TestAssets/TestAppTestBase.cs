@@ -1,8 +1,4 @@
-﻿using Htmxor.TestApp;
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.Extensions.DependencyInjection;
-
-namespace Htmxor.TestAssets;
+﻿namespace Htmxor.TestAssets;
 
 public class TestAppTestBase : IClassFixture<TestAppFixture>
 {

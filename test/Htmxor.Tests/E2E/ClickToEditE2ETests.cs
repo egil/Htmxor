@@ -1,7 +1,6 @@
 ﻿using Htmxor.Blazewright;
 using Htmxor.TestApp;
 using Htmxor.TestApp.Components.Pages.Examples;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Playwright;
 using Xunit.Abstractions;
 
@@ -21,7 +20,7 @@ public class ClickToEditE2ETests : PageTest
     {
         var contact = new Contact
         {
-            Id = DataStore.GetNextId<Contact>(),
+            Id = Guid.NewGuid(),
             FirstName = "Joe",
             LastName = "Blow",
             Email = "joe@blow.com",

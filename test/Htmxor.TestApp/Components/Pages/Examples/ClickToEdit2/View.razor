@@ -1,10 +1,10 @@
-﻿@page "/click-to-edit-2/contact/{id:int}"
+﻿@page "/click-to-edit-2/contact/{id:guid}"
 @code {
     [SupplyParameterFromForm]
     public Contact? Contact { get; set; }
 
     [Parameter]
-    public int Id { get; set; }
+    public Guid Id { get; set; }
 
     protected override void OnInitialized()
     {

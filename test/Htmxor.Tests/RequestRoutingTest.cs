@@ -1,6 +1,4 @@
-﻿using Htmxor.Http;
-
-namespace Htmxor;
+﻿namespace Htmxor;
 
 public class RequestRoutingTest : TestAppTestBase
 {

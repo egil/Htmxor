@@ -4,7 +4,7 @@
     private string? toast;
 
     [SupplyParameterFromForm]
-    public List<int>? Active { get; set; }
+    public List<Guid>? Active { get; set; }
 
     protected override void OnInitialized()
     {
@@ -12,7 +12,7 @@
         {
             var activated = 0;
             var deactivated = 0;
-            foreach (var user in DataStore.OfType<User>())
+            foreach (var user in DataStore.OfType<ActivatableUser>())
             {
                 var current = user.Active;
                 user.Active = Active.Contains(user.Id);
@@ -50,7 +50,7 @@
             </tr>
         </thead>
         <tbody id="tbody">
-            @foreach (var user in DataStore.OfType<User>())
+            @foreach (var user in DataStore.OfType<ActivatableUser>())
             {
                 <tr>
                     <td>@user.Name</td>

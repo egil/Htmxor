@@ -6,7 +6,7 @@
 
     override protected void OnInitialized()
     {
-        Model ??= new Contact() { Id = DataStore.GetNextId<Contact>() };
+        Model ??= new Contact() { Id = Guid.NewGuid() };
     }
 
     private void OnValidSubmit()

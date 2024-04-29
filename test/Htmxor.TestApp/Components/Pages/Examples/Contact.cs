@@ -4,7 +4,7 @@ namespace Htmxor.TestApp.Components.Pages.Examples;
 
 public record class Contact : IStoreItem
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; }
 
     [Required(AllowEmptyStrings = false, ErrorMessage = "First name is required"), MinLength(1)]
     public string? FirstName { get; set; }

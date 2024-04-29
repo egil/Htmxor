@@ -1,5 +1,5 @@
-﻿@page "/click-to-edit-3/contact/{id:int}"
-@page "/click-to-edit-3/contact/{id:int}/edit"
+﻿@page "/click-to-edit-3/contact/{id:guid}"
+@page "/click-to-edit-3/contact/{id:guid}/edit"
 @inject NavigationManager navMan
 @code {
     private bool editMode;
@@ -8,7 +8,7 @@
     public Contact Contact { get; set; } = null!;
 
     [Parameter]
-    public int Id { get; set; }
+    public Guid Id { get; set; }
 
     protected override void OnInitialized()
     {
@@ -24,7 +24,7 @@
 
         Contact = DataStore.GetOrDefault<Contact>(Id) ?? new Contact
         {
-            Id = DataStore.GetNextId<Contact>()
+            Id = Guid.NewGuid()
         };
         Id = Contact.Id;
     }

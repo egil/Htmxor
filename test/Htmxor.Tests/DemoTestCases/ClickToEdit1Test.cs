@@ -1,9 +1,6 @@
 ﻿using System.Net;
 using Htmxor.TestApp;
 using Htmxor.TestApp.Components.Pages.Examples;
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.DemoTestCases;
 
@@ -18,7 +15,7 @@ public class ClickToEdit1Test : TestAppTestBase
     {
         var contact = new Contact
         {
-            Id = DataStore.GetNextId<Contact>(),
+            Id = Guid.NewGuid(),
             FirstName = "Joe",
             LastName = "Blow",
             Email = "joe@blow.com",
@@ -47,7 +44,7 @@ public class ClickToEdit1Test : TestAppTestBase
     {
         var contact = new Contact
         {
-            Id = DataStore.GetNextId<Contact>(),
+            Id = Guid.NewGuid(),
             FirstName = "Joe",
             LastName = "Blow",
             Email = "joe@blow.com",
@@ -84,7 +81,7 @@ public class ClickToEdit1Test : TestAppTestBase
     {
         var contact = new Contact
         {
-            Id = DataStore.GetNextId<Contact>(),
+            Id = Guid.NewGuid(),
             FirstName = "Joe",
             LastName = "Blow",
             Email = "joe@blow.com",
@@ -114,7 +111,7 @@ public class ClickToEdit1Test : TestAppTestBase
     {
         var contact = new Contact
         {
-            Id = DataStore.GetNextId<Contact>(),
+            Id = Guid.NewGuid(),
             FirstName = "Joe",
             LastName = "Blow",
             Email = "joe@blow.com",
@@ -152,7 +149,7 @@ public class ClickToEdit1Test : TestAppTestBase
     {
         var contact = new Contact
         {
-            Id = DataStore.GetNextId<Contact>(),
+            Id = Guid.NewGuid(),
             FirstName = "Joe",
             LastName = "Blow",
             Email = "joe@blow.com",

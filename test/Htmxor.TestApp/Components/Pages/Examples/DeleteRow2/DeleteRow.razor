@@ -1,8 +1,8 @@
 ﻿@page "/delete-row-2"
-@attribute [HxRoute("/delete-row-2/{id:int}", Methods = ["Delete"])]
+@attribute [HxRoute("/delete-row-2/{id:guid}", Methods = ["Delete"])]
 @code {
     [Parameter]
-    public int Id { get; set; }
+    public Guid Id { get; set; }
 
     private void Delete(HtmxContextEventArgs e)
     {
@@ -25,7 +25,6 @@
             <tr>
                 <td>@user.Name</td>
                 <td>@user.Email</td>
-                <td>@(user.Active ? "Active" : "Inactive")</td>
                 <td>
                     <button class="btn btn-danger"
                             hx-delete="/delete-row-2/@user.Id"

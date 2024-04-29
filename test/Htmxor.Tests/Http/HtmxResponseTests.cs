@@ -1,7 +1,5 @@
 ﻿using Bunit;
 using Microsoft.AspNetCore.Http;
-using Htmxor.Http.Mock;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Http;

@@ -1,9 +1,6 @@
 ﻿using System.Net;
 using Htmxor.TestApp;
 using Htmxor.TestApp.Components.Pages.Examples;
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.DemoTestCases;
 
@@ -16,16 +13,15 @@ public class DeleteRowTest : TestAppTestBase
     [Fact]
     public async Task Hx_delete_returns_204_without_content()
     {
-        DataStore.Store(new User
+        var user = DataStore.Store(new User
         {
-            Id = 1000,
-            Active = true,
+            Id = Guid.NewGuid(),
             Email = "foo@bar.baz",
             Name = "Foo Bar",
         });
         await Host.Scenario(s =>
         {
-            s.Delete.Url($"/delete-row-1/{1000}");
+            s.Delete.Url($"/delete-row-1/{user.Id}");
             s.WithAntiforgeryTokensFrom(Host);
             s.WithHxHeaders();
 

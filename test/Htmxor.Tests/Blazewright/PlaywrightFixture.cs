@@ -1,9 +1,4 @@
-﻿using System.Globalization;
-using System.Net;
-using System.Text;
-using System.Text.Json;
-using Htmxor.TestApp;
-using Microsoft.Extensions.DependencyInjection;
+﻿using System.Text;
 using Microsoft.Playwright;
 using Microsoft.Playwright.TestAdapter;
 

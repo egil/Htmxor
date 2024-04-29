@@ -1,11 +1,11 @@
 ﻿@page "/delete-row-1"
-@attribute [HxRoute("/delete-row-1/{id:int}", Methods = ["Delete"])]
+@attribute [HxRoute("/delete-row-1/{id:guid}", Methods = ["Delete"])]
 @code {
     [CascadingParameter]
     public required HtmxContext Context { get; set; }
 
     [Parameter]
-    public int Id { get; set; }
+    public Guid Id { get; set; }
 
     protected override void OnInitialized()
     {
@@ -31,7 +31,6 @@
             <tr>
                 <td>@user.Name</td>
                 <td>@user.Email</td>
-                <td>@(user.Active ? "Active" : "Inactive")</td>
                 <td>
                     <button class="btn btn-danger"
                             hx-delete="/delete-row-1/@user.Id"

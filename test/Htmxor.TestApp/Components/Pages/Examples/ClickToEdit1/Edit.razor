@@ -1,15 +1,15 @@
-﻿@page "/click-to-edit-1/contact/{Id:int}/edit"
+﻿@page "/click-to-edit-1/contact/{Id:guid}/edit"
 @code {
     private Contact contact = default!;
 
     [Parameter]
-    public int Id { get; set; }
+    public Guid Id { get; set; }
 
     protected override void OnInitialized()
     {
         contact = DataStore.GetOrDefault<Contact>(Id) ?? new Contact
         {
-                Id = DataStore.GetNextId<Contact>()
+            Id = Guid.NewGuid(),
         };
         Id = contact.Id;
     }
