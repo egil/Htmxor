@@ -1,11 +1,11 @@
 using BlazingPizza.Components;
+using BlazingPizza.Components.Account;
+using BlazingPizza.Data;
 using BlazingPizza.Server;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
-using BlazingPizza.Data;
-using BlazingPizza.Components.Account;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 

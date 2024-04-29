@@ -1,4 +1,5 @@
 ﻿@page "/checkout"
+@attribute [Authorize]
 @inject PizzaClient PizzaClient
 @inject OrdersClient OrdersClient
 @inject NavigationManager NavigationManager
@@ -49,7 +50,6 @@
     protected override async Task OnInitializedAsync()
     {
         Address ??= new Address();
-
         specials = await PizzaClient.GetSpecials();
         toppings = await PizzaClient.GetToppings();
 
@@ -57,22 +57,23 @@
         {
             AddPizza(special);
         }
+
+        order.DeliveryAddress = Address;
     }
 
     private void AddPizza(ConfigurePizzaFormData form)
     {
         order.Pizzas.Add(new Pizza
+        {
+            Size = form.Size,
+            SpecialId = form.SpecialId,
+            Special = specials.Single(x => x.Id == form.SpecialId),
+            Toppings = form.Toppings?.Select(toppingId => new PizzaTopping
             {
-                Id = order.Pizzas.Count + 1,
-                Size = form.Size,
-                SpecialId = form.SpecialId,
-                Special = specials.Single(x => x.Id == form.SpecialId),
-                Toppings = form.Toppings?.Select(toppingId => new PizzaTopping
-                {
-                    ToppingId = toppingId,
-                    Topping = toppings.Single(x => x.Id == toppingId)
-                }).ToList() ?? [],
-            });
+                ToppingId = toppingId,
+                Topping = toppings.Single(x => x.Id == toppingId)
+            }).ToList() ?? [],
+        });
     }
 
     private async Task PlaceOrder()
