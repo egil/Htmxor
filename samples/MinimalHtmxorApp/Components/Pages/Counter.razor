@@ -1,0 +1,24 @@
+@page "/counter"
+<PageTitle>Counter</PageTitle>
+
+<h1>Counter</h1>
+
+<HtmxPartial>
+    <div id="counter">
+        <p role="status">
+            Current count: @CurrentCount
+        </p>
+        <button class="btn btn-primary" hx-put="/counter" hx-vals='{ "CurrentCount": @(CurrentCount) }'
+            hx-target="#counter" @onput="IncrementCount">Click me</button>
+    </div>
+</HtmxPartial>
+
+@code {
+    [SupplyParameterFromForm]
+    private int CurrentCount { get; set; } = 0;
+
+    private void IncrementCount()
+    {
+        CurrentCount++;
+    }
+}
