@@ -40,7 +40,7 @@
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.1" />
-		<PackageReference Include="MinVer" Version="4.3.0" PrivateAssets="All" />
+		<PackageReference Include="MinVer" Version="5.0.0" PrivateAssets="All" />
 		<PackageReference Include="DotNet.ReproducibleBuilds" Version="1.1.1">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 			<PrivateAssets>all</PrivateAssets>

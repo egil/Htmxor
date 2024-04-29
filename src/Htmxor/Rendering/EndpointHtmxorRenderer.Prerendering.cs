@@ -244,7 +244,7 @@ internal partial class EndpointHtmxorRenderer
                 }
                 else
                 {
-                    htmxContext.Response.Location(navigationException.RequestedLocation);
+                    htmxContext.Response.Redirect(navigationException.RequestedLocation);
                 }
             }
         }
