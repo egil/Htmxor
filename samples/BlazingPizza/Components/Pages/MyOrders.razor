@@ -34,14 +34,7 @@
     async Task<IEnumerable<OrderWithStatus>> LoadOrders()
     {
         var ordersWithStatus = Enumerable.Empty<OrderWithStatus>();
-        try
-        {
-            ordersWithStatus = await OrdersClient.GetOrders();
-        }
-        catch (Exception ex) // AccessTokenNotAvailableException
-        {
-            //ex.Redirect();
-        }
+        ordersWithStatus = await OrdersClient.GetOrders();
         return ordersWithStatus;
     }
 }

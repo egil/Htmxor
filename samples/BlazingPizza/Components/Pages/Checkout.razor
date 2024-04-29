@@ -6,7 +6,7 @@
 <PageTitle>Blazing Pizza - Checkout</PageTitle>
 
 <div class="container-fluid p-3">
-    <EditForm Model=@Address OnValidSubmit="PlaceOrder" OnInvalidSubmit=InvalidOrder FormName="address-form">
+    <EditForm Model=@Address OnValidSubmit="PlaceOrder" FormName="address-form">
         <div class="row">
             <div class="col p-3 m-3 border">
                 <h4>Review order</h4>
@@ -73,17 +73,6 @@
                     Topping = toppings.Single(x => x.Id == toppingId)
                 }).ToList() ?? [],
             });
-    }
-
-    private async Task InvalidOrder()
-    {
-
-    }
-
-
-    private async Task CheckOrder()
-    {
-        
     }
 
     private async Task PlaceOrder()
