@@ -140,9 +140,22 @@ public sealed class HtmxResponse(HttpContext context)
     /// <summary>
     /// Allows you to specify how the response will be swapped.
     /// </summary>
-    /// <param name="swapStyle"></param>
+    /// <param name="modifier">The hx-swap attributes supports modifiers for changing the behavior of the swap.</param>
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
-    public HtmxResponse Reswap(SwapStyle swapStyle)
+    public HtmxResponse Reswap(string modifier)
+    {
+        headers[HtmxResponseHeaderNames.Reswap] = modifier;
+
+        return this;
+    }
+
+    /// <summary>
+    /// Allows you to specify how the response will be swapped.
+    /// </summary>
+    /// <param name="swapStyle"></param>
+	/// <param name="modifier">The hx-swap attributes supports modifiers for changing the behavior of the swap.</param>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse Reswap(SwapStyle swapStyle, string? modifier = null)
     {
         AssertIsHtmxRequest();
 
@@ -159,9 +172,24 @@ public sealed class HtmxResponse(HttpContext context)
             _ => throw new SwitchExpressionException(swapStyle),
         };
 
-        headers[HtmxResponseHeaderNames.Reswap] = style;
+        var value = modifier != null ? $"{style} {modifier}" : style;
+
+        headers[HtmxResponseHeaderNames.Reswap] = value;
 
         return this;
+    }
+
+    /// <summary>
+    ///     Allows you to specify how the response will be swapped.
+    /// </summary>
+    /// <param></param>
+    /// <param name="swapStyle"></param>
+    /// <returns></returns>
+    public HtmxResponse Reswap(SwapStyleBuilder swapStyle)
+    {
+	    var (style, modifier) = swapStyle.Build();
+
+        return style is null ? Reswap(modifier) : Reswap((SwapStyle)style, modifier);
     }
 
     /// <summary>
@@ -190,6 +218,17 @@ public sealed class HtmxResponse(HttpContext context)
         headers[HtmxResponseHeaderNames.Reselect] = selector;
 
         return this;
+    }
+
+    /// <summary>
+    /// Sets response code to stop polling
+    /// </summary>
+    /// <returns></returns>
+    public HtmxResponse StopPolling()
+    {
+	    context.Response.StatusCode = HtmxStatusCodes.StopPolling;
+
+	    return this;
     }
 
     /// <summary>
