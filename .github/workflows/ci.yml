@@ -108,6 +108,7 @@ jobs:
     - name: Test Report
       uses: dorny/test-reporter@v1
       if: github.actor != 'dependabot[bot]' && (success() || failure()) && ${{ github.repository_owner == 'egil' }}
+      continue-on-error: true
       with:
         name: test-results
         path: ${{ env.TestResultsDirectory }}/**/*.trx
@@ -161,6 +162,7 @@ jobs:
 
     - name: Stryker Report
       if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository == 'egil/Htmxor'
+      continue-on-error: true
       uses: Sibz/github-status-action@v1
       with:
         authToken: ${{secrets.GITHUB_TOKEN}}
