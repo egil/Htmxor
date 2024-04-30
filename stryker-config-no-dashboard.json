@@ -1,0 +1,20 @@
+{
+    "stryker-config": {
+        "project": "src/Htmxor/Htmxor.csproj",
+        "mutate": [
+            "!**/System.*/*"
+        ],
+        "language-version": "Preview",
+        "target-framework": "net8.0",
+        "mutation-level": "Complete",
+        "reporters": [
+            "markdown",
+            "html"
+        ],
+        "thresholds": {
+            "high": 80,
+            "low": 60,
+            "break": 0
+        }
+    }
+}
