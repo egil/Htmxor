@@ -11,18 +11,20 @@
     content, like these paragraph elements.
 </p>
 
-<HtmxPartial>
-    <div id="counter">
+<div id="counter">
+    <HtmxPartial>
         <p role="status">
             Current count: @CurrentCount
         </p>
-        <button class="btn btn-primary" 
-                hx-put="/counter" 
+        <button class="btn btn-primary"
+                hx-put="/counter"
                 hx-vals='{ "CurrentCount": @(CurrentCount) }'
-                hx-target="#counter" 
-                @onput="IncrementCount">Click me</button>
-    </div>
-</HtmxPartial>
+                hx-target="#counter"
+                @onput="IncrementCount">
+            Click me
+        </button>
+    </HtmxPartial>
+</div>
 
 @code {
     [SupplyParameterFromForm]
@@ -33,7 +35,7 @@
         // Access the HtmxContextEventArgs to control
         // the response headers to the client.
         // E.g.: args.Response.StatusCode(201);
-        
+
         CurrentCount++;
     }
 }
