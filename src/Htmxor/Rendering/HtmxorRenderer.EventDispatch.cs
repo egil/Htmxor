@@ -1,18 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Globalization;
+using System.Text;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Globalization;
-using System.Linq;
-using System.Text;
 
 namespace Htmxor.Rendering;
 
-internal partial class EndpointHtmxorRenderer
+internal partial class HtmxorRenderer
 {
     private readonly Dictionary<(int ComponentId, int FrameIndex), string> _namedSubmitEventsByLocation = new();
     private readonly Dictionary<string, HashSet<(int ComponentId, int FrameIndex)>> _namedSubmitEventsByScopeQualifiedName = new(StringComparer.Ordinal);
@@ -67,10 +66,10 @@ internal partial class EndpointHtmxorRenderer
 
     private Task ReturnErrorResponse(string detailedMessage)
     {
-        _httpContext.Response.StatusCode = 400;
-        _httpContext.Response.ContentType = "text/plain";
-        return _httpContext.RequestServices.GetService<IHostEnvironment>()?.IsDevelopment() == true
-            ? _httpContext.Response.WriteAsync(detailedMessage)
+        httpContext.Response.StatusCode = 400;
+        httpContext.Response.ContentType = "text/plain";
+        return httpContext.RequestServices.GetService<IHostEnvironment>()?.IsDevelopment() == true
+            ? httpContext.Response.WriteAsync(detailedMessage)
             : Task.CompletedTask;
     }
 
@@ -133,7 +132,7 @@ internal partial class EndpointHtmxorRenderer
         }
     }
 
-    private static TVal GetOrAddNewToDictionary<TKey, TVal>(Dictionary<TKey, TVal> dictionary, TKey key) where TKey: notnull where TVal: new()
+    private static TVal GetOrAddNewToDictionary<TKey, TVal>(Dictionary<TKey, TVal> dictionary, TKey key) where TKey : notnull where TVal : new()
     {
         if (!dictionary.TryGetValue(key, out var value))
         {

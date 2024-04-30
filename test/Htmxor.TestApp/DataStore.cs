@@ -1,11 +1,10 @@
 ﻿using System.Collections.Concurrent;
-using Htmxor.TestApp.Components.Pages.Examples;
 
 namespace Htmxor.TestApp;
 
 public static class DataStore
 {
-    private readonly static ConcurrentDictionary<(Guid Id, Type Type), object?> data = new();
+    private static readonly ConcurrentDictionary<(Guid Id, Type Type), object?> data = new();
 
     static DataStore()
     {

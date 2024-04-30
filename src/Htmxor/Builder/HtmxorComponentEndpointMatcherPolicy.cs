@@ -1,9 +1,6 @@
-﻿using Htmxor.Http;
-using Microsoft.AspNetCore.Components.Endpoints;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Matching;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Builder;
 

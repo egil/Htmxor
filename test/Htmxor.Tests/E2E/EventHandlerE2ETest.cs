@@ -18,7 +18,7 @@ public class EventHandlerE2ETest : PageTest
     {
         var page = await Context.NewPageAsync();
         await page.GotoAsync("/custom-event-handler");
-        
+
         await page.GetByRole(AriaRole.Button, new() { Name = "GET", Exact = true }).First.ClickAsync();
         await Expect(page.Locator("body")).ToContainTextAsync("OnGet");
 

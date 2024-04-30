@@ -1,17 +1,14 @@
 ﻿using System.Net;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
 using Htmxor.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Primitives;
 
 namespace Htmxor.Http;
 
-public class HtmxResponse(HttpContext context)
+public sealed class HtmxResponse(HttpContext context)
 {
     private const string ItemsKeyPrefix = "02E0A668-6E6B-4C53-83A6-17E576073E96";
     private readonly IHeaderDictionary headers = context.Response.Headers;

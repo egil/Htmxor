@@ -1,5 +1,4 @@
-﻿using Htmxor.Http;
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Components;
 

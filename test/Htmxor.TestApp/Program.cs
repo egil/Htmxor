@@ -1,5 +1,3 @@
-using Htmxor.Builder;
-using Htmxor.TestApp;
 using Htmxor.TestApp.Components;
 
 var builder = WebApplication.CreateBuilder(args);

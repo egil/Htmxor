@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Identity;
 using BlazingPizza.Data;
+using Microsoft.AspNetCore.Identity;
 
 namespace BlazingPizza.Components.Account;
 

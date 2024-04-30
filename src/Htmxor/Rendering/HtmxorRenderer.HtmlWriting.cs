@@ -16,7 +16,7 @@ using Microsoft.AspNetCore.Components.RenderTree;
 
 namespace Htmxor.Rendering;
 
-internal partial class StaticHtmxorRenderer
+internal partial class HtmxorRenderer
 {
     private static readonly HashSet<string> SelfClosingElements = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -40,7 +40,7 @@ internal partial class StaticHtmxorRenderer
     /// </summary>
     /// <param name="componentId">The ID of the component whose current HTML state is to be rendered.</param>
     /// <param name="output">The output destination.</param>
-    protected internal virtual void WriteComponentHtml(int componentId, TextWriter output)
+    private void WriteComponent(int componentId, TextWriter output)
     {
         // We're about to walk over some buffers inside the renderer that can be mutated during rendering.
         // So, we require exclusive access to the renderer during this synchronous process.
@@ -55,9 +55,9 @@ internal partial class StaticHtmxorRenderer
     /// </summary>
     /// <param name="output">The output destination.</param>
     /// <param name="componentFrame">The <see cref="RenderTreeFrame"/> representing the component to be rendered.</param>
-    protected virtual void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
+    private void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
     {
-        WriteComponentHtml(componentFrame.ComponentId, output);
+        WriteComponent(componentFrame.ComponentId, output);
     }
 
     private int RenderFrames(int componentId, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)

@@ -1,19 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure;
-
 namespace Htmxor.Rendering;
 
 /// <summary>
 /// Represents the output of rendering a root component as HTML. The content can change if the component instance re-renders.
 /// </summary>
-public readonly struct HtmxorRootComponent
+internal readonly struct HtmxorRootComponent
 {
-    private readonly StaticHtmxorRenderer? _renderer;
+    private readonly HtmxorRenderer? _renderer;
     private readonly int _componentId;
 
-    internal HtmxorRootComponent(StaticHtmxorRenderer renderer, int componentId, Task quiescenceTask)
+    internal HtmxorRootComponent(HtmxorRenderer renderer, int componentId, Task quiescenceTask)
     {
         _renderer = renderer;
         _componentId = componentId;

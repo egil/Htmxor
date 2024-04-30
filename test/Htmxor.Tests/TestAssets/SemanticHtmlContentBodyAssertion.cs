@@ -16,7 +16,7 @@ namespace Htmxor.TestAssets;
 
 public sealed class SemanticHtmlContentBodyAssertion : IScenarioAssertion
 {
-    private static HtmlComparer htmlComparer = new HtmlComparer();
+    private static readonly HtmlComparer htmlComparer = new HtmlComparer();
 
     public string Expected { get; }
 

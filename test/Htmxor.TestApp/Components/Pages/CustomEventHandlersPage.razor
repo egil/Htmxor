@@ -3,27 +3,27 @@
 @code {
     private string content = "";
 
-    private void OnGet(HtmxContextEventArgs e)
+    private void OnGet(HtmxEventArgs e)
     {
         content = nameof(OnGet);
     }
 
-    private void OnPost(HtmxContextEventArgs e)
+    private void OnPost(HtmxEventArgs e)
     {
         content = nameof(OnPost);
     }
 
-    private void OnPut(HtmxContextEventArgs e)
+    private void OnPut(HtmxEventArgs e)
     {
         content = nameof(OnPut);
     }
 
-    private void OnPatch(HtmxContextEventArgs e)
+    private void OnPatch(HtmxEventArgs e)
     {
         content = nameof(OnPatch);
     }
 
-    private void OnDelete(HtmxContextEventArgs e)
+    private void OnDelete(HtmxEventArgs e)
     {
         content = nameof(OnDelete);
     }

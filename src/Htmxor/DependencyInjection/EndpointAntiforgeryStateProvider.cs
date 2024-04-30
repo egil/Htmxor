@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Http;
 
-namespace Htmxor.Rendering;
+namespace Htmxor.DependencyInjection;
 
 internal class EndpointAntiforgeryStateProvider(IAntiforgery antiforgery, PersistentComponentState state) : DefaultAntiforgeryStateProvider(state)
 {

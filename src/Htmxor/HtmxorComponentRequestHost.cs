@@ -1,23 +1,11 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
 using System.Globalization;
 using Htmxor.DependencyInjection;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Routing.Patterns;
 
-namespace Htmxor.Rendering;
+namespace Htmxor;
 
-/// <summary>
-/// Internal component type that acts as a root component when executing a Razor Component endpoint. It takes
-/// care of rendering the component inside its hierarchy of layouts (via LayoutView) as well as converting
-/// any information we want into component parameters. We could also use this to supply other data from the
-/// original HttpContext as component parameters, e.g., for model binding.
-///
-/// It happens to be almost the same as RouteView except it doesn't supply any query parameters. We can
-/// resolve that at the same time we implement support for form posts.
-/// </summary>
 internal class HtmxorComponentRequestHost : IComponent
 {
     private RenderHandle _renderHandle;

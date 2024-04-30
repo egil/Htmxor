@@ -1,46 +1,38 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
 using System.Buffers;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Encodings.Web;
 using Htmxor.Builder;
-using Htmxor.Http;
+using Htmxor.Rendering;
 using Htmxor.Rendering.Buffering;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
-using Microsoft.AspNetCore.Components.Endpoints.Rendering;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Server.HttpSys;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Htmxor.Rendering;
+namespace Htmxor;
 
 internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpointInvoker
 {
     public const string DefaultContentType = "text/html; charset=utf-8";
 
-    private readonly EndpointHtmxorRenderer _renderer;
+    private readonly HtmxorRenderer _renderer;
     private readonly ILogger<HtmxorComponentEndpointInvoker> _logger;
 
-    public HtmxorComponentEndpointInvoker(EndpointHtmxorRenderer renderer, ILogger<HtmxorComponentEndpointInvoker> logger)
+    public HtmxorComponentEndpointInvoker(HtmxorRenderer renderer, ILogger<HtmxorComponentEndpointInvoker> logger)
     {
         _renderer = renderer;
         _logger = logger;
     }
 
-    public Task Render(HttpContext context)
-    {
-        return _renderer.Dispatcher.InvokeAsync(() => RenderComponentCore(context));
-    }
+    public Task Render(HttpContext context) => _renderer.Dispatcher.InvokeAsync(() => RenderComponentCore(context));
 
     private async Task RenderComponentCore(HttpContext context)
     {
@@ -50,7 +42,6 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
         {
             Log.InteractivityDisabledForErrorHandling(_logger);
         }
-        EndpointHtmxorRenderer.MarkAsAllowingEnhancedNavigation(context);
 
         var endpoint = context.GetEndpoint() ?? throw new InvalidOperationException($"An endpoint must be set on the '{nameof(HttpContext)}'.");
 
@@ -80,12 +71,14 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
             return Task.CompletedTask;
         });
 
-        await EndpointHtmxorRenderer.InitializeStandardComponentServicesAsync(
+        HtmxorRenderer.InitializeStandardComponentServices(
             context,
             componentType: pageComponent,
             layoutType: layoutComponent,
             handler: result.HandlerName,
-            form: result.IsFormDataRequest && context.Request.HasFormContentType ? await context.Request.ReadFormAsync() : null);
+            form: result.IsFormDataRequest && context.Request.HasFormContentType
+                ? await context.Request.ReadFormAsync()
+                : null);
 
         // Note that we always use Static rendering mode for the top-level output from a RazorComponentResult,
         // because you never want to serialize the invocation of RazorComponentResultHost. Instead, that host
@@ -93,8 +86,7 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
         var htmlContent = await _renderer.RenderEndpointComponent(
             context,
             rootComponent,
-            ParameterView.Empty,
-            waitForQuiescence: result.IsFormDataRequest || isErrorHandler);
+            ParameterView.Empty);
 
         var htmxContext = context.GetHtmxContext();
         Task quiesceTask = Task.CompletedTask;
@@ -115,12 +107,10 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
                 {
                     return;
                 }
-
-                await _renderer.WaitForNonStreamingPendingTasks();
             }
             catch (HtmxorNavigationException navigationException)
             {
-                await EndpointHtmxorRenderer.HandleNavigationException(context, navigationException);
+                await HtmxorRenderer.HandleNavigationException(context, navigationException);
                 quiesceTask = Task.CompletedTask;
             }
         }

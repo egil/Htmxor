@@ -8,16 +8,16 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
-using Microsoft.AspNetCore.Components.Forms.Mapping;
 using Microsoft.AspNetCore.Components.Routing;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
+#pragma warning disable IDE0130 
 namespace Microsoft.Extensions.DependencyInjection;
+#pragma warning restore IDE0130 
 
 /// <summary>
 /// This class has extension methods for <see cref="IHostApplicationBuilder"/> and <see cref="IApplicationBuilder"/> 
@@ -48,7 +48,7 @@ public static class HtmxorApplicationBuilderExtensions
         services.AddScoped<IRazorComponentEndpointInvoker>(x => x.GetRequiredService<IHtmxorComponentEndpointInvoker>());
 
         services.Remove(services.Single(x => x.Lifetime is ServiceLifetime.Scoped && x.ServiceType.FullName?.Equals("Microsoft.AspNetCore.Components.Endpoints.EndpointHtmlRenderer") == true));
-        services.AddScoped<EndpointHtmxorRenderer>();
+        services.AddScoped<HtmxorRenderer>();
 
         // Adding the same cascading value does not seem to override existing values added previously.
         // Instead, the previous value is still used. Is this expected behavior or a bug?
@@ -59,8 +59,8 @@ public static class HtmxorApplicationBuilderExtensions
             .Single(x => x.ImplementationFactory?.Target?.ToString()?.Contains(typeof(HttpContext).FullName!) == true);
         services.Remove(existingCascadingHttpContextProvider);
 
-        services.AddCascadingValue(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext);
-        services.AddScoped(sp => sp.GetRequiredService<EndpointHtmxorRenderer>().HttpContext!);
+        services.AddCascadingValue(sp => sp.GetRequiredService<HtmxorRenderer>().HttpContext);
+        services.AddScoped(sp => sp.GetRequiredService<HtmxorRenderer>().HttpContext!);
 
         services.Remove(services.Single(x => x.ServiceType == typeof(NavigationManager)));
         services.AddScoped<NavigationManager, HtmxorNavigationManager>();
@@ -75,7 +75,7 @@ public static class HtmxorApplicationBuilderExtensions
             configurHtmx?.Invoke(config);
             return config;
         });
-        services.AddScoped(srv => srv.GetRequiredService<EndpointHtmxorRenderer>().HttpContext!.GetHtmxContext());
+        services.AddScoped(srv => srv.GetRequiredService<HtmxorRenderer>().HttpContext!.GetHtmxContext());
         services.AddCascadingValue(sp => sp.GetRequiredService<HtmxContext>());
 
         return razorComponentsBuilder;

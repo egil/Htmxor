@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿using System.Collections;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Caching.Memory;
-using System.Collections;
 
 namespace BlazorSSR.Components.FlashMessages;
 

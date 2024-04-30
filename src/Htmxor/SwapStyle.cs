@@ -16,14 +16,6 @@ public enum SwapStyle
     OuterHTML,
 
     /// <summary>
-    /// Replace the text content of the target element, without parsing the response as HTML.
-    /// </summary>
-    /// <remarks>
-    /// NOTE: Available in Htmx version 2 and later.
-    /// </remarks>
-    // TextContent,
-
-    /// <summary>
     /// Insert the response before the target element.
     /// </summary>
     BeforeBegin,

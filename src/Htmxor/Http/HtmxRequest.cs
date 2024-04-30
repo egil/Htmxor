@@ -2,7 +2,7 @@
 
 namespace Htmxor.Http;
 
-public class HtmxRequest(HttpContext context)
+public sealed class HtmxRequest(HttpContext context)
 {
     /// <summary>
     /// Gets the HTTP method of the current request.

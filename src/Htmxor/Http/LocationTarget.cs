@@ -2,7 +2,7 @@
 
 namespace Htmxor.Http;
 
-public class LocationTarget : AjaxContext
+public sealed class LocationTarget : AjaxContext
 {
     /// <summary>
     /// Gets or sets the source element of the request.

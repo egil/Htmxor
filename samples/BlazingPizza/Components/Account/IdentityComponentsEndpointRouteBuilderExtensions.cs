@@ -1,14 +1,14 @@
 using System.Security.Claims;
 using System.Text.Json;
+using BlazingPizza.Components.Account.Pages;
+using BlazingPizza.Components.Account.Pages.Manage;
+using BlazingPizza.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
-using BlazingPizza.Components.Account.Pages;
-using BlazingPizza.Components.Account.Pages.Manage;
-using BlazingPizza.Data;
 
 namespace Microsoft.AspNetCore.Routing;
 

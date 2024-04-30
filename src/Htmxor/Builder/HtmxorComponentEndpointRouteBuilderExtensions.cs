@@ -3,7 +3,9 @@ using Htmxor.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Routing;
 
+#pragma warning disable IDE0130 
 namespace Microsoft.AspNetCore.Builder;
+#pragma warning restore IDE0130 
 
 public static class HtmxorComponentEndpointRouteBuilderExtensions
 {

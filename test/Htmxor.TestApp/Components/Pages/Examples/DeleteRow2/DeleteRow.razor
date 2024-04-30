@@ -4,7 +4,7 @@
     [Parameter]
     public Guid Id { get; set; }
 
-    private void Delete(HtmxContextEventArgs e)
+    private void Delete(HtmxEventArgs e)
     {
         DataStore.Remove<User>(Id);
         e.Response.EmptyBody();

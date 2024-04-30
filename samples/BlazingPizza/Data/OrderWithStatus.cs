@@ -4,8 +4,8 @@ namespace BlazingPizza.Data;
 
 public class OrderWithStatus
 {
-    public readonly static TimeSpan PreparationDuration = TimeSpan.FromSeconds(10);
-    public readonly static TimeSpan DeliveryDuration = TimeSpan.FromMinutes(1); // Unrealistic, but more interesting to watch
+    public static readonly TimeSpan PreparationDuration = TimeSpan.FromSeconds(10);
+    public static readonly TimeSpan DeliveryDuration = TimeSpan.FromMinutes(1); // Unrealistic, but more interesting to watch
 
     // Set from DB
     public Order Order { get; set; } = null!;

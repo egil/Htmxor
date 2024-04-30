@@ -2,7 +2,7 @@
 
 namespace Htmxor.Http;
 
-public class HtmxContext
+public sealed class HtmxContext
 {
     public HtmxRequest Request { get; }
 

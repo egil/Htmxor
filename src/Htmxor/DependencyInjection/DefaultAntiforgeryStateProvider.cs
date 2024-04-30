@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Htmxor.Rendering;
+namespace Htmxor.DependencyInjection;
 
 internal class DefaultAntiforgeryStateProvider : AntiforgeryStateProvider, IDisposable
 {

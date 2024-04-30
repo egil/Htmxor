@@ -17,9 +17,9 @@ public sealed class DiskStorage
     {
         using var stream = File.Open(ContactsFileName, FileMode.Create);
         await JsonSerializer.SerializeAsync(
-            stream, 
-            contacts.OrderBy(x => x.Id), 
-            contactsFileJsonOptions, 
+            stream,
+            contacts.OrderBy(x => x.Id),
+            contactsFileJsonOptions,
             cancellationToken);
         loadedContacts = null;
     }

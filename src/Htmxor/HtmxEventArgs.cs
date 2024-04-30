@@ -2,7 +2,7 @@
 
 namespace Htmxor;
 
-public class HtmxContextEventArgs : EventArgs
+public class HtmxEventArgs : EventArgs
 {
     private readonly HtmxContext context;
 
@@ -10,7 +10,7 @@ public class HtmxContextEventArgs : EventArgs
 
     public HtmxResponse Response { get; }
 
-    public HtmxContextEventArgs(HtmxContext context)
+    public HtmxEventArgs(HtmxContext context)
     {
         Request = context.Request;
         Response = context.Response;

@@ -1,11 +1,11 @@
-using Htmxor.Http;
-using Microsoft.AspNetCore.Components.RenderTree;
 using System.Globalization;
 using System.Text;
+using Htmxor.Http;
+using Microsoft.AspNetCore.Components.RenderTree;
 
 namespace Htmxor.Rendering;
 
-internal partial class EndpointHtmxorRenderer
+internal partial class HtmxorRenderer
 {
     // This maps between the hash of the hx-xxx="url" attribute and one or more event handlers delegates and ultimately the componentId and eventhandler id.
     // The reason is that multiple event bindings can point to the same event handler (delegate), but it is also possible that multiple 
@@ -44,7 +44,7 @@ internal partial class EndpointHtmxorRenderer
 
         isBadRequest = false;
         var eventHandlerId = handlerInfoSet.First().Value[0].EventHandlerId;
-        return DispatchEventAsync(eventHandlerId, null, new HtmxContextEventArgs(context), waitForQuiescence: true);
+        return DispatchEventAsync(eventHandlerId, null, new HtmxEventArgs(context), waitForQuiescence: true);
     }
 
     private string CreateMessageForAmbiguousHtmxorEvent(string htmxEventName, IEnumerable<(int ComponentId, ulong EventHandlerId)> handlerInfoSet)

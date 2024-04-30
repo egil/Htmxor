@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using Htmxor.Rendering;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
