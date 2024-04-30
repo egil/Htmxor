@@ -189,4 +189,5 @@ public static class SwapStyleBuilderExtension
     public static SwapStyleBuilder FocusScroll(this SwapStyle style, bool scroll) => new SwapStyleBuilder(style).FocusScroll(scroll);
     public static SwapStyleBuilder ShowOn(this SwapStyle style, string selector, ScrollDirection direction) => new SwapStyleBuilder(style).ShowOn(selector, direction);
     public static SwapStyleBuilder ShowWindow(this SwapStyle style, ScrollDirection direction) => new SwapStyleBuilder(style).ShowWindow(direction);
+    public static SwapStyleBuilder ShowNone(this SwapStyle style) => new SwapStyleBuilder(style).ShowNone();
 }
