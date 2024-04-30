@@ -1,5 +1,5 @@
 ﻿using System.Text.Json;
-using Htmxor.Configuration.Serialization;
+using Htmxor.Serialization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 

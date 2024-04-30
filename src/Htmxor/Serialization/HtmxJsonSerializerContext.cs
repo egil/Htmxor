@@ -1,8 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 using Htmxor.Http;
-using Htmxor.Serialization;
 
-namespace Htmxor.Configuration.Serialization;
+namespace Htmxor.Serialization;
 
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
