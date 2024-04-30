@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Htmxor.Antiforgery;
-using Htmxor.Configuration.Serialization;
 
 namespace Htmxor;
 
