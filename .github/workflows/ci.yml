@@ -155,7 +155,7 @@ jobs:
       if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != 'egil/Htmxor'
       run: |
         cd test/Htmxor.Tests
-        dotnet stryker --config-file "../../stryker-config.json" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
+        dotnet stryker --config-file "../../stryker-config-no-dashboard.json" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
         cat ${{ env.StrykerDirectory }}/reports/mutation-report.md >> $GITHUB_STEP_SUMMARY
 
     - name: Stryker Report
