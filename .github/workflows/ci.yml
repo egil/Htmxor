@@ -107,8 +107,7 @@ jobs:
 
     - name: Test Report
       uses: dorny/test-reporter@v1
-      if: github.actor != 'dependabot[bot]' && (success() || failure()) && ${{ github.repository_owner == 'egil' }}
-      continue-on-error: true
+      if: always() && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'egil/Htmxor'))
       with:
         name: test-results
         path: ${{ env.TestResultsDirectory }}/**/*.trx
@@ -143,26 +142,24 @@ jobs:
 
     - name: Run Stryker.NET
       id: strykerLocal
-      if: github.repository == 'egil/Htmxor'
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'egil/Htmxor')
       run: |
         cd test/Htmxor.Tests
         dotnet stryker --config-file "../../stryker-config.json" --dashboard-api-key "${{ secrets.STRYKER_DASHBOARD_API_KEY }}" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
-
-    - name: Run Stryker.NET
-      id: strykerFork
-      if: github.repository != 'egil/Htmxor'
-      run: |
-        cd test/Htmxor.Tests
-        dotnet stryker --config-file "../../stryker-config.json" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
-
-    - run: |
         cat ${{ env.StrykerDirectory }}/reports/mutation-report.md >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "View the [full report](https://dashboard.stryker-mutator.io/reports/github.com/egil/Htmxor/${{ env.BRANCH_NAME }})." >> $GITHUB_STEP_SUMMARY
 
+    - name: Run Stryker.NET
+      id: strykerFork
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != 'egil/Htmxor'
+      run: |
+        cd test/Htmxor.Tests
+        dotnet stryker --config-file "../../stryker-config.json" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
+        cat ${{ env.StrykerDirectory }}/reports/mutation-report.md >> $GITHUB_STEP_SUMMARY
+
     - name: Stryker Report
-      if: github.actor != 'dependabot[bot]' && (success() || failure()) && github.repository == 'egil/Htmxor'
-      continue-on-error: true
+      if: steps.strykerLocal.outcome == 'success'
       uses: Sibz/github-status-action@v1
       with:
         authToken: ${{secrets.GITHUB_TOKEN}}
