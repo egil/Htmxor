@@ -12,6 +12,7 @@ public class HtmxResponseTests : TestContext
         {
             RequestServices = new ServiceCollection().BuildServiceProvider()
         };
+        result.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "";
         result.GetHtmxContext();
         return result;
     }

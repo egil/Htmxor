@@ -12,6 +12,7 @@ public sealed class HtmxResponse(HttpContext context)
 {
     private const string ItemsKeyPrefix = "02E0A668-6E6B-4C53-83A6-17E576073E96";
     private readonly IHeaderDictionary headers = context.Response.Headers;
+    private readonly bool isHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
 
     internal bool EmptyResponseBodyRequested { get; private set; }
 
@@ -21,6 +22,7 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse StatusCode(HttpStatusCode statusCode)
     {
+        AssertIsHtmxRequest();
         context.Response.StatusCode = (int)statusCode;
         return this;
     }
@@ -32,6 +34,7 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse EmptyBody()
     {
+        AssertIsHtmxRequest();
         EmptyResponseBodyRequested = true;
         return this;
     }
@@ -43,6 +46,7 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Location(string path)
     {
+        AssertIsHtmxRequest();
         headers[HtmxResponseHeaderNames.Location] = path;
         return this;
     }
@@ -54,6 +58,7 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Location(LocationTarget locationTarget)
     {
+        AssertIsHtmxRequest();
         var json = JsonSerializer.Serialize(locationTarget, HtmxJsonSerializerContext.Default.LocationTarget);
         headers[HtmxResponseHeaderNames.Location] = json;
         return this;
@@ -66,6 +71,7 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse PushUrl(string url)
     {
+        AssertIsHtmxRequest();
         headers[HtmxResponseHeaderNames.PushUrl] = url;
         return this;
     }
@@ -77,8 +83,8 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse PreventBrowserHistoryUpdate()
     {
+        AssertIsHtmxRequest();
         headers[HtmxResponseHeaderNames.PushUrl] = "false";
-
         return this;
     }
 
@@ -89,8 +95,8 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse PreventBrowserCurrentUrlUpdate()
     {
+        AssertIsHtmxRequest();
         headers[HtmxResponseHeaderNames.ReplaceUrl] = "false";
-
         return this;
     }
 
@@ -101,6 +107,7 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Redirect(string url)
     {
+        AssertIsHtmxRequest();
         headers[HtmxResponseHeaderNames.Redirect] = url;
         EmptyResponseBodyRequested = true;
         return this;
@@ -112,6 +119,7 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Refresh()
     {
+        AssertIsHtmxRequest();
         headers[HtmxResponseHeaderNames.Refresh] = "true";
         EmptyResponseBodyRequested = true;
         return this;
@@ -124,6 +132,7 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse ReplaceUrl(string url)
     {
+        AssertIsHtmxRequest();
         headers[HtmxResponseHeaderNames.ReplaceUrl] = url;
         return this;
     }
@@ -135,11 +144,12 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Reswap(SwapStyle swapStyle)
     {
+        AssertIsHtmxRequest();
+
         var style = swapStyle switch
         {
             SwapStyle.InnerHTML => "innerHTML",
             SwapStyle.OuterHTML => "outerHTML",
-            //SwapStyle.TextContent => "textContent",
             SwapStyle.BeforeBegin => "beforebegin",
             SwapStyle.AfterBegin => "afterbegin",
             SwapStyle.BeforeEnd => "beforeend",
@@ -161,6 +171,8 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Retarget(string selector)
     {
+        AssertIsHtmxRequest();
+
         headers[HtmxResponseHeaderNames.Retarget] = selector;
 
         return this;
@@ -173,6 +185,8 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Reselect(string selector)
     {
+        AssertIsHtmxRequest();
+
         headers[HtmxResponseHeaderNames.Reselect] = selector;
 
         return this;
@@ -186,6 +200,8 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Trigger(string eventName, TriggerTiming timing = TriggerTiming.Default)
     {
+        AssertIsHtmxRequest();
+
         var headerKey = timing switch
         {
             TriggerTiming.AfterSwap => HtmxResponseHeaderNames.TriggerAfterSwap,
@@ -209,6 +225,8 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Trigger<TEventDetail>(string eventName, TEventDetail detail, TriggerTiming timing = TriggerTiming.Default, JsonSerializerOptions? jsonSerializerOptions = null)
     {
+        AssertIsHtmxRequest();
+
         var headerKey = timing switch
         {
             TriggerTiming.AfterSwap => HtmxResponseHeaderNames.TriggerAfterSwap,
@@ -253,5 +271,15 @@ public sealed class HtmxResponse(HttpContext context)
             => Detail is null
             ? $"\"{EventName}\":null"
             : $"\"{EventName}\":{Detail}";
+    }
+
+    private void AssertIsHtmxRequest()
+    {
+        if(!isHtmxRequest)
+        {
+            throw new InvalidOperationException(
+                "The active request is not an htmx request. " +
+                "Setting response headers during request has no effect.");
+        }
     }
 }
