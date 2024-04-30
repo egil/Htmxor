@@ -28,7 +28,9 @@ public class HtmxResponseTests : TestContext
         response.Location("/new-location");
 
         // Assert
-        Assert.Equal("/new-location", context.Response.Headers[HtmxResponseHeaderNames.Location]);
+        context.Response.Headers[HtmxResponseHeaderNames.Location]
+            .Should()
+            .Equal(["/new-location"]);
     }
 
     [Fact]
@@ -68,7 +70,7 @@ public class HtmxResponseTests : TestContext
         response.PushUrl("/new-url");
 
         // Assert
-        Assert.Equal("/new-url", context.Response.Headers[HtmxResponseHeaderNames.PushUrl]);
+        context.Response.Headers[HtmxResponseHeaderNames.PushUrl].Should().Equal(["/new-url"]);
     }
 
     [Fact]
@@ -82,7 +84,7 @@ public class HtmxResponseTests : TestContext
         response.Redirect("/new-redirect");
 
         // Assert
-        Assert.Equal("/new-redirect", context.Response.Headers[HtmxResponseHeaderNames.Redirect]);
+        context.Response.Headers[HtmxResponseHeaderNames.Redirect].Should().Equal(["/new-redirect"]);
     }
 
     [Fact]
@@ -96,7 +98,7 @@ public class HtmxResponseTests : TestContext
         response.Refresh();
 
         // Assert
-        Assert.Equal("true", context.Response.Headers[HtmxResponseHeaderNames.Refresh]);
+        context.Response.Headers[HtmxResponseHeaderNames.Refresh].Should().Equal(["true"]);
     }
 
     [Fact]
@@ -110,7 +112,7 @@ public class HtmxResponseTests : TestContext
         response.ReplaceUrl("/new-replace-url");
 
         // Assert
-        Assert.Equal("/new-replace-url", context.Response.Headers[HtmxResponseHeaderNames.ReplaceUrl]);
+        context.Response.Headers[HtmxResponseHeaderNames.ReplaceUrl].Should().Equal(["/new-replace-url"]);
     }
 
     [Fact]
@@ -124,7 +126,7 @@ public class HtmxResponseTests : TestContext
         response.PreventBrowserHistoryUpdate();
 
         // Assert
-        Assert.Equal("false", context.Response.Headers[HtmxResponseHeaderNames.PushUrl]);
+        context.Response.Headers[HtmxResponseHeaderNames.PushUrl].Should().Equal(["false"]);
     }
 
     [Fact]
@@ -138,7 +140,7 @@ public class HtmxResponseTests : TestContext
         response.PreventBrowserCurrentUrlUpdate();
 
         // Assert
-        Assert.Equal("false", context.Response.Headers[HtmxResponseHeaderNames.ReplaceUrl]);
+        context.Response.Headers[HtmxResponseHeaderNames.ReplaceUrl].Should().Equal(["false"]);
     }
 
     [Fact]
@@ -152,7 +154,7 @@ public class HtmxResponseTests : TestContext
         response.Reswap(SwapStyle.InnerHTML);
 
         // Assert
-        Assert.Equal("innerHTML", context.Response.Headers[HtmxResponseHeaderNames.Reswap]);
+        context.Response.Headers[HtmxResponseHeaderNames.Reswap].Should().Equal(["innerHTML"]);
     }
 
     [Fact]
@@ -166,7 +168,7 @@ public class HtmxResponseTests : TestContext
         response.Retarget(".new-target");
 
         // Assert
-        Assert.Equal(".new-target", context.Response.Headers[HtmxResponseHeaderNames.Retarget]);
+        context.Response.Headers[HtmxResponseHeaderNames.Retarget].Should().Equal([".new-target"]);
     }
 
     [Fact]
@@ -180,7 +182,7 @@ public class HtmxResponseTests : TestContext
         response.Reselect(".new-selection");
 
         // Assert
-        Assert.Equal(".new-selection", context.Response.Headers[HtmxResponseHeaderNames.Reselect]);
+        context.Response.Headers[HtmxResponseHeaderNames.Reselect].Should().Equal([".new-selection"]);
     }
 
     [Theory]
