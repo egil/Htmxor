@@ -6,8 +6,14 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
 
+	<!--
 	<ItemGroup>
-		<PackageReference Include="htmxor" Version="0.0.0-alpha.2" />
+		<PackageReference Include="htmxor" Version="0.0.0-*" />
+	</ItemGroup>
+	-->
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\src\Htmxor\Htmxor.csproj" />
 	</ItemGroup>
 
 </Project>
