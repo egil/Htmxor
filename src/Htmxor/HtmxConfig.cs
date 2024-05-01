@@ -8,6 +8,8 @@ namespace Htmxor;
 /// </summary>
 public partial record class HtmxConfig
 {
+    private SwapStyle? defaultSwapStyle;
+
     /// <summary>
     /// Defaults to <see langword="true" /> if this property is null. really only useful for testing
     /// </summary>
@@ -31,7 +33,11 @@ public partial record class HtmxConfig
     /// Defaults to <see cref="SwapStyle.InnerHTML"/> if this property is null.
     /// </summary>
     [JsonPropertyName("defaultSwapStyle")]
-    public SwapStyle? DefaultSwapStyle { get; set; }
+    public SwapStyle? DefaultSwapStyle
+    {
+        get => defaultSwapStyle;
+        set => defaultSwapStyle = value is SwapStyle.Default ? null : value;
+    }
 
     /// <summary>
     /// Defaults to <see langword="0"/> if this property is null.

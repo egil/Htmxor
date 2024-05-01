@@ -7,16 +7,16 @@ namespace Htmxor.Http;
 /// <summary>
 /// A builder class for constructing a swap style command string for HTMX responses.
 /// </summary>
-public sealed class SwapStyleBuilder 
+public sealed class SwapStyleBuilder
 {
-    private readonly SwapStyle? style;
-    private readonly OrderedDictionary modifiers = new();
+    private readonly SwapStyle style;
+    private readonly OrderedDictionary modifiers = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Initializes a new instance of the SwapStyleBuilder with a specified swap style.
     /// </summary>
     /// <param name="style">The initial swap style to be applied.</param>
-    public SwapStyleBuilder(SwapStyle? style = null)
+    public SwapStyleBuilder(SwapStyle style = SwapStyle.Default)
     {
         this.style = style;
     }
@@ -314,14 +314,15 @@ public sealed class SwapStyleBuilder
     /// <summary>
     /// Builds the swap style command string with all specified modifiers.
     /// </summary>
-    /// <returns>A tuple containing the SwapStyle and the constructed command string.</returns>
-    internal (SwapStyle?, string) Build()
+    /// <returns>A tuple containing the <see cref="SwapStyle"/> and the constructed command string.</returns>
+    internal (SwapStyle, string) Build()
     {
         var value = string.Empty;
 
         if (modifiers.Count > 0)
         {
-            value = modifiers.Cast<DictionaryEntry>()
+            value = modifiers
+                .Cast<DictionaryEntry>()
                 .Select(entry => $"{entry.Key}:{entry.Value}")
                 .Aggregate((current, next) => $"{current} {next}");
         }

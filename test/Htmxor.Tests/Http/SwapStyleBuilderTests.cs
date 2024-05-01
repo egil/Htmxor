@@ -191,11 +191,11 @@ public class SwapStyleBuilderTests
     public void SwapStyleBuilder_NullSwapStyle_ReturnsNullStyle()
     {
         // Arrange & Act
-        var builder = new SwapStyleBuilder(null);
+        var builder = new SwapStyleBuilder();
         var (style, _) = builder.Build();
 
         // Assert
-        style.Should().BeNull();
+        style.Should().Be(SwapStyle.Default);
     }
 
     [Fact]
