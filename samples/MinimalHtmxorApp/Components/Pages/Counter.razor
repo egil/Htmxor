@@ -30,7 +30,7 @@
     [SupplyParameterFromForm]
     private int CurrentCount { get; set; } = 0;
 
-    private void IncrementCount(HtmxContextEventArgs args)
+    private void IncrementCount(HtmxEventArgs args)
     {
         // Access the HtmxContextEventArgs to control
         // the response headers to the client.
