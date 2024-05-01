@@ -34,14 +34,14 @@ public class HtmxHeadOutlet : IComponent
         var json = JsonSerializer.Serialize(Config, HtmxJsonSerializerContext.Default.HtmxConfig);
         renderHandle.Render(builder =>
         {
+            builder.AddMarkupContent(0, @$"<meta name=""htmx-config"" content='{json}'>");
             if (UseEmbeddedHtmx)
             {
-                builder.AddMarkupContent(0, @"<script src=""_content/Htmxor/htmx/htmx.min.js""></script>");
-                builder.AddMarkupContent(1, @"<script src=""_content/Htmxor/htmx/event-header.js""></script>");
+                builder.AddMarkupContent(1, @"<script defer src=""_content/Htmxor/htmx/htmx.min.js""></script>");
+                builder.AddMarkupContent(2, @"<script defer src=""_content/Htmxor/htmx/event-header.js""></script>");
             }
 
-            builder.AddMarkupContent(2, @"<script src=""_content/Htmxor/htmxor.js""></script>");
-            builder.AddMarkupContent(3, @$"<meta name=""htmx-config"" content='{json}'>");
+            builder.AddMarkupContent(3, @"<script defer src=""_content/Htmxor/htmxor.js""></script>");
         });
     }
 
