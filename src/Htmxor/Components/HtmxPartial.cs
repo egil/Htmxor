@@ -2,34 +2,16 @@
 
 namespace Htmxor.Components;
 
-public sealed class HtmxPartial : IComponent
+public sealed class HtmxPartial : PartialBase
 {
-    private RenderHandle renderHandle;
+    [Parameter] public bool Condition { get; set; } = true;
 
-    [Parameter, EditorRequired]
-    public required RenderFragment ChildContent { get; set; }
-
-    [Parameter]
-    public bool Condition { get; set; } = true;
-
-    public void Attach(RenderHandle renderHandle)
+    public override Task SetParametersAsync(ParameterView parameters)
     {
-        this.renderHandle = renderHandle;
-    }
-
-    public Task SetParametersAsync(ParameterView parameters)
-    {
-        if (!parameters.TryGetValue<RenderFragment>(nameof(ChildContent), out var childContent))
-        {
-            throw new ArgumentException($"{nameof(HtmxPartial)} requires a value for the parameter {nameof(ChildContent)}.");
-        }
-
-        ChildContent = childContent;
         Condition = parameters.GetValueOrDefault(nameof(Condition), true);
-        renderHandle.Render(childContent);
-        return Task.CompletedTask;
+        return base.SetParametersAsync(parameters);
     }
 
-    internal bool ShouldRender() => Condition;
+    protected internal override bool ShouldRender() => Condition;
 }
 

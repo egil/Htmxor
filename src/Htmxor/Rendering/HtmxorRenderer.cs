@@ -168,7 +168,7 @@ internal partial class HtmxorRenderer : Renderer
 
             if (frame.FrameType is RenderTreeFrameType.Component)
             {
-                if (frame.Component is HtmxPartial partial)
+                if (frame.Component is PartialBase partial)
                 {
                     if (partial.ShouldRender())
                     {

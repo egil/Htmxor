@@ -515,7 +515,7 @@ internal partial class HtmxorRenderer
     {
         ref var frame = ref frames.Array[position];
 
-        if (frame.Component is not HtmxPartial htmxPartial || htmxPartial.ShouldRender())
+        if (frame.Component is not PartialBase htmxPartial || htmxPartial.ShouldRender())
         {
             RenderChildComponent(output, ref frame);
         }
