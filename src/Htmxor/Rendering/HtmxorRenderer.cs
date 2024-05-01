@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Http;
@@ -146,13 +147,14 @@ internal partial class HtmxorRenderer : Renderer
         var htmxContext = httpContext.GetHtmxContext();
         if (htmxContext.Request.IsFullPageRequest)
         {
-            WriteComponent(componentId, output);
+            var componentState = (HtmxorComponentState)GetComponentState(componentId);
+            WriteComponent(componentState, output);
         }
         else
         {
             var matchingPartialComponentId = FindPartialComponentMatchingRequest(componentId);
             WriteComponent(
-                matchingPartialComponentId.HasValue ? matchingPartialComponentId.Value : componentId,
+                (HtmxorComponentState)GetComponentState(matchingPartialComponentId.HasValue ? matchingPartialComponentId.Value : componentId),
                 output);
         }
     }
