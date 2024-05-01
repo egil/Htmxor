@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Numerics;
 
 namespace Htmxor.Http;
@@ -7,6 +8,7 @@ namespace Htmxor.Http;
 /// <summary>
 /// A builder class for constructing a swap style command string for HTMX responses.
 /// </summary>
+[DebuggerDisplay("{ToString(),nq}")]
 public sealed class SwapStyleBuilder
 {
     private readonly SwapStyle style;
@@ -309,6 +311,17 @@ public sealed class SwapStyleBuilder
         AddModifier("show", "none");
 
         return this;
+    }
+
+    /// <inheritdoc/>
+    public override string ToString()
+    {
+        var (swapStyle, modifier) = Build();
+        var style = swapStyle.ToHtmxString();
+        var value = !string.IsNullOrWhiteSpace(modifier)
+            ? $"{style} {modifier}"
+            : style;
+        return value;
     }
 
     /// <summary>
