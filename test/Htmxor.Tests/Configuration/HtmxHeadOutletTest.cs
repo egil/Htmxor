@@ -90,4 +90,15 @@ public class HtmxHeadOutletTest : TestContext
             }
             """);
     }
+
+    [Fact]
+    public void HtmxConfig_default_swap_style_serializer()
+    {
+        var config = new HtmxConfig
+        {
+            DefaultSwapStyle = SwapStyle.Default,
+        };
+
+        config.DefaultSwapStyle.Should().BeNull();
+    }
 }

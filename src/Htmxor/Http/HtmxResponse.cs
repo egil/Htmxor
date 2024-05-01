@@ -144,7 +144,14 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Reswap(string modifier)
     {
-        headers[HtmxResponseHeaderNames.Reswap] = modifier;
+        if (string.IsNullOrWhiteSpace(modifier))
+        {
+            headers.Remove(HtmxResponseHeaderNames.Reswap);
+        }
+        else
+        {
+            headers[HtmxResponseHeaderNames.Reswap] = modifier;
+        }
 
         return this;
     }
@@ -159,20 +166,16 @@ public sealed class HtmxResponse(HttpContext context)
     {
         AssertIsHtmxRequest();
 
-        var style = swapStyle switch
+        if (swapStyle is SwapStyle.Default)
         {
-            SwapStyle.InnerHTML => "innerHTML",
-            SwapStyle.OuterHTML => "outerHTML",
-            SwapStyle.BeforeBegin => "beforebegin",
-            SwapStyle.AfterBegin => "afterbegin",
-            SwapStyle.BeforeEnd => "beforeend",
-            SwapStyle.AfterEnd => "afterend",
-            SwapStyle.Delete => "delete",
-            SwapStyle.None => "none",
-            _ => throw new SwitchExpressionException(swapStyle),
-        };
+            Reswap(modifier);
+            return this;
+        }
 
-        var value = modifier != null ? $"{style} {modifier}" : style;
+        var style = swapStyle.ToHtmxString();
+        var value = !string.IsNullOrWhiteSpace(modifier)
+            ? $"{style} {modifier}"
+            : style;
 
         headers[HtmxResponseHeaderNames.Reswap] = value;
 
@@ -180,16 +183,18 @@ public sealed class HtmxResponse(HttpContext context)
     }
 
     /// <summary>
-    ///     Allows you to specify how the response will be swapped.
+    /// Allows you to specify how the response will be swapped.
     /// </summary>
     /// <param></param>
     /// <param name="swapStyle"></param>
-    /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Reswap(SwapStyleBuilder swapStyle)
     {
-	    var (style, modifier) = swapStyle.Build();
+        var (style, modifier) = swapStyle.Build();
 
-        return style is null ? Reswap(modifier) : Reswap((SwapStyle)style, modifier);
+        return style is SwapStyle.Default
+            ? Reswap(modifier)
+            : Reswap(style, modifier);
     }
 
     /// <summary>
@@ -224,11 +229,12 @@ public sealed class HtmxResponse(HttpContext context)
     /// Sets response code to stop polling
     /// </summary>
     /// <returns></returns>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse StopPolling()
     {
-	    context.Response.StatusCode = HtmxStatusCodes.StopPolling;
+        context.Response.StatusCode = HtmxStatusCodes.StopPolling;
 
-	    return this;
+        return this;
     }
 
     /// <summary>
@@ -314,7 +320,7 @@ public sealed class HtmxResponse(HttpContext context)
 
     private void AssertIsHtmxRequest()
     {
-        if(!isHtmxRequest)
+        if (!isHtmxRequest)
         {
             throw new InvalidOperationException(
                 "The active request is not an htmx request. " +

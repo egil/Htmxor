@@ -6,6 +6,12 @@
 public enum SwapStyle
 {
     /// <summary>
+    /// Default style is what is specified in <see cref="HtmxConfig.DefaultSwapStyle"/> for the application
+    /// or htmx's default, which is <see cref="InnerHTML"/>.
+    /// </summary>
+    Default,
+
+    /// <summary>
     /// Replace the inner html of the target element.
     /// </summary>
     InnerHTML,
