@@ -44,8 +44,8 @@ public sealed class SwapStyleBuilder
     /// </summary>
     /// <remarks>
     /// <paramref name="time"/> will be converted to milliseconds if less than 1000, otherwise seconds, 
-    /// meaning the resulting modifier will be <c>swap:500ms</c> for a <see cref="TimeSpan"/> of 500 milliseconds 
-    /// or <c>swap:2s</c> for a <see cref="TimeSpan"/> of 2 seconds..
+    /// meaning the resulting modifier will be <c>settle:500ms</c> for a <see cref="TimeSpan"/> of 500 milliseconds 
+    /// or <c>settle:2s</c> for a <see cref="TimeSpan"/> of 2 seconds..
     /// </remarks>
     /// <param name="time">The amount of time htmx should wait after receiving a 
     /// response to swap the content.</param>
@@ -57,11 +57,11 @@ public sealed class SwapStyleBuilder
     }
 
     /// <summary>
-    /// Specifies the direction to scroll the page after the swap and appends the modifier <c>scroll:{direction}</c>.
+    /// Specifies how to set the current window scrollbar after the swap and appends the modifier <c>scroll:<paramref name="direction"/></c>.
     /// </summary>
     /// <remarks>
-    /// Sets the scroll direction on the page after swapping. For instance, using <see cref="ScrollDirection.Top"/>
-    /// will add the modifier <c>scroll:top</c> which instructs the page to scroll to the top after the swap.
+    /// Sets the window scrollbar position after swapping immediately (without animation). For instance, using <see cref="ScrollDirection.Top"/>
+    /// will add the modifier <c>scroll:top</c> which instructs the window to set the scrollbar position to the top of swap content after the swap.
     /// </remarks>
     /// <param name="direction">The scroll direction after the swap.</param>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
@@ -81,28 +81,28 @@ public sealed class SwapStyleBuilder
     }
 
     /// <summary>
-    /// Automatically scrolls to the top of the page after a swap.
+    /// Sets the window scrollbar position to the top of the swapped content after a swap.
     /// </summary>
     /// <remarks>
     /// This method adds the modifier <c>scroll:top</c> to the swap commands, instructing the page to scroll to
-    /// the top after content is swapped.
+    /// the top after content is swapped immediately and without animation.
     /// </remarks>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public SwapStyleBuilder ScrollTop() => Scroll(ScrollDirection.Top);
 
     /// <summary>
-    /// Automatically scrolls to the bottom of the page after a swap.
+    /// Sets the window scrollbar position to the bottom of the swapped content after a swap.
     /// </summary>
     /// <remarks>
     /// This method adds the modifier <c>scroll:bottom</c> to the swap commands, instructing the page to scroll to
-    /// the bottom after content is swapped.
+    /// the bottom after content is swapped immediately and without animation.
     /// </remarks>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public SwapStyleBuilder ScrollBottom() => Scroll(ScrollDirection.Bottom);
 
     /// <summary>
     /// Determines whether to ignore the document title in the swap response by appending the modifier
-    /// <c>ignoreTitle:{ignore}</c>.
+    /// <c>ignoreTitle:<paramref name="ignore"/></c>.
     /// </summary>
     /// <remarks>
     /// When set to true, the document title in the swap response will be ignored by adding the modifier
@@ -129,7 +129,7 @@ public sealed class SwapStyleBuilder
     public SwapStyleBuilder IncludeTitle() => IgnoreTitle(false);
 
     /// <summary>
-    /// Enables or disables transition effects for the swap by appending the modifier <c>transition:{show}</c>.
+    /// Enables or disables transition effects for the swap by appending the modifier <c>transition:<paramref name="show"/></c>.
     /// </summary>
     /// <remarks>
     /// Controls the display of transition effects during the swap. For example, setting <paramref name="show"/> to true
@@ -192,7 +192,7 @@ public sealed class SwapStyleBuilder
     public SwapStyleBuilder PreserveFocus() => ScrollFocus(false);
 
     /// <summary>
-    /// Positions viewport at top of swap target after swap is completed
+    /// Smoothly animates the scrollbar position to top or bottom of swap target after swap is completed
     /// </summary>
     /// <remarks>
     /// Adds a show modifier with the specified scroll direction.
@@ -218,7 +218,7 @@ public sealed class SwapStyleBuilder
     }
 
     /// <summary>
-    /// Positions viewport at top of swap target after swap is completed
+    /// Smoothly animates the scrollbar position to top of swap target after swap is completed
     /// </summary>
     /// <remarks>
     /// Adds a show modifier <c>show:top</c>
@@ -227,7 +227,7 @@ public sealed class SwapStyleBuilder
     public SwapStyleBuilder ShowOnTop() => ShowOn(ScrollDirection.Top);
 
     /// <summary>
-    /// Positions viewport at top of swap target after swap is completed
+    /// Smoothly animates the scrollbar position to bottom of swap target after swap is completed
     /// </summary>
     /// <remarks>
     /// Adds a show modifier with the specified scroll direction.
@@ -237,10 +237,13 @@ public sealed class SwapStyleBuilder
     public SwapStyleBuilder ShowOnBottom() => ShowOn(ScrollDirection.Bottom);
 
     /// <summary>
-    /// Specifies a CSS selector to dynamically target for the swap operation, with a scroll direction after the swap.
+    /// Specifies a CSS selector to target for the swap operation, smoothly animating the scrollbar position to either the
+    /// top or the bottom of the target element after the swap.
     /// </summary>
     /// <remarks>
-    /// Adds a show modifier with the specified CSS selector and scroll direction. For example, if <paramref name="selector"/> is ".item" and <paramref name="direction"/> is <see cref="ScrollDirection.Top"/>, the modifier <c>show:.item:top</c> is added.
+    /// Adds a show modifier with the specified CSS selector and scroll direction. For example, if <paramref name="selector"/>
+    /// is ".item" and <paramref name="direction"/> is <see cref="ScrollDirection.Top"/>, the modifier <c>show:.item:top</c>
+    /// is added.
     /// </remarks>
     /// <param name="selector">The CSS selector of the target element.</param>
     /// <param name="direction">The scroll direction after swap.</param>
@@ -261,31 +264,34 @@ public sealed class SwapStyleBuilder
     }
 
     /// <summary>
-    /// Specifies that the swap should show the element matching the CSS selector at the top of the window.
+    /// Specifies that the swap should show the top of the element matching the CSS selector.
     /// </summary>
     /// <remarks>
-    /// This method adds the modifier <c>show:{selector}:top</c>, directing the swap to display the specified element at the top of the window.
+    /// This method adds the modifier <c>show:<param name="selector"/>:top</c>, smoothly scrolling to the top of the element identified by
+    /// <param name="selector"/>.
     /// </remarks>
     /// <param name="selector">The CSS selector of the target element.</param>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public SwapStyleBuilder ShowOnTop(string selector) => ShowOn(selector, ScrollDirection.Top);
 
     /// <summary>
-    /// Specifies that the swap should show the element matching the CSS selector at the bottom of the window.
+    /// Specifies that the swap should show the bottom of the element matching the CSS selector.
     /// </summary>
     /// <remarks>
-    /// This method adds the modifier <c>show:{selector}:bottom</c>, directing the swap to display the specified element at the bottom of the window.
+    /// This method adds the modifier <c>show:<param name="selector">:bottom</c>, smoothly scrolling to the bottom of the element identified by
+    /// <param name="selector"/>.
     /// </remarks>
     /// <param name="selector">The CSS selector of the target element.</param>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public SwapStyleBuilder ShowOnBottom(string selector) => ShowOn(selector, ScrollDirection.Bottom);
 
     /// <summary>
-    /// Specifies that the swap should show in the window, with an optional scroll direction.
+    /// Specifies that the swap should show in the window by smoothly scrolling to either the top or bottom of the window.
     /// </summary>
     /// <param name="direction">The direction to scroll the window after the swap.</param>
     /// <remarks>
-    /// This method adds the modifier <c>show:window:{direction}</c>, directing the swap to display the specified element at the bottom of the window.
+    /// This method adds the modifier <c>show:window:<param name="direction"/></c>, directing the swap to display the specified
+    /// element at the bottom of the window.
     /// </remarks>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public SwapStyleBuilder ShowWindow(ScrollDirection direction)
@@ -304,23 +310,24 @@ public sealed class SwapStyleBuilder
     }
 
     /// <summary>
-    /// Specifies that the swap should show content at the top of the window.
+    /// Specifies that the swap should smoothly scroll to the top of the window.
     /// </summary>
     /// <remarks>
     /// This method adds the modifier <c>show:window:top</c>, instructing the content to be displayed
-    /// at the top of the window following a swap. This can be useful for ensuring that important content or
-    /// notifications at the top of the page are immediately visible to the user after a swap operation.
+    /// at the top of the window following a swap by smoothly animating the scrollbar position. This can be useful
+    /// for ensuring that important content or notifications at the top of the page are immediately visible to
+    /// the user after a swap operation.
     /// </remarks>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public SwapStyleBuilder ShowWindowTop() => ShowWindow(ScrollDirection.Top);
 
     /// <summary>
-    /// Specifies that the swap should show content at the bottom of the window.
+    /// Specifies that the swap should smoothly scroll to the bottom of the window.
     /// </summary>
     /// <remarks>
     /// This method adds the modifier <c>show:window:bottom</c>, instructing the content to be displayed
-    /// at the bottom of the window following a swap. This positioning can be used for infinite scrolling, footers or
-    /// lower-priority information that should not immediately distract from other content.
+    /// at the bottom of the window following a swap by smoothly animating the scrollbar position. This positioning
+    /// can be used for infinite scrolling, footers, or information appended at the end of the page.
     /// </remarks>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public SwapStyleBuilder ShowWindowBottom() => ShowWindow(ScrollDirection.Bottom);
@@ -404,8 +411,8 @@ public static class SwapStyleBuilderExtension
     /// </summary>
     /// <remarks>
     /// <paramref name="time"/> will be converted to milliseconds if less than 1000, otherwise seconds, 
-    /// meaning the resulting modifier will be <c>swap:500ms</c> for a <see cref="TimeSpan"/> of 500 milliseconds 
-    /// or <c>swap:2s</c> for a <see cref="TimeSpan"/> of 2 seconds..
+    /// meaning the resulting modifier will be <c>settle:500ms</c> for a <see cref="TimeSpan"/> of 500 milliseconds 
+    /// or <c>settle:2s</c> for a <see cref="TimeSpan"/> of 2 seconds..
     /// </remarks>
     /// <param name="style">The swap style.</param>
     /// <param name="time">The amount of time htmx should wait after receiving a 
@@ -413,11 +420,11 @@ public static class SwapStyleBuilderExtension
     public static SwapStyleBuilder AfterSettleDelay(this SwapStyle style, TimeSpan time) => new SwapStyleBuilder(style).AfterSettleDelay(time);
 
     /// <summary>
-    /// Specifies the direction to scroll the page after the swap and appends the modifier <c>scroll:{direction}</c>.
+    /// Specifies how to set the current window scrollbar after the swap and appends the modifier <c>scroll:<paramref name="direction"/></c>.
     /// </summary>
     /// <remarks>
-    /// Sets the scroll direction on the page after swapping. For instance, using <see cref="ScrollDirection.Top"/>
-    /// will add the modifier <c>scroll:top</c> which instructs the page to scroll to the top after the swap.
+    /// Sets the window scrollbar position after swapping immediately (without animation). For instance, using <see cref="ScrollDirection.Top"/>
+    /// will add the modifier <c>scroll:top</c> which instructs the window to set the scrollbar position to the top of swap content after the swap.
     /// </remarks>
     /// <param name="style">The swap style.</param>
     /// <param name="direction">The scroll direction after the swap.</param>
@@ -425,22 +432,22 @@ public static class SwapStyleBuilderExtension
     public static SwapStyleBuilder Scroll(this SwapStyle style, ScrollDirection direction) => new SwapStyleBuilder(style).Scroll(direction);
 
     /// <summary>
-    /// Automatically scrolls to the top of the page after a swap.
+    /// Sets the window scrollbar position to the top of the swapped content after a swap.
     /// </summary>
     /// <remarks>
     /// This method adds the modifier <c>scroll:top</c> to the swap commands, instructing the page to scroll to
-    /// the top after content is swapped.
+    /// the top after content is swapped immediately and without animation.
     /// </remarks>
     /// <param name="style">The swap style.</param>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public static SwapStyleBuilder ScrollTop(this SwapStyle style) => new SwapStyleBuilder(style).ScrollTop();
 
     /// <summary>
-    /// Automatically scrolls to the bottom of the page after a swap.
+    /// Sets the window scrollbar position to the bottom of the swapped content after a swap.
     /// </summary>
     /// <remarks>
     /// This method adds the modifier <c>scroll:bottom</c> to the swap commands, instructing the page to scroll to
-    /// the bottom after content is swapped.
+    /// the bottom after content is swapped immediately and without animation.
     /// </remarks>
     /// <param name="style">The swap style.</param>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
@@ -448,7 +455,7 @@ public static class SwapStyleBuilderExtension
 
     /// <summary>
     /// Determines whether to ignore the document title in the swap response by appending the modifier
-    /// <c>ignoreTitle:{ignore}</c>.
+    /// <c>ignoreTitle:<paramref name="ignore"/></c>.
     /// </summary>
     /// <remarks>
     /// When set to true, the document title in the swap response will be ignored by adding the modifier
@@ -504,10 +511,10 @@ public static class SwapStyleBuilderExtension
     public static SwapStyleBuilder IgnoreTransition(this SwapStyle style) => new SwapStyleBuilder(style).IgnoreTransition();
 
     /// <summary>
+    /// Allows you to specify that htmx should scroll to the focused element when a request completes.
     /// htmx preserves focus between requests for inputs that have a defined id attribute. By
     /// default htmx prevents auto-scrolling to focused inputs between requests which can be
-    /// unwanted behavior on longer requests when the user has already scrolled away. Allows you
-    /// to specify that htmx should scroll to the focused element when a request completes
+    /// unwanted behavior on longer requests when the user has already scrolled away. 
     /// </summary>
     /// <remarks>
     /// <paramref name="scroll"/> when true will be <c>focus-scroll:true</c>, otherwise when false
@@ -531,20 +538,20 @@ public static class SwapStyleBuilderExtension
     public static SwapStyleBuilder PreserveFocus(this SwapStyle style, bool scroll = true) => new SwapStyleBuilder(style).PreserveFocus();
 
     /// <summary>
-    /// Positions viewport at top of swap target after swap is completed
+    /// Smoothly animates the scrollbar position to top of swap target after swap is completed
     /// </summary>
     /// <remarks>
     /// Adds a show modifier <c>show:top</c>
     /// </remarks>
     /// <param name="style">The swap style.</param>
-    /// <param name="direction">The scroll direction after swap.</param>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
-    public static SwapStyleBuilder ShowOnTop(this SwapStyle style, ScrollDirection direction) => new SwapStyleBuilder(style).ShowOn(ScrollDirection.Top);
+    public static SwapStyleBuilder ShowOnTop(this SwapStyle style) => new SwapStyleBuilder(style).ShowOnTop();
 
     /// <summary>
-    /// Positions viewport at top of swap target after swap is completed
+    /// Smoothly animates the scrollbar position to bottom of swap target after swap is completed
     /// </summary>
     /// <remarks>
+    /// Adds a show modifier with the specified scroll direction.
     /// Adds a show modifier <c>show:bottom</c>
     /// </remarks>
     /// <param name="style">The swap style.</param>
@@ -552,10 +559,26 @@ public static class SwapStyleBuilderExtension
     public static SwapStyleBuilder ShowOnBottom(this SwapStyle style) => new SwapStyleBuilder(style).ShowOn(ScrollDirection.Bottom);
 
     /// <summary>
+    /// Smoothly animates the scrollbar position to top or bottom of swap target after swap is completed
+    /// </summary>
+    /// <remarks>
+    /// Adds a show modifier with the specified scroll direction.
+    /// If <paramref name="direction"/> is <see cref="ScrollDirection.Top"/>,
+    /// the modifier <c>show:top</c> is added.  Otherwise, <c>show:bottom</c>
+    /// is added
+    /// </remarks>
+    /// <param name="style">The swap style.</param>
+    /// <param name="direction">The scroll direction after swap.</param>
+    /// <returns>The SwapStyleBuilder instance for chaining.</returns>
+    public static SwapStyleBuilder ShowOn(this SwapStyle style, ScrollDirection direction) => new SwapStyleBuilder(style).ShowOn(direction);
+
+    /// <summary>
     /// Specifies a CSS selector to dynamically target for the swap operation, with a scroll direction after the swap.
     /// </summary>
     /// <remarks>
-    /// Adds a show modifier with the specified CSS selector and scroll direction. For example, if <paramref name="selector"/> is ".item" and <paramref name="direction"/> is <see cref="ScrollDirection.Top"/>, the modifier <c>show:.item:top</c> is added.
+    /// Adds a show modifier with the specified CSS selector and scroll direction. For example, if <paramref name="selector"/>
+    /// is ".item" and <paramref name="direction"/> is <see cref="ScrollDirection.Top"/>, the modifier <c>show:.item:top</c>
+    /// is added.
     /// </remarks>
     /// <param name="style">The swap style.</param>
     /// <param name="selector">The CSS selector of the target element.</param>
@@ -586,35 +609,37 @@ public static class SwapStyleBuilderExtension
     public static SwapStyleBuilder ShowOnBottom(this SwapStyle style, string selector) => new SwapStyleBuilder(style).ShowOnBottom(selector);
 
     /// <summary>
-    /// Specifies that the swap should show in the window, with an optional scroll direction.
+    /// Specifies that the swap should show in the window by smoothly scrolling to either the top or bottom of the window.
     /// </summary>
     /// <param name="direction">The direction to scroll the window after the swap.</param>
     /// <remarks>
-    /// This method adds the modifier <c>show:window:{direction}</c>, directing the swap to display the specified element at the bottom of the window.
+    /// This method adds the modifier <c>show:window:<param name="direction"/></c>, directing the swap to display the specified
+    /// element at the bottom of the window.
     /// </remarks>
     /// <param name="style">The swap style.</param>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public static SwapStyleBuilder ShowWindow(this SwapStyle style, ScrollDirection direction) => new SwapStyleBuilder(style).ShowWindow(direction);
 
     /// <summary>
-    /// Specifies that the swap should show content at the top of the window.
+    /// Specifies that the swap should smoothly scroll to the top of the window.
     /// </summary>
     /// <remarks>
     /// This method adds the modifier <c>show:window:top</c>, instructing the content to be displayed
-    /// at the top of the window following a swap. This can be useful for ensuring that important content or
-    /// notifications at the top of the page are immediately visible to the user after a swap operation.
+    /// at the top of the window following a swap by smoothly animating the scrollbar position. This can be useful
+    /// for ensuring that important content or notifications at the top of the page are immediately visible to
+    /// the user after a swap operation.
     /// </remarks>
     /// <param name="style">The swap style.</param>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
     public static SwapStyleBuilder ShowWindowTop(this SwapStyle style) => new SwapStyleBuilder(style).ShowWindowTop();
 
     /// <summary>
-    /// Specifies that the swap should show content at the bottom of the window.
+    /// Specifies that the swap should smoothly scroll to the bottom of the window.
     /// </summary>
     /// <remarks>
     /// This method adds the modifier <c>show:window:bottom</c>, instructing the content to be displayed
-    /// at the bottom of the window following a swap. This positioning can be used for infinite scrolling, footers or
-    /// lower-priority information that should not immediately distract from other content.
+    /// at the bottom of the window following a swap by smoothly animating the scrollbar position. This positioning
+    /// can be used for infinite scrolling, footers, or information appended at the end of the page.
     /// </remarks>
     /// <param name="style">The swap style.</param>
     /// <returns>The SwapStyleBuilder instance for chaining.</returns>
