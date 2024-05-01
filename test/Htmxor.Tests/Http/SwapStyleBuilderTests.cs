@@ -20,21 +20,34 @@ public class SwapStyleBuilderTests : TestContext
         var (resultStyle, modifiers) = builder.Build();
 
         // Assert
-        Assert.Equal(swapStyle, resultStyle);
-        Assert.Empty(modifiers);  // Expect no modifiers if none are added
+        resultStyle.Should().Be(swapStyle);
+        modifiers.Should().BeEmpty();  // Expect no modifiers if none are added
     }
 
     [Fact]
-    public void SwapStyleBuilder_After_AddsCorrectDelay()
+    public void SwapStyleBuilder_AfterSwap_AddsCorrectDelay()
     {
         // Arrange
         var builder = new SwapStyleBuilder(SwapStyle.InnerHTML);
 
         // Act
-        var (_, modifiers) = builder.After(TimeSpan.FromSeconds(1)).Build();
+        var (_, modifiers) = builder.AfterSwapDelay(TimeSpan.FromSeconds(1)).Build();
 
         // Assert
-        Assert.Equal("swap:1s", modifiers);
+        modifiers.Should().Be("swap:1s");
+    }
+
+    [Fact]
+    public void SwapStyleBuilder_AfterSettle_AddsCorrectDelay()
+    {
+	    // Arrange
+	    var builder = new SwapStyleBuilder(SwapStyle.InnerHTML);
+
+	    // Act
+	    var (_, modifiers) = builder.AfterSettleDelay(TimeSpan.FromSeconds(1)).Build();
+
+	    // Assert
+	    modifiers.Should().Be("settle:1s");
     }
 
     [Fact]
@@ -47,7 +60,7 @@ public class SwapStyleBuilderTests : TestContext
         var (_, modifiers) = builder.Scroll(ScrollDirection.Bottom).Build();
 
         // Assert
-        Assert.Equal("scroll:bottom", modifiers);
+        modifiers.Should().Be("scroll:bottom");
     }
 
     [Fact]
@@ -60,7 +73,7 @@ public class SwapStyleBuilderTests : TestContext
         var (_, modifiers) = builder.IgnoreTitle(true).Build();
 
         // Assert
-        Assert.Equal("ignoreTitle:true", modifiers);
+        modifiers.Should().Be("ignoreTitle:true");
     }
 
     [Fact]
@@ -73,20 +86,20 @@ public class SwapStyleBuilderTests : TestContext
         var (_, modifiers) = builder.Transition(true).Build();
 
         // Assert
-        Assert.Equal("transition:true", modifiers);
+        modifiers.Should().Be("transition:true");
     }
 
     [Fact]
-    public void SwapStyleBuilder_FocusScroll_AddsCorrectFlag()
+    public void SwapStyleBuilder_ScrollFocus_AddsCorrectFlag()
     {
         // Arrange
         var builder = new SwapStyleBuilder(SwapStyle.InnerHTML);
 
         // Act
-        var (_, modifiers) = builder.FocusScroll(true).Build();
+        var (_, modifiers) = builder.ScrollFocus(true).Build();
 
         // Assert
-        Assert.Equal("focus-scroll:true", modifiers);
+        modifiers.Should().Be("focus-scroll:true");
     }
 
     [Fact]
@@ -100,7 +113,7 @@ public class SwapStyleBuilderTests : TestContext
         var (_, modifiers) = builder.ShowOn(selector, ScrollDirection.Top).Build();
 
         // Assert
-        Assert.Equal("show:#dynamic-area:top", modifiers);
+        modifiers.Should().Be("show:#dynamic-area:top");
     }
 
     [Fact]
@@ -113,7 +126,7 @@ public class SwapStyleBuilderTests : TestContext
         var (_, modifiers) = builder.ShowWindow(ScrollDirection.Top).Build();
 
         // Assert
-        Assert.Equal("show:window:top", modifiers);
+        modifiers.Should().Be("show:window:top");
     }
 
     [Fact]
@@ -124,14 +137,14 @@ public class SwapStyleBuilderTests : TestContext
 
         // Act
         var (_, modifiers) = builder
-            .After(TimeSpan.FromSeconds(1))
+            .AfterSwapDelay(TimeSpan.FromSeconds(1))
             .Scroll(ScrollDirection.Top)
             .Transition(true)
             .IgnoreTitle(false)
             .Build();
 
         // Assert
-        Assert.Equal("swap:1s scroll:top transition:true ignoreTitle:false", modifiers);
+        modifiers.Should().Be("swap:1s scroll:top transition:true ignoreTitle:false");
     }
 
     [Fact]
@@ -141,10 +154,10 @@ public class SwapStyleBuilderTests : TestContext
         var builder = new SwapStyleBuilder(SwapStyle.InnerHTML);
 
         // Act
-        var (_, modifiers) = builder.After(TimeSpan.FromMilliseconds(250)).Build();
+        var (_, modifiers) = builder.AfterSwapDelay(TimeSpan.FromMilliseconds(250)).Build();
 
         // Assert
-        Assert.Equal("swap:250ms", modifiers);
+        modifiers.Should().Be("swap:250ms");
     }
 
     [Fact]
@@ -158,7 +171,7 @@ public class SwapStyleBuilderTests : TestContext
         var (_, modifiers) = builder.ShowOn(selector, ScrollDirection.Bottom).Build();
 
         // Assert
-        Assert.Equal("show:#element-id:bottom", modifiers);
+        modifiers.Should().Be("show:#element-id:bottom");
     }
 
     [Fact]
@@ -171,7 +184,7 @@ public class SwapStyleBuilderTests : TestContext
         var (_, modifiers) = builder.ShowWindow(ScrollDirection.Bottom).Build();
 
         // Assert
-        Assert.Equal("show:window:bottom", modifiers);
+        modifiers.Should().Be("show:window:bottom");
     }
 
     [Fact]
@@ -182,7 +195,7 @@ public class SwapStyleBuilderTests : TestContext
         var (style, _) = builder.Build();
 
         // Assert
-        Assert.Null(style);
+        style.Should().BeNull();
     }
 
     [Fact]
@@ -195,6 +208,6 @@ public class SwapStyleBuilderTests : TestContext
         var (_, modifiers) = builder.ShowNone().Build();
 
         // Assert
-        Assert.Equal("show:none", modifiers);
+        modifiers.Should().Be("show:none");
     }
 }
