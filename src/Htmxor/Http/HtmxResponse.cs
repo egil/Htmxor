@@ -144,15 +144,8 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Reswap(string modifier)
     {
-        if (string.IsNullOrWhiteSpace(modifier))
-        {
-            headers.Remove(HtmxResponseHeaderNames.Reswap);
-        }
-        else
-        {
-            headers[HtmxResponseHeaderNames.Reswap] = modifier;
-        }
-
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(modifier);
+        headers[HtmxResponseHeaderNames.Reswap] = modifier;
         return this;
     }
 
