@@ -110,7 +110,7 @@ public class SwapStyleBuilderTests
         var selector = "#dynamic-area";
 
         // Act
-        var (_, modifiers) = builder.ShowOn(selector, ScrollDirection.Top).Build();
+        var (_, modifiers) = builder.ShowOn(ScrollDirection.Top, selector).Build();
 
         // Assert
         modifiers.Should().Be("show:#dynamic-area:top");
@@ -168,7 +168,7 @@ public class SwapStyleBuilderTests
         var selector = "#element-id";
 
         // Act
-        var (_, modifiers) = builder.ShowOn(selector, ScrollDirection.Bottom).Build();
+        var (_, modifiers) = builder.ShowOn(ScrollDirection.Bottom, selector).Build();
 
         // Assert
         modifiers.Should().Be("show:#element-id:bottom");
