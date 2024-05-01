@@ -2,27 +2,34 @@
 
 namespace Htmxor.Http;
 
-public sealed class HtmxRequest(HttpContext context)
+public sealed class HtmxRequest
 {
+    private readonly HttpContext context;
+
+    /// <summary>
+    /// Gets whether or not the current request should be treated as a full page request.
+    /// </summary>
+    internal bool IsFullPageRequest => !IsHtmxRequest || IsBoosted;
+
     /// <summary>
     /// Gets the HTTP method of the current request.
     /// </summary>
-    public string Method => context.Request.Method;
+    public string Method { get; }
 
     /// <summary>
     /// Gets whether or not the current request is an Htmx triggered request.
     /// </summary>
-    public bool IsHtmxRequest => context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
+    public bool IsHtmxRequest { get; }
 
     /// <summary>
     /// Gets whether or not the current request is an request initiated via an element using hx-boost.
     /// </summary>
-    public bool IsBoosted => IsHtmxRequest && context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.Boosted);
+    public bool IsBoosted { get; }
 
     /// <summary>
     /// Gets whether or not the current request is an Htmx history restore request.
     /// </summary>
-    public bool IsHistoryRestoreRequest => IsHtmxRequest && context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HistoryRestoreRequest);
+    public bool IsHistoryRestoreRequest { get; }
 
     /// <summary>
     /// Gets the current URL of the browser.
@@ -83,4 +90,16 @@ public sealed class HtmxRequest(HttpContext context)
         && !string.IsNullOrWhiteSpace(values[0])
         ? values[0]
         : null;
+
+    /// <summary>
+    /// Creates a new instance of <see cref="HtmxRequest"/>.
+    /// </summary>
+    public HtmxRequest(HttpContext context)
+    {
+        this.context = context;
+        var ishtmx = IsHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
+        IsBoosted = ishtmx && context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.Boosted);
+        IsHistoryRestoreRequest = ishtmx && context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HistoryRestoreRequest);
+        Method = context.Request.Method;
+    }
 }

@@ -145,16 +145,16 @@ internal partial class HtmxorRenderer : Renderer
     internal void WriteComponentHtml(int componentId, TextWriter output)
     {
         var htmxContext = httpContext.GetHtmxContext();
-        if (htmxContext.Request.IsHtmxRequest && !htmxContext.Request.IsBoosted)
+        if (htmxContext.Request.IsFullPageRequest)
+        {
+            WriteComponent(componentId, output);
+        }
+        else
         {
             var matchingPartialComponentId = FindPartialComponentMatchingRequest(componentId);
             WriteComponent(
                 matchingPartialComponentId.HasValue ? matchingPartialComponentId.Value : componentId,
                 output);
-        }
-        else
-        {
-            WriteComponent(componentId, output);
         }
     }
 
@@ -168,9 +168,9 @@ internal partial class HtmxorRenderer : Renderer
 
             if (frame.FrameType is RenderTreeFrameType.Component)
             {
-                if (frame.Component is PartialBase partial)
+                if (frame.Component is FragmentBase partial)
                 {
-                    if (partial.ShouldRender())
+                    if (partial.WillRender())
                     {
                         return frame.ComponentId;
                     }

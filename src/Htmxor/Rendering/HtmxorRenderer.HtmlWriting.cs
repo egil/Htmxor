@@ -514,12 +514,7 @@ internal partial class HtmxorRenderer
     private int RenderChildComponent(TextWriter output, ArrayRange<RenderTreeFrame> frames, int position)
     {
         ref var frame = ref frames.Array[position];
-
-        if (frame.Component is not PartialBase htmxPartial || htmxPartial.ShouldRender())
-        {
-            RenderChildComponent(output, ref frame);
-        }
-
+        RenderChildComponent(output, ref frame);
         return position + frame.ComponentSubtreeLength;
     }
 }
