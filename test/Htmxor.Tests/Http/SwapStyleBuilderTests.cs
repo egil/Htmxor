@@ -7,7 +7,7 @@ using Bunit;
 
 namespace Htmxor.Http;
 
-public class SwapStyleBuilderTests : TestContext
+public class SwapStyleBuilderTests 
 {
     [Fact]
     public void SwapStyleBuilder_InitializeAndBuild_ReturnsCorrectValues()
@@ -209,5 +209,44 @@ public class SwapStyleBuilderTests : TestContext
 
         // Assert
         modifiers.Should().Be("show:none");
+    }
+
+    [Fact]
+    public void SwapStyleBuilder_ShowOnTop_ReturnsCorrectValue()
+    {
+	    // Arrange
+	    var builder = new SwapStyleBuilder(SwapStyle.InnerHTML);
+
+	    // Act
+	    var (_, modifiers) = builder.ShowOnTop().Build();
+
+	    // Assert
+	    modifiers.Should().Be("show:top");
+    }
+
+    [Fact]
+    public void SwapStyleBuilder_ShowOnBottom_ReturnsCorrectValue()
+    {
+	    // Arrange
+	    var builder = new SwapStyleBuilder(SwapStyle.InnerHTML);
+
+	    // Act
+	    var (_, modifiers) = builder.ShowOnBottom().Build();
+
+	    // Assert
+	    modifiers.Should().Be("show:bottom");
+    }
+
+    [Fact]
+    public void SwapStyleBuilder_MixedShowOverrides_ReturnsCorrectValue()
+    {
+	    // Arrange
+	    var builder = new SwapStyleBuilder(SwapStyle.InnerHTML);
+
+	    // Act
+	    var (_, modifiers) = builder.ShowOnTop().AfterSettleDelay(TimeSpan.FromMilliseconds(250)).ShowWindowTop().ShowOnBottom().Build();
+
+	    // Assert
+	    modifiers.Should().Be("settle:250ms show:bottom");
     }
 }
