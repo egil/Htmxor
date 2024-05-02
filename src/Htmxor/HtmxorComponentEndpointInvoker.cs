@@ -32,7 +32,8 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 		this.logger = logger;
 	}
 
-	public Task Render(HttpContext context) => renderer.Dispatcher.InvokeAsync(() => RenderComponentCore(context));
+    public Task Render(HttpContext context)
+        => renderer.Dispatcher.InvokeAsync(() => RenderComponentCore(context));
 
 	private async Task RenderComponentCore(HttpContext context)
 	{
@@ -129,10 +130,10 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 			return;
 		}
 
-		// Matches MVC's MemoryPoolHttpResponseStreamWriterFactory.DefaultBufferSize
-		var defaultBufferSize = 16 * 1024;
-		await using var writer = new HttpResponseStreamWriter(context.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
-		using var bufferWriter = new BufferedTextWriter(writer);
+        // Matches MVC's MemoryPoolHttpResponseStreamWriterFactory.DefaultBufferSize
+        var defaultBufferSize = 16 * 1024;
+        await using var writer = new HttpResponseStreamWriter(context.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
+        using var bufferWriter = new ConditionalBufferedTextWriter(writer);
 
 		// Importantly, we must not yield this thread (which holds exclusive access to the renderer sync context)
 		// in between the first call to htmlContent.WriteTo and the point where we start listening for subsequent

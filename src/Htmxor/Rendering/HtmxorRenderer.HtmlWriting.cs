@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
 using Htmxor.Http;
+using Htmxor.Rendering.Buffering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -30,22 +31,25 @@ internal partial class HtmxorRenderer
 			args: [new CascadingParameterAttribute(), string.Empty, typeof(FormMappingContext)],
 			culture: CultureInfo.InvariantCulture)!;
 
-    private readonly TextEncoder _javaScriptEncoder;
-    private TextEncoder _htmlEncoder;
-    private string? _closestSelectValueAsString;
-    private bool writeFromCompleteRenderTree;
+    private readonly TextEncoder javaScriptEncoder;
+    private TextEncoder htmlEncoder;
+    private string? closestSelectValueAsString;
 
     private void WriteRootComponent(HtmxorComponentState rootComponentState, TextWriter output)
     {
         // We're about to walk over some buffers inside the renderer that can be mutated during rendering.
         // So, we require exclusive access to the renderer during this synchronous process.
         Dispatcher.AssertAccess();
-
         WriteComponent(rootComponentState, output);
     }
 
     private void WriteComponent(HtmxorComponentState componentState, TextWriter output)
     {
+        if (output is ConditionalBufferedTextWriter conditionalOutput)
+        {
+            conditionalOutput.ShouldWrite = componentState.ShouldGenerateMarkup();
+        }
+
         var frames = GetCurrentRenderTreeFrames(componentState.ComponentId);
         RenderFrames(componentState, output, frames, 0, frames.Count);
     }
@@ -87,7 +91,7 @@ internal partial class HtmxorRenderer
             case RenderTreeFrameType.Attribute:
                 throw new InvalidOperationException($"Attributes should only be encountered within {nameof(RenderElement)}");
             case RenderTreeFrameType.Text:
-                _htmlEncoder.Encode(output, frame.TextContent);
+                htmlEncoder.Encode(output, frame.TextContent);
                 return ++position;
             case RenderTreeFrameType.Markup:
                 output.Write(frame.MarkupContent);
@@ -144,7 +148,7 @@ internal partial class HtmxorRenderer
             {
                 // Textarea is a special type of form field where the value is given as text content instead of a 'value' attribute
                 // So, if we captured a value attribute, use that instead of any child content
-                _htmlEncoder.Encode(output, capturedValueAttribute);
+                htmlEncoder.Encode(output, capturedValueAttribute);
                 afterElement = position + frame.ElementSubtreeLength; // Skip descendants
             }
             else if (string.Equals(frame.ElementName, "script", StringComparison.OrdinalIgnoreCase))
@@ -193,15 +197,15 @@ internal partial class HtmxorRenderer
         // user-supplied content inside a <script> block, but that if someone does, we
         // want the encoding style to match the context for correctness and safety. This is
         // also consistent with .cshtml's treatment of <script>.
-        var originalEncoder = _htmlEncoder;
+        var originalEncoder = htmlEncoder;
         try
         {
-            _htmlEncoder = _javaScriptEncoder;
+            htmlEncoder = javaScriptEncoder;
             return RenderChildren(componentState, output, frames, position, maxElements);
         }
         finally
         {
-            _htmlEncoder = originalEncoder;
+            htmlEncoder = originalEncoder;
         }
     }
 
@@ -219,7 +223,7 @@ internal partial class HtmxorRenderer
                 if (TryCreateScopeQualifiedEventName(componentState.ComponentId, namedEventFrame.NamedEventAssignedName, out var combinedFormName))
                 {
                     output.Write("<input type=\"hidden\" name=\"_handler\" value=\"");
-                    _htmlEncoder.Encode(output, combinedFormName);
+                    htmlEncoder.Encode(output, combinedFormName);
                     output.Write("\" />");
                 }
             }

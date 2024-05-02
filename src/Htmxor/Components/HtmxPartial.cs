@@ -1,17 +1,18 @@
-using System.Diagnostics.CodeAnalysis;
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Rendering;
+﻿using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Components;
 
-public sealed class HtmxPartial : FragmentBase
+public sealed class HtmxPartial : IComponent, IConditionalOutputComponent
 {
+    private RenderHandle renderHandle;
+
     [Parameter, EditorRequired]
     public required RenderFragment ChildContent { get; set; }
 
     [Parameter] public bool Condition { get; set; } = true;
 
-    public override Task SetParametersAsync(ParameterView parameters)
+
+    public Task SetParametersAsync(ParameterView parameters)
     {
         if (!parameters.TryGetValue<RenderFragment>(nameof(ChildContent), out var childContent))
         {
@@ -20,12 +21,15 @@ public sealed class HtmxPartial : FragmentBase
 
         ChildContent = childContent;
         Condition = parameters.GetValueOrDefault(nameof(Condition), true);
-        return base.SetParametersAsync(parameters);
+        renderHandle.Render(ChildContent);
+        return Task.CompletedTask;
     }
 
-    protected override void BuildRenderTree([NotNull] RenderTreeBuilder builder)
-        => builder.AddContent(0, ChildContent);
+    void IComponent.Attach(RenderHandle renderHandle)
+    {
+        this.renderHandle = renderHandle;
+    }
 
-    protected override bool ShouldRender() => Condition;
+    bool IConditionalOutputComponent.ShouldOutput(int _) => Condition;
 }
 

@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using Htmxor.Components;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
@@ -52,6 +53,10 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
                 if (componentInfo.ComponentLayoutType is not null)
                 {
                     builder.Metadata.Add(new HtmxorLayoutComponentMetadata(componentInfo.ComponentLayoutType));
+                }
+                else
+                {
+                    builder.Metadata.Add(new HtmxorLayoutComponentMetadata(typeof(HtmxorLayoutComponentBase)));
                 }
 
                 builder.RequestDelegate = static httpContext =>

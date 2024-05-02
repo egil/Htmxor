@@ -40,6 +40,7 @@ internal partial class HtmxorRenderer : Renderer
     private readonly RazorComponentsServiceOptions options;
     private readonly NavigationManager? navigationManager;
     private readonly Dictionary<ulong, (string HtmxorEventId, Delegate Handler)> htmxorEventsByEventHandlerId = new();
+    private HttpContext httpContext = default!; // Always set at the start of an inbound call
 
     internal HttpContext? HttpContext => httpContext;
 
@@ -54,6 +55,18 @@ internal partial class HtmxorRenderer : Renderer
         navigationManager = serviceProvider.GetService<NavigationManager>();
 		htmlEncoder = serviceProvider.GetService<HtmlEncoder>() ?? HtmlEncoder.Default;
 		javaScriptEncoder = serviceProvider.GetService<JavaScriptEncoder>() ?? JavaScriptEncoder.Default;
+    }
+
+    private void SetHttpContext(HttpContext httpContext)
+    {
+        if (this.httpContext is null)
+        {
+            this.httpContext = httpContext;
+        }
+        else if (this.httpContext != httpContext)
+        {
+            throw new InvalidOperationException("The HttpContext cannot change value once assigned.");
+        }
     }
 
     /// <summary>
@@ -144,54 +157,8 @@ internal partial class HtmxorRenderer : Renderer
 
     internal void WriteComponentHtml(int componentId, TextWriter output)
     {
-        var htmxContext = httpContext.GetHtmxContext();
-        if (htmxContext.Request.IsFullPageRequest)
-        {
-            var componentState = (HtmxorComponentState)GetComponentState(componentId);
-            WriteComponent(componentState, output);
-        }
-        else
-        {
-            var matchingPartialComponentId = FindPartialComponentMatchingRequest(componentId);
-            WriteComponent(
-                (HtmxorComponentState)GetComponentState(matchingPartialComponentId.HasValue ? matchingPartialComponentId.Value : componentId),
-                output);
-        }
-    }
-
-    private int? FindPartialComponentMatchingRequest(int componentId)
-    {
-        var frames = GetCurrentRenderTreeFrames(componentId);
-
-        for (int i = 0; i < frames.Count; i++)
-        {
-            ref var frame = ref frames.Array[i];
-
-            if (frame.FrameType is RenderTreeFrameType.Component)
-            {
-                if (frame.Component is FragmentBase partial)
-                {
-                    if (partial.WillRender())
-                    {
-                        return frame.ComponentId;
-                    }
-                    else
-                    {
-                        // if the partial should not render, none of it children should render either.
-                        continue;
-                    }
-                }
-
-                var candidate = FindPartialComponentMatchingRequest(frame.ComponentId);
-
-                if (candidate.HasValue)
-                {
-                    return candidate.Value;
-                }
-            }
-        }
-
-        return null;
+        var componentState = (HtmxorComponentState)GetComponentState(componentId);
+        WriteRootComponent(componentState, output);
     }
 
     private static void SetRouteData(HttpContext httpContext, Type componentType, Type? layoutType)
