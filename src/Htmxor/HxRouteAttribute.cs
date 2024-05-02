@@ -75,7 +75,7 @@ public sealed class HxRouteAttribute : Attribute, IEquatable<HxRouteAttribute>
     {
         return other is not null
             && Template.Equals(other.Template, StringComparison.OrdinalIgnoreCase)
-            && Methods.SequenceEqual(other.Methods)
+            && Methods.SequenceEqual(other.Methods, StringComparer.OrdinalIgnoreCase)
             && (CurrentURL?.Equals(other.CurrentURL, StringComparison.OrdinalIgnoreCase) ?? true)
             && (Target?.Equals(other.Target, StringComparison.OrdinalIgnoreCase) ?? true)
             && Targets.SequenceEqual(other.Targets, StringComparer.OrdinalIgnoreCase)

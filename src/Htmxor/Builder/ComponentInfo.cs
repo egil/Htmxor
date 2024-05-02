@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
 
@@ -57,6 +57,7 @@ internal sealed record class ComponentInfo
             && y is not null
             && x.Template.Equals(y.Template, StringComparison.OrdinalIgnoreCase);
 
-        public int GetHashCode([DisallowNull] HxRouteAttribute obj) => obj.Template.GetHashCode();
+        public int GetHashCode([DisallowNull] HxRouteAttribute obj)
+            => obj.Template.GetHashCode(StringComparison.OrdinalIgnoreCase);
     }
 }

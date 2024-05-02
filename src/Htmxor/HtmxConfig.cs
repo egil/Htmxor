@@ -6,6 +6,7 @@ namespace Htmxor;
 /// <summary>
 /// Htmx configuration options.
 /// </summary>
+[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "This is effectively a DTO.")]
 public partial record class HtmxConfig
 {
     private SwapStyle? defaultSwapStyle;

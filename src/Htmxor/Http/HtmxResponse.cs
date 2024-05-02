@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Htmxor.Serialization;
@@ -77,6 +77,17 @@ public sealed class HtmxResponse(HttpContext context)
     }
 
     /// <summary>
+    /// Pushes a new url onto the history stack.
+    /// </summary>
+    /// <param name="url"></param>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse PushUrl(Uri url)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+        return PushUrl(url.ToString());
+    }
+
+    /// <summary>
     /// Prevents the browser’s history from being updated.
     /// Overwrites PushUrl response if already present.
     /// </summary>
@@ -103,7 +114,7 @@ public sealed class HtmxResponse(HttpContext context)
     /// <summary>
     /// Can be used to do a client-side redirect to a new location.
     /// </summary>
-    /// <param name="url"></param>
+    /// <param name="url">The url to redirect to.</param>
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Redirect(string url)
     {
@@ -111,6 +122,17 @@ public sealed class HtmxResponse(HttpContext context)
         headers[HtmxResponseHeaderNames.Redirect] = url;
         EmptyResponseBodyRequested = true;
         return this;
+    }
+
+    /// <summary>
+    /// Can be used to do a client-side redirect to a new location.
+    /// </summary>
+    /// <param name="url">The url to redirect to.</param>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse Redirect(Uri url)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+        return Redirect(url.ToString());
     }
 
     /// <summary>
@@ -135,6 +157,17 @@ public sealed class HtmxResponse(HttpContext context)
         AssertIsHtmxRequest();
         headers[HtmxResponseHeaderNames.ReplaceUrl] = url;
         return this;
+    }
+
+    /// <summary>
+    /// Replaces the current URL in the location bar.
+    /// </summary>
+    /// <param name="url"></param>
+    /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+    public HtmxResponse ReplaceUrl(Uri url)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+        return ReplaceUrl(url.ToString());
     }
 
     /// <summary>
@@ -183,6 +216,8 @@ public sealed class HtmxResponse(HttpContext context)
     /// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
     public HtmxResponse Reswap(SwapStyleBuilder swapStyle)
     {
+        ArgumentNullException.ThrowIfNull(swapStyle);
+
         var (style, modifier) = swapStyle.Build();
 
         return style is SwapStyle.Default
@@ -286,7 +321,7 @@ public sealed class HtmxResponse(HttpContext context)
             headerValueSet = [];
         }
 
-        if (headerValueSet.Count == 0 || !headerValueSet.Exists(other => other.EventName.Equals(eventName)))
+        if (headerValueSet.Count == 0 || !headerValueSet.Exists(other => other.EventName.Equals(eventName, StringComparison.OrdinalIgnoreCase)))
         {
             headerValueSet.Add(new(eventName, detail is not null ? JsonSerializer.Serialize(detail, jsonSerializerOptions) : null));
         }

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components;
+using System.Diagnostics.CodeAnalysis;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 namespace Htmxor.Components;
@@ -14,7 +15,7 @@ public sealed class HtmxPartial : FragmentBase
     {
         if (!parameters.TryGetValue<RenderFragment>(nameof(ChildContent), out var childContent))
         {
-            throw new ArgumentException($"{nameof(HtmxPartial)} requires a value for the parameter {nameof(ChildContent)}.");
+            throw new ArgumentException($"{nameof(HtmxPartial)} requires a value for the parameter {nameof(ChildContent)}.", nameof(parameters));
         }
 
         ChildContent = childContent;
@@ -22,7 +23,7 @@ public sealed class HtmxPartial : FragmentBase
         return base.SetParametersAsync(parameters);
     }
 
-    protected override void BuildRenderTree(RenderTreeBuilder builder) 
+    protected override void BuildRenderTree([NotNull] RenderTreeBuilder builder)
         => builder.AddContent(0, ChildContent);
 
     protected override bool ShouldRender() => Condition;

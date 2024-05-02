@@ -317,10 +317,10 @@ public sealed class SwapStyleBuilder
     public override string ToString()
     {
         var (swapStyle, modifier) = Build();
-        var style = swapStyle.ToHtmxString();
+        var styleText = swapStyle.ToHtmxString();
         var value = !string.IsNullOrWhiteSpace(modifier)
-            ? $"{style} {modifier}"
-            : style;
+            ? $"{styleText} {modifier}"
+            : styleText;
         return value;
     }
 

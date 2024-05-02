@@ -13,6 +13,9 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
         this RazorComponentsEndpointConventionBuilder builder,
         IEndpointRouteBuilder endpoints)
     {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(endpoints);
+
         var componentTypes = builder.GetDiscoveredComponents();
         endpoints.DataSources.Add(new HtmxorComponentEndpointDataSource(componentTypes));
 

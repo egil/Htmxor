@@ -8,18 +8,18 @@ namespace Htmxor;
 
 internal class HtmxorComponentRequestHost : IComponent
 {
-    private RenderHandle _renderHandle;
+    private RenderHandle renderHandle;
 
     [Inject]
     public HtmxorEndpointRoutingStateProvider RoutingStateProvider { get; set; } = default!;
 
     public void Attach(RenderHandle renderHandle)
-        => _renderHandle = renderHandle;
+        => this.renderHandle = renderHandle;
 
     public Task SetParametersAsync(ParameterView parameters)
     {
         parameters.SetParameterProperties(this);
-        _renderHandle.Render(BuildRenderTree);
+        renderHandle.Render(BuildRenderTree);
         return Task.CompletedTask;
     }
 
@@ -50,7 +50,7 @@ internal class HtmxorComponentRequestHost : IComponent
         builder.CloseComponent();
     };
 
-    private static IEnumerable<(string Name, object? Value)> GetRouteParameters(RoutePattern routePattern, IReadOnlyDictionary<string, object?> routeValues)
+	private static IEnumerable<(string Name, object? Value)> GetRouteParameters(RoutePattern routePattern, IReadOnlyDictionary<string, object?> routeValues)
     {
         foreach (var parameter in routePattern.Parameters)
         {

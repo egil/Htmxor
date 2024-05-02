@@ -19,8 +19,10 @@ public sealed class HxLayoutAttribute : Attribute
 
         if (!typeof(IComponent).IsAssignableFrom(layoutType))
         {
-            throw new ArgumentException($"Invalid layout type: {layoutType.FullName} " +
-                $"does not implement {typeof(IComponent).FullName}.");
+            throw new ArgumentException(
+                $"Invalid layout type: {layoutType.FullName} " +
+                $"does not implement {typeof(IComponent).FullName}.",
+                nameof(layoutType));
         }
 
         // Note that we can't validate its acceptance of a 'Body' parameter at this stage,

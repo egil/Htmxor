@@ -12,22 +12,18 @@ namespace Htmxor.Builder;
 
 internal class HtmxorComponentEndpointDataSource : EndpointDataSource
 {
-    private readonly IReadOnlyList<ComponentInfo> components;
-    private IReadOnlyList<Endpoint>? endpoints;
-
-    public override IReadOnlyList<Endpoint> Endpoints => endpoints ??= UpdateEndpoints();
+    public override IReadOnlyList<Endpoint> Endpoints { get; }
 
     public HtmxorComponentEndpointDataSource(IReadOnlyList<ComponentInfo> components)
     {
-        this.components = components;
-        UpdateEndpoints();
+        Endpoints = UpdateEndpoints(components);
     }
 
     public override IChangeToken GetChangeToken() => NullChangeToken.Singleton;
 
-    private IReadOnlyList<Endpoint> UpdateEndpoints()
+    private static List<Endpoint> UpdateEndpoints(IReadOnlyList<ComponentInfo> components)
     {
-        var endpoints = new List<Endpoint>();
+        var result = new List<Endpoint>();
 
         foreach (var componentInfo in components.Where(x => x.IsHtmxorCompatible))
         {
@@ -70,10 +66,10 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
                 // The display name is for debug purposes by endpoint routing.
                 builder.DisplayName = $"{builder.RoutePattern.RawText} ({componentInfo.ComponentType.Name}) (HTMX route)";
 
-                endpoints.Add(builder.Build());
+                result.Add(builder.Build());
             }
         }
 
-        return endpoints;
+        return result;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 
 namespace Htmxor.Http;
 
@@ -67,6 +67,7 @@ public sealed class HtmxRequest
     /// </summary>
     public HtmxRequest(HttpContext context)
     {
+		ArgumentNullException.ThrowIfNull(context);
         Method = context.Request.Method;
         var ishtmx = IsHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
 

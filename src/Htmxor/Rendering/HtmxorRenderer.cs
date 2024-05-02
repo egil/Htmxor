@@ -27,21 +27,17 @@ namespace Htmxor.Rendering;
 /// </summary>
 internal partial class HtmxorRenderer : Renderer
 {
-    private static readonly Type httpContextFormDataProviderType;
-    private static readonly Task CanceledRenderTask = Task.FromCanceled(new CancellationToken(canceled: true));
-
-    static HtmxorRenderer()
-    {
-        httpContextFormDataProviderType = AppDomain
+    private static readonly Type HttpContextFormDataProviderType = AppDomain
             .CurrentDomain
             .GetAssemblies()
             .SelectMany(assembly => assembly.GetTypes())
-            .First(t => t.FullName == "Microsoft.AspNetCore.Components.Endpoints.HttpContextFormDataProvider");
-    }
+            .First(t => string.Equals(t.FullName, "Microsoft.AspNetCore.Components.Endpoints.HttpContextFormDataProvider", StringComparison.Ordinal));
 
-    private readonly IServiceProvider _services;
-    private readonly RazorComponentsServiceOptions _options;
-    private readonly NavigationManager? _navigationManager;
+    private static readonly Task CanceledRenderTask = Task.FromCanceled(new CancellationToken(canceled: true));
+
+    private readonly IServiceProvider services;
+    private readonly RazorComponentsServiceOptions options;
+    private readonly NavigationManager? navigationManager;
     private readonly Dictionary<ulong, (string HtmxorEventId, Delegate Handler)> htmxorEventsByEventHandlerId = new();
 
     internal HttpContext? HttpContext => httpContext;
@@ -52,11 +48,11 @@ internal partial class HtmxorRenderer : Renderer
     public HtmxorRenderer(IServiceProvider serviceProvider, ILoggerFactory loggerFactory)
         : base(serviceProvider, loggerFactory)
     {
-        _services = serviceProvider;
-        _options = serviceProvider.GetRequiredService<IOptions<RazorComponentsServiceOptions>>().Value;
-        _navigationManager = serviceProvider.GetService<NavigationManager>();
-        _htmlEncoder = serviceProvider.GetService<HtmlEncoder>() ?? HtmlEncoder.Default;
-        _javaScriptEncoder = serviceProvider.GetService<JavaScriptEncoder>() ?? JavaScriptEncoder.Default;
+        services = serviceProvider;
+        options = serviceProvider.GetRequiredService<IOptions<RazorComponentsServiceOptions>>().Value;
+        navigationManager = serviceProvider.GetService<NavigationManager>();
+		htmlEncoder = serviceProvider.GetService<HtmlEncoder>() ?? HtmlEncoder.Default;
+		javaScriptEncoder = serviceProvider.GetService<JavaScriptEncoder>() ?? JavaScriptEncoder.Default;
     }
 
     /// <summary>
@@ -105,8 +101,8 @@ internal partial class HtmxorRenderer : Renderer
         string? handler = null,
         IFormCollection? form = null)
     {
-        var navigationManager = (IHostEnvironmentNavigationManager)httpContext.RequestServices.GetRequiredService<NavigationManager>();
-        navigationManager?.Initialize(GetContextBaseUri(httpContext.Request), GetFullUri(httpContext.Request));
+        var hostEnvNavMan = httpContext.RequestServices.GetRequiredService<NavigationManager>() as IHostEnvironmentNavigationManager;
+		hostEnvNavMan?.Initialize(GetContextBaseUri(httpContext.Request), GetFullUri(httpContext.Request));
 
         if (httpContext.RequestServices.GetService<AuthenticationStateProvider>() is IHostEnvironmentAuthenticationStateProvider authenticationStateProvider)
         {
@@ -124,8 +120,8 @@ internal partial class HtmxorRenderer : Renderer
 
             var httpContextFormDataProvider = httpContext
                 .RequestServices
-                .GetService(httpContextFormDataProviderType);
-            httpContextFormDataProviderType
+                .GetService(HttpContextFormDataProviderType);
+            HttpContextFormDataProviderType
                 .GetMethod("SetFormData", BindingFlags.Instance | BindingFlags.Public)!
                 .Invoke(httpContextFormDataProvider, [handler ?? "", new FormCollectionReadOnlyDictionary(form), form.Files]);
         }
@@ -234,19 +230,19 @@ internal partial class HtmxorRenderer : Renderer
 
     private sealed class FormCollectionReadOnlyDictionary : IReadOnlyDictionary<string, StringValues>
     {
-        private readonly IFormCollection _form;
-        private List<StringValues>? _values;
+        private readonly IFormCollection form;
+        private List<StringValues>? values;
 
         public FormCollectionReadOnlyDictionary(IFormCollection form)
         {
-            _form = form;
+            this.form = form;
         }
 
-        public StringValues this[string key] => _form[key];
+        public StringValues this[string key] => form[key];
 
-        public IEnumerable<string> Keys => _form.Keys;
+        public IEnumerable<string> Keys => form.Keys;
 
-        public IEnumerable<StringValues> Values => _values ??= MaterializeValues(_form);
+        public IEnumerable<StringValues> Values => values ??= MaterializeValues(form);
 
         private static List<StringValues> MaterializeValues(IFormCollection form)
         {
@@ -259,26 +255,26 @@ internal partial class HtmxorRenderer : Renderer
             return result;
         }
 
-        public int Count => _form.Count;
+        public int Count => form.Count;
 
         public bool ContainsKey(string key)
         {
-            return _form.ContainsKey(key);
+            return form.ContainsKey(key);
         }
 
         public IEnumerator<KeyValuePair<string, StringValues>> GetEnumerator()
         {
-            return _form.GetEnumerator();
+            return form.GetEnumerator();
         }
 
         public bool TryGetValue(string key, [MaybeNullWhen(false)] out StringValues value)
         {
-            return _form.TryGetValue(key, out value);
+            return form.TryGetValue(key, out value);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return _form.GetEnumerator();
+            return form.GetEnumerator();
         }
     }
 }

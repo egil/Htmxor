@@ -12,6 +12,7 @@ public class HtmxEventArgs : EventArgs
 
     public HtmxEventArgs(HtmxContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
         Request = context.Request;
         Response = context.Response;
         this.context = context;

@@ -14,7 +14,8 @@ internal partial class HtmxorRenderer
     // can be correctly cleaned up as needed.
     private readonly Dictionary<string, Dictionary<Delegate, List<(int ComponentId, ulong EventHandlerId)>>> htmxorEvents = new(StringComparer.Ordinal);
 
-    internal Task DispatchHtmxorEventAsync(HtmxContext context, out bool isBadRequest)
+	[SuppressMessage("Globalization", "CA1308:Normalize strings to uppercase", Justification = "Method names are safe to convert to lower.")]
+	internal Task DispatchHtmxorEventAsync(HtmxContext context, out bool isBadRequest)
     {
         var htmxorEventId = context.Request.EventHandlerId;
 

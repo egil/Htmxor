@@ -6,6 +6,7 @@ namespace Htmxor;
 /// <summary>
 /// Exception thrown to indicate that a navigation operation was requested during static service side rendering.
 /// </summary>
+[SuppressMessage("Design", "CA1054:URI-like parameters should not be strings", Justification = "Not relevant in this context.")]
 public sealed class HtmxorNavigationException : NavigationException
 {
     /// <summary>

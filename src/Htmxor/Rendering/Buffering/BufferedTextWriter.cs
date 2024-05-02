@@ -8,44 +8,45 @@ namespace Htmxor.Rendering.Buffering;
 internal class BufferedTextWriter : TextWriter
 {
     private const int PageSize = 256;
-    private readonly TextWriter _underlying;
-    private readonly StringBuilder _charArraySegmentBuilder = new();
-    private TextChunkListBuilder _currentOutput;
-    private TextChunkListBuilder? _previousOutput;
-    private Task _currentFlushAsyncTask = Task.CompletedTask;
+	[SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Instance not owned by this type.")]
+	private readonly TextWriter underlying;
+    private readonly StringBuilder charArraySegmentBuilder = new();
+    private TextChunkListBuilder currentOutput;
+    private TextChunkListBuilder? previousOutput;
+    private Task currentFlushAsyncTask = Task.CompletedTask;
 
     public BufferedTextWriter(TextWriter underlying)
     {
-        _underlying = underlying;
-        _currentOutput = new(PageSize);
+        this.underlying = underlying;
+        currentOutput = new(PageSize);
     }
 
     public override Encoding Encoding => Encoding.UTF8;
 
     public override void Write(char value)
-        => _currentOutput.Add(new TextChunk(value));
+        => currentOutput.Add(new TextChunk(value));
 
     public override void Write(char[] buffer, int index, int count)
-        => _currentOutput.Add(new TextChunk(new ArraySegment<char>(buffer, index, count), _charArraySegmentBuilder));
+        => currentOutput.Add(new TextChunk(new ArraySegment<char>(buffer, index, count), charArraySegmentBuilder));
 
     public override void Write(string? value)
     {
         if (value is not null)
         {
-            _currentOutput.Add(new TextChunk(value));
+            currentOutput.Add(new TextChunk(value));
         }
     }
 
     public override void Write(int value)
-        => _currentOutput.Add(new TextChunk(value));
+        => currentOutput.Add(new TextChunk(value));
 
     public override void Flush()
         => throw new NotSupportedException();
 
     public override Task FlushAsync()
     {
-        _currentFlushAsyncTask = FlushAsyncCore(_currentFlushAsyncTask);
-        return _currentFlushAsyncTask;
+        currentFlushAsyncTask = FlushAsyncCore(currentFlushAsyncTask);
+        return currentFlushAsyncTask;
     }
 
     private async Task FlushAsyncCore(Task priorTask)
@@ -58,12 +59,12 @@ internal class BufferedTextWriter : TextWriter
         }
 
         // Swap buffers
-        var outputToFlush = _currentOutput;
-        _currentOutput = _previousOutput ?? new(PageSize);
-        _previousOutput = outputToFlush;
+        var outputToFlush = currentOutput;
+        currentOutput = previousOutput ?? new(PageSize);
+        previousOutput = outputToFlush;
 
-        await outputToFlush.WriteToAsync(_underlying, _charArraySegmentBuilder.ToString());
+        await outputToFlush.WriteToAsync(underlying, charArraySegmentBuilder.ToString());
         outputToFlush.Clear();
-        await _underlying.FlushAsync();
+        await underlying.FlushAsync();
     }
 }
