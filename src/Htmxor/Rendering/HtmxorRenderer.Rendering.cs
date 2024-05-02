@@ -10,20 +10,6 @@ namespace Htmxor.Rendering;
 
 internal partial class HtmxorRenderer
 {
-	private HttpContext httpContext = default!; // Always set at the start of an inbound call
-
-	private void SetHttpContext(HttpContext httpContext)
-	{
-		if (this.httpContext is null)
-		{
-			this.httpContext = httpContext;
-		}
-		else if (this.httpContext != httpContext)
-		{
-			throw new InvalidOperationException("The HttpContext cannot change value once assigned.");
-		}
-	}
-
 	internal async ValueTask<RenderedComponentHtmlContent> RenderEndpointComponent(
 		HttpContext httpContext,
 		[DynamicallyAccessedMembers(Component)] Type rootComponentType,
