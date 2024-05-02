@@ -161,7 +161,7 @@ public sealed class HtmxResponse(HttpContext context)
 
         if (swapStyle is SwapStyle.Default)
         {
-            Reswap(modifier);
+            Reswap(modifier!);
             return this;
         }
 
