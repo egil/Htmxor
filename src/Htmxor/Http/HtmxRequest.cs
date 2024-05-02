@@ -4,12 +4,13 @@ namespace Htmxor.Http;
 
 public sealed class HtmxRequest
 {
-    private readonly HttpContext context;
-
     /// <summary>
-    /// Gets whether or not the current request should be treated as a full page request.
+    /// Gets whether or not the current request will be treated as a full page request.
     /// </summary>
-    internal bool IsFullPageRequest => !IsHtmxRequest || IsBoosted;
+    /// <remarks>
+    /// The rules are as follows: <c>!IsHtmxRequest || (IsBoosted &amp;&amp; Target is null)</c>
+    /// </remarks>
+    public bool IsFullPageRequest => !IsHtmxRequest || (IsBoosted && Target is null);
 
     /// <summary>
     /// Gets the HTTP method of the current request.
@@ -34,72 +35,66 @@ public sealed class HtmxRequest
     /// <summary>
     /// Gets the current URL of the browser.
     /// </summary>
-    public Uri? CurrentURL
-        => IsHtmxRequest
-        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.CurrentURL, out var values)
-        && values.Count > 0
-        && Uri.TryCreate(values[0], UriKind.RelativeOrAbsolute, out var uri)
-        ? uri
-        : null;
+    public Uri? CurrentURL { get; }
 
     /// <summary>
     /// Gets the `id` of the target element if it exists.
     /// </summary>
-    public string? Target
-        => IsHtmxRequest
-        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.Target, out var values)
-        && values.Count > 0
-        ? values[0]
-        : null;
+    public string? Target { get; }
 
     /// <summary>
     /// Gets the `name` of the triggered element if it exists.
     /// </summary>
-    public string? TriggerName
-        => IsHtmxRequest
-        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.TriggerName, out var values)
-        && values.Count > 0
-        ? values[0]
-        : null;
+    public string? TriggerName { get; }
 
     /// <summary>
     /// Gets the `id` of the triggered element if it exists.
     /// </summary>
-    public string? Trigger
-        => IsHtmxRequest
-        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.Trigger, out var values)
-        && values.Count > 0
-        ? values[0]
-        : null;
+    public string? Trigger { get; }
 
     /// <summary>
     /// Gets the user response to an hx-prompt, if any.
     /// </summary>
-    public string? Prompt => IsHtmxRequest
-        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.Prompt, out var values)
-        && values.Count > 0
-        ? values[0]
-        : null;
+    public string? Prompt { get; }
 
     /// <summary>
     /// The `id` of the event handler to trigger on request.
     /// </summary>
-    internal string? EventHandlerId => IsHtmxRequest
-        && context.Request.Headers.TryGetValue(HtmxRequestHeaderNames.EventHandlerId, out var values)
-        && values.Count > 0
-        && !string.IsNullOrWhiteSpace(values[0])
-        ? values[0]
-        : null;
+    internal string? EventHandlerId { get; }
 
     /// <summary>
     /// Creates a new instance of <see cref="HtmxRequest"/>.
     /// </summary>
     public HtmxRequest(HttpContext context)
     {
-        this.context = context;
-        var ishtmx = IsHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
-        IsBoosted = ishtmx && context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.Boosted);
-        IsHistoryRestoreRequest = ishtmx && context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HistoryRestoreRequest);
         Method = context.Request.Method;
+        var ishtmx = IsHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
+
+        if (!ishtmx)
+        {
+            return;
+        }
+
+        IsBoosted = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.Boosted);
+        IsHistoryRestoreRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HistoryRestoreRequest);
+        CurrentURL = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.CurrentURL, static value => Uri.TryCreate(value, UriKind.RelativeOrAbsolute, out var uri) ? uri : null);
+        Target = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Target);
+        TriggerName = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.TriggerName);
+        Trigger = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Trigger);
+        Prompt = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Prompt);
+        EventHandlerId = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.EventHandlerId);
     }
+
+    private static string? GetHxValueOrDefault(IHeaderDictionary headers, string key)
+        => headers.TryGetValue(key, out var values)
+        && values.Count > 0
+        && values[0] is var value
+        && !string.IsNullOrWhiteSpace(value)
+        ? value.Trim()
+        : null;
+
+    private static T? GetHxValueOrDefault<T>(IHeaderDictionary headers, string key, Func<string, T?> factory)
+        => GetHxValueOrDefault(headers, key) is string value
+        ? factory.Invoke(value)
+        : default(T);
 }
