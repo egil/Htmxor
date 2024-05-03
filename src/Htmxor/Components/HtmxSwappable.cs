@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.AccessControl;
 using System.Text;
 using System.Threading.Tasks;
 using Htmxor.Http;
@@ -70,7 +71,8 @@ public sealed class HtmxSwappable : IComponent, IConditionalOutputComponent
 		parameters.TryGetValue<RenderFragment>(nameof(Placeholder), out var placeHolder);
 
 		ChildContent = childContent;
-		Placeholder = placeHolder;
+		Placeholder = placeHolder!;
+		TargetId = parameters.GetValueOrDefault(nameof(TargetId), Guid.NewGuid().ToString());
 		Condition = parameters.GetValueOrDefault(nameof(Condition), true);
 		SwapStyle = parameters.GetValueOrDefault(nameof(SwapStyle), SwapStyle.InnerHTML);
 		Selector = parameters.GetValueOrDefault(nameof(Selector), string.Empty);
@@ -87,36 +89,38 @@ public sealed class HtmxSwappable : IComponent, IConditionalOutputComponent
 		var style = SwapStyle == SwapStyle.Default ? "true" : SwapStyle.ToHtmxString();
 		swapParam = !string.IsNullOrEmpty(Selector) ? $"{style}:{Selector}" : style;
 
-		renderHandle.Render(ChildContent);
+		renderHandle.Render(RenderDelegate);
+
 		return Task.CompletedTask;
 	}
 
 	void IComponent.Attach(RenderHandle renderHandle)
 	{
 		this.renderHandle = renderHandle;
+	}
+
+	private void RenderDelegate(RenderTreeBuilder builder)
+	{
 		var url = Context.Request.CurrentURL?.PathAndQuery;
 
-		renderHandle.Render(builder =>
+		builder.OpenElement(0, "div");
+		builder.AddAttribute(1, "id", TargetId);
+		if (Context.Request.IsHtmxRequest && Context.Request.Target != $"#{TargetId}")
 		{
-			builder.OpenElement(0, "div");
-			builder.AddAttribute(1, "id", TargetId);
-			if (Context.Request.IsHtmxRequest)
-			{
-				builder.AddAttribute(2, "hx-swap-oob", swapParam);
-			}
+			//builder.AddAttribute(2, "hx-swap-oob", swapParam);
+		}
 
-			if (LazyLoad && !string.IsNullOrWhiteSpace(url) && Placeholder != null)
-			{
-				builder.AddAttribute(3, "hx-get", url);
-				builder.AddAttribute(4, "hx-trigger", LazyLoadTrigger);
-				builder.AddContent(5, Placeholder);
-			}
-			else
-			{
-				builder.AddContent(6, ChildContent);
-			}
-			builder.CloseElement();
-		});
+		if (LazyLoad && !string.IsNullOrWhiteSpace(url) && Placeholder != null)
+		{
+			builder.AddAttribute(3, "hx-get", url);
+			builder.AddAttribute(5, "hx-trigger", LazyLoadTrigger);
+			builder.AddContent(6, Placeholder);
+		}
+		else
+		{
+			builder.AddContent(7, ChildContent);
+		}
+		builder.CloseElement();
 	}
 
 	bool IConditionalOutputComponent.ShouldOutput(int _) => Condition;
