@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Htmxor.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Routing;
@@ -17,7 +17,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		ArgumentNullException.ThrowIfNull(endpoints);
 
 		var componentTypes = builder.GetDiscoveredComponents();
-		endpoints.DataSources.Add(new HtmxorComponentEndpointDataSource(componentTypes));
+		endpoints.DataSources.Add(new ComponentEndpointDataSource(componentTypes));
 
 		return builder;
 	}

@@ -1,9 +1,7 @@
 using System.Collections;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text.Encodings.Web;
-using Htmxor.Components;
 using Htmxor.DependencyInjection;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -164,7 +162,7 @@ internal partial class HtmxorRenderer : Renderer
 	private static void SetRouteData(HttpContext httpContext, Type componentType, Type? layoutType)
 	{
 		// Saving RouteData to avoid routing twice in Router component
-		var routingStateProvider = httpContext.RequestServices.GetRequiredService<HtmxorEndpointRoutingStateProvider>();
+		var routingStateProvider = httpContext.RequestServices.GetRequiredService<EndpointRoutingStateProvider>();
 		routingStateProvider.LayoutType = layoutType;
 		routingStateProvider.RouteData = new RouteData(componentType, httpContext.GetRouteData().Values);
 		if (httpContext.GetEndpoint() is RouteEndpoint endpoint)

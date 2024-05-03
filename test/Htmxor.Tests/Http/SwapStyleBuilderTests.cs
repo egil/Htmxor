@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Bunit;
-
-namespace Htmxor.Http;
+﻿namespace Htmxor.Http;
 
 public class SwapStyleBuilderTests
 {

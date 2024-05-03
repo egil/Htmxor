@@ -1,5 +1,6 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Htmxor.Components;
+using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
@@ -11,11 +12,11 @@ using Microsoft.Extensions.Primitives;
 
 namespace Htmxor.Builder;
 
-internal class HtmxorComponentEndpointDataSource : EndpointDataSource
+internal class ComponentEndpointDataSource : EndpointDataSource
 {
 	public override IReadOnlyList<Endpoint> Endpoints { get; }
 
-	public HtmxorComponentEndpointDataSource(IReadOnlyList<ComponentInfo> components)
+	public ComponentEndpointDataSource(IReadOnlyList<ComponentInfo> components)
 	{
 		Endpoints = UpdateEndpoints(components);
 	}
@@ -48,15 +49,15 @@ internal class HtmxorComponentEndpointDataSource : EndpointDataSource
 				builder.Metadata.Add(new HttpMethodMetadata(hxRoute.Methods, false));
 				builder.Metadata.Add(new ComponentTypeMetadata(componentInfo.ComponentType));
 				builder.Metadata.Add(new RootComponentMetadata(typeof(HtmxorComponentRequestHost)));
-				builder.Metadata.Add(new HtmxorEndpointMetadata(hxRoute));
+				builder.Metadata.Add(new EndpointMetadata(hxRoute));
 
 				if (componentInfo.ComponentLayoutType is not null)
 				{
-					builder.Metadata.Add(new HtmxorLayoutComponentMetadata(componentInfo.ComponentLayoutType));
+					builder.Metadata.Add(new LayoutComponentMetadata(componentInfo.ComponentLayoutType));
 				}
 				else
 				{
-					builder.Metadata.Add(new HtmxorLayoutComponentMetadata(typeof(HtmxorLayoutComponentBase)));
+					builder.Metadata.Add(new LayoutComponentMetadata(typeof(HtmxLayoutComponentBase)));
 				}
 
 				builder.RequestDelegate = static httpContext =>

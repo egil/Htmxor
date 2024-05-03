@@ -1,9 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.Diagnostics;
-using System.Numerics;
 
-namespace Htmxor.Http;
+namespace Htmxor;
 
 /// <summary>
 /// A builder class for constructing a swap style command string for HTMX responses.

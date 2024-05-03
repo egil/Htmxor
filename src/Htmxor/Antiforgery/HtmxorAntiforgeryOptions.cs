@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.Extensions.Options;
 
 namespace Htmxor.Antiforgery;
@@ -6,7 +6,7 @@ namespace Htmxor.Antiforgery;
 /// <summary>
 /// Represents the options for Htmxor's antiforgery support.
 /// </summary>
-internal class HtmxAntiforgeryOptions(IOptions<AntiforgeryOptions> antiforgeryOptions)
+internal class HtmxorAntiforgeryOptions(IOptions<AntiforgeryOptions> antiforgeryOptions)
 {
 	/// <summary>
 	/// Gets the name of the form field used for antiforgery token.

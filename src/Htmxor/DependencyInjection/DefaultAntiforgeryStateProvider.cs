@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
@@ -11,8 +10,8 @@ namespace Htmxor.DependencyInjection;
 internal class DefaultAntiforgeryStateProvider : AntiforgeryStateProvider, IDisposable
 {
 	private const string PersistenceKey = $"__internal__{nameof(AntiforgeryRequestToken)}";
-	private readonly PersistingComponentStateSubscription _subscription;
-	private readonly AntiforgeryRequestToken? _currentToken;
+	private readonly PersistingComponentStateSubscription subscription;
+	private readonly AntiforgeryRequestToken? currentToken;
 
 	[UnconditionalSuppressMessage(
 		"Trimming",
@@ -24,18 +23,18 @@ internal class DefaultAntiforgeryStateProvider : AntiforgeryStateProvider, IDisp
 		// persistent component state. This guarantees that the antiforgery
 		// token is available on the interactive components, even when they
 		// don't have access to the request.
-		_subscription = state.RegisterOnPersisting(() =>
+		subscription = state.RegisterOnPersisting(() =>
 		{
 			state.PersistAsJson(PersistenceKey, GetAntiforgeryToken());
 			return Task.CompletedTask;
 		}, RenderMode.InteractiveAuto);
 
-		state.TryTakeFromJson(PersistenceKey, out _currentToken);
+		state.TryTakeFromJson(PersistenceKey, out currentToken);
 	}
 
 	/// <inheritdoc />
-	public override AntiforgeryRequestToken? GetAntiforgeryToken() => _currentToken;
+	public override AntiforgeryRequestToken? GetAntiforgeryToken() => currentToken;
 
 	/// <inheritdoc />
-	public void Dispose() => _subscription.Dispose();
+	public void Dispose() => subscription.Dispose();
 }

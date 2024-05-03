@@ -1,11 +1,10 @@
-﻿using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 
 namespace Htmxor.DependencyInjection;
 
-internal sealed class HtmxorEndpointRoutingStateProvider : IRoutingStateProvider
+internal sealed class EndpointRoutingStateProvider : IRoutingStateProvider
 {
 	[DynamicallyAccessedMembers(LinkerFlags.Component)]
 	public Type? LayoutType { get; internal set; }

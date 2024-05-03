@@ -1,4 +1,4 @@
-﻿namespace Htmxor.Http;
+namespace Htmxor;
 
 /// <summary>
 /// Extension methods for the SwapStyle enum to facilitate building swap style commands.

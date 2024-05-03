@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using Htmxor.Http;
 
 namespace Htmxor.Serialization;
@@ -13,6 +13,6 @@ namespace Htmxor.Serialization;
 [JsonSerializable(typeof(HtmxConfig))]
 [JsonSerializable(typeof(LocationTarget))]
 [JsonSerializable(typeof(AjaxContext))]
-internal sealed partial class HtmxJsonSerializerContext : JsonSerializerContext
+internal sealed partial class HtmxorJsonSerializerContext : JsonSerializerContext
 {
 }

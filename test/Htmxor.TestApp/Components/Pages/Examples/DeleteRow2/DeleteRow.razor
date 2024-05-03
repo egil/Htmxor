@@ -1,5 +1,5 @@
 ﻿@page "/delete-row-2"
-@attribute [HxRoute("/delete-row-2/{id:guid}", Methods = ["Delete"])]
+@attribute [HtmxRoute("/delete-row-2/{id:guid}", Methods = ["Delete"])]
 @code {
     [Parameter]
     public Guid Id { get; set; }

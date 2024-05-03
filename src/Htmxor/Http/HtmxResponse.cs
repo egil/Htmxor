@@ -1,5 +1,4 @@
 using System.Net;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Htmxor.Serialization;
 using Microsoft.AspNetCore.Http;
@@ -59,7 +58,7 @@ public sealed class HtmxResponse(HttpContext context)
 	public HtmxResponse Location(LocationTarget locationTarget)
 	{
 		AssertIsHtmxRequest();
-		var json = JsonSerializer.Serialize(locationTarget, HtmxJsonSerializerContext.Default.LocationTarget);
+		var json = JsonSerializer.Serialize(locationTarget, HtmxorJsonSerializerContext.Default.LocationTarget);
 		headers[HtmxResponseHeaderNames.Location] = json;
 		return this;
 	}

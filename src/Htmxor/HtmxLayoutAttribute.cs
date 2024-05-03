@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
 
 namespace Htmxor;
@@ -7,13 +6,13 @@ namespace Htmxor;
 /// Indicates that the associated component type uses a specified layout during Htmx requests.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
-public sealed class HxLayoutAttribute : Attribute
+public sealed class HtmxLayoutAttribute : Attribute
 {
 	/// <summary>
 	/// Constructs an instance of <see cref="LayoutAttribute"/>.
 	/// </summary>
 	/// <param name="layoutType">The type of the layout.</param>
-	public HxLayoutAttribute([DynamicallyAccessedMembers(LinkerFlags.Component)] Type layoutType)
+	public HtmxLayoutAttribute([DynamicallyAccessedMembers(LinkerFlags.Component)] Type layoutType)
 	{
 		LayoutType = layoutType ?? throw new ArgumentNullException(nameof(layoutType));
 

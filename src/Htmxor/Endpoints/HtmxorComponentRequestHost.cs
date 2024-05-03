@@ -4,14 +4,14 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Routing.Patterns;
 
-namespace Htmxor;
+namespace Htmxor.Endpoints;
 
 internal class HtmxorComponentRequestHost : IComponent
 {
 	private RenderHandle renderHandle;
 
 	[Inject]
-	public HtmxorEndpointRoutingStateProvider RoutingStateProvider { get; set; } = default!;
+	public EndpointRoutingStateProvider RoutingStateProvider { get; set; } = default!;
 
 	public void Attach(RenderHandle renderHandle)
 		=> this.renderHandle = renderHandle;
@@ -37,7 +37,7 @@ internal class HtmxorComponentRequestHost : IComponent
 		}
 	}
 
-	private static RenderFragment RenderRouteComponent(HtmxorEndpointRoutingStateProvider routingStateProvider) => builder =>
+	private static RenderFragment RenderRouteComponent(EndpointRoutingStateProvider routingStateProvider) => builder =>
 	{
 		ArgumentNullException.ThrowIfNull(routingStateProvider.RoutePattern);
 		ArgumentNullException.ThrowIfNull(routingStateProvider.RouteData);

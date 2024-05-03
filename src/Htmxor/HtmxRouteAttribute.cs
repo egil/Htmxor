@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Http;
 
@@ -11,7 +10,7 @@ namespace Htmxor;
 /// If one or more additional properties is specified on the attribute, all specified properties much match for the route to be used.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
-public sealed class HxRouteAttribute : Attribute, IEquatable<HxRouteAttribute>
+public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribute>
 {
 	public static readonly string[] DefaultHttpMethods = [HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Patch, HttpMethods.Delete];
 
@@ -58,20 +57,20 @@ public sealed class HxRouteAttribute : Attribute, IEquatable<HxRouteAttribute>
 	public string? TriggerName { get; init; }
 
 	/// <summary>
-	/// Constructs an instance of <see cref="HxRouteAttribute"/>.
+	/// Constructs an instance of <see cref="HtmxRouteAttribute"/>.
 	/// </summary>
 	/// <param name="template">The route template.</param>
-	public HxRouteAttribute([StringSyntax(StringSyntaxAttribute.Uri)] string template)
+	public HtmxRouteAttribute([StringSyntax(StringSyntaxAttribute.Uri)] string template)
 	{
 		Template = template;
 	}
 
 	public override bool Equals(object? obj)
 	{
-		return Equals(obj as HxRouteAttribute);
+		return Equals(obj as HtmxRouteAttribute);
 	}
 
-	public bool Equals(HxRouteAttribute? other)
+	public bool Equals(HtmxRouteAttribute? other)
 	{
 		return other is not null
 			&& Template.Equals(other.Template, StringComparison.OrdinalIgnoreCase)

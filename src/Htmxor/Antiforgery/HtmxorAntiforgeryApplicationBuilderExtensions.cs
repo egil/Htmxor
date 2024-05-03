@@ -19,7 +19,7 @@ public static class HtmxorAntiforgeryApplicationBuilderExtensions
 	/// <returns></returns>
 	public static IApplicationBuilder UseHtmxAntiforgery(this IApplicationBuilder builder)
 	{
-		builder.UseMiddleware<HtmxAntiforgeryMiddleware>();
+		builder.UseMiddleware<HtmxorAntiforgeryMiddleware>();
 		return builder;
 	}
 }

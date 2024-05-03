@@ -7,9 +7,9 @@ namespace Htmxor.Builder;
 
 public class HtmxorComponentEndpointMatcherPolicyTest
 {
-	private static CandidateSet CreateHxCandidateSet(HxRouteAttribute hxRouteAttribute)
+	private static CandidateSet CreateHxCandidateSet(HtmxRouteAttribute hxRouteAttribute)
 	{
-		var htmxorPointMetadata = new HtmxorEndpointMetadata(hxRouteAttribute);
+		var htmxorPointMetadata = new EndpointMetadata(hxRouteAttribute);
 		var endpoint = new Endpoint(null, new(htmxorPointMetadata), null);
 		var candidates = new CandidateSet([endpoint], [new()], [1]);
 		return candidates;
@@ -25,7 +25,7 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	[Fact]
 	public void AppliesToEndpoints_with_route_only_endpoint()
 	{
-		var cut = new HtmxorComponentEndpointMatcherPolicy();
+		var cut = new ComponentEndpointMatcherPolicy();
 
 		var result = cut.AppliesToEndpoints([new Endpoint(null, null, null)]);
 
@@ -35,8 +35,8 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	[Fact]
 	public void AppliesToEndpoints_with_hxroute_endpoint()
 	{
-		var cut = new HtmxorComponentEndpointMatcherPolicy();
-		var htmxorPointMetadata = new HtmxorEndpointMetadata(new HxRouteAttribute("/"));
+		var cut = new ComponentEndpointMatcherPolicy();
+		var htmxorPointMetadata = new EndpointMetadata(new HtmxRouteAttribute("/"));
 
 		var result = cut.AppliesToEndpoints([new Endpoint(null, new(htmxorPointMetadata), null)]);
 
@@ -46,11 +46,11 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	[Fact]
 	public void ApplyAsync_HxRequest_HxEndpoint()
 	{
-		var cut = new HtmxorComponentEndpointMatcherPolicy();
+		var cut = new ComponentEndpointMatcherPolicy();
 		var httpContext = new HttpContextBuilder()
 			.WithRequestHeader((HtmxRequestHeaderNames.HtmxRequest, null))
 			.Build();
-		CandidateSet candidates = CreateHxCandidateSet(new HxRouteAttribute("/"));
+		CandidateSet candidates = CreateHxCandidateSet(new HtmxRouteAttribute("/"));
 
 		cut.ApplyAsync(httpContext, candidates);
 
@@ -60,7 +60,7 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	[Fact]
 	public void ApplyAsync_HxRequest_RouteEndpoint()
 	{
-		var cut = new HtmxorComponentEndpointMatcherPolicy();
+		var cut = new ComponentEndpointMatcherPolicy();
 		var httpContext = new HttpContextBuilder()
 			.WithRequestHeader((HtmxRequestHeaderNames.HtmxRequest, null))
 			.Build();
@@ -74,16 +74,16 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	[Fact]
 	public void ApplyAsync_RouteRequest_HxEndpoint()
 	{
-		var cut = new HtmxorComponentEndpointMatcherPolicy();
+		var cut = new ComponentEndpointMatcherPolicy();
 		var httpContext = new HttpContextBuilder().Build();
-		CandidateSet candidates = CreateHxCandidateSet(new HxRouteAttribute("/"));
+		CandidateSet candidates = CreateHxCandidateSet(new HtmxRouteAttribute("/"));
 
 		cut.ApplyAsync(httpContext, candidates);
 
 		candidates.IsValidCandidate(0).Should().BeFalse();
 	}
 
-	public static TheoryData<HxRouteAttribute, (string HeaderName, string? Value)[]> MatchingHxRouteRequests = new TheoryData<HxRouteAttribute, (string HeaderName, string? Value)[]>
+	public static TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]> MatchingHxRouteRequests = new TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]>
 	{
 		{ new("/"), [] },
 		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/foo")] },
@@ -101,9 +101,9 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 
 	[Theory]
 	[MemberData(nameof(MatchingHxRouteRequests))]
-	public void ApplyAsync_HxRequest_HxEndpoint_matching(HxRouteAttribute hxRouteAttribute, (string HeaderName, string? Value)[] requestHeaders)
+	public void ApplyAsync_HxRequest_HxEndpoint_matching(HtmxRouteAttribute hxRouteAttribute, (string HeaderName, string? Value)[] requestHeaders)
 	{
-		var cut = new HtmxorComponentEndpointMatcherPolicy();
+		var cut = new ComponentEndpointMatcherPolicy();
 		var httpContext = new HttpContextBuilder()
 			.WithRequestHeader([(HtmxRequestHeaderNames.HtmxRequest, null), .. requestHeaders])
 			.Build();
@@ -114,7 +114,7 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 		candidates.IsValidCandidate(0).Should().BeTrue();
 	}
 
-	public static TheoryData<HxRouteAttribute, (string HeaderName, string? Value)[]> NoneMatchingHxRouteRequests = new TheoryData<HxRouteAttribute, (string HeaderName, string? Value)[]>
+	public static TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]> NoneMatchingHxRouteRequests = new TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]>
 	{
 		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/bar")] },
 		{ new("/") { Target = "#foo"}, [(HtmxRequestHeaderNames.Target, "#bar")] },
@@ -125,9 +125,9 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 
 	[Theory]
 	[MemberData(nameof(NoneMatchingHxRouteRequests))]
-	public void ApplyAsync_HxRequest_HxEndpoint_none_matching(HxRouteAttribute hxRouteAttribute, (string HeaderName, string? Value)[] requestHeaders)
+	public void ApplyAsync_HxRequest_HxEndpoint_none_matching(HtmxRouteAttribute hxRouteAttribute, (string HeaderName, string? Value)[] requestHeaders)
 	{
-		var cut = new HtmxorComponentEndpointMatcherPolicy();
+		var cut = new ComponentEndpointMatcherPolicy();
 		var httpContext = new HttpContextBuilder()
 			.WithRequestHeader([(HtmxRequestHeaderNames.HtmxRequest, null), .. requestHeaders])
 			.Build();

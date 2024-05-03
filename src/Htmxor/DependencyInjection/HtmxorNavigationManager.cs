@@ -1,8 +1,7 @@
-﻿using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 
-namespace Htmxor;
+namespace Htmxor.DependencyInjection;
 
 internal sealed class HtmxorNavigationManager : NavigationManager, IHostEnvironmentNavigationManager
 {

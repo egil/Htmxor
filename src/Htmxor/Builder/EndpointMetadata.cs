@@ -1,8 +1,8 @@
-﻿using Htmxor.Http;
+using Htmxor.Http;
 
 namespace Htmxor.Builder;
 
-internal sealed record class HtmxorEndpointMetadata(HxRouteAttribute HxRoute)
+internal sealed record class EndpointMetadata(HtmxRouteAttribute HxRoute)
 {
 	private readonly Uri? currentUrl = string.IsNullOrWhiteSpace(HxRoute.CurrentURL)
 		? null

@@ -1,7 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 
-namespace Htmxor;
+namespace Htmxor.DependencyInjection;
 
 /// <summary>
 /// Exception thrown to indicate that a navigation operation was requested during static service side rendering.

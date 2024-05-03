@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace Htmxor.Http;
+namespace Htmxor;
 
 public static class SwapStyleExtensions
 {

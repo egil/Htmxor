@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http;
 
 namespace Htmxor.Antiforgery;
@@ -6,7 +6,7 @@ namespace Htmxor.Antiforgery;
 /// <summary>
 /// This will add a HX-XSRF-TOKEN to each response, no matter if it was initiated by HTMX or not.
 /// </summary>
-internal sealed class HtmxAntiforgeryMiddleware(IAntiforgery antiforgery, HtmxConfig htmxConfig, RequestDelegate next)
+internal sealed class HtmxorAntiforgeryMiddleware(IAntiforgery antiforgery, HtmxConfig htmxConfig, RequestDelegate next)
 {
 	private static readonly CookieOptions CookieOptions = new CookieOptions
 	{

@@ -31,7 +31,7 @@ public class HtmxHeadOutlet : IComponent
 	/// <inheritdoc/>
 	public void Attach(RenderHandle renderHandle)
 	{
-		var json = JsonSerializer.Serialize(Config, HtmxJsonSerializerContext.Default.HtmxConfig);
+		var json = JsonSerializer.Serialize(Config, HtmxorJsonSerializerContext.Default.HtmxConfig);
 		renderHandle.Render(builder =>
 		{
 			builder.AddMarkupContent(0, @$"<meta name=""htmx-config"" content='{json}'>");
