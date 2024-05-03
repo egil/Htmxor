@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components;
+using Htmxor.Http;
+using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Components;
 
@@ -10,7 +11,6 @@ public sealed class HtmxPartial : IComponent, IConditionalOutputComponent
 	public required RenderFragment ChildContent { get; set; }
 
 	[Parameter] public bool Condition { get; set; } = true;
-
 
 	public Task SetParametersAsync(ParameterView parameters)
 	{
@@ -25,11 +25,12 @@ public sealed class HtmxPartial : IComponent, IConditionalOutputComponent
 		return Task.CompletedTask;
 	}
 
+	public bool ShouldOutput([NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren)
+		=> Condition;
+
 	void IComponent.Attach(RenderHandle renderHandle)
 	{
 		this.renderHandle = renderHandle;
 	}
-
-	bool IConditionalOutputComponent.ShouldOutput(int _) => Condition;
 }
 

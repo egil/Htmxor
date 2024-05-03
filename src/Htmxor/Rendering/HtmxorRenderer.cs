@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text.Encodings.Web;
 using Htmxor.DependencyInjection;
+using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Endpoints;
@@ -39,8 +40,11 @@ internal partial class HtmxorRenderer : Renderer
 	private readonly NavigationManager? navigationManager;
 	private readonly Dictionary<ulong, (string HtmxorEventId, Delegate Handler)> htmxorEventsByEventHandlerId = new();
 	private HttpContext httpContext = default!; // Always set at the start of an inbound call
+	private HtmxContext htmxContext = default!; // Always set at the start of an inbound call
 
 	internal HttpContext? HttpContext => httpContext;
+
+	internal HtmxContext? HtmxContext => htmxContext;
 
 	/// <inheritdoc/>
 	public override Dispatcher Dispatcher { get; } = Dispatcher.CreateDefault();
@@ -60,6 +64,7 @@ internal partial class HtmxorRenderer : Renderer
 		if (this.httpContext is null)
 		{
 			this.httpContext = httpContext;
+			this.htmxContext = httpContext.GetHtmxContext();
 		}
 		else if (this.httpContext != httpContext)
 		{

@@ -1,5 +1,6 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Htmxor.Components;
+using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
@@ -8,6 +9,8 @@ namespace Htmxor.Rendering;
 internal class HtmxorComponentState : ComponentState
 {
 	private readonly HtmxorComponentState? parentComponentState;
+	private readonly HtmxContext htmxContext;
+	private int directConditionalChildrenCount;
 	private int conditionalChildrenCount;
 	private IConditionalOutputComponent? conditionalOutput;
 	private bool isDisposed;
@@ -15,10 +18,11 @@ internal class HtmxorComponentState : ComponentState
 	public HtmxorComponentState(HtmxorRenderer renderer, int componentId, IComponent component, HtmxorComponentState? parentComponentState)
 		: base(renderer, componentId, component, parentComponentState)
 	{
+		htmxContext = renderer.HtmxContext!;
 		if (component is IConditionalOutputComponent conditionalOutput)
 		{
 			this.conditionalOutput = conditionalOutput;
-			parentComponentState?.ConditionalChildAdded();
+			parentComponentState?.ConditionalChildAdded(true);
 		}
 
 		this.parentComponentState = parentComponentState;
@@ -28,7 +32,7 @@ internal class HtmxorComponentState : ComponentState
 	{
 		if (parentComponentState is not null && conditionalOutput is not null && !isDisposed)
 		{
-			parentComponentState.ConditionalChildDisposed();
+			parentComponentState.ConditionalChildDisposed(true);
 		}
 
 		isDisposed = true;
@@ -36,21 +40,31 @@ internal class HtmxorComponentState : ComponentState
 		return base.DisposeAsync();
 	}
 
-	private void ConditionalChildAdded()
+	private void ConditionalChildAdded(bool direct)
 	{
+		if (direct)
+		{
+			directConditionalChildrenCount++;
+		}
+
 		conditionalChildrenCount++;
-		parentComponentState?.ConditionalChildAdded();
+		parentComponentState?.ConditionalChildAdded(false);
 	}
 
-	private void ConditionalChildDisposed()
+	private void ConditionalChildDisposed(bool direct)
 	{
+		if (direct)
+		{
+			directConditionalChildrenCount--;
+		}
+
 		conditionalChildrenCount--;
-		parentComponentState?.ConditionalChildDisposed();
+		parentComponentState?.ConditionalChildDisposed(false);
 		Debug.Assert(conditionalChildrenCount >= 0, "conditionalChildrenCount should never be able to be less than zero");
 	}
 
 	internal bool ShouldGenerateMarkup()
-		=> conditionalOutput?.ShouldOutput(conditionalChildrenCount)
+		=> conditionalOutput?.ShouldOutput(htmxContext, directConditionalChildrenCount, conditionalChildrenCount)
 		?? parentComponentState?.ShouldGenerateMarkup()
 		?? true;
 }

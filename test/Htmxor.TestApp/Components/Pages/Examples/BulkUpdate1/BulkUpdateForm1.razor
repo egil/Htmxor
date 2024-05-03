@@ -1,4 +1,5 @@
-﻿@page "/bulk-update-1"
+@page "/bulk-update-1"
+@implements IConditionalOutputComponent
 @inject HtmxContext hxContext
 @code {
     private string? toast;
@@ -36,6 +37,9 @@
             toast = null;
         }
     }
+
+    public virtual bool ShouldOutput([NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren)
+        => context.Request.IsFullPageRequest;
 }
 <form id="checked-contacts"
       hx-post="/bulk-update-1"

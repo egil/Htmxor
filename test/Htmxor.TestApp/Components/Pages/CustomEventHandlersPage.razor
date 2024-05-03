@@ -1,5 +1,6 @@
-﻿@page "/custom-event-handler"
+@page "/custom-event-handler"
 @attribute [HtmxRoute("/custom-event-handler")]
+@implements IConditionalOutputComponent
 @code {
     private string content = "";
 
@@ -37,6 +38,9 @@
     {
         content = nameof(OnClick);
     }
+
+    public virtual bool ShouldOutput([NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren)
+        => context.Request.IsFullPageRequest;
 }
 <button @onget=OnGet
         hx-get="/custom-event-handler"
