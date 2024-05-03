@@ -1,14 +1,18 @@
 @page "/counter"
+@inherits ConditionalComponentBase
 <PageTitle>Counter</PageTitle>
 
 <h1>Counter</h1>
 <p>
-    This is a htmx enabled counter. It uses the <code>&lt;HtmxPartial&gt;</code> to
-    enable the concept <a href="https://htmx.org/essays/template-fragments/" target="_blank">template fragments</a>.
+    This is a htmx enabled counter.
 </p>
 <p>
-    When Htmxor sees a <code>&lt;HtmxPartial&gt;</code> component, it will only render it's content, and not the surrounding
-    content, like these paragraph elements.
+    During a htmx requests, the elements in this component will not be rendered (this paragraph), because the component
+    inherits from <code>ConditionalComponentBase</code>. Child components, like the <code>HtmxPartial</code> component,
+    will render out its markup during htmx requests and during normal requests.
+</p>
+<p>
+    This declaratively enable the concept <a href="https://htmx.org/essays/template-fragments/" target="_blank">template fragments</a>.
 </p>
 
 <div id="counter">
