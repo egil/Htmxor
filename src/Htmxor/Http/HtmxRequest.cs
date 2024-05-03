@@ -18,6 +18,11 @@ public sealed class HtmxRequest
 	public string Method { get; }
 
 	/// <summary>
+	/// Gets the HTTP method of the current request.
+	/// </summary>
+	public PathString Path { get; }
+
+	/// <summary>
 	/// Gets whether or not the current request is an Htmx triggered request.
 	/// </summary>
 	public bool IsHtmxRequest { get; }
@@ -69,6 +74,7 @@ public sealed class HtmxRequest
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		Method = context.Request.Method;
+		Path = context.Request.Path;
 		var ishtmx = IsHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
 
 		if (!ishtmx)

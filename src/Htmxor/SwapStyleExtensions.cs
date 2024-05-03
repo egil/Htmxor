@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 
 namespace Htmxor;
 
@@ -12,15 +12,15 @@ public static class SwapStyleExtensions
 	{
 		var style = swapStyle switch
 		{
-			SwapStyle.InnerHTML => "innerHTML",
-			SwapStyle.OuterHTML => "outerHTML",
-			SwapStyle.BeforeBegin => "beforebegin",
-			SwapStyle.AfterBegin => "afterbegin",
-			SwapStyle.BeforeEnd => "beforeend",
-			SwapStyle.AfterEnd => "afterend",
-			SwapStyle.Delete => "delete",
-			SwapStyle.None => "none",
-			SwapStyle.Default => "",
+			SwapStyle.InnerHTML => HtmxConstants.SwapStyles.InnerHTML,
+			SwapStyle.OuterHTML => HtmxConstants.SwapStyles.OuterHTML,
+			SwapStyle.BeforeBegin => HtmxConstants.SwapStyles.BeforeBegin,
+			SwapStyle.AfterBegin => HtmxConstants.SwapStyles.AfterBegin,
+			SwapStyle.BeforeEnd => HtmxConstants.SwapStyles.BeforeEnd,
+			SwapStyle.AfterEnd => HtmxConstants.SwapStyles.AfterEnd,
+			SwapStyle.Delete => HtmxConstants.SwapStyles.Delete,
+			SwapStyle.None => HtmxConstants.SwapStyles.None,
+			SwapStyle.Default => HtmxConstants.SwapStyles.Default,
 			_ => throw new SwitchExpressionException(swapStyle),
 		};
 

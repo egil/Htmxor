@@ -31,7 +31,7 @@ internal partial class HtmxorRenderer
 			// or if you're dynamically building the UI and the submitted form doesn't exist the next time
 			// the page is rendered
 			isBadRequest = true;
-			return ReturnErrorResponse($"Cannot handle the 'hx-{context.Request.Method.ToLowerInvariant()}' request because event handler specified in the request does not exists on the page currently.");
+			return ReturnErrorResponse($"Cannot handle the '{HtmxConstants.Attributes.Prefix}{context.Request.Method.ToLowerInvariant()}' request because event handler specified in the request does not exists on the page currently.");
 		}
 
 		if (handlerInfoSet.Count > 1)
@@ -128,15 +128,13 @@ internal partial class HtmxorRenderer
 
 	private static ref RenderTreeFrame FindHxActionAttribute(in RenderTreeFrame[] frames, int start)
 	{
-		const string hxActionPrefix = "hx-";
-
 		// Search back in frames from start until frame.FrameType != RenderTreeFrameType.Attribute
 		// and forward until frame.FrameType != RenderTreeFrameType.Attribute, looking for
 		// an attribute with the name hx-XXX where XXX matches start frames onXXX name. Return
 		// the value of that frame, or throw exception.
 		// this assumes all attributes on an element is adjacent in the frames array.
 		ref var handlerFrame = ref frames[start];
-		var hxActionName = hxActionPrefix + handlerFrame.AttributeName[2..];
+		var hxActionName = HtmxConstants.Attributes.Prefix + handlerFrame.AttributeName[2..];
 
 		for (int i = start - 1; i >= 0; i--)
 		{
