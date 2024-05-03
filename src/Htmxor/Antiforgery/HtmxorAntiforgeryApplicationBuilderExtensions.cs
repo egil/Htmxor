@@ -1,8 +1,8 @@
-﻿using Htmxor.Antiforgery;
+using Htmxor.Antiforgery;
 
 // Disabled since this is an file containing extension method's which
 // should share a namespace with the type they target for easy discoverability.
-#pragma warning disable IDE0130 
+#pragma warning disable IDE0130
 namespace Microsoft.AspNetCore.Builder;
 #pragma warning restore IDE0130
 
@@ -12,14 +12,14 @@ namespace Microsoft.AspNetCore.Builder;
 /// </summary>
 public static class HtmxorAntiforgeryApplicationBuilderExtensions
 {
-    /// <summary>
-    /// Enable Htmx to use antiforgery tokens to secure requests.
-    /// </summary>
-    /// <param name="builder"></param>
-    /// <returns></returns>
-    public static IApplicationBuilder UseHtmxAntiforgery(this IApplicationBuilder builder)
-    {
-        builder.UseMiddleware<HtmxAntiforgeryMiddleware>();
-        return builder;
-    }
+	/// <summary>
+	/// Enable Htmx to use antiforgery tokens to secure requests.
+	/// </summary>
+	/// <param name="builder"></param>
+	/// <returns></returns>
+	public static IApplicationBuilder UseHtmxAntiforgery(this IApplicationBuilder builder)
+	{
+		builder.UseMiddleware<HtmxAntiforgeryMiddleware>();
+		return builder;
+	}
 }

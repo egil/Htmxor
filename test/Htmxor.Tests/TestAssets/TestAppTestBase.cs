@@ -2,17 +2,17 @@
 
 public class TestAppTestBase : IClassFixture<TestAppFixture>
 {
-    public IAlbaHost Host { get; private set; }
+	public IAlbaHost Host { get; private set; }
 
-    protected TestAppTestBase(TestAppFixture fixture)
-    {
-        Host = fixture.Host;
-    }
+	protected TestAppTestBase(TestAppFixture fixture)
+	{
+		Host = fixture.Host;
+	}
 
-    public static string FullPageContent(string bodyInnerHtml, string? title = null)
-    {
-        title = title is not null ? $"<title>{title}</title>" : "";
-        return $$$"""
+	public static string FullPageContent(string bodyInnerHtml, string? title = null)
+	{
+		title = title is not null ? $"<title>{title}</title>" : "";
+		return $$$"""
             <!DOCTYPE html>
             <html lang="en"><head><meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,5 +30,5 @@ public class TestAppTestBase : IClassFixture<TestAppFixture>
             </body>
             </html>
             """;
-    }
+	}
 }

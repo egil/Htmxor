@@ -8,20 +8,20 @@ namespace Htmxor.Antiforgery;
 /// </summary>
 internal sealed class HtmxAntiforgeryMiddleware(IAntiforgery antiforgery, HtmxConfig htmxConfig, RequestDelegate next)
 {
-    private static readonly CookieOptions CookieOptions = new CookieOptions
-    {
-        HttpOnly = false,
-        SameSite = SameSiteMode.Strict,
-        IsEssential = true
-    };
+	private static readonly CookieOptions CookieOptions = new CookieOptions
+	{
+		HttpOnly = false,
+		SameSite = SameSiteMode.Strict,
+		IsEssential = true
+	};
 
-    public async Task Invoke(HttpContext context)
-    {
-        if (htmxConfig.Antiforgery is not null)
-        {
-            var tokens = antiforgery.GetAndStoreTokens(context);
-            context.Response.Cookies.Append(htmxConfig.Antiforgery.CookieName, tokens.RequestToken!, CookieOptions);
-            await next.Invoke(context);
-        }
-    }
+	public async Task Invoke(HttpContext context)
+	{
+		if (htmxConfig.Antiforgery is not null)
+		{
+			var tokens = antiforgery.GetAndStoreTokens(context);
+			context.Response.Cookies.Append(htmxConfig.Antiforgery.CookieName, tokens.RequestToken!, CookieOptions);
+			await next.Invoke(context);
+		}
+	}
 }

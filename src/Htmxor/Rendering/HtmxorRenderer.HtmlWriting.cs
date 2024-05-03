@@ -31,94 +31,94 @@ internal partial class HtmxorRenderer
 			args: [new CascadingParameterAttribute(), string.Empty, typeof(FormMappingContext)],
 			culture: CultureInfo.InvariantCulture)!;
 
-    private readonly TextEncoder javaScriptEncoder;
-    private TextEncoder htmlEncoder;
-    private string? closestSelectValueAsString;
+	private readonly TextEncoder javaScriptEncoder;
+	private TextEncoder htmlEncoder;
+	private string? closestSelectValueAsString;
 
-    private void WriteRootComponent(HtmxorComponentState rootComponentState, TextWriter output)
-    {
-        // We're about to walk over some buffers inside the renderer that can be mutated during rendering.
-        // So, we require exclusive access to the renderer during this synchronous process.
-        Dispatcher.AssertAccess();
-        WriteComponent(rootComponentState, output);
-    }
+	private void WriteRootComponent(HtmxorComponentState rootComponentState, TextWriter output)
+	{
+		// We're about to walk over some buffers inside the renderer that can be mutated during rendering.
+		// So, we require exclusive access to the renderer during this synchronous process.
+		Dispatcher.AssertAccess();
+		WriteComponent(rootComponentState, output);
+	}
 
-    private void WriteComponent(HtmxorComponentState componentState, TextWriter output)
-    {
-        if (output is ConditionalBufferedTextWriter conditionalOutput)
-        {
-            conditionalOutput.ShouldWrite = componentState.ShouldGenerateMarkup();
-        }
+	private void WriteComponent(HtmxorComponentState componentState, TextWriter output)
+	{
+		if (output is ConditionalBufferedTextWriter conditionalOutput)
+		{
+			conditionalOutput.ShouldWrite = componentState.ShouldGenerateMarkup();
+		}
 
-        var frames = GetCurrentRenderTreeFrames(componentState.ComponentId);
-        RenderFrames(componentState, output, frames, 0, frames.Count);
-    }
+		var frames = GetCurrentRenderTreeFrames(componentState.ComponentId);
+		RenderFrames(componentState, output, frames, 0, frames.Count);
+	}
 
-    private void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
-    {
-        var copmonentState = (HtmxorComponentState)GetComponentState(componentFrame.Component);
-        WriteComponent(copmonentState, output);
-    }
+	private void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
+	{
+		var copmonentState = (HtmxorComponentState)GetComponentState(componentFrame.Component);
+		WriteComponent(copmonentState, output);
+	}
 
-    private int RenderFrames(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
-    {
-        var nextPosition = position;
-        var endPosition = position + maxElements;
-        while (position < endPosition)
-        {
-            nextPosition = RenderCore(componentState, output, frames, position);
-            if (position == nextPosition)
-            {
-                throw new InvalidOperationException("We didn't consume any input.");
-            }
-            position = nextPosition;
-        }
+	private int RenderFrames(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
+	{
+		var nextPosition = position;
+		var endPosition = position + maxElements;
+		while (position < endPosition)
+		{
+			nextPosition = RenderCore(componentState, output, frames, position);
+			if (position == nextPosition)
+			{
+				throw new InvalidOperationException("We didn't consume any input.");
+			}
+			position = nextPosition;
+		}
 
 		return nextPosition;
 	}
 
-    private int RenderCore(
-        HtmxorComponentState componentState,
-        TextWriter output,
-        ArrayRange<RenderTreeFrame> frames,
-        int position)
-    {
-        ref var frame = ref frames.Array[position];
-        switch (frame.FrameType)
-        {
-            case RenderTreeFrameType.Element:
-                return RenderElement(componentState, output, frames, position);
-            case RenderTreeFrameType.Attribute:
-                throw new InvalidOperationException($"Attributes should only be encountered within {nameof(RenderElement)}");
-            case RenderTreeFrameType.Text:
-                htmlEncoder.Encode(output, frame.TextContent);
-                return ++position;
-            case RenderTreeFrameType.Markup:
-                output.Write(frame.MarkupContent);
-                return ++position;
-            case RenderTreeFrameType.Component:
-                return RenderChildComponent(output, frames, position);
-            case RenderTreeFrameType.Region:
-                return RenderFrames(componentState, output, frames, position + 1, frame.RegionSubtreeLength - 1);
-            case RenderTreeFrameType.ElementReferenceCapture:
-            case RenderTreeFrameType.ComponentReferenceCapture:
-                return ++position;
-            case RenderTreeFrameType.NamedEvent:
-                RenderHiddenFieldForNamedSubmitEvent(componentState, output, frames, position);
-                return ++position;
-            default:
-                throw new InvalidOperationException($"Invalid element frame type '{frame.FrameType}'.");
-        }
-    }
+	private int RenderCore(
+		HtmxorComponentState componentState,
+		TextWriter output,
+		ArrayRange<RenderTreeFrame> frames,
+		int position)
+	{
+		ref var frame = ref frames.Array[position];
+		switch (frame.FrameType)
+		{
+			case RenderTreeFrameType.Element:
+				return RenderElement(componentState, output, frames, position);
+			case RenderTreeFrameType.Attribute:
+				throw new InvalidOperationException($"Attributes should only be encountered within {nameof(RenderElement)}");
+			case RenderTreeFrameType.Text:
+				htmlEncoder.Encode(output, frame.TextContent);
+				return ++position;
+			case RenderTreeFrameType.Markup:
+				output.Write(frame.MarkupContent);
+				return ++position;
+			case RenderTreeFrameType.Component:
+				return RenderChildComponent(output, frames, position);
+			case RenderTreeFrameType.Region:
+				return RenderFrames(componentState, output, frames, position + 1, frame.RegionSubtreeLength - 1);
+			case RenderTreeFrameType.ElementReferenceCapture:
+			case RenderTreeFrameType.ComponentReferenceCapture:
+				return ++position;
+			case RenderTreeFrameType.NamedEvent:
+				RenderHiddenFieldForNamedSubmitEvent(componentState, output, frames, position);
+				return ++position;
+			default:
+				throw new InvalidOperationException($"Invalid element frame type '{frame.FrameType}'.");
+		}
+	}
 
-    private int RenderElement(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position)
-    {
-        ref var frame = ref frames.Array[position];
-        output.Write('<');
-        output.Write(frame.ElementName);
-        int afterElement;
-        var isTextArea = string.Equals(frame.ElementName, "textarea", StringComparison.OrdinalIgnoreCase);
-        var isForm = string.Equals(frame.ElementName, "form", StringComparison.OrdinalIgnoreCase);
+	private int RenderElement(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position)
+	{
+		ref var frame = ref frames.Array[position];
+		output.Write('<');
+		output.Write(frame.ElementName);
+		int afterElement;
+		var isTextArea = string.Equals(frame.ElementName, "textarea", StringComparison.OrdinalIgnoreCase);
+		var isForm = string.Equals(frame.ElementName, "form", StringComparison.OrdinalIgnoreCase);
 
 		// We don't want to include value attribute of textarea element.
 		var afterAttributes = RenderAttributes(output, frames, position + 1, frame.ElementSubtreeLength - 1, !isTextArea, isForm: isForm, out var capturedValueAttribute);
@@ -144,21 +144,21 @@ internal partial class HtmxorRenderer
 				closestSelectValueAsString = capturedValueAttribute;
 			}
 
-            if (isTextArea && !string.IsNullOrEmpty(capturedValueAttribute))
-            {
-                // Textarea is a special type of form field where the value is given as text content instead of a 'value' attribute
-                // So, if we captured a value attribute, use that instead of any child content
-                htmlEncoder.Encode(output, capturedValueAttribute);
-                afterElement = position + frame.ElementSubtreeLength; // Skip descendants
-            }
-            else if (string.Equals(frame.ElementName, "script", StringComparison.OrdinalIgnoreCase))
-            {
-                afterElement = RenderScriptElementChildren(componentState, output, frames, afterAttributes, remainingElements);
-            }
-            else
-            {
-                afterElement = RenderChildren(componentState, output, frames, afterAttributes, remainingElements);
-            }
+			if (isTextArea && !string.IsNullOrEmpty(capturedValueAttribute))
+			{
+				// Textarea is a special type of form field where the value is given as text content instead of a 'value' attribute
+				// So, if we captured a value attribute, use that instead of any child content
+				htmlEncoder.Encode(output, capturedValueAttribute);
+				afterElement = position + frame.ElementSubtreeLength; // Skip descendants
+			}
+			else if (string.Equals(frame.ElementName, "script", StringComparison.OrdinalIgnoreCase))
+			{
+				afterElement = RenderScriptElementChildren(componentState, output, frames, afterAttributes, remainingElements);
+			}
+			else
+			{
+				afterElement = RenderChildren(componentState, output, frames, afterAttributes, remainingElements);
+			}
 
 			if (isSelect)
 			{
@@ -190,45 +190,45 @@ internal partial class HtmxorRenderer
 		}
 	}
 
-    private int RenderScriptElementChildren(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
-    {
-        // Inside a <script> context, AddContent calls should result in the text being
-        // JavaScript encoded rather than HTML encoded. It's not that we recommend inserting
-        // user-supplied content inside a <script> block, but that if someone does, we
-        // want the encoding style to match the context for correctness and safety. This is
-        // also consistent with .cshtml's treatment of <script>.
-        var originalEncoder = htmlEncoder;
-        try
-        {
-            htmlEncoder = javaScriptEncoder;
-            return RenderChildren(componentState, output, frames, position, maxElements);
-        }
-        finally
-        {
-            htmlEncoder = originalEncoder;
-        }
-    }
+	private int RenderScriptElementChildren(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
+	{
+		// Inside a <script> context, AddContent calls should result in the text being
+		// JavaScript encoded rather than HTML encoded. It's not that we recommend inserting
+		// user-supplied content inside a <script> block, but that if someone does, we
+		// want the encoding style to match the context for correctness and safety. This is
+		// also consistent with .cshtml's treatment of <script>.
+		var originalEncoder = htmlEncoder;
+		try
+		{
+			htmlEncoder = javaScriptEncoder;
+			return RenderChildren(componentState, output, frames, position, maxElements);
+		}
+		finally
+		{
+			htmlEncoder = originalEncoder;
+		}
+	}
 
-    private void RenderHiddenFieldForNamedSubmitEvent(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int namedEventFramePosition)
-    {
-        // Strictly speaking we could just emit the hidden input unconditionally, but since we currently
-        // only intend to support this for "form submit" events, validate that's the case
-        ref var namedEventFrame = ref frames.Array[namedEventFramePosition];
-        if (string.Equals(namedEventFrame.NamedEventType, "onsubmit", StringComparison.Ordinal)
-            && TryFindEnclosingElementFrame(frames, namedEventFramePosition, out var enclosingElementFrameIndex))
-        {
-            ref var enclosingElementFrame = ref frames.Array[enclosingElementFrameIndex];
-            if (string.Equals(enclosingElementFrame.ElementName, "form", StringComparison.OrdinalIgnoreCase))
-            {
-                if (TryCreateScopeQualifiedEventName(componentState.ComponentId, namedEventFrame.NamedEventAssignedName, out var combinedFormName))
-                {
-                    output.Write("<input type=\"hidden\" name=\"_handler\" value=\"");
-                    htmlEncoder.Encode(output, combinedFormName);
-                    output.Write("\" />");
-                }
-            }
-        }
-    }
+	private void RenderHiddenFieldForNamedSubmitEvent(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int namedEventFramePosition)
+	{
+		// Strictly speaking we could just emit the hidden input unconditionally, but since we currently
+		// only intend to support this for "form submit" events, validate that's the case
+		ref var namedEventFrame = ref frames.Array[namedEventFramePosition];
+		if (string.Equals(namedEventFrame.NamedEventType, "onsubmit", StringComparison.Ordinal)
+			&& TryFindEnclosingElementFrame(frames, namedEventFramePosition, out var enclosingElementFrameIndex))
+		{
+			ref var enclosingElementFrame = ref frames.Array[enclosingElementFrameIndex];
+			if (string.Equals(enclosingElementFrame.ElementName, "form", StringComparison.OrdinalIgnoreCase))
+			{
+				if (TryCreateScopeQualifiedEventName(componentState.ComponentId, namedEventFrame.NamedEventAssignedName, out var combinedFormName))
+				{
+					output.Write("<input type=\"hidden\" name=\"_handler\" value=\"");
+					htmlEncoder.Encode(output, combinedFormName);
+					output.Write("\" />");
+				}
+			}
+		}
+	}
 
 	/// <summary>
 	/// Creates the fully scope-qualified name for a named event, if the component is within
@@ -501,15 +501,15 @@ internal partial class HtmxorRenderer
 		return new Uri(navigationManager.Uri, UriKind.Absolute).PathAndQuery;
 	}
 
-    private int RenderChildren(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
-    {
-        if (maxElements == 0)
-        {
-            return position;
-        }
+	private int RenderChildren(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
+	{
+		if (maxElements == 0)
+		{
+			return position;
+		}
 
-        return RenderFrames(componentState, output, frames, position, maxElements);
-    }
+		return RenderFrames(componentState, output, frames, position, maxElements);
+	}
 
 	private int RenderChildComponent(TextWriter output, ArrayRange<RenderTreeFrame> frames, int position)
 	{

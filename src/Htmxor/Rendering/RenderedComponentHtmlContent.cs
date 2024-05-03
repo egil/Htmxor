@@ -12,42 +12,42 @@ namespace Htmxor.Rendering;
 // We don't construct the actual HTML until we receive the call to WriteTo.
 internal sealed class RenderedComponentHtmlContent : IHtmlAsyncContent
 {
-    private readonly Dispatcher? _dispatcher;
-    private readonly HtmxorRootComponent? _htmlToEmitOrNull;
+	private readonly Dispatcher? _dispatcher;
+	private readonly HtmxorRootComponent? _htmlToEmitOrNull;
 
-    public static RenderedComponentHtmlContent Empty { get; }
-        = new RenderedComponentHtmlContent(null, default);
+	public static RenderedComponentHtmlContent Empty { get; }
+		= new RenderedComponentHtmlContent(null, default);
 
-    public RenderedComponentHtmlContent(
-        Dispatcher? dispatcher, // If null, we're only emitting the markers
-        HtmxorRootComponent? htmlToEmitOrNull)
-    {
-        _dispatcher = dispatcher;
-        _htmlToEmitOrNull = htmlToEmitOrNull;
-    }
+	public RenderedComponentHtmlContent(
+		Dispatcher? dispatcher, // If null, we're only emitting the markers
+		HtmxorRootComponent? htmlToEmitOrNull)
+	{
+		_dispatcher = dispatcher;
+		_htmlToEmitOrNull = htmlToEmitOrNull;
+	}
 
-    public async ValueTask WriteToAsync(TextWriter writer)
-    {
-        if (_dispatcher is null)
-        {
-            WriteTo(writer, HtmlEncoder.Default);
-        }
-        else
-        {
-            await _dispatcher.InvokeAsync(() => WriteTo(writer, HtmlEncoder.Default));
-        }
-    }
+	public async ValueTask WriteToAsync(TextWriter writer)
+	{
+		if (_dispatcher is null)
+		{
+			WriteTo(writer, HtmlEncoder.Default);
+		}
+		else
+		{
+			await _dispatcher.InvokeAsync(() => WriteTo(writer, HtmlEncoder.Default));
+		}
+	}
 
-    public void WriteTo(TextWriter writer, HtmlEncoder encoder)
-    {
-        if (_htmlToEmitOrNull is { } htmlToEmit)
-        {
-            htmlToEmit.WriteHtmlTo(writer);
-        }
-    }
+	public void WriteTo(TextWriter writer, HtmlEncoder encoder)
+	{
+		if (_htmlToEmitOrNull is { } htmlToEmit)
+		{
+			htmlToEmit.WriteHtmlTo(writer);
+		}
+	}
 
-    public Task QuiescenceTask
-        => _htmlToEmitOrNull.HasValue
-        ? _htmlToEmitOrNull.Value.QuiescenceTask
-        : Task.CompletedTask;
+	public Task QuiescenceTask
+		=> _htmlToEmitOrNull.HasValue
+		? _htmlToEmitOrNull.Value.QuiescenceTask
+		: Task.CompletedTask;
 }

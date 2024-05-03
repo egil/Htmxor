@@ -4,5 +4,5 @@ namespace Htmxor.Builder;
 
 internal sealed class HtmxorLayoutComponentMetadata([DynamicallyAccessedMembers(LinkerFlags.Component)] Type layoutType)
 {
-    public Type Type { get; } = layoutType;
+	public Type Type { get; } = layoutType;
 }

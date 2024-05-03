@@ -8,41 +8,41 @@ namespace Htmxor.Rendering;
 /// </summary>
 internal readonly struct HtmxorRootComponent
 {
-    private readonly HtmxorRenderer? _renderer;
-    private readonly int _componentId;
+	private readonly HtmxorRenderer? _renderer;
+	private readonly int _componentId;
 
-    internal HtmxorRootComponent(HtmxorRenderer renderer, int componentId, Task quiescenceTask)
-    {
-        _renderer = renderer;
-        _componentId = componentId;
-        QuiescenceTask = quiescenceTask;
-    }
+	internal HtmxorRootComponent(HtmxorRenderer renderer, int componentId, Task quiescenceTask)
+	{
+		_renderer = renderer;
+		_componentId = componentId;
+		QuiescenceTask = quiescenceTask;
+	}
 
-    /// <summary>
-    /// Gets a <see cref="Task"/> that completes when the component hierarchy has completed asynchronous tasks such as loading.
-    /// </summary>
-    public Task QuiescenceTask { get; }
+	/// <summary>
+	/// Gets a <see cref="Task"/> that completes when the component hierarchy has completed asynchronous tasks such as loading.
+	/// </summary>
+	public Task QuiescenceTask { get; }
 
-    /// <summary>
-    /// Returns an HTML string representation of the component's latest output.
-    /// </summary>
-    /// <returns>An HTML string representation of the component's latest output.</returns>
-    public string ToHtmlString()
-    {
-        if (_renderer is null)
-        {
-            return string.Empty;
-        }
+	/// <summary>
+	/// Returns an HTML string representation of the component's latest output.
+	/// </summary>
+	/// <returns>An HTML string representation of the component's latest output.</returns>
+	public string ToHtmlString()
+	{
+		if (_renderer is null)
+		{
+			return string.Empty;
+		}
 
-        using var writer = new StringWriter();
-        WriteHtmlTo(writer);
-        return writer.ToString();
-    }
+		using var writer = new StringWriter();
+		WriteHtmlTo(writer);
+		return writer.ToString();
+	}
 
-    /// <summary>
-    /// Writes the component's latest output as HTML to the specified writer.
-    /// </summary>
-    /// <param name="output">The output destination.</param>
-    public void WriteHtmlTo(TextWriter output)
-        => _renderer?.WriteComponentHtml(_componentId, output);
+	/// <summary>
+	/// Writes the component's latest output as HTML to the specified writer.
+	/// </summary>
+	/// <param name="output">The output destination.</param>
+	public void WriteHtmlTo(TextWriter output)
+		=> _renderer?.WriteComponentHtml(_componentId, output);
 }

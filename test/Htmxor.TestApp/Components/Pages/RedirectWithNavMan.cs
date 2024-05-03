@@ -5,11 +5,11 @@ namespace Htmxor.TestApp.Components.Pages;
 [Route("/redirect-with-navman")]
 public class RedirectWithNavMan : ComponentBase
 {
-    [Inject]
-    public required NavigationManager NavMan { get; set; }
+	[Inject]
+	public required NavigationManager NavMan { get; set; }
 
-    protected override void OnInitialized()
-    {
-        NavMan.NavigateTo("/");
-    }
+	protected override void OnInitialized()
+	{
+		NavMan.NavigateTo("/");
+	}
 }

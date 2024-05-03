@@ -5,6 +5,6 @@
 /// </summary>
 public enum ScrollDirection
 {
-    Top,
-    Bottom
+	Top,
+	Bottom
 }

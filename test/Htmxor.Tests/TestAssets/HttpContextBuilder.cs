@@ -9,53 +9,53 @@ namespace Htmxor.TestAssets;
 
 internal sealed class HttpContextBuilder
 {
-    private HttpRequestFeature? request;
+	private HttpRequestFeature? request;
 
-    public HttpContextBuilder WithUrl([StringSyntax(StringSyntaxAttribute.Uri)] string url)
-    {
-        CreateDefaultRequestFeature();
+	public HttpContextBuilder WithUrl([StringSyntax(StringSyntaxAttribute.Uri)] string url)
+	{
+		CreateDefaultRequestFeature();
 
-        request.Path = url;
-        return this;
-    }
+		request.Path = url;
+		return this;
+	}
 
-    public HttpContextBuilder WithMethod(HttpMethod method)
-    {
-        CreateDefaultRequestFeature();
+	public HttpContextBuilder WithMethod(HttpMethod method)
+	{
+		CreateDefaultRequestFeature();
 
-        request.Method = method.Method;
-        return this;
-    }
+		request.Method = method.Method;
+		return this;
+	}
 
-    public HttpContextBuilder WithRequestHeader(params (string HeaderName, string? Value)[] headers)
-    {
-        CreateDefaultRequestFeature();
+	public HttpContextBuilder WithRequestHeader(params (string HeaderName, string? Value)[] headers)
+	{
+		CreateDefaultRequestFeature();
 
-        foreach (var (key, value) in headers)
-        {
-            request.Headers[key] = value ?? "";
-        }
+		foreach (var (key, value) in headers)
+		{
+			request.Headers[key] = value ?? "";
+		}
 
-        return this;
-    }
+		return this;
+	}
 
-    public HttpContext Build()
-    {
-        CreateDefaultRequestFeature();
-        var context = new DefaultHttpContext();
-        context.Features.Set<IHttpRequestFeature>(request);
-        return context;
-    }
+	public HttpContext Build()
+	{
+		CreateDefaultRequestFeature();
+		var context = new DefaultHttpContext();
+		context.Features.Set<IHttpRequestFeature>(request);
+		return context;
+	}
 
-    [MemberNotNull(nameof(request))]
-    private void CreateDefaultRequestFeature()
-    {
-        request ??= new HttpRequestFeature()
-        {
-            PathBase = "https://localhost",
-            Path = "",
-            Method = HttpMethod.Get.Method,
-            Headers = new HeaderDictionary(),
-        };
-    }
+	[MemberNotNull(nameof(request))]
+	private void CreateDefaultRequestFeature()
+	{
+		request ??= new HttpRequestFeature()
+		{
+			PathBase = "https://localhost",
+			Path = "",
+			Method = HttpMethod.Get.Method,
+			Headers = new HeaderDictionary(),
+		};
+	}
 }
