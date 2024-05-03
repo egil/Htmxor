@@ -1,0 +1,48 @@
+@page "/AllRouteParams/boolValue/{boolValue:bool?}"
+@page "/AllRouteParams/datetimeValue/{datetimeValue:datetime?}"
+@page "/AllRouteParams/decimalValue/{decimalValue:decimal?}"
+@page "/AllRouteParams/doubleValue/{doubleValue:double?}"
+@page "/AllRouteParams/floatValue/{floatValue:float?}"
+@page "/AllRouteParams/intValue/{intValue:int?}"
+@page "/AllRouteParams/longValue/{longValue:long?}"
+@page "/AllRouteParams/guidValue/{guidValue:guid?}"
+@page "/AllRouteParams/stringValue/{stringValue}"
+@using System.Globalization
+
+@code {
+    [Parameter]
+    public bool? BoolValue { get; set; }
+
+    [Parameter]
+    public DateTime? DatetimeValue { get; set; }
+
+    [Parameter]
+    public decimal? DecimalValue { get; set; }
+
+    [Parameter]
+    public double? DoubleValue { get; set; }
+
+    [Parameter]
+    public float? FloatValue { get; set; }
+
+    [Parameter]
+    public int? IntValue { get; set; }
+
+    [Parameter]
+    public long? LongValue { get; set; }
+
+    [Parameter]
+    public Guid? GuidValue { get; set; }
+
+    [Parameter]
+    public string? StringValue { get; set; }
+}
+<div id="boolValue">@BoolValue</div>
+<div id="datetimeValue">@DatetimeValue?.ToString("O")</div>
+<div id="decimalValue">@DecimalValue?.ToString(CultureInfo.InvariantCulture)</div>
+<div id="doubleValue">@DoubleValue?.ToString(CultureInfo.InvariantCulture)</div>
+<div id="floatValue">@FloatValue?.ToString(CultureInfo.InvariantCulture)</div>
+<div id="intValue">@IntValue</div>
+<div id="longValue">@LongValue</div>
+<div id="guidValue">@GuidValue</div>
+<div id="stringValue">@StringValue</div>
