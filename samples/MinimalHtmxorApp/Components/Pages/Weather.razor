@@ -1,9 +1,17 @@
 @page "/weather"
-<PageTitle>Weather - loading data</PageTitle>
+@inherits ConditionalComponentBase
+<PageTitle>Weather</PageTitle>
 
 <h1>Weather</h1>
 
-<p>This component demonstrates showing data.</p>
-<table hx-get="/weather/data" hx-trigger="load" class="table">
-    <caption>Loading data . . .</caption>
-</table>
+<p>This component demonstrates showing lazy loaded data.</p>
+
+<HtmxAsyncLoad Element="table" Id="weather-data" class="table">
+    <Loading>
+        <PageTitle>Weather - Loading data, please wait ...</PageTitle>
+        <caption>Loading data . . .</caption>
+    </Loading>
+    <ChildContent>
+        <WeatherData />
+    </ChildContent>
+</HtmxAsyncLoad>
