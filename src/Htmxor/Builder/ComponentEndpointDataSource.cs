@@ -55,10 +55,6 @@ internal class ComponentEndpointDataSource : EndpointDataSource
 				{
 					builder.Metadata.Add(new LayoutComponentMetadata(componentInfo.ComponentLayoutType));
 				}
-				else
-				{
-					builder.Metadata.Add(new LayoutComponentMetadata(typeof(HtmxLayoutComponentBase)));
-				}
 
 				builder.RequestDelegate = static httpContext =>
 				{
