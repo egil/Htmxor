@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components.Rendering;
 
 namespace Htmxor.Components;
 
-public class HtmxorLayoutComponentBase : LayoutComponentBase, IConditionalOutputComponent
+public class HtmxLayoutComponentBase : LayoutComponentBase, IConditionalOutputComponent
 {
 	public bool ShouldOutput(int conditionalChildren)
 		=> conditionalChildren == 0;

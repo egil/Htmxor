@@ -2,5 +2,5 @@
 
 public record class OrderFormData
 {
-    public List<ConfigurePizzaFormData>? Pizzas { get; set; }
+	public List<ConfigurePizzaFormData>? Pizzas { get; set; }
 }

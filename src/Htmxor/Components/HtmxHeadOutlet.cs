@@ -18,33 +18,33 @@ namespace Htmxor.Components;
 /// </remarks>
 public class HtmxHeadOutlet : IComponent
 {
-    [Inject] private HtmxConfig Config { get; set; } = default!;
+	[Inject] private HtmxConfig Config { get; set; } = default!;
 
-    /// <summary>
-    /// Gets or sets whether or not to add the scripts thats that reference the embedded version of Htmx. Default is <see langword="true"/>.
-    /// </summary>
-    /// <remarks>
-    /// If this set to <see langword="false"/>, include the <c>_content/Htmxor/htmxor.js</c> your application manually.
-    /// </remarks>
-    [Parameter] public bool UseEmbeddedHtmx { get; set; } = true;
+	/// <summary>
+	/// Gets or sets whether or not to add the scripts thats that reference the embedded version of Htmx. Default is <see langword="true"/>.
+	/// </summary>
+	/// <remarks>
+	/// If this set to <see langword="false"/>, include the <c>_content/Htmxor/htmxor.js</c> your application manually.
+	/// </remarks>
+	[Parameter] public bool UseEmbeddedHtmx { get; set; } = true;
 
-    /// <inheritdoc/>
-    public void Attach(RenderHandle renderHandle)
-    {
-        var json = JsonSerializer.Serialize(Config, HtmxJsonSerializerContext.Default.HtmxConfig);
-        renderHandle.Render(builder =>
-        {
-            builder.AddMarkupContent(0, @$"<meta name=""htmx-config"" content='{json}'>");
-            if (UseEmbeddedHtmx)
-            {
-                builder.AddMarkupContent(1, @"<script defer src=""_content/Htmxor/htmx/htmx.min.js""></script>");
-                builder.AddMarkupContent(2, @"<script defer src=""_content/Htmxor/htmx/event-header.js""></script>");
-            }
+	/// <inheritdoc/>
+	public void Attach(RenderHandle renderHandle)
+	{
+		var json = JsonSerializer.Serialize(Config, HtmxorJsonSerializerContext.Default.HtmxConfig);
+		renderHandle.Render(builder =>
+		{
+			builder.AddMarkupContent(0, @$"<meta name=""htmx-config"" content='{json}'>");
+			if (UseEmbeddedHtmx)
+			{
+				builder.AddMarkupContent(1, @"<script defer src=""_content/Htmxor/htmx/htmx.min.js""></script>");
+				builder.AddMarkupContent(2, @"<script defer src=""_content/Htmxor/htmx/event-header.js""></script>");
+			}
 
-            builder.AddMarkupContent(3, @"<script defer src=""_content/Htmxor/htmxor.js""></script>");
-        });
-    }
+			builder.AddMarkupContent(3, @"<script defer src=""_content/Htmxor/htmxor.js""></script>");
+		});
+	}
 
-    /// <inheritdoc/>
-    public Task SetParametersAsync(ParameterView parameters) => Task.CompletedTask;
+	/// <inheritdoc/>
+	public Task SetParametersAsync(ParameterView parameters) => Task.CompletedTask;
 }

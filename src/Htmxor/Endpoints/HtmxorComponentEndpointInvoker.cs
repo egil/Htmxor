@@ -4,6 +4,7 @@ using System.Net;
 using System.Text;
 using System.Text.Encodings.Web;
 using Htmxor.Builder;
+using Htmxor.DependencyInjection;
 using Htmxor.Rendering;
 using Htmxor.Rendering.Buffering;
 using Microsoft.AspNetCore.Antiforgery;
@@ -17,7 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Htmxor;
+namespace Htmxor.Endpoints;
 
 internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpointInvoker
 {
@@ -32,8 +33,8 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 		this.logger = logger;
 	}
 
-    public Task Render(HttpContext context)
-        => renderer.Dispatcher.InvokeAsync(() => RenderComponentCore(context));
+	public Task Render(HttpContext context)
+		=> renderer.Dispatcher.InvokeAsync(() => RenderComponentCore(context));
 
 	private async Task RenderComponentCore(HttpContext context)
 	{
@@ -48,7 +49,7 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 
 		var rootComponent = endpoint.Metadata.GetRequiredMetadata<RootComponentMetadata>().Type;
 		var pageComponent = endpoint.Metadata.GetRequiredMetadata<ComponentTypeMetadata>().Type;
-		var layoutComponent = endpoint.Metadata.GetMetadata<HtmxorLayoutComponentMetadata>()?.Type;
+		var layoutComponent = endpoint.Metadata.GetMetadata<LayoutComponentMetadata>()?.Type;
 		Log.BeginRenderRootComponent(logger, rootComponent.Name, pageComponent.Name);
 
 		// Metadata controls whether we require antiforgery protection for this endpoint or we should skip it.
@@ -130,10 +131,10 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 			return;
 		}
 
-        // Matches MVC's MemoryPoolHttpResponseStreamWriterFactory.DefaultBufferSize
-        var defaultBufferSize = 16 * 1024;
-        await using var writer = new HttpResponseStreamWriter(context.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
-        using var bufferWriter = new ConditionalBufferedTextWriter(writer);
+		// Matches MVC's MemoryPoolHttpResponseStreamWriterFactory.DefaultBufferSize
+		var defaultBufferSize = 16 * 1024;
+		await using var writer = new HttpResponseStreamWriter(context.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
+		using var bufferWriter = new ConditionalBufferedTextWriter(writer);
 
 		// Importantly, we must not yield this thread (which holds exclusive access to the renderer sync context)
 		// in between the first call to htmlContent.WriteTo and the point where we start listening for subsequent

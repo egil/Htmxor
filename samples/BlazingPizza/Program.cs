@@ -11,8 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services
-    .AddRazorComponents()
-    .AddHtmx();
+	.AddRazorComponents()
+	.AddHtmx();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
@@ -22,20 +22,20 @@ builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStat
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultScheme = IdentityConstants.ApplicationScheme;
-    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+	options.DefaultScheme = IdentityConstants.ApplicationScheme;
+	options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
 })
-    .AddIdentityCookies();
+	.AddIdentityCookies();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<PizzaStoreContext>(options =>
-    options.UseSqlite(connectionString));
+	options.UseSqlite(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<PizzaStoreUser>(options => options.SignIn.RequireConfirmedAccount = true)
-    .AddEntityFrameworkStores<PizzaStoreContext>()
-    .AddSignInManager()
-    .AddDefaultTokenProviders();
+	.AddEntityFrameworkStores<PizzaStoreContext>()
+	.AddSignInManager()
+	.AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<PizzaStoreUser>, IdentityNoOpEmailSender>();
 
@@ -49,19 +49,19 @@ var app = builder.Build();
 var scopeFactory = app.Services.GetRequiredService<IServiceScopeFactory>();
 using (var scope = scopeFactory.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<PizzaStoreContext>();
-    if (db.Database.EnsureCreated())
-    {
-        SeedData.Initialize(db);
-    }
+	var db = scope.ServiceProvider.GetRequiredService<PizzaStoreContext>();
+	if (db.Database.EnsureCreated())
+	{
+		SeedData.Initialize(db);
+	}
 }
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
+	app.UseExceptionHandler("/Error", createScopeForErrors: true);
+	// The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+	app.UseHsts();
 }
 
 app.UseHttpsRedirection();

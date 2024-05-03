@@ -1,12 +1,7 @@
-using System.Collections;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
-using AngleSharp;
 using AngleSharp.Diffing.Core;
 using AngleSharp.Dom;
-using AngleSharp.Html.Parser;
 using Bunit;
 using Bunit.Diffing;
 using Bunit.Rendering;

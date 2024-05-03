@@ -4,14 +4,14 @@ namespace Htmxor.TestApp.Components.Pages.Examples;
 
 public record class Contact : IStoreItem
 {
-    public Guid Id { get; set; }
+	public Guid Id { get; set; }
 
-    [Required(AllowEmptyStrings = false, ErrorMessage = "First name is required"), MinLength(1)]
-    public string? FirstName { get; set; }
+	[Required(AllowEmptyStrings = false, ErrorMessage = "First name is required"), MinLength(1)]
+	public string? FirstName { get; set; }
 
-    [Required(AllowEmptyStrings = false, ErrorMessage = "Last name is required"), MinLength(1)]
-    public string? LastName { get; set; }
+	[Required(AllowEmptyStrings = false, ErrorMessage = "Last name is required"), MinLength(1)]
+	public string? LastName { get; set; }
 
-    [Required(AllowEmptyStrings = false, ErrorMessage = "Email is required"), MinLength(1)]
-    public string? Email { get; set; }
+	[Required(AllowEmptyStrings = false, ErrorMessage = "Email is required"), MinLength(1)]
+	public string? Email { get; set; }
 }

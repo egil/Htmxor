@@ -2,6 +2,7 @@ using Htmxor;
 using Htmxor.Antiforgery;
 using Htmxor.Builder;
 using Htmxor.DependencyInjection;
+using Htmxor.Endpoints;
 using Htmxor.Http;
 using Htmxor.Rendering;
 using Microsoft.AspNetCore.Antiforgery;
@@ -36,11 +37,11 @@ public static class HtmxorApplicationBuilderExtensions
 		var services = razorComponentsBuilder.Services;
 
 		// Override routing
-		services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, HtmxorComponentEndpointMatcherPolicy>());
-		services.AddScoped<HtmxorEndpointRoutingStateProvider>();
+		services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, ComponentEndpointMatcherPolicy>());
+		services.AddScoped<EndpointRoutingStateProvider>();
 
 		services.Remove(services.Single(x => x.ServiceType == typeof(IRoutingStateProvider)));
-		services.AddScoped<IRoutingStateProvider>(sp => sp.GetRequiredService<HtmxorEndpointRoutingStateProvider>());
+		services.AddScoped<IRoutingStateProvider>(sp => sp.GetRequiredService<EndpointRoutingStateProvider>());
 
 		// Override rendering
 		services.AddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
@@ -71,7 +72,7 @@ public static class HtmxorApplicationBuilderExtensions
 		{
 			var config = new HtmxConfig
 			{
-				Antiforgery = new HtmxAntiforgeryOptions(x.GetRequiredService<IOptions<AntiforgeryOptions>>()),
+				Antiforgery = new HtmxorAntiforgeryOptions(x.GetRequiredService<IOptions<AntiforgeryOptions>>()),
 			};
 			configureHtmx?.Invoke(config);
 			return config;

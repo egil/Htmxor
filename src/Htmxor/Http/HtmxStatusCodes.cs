@@ -2,5 +2,5 @@
 
 public static class HtmxStatusCodes
 {
-    public static readonly int StopPolling = 286;
+	public static readonly int StopPolling = 286;
 }
