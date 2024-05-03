@@ -10,22 +10,22 @@ namespace Htmxor.Rendering.Buffering;
 // when expanding it doesn't have to copy the old data to a new location.
 internal class TextChunkListBuilder(int pageLength)
 {
-	private TextChunkPage? _currentPage;
-	private List<TextChunkPage>? _priorPages;
+	private TextChunkPage? currentPage;
+	private List<TextChunkPage>? priorPages;
 
 	public void Add(TextChunk value)
 	{
-		if (_currentPage is null)
+		if (currentPage is null)
 		{
-			_currentPage = new TextChunkPage(pageLength);
+			currentPage = new TextChunkPage(pageLength);
 		}
 
-		if (!_currentPage.TryAdd(value))
+		if (!currentPage.TryAdd(value))
 		{
-			_priorPages ??= new();
-			_priorPages.Add(_currentPage);
-			_currentPage = new TextChunkPage(pageLength);
-			if (!_currentPage.TryAdd(value))
+			priorPages ??= new();
+			priorPages.Add(currentPage);
+			currentPage = new TextChunkPage(pageLength);
+			if (!currentPage.TryAdd(value))
 			{
 				throw new InvalidOperationException("New page didn't accept write");
 			}
@@ -36,9 +36,9 @@ internal class TextChunkListBuilder(int pageLength)
 	{
 		StringBuilder? tempBuffer = null;
 
-		if (_priorPages is not null)
+		if (priorPages is not null)
 		{
-			foreach (var page in _priorPages)
+			foreach (var page in priorPages)
 			{
 				var (count, buffer) = (page.Count, page.Buffer);
 				for (var i = 0; i < count; i++)
@@ -48,9 +48,9 @@ internal class TextChunkListBuilder(int pageLength)
 			}
 		}
 
-		if (_currentPage is not null)
+		if (currentPage is not null)
 		{
-			var (count, buffer) = (_currentPage.Count, _currentPage.Buffer);
+			var (count, buffer) = (currentPage.Count, currentPage.Buffer);
 			for (var i = 0; i < count; i++)
 			{
 				await buffer[i].WriteToAsync(writer, charArraySegments, ref tempBuffer);
@@ -60,11 +60,11 @@ internal class TextChunkListBuilder(int pageLength)
 
 	public void Clear()
 	{
-		if (_currentPage is not null)
+		if (currentPage is not null)
 		{
-			_currentPage = null;
+			currentPage = null;
 		}
 
-		_priorPages?.Clear();
+		priorPages?.Clear();
 	}
 }

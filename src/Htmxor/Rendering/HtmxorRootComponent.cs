@@ -8,13 +8,13 @@ namespace Htmxor.Rendering;
 /// </summary>
 internal readonly struct HtmxorRootComponent
 {
-	private readonly HtmxorRenderer? _renderer;
-	private readonly int _componentId;
+	private readonly HtmxorRenderer? renderer;
+	private readonly int componentId;
 
 	internal HtmxorRootComponent(HtmxorRenderer renderer, int componentId, Task quiescenceTask)
 	{
-		_renderer = renderer;
-		_componentId = componentId;
+		this.renderer = renderer;
+		this.componentId = componentId;
 		QuiescenceTask = quiescenceTask;
 	}
 
@@ -29,7 +29,7 @@ internal readonly struct HtmxorRootComponent
 	/// <returns>An HTML string representation of the component's latest output.</returns>
 	public string ToHtmlString()
 	{
-		if (_renderer is null)
+		if (renderer is null)
 		{
 			return string.Empty;
 		}
@@ -44,5 +44,5 @@ internal readonly struct HtmxorRootComponent
 	/// </summary>
 	/// <param name="output">The output destination.</param>
 	public void WriteHtmlTo(TextWriter output)
-		=> _renderer?.WriteComponentHtml(_componentId, output);
+		=> renderer?.WriteComponentHtml(componentId, output);
 }

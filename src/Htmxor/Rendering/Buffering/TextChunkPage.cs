@@ -6,8 +6,8 @@ namespace Htmxor.Rendering.Buffering;
 // Used internally by TextChunkListBuilder
 internal class TextChunkPage
 {
-	private readonly TextChunk[] _buffer;
-	private int _count;
+	private readonly TextChunk[] buffer;
+	private int count;
 
 	public TextChunkPage(int capacity)
 	{
@@ -17,17 +17,17 @@ internal class TextChunkPage
 		// pools, balances out with the GC cost of simply instantiating new buffers.
 		// Since there was no clear observable improvement from pooling, this code now uses the simpler
 		// "just instantiate" strategy and avoids the need for being careful about disposal.
-		_buffer = new TextChunk[capacity];
+		buffer = new TextChunk[capacity];
 	}
 
-	public TextChunk[] Buffer => _buffer;
-	public int Count => _count;
+	public TextChunk[] Buffer => buffer;
+	public int Count => count;
 
 	public bool TryAdd(TextChunk value)
 	{
-		if (_count < _buffer.Length)
+		if (count < buffer.Length)
 		{
-			_buffer[_count++] = value;
+			buffer[count++] = value;
 			return true;
 		}
 		else
@@ -38,6 +38,6 @@ internal class TextChunkPage
 
 	public void Clear()
 	{
-		_count = 0;
+		count = 0;
 	}
 }
