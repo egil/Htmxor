@@ -5,14 +5,15 @@
 
 <p>This component demonstrates showing data.</p>
 
-<HtmxSwappable LazyLoad="true" TargetId="weather">
-	<Placeholder>
-		<table class="table">
-			<caption>Loading data . . .</caption>
-		</table>
-	</Placeholder>
-	<ChildContent>
-		<WeatherData/>
-	</ChildContent>
-</HtmxSwappable>
+<div id="weather_status" class="mb-3">
+	<div class="weather-message alert alert-primary" role="alert">
+		Weather status: Not loaded
+	</div>
+</div>
+
+<div id="weather" hx-get="/weather/data" hx-trigger="load">
+    <p>Loading weather...</p>
+</div>
+
+
 

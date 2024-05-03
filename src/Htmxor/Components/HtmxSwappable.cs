@@ -14,30 +14,34 @@ namespace Htmxor.Components;
 /// <summary>
 /// Enables swapping HTML content dynamically based on specified parameters through Htmx.
 /// </summary>
-public sealed class HtmxSwappable : IComponent, IConditionalOutputComponent
+public sealed class HtmxSwappable : ComponentBase
 {
-	private RenderHandle renderHandle;
 	private string swapParam = string.Empty;
-	[Inject] private HtmxContext Context { get; set; } = default!;
-	
+
+	[Inject]
+	private HtmxContext Context { get; set; } = default!;
+
+	[SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "False positive. This is a parameter.")]
+	[Parameter(CaptureUnmatchedValues = true)]
+	public IDictionary<string, object>? AdditionalAttributes { get; set; }
+
 	/// <summary>
 	/// Gets or sets the target DOM element ID where the component should be rendered.
-	/// This parameter is required.
 	/// </summary>
-	[Parameter, EditorRequired]
-	public string TargetId { get; set; } = default!;
+	[Parameter]
+	public string? TargetId { get; set; }
 
 	/// <summary>
 	/// Gets or sets the swap style to be applied when the content is swapped.
-	/// The default swap style is InnerHTML.
+	/// The default swap style is OuterHTML.
 	/// </summary>
 	[Parameter]
-	public SwapStyle SwapStyle { get; set; } = SwapStyle.InnerHTML;
+	public SwapStyle SwapStyle { get; set; } = SwapStyle.OuterHTML;
 
 	/// <summary>
 	/// Gets or sets the CSS selector for the content swap. This is optional.
 	/// </summary>
-	[Parameter] public string Selector { get; set; } = default!;
+	[Parameter] public string? Selector { get; set; } 
 
 	/// <summary>
 	/// Gets or sets the child content to be rendered within the component.
@@ -46,82 +50,55 @@ public sealed class HtmxSwappable : IComponent, IConditionalOutputComponent
 	[Parameter, EditorRequired]
 	public RenderFragment ChildContent { get; set; } = default!;
 
-	/// <summary>
-	/// Gets or sets the child content to be rendered within the component.
-	/// This parameter is required.
-	/// </summary>
-	[Parameter]
-	public RenderFragment? Placeholder { get; set; } = default!;
-
-	[Parameter]
-	public bool LazyLoad { get; set; }
-
-	[Parameter]
-	public string LazyLoadTrigger { get; set; } = default!;
-
-	[Parameter] public bool Condition { get; set; } = true;
-
-	public Task SetParametersAsync(ParameterView parameters)
+	protected override void OnParametersSet()
 	{
-		if (!parameters.TryGetValue<RenderFragment>(nameof(ChildContent), out var childContent))
+		TargetId = string.IsNullOrWhiteSpace(TargetId) ? TargetId : TargetId.Trim();
+
+		if (string.IsNullOrWhiteSpace(TargetId) && string.IsNullOrWhiteSpace(Selector))
 		{
-			throw new ArgumentException($"{nameof(HtmxPartial)} requires a value for the parameter {nameof(ChildContent)}.", nameof(parameters));
+			throw new ArgumentException($"Either {nameof(TargetId)} or {nameof(Selector)} must be provided to determine the OOB swap target");
+		}
+		
+		// If the user manually added some of these attributes they are removed
+		// to avoid inconsistent behavior.
+		// The user should not set these attributes manually.
+		if (AdditionalAttributes is not null)
+		{
+			AdditionalAttributes.Remove(HtmxConstants.Attributes.Id);
+			AdditionalAttributes.Remove(HtmxConstants.Attributes.HxSwapOob);
 		}
 
-		parameters.TryGetValue<RenderFragment>(nameof(Placeholder), out var placeHolder);
+		if (SwapStyle == SwapStyle.Default)
+			SwapStyle = SwapStyle.OuterHTML;
 
-		ChildContent = childContent;
-		Placeholder = placeHolder!;
-		TargetId = parameters.GetValueOrDefault(nameof(TargetId), Guid.NewGuid().ToString());
-		Condition = parameters.GetValueOrDefault(nameof(Condition), true);
-		SwapStyle = parameters.GetValueOrDefault(nameof(SwapStyle), SwapStyle.InnerHTML);
-		Selector = parameters.GetValueOrDefault(nameof(Selector), string.Empty);
-		LazyLoad = parameters.GetValueOrDefault(nameof(LazyLoad), false);
-		LazyLoadTrigger = parameters.GetValueOrDefault(nameof(LazyLoadTrigger), "load");
-
-		if (SwapStyle == SwapStyle.Default && !string.IsNullOrWhiteSpace(Selector))
-		{
-			throw new ArgumentException(
-				$"{nameof(Selector)} parameter must not be set when the parameter {nameof(SwapStyle)} is SwapStyle.Default",
-				nameof(parameters));
-		}
-
-		var style = SwapStyle == SwapStyle.Default ? "true" : SwapStyle.ToHtmxString();
+		var style = SwapStyle.ToHtmxString();
 		swapParam = !string.IsNullOrEmpty(Selector) ? $"{style}:{Selector}" : style;
-
-		renderHandle.Render(RenderDelegate);
-
-		return Task.CompletedTask;
 	}
 
-	void IComponent.Attach(RenderHandle renderHandle)
+	protected override void BuildRenderTree([NotNull] RenderTreeBuilder builder)
 	{
-		this.renderHandle = renderHandle;
-	}
-
-	private void RenderDelegate(RenderTreeBuilder builder)
-	{
-		var url = Context.Request.CurrentURL?.PathAndQuery;
-
-		builder.OpenElement(0, "div");
-		builder.AddAttribute(1, "id", TargetId);
-		if (Context.Request.IsHtmxRequest && Context.Request.Target != $"#{TargetId}")
+		if (Context.Request.Target == TargetId)
 		{
-			//builder.AddAttribute(2, "hx-swap-oob", swapParam);
-		}
+			var selector = TargetId != null ? $"#{TargetId}" :
+				Selector ?? string.Empty;
+			
+			Context.Response.Reswap(SwapStyle);
 
-		if (LazyLoad && !string.IsNullOrWhiteSpace(url) && Placeholder != null)
-		{
-			builder.AddAttribute(3, "hx-get", url);
-			builder.AddAttribute(5, "hx-trigger", LazyLoadTrigger);
-			builder.AddContent(6, Placeholder);
+			if (!string.IsNullOrEmpty(selector))
+				Context.Response.Retarget(selector);
+
+			builder.AddContent(0, ChildContent);
 		}
 		else
 		{
-			builder.AddContent(7, ChildContent);
-		}
-		builder.CloseElement();
-	}
+			builder.OpenElement(1, "div");
 
-	bool IConditionalOutputComponent.ShouldOutput(int _) => Condition;
+			if (TargetId != null)
+				builder.AddAttribute(2, "id", TargetId);
+
+			builder.AddAttribute(3, "hx-swap-oob", swapParam);
+			builder.AddContent(4, ChildContent);
+			builder.CloseElement();
+		}
+	}
 }

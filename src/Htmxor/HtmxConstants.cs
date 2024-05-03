@@ -15,6 +15,7 @@ internal static class HtmxConstants
 		internal const string HxTrigger = "hx-trigger";
 		internal const string HxTarget = "hx-target";
 		internal const string HxSwap = "hx-swap";
+		internal const string HxSwapOob = "hx-swap-oob";
 		internal const string HxHeaders = "hx-headers";
 	}
 
