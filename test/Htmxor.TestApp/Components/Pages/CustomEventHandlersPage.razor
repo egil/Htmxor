@@ -40,7 +40,7 @@
     }
 
     public virtual bool ShouldOutput([NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren)
-        => context.Request.IsFullPageRequest;
+        => context.Request.RoutingMode is RoutingMode.Standard;
 }
 <button @onget=OnGet
         hx-get="/custom-event-handler"

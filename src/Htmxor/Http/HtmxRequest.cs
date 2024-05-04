@@ -5,12 +5,9 @@ namespace Htmxor.Http;
 public sealed class HtmxRequest
 {
 	/// <summary>
-	/// Gets whether or not the current request will be treated as a full page request.
+	/// Gets the routing mode for the current request.
 	/// </summary>
-	/// <remarks>
-	/// The rules are as follows: <c>!IsHtmxRequest || (IsBoosted &amp;&amp; Target is null)</c>
-	/// </remarks>
-	public bool IsFullPageRequest => !IsHtmxRequest || (IsBoosted && Target is null);
+	public RoutingMode RoutingMode { get; }
 
 	/// <summary>
 	/// Gets the HTTP method of the current request.
@@ -75,10 +72,11 @@ public sealed class HtmxRequest
 		ArgumentNullException.ThrowIfNull(context);
 		Method = context.Request.Method;
 		Path = context.Request.Path;
-		var ishtmx = IsHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
+		var isHtmx = IsHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
 
-		if (!ishtmx)
+		if (!isHtmx)
 		{
+			RoutingMode = RoutingMode.Standard;
 			return;
 		}
 
@@ -90,6 +88,10 @@ public sealed class HtmxRequest
 		Trigger = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Trigger);
 		Prompt = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Prompt);
 		EventHandlerId = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.EventHandlerId);
+
+		RoutingMode = !IsHtmxRequest || (IsBoosted && Target is null)
+			? RoutingMode.Standard
+			: RoutingMode.Direct;
 	}
 
 	private static string? GetHxValueOrDefault(IHeaderDictionary headers, string key)

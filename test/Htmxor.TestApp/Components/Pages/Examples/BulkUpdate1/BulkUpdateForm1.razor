@@ -39,7 +39,7 @@
     }
 
     public virtual bool ShouldOutput([NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren)
-        => context.Request.IsFullPageRequest;
+        => context.Request.RoutingMode is RoutingMode.Standard;
 }
 <form id="checked-contacts"
       hx-post="/bulk-update-1"

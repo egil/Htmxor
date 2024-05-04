@@ -1,3 +1,4 @@
+using Htmxor.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Matching;
@@ -33,7 +34,7 @@ internal class ComponentEndpointMatcherPolicy : MatcherPolicy, IEndpointSelector
 			var endpoint = candidates[i].Endpoint;
 			var htmxorEndpointMetadata = endpoint.Metadata.GetMetadata<EndpointMetadata>();
 
-			if (htmxorEndpointMetadata is null && !htmxContext.Request.IsFullPageRequest)
+			if (htmxorEndpointMetadata is null && htmxContext.Request.RoutingMode is RoutingMode.Direct)
 			{
 				candidates.SetValidity(i, false);
 				continue;

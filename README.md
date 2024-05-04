@@ -120,3 +120,8 @@ page title during htmx requests by using the <PageTitle></PageTitle> component.
 ```
 
 Note that we set up the custom layout for all components by defining the `[HxLayout(typeof(HtmxorLayout))]` attribute in the `_Imports.razor` file.
+
+## Documentation
+
+- **[Routing in Htmxor](/docs/routing.md)**: Covers how routing works in Htmor, compared to Blazor Static Web apps. 
+
