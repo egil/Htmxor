@@ -33,7 +33,7 @@ HTTP GET /my-page
 App -> Routes --> MainLayout --> MyPage
 ```
 
-## Direct Routing:
+## Direct Routing
 
 Direct routing bypasses the root component (`App.razor`) and the standard layout (`MainLayout`). Instead, it routes directly to the component that matches the request.
 
