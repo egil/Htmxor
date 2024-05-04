@@ -79,14 +79,6 @@ public sealed class HtmxSwappable : ComponentBase
 	{
 		if (Context.Request.Target == TargetId)
 		{
-			var selector = TargetId != null ? $"#{TargetId}" :
-				Selector ?? string.Empty;
-			
-			Context.Response.Reswap(SwapStyle);
-
-			if (!string.IsNullOrEmpty(selector))
-				Context.Response.Retarget(selector);
-
 			builder.AddContent(0, ChildContent);
 		}
 		else
