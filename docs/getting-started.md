@@ -5,7 +5,7 @@ To create a minimal Blazor + htmx app with various examples, download the [Minim
 To start fresh, follow these steps:
 
 1. **Add the Htmxor Package**
-   
+
    Install the [Htmxor package from NuGet](https://www.nuget.org/packages/Htmxor).
 
 
@@ -15,41 +15,41 @@ To start fresh, follow these steps:
 
 	```diff
 	  var builder = WebApplication.CreateBuilder(args);
-	  
+
 	  // Add services to the container.
 	  builder.Services
 	  	.AddRazorComponents()
 	+   .AddHtmx();
-	  
+
 	  var app = builder.Build();
-	  
+
 	  // Configure the HTTP request pipeline.
 	  if (!app.Environment.IsDevelopment())
 	  {
 	  	app.UseExceptionHandler("/Error", createScopeForErrors: true);
 	  	app.UseHsts();
 	  }
-	  
+
 	  app.UseHttpsRedirection();
-	  
+
 	  app.UseStaticFiles();
 	  app.UseAntiforgery();
 	+ app.UseHtmxAntiforgery();
 	  app.MapRazorComponents<App>()
 	+    .AddHtmxorComponentEndpoints(app);
-	  
+
 	  app.Run();
 	```
 	Note: You can use `AddHtmx(options => { ... })` to change [htmx's config](https://htmx.org/reference/#config) for your app.
 
-3. **Update App.razor**  
-   
+3. **Update App.razor**
+
    Modify `App.razor` to include Htmxor components:
 
 	```diff
 	  <!DOCTYPE html>
 	  <html lang="en">
-	  
+
 	  <head>
 	  	<meta charset="utf-8" />
 	  	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -61,22 +61,22 @@ To start fresh, follow these steps:
 	+   <HtmxHeadOutlet />
 	  	<HeadOutlet />
 	  </head>
-	  
-	  <!-- 
-	    Adding hx-boost="true" is optional. 
-	    Learn more here: https://htmx.org/  attributes/hx-boost/ 
+
+	  <!--
+	    Adding hx-boost="true" is optional.
+	    Learn more here: https://htmx.org/  attributes/hx-boost/
 	  -->
 	+ <body hx-boost="true">
 	  	<Routes />
-  
+
 	-   <script src="_framework/blazor.web.js"></script>
 	  </body>
-	  
+
 	  </html>
 	```
 
 4. **Create an Optional Direct Request Layout**
-   
+
    Optionally, create a layout that will be used during [direct routing](routing.md#direct-routing), e.g., `/Components/Layout/HtmxorLayout.razor`:
 
 	```razor
@@ -84,10 +84,10 @@ To start fresh, follow these steps:
 	@Body
 	```
 
-	The `HtmxLayoutComponentBase` includes the `<HeadOutlet>` component. This makes it possible to use the `<PageTitle>` component during htmx requests to update the page title. 
+	The `HtmxLayoutComponentBase` includes the `<HeadOutlet>` component. This makes it possible to use the `<PageTitle>` component during htmx requests to update the page title.
 
 5. **Update _Imports.razor (Optional)**
-   
+
    Modify _Imports.razor to include Htmxor namespaces and set a default layout:
 
 	```diff
@@ -102,7 +102,8 @@ To start fresh, follow these steps:
 	+ @using Htmxor.Components
 	+ @using Htmxor.Http
 	+ @using Htmxor
-	
+	+ @using static Htmxor.Constants
+
 	+ @attribute [HtmxLayout(typeof(HtmxorLayout))]
 	```
 
