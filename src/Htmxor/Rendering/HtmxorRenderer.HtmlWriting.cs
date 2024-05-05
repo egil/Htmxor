@@ -44,13 +44,18 @@ internal partial class HtmxorRenderer
 
 	private void WriteComponent(HtmxorComponentState componentState, TextWriter output)
 	{
-		if (output is ConditionalBufferedTextWriter conditionalOutput)
+		if (output is not ConditionalBufferedTextWriter conditionalOutput)
 		{
-			conditionalOutput.ShouldWrite = componentState.ShouldGenerateMarkup();
+			throw new InvalidOperationException("Expected a conditional output text writer.");
 		}
+
+		var currentShouldWrite = conditionalOutput.ShouldWrite;
+		conditionalOutput.ShouldWrite = componentState.ShouldGenerateMarkup();
 
 		var frames = GetCurrentRenderTreeFrames(componentState.ComponentId);
 		RenderFrames(componentState, output, frames, 0, frames.Count);
+
+		conditionalOutput.ShouldWrite = currentShouldWrite;
 	}
 
 	private void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
