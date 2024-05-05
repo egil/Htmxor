@@ -438,7 +438,7 @@ internal partial class HtmxorRenderer
 			if (hasHxAction && hxEventHandlerId > 0)
 			{
 				output.Write(' ');
-				output.Write(HtmxConstants.Attributes.HxHeaders);
+				output.Write(Constants.Attributes.HxHeaders);
 				output.Write('=');
 				output.Write("'{\"");
 				output.Write(HtmxRequestHeaderNames.EventHandlerId);
@@ -454,18 +454,18 @@ internal partial class HtmxorRenderer
 		&& !string.IsNullOrEmpty(frame.AttributeValue as string);
 
 	internal static bool IsHxActionAttribute(ref RenderTreeFrame frame)
-		=> frame.AttributeName.Equals(HtmxConstants.Attributes.HxGet, StringComparison.OrdinalIgnoreCase)
-		|| frame.AttributeName.Equals(HtmxConstants.Attributes.HxPost, StringComparison.OrdinalIgnoreCase)
-		|| frame.AttributeName.Equals(HtmxConstants.Attributes.HxPut, StringComparison.OrdinalIgnoreCase)
-		|| frame.AttributeName.Equals(HtmxConstants.Attributes.HxDelete, StringComparison.OrdinalIgnoreCase)
-		|| frame.AttributeName.Equals(HtmxConstants.Attributes.HxPatch, StringComparison.OrdinalIgnoreCase);
+		=> frame.AttributeName.Equals(Constants.Attributes.HxGet, StringComparison.OrdinalIgnoreCase)
+		|| frame.AttributeName.Equals(Constants.Attributes.HxPost, StringComparison.OrdinalIgnoreCase)
+		|| frame.AttributeName.Equals(Constants.Attributes.HxPut, StringComparison.OrdinalIgnoreCase)
+		|| frame.AttributeName.Equals(Constants.Attributes.HxDelete, StringComparison.OrdinalIgnoreCase)
+		|| frame.AttributeName.Equals(Constants.Attributes.HxPatch, StringComparison.OrdinalIgnoreCase);
 
 	internal static bool IsHxEventActionAttribute(ref RenderTreeFrame frame)
-		=> frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Get, StringComparison.OrdinalIgnoreCase)
-		|| frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Post, StringComparison.OrdinalIgnoreCase)
-		|| frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Put, StringComparison.OrdinalIgnoreCase)
-		|| frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Delete, StringComparison.OrdinalIgnoreCase)
-		|| frame.AttributeName.Equals(HtmxConstants.EventActionAttributes.Patch, StringComparison.OrdinalIgnoreCase);
+		=> frame.AttributeName.Equals(Constants.EventActionAttributes.Get, StringComparison.OrdinalIgnoreCase)
+		|| frame.AttributeName.Equals(Constants.EventActionAttributes.Post, StringComparison.OrdinalIgnoreCase)
+		|| frame.AttributeName.Equals(Constants.EventActionAttributes.Put, StringComparison.OrdinalIgnoreCase)
+		|| frame.AttributeName.Equals(Constants.EventActionAttributes.Delete, StringComparison.OrdinalIgnoreCase)
+		|| frame.AttributeName.Equals(Constants.EventActionAttributes.Patch, StringComparison.OrdinalIgnoreCase);
 
 	internal static string CreateHxActionHash(ref RenderTreeFrame hxActionFrame)
 	{

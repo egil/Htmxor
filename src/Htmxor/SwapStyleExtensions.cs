@@ -12,15 +12,15 @@ public static class SwapStyleExtensions
 	{
 		var style = swapStyle switch
 		{
-			SwapStyle.InnerHTML => HtmxConstants.SwapStyles.InnerHTML,
-			SwapStyle.OuterHTML => HtmxConstants.SwapStyles.OuterHTML,
-			SwapStyle.BeforeBegin => HtmxConstants.SwapStyles.BeforeBegin,
-			SwapStyle.AfterBegin => HtmxConstants.SwapStyles.AfterBegin,
-			SwapStyle.BeforeEnd => HtmxConstants.SwapStyles.BeforeEnd,
-			SwapStyle.AfterEnd => HtmxConstants.SwapStyles.AfterEnd,
-			SwapStyle.Delete => HtmxConstants.SwapStyles.Delete,
-			SwapStyle.None => HtmxConstants.SwapStyles.None,
-			SwapStyle.Default => HtmxConstants.SwapStyles.Default,
+			SwapStyle.InnerHTML => Constants.SwapStyles.InnerHTML,
+			SwapStyle.OuterHTML => Constants.SwapStyles.OuterHTML,
+			SwapStyle.BeforeBegin => Constants.SwapStyles.BeforeBegin,
+			SwapStyle.AfterBegin => Constants.SwapStyles.AfterBegin,
+			SwapStyle.BeforeEnd => Constants.SwapStyles.BeforeEnd,
+			SwapStyle.AfterEnd => Constants.SwapStyles.AfterEnd,
+			SwapStyle.Delete => Constants.SwapStyles.Delete,
+			SwapStyle.None => Constants.SwapStyles.None,
+			SwapStyle.Default => Constants.SwapStyles.Default,
 			_ => throw new SwitchExpressionException(swapStyle),
 		};
 

@@ -55,23 +55,23 @@ public sealed class HtmxAsyncLoad : ConditionalComponentBase
 			return;
 		}
 
-		RemoveControlledAttributeAndThrow(AdditionalAttributes, HtmxConstants.Attributes.HxGet);
-		RemoveControlledAttributeAndThrow(AdditionalAttributes, HtmxConstants.Attributes.HxTrigger);
-		RemoveControlledAttributeAndThrow(AdditionalAttributes, HtmxConstants.Attributes.HxTarget);
-		RemoveControlledAttributeAndThrow(AdditionalAttributes, HtmxConstants.Attributes.HxSwap);
+		RemoveControlledAttributeAndThrow(AdditionalAttributes, Constants.Attributes.HxGet);
+		RemoveControlledAttributeAndThrow(AdditionalAttributes, Constants.Attributes.HxTrigger);
+		RemoveControlledAttributeAndThrow(AdditionalAttributes, Constants.Attributes.HxTarget);
+		RemoveControlledAttributeAndThrow(AdditionalAttributes, Constants.Attributes.HxSwap);
 	}
 
 	protected override void BuildRenderTree([NotNull] RenderTreeBuilder builder)
 	{
 		var request = HtmxContext.Request;
 		builder.OpenElement(1, Element);
-		builder.AddAttribute(2, HtmxConstants.Attributes.Id, Id);
+		builder.AddAttribute(2, Constants.Attributes.Id, Id);
 		if (request.RoutingMode == RoutingMode.Standard)
 		{
-			builder.AddAttribute(3, HtmxConstants.Attributes.HxGet, HtmxContext.Request.Path);
-			builder.AddAttribute(4, HtmxConstants.Attributes.HxTrigger, HtmxConstants.Triggers.Load);
-			builder.AddAttribute(5, HtmxConstants.Attributes.HxTarget, $"#{Id}");
-			builder.AddAttribute(6, HtmxConstants.Attributes.HxSwap, HtmxConstants.SwapStyles.OuterHTML);
+			builder.AddAttribute(3, Constants.Attributes.HxGet, HtmxContext.Request.Path);
+			builder.AddAttribute(4, Constants.Attributes.HxTrigger, Constants.Triggers.Load);
+			builder.AddAttribute(5, Constants.Attributes.HxTarget, $"#{Id}");
+			builder.AddAttribute(6, Constants.Attributes.HxSwap, Constants.SwapStyles.OuterHTML);
 		}
 
 		if (AdditionalAttributes is not null)
