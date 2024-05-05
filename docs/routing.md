@@ -11,9 +11,9 @@ The routing mode is determined by the presence or absence of [htmx headers](http
 
 ```
 if ( HX-Request is null || ( HX-Boosted is not null && HX-Target is null ) )
-	RoutingMode.Standard
+ RoutingMode.Standard
 else
-	RoutingMode.Direct
+ RoutingMode.Direct
 ```
 
 Here's a detailed look at each mode:
@@ -30,7 +30,7 @@ Example:
 
 ```
 HTTP GET /my-page
-App -> Routes --> MainLayout --> MyPage
+App --> Routes --> MainLayout --> MyPage
 ```
 
 ## Direct Routing
@@ -42,8 +42,10 @@ If the target component has a `HtmxLayout` attribute, that layout is rendered fi
 Example:
 
 ```
+HTTP GET /my-htmx-page-with-layout
+HtmxLayout --> MyHtmxPageWithHtmxLayout
+
 HTTP GET /my-htmx-page
-HtmxLayout --> MyHtmxPage
 MyHtmxPage
 ```
 
