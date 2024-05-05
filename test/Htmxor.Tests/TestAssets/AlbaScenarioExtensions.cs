@@ -16,7 +16,8 @@ internal static class AlbaScenarioExtensions
 		string? target = null,
 		string? triggerName = null,
 		string? trigger = null,
-		string? prompt = null)
+		string? prompt = null,
+		string? eventHandlerId = null)
 	{
 		if (isHtmxRequest)
 		{
@@ -56,6 +57,11 @@ internal static class AlbaScenarioExtensions
 		if (prompt is not null)
 		{
 			scenario.WithRequestHeader(HtmxRequestHeaderNames.Prompt, prompt);
+		}
+
+		if (eventHandlerId is not null)
+		{
+			scenario.WithRequestHeader(HtmxRequestHeaderNames.EventHandlerId, eventHandlerId);
 		}
 
 		return scenario;

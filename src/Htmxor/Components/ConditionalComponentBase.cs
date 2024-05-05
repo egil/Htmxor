@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 
@@ -10,6 +5,12 @@ namespace Htmxor.Components;
 
 public abstract class ConditionalComponentBase : ComponentBase, IConditionalOutputComponent
 {
+	/// <summary>
+	/// The <see cref="HtmxContext"/> for the current request.
+	/// </summary>
+	[Inject]
+	protected HtmxContext Context { get; private set; } = default!;
+
 	/// <inheritdoc/>
 	/// <remarks>The <see cref="ConditionalComponentBase"/> defaults to returning <see langword="true"/>
 	/// when the request is a full page request or if there are no direct conditional children.</remarks>

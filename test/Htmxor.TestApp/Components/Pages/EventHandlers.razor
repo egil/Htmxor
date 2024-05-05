@@ -1,0 +1,71 @@
+@page "/EventHandlers"
+@code {
+    private string content = "";
+    private void OnGet(HtmxEventArgs e)
+    {
+        content = nameof(OnGet);
+    }
+
+    private void OnPost(HtmxEventArgs e)
+    {
+        content = nameof(OnPost);
+    }
+
+    private void OnPut(HtmxEventArgs e)
+    {
+        content = nameof(OnPut);
+    }
+
+    private void OnPatch(HtmxEventArgs e)
+    {
+        content = nameof(OnPatch);
+    }
+
+    private void OnDelete(HtmxEventArgs e)
+    {
+        content = nameof(OnDelete);
+    }
+
+    private void OnSubmit(EventArgs e)
+    {
+        content = nameof(OnSubmit);
+    }
+
+    private void OnClick(MouseEventArgs e)
+    {
+        content = nameof(OnClick);
+    }
+}
+<div hx-target="this">
+    <button @onget=OnGet hx-get="/EventHandlers">
+        GET
+    </button>
+    <button @onget=OnGet hx-get="/EventHandlers">
+        GET
+    </button>
+    <button @onget=@(e => content = "OnGetInline") hx-get="/EventHandlers?inline#foo">
+        GET INLINE
+    </button>
+    <button @onget=@(e => content = "OnGetInline2-1") hx-get="/EventHandlers?inline#bar">
+        GET INLINE 2
+    </button>
+    <button @onget=@(e => content = "OnGetInline2-2") hx-get="/EventHandlers?inline#bar">
+        GET INLINE 2
+    </button>
+    <button @onpost=OnPost hx-post="/EventHandlers">
+        POST
+    </button>
+    <button @onput=OnPut hx-put="/EventHandlers">
+        PUT
+    </button>
+    <button @onpatch=OnPatch hx-patch="/EventHandlers">
+        PATCH
+    </button>
+    <button @ondelete=OnDelete hx-delete="/EventHandlers">
+        DELETE
+    </button>
+    <form @onsubmit=OnSubmit @formname="classic-form" method="post" action="/EventHandlers" hx-boost="true">
+        <button type="submit">SUBMIT</button>
+    </form>
+    <div id="handler">@content</div>
+</div>
