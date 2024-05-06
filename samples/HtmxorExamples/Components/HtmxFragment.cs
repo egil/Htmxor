@@ -27,5 +27,4 @@ public class HtmxFragment : ConditionalComponentBase
 	public override bool ShouldOutput([NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren)
 		=> (OnStandardRequest && context.Request.RoutingMode is RoutingMode.Standard)
 		|| (Match?.Invoke(context.Request) ?? true);
-
 }

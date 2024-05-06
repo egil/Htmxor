@@ -4,7 +4,21 @@ namespace HtmxorExamples.Data;
 
 public record class Contact
 {
-	public required Guid Id { get; set; }
+	public static Contact New() => new()
+	{
+		Id = Guid.NewGuid(),
+		FirstName = "",
+		LastName = "",
+		Email = "",
+		PhoneNumber = "",
+		Address = "",
+		City = "",
+		Zip = "",
+		Country = "",
+		Modified = DateTimeOffset.UtcNow,
+	};
+
+	public Guid Id { get; set; }
 
 	[Required, StringLength(maximumLength: 100)]
 	public required string FirstName { get; set; }
@@ -36,4 +50,6 @@ public record class Contact
 	public string? Notes { get; set; }
 
 	public bool Archived { get; set; }
+
+	public DateTimeOffset Modified { get; set; }
 }

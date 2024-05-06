@@ -27,7 +27,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlazingPizza", "samples\Bla
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MinimalHtmxorApp", "samples\MinimalHtmxorApp\MinimalHtmxorApp.csproj", "{3A90B20F-9E9B-454D-9EF9-72B10D4D1F54}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HtmxorExamples", "samples\HtmxorExamples\HtmxorExamples.csproj", "{2B36AAB9-AD16-4D46-8FB5-D78EDC003F90}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HtmxorExamples", "samples\HtmxorExamples\HtmxorExamples.csproj", "{2B36AAB9-AD16-4D46-8FB5-D78EDC003F90}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

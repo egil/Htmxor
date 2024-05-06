@@ -23,6 +23,7 @@ public static class Contacts
 			.RuleFor(c => c.Country, f => f.Address.Country())
 			.RuleFor(c => c.Notes, f => f.Lorem.Sentence())
 			.RuleFor(c => c.Archived, f => f.Random.Bool())
+			.RuleFor(c => c.Modified, f => f.Date.Past(yearsToGoBack: 1))
 			.Generate(1000);
 
 		return new(fakes.ToDictionary(c => c.Id, c => c));

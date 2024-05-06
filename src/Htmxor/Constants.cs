@@ -23,8 +23,9 @@ public static class Constants
 	/// </summary>
 	public static class Attributes
 	{
-		internal const string Id = "id";
 		internal const string Prefix = "hx-";
+
+		public const string Id = "id";
 
 		public const string HxGet = "hx-get";
 		public const string HxPost = "hx-post";

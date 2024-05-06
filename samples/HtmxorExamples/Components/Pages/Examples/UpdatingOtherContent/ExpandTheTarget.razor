@@ -1,0 +1,33 @@
+@inherits ConditionalComponentBase
+@page "/examples/updating-other-content/expand-the-target"
+<PageTitle>Htmxor - Examples - Updating Other Content - Expand the Target</PageTitle>
+
+<h1>Updating Other Content - Expand the Target</h1>
+
+<p>This is a Htmxor version of the <a href="https://htmx.org/examples/update-other-content/#expand" title="Updating Other Content article">Updating Other Content - Solution 1: Expand the Target</a> example at htmx.org.</p>
+
+<HtmxFragmentElement Id="table-and-form" class="d-flex flex-row gap-3">
+    <table class="table w-50 border">
+        <thead>
+            <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Email</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var contact in Contacts.Data.Values.OrderBy(x => x.Modified).Take(20))
+            {
+                <tr>
+                    <td>@contact.FirstName</td>
+                    <td>@contact.LastName</td>
+                    <td>@contact.Email</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="w-50 p-3 border">
+        <h5>Create new contact</h5>
+        <ContactEditForm hx-post hx-target="#table-and-form" OnContactSave="() => StateHasChanged()" />
+    </div>
+</HtmxFragmentElement>

@@ -1,7 +1,29 @@
-﻿@page "/"
+@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Htmxor - Examples</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Examples</h1>
 
-Welcome to your new app.
+<table class="table table-bordered">
+    <thead>
+        <tr><th>Pattern</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><a href="/examples/archive-toggle">Toggle content with partial update</a></td>
+            <td>Demonstrates how to create a toggle button in a table, which is updated using the template fragment / partial rendering pattern.</td>
+        </tr>
+        <tr>
+            <td><a href="/examples/updating-other-content/expand-the-target">Updating Other Content - Expand the Target</a></td>
+            <td>Demonstrates how to update content beyond just the target elements by expanding the target.</td>
+        </tr>
+        <tr>
+            <td><a href="/examples/updating-other-content/out-of-band-responses">Updating Other Content - Out of Band Responses</a></td>
+            <td>Demonstrates how to update content beyond just the target elements using out-of-band responses.</td>
+        </tr>
+        <tr>
+            <td><a href="/examples/updating-other-content/triggering-events">Updating Other Content - Triggering Events</a></td>
+            <td>Demonstrates how to update content beyond just the target elements by triggering events on the client using HX-Trigger response header.</td>
+        </tr>
+    </tbody>
+</table>

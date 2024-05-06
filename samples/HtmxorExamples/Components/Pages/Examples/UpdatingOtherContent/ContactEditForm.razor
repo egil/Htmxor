@@ -1,0 +1,106 @@
+@code {
+    private bool wasValidated;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    [SupplyParameterFromForm]
+    private Contact? Model { get; set; }
+
+    [Parameter]
+    public EventCallback<Contact> OnContactSave { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Model ??= Contact.New();
+        Model.Id = Model.Id == Guid.Empty ? Guid.NewGuid() : Model.Id;
+    }
+
+    private void HandleInvalidSubmit()
+    {
+        wasValidated = true;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        Contacts.Data[Model.Id] = Model;
+        await OnContactSave.InvokeAsync(Model);
+        Model = Contact.New();
+    }
+}
+<EditForm Model=@Model
+          OnValidSubmit=@HandleValidSubmit
+          OnInvalidSubmit=@HandleInvalidSubmit
+          FormName="new-contact"
+          class=@(wasValidated ? "was-validated" : "")
+          novalidate
+          @attributes=@AdditionalAttributes>
+    <DataAnnotationsValidator />
+
+    <div class="mb-2 form-floating">
+        <InputText id="firstName" @bind-Value="Model.FirstName" class="form-control" required />
+        <label for="firstName">First Name</label>
+        <ValidationMessage For="@(() => Model.FirstName)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 form-floating">
+        <InputText id="lastName" @bind-Value="Model.LastName" class="form-control" required />
+        <label for="lastName">Last Name</label>
+        <ValidationMessage For="@(() => Model.LastName)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 form-floating">
+        <InputText id="email" @bind-Value="Model.Email" class="form-control" required />
+        <label for="email">Email</label>
+        <ValidationMessage For="@(() => Model.Email)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 form-floating">
+        <InputText id="phoneNumber" @bind-Value="Model.PhoneNumber" class="form-control" required />
+        <label for="phoneNumber">Phone Number</label>
+        <ValidationMessage For="@(() => Model.PhoneNumber)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 form-floating">
+        <InputText id="address" @bind-Value="Model.Address" class="form-control" required />
+        <label for="address">Address</label>
+        <ValidationMessage For="@(() => Model.Address)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 form-floating">
+        <InputText id="city" @bind-Value="Model.City" class="form-control" required />
+        <label for="city">City</label>
+        <ValidationMessage For="@(() => Model.City)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 form-floating">
+        <InputText id="state" @bind-Value="Model.State" class="form-control" />
+        <label for="state">State</label>
+        <ValidationMessage For="@(() => Model.State)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 form-floating">
+        <InputText id="zip" @bind-Value="Model.Zip" class="form-control" required />
+        <label for="zip">Zip</label>
+        <ValidationMessage For="@(() => Model.Zip)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 form-floating">
+        <InputText id="country" @bind-Value="Model.Country" class="form-control" required />
+        <label for="country">Country</label>
+        <ValidationMessage For="@(() => Model.Country)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 form-floating">
+        <InputTextArea id="notes" @bind-Value="Model.Notes" class="form-control" />
+        <label for="notes">Notes</label>
+        <ValidationMessage For="@(() => Model.Notes)" class="invalid-feedback" />
+    </div>
+
+    <div class="mb-2 mt-1 form-check">
+        <InputCheckbox id="archived" @bind-Value="Model.Archived" class="form-check-input" />
+        <label class="form-label form-check-label" for="archived">Archived</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+</EditForm>

@@ -1,0 +1,39 @@
+@inherits ConditionalComponentBase
+@page "/examples/updating-other-content/triggering-events"
+@code {
+    private Contact? savedContact;
+
+}
+<PageTitle>Htmxor - Examples - Updating Other Content - Triggering Events</PageTitle>
+<h1>Updating Other Content - Triggering Events</h1>
+<p>This is a Htmxor version of the <a href="https://htmx.org/examples/update-other-content/#events" title="Updating Other Content article">Updating Other Content - Solution 3: Triggering Events</a> example at htmx.org.</p>
+
+<div class="d-flex flex-row gap-3">
+    <table class="table w-50 border">
+        <thead>
+            <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Email</th>
+            </tr>
+        </thead>
+        <HtmxFragment Match=@(req => req.Target == "contacts-table")>
+            <tbody id="contacts-table" hx-get hx-trigger="newContact from:body" hx-swap=@SwapStyles.OuterHTML>
+                @foreach (var contact in Contacts.Data.Values.OrderBy(x => x.Modified).Take(20))
+                {
+                    <tr>
+                        <td>@contact.FirstName</td>
+                        <td>@contact.LastName</td>
+                        <td>@contact.Email</td>
+                    </tr>
+                }
+            </tbody>
+        </HtmxFragment>
+    </table>
+    <div class="w-50 p-3 border">
+        <h5>Create new contact</h5>
+        <HtmxFragment Match=@(req => req.Method == HttpMethods.Post)>
+            <ContactEditForm hx-post OnContactSave=@(() => Context.Response.Trigger("newContact")) />
+        </HtmxFragment>
+    </div>
+</div>

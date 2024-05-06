@@ -1,0 +1,47 @@
+@inherits ConditionalComponentBase
+@page "/examples/updating-other-content/out-of-band-responses"
+@code {
+    private Contact? savedContact;
+
+}
+<PageTitle>Htmxor - Examples - Updating Other Content - Out of Band Responses</PageTitle>
+<h1>Updating Other Content - Out of Band Responses</h1>
+<p>This is a Htmxor version of the <a href="https://htmx.org/examples/update-other-content/#oob" title="Updating Other Content article">Updating Other Content - Solution 2: Out of Band Responses</a> example at htmx.org.</p>
+
+<div class="d-flex flex-row gap-3">
+    <table class="table w-50 border">
+        <thead>
+            <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Email</th>
+            </tr>
+        </thead>
+        <tbody id="contacts-table">
+            @foreach (var contact in Contacts.Data.Values.OrderBy(x => x.Modified).Take(20))
+            {
+                <tr>
+                    <td>@contact.FirstName</td>
+                    <td>@contact.LastName</td>
+                    <td>@contact.Email</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="w-50 p-3 border">
+        <h5>Create new contact</h5>
+        <HtmxFragment>
+            @if (savedContact is not null)
+            {
+                <tbody hx-swap-oob="afterbegin:#contacts-table">
+                    <tr>
+                        <td>@savedContact.FirstName</td>
+                        <td>@savedContact.LastName</td>
+                        <td>@savedContact.Email</td>
+                    </tr>
+                </tbody>
+            }
+            <ContactEditForm hx-post OnContactSave=@(c => savedContact = c) />
+        </HtmxFragment>
+    </div>
+</div>

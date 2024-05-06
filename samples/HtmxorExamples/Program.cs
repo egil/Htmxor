@@ -3,7 +3,11 @@ using HtmxorExamples.Components;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents().AddHtmx();
+builder.Services.AddRazorComponents().AddHtmx(options =>
+{
+	// Enabled to support out of band updates
+	options.UseTemplateFragments = true;
+});
 
 var app = builder.Build();
 
