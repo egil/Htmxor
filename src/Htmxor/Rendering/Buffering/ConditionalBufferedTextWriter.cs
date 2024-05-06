@@ -1,11 +1,11 @@
 ﻿namespace Htmxor.Rendering.Buffering;
 
 /// <summary>
-/// A text writer that will only output when its <see cref="ShouldWrite"/> returns true.
+/// A text writer that will only output when its <see cref="IsWritingEnabled"/> returns true.
 /// </summary>
 internal sealed class ConditionalBufferedTextWriter : BufferedTextWriter
 {
-	internal bool ShouldWrite { get; set; } = true;
+	internal bool IsWritingEnabled { get; set; } = true;
 
 	public ConditionalBufferedTextWriter(TextWriter underlying) : base(underlying)
 	{
@@ -13,7 +13,7 @@ internal sealed class ConditionalBufferedTextWriter : BufferedTextWriter
 
 	public override void Write(char value)
 	{
-		if (ShouldWrite)
+		if (IsWritingEnabled)
 		{
 			base.Write(value);
 		}
@@ -21,7 +21,7 @@ internal sealed class ConditionalBufferedTextWriter : BufferedTextWriter
 
 	public override void Write(char[] buffer, int index, int count)
 	{
-		if (ShouldWrite)
+		if (IsWritingEnabled)
 		{
 			base.Write(buffer, index, count);
 		}
@@ -29,7 +29,7 @@ internal sealed class ConditionalBufferedTextWriter : BufferedTextWriter
 
 	public override void Write(string? value)
 	{
-		if (ShouldWrite)
+		if (IsWritingEnabled)
 		{
 			base.Write(value);
 		}
@@ -37,7 +37,7 @@ internal sealed class ConditionalBufferedTextWriter : BufferedTextWriter
 
 	public override void Write(int value)
 	{
-		if (ShouldWrite)
+		if (IsWritingEnabled)
 		{
 			base.Write(value);
 		}

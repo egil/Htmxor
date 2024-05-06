@@ -49,13 +49,13 @@ internal partial class HtmxorRenderer
 			throw new InvalidOperationException("Expected a conditional output text writer.");
 		}
 
-		var currentShouldWrite = conditionalOutput.ShouldWrite;
-		conditionalOutput.ShouldWrite = componentState.ShouldGenerateMarkup();
+		var parentIsWritingEnabled = conditionalOutput.IsWritingEnabled;
+		conditionalOutput.IsWritingEnabled = componentState.ShouldGenerateMarkup();
 
 		var frames = GetCurrentRenderTreeFrames(componentState.ComponentId);
 		RenderFrames(componentState, output, frames, 0, frames.Count);
 
-		conditionalOutput.ShouldWrite = currentShouldWrite;
+		conditionalOutput.IsWritingEnabled = parentIsWritingEnabled;
 	}
 
 	private void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
