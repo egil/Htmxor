@@ -27,6 +27,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlazingPizza", "samples\Bla
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MinimalHtmxorApp", "samples\MinimalHtmxorApp\MinimalHtmxorApp.csproj", "{3A90B20F-9E9B-454D-9EF9-72B10D4D1F54}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HtmxorExamples", "samples\HtmxorExamples\HtmxorExamples.csproj", "{2B36AAB9-AD16-4D46-8FB5-D78EDC003F90}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -53,6 +55,10 @@ Global
 		{3A90B20F-9E9B-454D-9EF9-72B10D4D1F54}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3A90B20F-9E9B-454D-9EF9-72B10D4D1F54}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3A90B20F-9E9B-454D-9EF9-72B10D4D1F54}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2B36AAB9-AD16-4D46-8FB5-D78EDC003F90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2B36AAB9-AD16-4D46-8FB5-D78EDC003F90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2B36AAB9-AD16-4D46-8FB5-D78EDC003F90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2B36AAB9-AD16-4D46-8FB5-D78EDC003F90}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -63,6 +69,7 @@ Global
 		{0347D883-0078-4F68-BA24-DA7E3004D31D} = {BB63193F-EEC0-4EE6-B89E-9B4E1983E2FF}
 		{59324821-EF01-40F6-9674-81094C4229A7} = {8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}
 		{3A90B20F-9E9B-454D-9EF9-72B10D4D1F54} = {8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}
+		{2B36AAB9-AD16-4D46-8FB5-D78EDC003F90} = {8D4A2D7D-532C-4B68-B5D0-17873D49FB0D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {430F7B4E-864E-44B7-84A0-A903E7386E3B}

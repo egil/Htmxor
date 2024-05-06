@@ -1,0 +1,59 @@
+@inherits ConditionalComponentBase
+@page "/examples/archive-toggle"
+@attribute [HtmxRoute("/examples/archive-toggle/{id:guid}", Methods = [HttpMethods.Patch])]
+@code {
+    private IEnumerable<Contact> data = Enumerable.Empty<Contact>();
+
+    [Parameter]
+    public Guid Id { get; set; } = Guid.Empty;
+
+    protected override void OnInitialized()
+    {
+        data = Id == Guid.Empty
+            ? Contacts.Data.Values.Take(30)
+            : Contacts.Data.Values.Where(c => c.Id == Id);
+    }
+
+    private void ToggleArchive()
+    {
+        Contacts.Data[Id].Archived = !Contacts.Data[Id].Archived;
+    }
+}
+<h1>Edit Row</h1>
+<p>This is a Htmxor version of the <a href="https://htmx.org/essays/template-fragments/" title="Template Fragments article">contact archive toggle</a> example in the Template Fragments article.</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Email</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var contact in data)
+        {
+            <tr>
+                <td>@contact.FirstName</td>
+                <td>@contact.LastName</td>
+                <td>@contact.Email</td>
+                <td>
+                    <HtmxFragment>
+                        <button hx-patch="/examples/archive-toggle/@contact.Id"
+                                hx-swap="@SwapStyles.OuterHTML"
+                                @onpatch="ToggleArchive">
+                            @if (contact.Archived)
+                            {
+                                <text>Unarchive</text>
+                            }
+                            else
+                            {
+                                <text>Archive</text>
+                            }
+                        </button>
+                    </HtmxFragment>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
