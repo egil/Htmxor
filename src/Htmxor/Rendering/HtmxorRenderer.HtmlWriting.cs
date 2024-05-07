@@ -60,8 +60,8 @@ internal partial class HtmxorRenderer
 
 	private void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
 	{
-		var copmonentState = (HtmxorComponentState)GetComponentState(componentFrame.Component);
-		WriteComponent(copmonentState, output);
+		var componentState = (HtmxorComponentState)GetComponentState(componentFrame.Component);
+		WriteComponent(componentState, output);
 	}
 
 	private int RenderFrames(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
