@@ -109,6 +109,8 @@ internal partial class HtmxorComponentEndpointInvoker : IHtmxorComponentEndpoint
 				{
 					return;
 				}
+
+				await quiesceTask;
 			}
 			catch (HtmxorNavigationException navigationException)
 			{
