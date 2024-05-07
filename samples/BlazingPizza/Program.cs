@@ -52,6 +52,7 @@ using (var scope = scopeFactory.CreateScope())
 	var db = scope.ServiceProvider.GetRequiredService<PizzaStoreContext>();
 	if (db.Database.EnsureCreated())
 	{
+		await db.Database.MigrateAsync();
 		SeedData.Initialize(db);
 	}
 }

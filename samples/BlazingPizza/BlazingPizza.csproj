@@ -18,8 +18,4 @@
 		<ProjectReference Include="..\..\src\Htmxor\Htmxor.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<None Update="Data\pizza.db" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
-	</ItemGroup>
-
 </Project>

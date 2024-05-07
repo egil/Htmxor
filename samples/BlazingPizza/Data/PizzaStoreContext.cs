@@ -1,4 +1,4 @@
-﻿using BlazingPizza.Data;
+using BlazingPizza.Data;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
