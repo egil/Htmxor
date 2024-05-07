@@ -1,0 +1,5 @@
+@attribute [HtmxRoute("/examples/updating-other-content/contacts", Methods = [HttpMethods.Post])]
+@inject HtmxContext Context
+<ContactEditForm
+    hx-post="/examples/updating-other-content/contacts"
+    OnContactSave=@(() => Context.Response.Trigger("newContact")) />

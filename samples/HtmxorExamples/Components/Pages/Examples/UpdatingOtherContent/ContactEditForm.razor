@@ -5,7 +5,7 @@
     public IDictionary<string, object>? AdditionalAttributes { get; set; }
 
     [SupplyParameterFromForm]
-    private Contact? Model { get; set; }
+    private Contact Model { get; set; } = default!;
 
     [Parameter]
     public EventCallback<Contact> OnContactSave { get; set; }

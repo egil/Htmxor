@@ -1,6 +1,6 @@
 @inherits ConditionalComponentBase
-@page "/examples/updating-other-content/triggering-events"
-<PageTitle>Htmxor - Examples - Updating Other Content - Triggering Events</PageTitle>
+@page "/examples/updating-other-content/triggering-events-indirectly"
+<PageTitle>Htmxor - Examples - Updating Other Content - Triggering Events Indirectly</PageTitle>
 <h1>Updating Other Content - Triggering Events</h1>
 <p>This is a Htmxor version of the <a href="https://htmx.org/examples/update-other-content/#events" title="Updating Other Content article">Updating Other Content - Solution 3: Triggering Events</a> example at htmx.org.</p>
 
@@ -28,8 +28,6 @@
     </table>
     <div class="w-50 p-3 border">
         <h5>Create new contact</h5>
-        <HtmxFragment Match=@(req => req.Method == HttpMethods.Post)>
-            <ContactEditForm hx-post OnContactSave=@(() => Context.Response.Trigger("newContact")) />
-        </HtmxFragment>
+        <ContactEditFormPage />
     </div>
 </div>
