@@ -2,6 +2,7 @@
 @attribute [HtmxLayout(typeof(OutOfBandHtmxLayout), Priority = 1)]
 @layout OutOfBandMainLayout
 @page "/examples/out-of-band-outlets"
+@inject ToastService toasts
 @code {
     [SupplyParameterFromForm]
     private int CurrentCount { get; set; } = 0;
@@ -9,6 +10,7 @@
     private void IncrementCount(HtmxEventArgs args)
     {
         CurrentCount++;
+        toasts.AddToast($"Counter is now {CurrentCount}");
     }
 }
 <PageTitle>Htmxor - Examples - Out of Band Outlets</PageTitle>
@@ -16,9 +18,9 @@
 <p>This is an example of a counter updating and a element in the header also updating out of bounds.</p>
 
 <div id="counter" class="border p-3 d-inline-block text-center">
-    <HtmxPartial>
-        <SectionContent SectionName="toast">
-            <span id="toasts" hx-swap-oob=@SwapStyles.OuterHTML class="text-warning">
+    <HtmxFragment>
+        <SectionContent SectionName="message">
+            <span id="message" hx-swap-oob=@SwapStyles.OuterHTML class="text-warning">
                 The count is @(CurrentCount % 2 == 0 ? "even" : "odd")!
             </span>
         </SectionContent>
@@ -33,5 +35,5 @@
                 @onput="IncrementCount">
             Click me
         </button>
-    </HtmxPartial>
+    </HtmxFragment>
 </div>

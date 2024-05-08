@@ -1,0 +1,39 @@
+@inherits ConditionalComponentBase
+@inject ToastService ToastService
+@code {
+    protected override void OnInitialized() => ToastService.OnMessagesChanged = StateHasChanged;
+}
+<div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3">
+    <HtmxFragment>
+        @if (ToastService.Messages.Count > 0)
+        {
+            <div hx-swap-oob="@SwapStyles.AfterBegin:#toast-container">
+                @foreach (var msg in ToastService.Messages)
+                {
+                    <div class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                @msg
+                            </div>
+                            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </HtmxFragment>
+</div>
+<script>
+    document.body.addEventListener('htmx:oobAfterSwap', function (evt) {
+        const toasts = evt.detail.target.querySelectorAll(".toast");
+        for (let i = 0; i < toasts.length; i++) {
+            const toastBootstrap = bootstrap.Toast.getOrCreateInstance(toasts[i])
+            if (!toastBootstrap.isShown()) {
+                toastBootstrap.show();
+                toasts[i].addEventListener('hidden.bs.toast', () => {
+                    toasts[i].remove();
+                });
+            }
+        }
+    });
+</script>

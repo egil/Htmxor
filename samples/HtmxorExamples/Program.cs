@@ -1,8 +1,10 @@
 using HtmxorExamples.Components;
+using HtmxorExamples.Components.Pages.Examples.OutOfBandOutlets;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddScoped<ToastService>();
 builder.Services.AddRazorComponents().AddHtmx(options =>
 {
 	// Enabled to support out of band updates
