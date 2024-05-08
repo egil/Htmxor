@@ -93,7 +93,7 @@ public class HtmxorComponentResult : IResult, IStatusCodeHttpResult, IContentTyp
 	/// Processes this result in the given <paramref name="httpContext" />.
 	/// </summary>
 	/// <param name="httpContext">An <see cref="HttpContext" /> associated with the current request.</param >
-	/// <returns >A <see cref="T:System.Threading.Tasks.Task" /> which will complete when execution is completed.</returns >
+	/// <returns >A System.Threading.Tasks.Task which will complete when execution is completed.</returns >
 	public Task ExecuteAsync(HttpContext httpContext)
 		=> HtmxorComponentResultExecutor.ExecuteAsync(httpContext, this);
 }

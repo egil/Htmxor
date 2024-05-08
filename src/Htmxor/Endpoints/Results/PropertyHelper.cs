@@ -128,7 +128,7 @@ internal sealed class PropertyHelper
 	/// on the specified type.
 	/// </para>
 	/// <para>
-	/// <see cref="M:GetVisibleProperties"/> excludes properties defined on base types that have been
+	/// GetVisibleProperties excludes properties defined on base types that have been
 	/// hidden by definitions using the <c>new</c> keyword.
 	/// </para>
 	/// </summary>
@@ -401,7 +401,7 @@ internal sealed class PropertyHelper
 	/// on the specified type.
 	/// </para>
 	/// <para>
-	/// <see cref="M:GetVisibleProperties"/> excludes properties defined on base types that have been
+	/// GetVisibleProperties excludes properties defined on base types that have been
 	/// hidden by definitions using the <c>new</c> keyword.
 	/// </para>
 	/// </summary>
