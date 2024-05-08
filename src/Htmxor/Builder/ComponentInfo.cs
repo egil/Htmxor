@@ -24,7 +24,15 @@ internal sealed record class ComponentInfo
 		ComponentType = componentType;
 		RenderMode = renderMode;
 
-		ComponentLayoutType = componentType.GetCustomAttribute<HtmxLayoutAttribute>(true)?.LayoutType;
+		// Since GetCustomAttributes does not guarantee the order of attributes
+		// returned, having a priority allows users to define a default HtmxLayout
+		// e.g. in their _Imports.razor, and then override that on a component base,
+		// just as they can with the @layout directive in razor files.
+		ComponentLayoutType = componentType
+			.GetCustomAttributes<HtmxLayoutAttribute>(true)
+			.OrderBy(x => x.Priority)
+			.LastOrDefault()
+			?.LayoutType;
 
 		var hxRoutes = componentType
 			.GetCustomAttributes<HtmxRouteAttribute>(true)

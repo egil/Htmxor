@@ -5,7 +5,7 @@ namespace Htmxor;
 /// <summary>
 /// Indicates that the associated component type uses a specified layout during Htmx requests.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
 public sealed class HtmxLayoutAttribute : Attribute
 {
 	/// <summary>
@@ -35,4 +35,16 @@ public sealed class HtmxLayoutAttribute : Attribute
 	/// and must accept a parameter with the name 'Body'.
 	/// </summary>
 	public Type LayoutType { get; private set; }
+
+	/// <summary>
+	/// The priority of the layout. Layouts with higher priority
+	/// will be used over layouts with lower priority.
+	/// </summary>
+	/// <remarks>
+	/// If multiple <see cref="HtmxLayoutAttribute"/> instances are applied to a component,
+	/// the <see cref="Priority"/> is used to determine which one to use during rendering.
+	/// This allows a default htmx layout to be defined in a base class or in <c>_Imports.razor</c>,
+	/// that can be overridden in a derived class or in a component itself.
+	/// </remarks>
+	public int Priority { get; set; }
 }
