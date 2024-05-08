@@ -1,0 +1,37 @@
+@inherits ConditionalComponentBase
+@attribute [HtmxLayout(typeof(OutOfBandHtmxLayout), Priority = 1)]
+@layout OutOfBandMainLayout
+@page "/examples/out-of-band-outlets"
+@code {
+    [SupplyParameterFromForm]
+    private int CurrentCount { get; set; } = 0;
+
+    private void IncrementCount(HtmxEventArgs args)
+    {
+        CurrentCount++;
+    }
+}
+<PageTitle>Htmxor - Examples - Out of Band Outlets</PageTitle>
+
+<p>This is an example of a counter updating and a element in the header also updating out of bounds.</p>
+
+<div id="counter" class="border p-3 d-inline-block text-center">
+    <HtmxPartial>
+        <SectionContent SectionName="toast">
+            <span id="toasts" hx-swap-oob=@SwapStyles.OuterHTML class="text-warning">
+                The count is @(CurrentCount % 2 == 0 ? "even" : "odd")!
+            </span>
+        </SectionContent>
+
+        <p role="status">
+            Current count: @CurrentCount
+        </p>
+        <button class="btn btn-primary"
+                hx-put="/examples/out-of-band-outlets"
+                hx-vals='{ "CurrentCount": @(CurrentCount) }'
+                hx-target="#counter"
+                @onput="IncrementCount">
+            Click me
+        </button>
+    </HtmxPartial>
+</div>
