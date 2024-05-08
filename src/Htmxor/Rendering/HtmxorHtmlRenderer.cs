@@ -29,9 +29,9 @@ public sealed class HtmxorHtmlRenderer : IDisposable, IAsyncDisposable
 		=> renderer.DisposeAsync();
 
 	/// <summary>
-	/// Gets the <see cref="Components.Dispatcher" /> associated with this instance. Any calls to
+	/// Gets the <see cref="Dispatcher" /> associated with this instance. Any calls to
 	/// <see cref="RenderComponentAsync{TComponent}()"/> or <see cref="BeginRenderingComponent{TComponent}()"/>
-	/// must be performed using this <see cref="Components.Dispatcher" />.
+	/// must be performed using this <see cref="Dispatcher" />.
 	/// </summary>
 	public Dispatcher Dispatcher => renderer.Dispatcher;
 
