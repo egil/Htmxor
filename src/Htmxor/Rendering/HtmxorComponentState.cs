@@ -12,14 +12,14 @@ internal class HtmxorComponentState : ComponentState
 	private readonly HtmxContext htmxContext;
 	private int directConditionalChildrenCount;
 	private int conditionalChildrenCount;
-	private IConditionalOutputComponent? conditionalOutput;
+	private IConditionalRender? conditionalOutput;
 	private bool isDisposed;
 
 	public HtmxorComponentState(HtmxorRenderer renderer, int componentId, IComponent component, HtmxorComponentState? parentComponentState)
 		: base(renderer, componentId, component, parentComponentState)
 	{
 		htmxContext = renderer.HtmxContext!;
-		if (component is IConditionalOutputComponent conditionalOutput)
+		if (component is IConditionalRender conditionalOutput)
 		{
 			this.conditionalOutput = conditionalOutput;
 			parentComponentState?.ConditionalChildAdded(true);

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Components;
 
-public abstract class ConditionalComponentBase : ComponentBase, IConditionalOutputComponent
+public abstract class ConditionalComponentBase : ComponentBase, IConditionalRender
 {
 	/// <summary>
 	/// The <see cref="HtmxContext"/> for the current request.

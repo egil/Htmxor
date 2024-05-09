@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Components;
 
-public sealed class HtmxPartial : IComponent, IConditionalOutputComponent
+public sealed class HtmxPartial : IComponent, IConditionalRender
 {
 	private RenderHandle renderHandle;
 

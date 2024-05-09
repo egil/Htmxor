@@ -9,7 +9,7 @@ namespace Htmxor.Components;
 /// Htmx layout component that will render the <see cref="HeadOutlet"/> and the body content.
 /// Including <see cref="HeadOutlet"/> enables components like <see cref="PageTitle"/> to work during htmx requests.
 /// </summary>
-public abstract class HtmxLayoutComponentBase : LayoutComponentBase, IConditionalOutputComponent
+public abstract class HtmxLayoutComponentBase : LayoutComponentBase, IConditionalRender
 {
 	/// <inheritdoc/>
 	/// <remarks>The <see cref="HtmxLayoutComponentBase"/> defaults to returning <see langword="true"/>.</remarks>
