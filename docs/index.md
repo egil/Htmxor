@@ -75,7 +75,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
     + <body hx-boost="true">
           <Routes />
 
-    - <script src="_framework/blazor.web.js"></script>
+    -     <script src="_framework/blazor.web.js"></script>
       </body>
 
       </html>
@@ -110,6 +110,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
     + @using Htmxor
     + @using static Htmxor.Constants
 
+    + @* only if adding a custom layout for using during direct requests in step 4 above *@
     + @attribute [HtmxLayout(typeof(HtmxorLayout))]
     ```
 
@@ -172,7 +173,7 @@ This allows `MyHtmxPage` to be rendered directly, optionally including a specifi
 
 In Htmxor, conditional rendering supports the [template fragments](https://htmx.org/essays/template-fragments/) pattern.
 
-It allows a single routable component to render specific parts for particular requests or the full content for others. This way, you can keep all related fragments within a single component, avoiding the need to split them into separate, individually routable components.
+It allows a single routable component to render specific parts for particular requests or the full content for others. This way, you can keep all related fragments within a single component, avoiding splitting them into separate, individually routable components.
 
 By consolidating the HTML into one file, it becomes easier to understand feature functionality, adhering to the [Locality of Behavior](https://htmx.org/essays/locality-of-behaviour/) design principle.
 
