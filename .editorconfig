@@ -57,6 +57,9 @@ tab_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
+indent_style = space
+tab_size = 2
+end_of_line = crlf
 
 [*.{cmd,bat}]
 end_of_line = crlf
@@ -280,12 +283,12 @@ dotnet_naming_style.prefix_type_parameters_with_t_style.capitalization = pascal_
 dotnet_naming_style.prefix_type_parameters_with_t_style.required_prefix = T
 # disallowed_style - Anything that has this style applied is marked as disallowed
 dotnet_naming_style.disallowed_style.capitalization  = pascal_case
-dotnet_naming_style.disallowed_style.required_prefix = 
-dotnet_naming_style.disallowed_style.required_suffix = 
+dotnet_naming_style.disallowed_style.required_prefix =
+dotnet_naming_style.disallowed_style.required_suffix =
 # internal_error_style - This style should never occur... if it does, it indicates a bug in file or in the parser using the file
 dotnet_naming_style.internal_error_style.capitalization  = pascal_case
-dotnet_naming_style.internal_error_style.required_prefix = 
-dotnet_naming_style.internal_error_style.required_suffix = 
+dotnet_naming_style.internal_error_style.required_prefix =
+dotnet_naming_style.internal_error_style.required_suffix =
 
 ##########################################
 # .NET Design Guideline Field Naming Rules
@@ -488,7 +491,7 @@ csharp_style_pattern_local_over_anonymous_function = false # IDE0039: Use local 
 dotnet_diagnostic.MA0006.severity = suggestion # MA0006: use String.Equals
 dotnet_diagnostic.MA0007.severity = none # MA0007: Add a comma after the last value
 dotnet_diagnostic.MA0048.severity = silent # MA0048: File name must match type name
-dotnet_diagnostic.MA0016.severity = none 
+dotnet_diagnostic.MA0016.severity = none
 
 # Microsoft - Code Analysis
 # https://docs.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/
