@@ -11,17 +11,14 @@ retaining all the advantages of Blazor SSR stateless nature.
 
 **Nuget:** https://www.nuget.org/packages/Htmxor
 
+## Documentation
+
+See https://github.com/egil/Htmxor/blob/main/docs/index.md.
+
 ## Samples
 
 The following Blazor Web Apps (Htmxor) are used to test Htmxor and demo the capabilities of it.
 
 - [Blazing Pizza workshop as Htmxor App](https://github.com/egil/Htmxor/tree/main/samples/BlazingPizza)
-- [Htmxor - TestApp](https://github.com/egil/Htmxor/tree/main/test/Htmxor.TestApp)
+- [Htmxor Examples](https://github.com/egil/Htmxor/tree/main/samples/HtmxorExamples)
 - [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp)
-
-## Documentation
-
-- **[Getting Started](https://github.com/egil/Htmxor/blob/main/docs/getting-started.md)** - how to create a new Htmxor/Blazor project.
-- **[Routing in Htmxor](https://github.com/egil/Htmxor/blob/main/docs/routing.md)** - there are two types of routing in Htmxor, standard and direct.
-- **[Routing in Htmxor](https://github.com/egil/Htmxor/blob/main/docs/routing.md)** - there are two types of routing in Htmxor, standard and direct.
-
