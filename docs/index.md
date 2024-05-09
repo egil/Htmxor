@@ -124,11 +124,11 @@ In Htmxor, there are **two** types of routing:
 
 The routing mode is determined by the presence or absence of [htmx headers](https://htmx.org/reference/#request_headers):
 
-```
+```python
 if ( HX-Request is null || ( HX-Boosted is not null && HX-Target is null ) )
- RoutingMode.Standard
+    RoutingMode.Standard
 else
- RoutingMode.Direct
+    RoutingMode.Direct
 ```
 
 Here's a detailed look at each mode:
