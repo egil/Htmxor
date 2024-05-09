@@ -68,7 +68,9 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
       <!--
         Adding hx-boost="true" is optional.
-        Learn more here: https://htmx.org/  attributes/hx-boost/
+        hx-boost returns the "enhanced navigation" and "enhanced forms"
+        features that are lost by removing blazor.web.js script below.
+        Learn more here: https://htmx.org/attributes/hx-boost/
       -->
     + <body hx-boost="true">
           <Routes />
