@@ -23,7 +23,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       // Add services to the container.
       builder.Services
           .AddRazorComponents()
-    +   .AddHtmx();
+    +     .AddHtmx();
 
       var app = builder.Build();
 
