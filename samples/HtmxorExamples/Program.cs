@@ -13,10 +13,13 @@ builder.Services.AddRazorComponents().AddHtmx(options =>
 
 	// Enabled to show use of trigger specification cache
 	options.TriggerSpecsCache = new TriggerSpecificationCache (
-		new TriggerBuilder().Load(),
-		new TriggerBuilder()
-			.OnEvent("keyup").Changed().Delay(TimeSpan.FromMilliseconds(500)).Or()
-			.OnEvent("mouseenter").Once()
+		Trigger.Load(),
+		Trigger.OnEvent("keyup").Changed().Delay(TimeSpan.FromMilliseconds(500))
+			.Or()
+			.OnEvent("mouseenter").Once(),
+		Trigger.Every(TimeSpan.FromSeconds(30))
+			.Or()
+			.OnEvent("click")
 	);
 });
 
