@@ -17,101 +17,104 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
    Modify `Program.cs` to include Htmxor services and middleware:
 
-	```diff
-	  var builder = WebApplication.CreateBuilder(args);
+    ```diff
+      var builder = WebApplication.CreateBuilder(args);
 
-	  // Add services to the container.
-	  builder.Services
-	  	.AddRazorComponents()
-	+   .AddHtmx();
+      // Add services to the container.
+      builder.Services
+          .AddRazorComponents()
+    +     .AddHtmx();
 
-	  var app = builder.Build();
+      var app = builder.Build();
 
-	  // Configure the HTTP request pipeline.
-	  if (!app.Environment.IsDevelopment())
-	  {
-	  	app.UseExceptionHandler("/Error", createScopeForErrors: true);
-	  	app.UseHsts();
-	  }
+      // Configure the HTTP request pipeline.
+      if (!app.Environment.IsDevelopment())
+      {
+          app.UseExceptionHandler("/Error", createScopeForErrors: true);
+          app.UseHsts();
+      }
 
-	  app.UseHttpsRedirection();
+      app.UseHttpsRedirection();
 
-	  app.UseStaticFiles();
-	  app.UseAntiforgery();
-	+ app.UseHtmxAntiforgery();
-	  app.MapRazorComponents<App>()
-	+    .AddHtmxorComponentEndpoints(app);
+      app.UseStaticFiles();
+      app.UseAntiforgery();
+    + app.UseHtmxAntiforgery();
+      app.MapRazorComponents<App>()
+    +    .AddHtmxorComponentEndpoints(app);
 
-	  app.Run();
-	```
-	Note: You can use `AddHtmx(options => { ... })` to change [htmx's config](https://htmx.org/reference/#config) for your app.
+      app.Run();
+    ```
+    Note: You can use `AddHtmx(options => { ... })` to change [htmx's config](https://htmx.org/reference/#config) for your app.
 
 3. **Update App.razor**
 
    Modify `App.razor` to include Htmxor components:
 
-	```diff
-	  <!DOCTYPE html>
-	  <html lang="en">
+    ```diff
+      <!DOCTYPE html>
+      <html lang="en">
 
-	  <head>
-	  	<meta charset="utf-8" />
-	  	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	  	<base href="/" />
-	  	<link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
-	  	<link rel="stylesheet" href="app.css" />
-	  	<link rel="stylesheet" href="MinimalHtmxorApp.styles.css" />
-	  	<link rel="icon" type="image/png" href="favicon.png" />
-	+   <HtmxHeadOutlet />
-	  	<HeadOutlet />
-	  </head>
+      <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <base href="/" />
+          <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+          <link rel="stylesheet" href="app.css" />
+          <link rel="stylesheet" href="MinimalHtmxorApp.styles.css" />
+          <link rel="icon" type="image/png" href="favicon.png" />
+    +     <HtmxHeadOutlet />
+          <HeadOutlet />
+      </head>
 
-	  <!--
-	    Adding hx-boost="true" is optional.
-	    Learn more here: https://htmx.org/  attributes/hx-boost/
-	  -->
-	+ <body hx-boost="true">
-	  	<Routes />
+      <!--
+        Adding hx-boost="true" is optional.
+        hx-boost returns the "enhanced navigation" and "enhanced forms"
+        features that are lost by removing blazor.web.js script below.
+        Learn more here: https://htmx.org/attributes/hx-boost/
+      -->
+    + <body hx-boost="true">
+          <Routes />
 
-	- <script src="_framework/blazor.web.js"></script>
-	  </body>
+    -     <script src="_framework/blazor.web.js"></script>
+      </body>
 
-	  </html>
-	```
+      </html>
+    ```
 
 4. **Create an Optional Direct Request Layout**
 
    Optionally, create a layout that will be used during [direct routing](routing.md#direct-routing), e.g., `/Components/Layout/HtmxorLayout.razor`:
 
-	```razor
-	@inherits HtmxLayoutComponentBase
-	@Body
-	```
+    ```razor
+    @inherits HtmxLayoutComponentBase
+    @Body
+    ```
 
-	The `HtmxLayoutComponentBase` includes the `<HeadOutlet>` component. This makes it possible to use the `<PageTitle>` component during htmx requests to update the page title.
+    The `HtmxLayoutComponentBase` includes the `<HeadOutlet>` component. This makes it possible to use the `<PageTitle>` component during htmx requests to update the page title.
 
 5. **Update _Imports.razor (Optional)**
 
    Modify _Imports.razor to include Htmxor namespaces and set a default layout:
 
-	```diff
-	  @using System.Net.Http
-	  @using System.Net.Http.Json
-	  @using Microsoft.AspNetCore.Components.Forms
-	  @using Microsoft.AspNetCore.Components.Routing
-	  @using Microsoft.AspNetCore.Components.Web
-	  @using static Microsoft.AspNetCore.Components.Web.RenderMode
-	  @using Microsoft.AspNetCore.Components.Web.Virtualization
-	  @using Microsoft.JSInterop
-	+ @using Htmxor.Components
-	+ @using Htmxor.Http
-	+ @using Htmxor
-	+ @using static Htmxor.Constants
+    ```diff
+      @using System.Net.Http
+      @using System.Net.Http.Json
+      @using Microsoft.AspNetCore.Components.Forms
+      @using Microsoft.AspNetCore.Components.Routing
+      @using Microsoft.AspNetCore.Components.Web
+      @using static Microsoft.AspNetCore.Components.Web.RenderMode
+      @using Microsoft.AspNetCore.Components.Web.Virtualization
+      @using Microsoft.JSInterop
+    + @using Htmxor.Components
+    + @using Htmxor.Http
+    + @using Htmxor
+    + @using static Htmxor.Constants
 
-	+ @attribute [HtmxLayout(typeof(HtmxorLayout))]
-	```
+    + @* only if adding a custom layout for using during direct requests in step 4 above *@
+    + @attribute [HtmxLayout(typeof(HtmxorLayout))]
+    ```
 
-	Note that we set up the custom layout for all components by defining the `[HtmxLayout(typeof(HtmxorLayout))]` attribute in the `_Imports.razor` file.
+    Note that we set up the custom layout for all components by defining the `[HtmxLayout(typeof(HtmxorLayout))]` attribute in the `_Imports.razor` file.
 
 ## Routing in Htmxor
 
@@ -124,11 +127,11 @@ In Htmxor, there are **two** types of routing:
 
 The routing mode is determined by the presence or absence of [htmx headers](https://htmx.org/reference/#request_headers):
 
-```
+```python
 if ( HX-Request is null || ( HX-Boosted is not null && HX-Target is null ) )
- RoutingMode.Standard
+    RoutingMode.Standard
 else
- RoutingMode.Direct
+    RoutingMode.Direct
 ```
 
 Here's a detailed look at each mode:
@@ -170,7 +173,7 @@ This allows `MyHtmxPage` to be rendered directly, optionally including a specifi
 
 In Htmxor, conditional rendering supports the [template fragments](https://htmx.org/essays/template-fragments/) pattern.
 
-It allows a single routable component to render specific parts for particular requests or the full content for others. This way, you can keep all related fragments within a single component, avoiding the need to split them into separate, individually routable components.
+It allows a single routable component to render specific parts for particular requests or the full content for others. This way, you can keep all related fragments within a single component, avoiding splitting them into separate, individually routable components.
 
 By consolidating the HTML into one file, it becomes easier to understand feature functionality, adhering to the [Locality of Behavior](https://htmx.org/essays/locality-of-behaviour/) design principle.
 
