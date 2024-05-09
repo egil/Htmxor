@@ -5,9 +5,9 @@ namespace HtmxorExamples.Data;
 
 public static class Contacts
 {
-	public static ConcurrentDictionary<Guid, Contact> Data { get; } = GenerateContacts();
+	public static SortedDictionary<Guid, Contact> Data { get; } = GenerateContacts();
 
-	private static ConcurrentDictionary<Guid, Contact> GenerateContacts()
+	private static SortedDictionary<Guid, Contact> GenerateContacts()
 	{
 		var fakes = new Faker<Contact>()
 			.UseSeed(486967)

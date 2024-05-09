@@ -1,0 +1,51 @@
+@inherits ConditionalComponentBase
+@page "/examples/infinite-scroll"
+@code {
+    private const int PageSize = 20;
+    private IEnumerable<Contact> contacts = Enumerable.Empty<Contact>();
+
+    [SupplyParameterFromQuery(Name = "page")]
+    private int Page { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        contacts = await GetContactsAsync(Page);
+    }
+
+    private static async Task<IEnumerable<Contact>> GetContactsAsync(int pageNumber)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(2500));
+        return Contacts.Data.Values.Skip(pageNumber * PageSize).Take(PageSize);
+    }
+}
+<h1>Infinite Scroll</h1>
+<p>This is a Htmxor version of the <a href="https://htmx.org/examples/infinite-scroll/" title="Infinite Scroll example">Infinite Scroll</a> example at htmx.org.</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Email</th>
+        </tr>
+    </thead>
+    <tbody>
+        <HtmxFragment>
+            @foreach (var contact in contacts)
+            {
+                <tr>
+                    <th>@contact.Id</th>
+                    <td>@contact.FirstName</td>
+                    <td>@contact.LastName</td>
+                    <td>@contact.Email</td>
+                </tr>
+            }
+            <tr hx-get="/examples/infinite-scroll?page=@(Page + 1)" hx-trigger="revealed" hx-swap="outerHTML">
+                <td colspan="4" class="text-center htmx-indicator">
+                    Loading more data <span class="spinner-grow spinner-grow-sm" role="status"></span>
+                </td>
+            </tr>
+        </HtmxFragment>
+    </tbody>
+</table>
