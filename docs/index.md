@@ -73,7 +73,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 	+ <body hx-boost="true">
 	  	<Routes />
 
-	-   <script src="_framework/blazor.web.js"></script>
+	- <script src="_framework/blazor.web.js"></script>
 	  </body>
 
 	  </html>
