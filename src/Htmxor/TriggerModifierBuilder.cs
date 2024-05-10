@@ -47,15 +47,15 @@ public sealed class TriggerModifierBuilder : ITriggerBuilder
 		return this;
 	}
 
-	public TriggerModifierBuilder From(string selector)
+	public TriggerModifierBuilder From(string extendedCssSelector)
 	{
-		specification.From = selector;
+		specification.From = extendedCssSelector;
 		return this;
 	}
 
-	public TriggerModifierBuilder Target(string selector)
+	public TriggerModifierBuilder Target(string cssSelector)
 	{
-		specification.Target = selector;
+		specification.Target = cssSelector;
 		return this;
 	}
 

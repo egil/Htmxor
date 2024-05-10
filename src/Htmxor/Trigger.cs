@@ -20,4 +20,5 @@ public static class Trigger
 
 	public static TriggerModifierBuilder Intersect(string? root = null, float? threshold = null) => new TriggerBuilder().Intersect(root, threshold);
 	public static TriggerModifierBuilder Every(TimeSpan interval) => new TriggerBuilder().Every(interval);
+	public static TriggerBuilder Custom(string triggerDefinition) => new TriggerBuilder().Custom(triggerDefinition);
 }

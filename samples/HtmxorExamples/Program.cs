@@ -20,7 +20,7 @@ builder.Services.AddRazorComponents().AddHtmx(options =>
 			.OnEvent("mouseenter").Once(),  //  Unused, demonstrates complex trigger
 		Trigger.Every(TimeSpan.FromSeconds(30)) // Unused, demonstrates use of Every
 			.Or()
-			.OnEvent("click")
+			.OnEvent("newContact").From("closest (form input)")
 	);
 });
 

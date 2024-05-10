@@ -47,6 +47,13 @@ public sealed class TriggerBuilder : ITriggerBuilder
 		return new TriggerModifierBuilder(spec, this);
 	}
 
+	public TriggerBuilder Custom(string triggerDefinition)
+	{
+		var spec = new HtmxTriggerSpecification { Trigger = triggerDefinition };
+		triggers.Add(spec);
+		return this;
+	}
+
 	internal void AddTrigger(HtmxTriggerSpecification trigger)
 	{
 		if (!triggers.Contains(trigger))
@@ -90,10 +97,10 @@ public sealed class TriggerBuilder : ITriggerBuilder
 			parts.Add($"throttle:{FormatTimeSpan(TimeSpan.FromMilliseconds(spec.Throttle.Value))}");
 
 		if (!string.IsNullOrEmpty(spec.From))
-			parts.Add($"from:{spec.From}");
+			parts.Add($"from:{FormatExtendedCssSelector(spec.From)}");
 
 		if (!string.IsNullOrEmpty(spec.Target))
-			parts.Add($"target:{spec.Target}");
+			parts.Add($"target:{FormatCssSelector(spec.Target)}");
 
 		if (spec.Consume == true)
 			parts.Add("consume");
@@ -102,7 +109,7 @@ public sealed class TriggerBuilder : ITriggerBuilder
 			parts.Add($"queue:{spec.Queue}");
 
 		if (!string.IsNullOrEmpty(spec.Root))
-			parts.Add($"root:{spec.Root}");
+			parts.Add($"root:{FormatCssSelector(spec.Root)}");
 
 		if (!string.IsNullOrEmpty(spec.Threshold))
 			parts.Add($"threshold:{spec.Threshold}");
@@ -117,5 +124,41 @@ public sealed class TriggerBuilder : ITriggerBuilder
 			return $"{timing.TotalMilliseconds}ms";
 		}
 		return $"{timing.TotalSeconds}s";
+	}
+
+	private static string FormatExtendedCssSelector(string cssSelector)
+	{
+		string[] keywords = ["closest", "find", "next", "previous"];
+		cssSelector = cssSelector.TrimStart();
+
+		foreach (var keyword in keywords)
+		{
+			if (cssSelector.StartsWith(keyword + " ", StringComparison.InvariantCulture))
+			{
+				var selector = cssSelector.Substring(keyword.Length + 1);
+
+				return keyword + " " + FormatCssSelector(selector);
+			}
+		}
+
+		return FormatCssSelector(cssSelector);
+	}
+
+	private static string FormatCssSelector(string cssSelector)
+	{
+		cssSelector = cssSelector.Trim();
+
+		if ((cssSelector.StartsWith('{') && cssSelector.EndsWith('}')) ||
+		    (cssSelector.StartsWith('(') && cssSelector.EndsWith(')')))
+		{
+			return cssSelector;
+			
+		}
+		else if (cssSelector.Any(char.IsWhiteSpace))
+		{
+			return "{" + cssSelector + "}";
+		}
+
+		return cssSelector;
 	}
 }
