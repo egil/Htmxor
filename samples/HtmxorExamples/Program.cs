@@ -13,11 +13,12 @@ builder.Services.AddRazorComponents().AddHtmx(options =>
 
 	// Enabled to show use of trigger specification cache
 	options.TriggerSpecsCache = new TriggerSpecificationCache (
-		Trigger.Load(),
+		Trigger.Revealed(), // Used in InfiniteScroll demo
+		Trigger.OnEvent("newContact").WithCondition("from:body"), // Used in TriggeringEvents demo
 		Trigger.OnEvent("keyup").Changed().Delay(TimeSpan.FromMilliseconds(500))
 			.Or()
-			.OnEvent("mouseenter").Once(),
-		Trigger.Every(TimeSpan.FromSeconds(30))
+			.OnEvent("mouseenter").Once(),  //  Unused, demonstrates complex trigger
+		Trigger.Every(TimeSpan.FromSeconds(30)) // Unused, demonstrates use of Every
 			.Or()
 			.OnEvent("click")
 	);

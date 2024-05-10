@@ -41,7 +41,7 @@
                     <td>@contact.Email</td>
                 </tr>
             }
-            <tr hx-get="/examples/infinite-scroll?page=@(Page + 1)" hx-trigger="revealed" hx-swap="outerHTML">
+            <tr hx-get="/examples/infinite-scroll?page=@(Page + 1)" hx-trigger=@Trigger.Revealed() hx-swap="outerHTML">
                 <td colspan="4" class="text-center htmx-indicator">
                     Loading more data <span class="spinner-grow spinner-grow-sm" role="status"></span>
                 </td>
