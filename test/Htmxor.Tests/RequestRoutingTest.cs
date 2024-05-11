@@ -1,4 +1,6 @@
-﻿namespace Htmxor;
+﻿using Htmxor.TestAssets.Alba;
+
+namespace Htmxor;
 
 public class RequestRoutingTest : TestAppTestBase
 {

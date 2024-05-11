@@ -1,4 +1,4 @@
-using Htmxor.Blazewright;
+using Htmxor.TestAssets.Blazewright;
 using Microsoft.Playwright;
 using Xunit.Abstractions;
 

@@ -1,6 +1,6 @@
-﻿using Htmxor.Blazewright;
-using Htmxor.TestApp;
+﻿using Htmxor.TestApp;
 using Htmxor.TestApp.Components.Pages.Examples;
+using Htmxor.TestAssets.Blazewright;
 using Microsoft.Playwright;
 using Xunit.Abstractions;
 

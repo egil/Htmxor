@@ -1,11 +1,11 @@
-﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Htmxor.Blazewright;
+namespace Htmxor.TestAssets.Blazewright;
 
 public class BlazorApplicationFactory<TProgram>
 	: WebApplicationFactory<TProgram> where TProgram : class

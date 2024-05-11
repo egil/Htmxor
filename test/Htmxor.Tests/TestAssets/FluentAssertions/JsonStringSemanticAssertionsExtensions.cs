@@ -3,7 +3,7 @@ using System.Text.Json.JsonDiffPatch.Xunit;
 using System.Text.Json.Nodes;
 using FluentAssertions.Primitives;
 
-namespace FluentAssertions;
+namespace Htmxor.TestAssets.FluentAssertions;
 
 internal static class JsonStringSemanticAssertionsExtensions
 {
