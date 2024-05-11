@@ -19,7 +19,7 @@ internal sealed class HtmxorAntiforgeryMiddleware(IAntiforgery antiforgery, Htmx
 	{
 		if (htmxConfig.Antiforgery is not null)
 		{
-			var tokens = antiforgery.GetAndStoreTokens(context);
+			var tokens = antiforgery.GetTokens(context);
 			context.Response.Cookies.Append(htmxConfig.Antiforgery.CookieName, tokens.RequestToken!, CookieOptions);
 			await next.Invoke(context);
 		}

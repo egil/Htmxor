@@ -242,7 +242,7 @@ internal partial class HtmxorRenderer
 	/// <param name="assignedEventName">The name assigned to the named event.</param>
 	/// <param name="scopeQualifiedEventName">The scope-qualified event name.</param>
 	/// <returns>A flag to indicate whether a value could be produced.</returns>
-	protected bool TryCreateScopeQualifiedEventName(int componentId, string assignedEventName, [NotNullWhen(true)] out string? scopeQualifiedEventName)
+	private bool TryCreateScopeQualifiedEventName(int componentId, string assignedEventName, [NotNullWhen(true)] out string? scopeQualifiedEventName)
 	{
 		if (FindFormMappingContext(componentId) is { } mappingContext)
 		{
