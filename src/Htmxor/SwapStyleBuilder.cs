@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Specialized;
 using System.Diagnostics;
 
@@ -66,20 +66,20 @@ public sealed class SwapStyleBuilder
 	/// <remarks>
 	/// Sets the swapped content scrollbar position after swapping immediately (without animation). For instance, using <see cref="ScrollDirection.Top"/>
 	/// will add the modifier <c>scroll:top</c> which sets the scrollbar position to the top of swap content after the swap.
-	/// If css <paramref name="selector"/> is present then the page is scrolled to the <paramref name="direction"/> of the content identified by the css selector.
+	/// If css <paramref name="cssSelector"/> is present then the page is scrolled to the <paramref name="direction"/> of the content identified by the css cssSelector.
 	/// </remarks>
 	/// <param name="direction">The scroll direction after the swap.</param>
-	/// <param name="selector">Optional CSS selector of the target element.</param>
+	/// <param name="cssSelector">Optional CSS cssSelector of the target element.</param>
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
-	public SwapStyleBuilder Scroll(ScrollDirection direction, string? selector = null)
+	public SwapStyleBuilder Scroll(ScrollDirection direction, string? cssSelector = null)
 	{
 		switch (direction)
 		{
 			case ScrollDirection.Top:
-				AddModifier("scroll", selector is null ? "top" : $"{selector}:top");
+				AddModifier("scroll", cssSelector is null ? "top" : $"{cssSelector}:top");
 				break;
 			case ScrollDirection.Bottom:
-				AddModifier("scroll", selector is null ? "bottom" : $"{selector}:bottom");
+				AddModifier("scroll", cssSelector is null ? "bottom" : $"{cssSelector}:bottom");
 				break;
 		}
 
@@ -91,24 +91,24 @@ public sealed class SwapStyleBuilder
 	/// </summary>
 	/// <remarks>
 	/// This method adds the modifier <c>scroll:top</c> to the swap commands, instructing the page to scroll to
-	/// the top of the content after content is swapped immediately and without animation. If css <paramref name="selector"/>
-	/// is present then the page is scrolled to the top of the content identified by the css selector.
+	/// the top of the content after content is swapped immediately and without animation. If css <paramref name="cssSelector"/>
+	/// is present then the page is scrolled to the top of the content identified by the css cssSelector.
 	/// </remarks>
-	/// <param name="selector">Optional CSS selector of the target element.</param>
+	/// <param name="cssSelector">Optional CSS cssSelector of the target element.</param>
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
-	public SwapStyleBuilder ScrollTop(string? selector = null) => Scroll(ScrollDirection.Top, selector);
+	public SwapStyleBuilder ScrollTop(string? cssSelector = null) => Scroll(ScrollDirection.Top, cssSelector);
 
 	/// <summary>
 	/// Sets the content scrollbar position to the bottom of the swapped content after a swap.
 	/// </summary>
 	/// <remarks>
 	/// This method adds the modifier <c>scroll:bottom</c> to the swap commands, instructing the page to scroll to
-	/// the bottom of the content after content is swapped immediately and without animation. If css <paramref name="selector"/>
-	/// is present then the page is scrolled to the bottom of the content identified by the css selector.
+	/// the bottom of the content after content is swapped immediately and without animation. If css <paramref name="cssSelector"/>
+	/// is present then the page is scrolled to the bottom of the content identified by the css cssSelector.
 	/// </remarks>
-	/// <param name="selector">Optional CSS selector of the target element.</param>
+	/// <param name="cssSelector">Optional CSS cssSelector of the target element.</param>
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
-	public SwapStyleBuilder ScrollBottom(string? selector = null) => Scroll(ScrollDirection.Bottom, selector);
+	public SwapStyleBuilder ScrollBottom(string? cssSelector = null) => Scroll(ScrollDirection.Bottom, cssSelector);
 
 	/// <summary>
 	/// Determines whether to ignore the document title in the swap response by appending the modifier
@@ -202,26 +202,26 @@ public sealed class SwapStyleBuilder
 	public SwapStyleBuilder PreserveFocus() => ScrollFocus(false);
 
 	/// <summary>
-	/// Specifies a CSS selector to target for the swap operation, smoothly animating the scrollbar position to either the
+	/// Specifies a CSS cssSelector to target for the swap operation, smoothly animating the scrollbar position to either the
 	/// top or the bottom of the target element after the swap.
 	/// </summary>
 	/// <remarks>
-	/// Adds a show modifier with the specified CSS selector and scroll direction. For example, if <paramref name="selector"/>
+	/// Adds a show modifier with the specified CSS cssSelector and scroll direction. For example, if <paramref name="cssSelector"/>
 	/// is ".item" and <paramref name="direction"/> is <see cref="ScrollDirection.Top"/>, the modifier <c>show:.item:top</c>
 	/// is added.
 	/// </remarks>
 	/// <param name="direction">The scroll direction after swap.</param>
-	/// <param name="selector">Optional CSS selector of the target element.</param>
+	/// <param name="cssSelector">Optional CSS cssSelector of the target element.</param>
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
-	public SwapStyleBuilder ShowOn(ScrollDirection direction, string? selector = null)
+	public SwapStyleBuilder ShowOn(ScrollDirection direction, string? cssSelector = null)
 	{
 		switch (direction)
 		{
 			case ScrollDirection.Top:
-				AddModifier("show", selector is null ? "top" : $"{selector}:top");
+				AddModifier("show", cssSelector is null ? "top" : $"{cssSelector}:top");
 				break;
 			case ScrollDirection.Bottom:
-				AddModifier("show", selector is null ? "bottom" : $"{selector}:bottom");
+				AddModifier("show", cssSelector is null ? "bottom" : $"{cssSelector}:bottom");
 				break;
 		}
 
@@ -229,26 +229,26 @@ public sealed class SwapStyleBuilder
 	}
 
 	/// <summary>
-	/// Specifies that the swap should show the top of the element matching the CSS selector.
+	/// Specifies that the swap should show the top of the element matching the CSS cssSelector.
 	/// </summary>
 	/// <remarks>
-	/// This method adds the modifier <c>show:<paramref name="selector"/>:top</c>, smoothly scrolling to the top of the element identified by
-	/// <paramref name="selector"/>.
+	/// This method adds the modifier <c>show:<paramref name="cssSelector"/>:top</c>, smoothly scrolling to the top of the element identified by
+	/// <paramref name="cssSelector"/>.
 	/// </remarks>
-	/// <param name="selector">Optional CSS selector of the target element.</param>
+	/// <param name="cssSelector">Optional CSS cssSelector of the target element.</param>
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
-	public SwapStyleBuilder ShowOnTop(string? selector = null) => ShowOn(ScrollDirection.Top, selector);
+	public SwapStyleBuilder ShowOnTop(string? cssSelector = null) => ShowOn(ScrollDirection.Top, cssSelector);
 
 	/// <summary>
-	/// Specifies that the swap should show the bottom of the element matching the CSS selector.
+	/// Specifies that the swap should show the bottom of the element matching the CSS cssSelector.
 	/// </summary>
 	/// <remarks>
-	/// This method adds the modifier <c>show:<paramref name="selector"/>:bottom</c>, smoothly scrolling to the bottom of the element identified by
-	/// <paramref name="selector"/>.
+	/// This method adds the modifier <c>show:<paramref name="cssSelector"/>:bottom</c>, smoothly scrolling to the bottom of the element identified by
+	/// <paramref name="cssSelector"/>.
 	/// </remarks>
-	/// <param name="selector">Optional CSS selector of the target element.</param>
+	/// <param name="cssSelector">Optional CSS cssSelector of the target element.</param>
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
-	public SwapStyleBuilder ShowOnBottom(string? selector = null) => ShowOn(ScrollDirection.Bottom, selector);
+	public SwapStyleBuilder ShowOnBottom(string? cssSelector = null) => ShowOn(ScrollDirection.Bottom, cssSelector);
 
 	/// <summary>
 	/// Specifies that the swap should show in the window by smoothly scrolling to either the top or bottom of the window.
