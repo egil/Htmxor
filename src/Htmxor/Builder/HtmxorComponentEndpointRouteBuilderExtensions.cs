@@ -15,7 +15,6 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(endpoints);
-
 		var componentTypes = builder.GetDiscoveredComponents();
 		endpoints.DataSources.Add(new ComponentEndpointDataSource(componentTypes));
 

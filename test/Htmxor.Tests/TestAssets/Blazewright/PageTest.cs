@@ -1,6 +1,6 @@
 ﻿using Microsoft.Playwright;
 
-namespace Htmxor.Blazewright;
+namespace Htmxor.TestAssets.Blazewright;
 
 [Collection("PlaywrightTests")]
 public class PageTest : IAsyncLifetime

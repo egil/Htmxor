@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using Htmxor.TestApp;
 using Htmxor.TestApp.Components.Pages.Examples.BulkUpdate1;
+using Htmxor.TestAssets.Alba;
 
 namespace Htmxor.DemoTestCases;
 

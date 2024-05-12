@@ -1,5 +1,6 @@
 ﻿using Bunit;
 using Htmxor.Components;
+using Htmxor.TestAssets.FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Configuration;

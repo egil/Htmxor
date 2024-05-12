@@ -2,13 +2,13 @@
 using Microsoft.Playwright;
 using Microsoft.Playwright.TestAdapter;
 
-namespace Htmxor.Blazewright;
+namespace Htmxor.TestAssets.Blazewright;
 
 public class PlaywrightFixture : IAsyncLifetime
 {
 	private readonly List<IBrowserContext> contexts = [];
 
-	private readonly BlazorApplicationFactory<global::Program> host;
+	private readonly BlazorApplicationFactory<Program> host;
 
 	public string ServerAddress { get; private set; } = null!;
 
@@ -24,7 +24,7 @@ public class PlaywrightFixture : IAsyncLifetime
 
 	public PlaywrightFixture()
 	{
-		host = new BlazorApplicationFactory<global::Program>();
+		host = new BlazorApplicationFactory<Program>();
 	}
 
 	public async Task InitializeAsync()

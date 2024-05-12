@@ -1,4 +1,5 @@
 ﻿using Bunit;
+using Htmxor.TestAssets.FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
-namespace Htmxor.TestAssets;
+namespace Htmxor.TestAssets.Alba;
 
 public static class AblaAssertionExtensions
 {

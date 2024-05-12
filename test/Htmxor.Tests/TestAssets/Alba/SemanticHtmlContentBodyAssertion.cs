@@ -7,7 +7,7 @@ using Bunit.Diffing;
 using Bunit.Rendering;
 using Microsoft.AspNetCore.Http;
 
-namespace Htmxor.TestAssets;
+namespace Htmxor.TestAssets.Alba;
 
 public sealed class SemanticHtmlContentBodyAssertion : IScenarioAssertion
 {
