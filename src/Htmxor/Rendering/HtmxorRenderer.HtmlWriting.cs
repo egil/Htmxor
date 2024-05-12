@@ -438,18 +438,14 @@ internal partial class HtmxorRenderer
 
 		void EmitHtmxorEventHandlerId(TextWriter output)
 		{
-			// TODO: handle hx-header already existing.
-			// hx-headers='{"myHeader": "My Value"}'
 			if (hasHxAction && hxEventHandlerId > 0)
 			{
 				output.Write(' ');
-				output.Write(Constants.Attributes.HxHeaders);
+				output.Write(Constants.Attributes.HxorEventId);
 				output.Write('=');
-				output.Write("'{\"");
-				output.Write(HtmxRequestHeaderNames.EventHandlerId);
-				output.Write("\":\"");
+				output.Write('\"');
 				output.Write(htmxorEventsByEventHandlerId[hxEventHandlerId].HtmxorEventId);
-				output.Write("\"}'");
+				output.Write('\"');
 			}
 		}
 	}

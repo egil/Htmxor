@@ -1,4 +1,4 @@
-﻿namespace Htmxor.Http;
+namespace Htmxor.Http;
 
 /// <summary>
 /// The HTMX request header names.
@@ -49,5 +49,5 @@ public static class HtmxRequestHeaderNames
 	/// <summary>
 	/// The `id` of the event handler to trigger on request.
 	/// </summary>
-	internal const string EventHandlerId = "Htmxor-Event-Handler-Id";
+	internal const string EventHandlerId = "HXOR-Event-Handler-Id";
 }

@@ -7,8 +7,6 @@ Blazor Static SSR comes with basic interactivity via enhanced navigation and enh
 Adding Htmx (htmx.org) to the mix gives you access to another level of interactivity while still
 retaining all the advantages of Blazor SSR stateless nature.
 
-**NOTE:** _This package is highly experimental!_
-
 **Nuget:** https://www.nuget.org/packages/Htmxor
 
 ## Documentation
