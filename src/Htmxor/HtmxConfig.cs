@@ -91,7 +91,7 @@ public partial record class HtmxConfig
 
 	/// <summary>
 	/// Defaults to <see langword="true" /> if this property is null. 
-	/// Can be used to disable htmx’s use of eval for certain features (e.g. trigger filters).
+	/// Can be used to disable htmxâ€™s use of eval for certain features (e.g. trigger filters).
 	/// </summary>
 	[JsonPropertyName("allowEval")]
 	public bool? AllowEval { get; set; }

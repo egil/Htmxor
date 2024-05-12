@@ -36,6 +36,8 @@ public static class Constants
 		public const string HxTarget = "hx-target";
 		public const string HxSwap = "hx-swap";
 		public const string HxHeaders = "hx-headers";
+
+		internal const string HxorEventId = "hxor-eventid";
 	}
 
 	/// <summary>
