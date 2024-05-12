@@ -67,7 +67,7 @@ public sealed class TriggerBuilder : ITriggerBuilder
 	/// </example>
 	public TriggerModifierBuilder Sse(string sseEventName)
 	{
-		var spec = new HtmxTriggerSpecification { Trigger = "sse", SseEvent = sseEventName};
+		var spec = new HtmxTriggerSpecification { Trigger = Constants.Triggers.Sse, SseEvent = sseEventName};
 		return new TriggerModifierBuilder(spec, this);
 	}
 
@@ -86,7 +86,7 @@ public sealed class TriggerBuilder : ITriggerBuilder
 	/// </example>
 	public TriggerModifierBuilder Load()
 	{
-		var spec = new HtmxTriggerSpecification { Trigger = "load" };
+		var spec = new HtmxTriggerSpecification { Trigger = Constants.Triggers.Load };
 		return new TriggerModifierBuilder(spec, this);
 	}
 
@@ -105,7 +105,7 @@ public sealed class TriggerBuilder : ITriggerBuilder
 	/// </example>
 	public TriggerModifierBuilder Revealed()
 	{
-		var spec = new HtmxTriggerSpecification { Trigger = "revealed" };
+		var spec = new HtmxTriggerSpecification { Trigger = Constants.Triggers.Revealed };
 		return new TriggerModifierBuilder(spec, this);
 	}
 
@@ -130,7 +130,7 @@ public sealed class TriggerBuilder : ITriggerBuilder
 			? Convert.ToString(threshold, System.Globalization.CultureInfo.InvariantCulture)
 			: null;
 
-		var spec = new HtmxTriggerSpecification { Trigger = "intersect", Root = root, Threshold = thresholdValue };
+		var spec = new HtmxTriggerSpecification { Trigger = Constants.Triggers.Intersect, Root = root, Threshold = thresholdValue };
 
 		return new TriggerModifierBuilder(spec, this);
 	}
@@ -151,7 +151,7 @@ public sealed class TriggerBuilder : ITriggerBuilder
 	/// </example>
 	public TriggerModifierBuilder Every(TimeSpan interval)
 	{
-		var spec = new HtmxTriggerSpecification { Trigger = $"every", PollInterval = (int)interval.TotalMilliseconds };
+		var spec = new HtmxTriggerSpecification { Trigger = Constants.Triggers.Every, PollInterval = (int)interval.TotalMilliseconds };
 		return new TriggerModifierBuilder(spec, this);
 	}
 
@@ -205,44 +205,44 @@ public sealed class TriggerBuilder : ITriggerBuilder
 		var parts = new List<string> { spec.Trigger };
 
 		// every 2s
-		if (spec.Trigger == "every")
+		if (spec.Trigger == Constants.Triggers.Every)
 			parts[0] += " " + FormatTimeSpan(TimeSpan.FromMilliseconds(spec.PollInterval ?? 0));
 
 		if (!string.IsNullOrEmpty(spec.EventFilter))
 			parts[0] += $"[{spec.EventFilter}]";
 
 		if (!string.IsNullOrEmpty(spec.SseEvent))
-			parts.Add($"sseEvent:{spec.SseEvent}");
+			parts.Add($"{Constants.TriggerModifiers.SseEvent}:{spec.SseEvent}");
 
 		if (spec.Once == true)
-			parts.Add("once");
+			parts.Add(Constants.TriggerModifiers.Once);
 
 		if (spec.Changed == true)
-			parts.Add("changed");
+			parts.Add(Constants.TriggerModifiers.Changed);
 
 		if (spec.Delay.HasValue)
-			parts.Add($"delay:{FormatTimeSpan(TimeSpan.FromMilliseconds(spec.Delay.Value))}");
+			parts.Add($"{Constants.TriggerModifiers.Delay}:{FormatTimeSpan(TimeSpan.FromMilliseconds(spec.Delay.Value))}");
 
 		if (spec.Throttle.HasValue)
-			parts.Add($"throttle:{FormatTimeSpan(TimeSpan.FromMilliseconds(spec.Throttle.Value))}");
+			parts.Add($"{Constants.TriggerModifiers.Throttle}:{FormatTimeSpan(TimeSpan.FromMilliseconds(spec.Throttle.Value))}");
 
 		if (!string.IsNullOrEmpty(spec.From))
-			parts.Add($"from:{FormatExtendedCssSelector(spec.From)}");
+			parts.Add($"{Constants.TriggerModifiers.From}:{FormatExtendedCssSelector(spec.From)}");
 
 		if (!string.IsNullOrEmpty(spec.Target))
-			parts.Add($"target:{FormatCssSelector(spec.Target)}");
+			parts.Add($"{Constants.TriggerModifiers.Target}:{FormatCssSelector(spec.Target)}");
 
 		if (spec.Consume == true)
-			parts.Add("consume");
+			parts.Add(Constants.TriggerModifiers.Consume);
 
 		if (!string.IsNullOrEmpty(spec.Queue))
-			parts.Add($"queue:{spec.Queue}");
+			parts.Add($"{Constants.TriggerModifiers.Queue}:{spec.Queue}");
 
 		if (!string.IsNullOrEmpty(spec.Root))
-			parts.Add($"root:{FormatCssSelector(spec.Root)}");
+			parts.Add($"{Constants.TriggerModifiers.Root}:{FormatCssSelector(spec.Root)}");
 
 		if (!string.IsNullOrEmpty(spec.Threshold))
-			parts.Add($"threshold:{spec.Threshold}");
+			parts.Add($"{Constants.TriggerModifiers.Threshold}:{spec.Threshold}");
 
 		return string.Join(" ", parts);
 	}

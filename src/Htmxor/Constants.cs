@@ -43,7 +43,29 @@ public static class Constants
 	/// </summary>
 	public static class Triggers
 	{
+		public const string Every = "every";
+		public const string Intersect = "intersect";
 		public const string Load = "load";
+		public const string Revealed = "revealed";
+		public const string Sse = "sse";
+	}
+
+	/// <summary>
+	/// Htmx trigger modifier values for <c>hx-trigger</c>.
+	/// </summary>
+	public static class TriggerModifiers
+	{
+		public const string SseEvent = "sseEvent";
+		public const string Once = "once";
+		public const string Changed = "changed";
+		public const string Delay = "delay";
+		public const string Throttle = "throttle";
+		public const string From = "from";
+		public const string Target = "target";
+		public const string Consume = "consume";
+		public const string Queue = "queue";
+		public const string Root = "root";
+		public const string Threshold = "threshold";
 	}
 
 	/// <summary>
