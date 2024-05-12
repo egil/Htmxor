@@ -1,6 +1,6 @@
-﻿namespace Htmxor;
+namespace Htmxor;
 
 public interface ITriggerBuilder
 {
-	KeyValuePair<string, List<HtmxTriggerSpecification>> Build();
+    KeyValuePair<string, List<HtmxTriggerSpecification>> Build();
 }

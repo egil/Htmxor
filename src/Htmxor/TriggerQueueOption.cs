@@ -11,23 +11,23 @@ namespace Htmxor;
 /// </summary>
 public enum TriggerQueueOption
 {
-	/// <summary>
-	/// queue the first event
-	/// </summary>
-	First,
+    /// <summary>
+    /// queue the first event
+    /// </summary>
+    First,
 
-	/// <summary>
-	/// queue the last event (default)
-	/// </summary>
-	Last,
+    /// <summary>
+    /// queue the last event (default)
+    /// </summary>
+    Last,
 
-	/// <summary>
-	/// queue all events (issue a request for each event)
-	/// </summary>
-	All,
+    /// <summary>
+    /// queue all events (issue a request for each event)
+    /// </summary>
+    All,
 
-	/// <summary>
-	/// do not queue new events
-	/// </summary>
-	None
+    /// <summary>
+    /// do not queue new events
+    /// </summary>
+    None
 }
