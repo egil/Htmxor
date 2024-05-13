@@ -47,7 +47,8 @@ public static class SwapStyleBuilderExtension
 	/// <param name="direction">The scroll direction after the swap.</param>
 	/// <param name="cssSelector">Optional css selector of the target element.</param>
 	/// <returns>A <see cref="SwapStyleBuilder"/> object instance.</returns>
-	public static SwapStyleBuilder Scroll(this SwapStyle style, ScrollDirection direction, string? cssSelector = null) => new SwapStyleBuilder(style).Scroll(direction, cssSelector);
+	public static SwapStyleBuilder Scroll(this SwapStyle style, ScrollDirection direction, string? cssSelector = null)
+		=> new SwapStyleBuilder(style).Scroll(direction, cssSelector);
 
 	/// <summary>
 	/// Sets the content scrollbar position to the top of the swapped content after a swap.

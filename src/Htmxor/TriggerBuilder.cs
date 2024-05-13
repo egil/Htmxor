@@ -1,7 +1,6 @@
-using Htmxor.Http;
+using System.Diagnostics;
 
 namespace Htmxor;
-
 
 /// <summary>
 /// Provides methods to construct and manage htmx trigger definitions for htmx requests.
@@ -27,7 +26,8 @@ namespace Htmxor;
 /// // Resulting hx-trigger: "click[ctrlKey] delay:1s throttle:2s from:document target:.child consume queue:all"
 /// </code>
 /// </example>
-public sealed class TriggerBuilder : ITriggerBuilder
+[DebuggerDisplay("{ToString(),nq}")]
+public sealed class TriggerBuilder
 {
     private readonly List<HtmxTriggerSpecification> triggers = new();
 
@@ -172,7 +172,7 @@ public sealed class TriggerBuilder : ITriggerBuilder
     public TriggerBuilder Custom(string triggerDefinition)
     {
         var spec = new HtmxTriggerSpecification { Trigger = triggerDefinition };
-        triggers.Add(spec);
+		AddTrigger(spec);
         return this;
     }
 
@@ -188,107 +188,25 @@ public sealed class TriggerBuilder : ITriggerBuilder
     /// <returns>trigger definition</returns>
     public override string ToString()
     {
-        return string.Join(", ", triggers.Select(FormatTrigger));
+        return string.Join(", ", triggers);
     }
 
     /// <summary>
     /// Builds a key value pair mapping the formatted trigger definition to the <see cref="HtmxTriggerSpecification"/>
     /// </summary>
     /// <returns></returns>
-    public KeyValuePair<string, List<HtmxTriggerSpecification>> Build()
+    public KeyValuePair<string, IReadOnlyList<HtmxTriggerSpecification>> Build()
     {
-        return new KeyValuePair<string, List<HtmxTriggerSpecification>>(this.ToString(), triggers);
+        return new KeyValuePair<string, IReadOnlyList<HtmxTriggerSpecification>>(ToString(), triggers);
     }
 
-    private string FormatTrigger(HtmxTriggerSpecification spec)
-    {
-        var parts = new List<string> { spec.Trigger };
-
-        // every 2s
-        if (spec.Trigger == Constants.Triggers.Every)
-            parts[0] += " " + FormatTimeSpan(TimeSpan.FromMilliseconds(spec.PollInterval ?? 0));
-
-        if (!string.IsNullOrEmpty(spec.EventFilter))
-            parts[0] += $"[{spec.EventFilter}]";
-
-        if (!string.IsNullOrEmpty(spec.SseEvent))
-            parts.Add($"{Constants.TriggerModifiers.SseEvent}:{spec.SseEvent}");
-
-        if (spec.Once == true)
-            parts.Add(Constants.TriggerModifiers.Once);
-
-        if (spec.Changed == true)
-            parts.Add(Constants.TriggerModifiers.Changed);
-
-        if (spec.Delay.HasValue)
-            parts.Add($"{Constants.TriggerModifiers.Delay}:{FormatTimeSpan(TimeSpan.FromMilliseconds(spec.Delay.Value))}");
-
-        if (spec.Throttle.HasValue)
-            parts.Add($"{Constants.TriggerModifiers.Throttle}:{FormatTimeSpan(TimeSpan.FromMilliseconds(spec.Throttle.Value))}");
-
-        if (!string.IsNullOrEmpty(spec.From))
-            parts.Add($"{Constants.TriggerModifiers.From}:{FormatExtendedCssSelector(spec.From)}");
-
-        if (!string.IsNullOrEmpty(spec.Target))
-            parts.Add($"{Constants.TriggerModifiers.Target}:{FormatCssSelector(spec.Target)}");
-
-        if (spec.Consume == true)
-            parts.Add(Constants.TriggerModifiers.Consume);
-
-        if (!string.IsNullOrEmpty(spec.Queue))
-            parts.Add($"{Constants.TriggerModifiers.Queue}:{spec.Queue}");
-
-        if (!string.IsNullOrEmpty(spec.Root))
-            parts.Add($"{Constants.TriggerModifiers.Root}:{FormatCssSelector(spec.Root)}");
-
-        if (!string.IsNullOrEmpty(spec.Threshold))
-            parts.Add($"{Constants.TriggerModifiers.Threshold}:{spec.Threshold}");
-
-        return string.Join(" ", parts);
-    }
-
-    private static string FormatTimeSpan(TimeSpan timing)
-    {
-        if (timing.TotalSeconds < 1)
-        {
-            return $"{timing.TotalMilliseconds}ms";
-        }
-        return $"{timing.TotalSeconds}s";
-    }
-
-    private static string FormatExtendedCssSelector(string cssSelector)
-    {
-        string[] keywords = ["closest", "find", "next", "previous"];
-        cssSelector = cssSelector.TrimStart();
-
-        foreach (var keyword in keywords)
-        {
-            if (cssSelector.StartsWith(keyword + " ", StringComparison.InvariantCulture))
-            {
-                var selector = cssSelector.Substring(keyword.Length + 1);
-
-                return keyword + " " + FormatCssSelector(selector);
-            }
-        }
-
-        return FormatCssSelector(cssSelector);
-    }
-
-    private static string FormatCssSelector(string cssSelector)
-    {
-        cssSelector = cssSelector.Trim();
-
-        if ((cssSelector.StartsWith('{') && cssSelector.EndsWith('}')) ||
-            (cssSelector.StartsWith('(') && cssSelector.EndsWith(')')))
-        {
-            return cssSelector;
-            
-        }
-        else if (cssSelector.Any(char.IsWhiteSpace))
-        {
-            return "{" + cssSelector + "}";
-        }
-
-        return cssSelector;
-    }
+	/// <summary>
+	/// Converts the builder to a key-value pair.
+	/// </summary>
+	[SuppressMessage("Usage", "CA2225:Operator overloads have named alternates", Justification = "See Build() method.")]
+	public static implicit operator KeyValuePair<string, IReadOnlyList<HtmxTriggerSpecification>>(TriggerBuilder builders)
+	{
+		ArgumentNullException.ThrowIfNull(builders);
+		return builders.Build();
+	}
 }

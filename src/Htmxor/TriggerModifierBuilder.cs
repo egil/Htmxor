@@ -1,5 +1,4 @@
-using Htmxor.Http;
-using static Htmxor.Constants;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Htmxor;
@@ -12,7 +11,8 @@ namespace Htmxor;
 /// by allowing the addition of conditions, delays, throttles, source elements, target filters, consumption flags, 
 /// and queuing options to the htmx trigger definitions.
 /// </remarks>
-public sealed class TriggerModifierBuilder : ITriggerBuilder
+[DebuggerDisplay("{ToString(),nq}")]
+public sealed class TriggerModifierBuilder
 {
     private readonly HtmxTriggerSpecification specification;
     private readonly TriggerBuilder parentBuilder;
@@ -230,8 +230,25 @@ public sealed class TriggerModifierBuilder : ITriggerBuilder
         return parentBuilder;
     }
 
-    public KeyValuePair<string, List<HtmxTriggerSpecification>> Build() => parentBuilder.Build();
+	/// <summary>
+	/// Converts the builder to a key-value pair.
+	/// </summary>
+	public KeyValuePair<string, IReadOnlyList<HtmxTriggerSpecification>> Build() => parentBuilder.Build();
 
-    public override string ToString() => parentBuilder.ToString();
+	/// <summary>
+	/// Returns a properly formatted trigger definition that can be used as an hx-trigger value
+	/// </summary>
+	/// <returns>trigger definition</returns>
+	public override string ToString() => parentBuilder.ToString();
+
+	/// <summary>
+	/// Converts the builder to a key-value pair.
+	/// </summary>
+	[SuppressMessage("Usage", "CA2225:Operator overloads have named alternates", Justification = "See Build() method.")]
+	public static implicit operator KeyValuePair<string, IReadOnlyList<HtmxTriggerSpecification>>(TriggerModifierBuilder builders)
+	{
+		ArgumentNullException.ThrowIfNull(builders);
+		return builders.Build();
+	}
 }
 

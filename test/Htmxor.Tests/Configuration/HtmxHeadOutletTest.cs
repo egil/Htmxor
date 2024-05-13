@@ -1,4 +1,4 @@
-﻿using Bunit;
+using Bunit;
 using Htmxor.Components;
 using Htmxor.TestAssets.FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +42,7 @@ public class HtmxHeadOutletTest : TestContext
 			WithCredentials = true,
 			WsBinaryType = "ws-binary-type",
 			WsReconnectDelay = "full-jitter",
+			TriggerSpecsCache = [Trigger.Revealed()],
 		};
 		Services.AddSingleton(config);
 
@@ -87,7 +88,14 @@ public class HtmxHeadOutletTest : TestContext
                 "useTemplateFragments": true,
                 "withCredentials": true,
                 "wsBinaryType": "ws-binary-type",
-                "wsReconnectDelay": "full-jitter"
+                "wsReconnectDelay": "full-jitter",
+                "triggerSpecsCache": {
+                    "revealed": [
+                        {
+                          "trigger": "revealed"
+                        }
+                    ]
+                }
             }
             """);
 	}
@@ -101,5 +109,164 @@ public class HtmxHeadOutletTest : TestContext
 		};
 
 		config.DefaultSwapStyle.Should().BeNull();
+	}
+
+	[Fact]
+	public void TriggerSpecificationCache_Revealed_ReturnsCorrectJson()
+	{
+		var config = new HtmxConfig
+		{
+			TriggerSpecsCache = [Trigger.Revealed()],
+		};
+		Services.AddSingleton(config);
+
+		var cut = RenderComponent<HtmxHeadOutlet>();
+
+		cut.Find("meta[name='htmx-config']")
+			.GetAttribute("content")
+			.Should()
+			.BeJsonSemanticallyEqualTo("""
+            {
+                "selfRequestsOnly": true,
+                "triggerSpecsCache": {
+                    "revealed": [
+                        {
+                          "trigger": "revealed"
+                        }
+                    ]
+                }
+            }
+            """);
+	}
+
+	[Fact]
+	public void TriggerSpecificationCache_OnEventWithFrom_ReturnsCorrectJson()
+	{
+		var config = new HtmxConfig
+		{
+			TriggerSpecsCache = [Trigger.OnEvent("newContact").From("body")],
+		};
+		Services.AddSingleton(config);
+
+		var cut = RenderComponent<HtmxHeadOutlet>();
+
+		cut.Find("meta[name='htmx-config']")
+			.GetAttribute("content")
+			.Should()
+			.BeJsonSemanticallyEqualTo("""
+            {
+                "selfRequestsOnly": true,
+                "triggerSpecsCache": {
+                    "newContact from:body": [
+                        {
+                            "trigger": "newContact",
+                            "from": "body"
+                        }
+                    ]
+                }
+            }
+            """);
+	}
+
+
+	[Fact]
+	public void TriggerSpecificationCache_EveryAndOnEvent_ReturnsCorrectJson()
+	{
+		var config = new HtmxConfig
+		{
+			TriggerSpecsCache = [
+				Trigger
+					.Every(TimeSpan.FromSeconds(30))
+					.Or()
+					.OnEvent("newContact")
+					.From("closest (form input)")]
+		};
+		Services.AddSingleton(config);
+
+		var cut = RenderComponent<HtmxHeadOutlet>();
+
+		cut.Find("meta[name='htmx-config']")
+			.GetAttribute("content")
+			.Should()
+			.BeJsonSemanticallyEqualTo("""
+            {
+                "selfRequestsOnly": true,
+                "triggerSpecsCache": {
+                    "every 30s, newContact from:closest (form input)": [
+                        {
+                            "trigger": "every",
+                            "pollInterval": 30000
+                        },
+                        {
+                            "trigger": "newContact",
+                            "from": "closest (form input)"
+                        }
+                    ]
+                }
+            }
+            """);
+	}
+
+	[Fact]
+	public void TriggerSpecificationCache_ComplexTriggers_ReturnsCorrectJson()
+	{
+		var config = new HtmxConfig
+		{
+			TriggerSpecsCache = [
+				Trigger.Revealed(),
+				Trigger.OnEvent("newContact").From("body"),
+				Trigger.OnEvent("keyup").Changed().Delay(TimeSpan.FromMilliseconds(500))
+					.Or()
+					.OnEvent("mouseenter").Once(),
+				Trigger.Every(TimeSpan.FromSeconds(30))
+					.Or()
+					.OnEvent("newContact").From("closest (form input)")]
+		};
+		Services.AddSingleton(config);
+
+		var cut = RenderComponent<HtmxHeadOutlet>();
+
+		cut.Find("meta[name='htmx-config']")
+			.GetAttribute("content")
+			.Should()
+			.BeJsonSemanticallyEqualTo("""
+            {
+                "selfRequestsOnly": true,
+                "triggerSpecsCache": {
+                    "revealed": [
+                        {
+                            "trigger": "revealed"
+                        }
+                    ],
+                    "newContact from:body": [
+                        {
+                            "trigger": "newContact",
+                            "from": "body"
+                        }
+                    ],
+                    "keyup changed delay:500ms, mouseenter once": [
+                        {
+                            "trigger": "keyup",
+                            "changed": true,
+                            "delay": 500
+                        },
+                        {
+                            "trigger": "mouseenter",
+                            "once": true
+                        }
+                    ],
+                    "every 30s, newContact from:closest (form input)": [
+                        {
+                            "trigger": "every",
+                            "pollInterval": 30000
+                        },
+                        {
+                            "trigger": "newContact",
+                            "from": "closest (form input)"
+                        }
+                    ]
+                }
+            }
+            """);
 	}
 }

@@ -6,7 +6,8 @@ namespace Htmxor;
 /// <summary>
 /// Htmx configuration options.
 /// </summary>
-[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "This is effectively a DTO.")]
+[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "This is a DTO.")]
+[SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a DTO.")]
 public partial record class HtmxConfig
 {
 	private SwapStyle? defaultSwapStyle;
@@ -222,7 +223,6 @@ public partial record class HtmxConfig
 	/// implement your own system using a proxy object
 	/// </summary>
 	[JsonPropertyName("triggerSpecsCache")]
-	[SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Trigger specs must be configurable with options pattern at startup")]
 	public TriggerSpecificationCache? TriggerSpecsCache { get; set; } 
 
 	[JsonInclude, JsonPropertyName("antiforgery")]

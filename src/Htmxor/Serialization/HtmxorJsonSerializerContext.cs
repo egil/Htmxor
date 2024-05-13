@@ -9,7 +9,11 @@ namespace Htmxor.Serialization;
 	DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
 	UseStringEnumConverter = true,
 	GenerationMode = JsonSourceGenerationMode.Default,
-	Converters = [typeof(TimespanMillisecondJsonConverter), typeof(JsonCamelCaseStringEnumConverter<SwapStyle>), typeof(JsonCamelCaseStringEnumConverter<ScrollBehavior>)])]
+	Converters = [
+		typeof(TimespanMillisecondJsonConverter),
+		typeof(JsonCamelCaseStringEnumConverter<SwapStyle>),
+		typeof(JsonCamelCaseStringEnumConverter<ScrollBehavior>),
+	])]
 [JsonSerializable(typeof(HtmxConfig))]
 [JsonSerializable(typeof(LocationTarget))]
 [JsonSerializable(typeof(AjaxContext))]
