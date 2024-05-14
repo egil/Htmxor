@@ -106,25 +106,8 @@ public class SwapStyle
 	}
 
 	// Override the == operator
-	public static bool operator ==(SwapStyle? left, SwapStyle? right)
-	{
-		if (ReferenceEquals(left, right))
-		{
-			return true;
-		}
-
-		if (left is null && right is null)
-		{
-			return true;
-		}
-
-		if (left is null || right is null)
-		{
-			return false;
-		}
-
-		return left.value == right.value;
-	}
+	public static bool operator ==(SwapStyle? left, SwapStyle? right) =>
+		EqualityComparer<SwapStyle>.Default.Equals(left, right);
 
 	// Override the != operator
 	public static bool operator != (SwapStyle? left, SwapStyle? right)
@@ -135,12 +118,7 @@ public class SwapStyle
 	// Override the Equals method
 	public override bool Equals(object? obj)
 	{
-		if (obj is SwapStyle other)
-		{
-			return value == other.value;
-		}
-
-		return false;
+		return obj is SwapStyle other && value == other.value;
 	}
 
 	// Override the GetHashCode method
