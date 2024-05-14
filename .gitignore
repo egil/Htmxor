@@ -484,3 +484,4 @@ $RECYCLE.BIN/
 *.swp
 /samples/BlazingPizza/Data/pizza.db-wal
 /samples/BlazingPizza/Data/pizza.db-shm
+samples/BlazingPizza/Data/pizza.db

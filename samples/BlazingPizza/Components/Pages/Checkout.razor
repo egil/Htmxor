@@ -1,4 +1,4 @@
-﻿@page "/checkout"
+@page "/checkout"
 @attribute [Authorize]
 @inject PizzaClient PizzaClient
 @inject OrdersClient OrdersClient
@@ -6,7 +6,7 @@
 
 <PageTitle>Blazing Pizza - Checkout</PageTitle>
 
-<div class="container-fluid p-3">
+<div class="container-fluid p-3" id="checkout-form">
     <EditForm Model=@Address OnValidSubmit="PlaceOrder" FormName="address-form">
         <div class="row">
             <div class="col p-3 m-3 border">
@@ -29,7 +29,7 @@
             </div>
         </div>
         <div class="text-center">
-            <button type="submit" class="btn btn-warning" hx-target="#main" hx-post="/checkout" hx-disabled-elt="this">
+            <button type="submit" class="btn btn-warning" hx-post="/checkout" hx-target="#checkout-form" hx-swap=@SwapStyles.OuterHTML hx-disabled-elt="this">
                 Place order
             </button>
         </div>

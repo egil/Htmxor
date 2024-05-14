@@ -24,71 +24,51 @@
         </div>
     }
 </div>
-<form>
-    <HtmxFragment>
-        <div id="sidebar" class="bg-dark text-white ms-auto d-flex flex-column fw-lighter">
-            @if (order.Pizzas.Any())
+<HtmxFragmentElement Id="sidebar" class="bg-dark text-white ms-auto d-flex flex-column fw-lighter" Element="form">
+    @if (order.Pizzas.Any())
+    {
+        <div class="flex-grow-1 p-3 d-flex gap-3 flex-column">
+            <h2 class="fs-5 text-uppercase text-blazing-yellow m-0">Your order</h2>
+
+            @for (var i = 0; i < order.Pizzas.Count; i++)
             {
-                <div class="flex-grow-1 p-3 d-flex gap-3 flex-column">
-                    <h2 class="fs-5 text-uppercase text-blazing-yellow m-0">Your order</h2>
+                var pizza = @order.Pizzas[i];
+                <ConfiguredPizzaItem Pizza=@pizza OnRemoved="() => RemovePizza(pizza)" />
 
-                    @for (var i = 0; i < order.Pizzas.Count; i++)
-                    {
-                        var pizza = @order.Pizzas[i];
-                        <ConfiguredPizzaItem Pizza=@pizza OnRemoved="() => RemovePizza(pizza)" />
-
-                        <input type="hidden" name="OrderForm.Pizzas[@(i)].SpecialId" value="@pizza.SpecialId" />
-                        <input type="hidden" name="OrderForm.Pizzas[@(i)].Size" value="@pizza.Size" />
-                        foreach (var topping in pizza.Toppings)
-                        {
-                            <input type="hidden" name="OrderForm.Pizzas[@(i)].Toppings" value="@topping.ToppingId" />
-                        }
-                    }
-                </div>
-
-                <div class="bg-blazing fs-5 d-flex px-3 py-3 align-items-center">
-                    Total:
-                    <span class="ps-2 fs-3 fw-bold">£@order.GetFormattedTotalPrice()</span>
-                    <a hx-push-url="/checkout" hx-post="/checkout" hx-target="#main" class="btn btn-warning ms-auto fw-bold rounded-pill" disabled=@(order.Pizzas.Count == 0)>
-                        Order &gt;
-                    </a>
-                </div>
-            }
-            else
-            {
-                <div class="d-flex justify-content-center align-items-center h-100">
-                    <span class="text-secondary fs-3">
-                        Choose a pizza<br>to get started
-                    </span>
-                </div>
+                <input type="hidden" name="OrderForm.Pizzas[@(i)].SpecialId" value="@pizza.SpecialId" />
+                <input type="hidden" name="OrderForm.Pizzas[@(i)].Size" value="@pizza.Size" />
+                foreach (var topping in pizza.Toppings)
+                {
+                    <input type="hidden" name="OrderForm.Pizzas[@(i)].Toppings" value="@topping.ToppingId" />
+                }
             }
         </div>
 
-        @if (HtmxContext.Request.IsBoosted)
-        {
-            <div id="configure-dialog"
-                 class="modal modal-blur fade"
-                 style="display: none"
-                 aria-hidden="false"
-                 tabindex="-1">
-                <div class="modal-dialog modal-dialog-centered" role="document" id="configure-pizza-modal">
-                </div>
-            </div>
-        }
-        else
-        {
-            <div id="configure-dialog"
-                 hx-swap-oob="true"
-                 class="modal modal-blur fade"
-                 style="display: none"
-                 aria-hidden="false"
-                 tabindex="-1">
-                <div class="modal-dialog modal-dialog-centered" role="document" id="configure-pizza-modal">
-                </div>
-            </div>
-        }
-    </HtmxFragment>
-</form>
+        <div class="bg-blazing fs-5 d-flex px-3 py-3 align-items-center">
+            Total:
+            <span class="ps-2 fs-3 fw-bold">£@order.GetFormattedTotalPrice()</span>
+            <a hx-push-url="/checkout" hx-post="/checkout" hx-target="#main" class="btn btn-warning ms-auto fw-bold rounded-pill" disabled=@(order.Pizzas.Count == 0)>
+                Order &gt;
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <span class="text-secondary fs-3">
+                Choose a pizza<br>to get started
+            </span>
+        </div>
+    }
+</HtmxFragmentElement>
+<div id="configure-dialog"
+     class="modal modal-blur fade"
+     style="display: none"
+     aria-hidden="false"
+     tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" role="document" id="configure-pizza-modal">
+    </div>
+</div>
 
 @code {
     private IReadOnlyList<PizzaSpecial> specials = [];
@@ -120,17 +100,17 @@
     private void AddPizza(ConfigurePizzaFormData form)
     {
         order.Pizzas.Add(new Pizza
+        {
+            Id = order.Pizzas.Count + 1,
+            Size = form.Size,
+            SpecialId = form.SpecialId,
+            Special = specials.Single(x => x.Id == form.SpecialId),
+            Toppings = form.Toppings?.Select(toppingId => new PizzaTopping
             {
-                Id = order.Pizzas.Count + 1,
-                Size = form.Size,
-                SpecialId = form.SpecialId,
-                Special = specials.Single(x => x.Id == form.SpecialId),
-                Toppings = form.Toppings?.Select(toppingId => new PizzaTopping
-                {
-                    ToppingId = toppingId,
-                    Topping = toppings.Single(x => x.Id == toppingId)
-                }).ToList() ?? [],
-            });
+                ToppingId = toppingId,
+                Topping = toppings.Single(x => x.Id == toppingId)
+            }).ToList() ?? [],
+        });
     }
 
     private void RemovePizza(Pizza pizza)
