@@ -1,4 +1,4 @@
-﻿@page "/inline-validation-1"
+@page "/inline-validation-1"
 @attribute [HtmxRoute("/inline-validation-1/email")]
 @code {
     [SupplyParameterFromForm]
@@ -13,7 +13,7 @@
 }
 <h3>Signup Form</h3>
 <EditForm Model=@Contact hx-post="/inline-validation-1">
-    <HtmxPartial>
+    <HtmxFragment>
         <div hx-target="this" hx-swap="outerHTML">
             <label>Email Address</label>
             <InputText type="email" @bind-Value="@Contact.Email" hx-post="/inline-validation-1/email" hx-indicator="#validationIndicator" @onpost="ValidateEmail" />
@@ -23,7 +23,7 @@
                 <div class='error-message'>That email is already taken. Please enter another email.</div>
             }
         </div>
-    </HtmxPartial>
+    </HtmxFragment>
     <div class="form-group">
         <label>First Name</label>
         <InputText @bind-Value="@Contact.FirstName" />

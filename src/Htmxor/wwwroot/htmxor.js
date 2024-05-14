@@ -6,7 +6,6 @@ document.addEventListener('htmx:configRequest', (evt) => {
 	const antiforgery = htmx.config.antiforgery;
 
 	if (antiforgery) {
-
 		// already specified on form, short circuit
 		if (evt.detail.parameters[antiforgery.formFieldName])
 			return;
@@ -25,5 +24,7 @@ document.addEventListener('htmx:configRequest', (evt) => {
 });
 
 document.addEventListener('htmx:configRequest', (evt) => {
-	evt.detail.headers["HXOR-Event-Handler-Id"] = evt.detail.elt.attributes['hxor-eventid'].value;
+	const eventIdAttr = evt.detail.elt.attributes['hxor-eventid'];
+	if (eventIdAttr && eventIdAttr.value)
+		evt.detail.headers["HXOR-Event-Handler-Id"] = eventIdAttr.value;
 });

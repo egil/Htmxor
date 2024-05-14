@@ -1,7 +1,6 @@
-﻿@page "/edit-row-1/edit-row"
+@page "/edit-row-1/edit-row"
 @page "/edit-row-1/edit-row/{id:guid}"
 @page "/edit-row-1/edit-row/{id:guid}/edit"
-@inject NavigationManager NavMan
 @code {
     [SupplyParameterFromForm]
     public Contact? Contact { get; set; }
@@ -9,9 +8,9 @@
     [Parameter]
     public Guid Id { get; set; }
 
-    bool RenderCondition(Guid id)
+    private bool RenderCondition(HtmxRequest request, Guid id)
     {
-        return Id == Guid.Empty || (id == Id && !NavMan.Uri.EndsWith("/edit"));
+        return Id == Guid.Empty || (id == Id && !request.Path.ToUriComponent().EndsWith("/edit"));
     }
 }
 <table class="table">
@@ -25,7 +24,7 @@
     <tbody hx-target="closest tr" hx-swap="outerHTML">
         @foreach (var contact in DataStore.OfType<Contact>())
         {
-            <HtmxPartial Condition=@RenderCondition(contact.Id)>
+            <HtmxFragment Match=@(req => RenderCondition(req, contact.Id))>
                 <tr>
                     <td>@contact.FirstName</td>
                     <td>@contact.Email</td>
@@ -36,8 +35,8 @@
                         </button>
                     </td>
                 </tr>
-            </HtmxPartial>
-            <HtmxPartial Condition=@(NavMan.Uri.EndsWith($"/{contact.Id}/edit"))>
+            </HtmxFragment>
+            <HtmxFragment Match=@(req => req.Path.ToUriComponent().EndsWith($"/{contact.Id}/edit"))>
                 <tr hx-trigger='cancel' class='editing' hx-get="/edit-row-1/edit-row/@(contact.Id)">
                     <td><input name='Contact.Name' value=@contact.FirstName></td>
                     <td><input name='Contact.Email' value=@contact.Email></td>
@@ -52,7 +51,7 @@
                         </button>
                     </td>
                 </tr>
-            </HtmxPartial>
+            </HtmxFragment>
         }
     </tbody>
 </table>

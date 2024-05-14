@@ -7,16 +7,13 @@
     [SupplyParameterFromQuery(Name = "page")]
     private int Page { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        contacts = await GetContactsAsync(Page);
+        contacts = GetContactsAsync(Page);
     }
 
-    private static async Task<IEnumerable<Contact>> GetContactsAsync(int pageNumber)
-    {
-        await Task.Delay(TimeSpan.FromMilliseconds(2500));
-        return Contacts.Data.Values.Skip(pageNumber * PageSize).Take(PageSize);
-    }
+    private static IEnumerable<Contact> GetContactsAsync(int pageNumber)
+        => Contacts.Data.Values.Skip(pageNumber * PageSize).Take(PageSize);
 }
 <h1>Infinite Scroll</h1>
 <p>This is a Htmxor version of the <a href="https://htmx.org/examples/infinite-scroll/" title="Infinite Scroll example">Infinite Scroll</a> example at htmx.org.</p>

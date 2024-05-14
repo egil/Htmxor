@@ -1,7 +1,7 @@
-﻿@inject PizzaClient PizzaClient
+@inject PizzaClient PizzaClient
 @page "/configure-pizza"
 <div class="modal-dialog modal-dialog-centered" role="document" id="configure-pizza-modal">
-    <div class="modal-content">
+    <form class="modal-content">
         <div class="modal-header bg-blazing-grey text-white flex-column align-items-start">
             <h5 class="modal-title text-uppercase">@pizza.Special?.Name</h5>
             <p class="text-blazing-yellow mb-0">@pizza.Special?.Description</p>
@@ -95,11 +95,12 @@
                     hx-post="/"
                     hx-target="#sidebar"
                     hx-swap="outerHTML"
+                    hx-include="#sidebar"
                     method="post">
                 Order &gt;
             </button>
         </div>
-    </div>
+    </form>
 </div>
 @code {
     private List<Topping> toppings = [];

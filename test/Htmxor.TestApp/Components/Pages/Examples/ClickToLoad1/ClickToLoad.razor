@@ -1,4 +1,4 @@
-﻿@page "/click-to-load-1/load"
+@page "/click-to-load-1/load"
 @inject TimeProvider timeProvider
 @code {
     private const int PageSize = 10;
@@ -30,7 +30,7 @@
         <tr><th>Name</th><th>Email</th><th>ID</th></tr>
     </thead>
     <tbody>
-        <HtmxPartial>
+        <HtmxFragment>
             @foreach (var item in items)
             {
                 <tr>
@@ -50,6 +50,6 @@
                     </center>
                 </td>
             </tr>
-        </HtmxPartial>
+        </HtmxFragment>
     </tbody>
 </table>
