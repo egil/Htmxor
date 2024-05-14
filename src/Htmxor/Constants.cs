@@ -127,10 +127,10 @@ public static class Constants
 	{
 		public const string InnerHTML = "innerHTML";
 		public const string OuterHTML = "outerHTML";
-		public const string BeforeBegin = "beforeBegin";
-		public const string AfterBegin = "afterBegin";
-		public const string BeforeEnd = "beforeEnd";
-		public const string AfterEnd = "afterEnd";
+		public const string BeforeBegin = "beforebegin";
+		public const string AfterBegin = "afterbegin";
+		public const string BeforeEnd = "beforeend";
+		public const string AfterEnd = "afterend";
 		public const string Delete = "delete";
 		public const string None = "none";
 		public const string Default = "";
