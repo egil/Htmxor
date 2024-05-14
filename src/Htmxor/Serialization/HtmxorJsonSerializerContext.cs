@@ -11,7 +11,7 @@ namespace Htmxor.Serialization;
 	GenerationMode = JsonSourceGenerationMode.Default,
 	Converters = [
 		typeof(TimespanMillisecondJsonConverter),
-		typeof(JsonCamelCaseStringEnumConverter<SwapStyle>),
+		typeof(SwapStyleEnumConverter),
 		typeof(JsonCamelCaseStringEnumConverter<ScrollBehavior>),
 	])]
 [JsonSerializable(typeof(HtmxConfig))]

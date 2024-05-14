@@ -60,7 +60,7 @@ public class HtmxHeadOutletTest : TestContext
                     "attr2"
                 ],
                 "defaultFocusScroll": true,
-                "defaultSwapStyle": "beforeBegin",
+                "defaultSwapStyle": "beforebegin",
                 "defaultSwapDelay": 60000,
                 "defaultSettleDelay": 3600000,
                 "disableSelector": "disable-selector",
