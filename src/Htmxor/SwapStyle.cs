@@ -107,7 +107,6 @@ public class SwapStyle
 			return true;
 		}
 
-		// ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
 		if (left is null && right is null)
 		{
 			return true;
@@ -117,7 +116,6 @@ public class SwapStyle
 		{
 			return false;
 		}
-		// ReSharper restore ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
 
 		return left.value == right.value;
 	}
