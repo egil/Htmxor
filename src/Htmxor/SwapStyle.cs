@@ -80,6 +80,12 @@ public class SwapStyle
 
 	public override string ToString() => Name;
 
+	/// <summary>
+	/// Returns a <see cref="SwapStyle"/> object that matches <paramref name="name"/>
+	/// </summary>
+	/// <param name="name"></param>
+	/// <returns><see cref="SwapStyle"/> object if it exists or throws exception</returns>
+	/// <exception cref="ArgumentException"></exception>
 	public static SwapStyle FromString(string name)
 	{
 		if (Lookup.TryGetValue(name, out var swapStyle))

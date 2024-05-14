@@ -20,7 +20,7 @@
 <div id="counter" class="border p-3 d-inline-block text-center">
     <HtmxFragment>
         <SectionContent SectionName="message">
-            <span id="message" hx-swap-oob=@SwapStyles.OuterHTML class="text-warning">
+            <span id="message" hx-swap-oob=@SwapStyle.OuterHTML class="text-warning">
                 The count is @(CurrentCount % 2 == 0 ? "even" : "odd")!
             </span>
         </SectionContent>
