@@ -41,7 +41,15 @@ internal class HtmxorComponentEndpointHost : IComponent
 
 	private void BuildRenderTree(RenderTreeBuilder builder)
 	{
-		var pageLayoutType = ComponentType.GetCustomAttribute<LayoutAttribute>()?.LayoutType;
+		// Since GetCustomAttributes does not guarantee the order of attributes
+		// returned, having a priority allows users to define a default HtmxLayout
+		// e.g. in their _Imports.razor, and then override that on a component base,
+		// just as they can with the @layout directive in razor files.
+		var pageLayoutType = ComponentType
+			                     .GetCustomAttributes<HtmxLayoutAttribute>(true)
+			                     .MaxBy(x => x.Priority)?.LayoutType ??
+							ComponentType
+								.GetCustomAttribute<LayoutAttribute>()?.LayoutType;
 
 		builder.OpenComponent<LayoutView>(0);
 		builder.AddComponentParameter(1, nameof(LayoutView.Layout), pageLayoutType);

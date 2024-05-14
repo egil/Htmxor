@@ -119,9 +119,8 @@ internal static partial class HtmxorComponentResultExecutor
 			{
 				try
 				{
-					var isBadRequest = false;
 					quiesceTask = htmxContext.Request.EventHandlerId is not null
-						? endpointHtmlRenderer.DispatchHtmxorEventAsync(htmxContext, out isBadRequest)
+						? endpointHtmlRenderer.DispatchHtmxorEventAsync(htmxContext, out var isBadRequest)
 						: endpointHtmlRenderer.DispatchSubmitEventAsync(result.HandlerName, out isBadRequest);
 
 					if (isBadRequest)
