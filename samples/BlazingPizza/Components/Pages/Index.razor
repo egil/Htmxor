@@ -24,9 +24,8 @@
         </div>
     }
 </div>
-
 <form>
-    <HtmxPartial>
+    <HtmxFragment>
         <div id="sidebar" class="bg-dark text-white ms-auto d-flex flex-column fw-lighter">
             @if (order.Pizzas.Any())
             {
@@ -88,7 +87,7 @@
                 </div>
             </div>
         }
-    </HtmxPartial>
+    </HtmxFragment>
 </form>
 
 @code {

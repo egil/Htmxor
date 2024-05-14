@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Components;
 
+/// <summary>
+/// Represents a component that will only render its output based on the result from its <see cref="ShouldOutput(HtmxContext, int, int)" />.
+/// </summary>
 public abstract class ConditionalComponentBase : ComponentBase, IConditionalRender
 {
 	/// <summary>
