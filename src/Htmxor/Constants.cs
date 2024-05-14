@@ -16,6 +16,56 @@ public static class Constants
 		public const string Put = "PUT";
 		public const string Delete = "DELETE";
 		public const string Patch = "PATCH";
+
+		/// <summary>
+		/// Returns a value that indicates if the HTTP request method is GET.
+		/// </summary>
+		/// <param name="method">The  HTTP request method.</param>
+		/// <returns>
+		/// <see langword="true" /> if the method is GET; otherwise, <see langword="false" />.
+		/// </returns>
+		public static bool IsGet(string method)
+		{
+			return MethodEquals(Get, method);
+		}
+
+		/// <summary>
+		/// Returns a value that indicates if the HTTP request method is PATCH.
+		/// </summary>
+		/// <param name="method">The HTTP request method.</param>
+		/// <returns>
+		/// <see langword="true" /> if the method is PATCH; otherwise, <see langword="false" />.
+		/// </returns>
+		public static bool IsPatch(string method)
+		{
+			return MethodEquals(Patch, method);
+		}
+
+		/// <summary>
+		/// Returns a value that indicates if the HTTP request method is POST.
+		/// </summary>
+		/// <param name="method">The HTTP request method.</param>
+		/// <returns>
+		/// <see langword="true" /> if the method is POST; otherwise, <see langword="false" />.
+		/// </returns>
+		public static bool IsPost(string method)
+		{
+			return MethodEquals(Post, method);
+		}
+
+		/// <summary>
+		/// Returns a value that indicates if the HTTP request method is PUT.
+		/// </summary>
+		/// <param name="method">The HTTP request method.</param>
+		/// <returns>
+		/// <see langword="true" /> if the method is PUT; otherwise, <see langword="false" />.
+		/// </returns>
+		public static bool IsPut(string method)
+		{
+			return MethodEquals(Put, method);
+		}
+
+		private static bool MethodEquals(string methodA, string methodB) => StringComparer.OrdinalIgnoreCase.Equals(methodA, methodB);
 	}
 
 	/// <summary>
