@@ -38,7 +38,7 @@ public partial record class HtmxConfig
 	public SwapStyle? DefaultSwapStyle
 	{
 		get => defaultSwapStyle;
-		set => defaultSwapStyle = value is SwapStyle.Default ? null : value;
+		set => defaultSwapStyle = value == SwapStyle.Default ? null : value;
 	}
 
 	/// <summary>

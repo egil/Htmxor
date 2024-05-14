@@ -190,14 +190,15 @@ public sealed class HtmxResponse(HttpContext context)
 	public HtmxResponse Reswap(SwapStyle swapStyle, string? modifier = null)
 	{
 		AssertIsHtmxRequest();
+		ArgumentNullException.ThrowIfNull(swapStyle);
 
-		if (swapStyle is SwapStyle.Default)
+		if (swapStyle == SwapStyle.Default)
 		{
 			Reswap(modifier!);
 			return this;
 		}
 
-		var style = swapStyle.ToHtmxString();
+		var style = swapStyle.ToString();
 		var value = !string.IsNullOrWhiteSpace(modifier)
 			? $"{style} {modifier}"
 			: style;
@@ -219,7 +220,7 @@ public sealed class HtmxResponse(HttpContext context)
 
 		var (style, modifier) = swapStyle.Build();
 
-		return style is SwapStyle.Default
+		return style == SwapStyle.Default
 			? Reswap(modifier)
 			: Reswap(style, modifier);
 	}

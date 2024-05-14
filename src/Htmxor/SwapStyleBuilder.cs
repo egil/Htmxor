@@ -17,9 +17,9 @@ public sealed class SwapStyleBuilder
 	/// Initializes a new instance of the SwapStyleBuilder with a specified swap style.
 	/// </summary>
 	/// <param name="style">The initial swap style to be applied.</param>
-	public SwapStyleBuilder(SwapStyle style = SwapStyle.Default)
+	public SwapStyleBuilder(SwapStyle? style = null)
 	{
-		this.style = style;
+		this.style = style ?? SwapStyle.Default;
 	}
 
 	/// <summary>
@@ -316,7 +316,7 @@ public sealed class SwapStyleBuilder
 	public override string ToString()
 	{
 		var (swapStyle, modifier) = Build();
-		var styleText = swapStyle.ToHtmxString();
+		var styleText = swapStyle.ToString();
 		var value = !string.IsNullOrWhiteSpace(modifier)
 			? $"{styleText} {modifier}"
 			: styleText;
