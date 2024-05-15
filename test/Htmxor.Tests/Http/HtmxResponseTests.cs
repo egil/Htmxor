@@ -152,7 +152,7 @@ public class HtmxResponseTests : TestContext
 		var response = context.GetHtmxContext().Response;
 
 		// Act
-		response.Reswap(SwapStyle.InnerHTML);
+		response.Reswap(SwapStyle.innerHTML);
 
 		// Assert
 		context.Response.Headers[HtmxResponseHeaderNames.Reswap].Should().Equal(["innerHTML"]);

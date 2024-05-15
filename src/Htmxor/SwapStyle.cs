@@ -1,4 +1,5 @@
-﻿namespace Htmxor;
+// ReSharper disable InconsistentNaming
+namespace Htmxor;
 
 /// <summary>
 /// How to swap the response into the target element.
@@ -7,48 +8,48 @@ public enum SwapStyle
 {
 	/// <summary>
 	/// Default style is what is specified in <see cref="HtmxConfig.DefaultSwapStyle"/> for the application
-	/// or htmx's default, which is <see cref="InnerHTML"/>.
+	/// or htmx's default, which is <see cref="innerHTML"/>.
 	/// </summary>
 	Default,
 
 	/// <summary>
 	/// Replace the inner html of the target element.
 	/// </summary>
-	InnerHTML,
+	innerHTML,
 
 	/// <summary>
 	/// Replace the entire target element with the response.
 	/// </summary>
-	OuterHTML,
+	outerHTML,
 
 	/// <summary>
 	/// Insert the response before the target element.
 	/// </summary>
-	BeforeBegin,
+	beforebegin,
 
 	/// <summary>
 	/// Insert the response before the first child of the target element.
 	/// </summary>
-	AfterBegin,
+	afterbegin,
 
 	/// <summary>
 	/// Insert the response after the last child of the target element.
 	/// </summary>
-	BeforeEnd,
+	beforeend,
 
 	/// <summary>
 	/// Insert the response after the target element.
 	/// </summary>
-	AfterEnd,
+	afterend,
 
 	/// <summary>
 	/// Deletes the target element regardless of the response.
 	/// </summary>
-	Delete,
+	delete,
 
 	/// <summary>
 	/// Does not append content from response (out of band items will still be processed).
 	/// </summary>
-	None,
+	none,
 }
 

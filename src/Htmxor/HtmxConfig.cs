@@ -32,7 +32,7 @@ public partial record class HtmxConfig
 	public bool? RefreshOnHistoryMiss { get; set; }
 
 	/// <summary>
-	/// Defaults to <see cref="SwapStyle.InnerHTML"/> if this property is null.
+	/// Defaults to <see cref="SwapStyle.innerHTML"/> if this property is null.
 	/// </summary>
 	[JsonPropertyName("defaultSwapStyle")]
 	public SwapStyle? DefaultSwapStyle
