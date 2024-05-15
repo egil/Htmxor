@@ -169,7 +169,7 @@ public class TriggerBuilderTests
 	{
 		var sut = new TriggerBuilder().OnEvent("click");
 
-		var (triggerString, _) = sut.Queue(TriggerQueueOption.All).Build();
+		var (triggerString, _) = sut.Queue(TriggerQueueOption.all).Build();
 
 		triggerString.Should().Be("click queue:all");
 	}
@@ -187,7 +187,7 @@ public class TriggerBuilderTests
 			.From("window")
 			.Target("#specificElement")
 			.Consume()
-			.Queue(TriggerQueueOption.First)
+			.Queue(TriggerQueueOption.first)
 			.Build();
 
 		triggerString.Should().Be("click[shiftKey] delay:500ms throttle:200ms from:window target:#specificElement consume queue:first");

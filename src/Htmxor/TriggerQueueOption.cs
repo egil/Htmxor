@@ -1,3 +1,4 @@
+// ReSharper disable InconsistentNaming
 namespace Htmxor;
 
 /// <summary>
@@ -8,20 +9,20 @@ public enum TriggerQueueOption
     /// <summary>
     /// queue the first event
     /// </summary>
-    First,
+    first,
 
     /// <summary>
     /// queue the last event (default)
     /// </summary>
-    Last,
+    last,
 
     /// <summary>
     /// queue all events (issue a request for each event)
     /// </summary>
-    All,
+    all,
 
     /// <summary>
     /// do not queue new events
     /// </summary>
-    None
+    none
 }
