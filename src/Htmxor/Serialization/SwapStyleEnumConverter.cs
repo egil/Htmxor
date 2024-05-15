@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace Htmxor.Serialization;
 
-public sealed class SwapStyleEnumConverter : JsonConverter<SwapStyle>
+internal sealed class SwapStyleEnumConverter : JsonConverter<SwapStyle>
 {
 	public override SwapStyle Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
 	{
