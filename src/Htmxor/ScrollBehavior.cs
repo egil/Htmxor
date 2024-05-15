@@ -4,6 +4,9 @@ namespace Htmxor;
 /// <summary>
 /// The behavior for a boosted link on page transitions.
 /// </summary>
+/// <remarks>
+/// The casing on each of these values matches htmx attributes so that they can be used directly in markup
+/// </remarks>
 public enum ScrollBehavior
 {
 	/// <summary>
