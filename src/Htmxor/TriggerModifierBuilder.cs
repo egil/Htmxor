@@ -196,14 +196,14 @@ public sealed class TriggerModifierBuilder
     /// // Resulting hx-trigger: <![CDATA[<div hx-get="/process" hx-trigger="click queue:all">Queue All]]>
     /// </code>
     /// </example>
-    public TriggerModifierBuilder Queue(TriggerQueueOption option = TriggerQueueOption.Last)
+    public TriggerModifierBuilder Queue(TriggerQueueOption option = TriggerQueueOption.last)
     {
         var value = option switch
         {
-            TriggerQueueOption.First => "first",
-            TriggerQueueOption.Last => "last",
-            TriggerQueueOption.None => "none",
-            TriggerQueueOption.All => "all",
+            TriggerQueueOption.first => "first",
+            TriggerQueueOption.last => "last",
+            TriggerQueueOption.none => "none",
+            TriggerQueueOption.all => "all",
             _ => throw new SwitchExpressionException(option),
         };
 

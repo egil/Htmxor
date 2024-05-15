@@ -39,7 +39,7 @@ public static class SwapStyleBuilderExtension
 	/// Specifies how to set the content scrollbar position after the swap and appends the modifier <c>scroll:<paramref name="direction"/></c>.
 	/// </summary>
 	/// <remarks>
-	/// Sets the swapped content scrollbar position after swapping immediately (without animation). For instance, using <see cref="ScrollDirection.Top"/>
+	/// Sets the swapped content scrollbar position after swapping immediately (without animation). For instance, using <see cref="ScrollDirection.top"/>
 	/// will add the modifier <c>scroll:top</c> which sets the scrollbar position to the top of swap content after the swap.
 	/// If css <paramref name="cssSelector"/> is present then the page is scrolled to the <paramref name="direction"/> of the content identified by the css cssSelector.
 	/// </remarks>
@@ -165,7 +165,7 @@ public static class SwapStyleBuilderExtension
 	/// </summary>
 	/// <remarks>
 	/// Adds a show modifier with the specified CSS selector and scroll direction. For example, if <paramref name="cssSelector"/>
-	/// is ".item" and <paramref name="direction"/> is <see cref="ScrollDirection.Top"/>, the modifier <c>show:.item:top</c>
+	/// is ".item" and <paramref name="direction"/> is <see cref="ScrollDirection.top"/>, the modifier <c>show:.item:top</c>
 	/// is added.
 	/// </remarks>
 	/// <param name="style">The swap style.</param>

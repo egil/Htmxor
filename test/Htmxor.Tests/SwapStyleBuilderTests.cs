@@ -39,7 +39,7 @@ public class SwapStyleBuilderTests
 	{
 		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
-		var (_, modifiers) = sut.Scroll(ScrollDirection.Bottom).Build();
+		var (_, modifiers) = sut.Scroll(ScrollDirection.bottom).Build();
 
 		modifiers.Should().Be("scroll:bottom");
 	}
@@ -80,7 +80,7 @@ public class SwapStyleBuilderTests
 		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 		var selector = "#dynamic-area";
 
-		var (_, modifiers) = sut.ShowOn(ScrollDirection.Top, selector).Build();
+		var (_, modifiers) = sut.ShowOn(ScrollDirection.top, selector).Build();
 
 		modifiers.Should().Be("show:#dynamic-area:top");
 	}
@@ -90,7 +90,7 @@ public class SwapStyleBuilderTests
 	{
 		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
-		var (_, modifiers) = sut.ShowWindow(ScrollDirection.Top).Build();
+		var (_, modifiers) = sut.ShowWindow(ScrollDirection.top).Build();
 
 		modifiers.Should().Be("show:window:top");
 	}
@@ -102,7 +102,7 @@ public class SwapStyleBuilderTests
 
 		var (_, modifiers) = sut
 			.AfterSwapDelay(TimeSpan.FromSeconds(1))
-			.Scroll(ScrollDirection.Top)
+			.Scroll(ScrollDirection.top)
 			.Transition(true)
 			.IgnoreTitle(false)
 			.Build();
@@ -126,7 +126,7 @@ public class SwapStyleBuilderTests
 		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 		var selector = "#element-id";
 
-		var (_, modifiers) = sut.ShowOn(ScrollDirection.Bottom, selector).Build();
+		var (_, modifiers) = sut.ShowOn(ScrollDirection.bottom, selector).Build();
 
 		modifiers.Should().Be("show:#element-id:bottom");
 	}
@@ -136,7 +136,7 @@ public class SwapStyleBuilderTests
 	{
 		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
-		var (_, modifiers) = sut.ShowWindow(ScrollDirection.Bottom).Build();
+		var (_, modifiers) = sut.ShowWindow(ScrollDirection.bottom).Build();
 
 		modifiers.Should().Be("show:window:bottom");
 	}

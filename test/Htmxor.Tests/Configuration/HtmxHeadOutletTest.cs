@@ -32,7 +32,7 @@ public class HtmxHeadOutletTest : TestContext
 			MethodsThatUseUrlParams = ["GET", "POST", "DELETE"],
 			RefreshOnHistoryMiss = true,
 			RequestClass = "request-class",
-			ScrollBehavior = ScrollBehavior.Smooth,
+			ScrollBehavior = ScrollBehavior.smooth,
 			ScrollIntoViewOnBoost = true,
 			SelfRequestsOnly = true,
 			SettlingClass = "settling-class",
