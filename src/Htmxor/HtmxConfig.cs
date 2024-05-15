@@ -160,7 +160,7 @@ public partial record class HtmxConfig
 	public TimeSpan? Timeout { get; set; }
 
 	/// <summary>
-	/// Defaults to <see cref="Htmxor.ScrollBehavior.smooth" /> if this property is null.
+	/// Defaults to <see cref="ScrollBehavior.smooth" /> if this property is null.
 	/// The behavior for a boosted link on page transitions. 
 	/// Smooth will smooth scroll to the top of the page while auto will behave like a vanilla link.
 	/// </summary>
