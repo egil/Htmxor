@@ -4,6 +4,9 @@ namespace Htmxor;
 /// <summary>
 /// Determines how events are queued if an event occurs while a request for another event is in flight.
 /// </summary>
+/// <remarks>
+/// The casing on each of these values matches htmx attributes so that they can be used directly in markup
+/// </remarks>
 public enum TriggerQueueOption
 {
     /// <summary>
