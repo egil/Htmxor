@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.Runtime.InteropServices.ComTypes;
 
 namespace Htmxor;
 
@@ -10,8 +11,7 @@ namespace Htmxor;
 [DebuggerDisplay("{ToString(),nq}")]
 public sealed class SwapStyleBuilder
 {
-	private readonly SwapStyle style;
-	private readonly OrderedDictionary modifiers = new(StringComparer.Ordinal);
+	private readonly HtmxSwapSpecification specification;
 
 	/// <summary>
 	/// Initializes a new instance of the SwapStyleBuilder with a specified swap style.
@@ -19,7 +19,7 @@ public sealed class SwapStyleBuilder
 	/// <param name="style">The initial swap style to be applied.</param>
 	public SwapStyleBuilder(SwapStyle style = SwapStyle.Default)
 	{
-		this.style = style;
+		specification = new HtmxSwapSpecification() { SwapStyle = style };
 	}
 
 	/// <summary>
@@ -36,7 +36,9 @@ public sealed class SwapStyleBuilder
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
 	public SwapStyleBuilder AfterSwapDelay(TimeSpan time)
 	{
-		AddModifier("swap", time.TotalMilliseconds < 1000 ? $"{time.TotalMilliseconds}ms" : $"{time.TotalSeconds}s");
+		// swap
+		specification.SwapDelay =
+			time.TotalMilliseconds < 1000 ? $"{time.TotalMilliseconds}ms" : $"{time.TotalSeconds}s";
 
 		return this;
 	}
@@ -55,7 +57,9 @@ public sealed class SwapStyleBuilder
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
 	public SwapStyleBuilder AfterSettleDelay(TimeSpan time)
 	{
-		AddModifier("settle", time.TotalMilliseconds < 1000 ? $"{time.TotalMilliseconds}ms" : $"{time.TotalSeconds}s");
+		// settle
+		specification.SettleDelay =
+			time.TotalMilliseconds < 1000 ? $"{time.TotalMilliseconds}ms" : $"{time.TotalSeconds}s";
 
 		return this;
 	}
@@ -73,13 +77,14 @@ public sealed class SwapStyleBuilder
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
 	public SwapStyleBuilder Scroll(ScrollDirection direction, string? cssSelector = null)
 	{
+		// scroll
 		switch (direction)
 		{
 			case ScrollDirection.top:
-				AddModifier("scroll", cssSelector is null ? "top" : $"{cssSelector}:top");
+				specification.Scroll = cssSelector is null ? "top" : $"{cssSelector}:top";
 				break;
 			case ScrollDirection.bottom:
-				AddModifier("scroll", cssSelector is null ? "bottom" : $"{cssSelector}:bottom");
+				specification.Scroll = cssSelector is null ? "bottom" : $"{cssSelector}:bottom";
 				break;
 		}
 
@@ -123,7 +128,8 @@ public sealed class SwapStyleBuilder
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
 	public SwapStyleBuilder IgnoreTitle(bool ignore = true)
 	{
-		AddModifier("ignoreTitle", ignore);
+		// ignoreTitle
+		specification.IgnoreTitle = ignore ? "true" : "false";
 
 		return this;
 	}
@@ -149,7 +155,8 @@ public sealed class SwapStyleBuilder
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
 	public SwapStyleBuilder Transition(bool show)
 	{
-		AddModifier("transition", show);
+		// transition
+		specification.Transition = show ? "true" : "false";
 
 		return this;
 	}
@@ -186,7 +193,8 @@ public sealed class SwapStyleBuilder
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
 	public SwapStyleBuilder ScrollFocus(bool scroll = true)
 	{
-		AddModifier("focus-scroll", scroll);
+		// focus-scroll
+		specification.FocusScroll = scroll ? "true" : "false";
 
 		return this;
 	}
@@ -218,13 +226,13 @@ public sealed class SwapStyleBuilder
 		switch (direction)
 		{
 			case ScrollDirection.top:
-				AddModifier("show", cssSelector is null ? "top" : $"{cssSelector}:top");
+				specification.Show = cssSelector is null ? "top" : $"{cssSelector}:top";
 				break;
 			case ScrollDirection.bottom:
-				AddModifier("show", cssSelector is null ? "bottom" : $"{cssSelector}:bottom");
+				specification.Show = cssSelector is null ? "bottom" : $"{cssSelector}:bottom";
 				break;
 		}
-
+		
 		return this;
 	}
 
@@ -264,10 +272,10 @@ public sealed class SwapStyleBuilder
 		switch (direction)
 		{
 			case ScrollDirection.top:
-				AddModifier("show", "window:top");
+				specification.Show = "window:top";
 				break;
 			case ScrollDirection.bottom:
-				AddModifier("show", "window:bottom");
+				specification.Show = "window:bottom";
 				break;
 		}
 
@@ -307,58 +315,37 @@ public sealed class SwapStyleBuilder
 	/// <returns>This <see cref="SwapStyleBuilder"/> object instance.</returns>
 	public SwapStyleBuilder ShowNone()
 	{
-		AddModifier("show", "none");
+		specification.Show = "none";
 
 		return this;
 	}
 
 	/// <inheritdoc/>
-	public override string ToString()
-	{
-		var (swapStyle, modifier) = Build();
-		var styleText = swapStyle.ToHtmxString();
-		var value = !string.IsNullOrWhiteSpace(modifier)
-			? $"{styleText} {modifier}"
-			: styleText;
-		return value;
-	}
+	public override string ToString() => Build();
 
 	/// <summary>
 	/// Builds the swap style command string with all specified modifiers.
 	/// </summary>
 	/// <returns>A tuple containing the <see cref="SwapStyle"/> and the constructed command string.</returns>
-	internal (SwapStyle, string) Build()
+	internal string Build()
 	{
-		var value = string.Empty;
+		string value = specification.SwapStyle.ToHtmxString();
 
-		if (modifiers.Count > 0)
-		{
-			value = modifiers
-				.Cast<DictionaryEntry>()
-				.Select(entry => $"{entry.Key}:{entry.Value}")
-				.Aggregate((current, next) => $"{current} {next}");
-		}
+		if (specification.SwapDelay != null)
+			value += " swap:" + specification.SwapDelay;
+		if (specification.SettleDelay != null)
+			value += " settle:" + specification.SettleDelay;
+		if (specification.Scroll != null)
+			value += " scroll:" + specification.Scroll;
+		if (specification.IgnoreTitle != null)
+			value += " ignoreTitle:" + specification.IgnoreTitle;
+		if (specification.Transition != null)
+			value += " transition:" + specification.Transition;
+		if (specification.FocusScroll != null)
+			value += " focus-scroll:" + specification.FocusScroll;
+		if (specification.Show != null)
+			value += " show:" + specification.Show;
 
-		return (style, value);
+		return value.TrimStart();
 	}
-
-	/// <summary>
-	/// Adds a modifier to modifiers, overriding existing values if present
-	/// </summary>
-	/// <param name="modifier"></param>
-	/// <param name="options"></param>
-	private void AddModifier(string modifier, string options)
-	{
-		if (modifiers.Contains(modifier))
-			modifiers.Remove(modifier);
-
-		modifiers.Add(modifier, options);
-	}
-
-	/// <summary>
-	/// Adds a boolean modifier to modifiers
-	/// </summary>
-	/// <param name="modifier"></param>
-	/// <param name="option"></param>
-	private void AddModifier(string modifier, bool option) => AddModifier(modifier, option ? "true" : "false");
 }

@@ -217,11 +217,9 @@ public sealed class HtmxResponse(HttpContext context)
 	{
 		ArgumentNullException.ThrowIfNull(swapStyle);
 
-		var (style, modifier) = swapStyle.Build();
+		headers[HtmxResponseHeaderNames.Reswap] = swapStyle.Build();
 
-		return style is SwapStyle.Default
-			? Reswap(modifier)
-			: Reswap(style, modifier);
+		return this;
 	}
 
 	/// <summary>
