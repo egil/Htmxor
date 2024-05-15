@@ -4,12 +4,18 @@ namespace Htmxor;
 /// <summary>
 /// How to swap the response into the target element.
 /// </summary>
+/// <remarks>
+/// The casing on each of these values matches htmx attributes so that they can be used directly in markup
+/// </remarks>
 public enum SwapStyle
 {
 	/// <summary>
 	/// Default style is what is specified in <see cref="HtmxConfig.DefaultSwapStyle"/> for the application
 	/// or htmx's default, which is <see cref="innerHTML"/>.
 	/// </summary>
+	/// <remarks>
+	/// This SwapStyle cannot be used directly in markup
+	/// </remarks>
 	Default,
 
 	/// <summary>
