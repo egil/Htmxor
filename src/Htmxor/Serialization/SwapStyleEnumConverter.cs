@@ -14,14 +14,14 @@ internal sealed class SwapStyleEnumConverter : JsonConverter<SwapStyle>
 		{
 			null => SwapStyle.Default,
 			Constants.SwapStyles.Default => SwapStyle.Default,
-			Constants.SwapStyles.InnerHTML => SwapStyle.InnerHTML,
-			Constants.SwapStyles.OuterHTML => SwapStyle.OuterHTML,
-			Constants.SwapStyles.BeforeBegin => SwapStyle.BeforeBegin,
-			Constants.SwapStyles.AfterBegin => SwapStyle.AfterBegin,
-			Constants.SwapStyles.BeforeEnd => SwapStyle.BeforeEnd,
-			Constants.SwapStyles.AfterEnd => SwapStyle.AfterEnd,
-			Constants.SwapStyles.Delete => SwapStyle.Delete,
-			Constants.SwapStyles.None => SwapStyle.None,
+			Constants.SwapStyles.InnerHTML => SwapStyle.innerHTML,
+			Constants.SwapStyles.OuterHTML => SwapStyle.outerHTML,
+			Constants.SwapStyles.BeforeBegin => SwapStyle.beforebegin,
+			Constants.SwapStyles.AfterBegin => SwapStyle.afterbegin,
+			Constants.SwapStyles.BeforeEnd => SwapStyle.beforeend,
+			Constants.SwapStyles.AfterEnd => SwapStyle.afterend,
+			Constants.SwapStyles.Delete => SwapStyle.delete,
+			Constants.SwapStyles.None => SwapStyle.none,
 			_ => throw new SwitchExpressionException(value)
 		};
 

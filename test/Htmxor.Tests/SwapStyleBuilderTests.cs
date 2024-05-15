@@ -5,7 +5,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_InitializeAndBuild_ReturnsCorrectValues()
 	{
-		var swapStyle = SwapStyle.InnerHTML;
+		var swapStyle = SwapStyle.innerHTML;
 		var sut = new SwapStyleBuilder(swapStyle);
 
 		var (resultStyle, modifiers) = sut.Build();
@@ -17,7 +17,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_AfterSwap_AddsCorrectDelay()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.AfterSwapDelay(TimeSpan.FromSeconds(1)).Build();
 
@@ -27,7 +27,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_AfterSettle_AddsCorrectDelay()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.AfterSettleDelay(TimeSpan.FromSeconds(1)).Build();
 
@@ -37,7 +37,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_Scroll_AddsCorrectDirection()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.Scroll(ScrollDirection.Bottom).Build();
 
@@ -47,7 +47,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_IgnoreTitle_AddsCorrectFlag()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.IgnoreTitle(true).Build();
 
@@ -57,7 +57,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_Transition_AddsCorrectFlag()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.Transition(true).Build();
 
@@ -67,7 +67,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_ScrollFocus_AddsCorrectFlag()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.ScrollFocus(true).Build();
 
@@ -77,7 +77,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_ShowOn_AddsCorrectSelectorAndDirection()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 		var selector = "#dynamic-area";
 
 		var (_, modifiers) = sut.ShowOn(ScrollDirection.Top, selector).Build();
@@ -88,7 +88,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_ShowWindow_AddsCorrectWindowAndDirection()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.ShowWindow(ScrollDirection.Top).Build();
 
@@ -98,7 +98,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_ChainedOperations_AddsCorrectModifiers()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut
 			.AfterSwapDelay(TimeSpan.FromSeconds(1))
@@ -113,7 +113,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_After_With250Milliseconds_AddsCorrectDelay()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.AfterSwapDelay(TimeSpan.FromMilliseconds(250)).Build();
 
@@ -123,7 +123,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_ShowOn_BottomDirection_AddsCorrectModifier()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 		var selector = "#element-id";
 
 		var (_, modifiers) = sut.ShowOn(ScrollDirection.Bottom, selector).Build();
@@ -134,7 +134,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_ShowWindow_BottomDirection_AddsCorrectModifier()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.ShowWindow(ScrollDirection.Bottom).Build();
 
@@ -154,7 +154,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_ShowNone_ReturnsCorrectValue()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.ShowNone().Build();
 
@@ -164,7 +164,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_ShowOnTop_ReturnsCorrectValue()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.ShowOnTop().Build();
 
@@ -174,7 +174,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_ShowOnBottom_ReturnsCorrectValue()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.ShowOnBottom().Build();
 
@@ -184,7 +184,7 @@ public class SwapStyleBuilderTests
 	[Fact]
 	public void SwapStyleBuilder_MixedShowOverrides_ReturnsCorrectValue()
 	{
-		var sut = new SwapStyleBuilder(SwapStyle.InnerHTML);
+		var sut = new SwapStyleBuilder(SwapStyle.innerHTML);
 
 		var (_, modifiers) = sut.ShowOnTop()
 			.AfterSettleDelay(TimeSpan.FromMilliseconds(250))

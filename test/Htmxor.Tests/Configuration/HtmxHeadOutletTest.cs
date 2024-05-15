@@ -19,7 +19,7 @@ public class HtmxHeadOutletTest : TestContext
 			DefaultFocusScroll = true,
 			DefaultSettleDelay = TimeSpan.FromHours(1),
 			DefaultSwapDelay = TimeSpan.FromMinutes(1),
-			DefaultSwapStyle = SwapStyle.BeforeBegin,
+			DefaultSwapStyle = SwapStyle.beforebegin,
 			DisableSelector = "disable-selector",
 			GetCacheBusterParam = true,
 			GlobalViewTransitions = true,
