@@ -38,7 +38,7 @@ internal partial class HtmxorRenderer : Renderer
 	private readonly IServiceProvider services;
 	private readonly RazorComponentsServiceOptions options;
 	private readonly NavigationManager? navigationManager;
-	private readonly Dictionary<ulong, (string HtmxorEventId, Delegate Handler)> htmxorEventsByEventHandlerId = new();
+	private readonly Dictionary<ulong, (string HtmxorEventId, object Handler)> htmxorEventsByEventHandlerId = new();
 	private HttpContext httpContext = default!; // Always set at the start of an inbound call
 	private HtmxContext htmxContext = default!; // Always set at the start of an inbound call
 

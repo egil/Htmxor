@@ -12,7 +12,7 @@ internal partial class HtmxorRenderer
 	// different event bindings with different delegates are set on different elements with which has the same hx-xxx="url".
 	// This keeps track of the collisions as well as the individual duplicated bindings, such that disposed event handler bindings
 	// can be correctly cleaned up as needed.
-	private readonly Dictionary<string, Dictionary<Delegate, List<(int ComponentId, ulong EventHandlerId)>>> htmxorEvents = new(StringComparer.Ordinal);
+	private readonly Dictionary<string, Dictionary<object, List<(int ComponentId, ulong EventHandlerId)>>> htmxorEvents = new(StringComparer.Ordinal);
 
 	[SuppressMessage("Globalization", "CA1308:Normalize strings to uppercase", Justification = "Method names are safe to convert to lower.")]
 	internal Task DispatchHtmxorEventAsync(HtmxContext context, out bool isBadRequest)
@@ -117,7 +117,7 @@ internal partial class HtmxorRenderer
 				var htmxorEventId = CreateHxActionHash(ref hxUrlFrame);
 				var handlerInfoSet = GetOrAddNewToDictionary(htmxorEvents, htmxorEventId);
 
-				var handler = (Delegate)frame.AttributeValue;
+				var handler = frame.AttributeValue;
 				var handlerInfoList = GetOrAddNewToDictionary(handlerInfoSet, handler);
 
 				handlerInfoList.Add((componentId, frame.AttributeEventHandlerId));
