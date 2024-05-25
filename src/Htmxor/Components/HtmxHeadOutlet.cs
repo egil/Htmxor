@@ -23,9 +23,6 @@ public class HtmxHeadOutlet : IComponent
 	/// <summary>
 	/// Gets or sets whether or not to add the scripts thats that reference the embedded version of Htmx. Default is <see langword="true"/>.
 	/// </summary>
-	/// <remarks>
-	/// If this set to <see langword="false"/>, include the <c>_content/Htmxor/htmxor.js</c> your application manually.
-	/// </remarks>
 	[Parameter] public bool UseEmbeddedHtmx { get; set; } = true;
 
 	/// <inheritdoc/>
