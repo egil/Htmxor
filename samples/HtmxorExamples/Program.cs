@@ -1,5 +1,6 @@
 using Htmxor;
 using HtmxorExamples.Components;
+using HtmxorExamples.Components.Pages;
 using HtmxorExamples.Components.Pages.Examples.OutOfBandOutlets;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,5 +42,8 @@ app.UseAntiforgery();
 app.UseHtmxAntiforgery();
 app.MapRazorComponents<App>()
    .AddHtmxorComponentEndpoints(app);
+
+// Demonstrating mapping of a page/component
+app.MapGet("/mapped/home", () => new HtmxorComponentResult<Home>());
 
 app.Run();
