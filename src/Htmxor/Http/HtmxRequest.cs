@@ -15,7 +15,7 @@ public sealed class HtmxRequest
 	public string Method { get; }
 
 	/// <summary>
-	/// Gets the HTTP method of the current request.
+	/// Gets the path of the current request.
 	/// </summary>
 	public PathString Path { get; }
 
