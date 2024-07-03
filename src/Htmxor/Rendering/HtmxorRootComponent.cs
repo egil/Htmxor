@@ -6,7 +6,7 @@ namespace Htmxor.Rendering;
 /// <summary>
 /// Represents the output of rendering a root component as HTML. The content can change if the component instance re-renders.
 /// </summary>
-internal readonly struct HtmxorRootComponent
+public readonly struct HtmxorRootComponent
 {
 	private readonly HtmxorRenderer? renderer;
 	private readonly int componentId;
