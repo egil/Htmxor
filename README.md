@@ -1,4 +1,4 @@
-# Htmxor - supercharging Blazor Static SSR with Htmx
+# Htmxor - supercharging Blazor Static SSR with Htmx 
 ![Htmxor logo](https://github.com/egil/Htmxor/blob/main/docs/htmxor-x.svg)
 
 This packages enables Blazor Static SSR (.NET 8 and later) to be used seamlessly with Htmx.
