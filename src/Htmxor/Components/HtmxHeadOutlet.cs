@@ -43,5 +43,9 @@ public class HtmxHeadOutlet : IComponent
 	}
 
 	/// <inheritdoc/>
-	public Task SetParametersAsync(ParameterView parameters) => Task.CompletedTask;
+	public Task SetParametersAsync(ParameterView parameters)
+	{
+		parameters.SetParameterProperties(this);
+		return Task.CompletedTask;
+	}
 }

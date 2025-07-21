@@ -269,4 +269,28 @@ public class HtmxHeadOutletTest : TestContext
             }
             """);
 	}
+
+	[Fact]
+	public void HtmxHeadOutlet_UseEmbeddedHtmxSetToTrue_IncludesEmbeddedHtmx()
+	{
+		Services.AddSingleton(new HtmxConfig());
+		var cut = RenderComponent<HtmxHeadOutlet>();
+
+		cut.Find("meta[name='htmx-config']").Should().NotBeNull();
+		cut.Find("script[src='_content/Htmxor/htmx/htmx.min.js']").Should().NotBeNull();
+		cut.Find("script[src='_content/Htmxor/htmx/event-header.js']").Should().NotBeNull();
+		cut.Find("script[src='_content/Htmxor/htmxor.js']").Should().NotBeNull();
+	}
+
+	[Fact]
+	public void HtmxHeadOutlet_UseEmbeddedHtmxSetToFalse_DoesNotIncludeEmbeddedHtmx()
+	{
+		Services.AddSingleton(new HtmxConfig());
+		var cut = RenderComponent<HtmxHeadOutlet>(parameters => parameters.Add(p => p.UseEmbeddedHtmx, false));
+
+		cut.Find("meta[name='htmx-config']").Should().NotBeNull();
+		cut.FindAll("script[src='_content/Htmxor/htmx/htmx.min.js']").Should().BeEmpty();
+		cut.FindAll("script[src='_content/Htmxor/htmx/event-header.js']").Should().BeEmpty();
+		cut.Find("script[src='_content/Htmxor/htmxor.js']").Should().NotBeNull();
+	}
 }
