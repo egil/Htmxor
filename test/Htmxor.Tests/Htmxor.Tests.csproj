@@ -20,8 +20,8 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
-		<PackageReference Include="Microsoft.Playwright" Version="1.43.0" />
-		<PackageReference Include="Microsoft.Playwright.TestAdapter" Version="1.43.0" />
+		<PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
+		<PackageReference Include="Microsoft.Playwright.TestAdapter" Version="1.62.0" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.5.1" />
 		<PackageReference Include="xunit" Version="2.8.0" />
 		<PackageReference Include="SystemTextJson.JsonDiffPatch.Xunit" Version="2.0.0" />
