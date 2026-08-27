@@ -1,7 +1,7 @@
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents().AddHtmx();
+builder.Services.AddRazorComponents().AddLegacyHtmx();
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
 var app = builder.Build();
@@ -11,6 +11,6 @@ app.UseAntiforgery()
    .UseHtmxAntiforgery();
 
 app.MapRazorComponents<Htmxor.TestApp.App>()
-   .AddHtmxorComponentEndpoints(app);
+   .AddLegacyHtmxorComponentEndpoints(app);
 
 app.Run();

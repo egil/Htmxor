@@ -73,6 +73,7 @@
 
 	<ItemGroup>
 		<InternalsVisibleTo Include="$(AssemblyName).Tests" />
+		<InternalsVisibleTo Include="Htmxor.TestApp" />
 		<Using Include="System.Diagnostics.CodeAnalysis" />
 	</ItemGroup>
 

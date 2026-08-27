@@ -1,0 +1,12 @@
+@page "/issue-78"
+
+<h1 data-issue-78-page>Stock route page</h1>
+<p data-route-metadata="@RouteMetadata">@RouteMetadata</p>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private string? RouteMetadata
+        => HttpContext.GetEndpoint()?.Metadata.GetMetadata<RouteSentinelMetadata>()?.Value;
+}

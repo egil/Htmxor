@@ -54,6 +54,7 @@ internal static class QualityPlanFactory
 		var tests = new[]
 		{
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj", "quality", null, collectCoverage: false),
+			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore10", null, collectCoverage: false),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Tests/Htmxor.Tests.csproj", "htmxor", filter, collectCoverage),
 		};
 		return new(CommonPreparation(repositoryRoot), tests, null);
