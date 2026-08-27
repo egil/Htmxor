@@ -1,0 +1,11 @@
+@page "/issue-83"
+@attribute [Authorize(Policy = "issue-83-policy")]
+@using Microsoft.AspNetCore.Authorization
+
+<h1 data-issue-83-page>Protected route page</h1>
+<p data-authenticated-user>@HttpContext.User.Identity?.Name|@HttpContext.User.FindFirst("issue-83-access")?.Value</p>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+}
