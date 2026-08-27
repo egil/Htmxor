@@ -98,8 +98,10 @@ public sealed class QualityCommandTests
 			"summary.json");
 		using var summary = JsonDocument.Parse(File.ReadAllText(summaryPath));
 		var testRuns = summary.RootElement.GetProperty("testRuns").EnumerateArray().ToArray();
-		Assert.Equal(2, testRuns.Length);
+		Assert.Equal(3, testRuns.Length);
 		Assert.All(testRuns, run => Assert.Equal(1, run.GetProperty("total").GetInt32()));
+		var aspNetCore10 = Assert.Single(testRuns, run => run.GetProperty("project").GetString() == "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj");
+		Assert.False(aspNetCore10.GetProperty("coverageRequired").GetBoolean());
 		var htmxor = Assert.Single(testRuns, run => run.GetProperty("project").GetString() == "test/Htmxor.Tests/Htmxor.Tests.csproj");
 		Assert.True(htmxor.GetProperty("coverageRequired").GetBoolean());
 		Assert.Equal(JsonValueKind.Null, htmxor.GetProperty("coverageReport").ValueKind);

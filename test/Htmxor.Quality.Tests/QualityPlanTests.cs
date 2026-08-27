@@ -13,7 +13,8 @@ public sealed class QualityPlanTests
 		var plan = Create(QualityAction.Check, QualityProfile.Fast);
 
 		AssertCommonPreparation(plan.Preparation);
-		Assert.Equal(2, plan.Tests.Count);
+		Assert.Equal(3, plan.Tests.Count);
+		AssertAspNetCore10Boundary(plan);
 		var htmxor = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Tests/Htmxor.Tests.csproj");
 		Assert.Equal(
 			[
@@ -44,7 +45,8 @@ public sealed class QualityPlanTests
 		var plan = Create(QualityAction.Check, QualityProfile.Full);
 
 		AssertCommonPreparation(plan.Preparation);
-		Assert.Equal(2, plan.Tests.Count);
+		Assert.Equal(3, plan.Tests.Count);
+		AssertAspNetCore10Boundary(plan);
 		var htmxor = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Tests/Htmxor.Tests.csproj");
 		Assert.Equal(
 			[
@@ -112,6 +114,14 @@ public sealed class QualityPlanTests
 
 	private QualityPlan Create(QualityAction action, QualityProfile profile) =>
 		QualityPlanFactory.Create(repositoryRoot, resultsDirectory, new(action, profile));
+
+	private void AssertAspNetCore10Boundary(QualityPlan plan)
+	{
+		var test = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj");
+		Assert.DoesNotContain("--collect", test.Command.Arguments);
+		Assert.DoesNotContain("--filter", test.Command.Arguments);
+		Assert.False(test.RequiresCoverage);
+	}
 
 	private void AssertCommonPreparation(IReadOnlyList<ProcessCommand> commands)
 	{

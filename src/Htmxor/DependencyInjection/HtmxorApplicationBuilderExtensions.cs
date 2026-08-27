@@ -35,6 +35,32 @@ public static class HtmxorApplicationBuilderExtensions
 	{
 		ArgumentNullException.ThrowIfNull(razorComponentsBuilder);
 		var services = razorComponentsBuilder.Services;
+		services.AddHttpContextAccessor();
+		services.AddSingleton(serviceProvider =>
+		{
+			var config = new HtmxConfig
+			{
+				Antiforgery = new HtmxorAntiforgeryOptions(serviceProvider.GetRequiredService<IOptions<AntiforgeryOptions>>()),
+			};
+			configureHtmx?.Invoke(config);
+			return config;
+		});
+		services.AddScoped(serviceProvider =>
+		{
+			var httpContext = serviceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext
+				?? throw new InvalidOperationException("HtmxContext is only available during an HTTP request.");
+			return httpContext.GetHtmxContext();
+		});
+		services.AddCascadingValue(serviceProvider => serviceProvider.GetRequiredService<HtmxContext>());
+
+		return razorComponentsBuilder;
+	}
+
+	// The legacy test application retains the prototype pipeline while its deferred behaviors are characterized.
+	internal static IRazorComponentsBuilder AddLegacyHtmx(this IRazorComponentsBuilder razorComponentsBuilder, Action<HtmxConfig>? configureHtmx = null)
+	{
+		AddHtmx(razorComponentsBuilder, configureHtmx);
+		var services = razorComponentsBuilder.Services;
 
 		// Override routing
 		services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, ComponentEndpointMatcherPolicy>());
@@ -66,19 +92,6 @@ public static class HtmxorApplicationBuilderExtensions
 
 		services.Remove(services.Single(x => x.ServiceType == typeof(NavigationManager)));
 		services.AddScoped<NavigationManager, HtmxorNavigationManager>();
-
-		// Add Htmxor services
-		services.AddSingleton(x =>
-		{
-			var config = new HtmxConfig
-			{
-				Antiforgery = new HtmxorAntiforgeryOptions(x.GetRequiredService<IOptions<AntiforgeryOptions>>()),
-			};
-			configureHtmx?.Invoke(config);
-			return config;
-		});
-		services.AddScoped(srv => srv.GetRequiredService<HtmxorRenderer>().HttpContext!.GetHtmxContext());
-		services.AddCascadingValue(sp => sp.GetRequiredService<HtmxContext>());
 
 		return razorComponentsBuilder;
 	}
