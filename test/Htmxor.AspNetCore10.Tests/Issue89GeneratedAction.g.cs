@@ -1,5 +1,8 @@
+using Htmxor;
 using Htmxor.Builder;
+using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
@@ -20,4 +23,21 @@ internal static class Issue89GeneratedAction
 		RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints)
 		=> builder.AddHtmxorComponentEndpoints(endpoints, [DeleteDescriptor]);
+}
+
+public partial class Issue89Page : IComponent
+{
+	[Inject]
+	private HtmxorComponentActionRequest ActionRequest { get; set; } = default!;
+
+	async Task IComponent.SetParametersAsync(ParameterView parameters)
+	{
+		// Use virtual dispatch so an application-authored override remains the lifecycle owner.
+		await SetParametersAsync(parameters);
+		if (ActionRequest.TryConsume(Issue89GeneratedAction.DeleteDescriptor))
+		{
+			var callback = EventCallback.Factory.Create<HtmxEventArgs>(this, DeleteItem);
+			await callback.InvokeAsync(new HtmxEventArgs(HttpContext.GetHtmxContext()));
+		}
+	}
 }
