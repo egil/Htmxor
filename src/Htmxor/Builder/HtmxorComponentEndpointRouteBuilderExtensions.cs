@@ -2,10 +2,12 @@ using System.Reflection;
 using Htmxor.Builder;
 using Htmxor.Endpoints;
 using Htmxor.Http;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 #pragma warning disable IDE0130
 namespace Microsoft.AspNetCore.Builder;
@@ -18,10 +20,17 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	public static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
 		this RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints)
+		=> AddHtmxorComponentEndpoints(builder, endpoints, []);
+
+	internal static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
+		this RazorComponentsEndpointConventionBuilder builder,
+		IEndpointRouteBuilder endpoints,
+		IReadOnlyList<HtmxorComponentActionDescriptor> generatedActions)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(endpoints);
-		builder.Finally(ConfigureEndpoint);
+		ArgumentNullException.ThrowIfNull(generatedActions);
+		builder.Finally(endpointBuilder => ConfigureEndpoint(endpointBuilder, generatedActions));
 
 		return builder;
 	}
@@ -39,9 +48,11 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		return builder;
 	}
 
-	private static void ConfigureEndpoint(EndpointBuilder endpointBuilder)
+	private static void ConfigureEndpoint(
+		EndpointBuilder endpointBuilder,
+		IReadOnlyList<HtmxorComponentActionDescriptor> generatedActions)
 	{
-		if (endpointBuilder is not RouteEndpointBuilder ||
+		if (endpointBuilder is not RouteEndpointBuilder routeEndpointBuilder ||
 			endpointBuilder.RequestDelegate is not { } stockRequestDelegate ||
 			!endpointBuilder.Metadata.OfType<ComponentTypeMetadata>().Any() ||
 			!endpointBuilder.Metadata.OfType<RootComponentMetadata>().Any())
@@ -49,11 +60,72 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			return;
 		}
 
-		endpointBuilder.RequestDelegate = context => InvokeEndpoint(context, stockRequestDelegate);
+		var endpointActions = GetEndpointActions(routeEndpointBuilder, generatedActions);
+		AddActionMetadata(endpointBuilder, endpointActions);
+		endpointBuilder.RequestDelegate = context => InvokeEndpoint(context, stockRequestDelegate, endpointActions);
 	}
 
-	private static async Task InvokeEndpoint(HttpContext context, RequestDelegate stockRequestDelegate)
+	private static HtmxorComponentActionDescriptor[] GetEndpointActions(
+		RouteEndpointBuilder endpointBuilder,
+		IReadOnlyList<HtmxorComponentActionDescriptor> generatedActions)
 	{
+		var componentType = endpointBuilder.Metadata.OfType<ComponentTypeMetadata>().Last().Type;
+		var route = endpointBuilder.RoutePattern.RawText;
+		var endpointActions = generatedActions
+			.Where(action =>
+				action.ComponentType == componentType &&
+				string.Equals(action.NormalizedRoute, route, StringComparison.Ordinal))
+			.ToArray();
+		var duplicateMethod = endpointActions
+			.GroupBy(action => action.HttpMethod, StringComparer.OrdinalIgnoreCase)
+			.FirstOrDefault(group => group.Count() > 1);
+		if (duplicateMethod is not null)
+		{
+			throw new InvalidOperationException(
+				$"Component route '{route}' declares more than one '{duplicateMethod.Key}' action.");
+		}
+
+		return endpointActions;
+	}
+
+	private static void AddActionMetadata(
+		EndpointBuilder endpointBuilder,
+		HtmxorComponentActionDescriptor[] endpointActions)
+	{
+		if (endpointActions.Length == 0)
+		{
+			return;
+		}
+
+		var currentMethods = endpointBuilder.Metadata.OfType<HttpMethodMetadata>().LastOrDefault();
+		var methods = (currentMethods?.HttpMethods ?? [])
+			.Concat(endpointActions.Select(action => action.HttpMethod))
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.ToArray();
+		endpointBuilder.Metadata.Add(new HttpMethodMetadata(
+			methods,
+			currentMethods?.AcceptCorsPreflight ?? false));
+		foreach (var action in endpointActions)
+		{
+			endpointBuilder.Metadata.Add(action);
+		}
+
+		endpointBuilder.Metadata.Add(new RequireAntiforgeryTokenAttribute());
+	}
+
+	private static async Task InvokeEndpoint(
+		HttpContext context,
+		RequestDelegate stockRequestDelegate,
+		IReadOnlyList<HtmxorComponentActionDescriptor> endpointActions)
+	{
+		var action = endpointActions.SingleOrDefault(action =>
+			string.Equals(action.HttpMethod, context.Request.Method, StringComparison.OrdinalIgnoreCase));
+		if (action is not null)
+		{
+			await InvokeActionEndpoint(context, stockRequestDelegate, action);
+			return;
+		}
+
 		if ((!HttpMethods.IsGet(context.Request.Method) &&
 			!HttpMethods.IsPost(context.Request.Method)) ||
 			context.GetHtmxContext().Request.RoutingMode is not RoutingMode.Direct)
@@ -62,6 +134,32 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			return;
 		}
 
+		await InvokeDirectEndpoint(context, stockRequestDelegate);
+	}
+
+	private static async Task InvokeActionEndpoint(
+		HttpContext context,
+		RequestDelegate stockRequestDelegate,
+		HtmxorComponentActionDescriptor action)
+	{
+		var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
+		try
+		{
+			// Use one fail-closed path because ASP.NET Core antiforgery middleware skips DELETE.
+			await antiforgery.ValidateRequestAsync(context);
+		}
+		catch (AntiforgeryValidationException)
+		{
+			context.Response.StatusCode = StatusCodes.Status400BadRequest;
+			return;
+		}
+
+		context.RequestServices.GetRequiredService<HtmxorComponentActionRequest>().Activate(action);
+		await InvokeDirectEndpoint(context, stockRequestDelegate);
+	}
+
+	private static async Task InvokeDirectEndpoint(HttpContext context, RequestDelegate stockRequestDelegate)
+	{
 		var selectedEndpoint = context.GetEndpoint() as RouteEndpoint
 			?? throw new InvalidOperationException("A routed Razor component endpoint must be selected before invocation.");
 		// The stock invoker reads its root component from the selected endpoint.
