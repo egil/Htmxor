@@ -54,7 +54,8 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 	private static async Task InvokeEndpoint(HttpContext context, RequestDelegate stockRequestDelegate)
 	{
-		if (!HttpMethods.IsGet(context.Request.Method) ||
+		if ((!HttpMethods.IsGet(context.Request.Method) &&
+			!HttpMethods.IsPost(context.Request.Method)) ||
 			context.GetHtmxContext().Request.RoutingMode is not RoutingMode.Direct)
 		{
 			await stockRequestDelegate(context);
