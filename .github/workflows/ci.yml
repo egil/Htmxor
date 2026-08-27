@@ -38,7 +38,7 @@ jobs:
         dotnet-version: 8.0.x
 
     # Create the NuGet package in the folder from the environment variable NuGetDirectory
-    - run: dotnet pack ./src/* --configuration Release --output ${{ env.NuGetDirectory }}
+    - run: dotnet pack ./src/Htmxor/Htmxor.csproj --configuration Release --output ${{ env.NuGetDirectory }}
 
     # Publish the NuGet package as an artifact, so they can be used in the following jobs
     - uses: actions/upload-artifact@v4
