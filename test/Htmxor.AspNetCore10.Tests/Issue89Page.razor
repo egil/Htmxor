@@ -1,0 +1,67 @@
+@page "/issue-89/{ItemId:int}"
+@attribute [Authorize(Policy = "issue-89-policy")]
+@using Htmxor
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue89RequestProbe RequestProbe
+
+<button hx-delete="/issue-89/@ItemId?source=@Source" @ondelete="DeleteItem">Delete</button>
+<AntiforgeryToken />
+
+<p data-issue-89-result
+   data-item-id="@ItemId"
+   data-query-source="@Source"
+   data-user="@HttpContext.User.Identity?.Name"
+   data-request-id="@RequestProbe.Id"
+   data-request-value="@RequestProbe.Value"
+   data-override-start-count="@RequestProbe.OverrideStartCount"
+   data-override-completion-count="@RequestProbe.OverrideCompletionCount"
+   data-initialization-count="@RequestProbe.InitializationCount"
+   data-parameter-count="@RequestProbe.ParameterCount"
+   data-callback-count="@RequestProbe.CallbackCount"
+   data-application-state="@applicationState"
+   data-lifecycle-sequence="@string.Join('|', RequestProbe.LifecycleSequence)">
+    @callbackObservation
+</p>
+
+@code {
+    private string applicationState = "parameters-pending";
+    private string? callbackObservation;
+
+    [Parameter]
+    public int ItemId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "source")]
+    public string? Source { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        RequestProbe.RecordOverrideStart();
+        await base.SetParametersAsync(parameters);
+        await Task.Yield();
+        applicationState = "parameters-complete";
+        RequestProbe.RecordOverrideCompletion();
+        StateHasChanged();
+    }
+
+    protected override void OnInitialized()
+    {
+        RequestProbe.RecordInitialization();
+    }
+
+    protected override void OnParametersSet()
+    {
+        RequestProbe.RecordParametersSet();
+    }
+
+    private void DeleteItem(HtmxEventArgs _)
+    {
+        RequestProbe.RecordCallback();
+        callbackObservation =
+            $"delete|{ItemId}|{Source}|{HttpContext.User.Identity?.Name}|{RequestProbe.Value}|{applicationState}";
+    }
+}
