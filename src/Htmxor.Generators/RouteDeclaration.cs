@@ -20,6 +20,7 @@ internal sealed class RouteDeclaration
 		bool hasDeclaration,
 		bool hasPage,
 		int declarationCount,
+		int authorizationDeclarationCount,
 		Location location)
 	{
 		Path = path;
@@ -29,6 +30,7 @@ internal sealed class RouteDeclaration
 		HasDeclaration = hasDeclaration;
 		HasPage = hasPage;
 		DeclarationCount = declarationCount;
+		AuthorizationDeclarationCount = authorizationDeclarationCount;
 		Location = location;
 	}
 
@@ -46,6 +48,8 @@ internal sealed class RouteDeclaration
 
 	public int DeclarationCount { get; }
 
+	public int AuthorizationDeclarationCount { get; }
+
 	public Location Location { get; }
 
 	public bool IsSupported =>
@@ -53,6 +57,7 @@ internal sealed class RouteDeclaration
 		Policy.Length > 0 &&
 		!HasPage &&
 		DeclarationCount == 1 &&
+		AuthorizationDeclarationCount == 1 &&
 		HasConstrainedParameter(Route);
 
 	public static RouteDeclaration Read(AdditionalText file, CancellationToken cancellationToken)
@@ -81,6 +86,7 @@ internal sealed class RouteDeclaration
 			hasDeclaration: true,
 			hasPage: FindLine(source, "@page") >= 0,
 			declarationCount: CountLines(source, "HtmxRoute("),
+			authorizationDeclarationCount: CountAuthorizationDeclarations(source),
 			Location.Create(file.Path, routeLine.Span, source.Lines.GetLinePositionSpan(routeLine.Span)));
 	}
 
@@ -93,6 +99,7 @@ internal sealed class RouteDeclaration
 			hasDeclaration: false,
 			hasPage: false,
 			declarationCount: 0,
+			authorizationDeclarationCount: 0,
 			Location.None);
 
 	private static bool HasConstrainedParameter(string route)
@@ -125,6 +132,28 @@ internal sealed class RouteDeclaration
 			if (line.ToString().IndexOf(marker, StringComparison.Ordinal) >= 0)
 			{
 				count++;
+			}
+		}
+
+		return count;
+	}
+
+	private static int CountAuthorizationDeclarations(SourceText source)
+	{
+		var count = 0;
+		foreach (var line in source.Lines)
+		{
+			var text = line.ToString().TrimStart();
+			if (!text.StartsWith("@attribute [", StringComparison.Ordinal))
+			{
+				continue;
+			}
+
+			var startIndex = 0;
+			while ((startIndex = text.IndexOf("Authorize", startIndex, StringComparison.Ordinal)) >= 0)
+			{
+				count++;
+				startIndex += "Authorize".Length;
 			}
 		}
 

@@ -20,6 +20,13 @@ public sealed class HtmxorRouteGeneratorTests
 
 		<section>Report</section>
 		""";
+	private const string MultipleAuthorizationPoliciesComponent = """
+		@attribute [Htmxor.HtmxRoute("/reports/{ReportId:int}", Methods = new[] { "GET" })]
+		@attribute [Authorize(Policy = "issue-91-policy")]
+		@attribute [Authorize(Policy = "second-policy")]
+
+		<section>Report</section>
+		""";
 
 	private const string RuntimeStubs = """
 		using System;
@@ -121,6 +128,19 @@ public sealed class HtmxorRouteGeneratorTests
 		Assert.Equal("Issue91HtmxOnlyComponent.razor", Path.GetFileName(diagnostic.Location.GetLineSpan().Path));
 		Assert.Equal(0, diagnostic.Location.GetLineSpan().StartLinePosition.Line);
 		Assert.Contains("explicit GET", diagnostic.GetMessage(), StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Multiple_authorization_policies_report_one_deterministic_diagnostic()
+	{
+		var run = RunGenerator(MultipleAuthorizationPoliciesComponent);
+
+		var generatorResult = Assert.Single(run.RunResult.Results);
+		Assert.Empty(generatorResult.GeneratedSources);
+		var diagnostic = Assert.Single(generatorResult.Diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains("one literal Authorize policy", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
 	private static GeneratorRun RunGenerator(string componentSource)
