@@ -135,7 +135,7 @@ public sealed class Issue87UnsafeActionTests : IAsyncLifetime
 	[InlineData("PUT", "PATCH")]
 	[InlineData("PATCH", "DELETE")]
 	[InlineData("DELETE", "PUT")]
-	public async Task Client_identity_cannot_select_another_methods_callback(string method, string forgedMethod)
+	public async Task Client_identity_cannot_select_another_method_callback(string method, string forgedMethod)
 	{
 		var (token, cookie) = await GetAntiforgeryCredentialsAsync();
 		applicationProbe.Reset();
