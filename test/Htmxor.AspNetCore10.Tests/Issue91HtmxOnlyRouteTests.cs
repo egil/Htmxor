@@ -52,7 +52,6 @@ public sealed class Issue91HtmxOnlyRouteTests : IAsyncLifetime
 			.WithMetadata(Issue91GroupMetadata.Instance);
 		routes.MapRazorComponents<Issue78App>()
 			.AddHtmxorComponentEndpoints(app);
-		Issue91GeneratedRoute.Register(routes);
 
 		await app.StartAsync();
 		client = app.GetTestClient();
