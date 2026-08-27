@@ -8,6 +8,8 @@ on:
   pull_request:
     branches:
       - '*'          # Run the workflow for all pull requests
+  schedule:
+    - cron: '17 3 * * 1'
   release:
     types:
       - published    # Run the workflow when a new GitHub release is published
@@ -20,8 +22,6 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   DOTNET_NOLOGO: true
   NuGetDirectory: ${{ github.workspace}}/nuget
-  TestResultsDirectory: ${{ github.workspace}}/TestResults
-  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
 jobs:
   create-nuget:
@@ -74,12 +74,9 @@ jobs:
   run-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      TestResultsDirectory: ${{ github.workspace }}/TestResults
     permissions:
       contents: read
       checks: write
-      statuses: write
     steps:
     - uses: actions/checkout@v4
 
@@ -88,14 +85,33 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
-    - name: Build solution
-      run: dotnet build -c Release
+    - name: Restore local tools
+      run: dotnet tool restore --tool-manifest .config/dotnet-tools.json
+
+    - name: Run repository fast verification
+      run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+
+    - name: Build browser test project
+      run: dotnet build test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release
 
     - name: Ensure browsers are installed
-      run: pwsh /home/runner/work/Htmxor/Htmxor/test/Htmxor.Tests/bin/Release/net8.0/playwright.ps1 install --with-deps
+      run: pwsh test/Htmxor.Tests/bin/Release/net8.0/playwright.ps1 install --with-deps chromium
 
-    - name: Run tests
-      run: dotnet test --configuration Release --logger trx --results-directory "${{ env.TestResultsDirectory }}" --collect:"XPlat Code Coverage" --blame-hang --blame-hang-timeout 5min
+    - name: Run repository full verification
+      run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
+
+    - name: Append quality summaries
+      if: always()
+      shell: bash
+      run: |
+        if [ ! -d artifacts/results ]; then
+          exit 0
+        fi
+
+        find artifacts/results -type f -name '*.md' -size -64k -print0 | sort -z | while IFS= read -r -d '' summary; do
+          printf '\n## %s\n\n' "$(basename "$summary")" >> "$GITHUB_STEP_SUMMARY"
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+        done
 
     - uses: actions/upload-artifact@v4
       if: always()
@@ -103,26 +119,22 @@ jobs:
         name: test-results
         if-no-files-found: error
         retention-days: 3
-        path: ${{ env.TestResultsDirectory }}/**/*
+        path: artifacts/results/
 
     - name: Test Report
       uses: dorny/test-reporter@v1
       if: always() && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'egil/Htmxor'))
       with:
         name: test-results
-        path: ${{ env.TestResultsDirectory }}/**/*.trx
+        path: artifacts/results/**/*.trx
         path-replace-backslashes: 'true'
         reporter: dotnet-trx
 
   run-stryker:
     runs-on: ubuntu-latest
-    if: github.event_name != 'release'
-    env:
-      StrykerDirectory: ${{ github.workspace }}/Stryker
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
-      checks: write
-      statuses: write
     steps:
     - uses: actions/checkout@v4
 
@@ -131,50 +143,51 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
-    - name: Build solution
-      run: dotnet build -c Release
+    - name: Restore local tools
+      run: dotnet tool restore --tool-manifest .config/dotnet-tools.json
+
+    - name: Build browser test project
+      run: dotnet build test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release
 
     - name: Ensure browsers are installed
-      run: pwsh /home/runner/work/Htmxor/Htmxor/test/Htmxor.Tests/bin/Release/net8.0/playwright.ps1 install --with-deps
+      run: pwsh test/Htmxor.Tests/bin/Release/net8.0/playwright.ps1 install --with-deps chromium
 
-    - name: Install Stryker.NET
-      run: dotnet tool install -g dotnet-stryker
+    - name: Run repository mutation verification
+      id: mutation
+      continue-on-error: true
+      run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile mutation
 
-    - name: Run Stryker.NET
-      id: strykerLocal
-      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'egil/Htmxor')
+    - name: Append mutation summaries
+      if: always()
+      shell: bash
       run: |
-        cd test/Htmxor.Tests
-        dotnet stryker --config-file "../../stryker-config.json" --dashboard-api-key "${{ secrets.STRYKER_DASHBOARD_API_KEY }}" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
-        cat ${{ env.StrykerDirectory }}/reports/mutation-report.md >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "View the [full report](https://dashboard.stryker-mutator.io/reports/github.com/egil/Htmxor/${{ env.BRANCH_NAME }})." >> $GITHUB_STEP_SUMMARY
+        if [ ! -d artifacts/results ]; then
+          exit 0
+        fi
 
-    - name: Run Stryker.NET
-      id: strykerFork
-      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != 'egil/Htmxor'
-      run: |
-        cd test/Htmxor.Tests
-        dotnet stryker --config-file "../../stryker-config-no-dashboard.json" --version ${{ env.BRANCH_NAME }} --output ${{ env.StrykerDirectory }}
-        cat ${{ env.StrykerDirectory }}/reports/mutation-report.md >> $GITHUB_STEP_SUMMARY
-
-    - name: Stryker Report
-      if: steps.strykerLocal.outcome == 'success'
-      uses: Sibz/github-status-action@v1
-      with:
-        authToken: ${{secrets.GITHUB_TOKEN}}
-        context: stryker-report"
-        description: "See report"
-        state: ${{ steps.strykerLocal.conclusion }}
-        sha: ${{ github.event.pull_request.head.sha || github.sha }}
-        target_url:  https://dashboard.stryker-mutator.io/reports/github.com/egil/Htmxor/${{ env.BRANCH_NAME }}
+        find artifacts/results -type f -name '*.md' -size -64k -print0 | sort -z | while IFS= read -r -d '' summary; do
+          printf '\n## %s\n\n' "$(basename "$summary")" >> "$GITHUB_STEP_SUMMARY"
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+        done
 
     - uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: stryker-reports
         if-no-files-found: error
         retention-days: 3
-        path: ${{ env.StrykerDirectory }}/**/*
+        path: artifacts/results/
+
+    - name: Enforce mutation quality result
+      if: always()
+      shell: bash
+      env:
+        MUTATION_OUTCOME: ${{ steps.mutation.outcome }}
+      run: |
+        if [ "$MUTATION_OUTCOME" != "success" ]; then
+          echo "::error::Full-scope mutation verification reported an invalid run or documented mutation debt. Review the summary and uploaded characterization artifacts."
+          exit 1
+        fi
 
   dependency-review:
     runs-on: ubuntu-latest
@@ -234,7 +247,7 @@ jobs:
     # Publish only when creating a GitHub Release
     # https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository
     # You can update this logic if you want to manage releases differently
-    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     needs: [ validate-nuget, run-test ]
     steps:

@@ -2,6 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
+		<CodeMetricsProfile>legacy-samples-baseline</CodeMetricsProfile>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UserSecretsId>aspnet-htmxor-blazing-pizza-cc288be7-d93a-4590-9fd4-df012ba2fbcf</UserSecretsId>

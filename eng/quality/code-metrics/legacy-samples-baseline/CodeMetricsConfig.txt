@@ -1,0 +1,3 @@
+CA1502(Method): 7
+CA1505(Method): 20
+CA1505(Type): 20
