@@ -53,6 +53,7 @@ public static class HtmxorApplicationBuilderExtensions
 		});
 		services.AddCascadingValue(serviceProvider => serviceProvider.GetRequiredService<HtmxContext>());
 		services.AddScoped<HtmxorComponentActionRequest>();
+		services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, HtmxorDirectEndpointMatcherPolicy>());
 
 		return razorComponentsBuilder;
 	}

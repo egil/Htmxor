@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -51,6 +52,7 @@ public sealed class Issue91HtmxOnlyRouteTests : IAsyncLifetime
 			.WithMetadata(Issue91GroupMetadata.Instance);
 		routes.MapRazorComponents<Issue78App>()
 			.AddHtmxorComponentEndpoints(app);
+		Issue91GeneratedRoute.Register(routes);
 
 		await app.StartAsync();
 		client = app.GetTestClient();
@@ -84,26 +86,49 @@ public sealed class Issue91HtmxOnlyRouteTests : IAsyncLifetime
 		Assert.Same(
 			Issue91GroupMetadata.Instance,
 			componentEndpoint.Metadata.GetRequiredMetadata<Issue91GroupMetadata>());
+		Assert.Equal(
+			typeof(HtmxorDirectComponentHost),
+			componentEndpoint.Metadata.GetRequiredMetadata<RootComponentMetadata>().Type);
+		var declaredRoute = componentEndpoint.Metadata.GetRequiredMetadata<HtmxRouteAttribute>();
+		Assert.Equal(DeclaredRoute, declaredRoute.Template);
+		Assert.Equal(HttpMethods.Get, Assert.Single(declaredRoute.Methods));
 		Assert.Contains(
 			componentEndpoint.Metadata.GetOrderedMetadata<IAuthorizeData>(),
 			metadata => string.Equals(metadata.Policy, PolicyName, StringComparison.Ordinal));
 
 		using var normalResponse = await SendAsync(HttpMethod.Get, direct: false, authenticated: true);
+		var normalBody = await normalResponse.Content.ReadAsStringAsync();
 		Assert.Equal(HttpStatusCode.NotFound, normalResponse.StatusCode);
+		Assert.DoesNotContain("data-issue-91-component", normalBody, StringComparison.Ordinal);
 
 		using var anonymousResponse = await SendAsync(HttpMethod.Get, direct: true, authenticated: false);
+		var anonymousBody = await anonymousResponse.Content.ReadAsStringAsync();
 		Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+		Assert.DoesNotContain("data-issue-91-component", anonymousBody, StringComparison.Ordinal);
+
+		using var rejectedConstraintResponse = await SendAsync(
+			HttpMethod.Get,
+			direct: true,
+			authenticated: true,
+			"/issue-91-group/reports/not-an-int?query=from-query");
+		Assert.Equal(HttpStatusCode.NotFound, rejectedConstraintResponse.StatusCode);
 
 		foreach (var method in new[] { HttpMethod.Post, HttpMethod.Put, HttpMethod.Patch, HttpMethod.Delete })
 		{
 			using var response = await SendAsync(method, direct: true, authenticated: true);
+			var body = await response.Content.ReadAsStringAsync();
 			Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+			Assert.DoesNotContain("data-issue-91-component", body, StringComparison.Ordinal);
 		}
 	}
 
-	private async Task<HttpResponseMessage> SendAsync(HttpMethod method, bool direct, bool authenticated)
+	private async Task<HttpResponseMessage> SendAsync(
+		HttpMethod method,
+		bool direct,
+		bool authenticated,
+		string path = RequestPath)
 	{
-		using var request = new HttpRequestMessage(method, RequestPath);
+		using var request = new HttpRequestMessage(method, path);
 		if (direct)
 		{
 			request.Headers.Add("HX-Request", "true");

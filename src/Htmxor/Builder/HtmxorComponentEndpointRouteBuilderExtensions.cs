@@ -15,7 +15,8 @@ namespace Microsoft.AspNetCore.Builder;
 
 public static class HtmxorComponentEndpointRouteBuilderExtensions
 {
-	private static readonly RootComponentMetadata DirectRootComponent = new(typeof(HtmxorDirectRenderHost));
+	private static readonly RootComponentMetadata PageRouteDirectRoot = new(typeof(HtmxorDirectRenderHost));
+	private static readonly RootComponentMetadata HtmxOnlyGetDirectRoot = new(typeof(HtmxorDirectComponentHost));
 
 	public static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
 		this RazorComponentsEndpointConventionBuilder builder,
@@ -31,6 +32,23 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		ArgumentNullException.ThrowIfNull(endpoints);
 		ArgumentNullException.ThrowIfNull(generatedActions);
 		builder.Finally(endpointBuilder => ConfigureEndpoint(endpointBuilder, generatedActions));
+
+		return builder;
+	}
+
+	internal static IEndpointConventionBuilder MapHtmxorComponentEndpoint(
+		this IEndpointRouteBuilder endpoints,
+		HtmxorComponentGetRouteDescriptor generatedRoute)
+	{
+		ArgumentNullException.ThrowIfNull(endpoints);
+		ArgumentNullException.ThrowIfNull(generatedRoute);
+		ArgumentException.ThrowIfNullOrWhiteSpace(generatedRoute.NormalizedRoute);
+		ArgumentNullException.ThrowIfNull(generatedRoute.Metadata);
+		RequestDelegate requestDelegate = static context => context.RequestServices
+			.GetRequiredService<IRazorComponentEndpointInvoker>()
+			.Render(context);
+		var builder = endpoints.MapGet(generatedRoute.NormalizedRoute, requestDelegate);
+		builder.Add(endpointBuilder => ConfigureGeneratedGetEndpoint(endpointBuilder, generatedRoute));
 
 		return builder;
 	}
@@ -63,6 +81,22 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		var endpointActions = GetEndpointActions(routeEndpointBuilder, generatedActions);
 		AddActionMetadata(endpointBuilder, endpointActions);
 		endpointBuilder.RequestDelegate = context => InvokeEndpoint(context, stockRequestDelegate, endpointActions);
+	}
+
+	private static void ConfigureGeneratedGetEndpoint(
+		EndpointBuilder endpointBuilder,
+		HtmxorComponentGetRouteDescriptor generatedRoute)
+	{
+		foreach (var metadata in generatedRoute.Metadata)
+		{
+			endpointBuilder.Metadata.Add(metadata);
+		}
+
+		endpointBuilder.Metadata.Add(new SuppressLinkGenerationMetadata());
+		endpointBuilder.Metadata.Add(new ComponentTypeMetadata(generatedRoute.ComponentType));
+		endpointBuilder.Metadata.Add(HtmxOnlyGetDirectRoot);
+		endpointBuilder.Metadata.Add(HtmxorDirectEndpointMetadata.Instance);
+		endpointBuilder.DisplayName = $"{generatedRoute.NormalizedRoute} ({generatedRoute.ComponentType.Name}) (HTMX-only GET)";
 	}
 
 	private static HtmxorComponentActionDescriptor[] GetEndpointActions(
@@ -180,7 +214,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		var requestDelegate = selectedEndpoint.RequestDelegate
 			?? throw new InvalidOperationException("A routed Razor component endpoint must have a request delegate.");
 		var metadata = selectedEndpoint.Metadata
-			.Select(item => item is RootComponentMetadata ? DirectRootComponent : item)
+			.Select(item => item is RootComponentMetadata ? PageRouteDirectRoot : item)
 			.ToArray();
 		return new RouteEndpoint(
 			requestDelegate,
