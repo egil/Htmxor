@@ -1,0 +1,19 @@
+<Project>
+
+	<PropertyGroup>
+		<Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
+		<ImplicitUsings Condition="'$(ImplicitUsings)' == ''">enable</ImplicitUsings>
+		<EnforceCodeStyleInBuild Condition="'$(EnforceCodeStyleInBuild)' == ''">true</EnforceCodeStyleInBuild>
+		<EnableNETAnalyzers Condition="'$(EnableNETAnalyzers)' == ''">true</EnableNETAnalyzers>
+		<Deterministic Condition="'$(Deterministic)' == ''">true</Deterministic>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(CI)' == 'true'">
+		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+	</PropertyGroup>
+
+</Project>

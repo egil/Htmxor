@@ -1,0 +1,82 @@
+<Project>
+	<PropertyGroup>
+		<_RepositoryRelativeProjectPath>$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectFullPath)'))</_RepositoryRelativeProjectPath>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AdditionalFiles
+			Include="$(MSBuildThisFileDirectory)eng/quality/code-metrics/legacy-production-baseline/CodeMetricsConfig.txt"
+			Condition="'$(CodeMetricsProfile)' == 'legacy-production-baseline'" />
+		<AdditionalFiles
+			Include="$(MSBuildThisFileDirectory)eng/quality/code-metrics/legacy-test-app-baseline/CodeMetricsConfig.txt"
+			Condition="'$(CodeMetricsProfile)' == 'legacy-test-app-baseline'" />
+		<AdditionalFiles
+			Include="$(MSBuildThisFileDirectory)eng/quality/code-metrics/legacy-tests-baseline/CodeMetricsConfig.txt"
+			Condition="'$(CodeMetricsProfile)' == 'legacy-tests-baseline'" />
+		<AdditionalFiles
+			Include="$(MSBuildThisFileDirectory)eng/quality/code-metrics/legacy-samples-baseline/CodeMetricsConfig.txt"
+			Condition="'$(CodeMetricsProfile)' == 'legacy-samples-baseline'" />
+		<AdditionalFiles
+			Include="$(MSBuildThisFileDirectory)eng/quality/code-metrics/production/CodeMetricsConfig.txt"
+			Condition="'$(CodeMetricsProfile)' == 'production'" />
+		<AdditionalFiles
+			Include="$(MSBuildThisFileDirectory)eng/quality/code-metrics/tests/CodeMetricsConfig.txt"
+			Condition="'$(CodeMetricsProfile)' == 'tests'" />
+	</ItemGroup>
+
+	<Target Name="ValidateCodeMetricsProfile" BeforeTargets="CoreCompile">
+		<XmlPeek XmlInputPath="$(MSBuildProjectFullPath)" Query="/Project/PropertyGroup/CodeMetricsProfile/text()">
+			<Output TaskParameter="Result" ItemName="_DeclaredCodeMetricsProfile" />
+		</XmlPeek>
+		<ItemGroup>
+			<_CodeMetricsConfiguration
+				Include="@(AdditionalFiles)"
+				Condition="'%(Filename)%(Extension)' == 'CodeMetricsConfig.txt'" />
+		</ItemGroup>
+		<Error
+			Condition="'@(_DeclaredCodeMetricsProfile->Count())' != '1'"
+			Text="Project '$(MSBuildProjectName)' must declare exactly one CodeMetricsProfile." />
+		<Error
+			Condition="'@(_DeclaredCodeMetricsProfile->Count())' == '1' and '@(_DeclaredCodeMetricsProfile)' != '$(CodeMetricsProfile)'"
+			Text="Project '$(MSBuildProjectName)' must use its declared CodeMetricsProfile '@(_DeclaredCodeMetricsProfile)' instead of overridden value '$(CodeMetricsProfile)'." />
+		<Error
+			Condition="'$(CodeMetricsProfile)' != 'legacy-production-baseline'
+				and '$(CodeMetricsProfile)' != 'legacy-test-app-baseline'
+				and '$(CodeMetricsProfile)' != 'legacy-tests-baseline'
+				and '$(CodeMetricsProfile)' != 'legacy-samples-baseline'
+				and '$(CodeMetricsProfile)' != 'production'
+				and '$(CodeMetricsProfile)' != 'tests'"
+			Text="Project '$(MSBuildProjectName)' declares unrecognized CodeMetricsProfile '$(CodeMetricsProfile)'." />
+		<Error
+			Condition="'$(CodeMetricsProfile)' == 'legacy-production-baseline'
+				and '$(_RepositoryRelativeProjectPath)' != 'src\Htmxor\Htmxor.csproj'
+				and '$(_RepositoryRelativeProjectPath)' != 'src/Htmxor/Htmxor.csproj'"
+			Text="The legacy-production-baseline profile is reserved for src/Htmxor/Htmxor.csproj." />
+		<Error
+			Condition="'$(CodeMetricsProfile)' == 'legacy-test-app-baseline'
+				and '$(_RepositoryRelativeProjectPath)' != 'test\Htmxor.TestApp\Htmxor.TestApp.csproj'
+				and '$(_RepositoryRelativeProjectPath)' != 'test/Htmxor.TestApp/Htmxor.TestApp.csproj'"
+			Text="The legacy-test-app-baseline profile is reserved for test/Htmxor.TestApp/Htmxor.TestApp.csproj." />
+		<Error
+			Condition="'$(CodeMetricsProfile)' == 'legacy-tests-baseline'
+				and '$(_RepositoryRelativeProjectPath)' != 'test\Htmxor.Tests\Htmxor.Tests.csproj'
+				and '$(_RepositoryRelativeProjectPath)' != 'test/Htmxor.Tests/Htmxor.Tests.csproj'"
+			Text="The legacy-tests-baseline profile is reserved for test/Htmxor.Tests/Htmxor.Tests.csproj." />
+		<Error
+			Condition="'$(CodeMetricsProfile)' == 'legacy-samples-baseline'
+				and '$(_RepositoryRelativeProjectPath)' != 'samples\BlazingPizza\BlazingPizza.csproj'
+				and '$(_RepositoryRelativeProjectPath)' != 'samples/BlazingPizza/BlazingPizza.csproj'
+				and '$(_RepositoryRelativeProjectPath)' != 'samples\MinimalHtmxorApp\MinimalHtmxorApp.csproj'
+				and '$(_RepositoryRelativeProjectPath)' != 'samples/MinimalHtmxorApp/MinimalHtmxorApp.csproj'
+				and '$(_RepositoryRelativeProjectPath)' != 'samples\HtmxorExamples\HtmxorExamples.csproj'
+				and '$(_RepositoryRelativeProjectPath)' != 'samples/HtmxorExamples/HtmxorExamples.csproj'"
+			Text="The legacy-samples-baseline profile is reserved for the three existing sample projects." />
+		<Error
+			Condition="'@(_CodeMetricsConfiguration->Count())' != '1'"
+			Text="Project '$(MSBuildProjectName)' must resolve exactly one AdditionalFiles item named CodeMetricsConfig.txt." />
+		<Error
+			Condition="'@(_CodeMetricsConfiguration->Count())' == '1' and !Exists('@(_CodeMetricsConfiguration)')"
+			Text="Project '$(MSBuildProjectName)' resolves a missing CodeMetricsConfig.txt file." />
+	</Target>
+
+</Project>

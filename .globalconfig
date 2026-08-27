@@ -1,0 +1,6 @@
+is_global = true
+
+# Repository code-metrics profiles supply the thresholds.
+dotnet_diagnostic.CA1502.severity = error
+dotnet_diagnostic.CA1505.severity = error
+dotnet_diagnostic.CA1509.severity = error
