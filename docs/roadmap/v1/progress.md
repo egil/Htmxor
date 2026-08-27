@@ -17,7 +17,8 @@ Last updated: 2026-08-27
 - Verified implementation commit for issue #91: `47da4a36eb4909f8d120ab032bb12435196a23b9`.
 - This issue #91 progress change is documentation-only. Executable claims are tied to the tested implementation commit above, not to the later documentation head.
 - Verified implementation and compilation-test commit for issue #93: `0f8d4d761c89afc860ec0cd5058b2b65fd737ee9`.
-- This issue #93 progress change is documentation-only. Executable claims are tied to the tested implementation commit above, not to the later documentation head.
+- Verified post-review fix commit for issue #93: `cf8cbb38bea4374636e072688e8da5927d6296f8`.
+- This issue #93 progress change is documentation-only. Executable claims are tied to the tested implementation and post-review fix commits above, not to the later documentation head.
 - Framework boundary under test: a real ASP.NET Core 10.0.11 and Blazor static SSR test host consuming the project-referenced `net8.0` Htmxor library.
 - V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output.
 - Current implementation slice after #93: none. The live v1 milestone contains issue #93 and parent issue #77 only; select the next developer-model question under #77 after #93 closes and after rechecking `origin/main`.
@@ -273,11 +274,15 @@ Protected behavior for issue #93:
 > registration so the hosted HTTP behavior passes without checked-in generated
 > code.
 
-The .NET 10 Razor SDK supplies `.razor` files as compiler `AdditionalFiles` to a
-project-referenced `netstandard2.0` incremental generator. The generator reads
-that public build input and the public `RootNamespace` and
-`MSBuildProjectDirectory` analyzer properties. It uses no custom target,
-private Razor API, generated Razor C#, `obj` scraping, or renderer reflection.
+The [.NET 10 Razor SDK source-generator targets](https://github.com/dotnet/sdk/blob/v10.0.400/src/RazorSdk/Targets/Microsoft.NET.Sdk.Razor.SourceGenerators.targets#L15-L72)
+supply `.razor` files as compiler `AdditionalFiles` to a `netstandard2.0`
+incremental generator, project-referenced through documented
+[`ProjectReference` metadata](https://learn.microsoft.com/en-us/visualstudio/msbuild/common-msbuild-project-items?view=visualstudio#projectreference).
+The generator consumes the raw files through Roslyn's public
+[`AdditionalTextsProvider`](https://github.com/dotnet/roslyn/blob/main/docs/features/incremental-generators.cookbook.md#additional-file-transformation)
+and reads the public `RootNamespace` and `MSBuildProjectDirectory` analyzer
+properties. It uses no custom target, private Razor API, generated Razor C#,
+`obj` scraping, or renderer reflection.
 
 The supported tracer recognizes exactly the current project-root component:
 one literal `/reports/{ReportId:int}` route, explicit GET only, one literal
@@ -290,10 +295,12 @@ removed.
 Compilation evidence verifies that the emitted descriptor and registration
 compile against the required runtime seam. A representative explicit POST
 declaration emits no source and reports one deterministic `HTMXOR001` error at
-the declaration. The unchanged hosted issue #91 matrix retains `200` for an
-authorized direct GET, `404` for a normal GET and rejected constraint, `401` for
-an anonymous direct GET, and `405` for POST, PUT, PATCH, and DELETE. This tracer
-does not establish a final public generator API or packaged-consumer contract.
+the declaration. More than one authorization declaration is also unsupported;
+the generator emits no source rather than silently dropping an effective policy.
+The unchanged hosted issue #91 matrix retains `200` for an authorized direct GET,
+`404` for a normal GET and rejected constraint, `401` for an anonymous direct
+GET, and `405` for POST, PUT, PATCH, and DELETE. This tracer does not establish a
+final public generator API or packaged-consumer contract.
 
 ## Executable evidence
 
@@ -338,6 +345,11 @@ does not establish a final public generator API or packaged-consumer contract.
 - Hosted-project proof at the same clean implementation commit without the filter discovered and executed 40 tests; 40 passed, 0 failed, 0 skipped.
 - Fast-profile proof at the same clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` passed 102 quality tests, 40 .NET 10 hosted tests, and 152 non-browser library and generator tests. Total: 294 discovered, 294 executed, 294 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
 - Full-profile proof at the same clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` passed 102 quality tests, 40 .NET 10 hosted tests, and all 154 library, generator, and browser tests. Total: 296 discovered, 296 executed, 296 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its Cobertura report was `artifacts/results/full/htmxor/26c8a3f7-9950-475f-b3b3-aa5473a791ce/coverage.cobertura.xml`, with two fresh copies recorded by the profile.
+- The first independent Standards review of `c3408fc969883f4862d9c6f5c38d698d92931e36...ccfcf1c3a7c505e0481b3571d7850be93e1b80b0` found one P1: a second authorization declaration was accepted but omitted from generated endpoint metadata. The independent Spec review passed with zero actionable findings.
+- Review-fix TDD red used the reviewed `ccfcf1c3a7c505e0481b3571d7850be93e1b80b0` tree plus the new test only: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Multiple_authorization_policies_report_one_deterministic_diagnostic" --blame-hang --blame-hang-timeout 5min` discovered and executed 1 test; 0 passed, 1 failed, 0 skipped because the old generator emitted source. After the production fix, the same command passed 1 of 1.
+- Focused post-review proof at clean fix commit `cf8cbb38bea4374636e072688e8da5927d6296f8`: the generator-test command with filter `FullyQualifiedName~HtmxorRouteGeneratorTests` discovered and executed 3 tests; 3 passed, 0 failed, 0 skipped. The hosted issue #91 filter discovered and executed 1 test; 1 passed, 0 failed, 0 skipped.
+- Fast-profile post-review proof at the same clean fix commit passed 102 quality tests, 40 .NET 10 hosted tests, and 153 non-browser library and generator tests. Total: 295 discovered, 295 executed, 295 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Full-profile post-review proof at the same clean fix commit passed 102 quality tests, 40 .NET 10 hosted tests, and all 155 library, generator, and browser tests. Total: 297 discovered, 297 executed, 297 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its Cobertura report was `artifacts/results/full/htmxor/abd714d5-512c-4559-a80e-bb7a21141143/coverage.cobertura.xml`, with two fresh copies recorded by the profile.
 - Mutation testing was not run. Issue #93 makes it optional diagnostic evidence for this proof of concept.
 
 ## Remaining limits
