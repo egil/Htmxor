@@ -64,28 +64,94 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 		Assert.DoesNotContain("data-stock-shell", htmxBody, StringComparison.Ordinal);
 	}
 
-	[Fact]
-	public async Task Bound_stock_page_normal_and_htmx_gets_receive_the_same_request_values_once()
+	[Theory]
+	[InlineData("/issue-81/bool/{BoolValue:bool}", "/issue-81/bool/true", "System.Boolean", "True")]
+	[InlineData("/issue-81/datetime/{DateTimeValue:datetime}", "/issue-81/datetime/2026-08-27", "System.DateTime", "2026-08-27T00:00:00.0000000")]
+	[InlineData("/issue-81/decimal/{DecimalValue:decimal}", "/issue-81/decimal/123.45", "System.Decimal", "123.45")]
+	[InlineData("/issue-81/double/{DoubleValue:double}", "/issue-81/double/123.5", "System.Double", "123.5")]
+	[InlineData("/issue-81/float/{FloatValue:float}", "/issue-81/float/123.5", "System.Single", "123.5")]
+	[InlineData("/issue-81/guid/{GuidValue:guid}", "/issue-81/guid/01234567-89ab-cdef-0123-456789abcdef", "System.Guid", "01234567-89ab-cdef-0123-456789abcdef")]
+	[InlineData("/issue-81/int/{IntValue:int}", "/issue-81/int/-42", "System.Int32", "-42")]
+	[InlineData("/issue-81/long/{LongValue:long}", "/issue-81/long/9223372036854775806", "System.Int64", "9223372036854775806")]
+	[InlineData("/issue-81/nonfile/{NonFileValue:nonfile}", "/issue-81/nonfile/notes", "System.String", "notes")]
+	public async Task Stock_route_constraint_normal_and_htmx_gets_bind_the_same_value_once(
+		string routeTemplate,
+		string requestPath,
+		string clrType,
+		string expectedValue)
+	{
+		AssertSingleComponentRoute(routeTemplate);
+		await AssertSuccessfulNormalAndHtmxResponses(
+			requestPath,
+			$"data-route-type=\"{clrType}\">{expectedValue}</span>");
+	}
+
+	[Theory]
+	[InlineData("/issue-81/bool/{BoolValue:bool}", "/issue-81/bool/not-bool")]
+	[InlineData("/issue-81/datetime/{DateTimeValue:datetime}", "/issue-81/datetime/not-a-date")]
+	[InlineData("/issue-81/decimal/{DecimalValue:decimal}", "/issue-81/decimal/not-decimal")]
+	[InlineData("/issue-81/double/{DoubleValue:double}", "/issue-81/double/not-double")]
+	[InlineData("/issue-81/float/{FloatValue:float}", "/issue-81/float/not-float")]
+	[InlineData("/issue-81/guid/{GuidValue:guid}", "/issue-81/guid/not-a-guid")]
+	[InlineData("/issue-81/int/{IntValue:int}", "/issue-81/int/not-an-int")]
+	[InlineData("/issue-81/long/{LongValue:long}", "/issue-81/long/not-a-long")]
+	[InlineData("/issue-81/nonfile/{NonFileValue:nonfile}", "/issue-81/nonfile/document.txt")]
+	public async Task Stock_route_constraint_normal_and_htmx_gets_reject_the_same_value(
+		string routeTemplate,
+		string requestPath)
+	{
+		AssertSingleComponentRoute(routeTemplate);
+
+		using var normalResponse = await client.GetAsync(requestPath);
+		using var htmxRequest = new HttpRequestMessage(HttpMethod.Get, requestPath);
+		htmxRequest.Headers.Add("HX-Request", "true");
+		using var htmxResponse = await client.SendAsync(htmxRequest);
+
+		Assert.Equal(HttpStatusCode.NotFound, normalResponse.StatusCode);
+		Assert.Equal(normalResponse.StatusCode, htmxResponse.StatusCode);
+	}
+
+	[Theory]
+	[InlineData("/issue-81/optional", "absent", "absent")]
+	[InlineData("/issue-81/optional/-42", "System.Int32", "-42")]
+	public async Task Optional_typed_route_value_normal_and_htmx_gets_match(
+		string requestPath,
+		string clrType,
+		string expectedValue)
+	{
+		AssertSingleComponentRoute("/issue-81/optional/{OptionalIntValue:int?}");
+		await AssertSuccessfulNormalAndHtmxResponses(
+			requestPath,
+			$"data-optional-route-type=\"{clrType}\">{expectedValue}</span>");
+	}
+
+	private void AssertSingleComponentRoute(string routeTemplate)
 	{
 		var pageEndpoints = ((IEndpointRouteBuilder)app).DataSources
 			.SelectMany(dataSource => dataSource.Endpoints)
 			.OfType<RouteEndpoint>()
 			.Where(endpoint => endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type == typeof(Issue81Page));
-		Assert.Single(pageEndpoints);
+		Assert.Single(pageEndpoints.Where(endpoint =>
+			string.Equals(endpoint.RoutePattern.RawText, routeTemplate, StringComparison.OrdinalIgnoreCase)));
+	}
 
-		using var normalResponse = await client.GetAsync("/issue-81/42?query=from-query");
+	private async Task AssertSuccessfulNormalAndHtmxResponses(string requestPath, string expectedRouteValue)
+	{
+		using var normalResponse = await client.GetAsync($"{requestPath}?query=from-query");
 		var normalBody = await normalResponse.Content.ReadAsStringAsync();
 		Assert.Equal(HttpStatusCode.OK, normalResponse.StatusCode);
 		Assert.Contains("<html", normalBody, StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
-		Assert.Contains("data-issue-81-values>42|from-query|from-di|1</p>", normalBody, StringComparison.Ordinal);
+		Assert.Contains(expectedRouteValue, normalBody, StringComparison.Ordinal);
+		Assert.Contains("data-request-values>from-query|from-di|1</span>", normalBody, StringComparison.Ordinal);
 
-		using var htmxRequest = new HttpRequestMessage(HttpMethod.Get, "/issue-81/42?query=from-query");
+		using var htmxRequest = new HttpRequestMessage(HttpMethod.Get, $"{requestPath}?query=from-query");
 		htmxRequest.Headers.Add("HX-Request", "true");
 		using var htmxResponse = await client.SendAsync(htmxRequest);
 		var htmxBody = await htmxResponse.Content.ReadAsStringAsync();
 		Assert.Equal(HttpStatusCode.OK, htmxResponse.StatusCode);
-		Assert.Contains("data-issue-81-values>42|from-query|from-di|1</p>", htmxBody, StringComparison.Ordinal);
+		Assert.Contains(expectedRouteValue, htmxBody, StringComparison.Ordinal);
+		Assert.Contains("data-request-values>from-query|from-di|1</span>", htmxBody, StringComparison.Ordinal);
 		Assert.DoesNotContain("<html", htmxBody, StringComparison.OrdinalIgnoreCase);
 		Assert.DoesNotContain("data-stock-shell", htmxBody, StringComparison.Ordinal);
 	}

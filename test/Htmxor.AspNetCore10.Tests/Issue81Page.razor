@@ -1,11 +1,60 @@
-@page "/issue-81/{routeValue:int}"
+@page "/issue-81/bool/{BoolValue:bool}"
+@page "/issue-81/datetime/{DateTimeValue:datetime}"
+@page "/issue-81/decimal/{DecimalValue:decimal}"
+@page "/issue-81/double/{DoubleValue:double}"
+@page "/issue-81/float/{FloatValue:float}"
+@page "/issue-81/guid/{GuidValue:guid}"
+@page "/issue-81/int/{IntValue:int}"
+@page "/issue-81/long/{LongValue:long}"
+@page "/issue-81/nonfile/{NonFileValue:nonfile}"
+@page "/issue-81/optional/{OptionalIntValue:int?}"
 @inject Issue81RequestProbe RequestProbe
+@using System.Globalization
 
-<p data-issue-81-values>@RouteValue|@QueryValue|@RequestProbe.Value|@InitializationCount</p>
+<p data-issue-81-values>
+    <span data-route-type="@BoolValue?.GetType().FullName">@BoolValue?.ToString()</span>
+    <span data-route-type="@DateTimeValue?.GetType().FullName">@DateTimeValue?.ToString("O", CultureInfo.InvariantCulture)</span>
+    <span data-route-type="@DecimalValue?.GetType().FullName">@DecimalValue?.ToString(CultureInfo.InvariantCulture)</span>
+    <span data-route-type="@DoubleValue?.GetType().FullName">@DoubleValue?.ToString("R", CultureInfo.InvariantCulture)</span>
+    <span data-route-type="@FloatValue?.GetType().FullName">@FloatValue?.ToString("R", CultureInfo.InvariantCulture)</span>
+    <span data-route-type="@GuidValue?.GetType().FullName">@GuidValue?.ToString("D")</span>
+    <span data-route-type="@IntValue?.GetType().FullName">@IntValue?.ToString(CultureInfo.InvariantCulture)</span>
+    <span data-route-type="@LongValue?.GetType().FullName">@LongValue?.ToString(CultureInfo.InvariantCulture)</span>
+    <span data-route-type="@NonFileValue?.GetType().FullName">@NonFileValue</span>
+    <span data-optional-route-type="@(OptionalIntValue?.GetType().FullName ?? "absent")">@(OptionalIntValue?.ToString(CultureInfo.InvariantCulture) ?? "absent")</span>
+    <span data-request-values>@QueryValue|@RequestProbe.Value|@InitializationCount</span>
+</p>
 
 @code {
     [Parameter]
-    public int RouteValue { get; set; }
+    public bool? BoolValue { get; set; }
+
+    [Parameter]
+    public DateTime? DateTimeValue { get; set; }
+
+    [Parameter]
+    public decimal? DecimalValue { get; set; }
+
+    [Parameter]
+    public double? DoubleValue { get; set; }
+
+    [Parameter]
+    public float? FloatValue { get; set; }
+
+    [Parameter]
+    public Guid? GuidValue { get; set; }
+
+    [Parameter]
+    public int? IntValue { get; set; }
+
+    [Parameter]
+    public long? LongValue { get; set; }
+
+    [Parameter]
+    public string? NonFileValue { get; set; }
+
+    [Parameter]
+    public int? OptionalIntValue { get; set; }
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "query")]
