@@ -9,9 +9,11 @@ Last updated: 2026-08-27
 - Verified implementation commit for issue #81: `0c3fec1b8c3425ef37c2d93a5fa131f3b0c2a649`.
 - Verified evidence commit for issue #83: `46f5b5324c64bff111a8e9bbb38ea812c22067ef`.
 - Verified implementation commit for issue #85: `0a87dcd8b50cb5fd1be6a4ddae57601986aaea4a`.
+- Verified implementation commit for issue #87: `8c2a528dbff8c528d52199c60330c99ded851b83`.
+- This issue #87 progress update is documentation-only and follows that tested implementation commit; no executable claim is attributed to the later documentation commit.
 - Framework boundary under test: a real ASP.NET Core 10.0.11 and Blazor static SSR test host consuming the project-referenced `net8.0` Htmxor library.
-- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output.
-- Current implementation slice after #85: none. Recheck issue #85, branch publication state, and `origin/main` before starting the next slice.
+- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output.
+- Current implementation slice after #87: none. Recheck issue #87, branch publication state, and `origin/main` before starting the next slice.
 
 ## Proven v1 behavior
 
@@ -124,6 +126,59 @@ ASP.NET Core 10.0.11 responsible for antiforgery validation, form mapping,
 component lifecycle, named callback dispatch, and rendering. Other HTTP methods
 continue through the stock delegate unchanged.
 
+Protected behavior for issue #87:
+
+> When a Razor component declares PUT, PATCH, and DELETE actions, only the
+> matching HTTP method can invoke each callback, and every callback runs on the
+> request-owned component instance after authorization and antiforgery succeed.
+
+The hosted proof uses one component-owned `@page` route with distinct `@onput`,
+`@onpatch`, and `@ondelete` method groups. A hand-authored `.g.cs` stand-in
+represents assumed future-generator output: component type, exact normalized
+route, HTTP method, server-owned handler identity, descriptor registration, and
+the component-side lifecycle hook. It does not discover or analyze Razor, emit
+diagnostics, implement a source generator, or define the final generator API.
+
+A final endpoint convention matches each fixed descriptor to the existing stock
+component endpoint by component type and normalized route. It preserves the
+stock request delegate and metadata, extends the effective `GET, POST` method
+metadata with PUT, PATCH, and DELETE, and attaches the server-owned descriptors.
+The stock method set and final-convention ordering are visible in the official
+[ASP.NET Core 10.0.11 endpoint factory](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Builder/RazorComponentEndpointFactory.cs).
+
+After routing and the retained authorization policy succeed, the shared action
+wrapper calls the public `IAntiforgery.ValidateRequestAsync` before it arms a
+request-scoped descriptor. This explicitly covers DELETE, which ASP.NET Core's
+[antiforgery guidance](https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery?view=aspnetcore-10.0#http-method-limitations-and-httpmethodoverridemiddleware-interaction)
+requires handlers to validate directly. The wrapper then invokes the unchanged
+stock component delegate through Htmxor's request-local direct-render endpoint.
+
+The fixed partial runs on the routed page instance. It awaits the public
+[`ComponentBase.SetParametersAsync`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.components.componentbase.setparametersasync?view=aspnetcore-10.0)
+contract, atomically consumes the matching descriptor once, and invokes the
+declared method group through `EventCallback` on `this`. This supplies route,
+query, authenticated user, request-scoped dependency, and normal initialization
+and parameter lifecycle state before the callback, while the stock renderer
+writes the callback-updated component response. ASP.NET Core's stock
+[`RazorComponentEndpointInvoker`](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs)
+still reserves its form-dispatch path for POST; the proved lifecycle hook is the
+narrow supported seam for these non-POST actions.
+
+The full-fidelity DELETE case observes route value `42`, query value
+`from-query`, authenticated user `issue-87-user`, a new request-scoped service,
+one parameter lifecycle pass, one initialization, one callback, and the
+callback-mutated direct response. Compact positive cases prove distinct PUT,
+PATCH, and DELETE callbacks through the same runtime path. Cross-method cases
+carry another action's client-supplied identity but invoke only the callback
+selected by the actual HTTP method. An undeclared `PROPFIND` with a DELETE
+identity remains `405`. Invalid antiforgery tokens for PUT, PATCH, and DELETE
+return `400` with zero parameter, initialization, or callback activity.
+
+The application maps only the stock Razor component endpoint. It adds no
+controller, Minimal API handler, duplicate route, static component action,
+renderer reflection, runtime render-tree discovery, renderer copy, or global
+Blazor service replacement.
+
 ## Executable evidence
 
 - Meaningful red at `66139317b9edae1fff2ff73fa5175381ee3487b1`: the new .NET 10 hosted test discovered and executed one test, then failed during real application startup with the expected `NullReferenceException` in the obsolete private-reflection component discovery path.
@@ -144,6 +199,12 @@ continue through the stock delegate unchanged.
 - Hosted-project proof at the same clean implementation commit without the filter: 27 discovered, 27 executed, 27 passed, 0 failed, 0 skipped.
 - Broader proof at the same clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj --no-restore -- check --profile fast` passed 102 quality tests, 27 .NET 10 hosted tests, and 150 existing non-browser tests. Total: 279 discovered, 279 executed, 279 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
 - Mutation testing was not run. Issue #85 makes it optional diagnostic evidence for this proof of concept.
+- Meaningful red for issue #87 is preserved at `e48bc29bec6da718ee4e2c90cd60ed09a3f26f4b`: `dotnet test test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Issue87DeleteActionTests" --blame-hang --blame-hang-timeout 5min` discovered and executed 1 hosted test; 0 passed, 1 failed, 0 skipped. An authorized DELETE with a valid antiforgery cookie and token expected `200` but received `405` from the real stock endpoint before the callback could run.
+- Focused proof at clean implementation commit `8c2a528dbff8c528d52199c60330c99ded851b83`: `dotnet test test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Issue87UnsafeActionTests" --blame-hang --blame-hang-timeout 5min` discovered and executed 11 cases; 11 passed, 0 failed, 0 skipped.
+- Hosted-project proof at the same clean implementation commit without the filter: 38 discovered, 38 executed, 38 passed, 0 failed, 0 skipped.
+- Broader proof at the same clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj --no-restore -- check --profile fast` passed 102 quality tests, 38 .NET 10 hosted tests, and 150 existing non-browser tests. Total: 290 discovered, 290 executed, 290 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Independent Standards and Spec reviews examined `31a61637dcf44ffbd8f3e9c5bbdc38224986c549..8c2a528dbff8c528d52199c60330c99ded851b83`; both passed with zero actionable findings.
+- Mutation testing was not run. Issue #87 makes it optional diagnostic evidence for this proof of concept.
 
 ## Remaining limits
 
@@ -151,15 +212,19 @@ continue through the stock delegate unchanged.
 - The matrix uses one representative valid and rejected value per documented constraint. It does not exhaust textual representations, undocumented custom conversion constraints, catch-all routes, or unconstrained routes.
 - The direct path is proved on ASP.NET Core 10 only. The supported framework matrix and packed-package consumption remain unproved.
 - The authorization proof uses one deterministic scheme and one claim policy. It does not cover scheme selection, custom challenge or forbid handlers, identity-provider integration, or authorization on other HTTP methods.
-- The issue #85 proof covers one stock named `EditForm`, one valid value, and one missing-token POST. It does not cover multiple forms, validation failures, invalid-token variants, file uploads, normal POST parity, PUT, PATCH, DELETE, or custom method discovery.
-- The issue #85 host uses TestServer and the stock ephemeral Data Protection provider. It does not exercise Kestrel, TLS, persistent key storage, server-farm key sharing, a browser, or an application-selected HTMX runtime.
+- The issue #85 proof covers one stock named `EditForm`, one valid value, and one missing-token POST. It does not cover multiple forms, validation failures, invalid-token variants, file uploads, normal POST parity, or custom method discovery. Issue #87 proves unsafe route/query instance dispatch separately, without request-body or form binding.
+- The issue #87 stand-in assumes future generator output. Generator discovery, Razor expression analysis, diagnostics, final public API, and packaged-consumer registration remain unproved.
+- The issue #87 lifecycle hook does not yet compose with an application-authored `SetParametersAsync` override. Async callbacks, request-body and form binding, multiple actions on one verb, multiple routes or components, navigation, exception and cancellation behavior, `ShouldRender` overrides, and streaming SSR remain unexercised.
+- The issue #85 and #87 hosts run on Windows TestServer with the stock ephemeral Data Protection provider. They do not exercise Kestrel, TLS, persistent key storage, server-farm key sharing, Linux, a browser, or an application-selected HTMX runtime.
 - The tests do not exercise layouts, caching, concurrency, enhanced navigation, interactive render modes, fragments, browser behavior, or performance.
 - The legacy test application still uses internal private-reflection discovery and global service replacements. Later slices must replace the behavior they cover instead of extending that prototype.
-- HTMX-only component routes and component-owned PUT, PATCH, and DELETE actions have not moved to the new public path. Per-component POST discovery beyond the one stock named form remains unproved.
+- HTMX-only component routes remain unproved. PUT, PATCH, and DELETE now have an internal runtime proof driven by test-only fixed descriptors, but no public generated consumer path. Per-component POST discovery beyond the one stock named form also remains unproved.
 
 ## Recommended next slice
 
-No next implementation slice was selected as part of issue #85. Recheck the
-live v1 tracker and `origin/main` before choosing one. Broader method discovery,
-fragments, browser conformance, packaging, caching, and performance remain
-outside this proof.
+A separate generator slice should emit the proved descriptor and component
+lifecycle contract for statically discoverable method groups. It must first
+settle composition with an application-authored `SetParametersAsync` override
+and must not promote this proof's internal registration shape into a public API
+without that decision. Recheck the live v1 tracker and `origin/main` before
+selecting or creating that issue.
