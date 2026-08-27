@@ -21,6 +21,7 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="all" />
 		<PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
 		<PackageReference Include="Microsoft.Playwright.TestAdapter" Version="1.62.0" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.5.1" />
@@ -37,6 +38,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\..\src\Htmxor.Generators\Htmxor.Generators.csproj" />
 		<ProjectReference Include="..\..\src\Htmxor\Htmxor.csproj" />
 		<ProjectReference Include="..\Htmxor.TestApp\Htmxor.TestApp.csproj" />
 	</ItemGroup>
