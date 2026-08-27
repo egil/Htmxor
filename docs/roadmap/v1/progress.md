@@ -8,9 +8,10 @@ Last updated: 2026-08-27
 - Verified implementation commit for issue #78: `8dcca3c0749cf53e310b1dff9dc22612b0d5e8f5`.
 - Verified implementation commit for issue #81: `0c3fec1b8c3425ef37c2d93a5fa131f3b0c2a649`.
 - Verified evidence commit for issue #83: `46f5b5324c64bff111a8e9bbb38ea812c22067ef`.
-- Framework boundary under test: a real ASP.NET Core 10 and Blazor static SSR test host consuming the project-referenced `net8.0` Htmxor library.
-- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs.
-- Current implementation slice after #83: none. Recheck issue #83, branch publication state, and `origin/main` before starting the next slice.
+- Verified implementation commit for issue #85: `0a87dcd8b50cb5fd1be6a4ddae57601986aaea4a`.
+- Framework boundary under test: a real ASP.NET Core 10.0.11 and Blazor static SSR test host consuming the project-referenced `net8.0` Htmxor library.
+- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output.
+- Current implementation slice after #85: none. Recheck issue #85, branch publication state, and `origin/main` before starting the next slice.
 
 ## Proven v1 behavior
 
@@ -96,6 +97,33 @@ application still owns one component route and does not add a controller,
 Minimal API handler, or duplicate endpoint. No production change was required;
 the existing metadata-preserving direct path already satisfied this slice.
 
+Protected behavior for issue #85:
+
+> When a component-owned stock form is submitted through HTMX, Htmxor lets
+> Blazor bind the form, validates antiforgery before application code, invokes
+> the request component callback, and returns the component response without a
+> parallel endpoint.
+
+The hosted proof uses one component-owned `@page` route, one named stock
+`EditForm`, and one `[SupplyParameterFromForm]` input. A normal GET renders the
+stock application shell and supplies the form handler, antiforgery token, and
+cookie. A valid direct HTMX POST binds `accepted-value`, initializes one request
+component with a new request-scoped dependency, invokes its callback once with
+that value, and returns the updated component without the stock shell.
+
+A direct POST without the antiforgery token and cookie returns `400` before the
+form property setter, component initialization, or callback records any
+activity. The application still owns one component route. It adds no controller,
+Minimal API handler, duplicate route, static endpoint-style action, custom form
+binder, or antiforgery runtime.
+
+The public endpoint convention now applies its request-local root-component
+substitution to direct GET and POST requests. It preserves the stock component
+endpoint's ordered metadata and invokes its captured request delegate, leaving
+ASP.NET Core 10.0.11 responsible for antiforgery validation, form mapping,
+component lifecycle, named callback dispatch, and rendering. Other HTTP methods
+continue through the stock delegate unchanged.
+
 ## Executable evidence
 
 - Meaningful red at `66139317b9edae1fff2ff73fa5175381ee3487b1`: the new .NET 10 hosted test discovered and executed one test, then failed during real application startup with the expected `NullReferenceException` in the obsolete private-reflection component discovery path.
@@ -111,6 +139,11 @@ the existing metadata-preserving direct path already satisfied this slice.
 - Hosted-project proof at the same clean commit without the filter: 25 discovered, 25 executed, 25 passed, 0 failed, 0 skipped.
 - Broader proof at the same clean commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj --no-restore -- check --profile fast` passed 102 quality tests, 25 .NET 10 hosted tests, and 150 existing non-browser tests. Total: 277 discovered, 277 executed, 277 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
 - Mutation testing was not run. Issue #83 makes it optional diagnostic evidence for this proof of concept.
+- Meaningful red for issue #85 used the test tree preserved in `6d0fcf4dafe6e840423eb6e32eec41b1c8e3c7e3` with the unchanged production behavior from `4f2c0d81d25141643894d19972e1b701a9982615`: `dotnet test test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Issue85FormTests" --blame-hang --blame-hang-timeout 5min` discovered and executed 2 tests; 1 passed and 1 failed. Before the shell assertion failed, the valid POST had bound `accepted-value`, initialized one request component with a new request scope, and invoked its callback once with that value. Its response still contained the stock `<html>` shell. The missing-token request passed with `400` and zero form-binding, initialization, or callback activity.
+- Focused proof at clean implementation commit `0a87dcd8b50cb5fd1be6a4ddae57601986aaea4a`: the same filtered command discovered and executed 2 tests; 2 passed, 0 failed, 0 skipped.
+- Hosted-project proof at the same clean implementation commit without the filter: 27 discovered, 27 executed, 27 passed, 0 failed, 0 skipped.
+- Broader proof at the same clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj --no-restore -- check --profile fast` passed 102 quality tests, 27 .NET 10 hosted tests, and 150 existing non-browser tests. Total: 279 discovered, 279 executed, 279 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Mutation testing was not run. Issue #85 makes it optional diagnostic evidence for this proof of concept.
 
 ## Remaining limits
 
@@ -118,13 +151,15 @@ the existing metadata-preserving direct path already satisfied this slice.
 - The matrix uses one representative valid and rejected value per documented constraint. It does not exhaust textual representations, undocumented custom conversion constraints, catch-all routes, or unconstrained routes.
 - The direct path is proved on ASP.NET Core 10 only. The supported framework matrix and packed-package consumption remain unproved.
 - The authorization proof uses one deterministic scheme and one claim policy. It does not cover scheme selection, custom challenge or forbid handlers, identity-provider integration, or authorization on other HTTP methods.
-- The tests do not exercise layouts, forms, unsafe methods, antiforgery enforcement, caching, concurrency, enhanced navigation, interactive render modes, browser behavior, application-selected HTMX runtimes, or performance.
+- The issue #85 proof covers one stock named `EditForm`, one valid value, and one missing-token POST. It does not cover multiple forms, validation failures, invalid-token variants, file uploads, normal POST parity, PUT, PATCH, DELETE, or custom method discovery.
+- The issue #85 host uses TestServer and the stock ephemeral Data Protection provider. It does not exercise Kestrel, TLS, persistent key storage, server-farm key sharing, a browser, or an application-selected HTMX runtime.
+- The tests do not exercise layouts, caching, concurrency, enhanced navigation, interactive render modes, fragments, browser behavior, or performance.
 - The legacy test application still uses internal private-reflection discovery and global service replacements. Later slices must replace the behavior they cover instead of extending that prototype.
-- HTMX-only component routes and component-owned actions have not moved to the new public path.
+- HTMX-only component routes and component-owned PUT, PATCH, and DELETE actions have not moved to the new public path. Per-component POST discovery beyond the one stock named form remains unproved.
 
 ## Recommended next slice
 
-No next implementation slice was selected as part of issue #83. Recheck the
-live v1 tracker and `origin/main` before choosing one. Forms, unsafe methods,
-antiforgery, fragments, browser conformance, packaging, and performance remain
+No next implementation slice was selected as part of issue #85. Recheck the
+live v1 tracker and `origin/main` before choosing one. Broader method discovery,
+fragments, browser conformance, packaging, caching, and performance remain
 outside this proof.
