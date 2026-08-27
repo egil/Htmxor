@@ -20,7 +20,7 @@ internal sealed class HtmxorDirectRenderHost : ComponentBase
 		builder.CloseComponent();
 	}
 
-	private static RenderFragment RenderRoute(RouteData routeData) => builder =>
+	internal static RenderFragment RenderRoute(RouteData routeData) => builder =>
 	{
 		builder.OpenComponent<DynamicComponent>(0);
 		builder.AddComponentParameter(1, nameof(DynamicComponent.Type), routeData.PageType);
