@@ -52,6 +52,7 @@ public static class HtmxorApplicationBuilderExtensions
 			return httpContext.GetHtmxContext();
 		});
 		services.AddCascadingValue(serviceProvider => serviceProvider.GetRequiredService<HtmxContext>());
+		services.AddScoped<HtmxorComponentActionRequest>();
 
 		return razorComponentsBuilder;
 	}
