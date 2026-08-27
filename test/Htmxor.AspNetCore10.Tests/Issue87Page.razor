@@ -5,6 +5,8 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject Issue87RequestProbe RequestProbe
 
+<button hx-put="/issue-87/@ItemId?source=@Source" @onput="PutItem">Put</button>
+<button hx-patch="/issue-87/@ItemId?source=@Source" @onpatch="PatchItem">Patch</button>
 <button hx-delete="/issue-87/@ItemId?source=@Source" @ondelete="DeleteItem">Delete</button>
 <AntiforgeryToken />
 
@@ -13,14 +15,17 @@
    data-query-source="@Source"
    data-user="@HttpContext.User.Identity?.Name"
    data-request-id="@RequestProbe.Id"
+   data-binding-count="@RequestProbe.BindingCount"
    data-initialization-count="@RequestProbe.InitializationCount"
    data-callback-count="@RequestProbe.CallbackCount"
-   data-deleted="@deleted.ToString().ToLowerInvariant()">
+   data-callback-name="@callbackName"
+   data-action-completed="@actionCompleted.ToString().ToLowerInvariant()">
     @callbackObservation
 </p>
 
 @code {
-    private bool deleted;
+    private bool actionCompleted;
+    private string? callbackName;
     private string? callbackObservation;
 
     [Parameter]
@@ -38,10 +43,22 @@
         RequestProbe.RecordInitialization();
     }
 
-    private void DeleteItem(HtmxEventArgs _)
+    protected override void OnParametersSet()
     {
-        deleted = true;
-        callbackObservation = $"{ItemId}|{Source}|{HttpContext.User.Identity?.Name}|{RequestProbe.Value}";
+        RequestProbe.RecordBinding();
+    }
+
+    private void PutItem(HtmxEventArgs _) => RecordAction("put");
+
+    private void PatchItem(HtmxEventArgs _) => RecordAction("patch");
+
+    private void DeleteItem(HtmxEventArgs _) => RecordAction("delete");
+
+    private void RecordAction(string action)
+    {
+        actionCompleted = true;
+        callbackName = action;
+        callbackObservation = $"{action}|{ItemId}|{Source}|{HttpContext.User.Identity?.Name}|{RequestProbe.Value}";
         RequestProbe.RecordCallback();
     }
 }
