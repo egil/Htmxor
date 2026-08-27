@@ -24,6 +24,7 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 		});
 		builder.WebHost.UseTestServer();
 		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddScoped(_ => new Issue81RequestProbe("from-di"));
 
 		app = builder.Build();
 		app.UseAntiforgery();
@@ -63,6 +64,32 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 		Assert.DoesNotContain("data-stock-shell", htmxBody, StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task Bound_stock_page_normal_and_htmx_gets_receive_the_same_request_values_once()
+	{
+		var pageEndpoints = ((IEndpointRouteBuilder)app).DataSources
+			.SelectMany(dataSource => dataSource.Endpoints)
+			.OfType<RouteEndpoint>()
+			.Where(endpoint => endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type == typeof(Issue81Page));
+		Assert.Single(pageEndpoints);
+
+		using var normalResponse = await client.GetAsync("/issue-81/42?query=from-query");
+		var normalBody = await normalResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.OK, normalResponse.StatusCode);
+		Assert.Contains("<html", normalBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-81-values>42|from-query|from-di|1</p>", normalBody, StringComparison.Ordinal);
+
+		using var htmxRequest = new HttpRequestMessage(HttpMethod.Get, "/issue-81/42?query=from-query");
+		htmxRequest.Headers.Add("HX-Request", "true");
+		using var htmxResponse = await client.SendAsync(htmxRequest);
+		var htmxBody = await htmxResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.OK, htmxResponse.StatusCode);
+		Assert.Contains("data-issue-81-values>42|from-query|from-di|1</p>", htmxBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("<html", htmxBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", htmxBody, StringComparison.Ordinal);
+	}
+
 	public async Task DisposeAsync()
 	{
 		client?.Dispose();
@@ -76,4 +103,13 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 internal sealed record RouteSentinelMetadata(string Value)
 {
 	public static RouteSentinelMetadata Instance { get; } = new("preserved");
+}
+
+internal sealed class Issue81RequestProbe(string value)
+{
+	private int initializationCount;
+
+	public string Value { get; } = value;
+
+	public int RecordInitialization() => ++initializationCount;
 }
