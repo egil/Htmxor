@@ -1,0 +1,20 @@
+@page "/issue-81/{routeValue:int}"
+@inject Issue81RequestProbe RequestProbe
+
+<p data-issue-81-values>@RouteValue|@QueryValue|@RequestProbe.Value|@InitializationCount</p>
+
+@code {
+    [Parameter]
+    public int RouteValue { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "query")]
+    public string? QueryValue { get; set; }
+
+    private int InitializationCount { get; set; }
+
+    protected override void OnInitialized()
+    {
+        InitializationCount = RequestProbe.RecordInitialization();
+    }
+}
