@@ -1,0 +1,47 @@
+@page "/issue-87/{ItemId:int}"
+@attribute [Authorize(Policy = "issue-87-policy")]
+@using Htmxor
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue87RequestProbe RequestProbe
+
+<button hx-delete="/issue-87/@ItemId?source=@Source" @ondelete="DeleteItem">Delete</button>
+<AntiforgeryToken />
+
+<p data-issue-87-result
+   data-item-id="@ItemId"
+   data-query-source="@Source"
+   data-user="@HttpContext.User.Identity?.Name"
+   data-request-id="@RequestProbe.Id"
+   data-initialization-count="@RequestProbe.InitializationCount"
+   data-callback-count="@RequestProbe.CallbackCount"
+   data-deleted="@deleted.ToString().ToLowerInvariant()">
+    @callbackObservation
+</p>
+
+@code {
+    private bool deleted;
+    private string? callbackObservation;
+
+    [Parameter]
+    public int ItemId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "source")]
+    public string? Source { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        RequestProbe.RecordInitialization();
+    }
+
+    private void DeleteItem(HtmxEventArgs _)
+    {
+        deleted = true;
+        callbackObservation = $"{ItemId}|{Source}|{HttpContext.User.Identity?.Name}|{RequestProbe.Value}";
+        RequestProbe.RecordCallback();
+    }
+}
