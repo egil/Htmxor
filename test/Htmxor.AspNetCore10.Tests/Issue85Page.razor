@@ -1,0 +1,50 @@
+@page "/issue-85"
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue85RequestProbe RequestProbe
+
+<EditForm Model="Input" FormName="issue-85-form" OnValidSubmit="HandleValidSubmit" hx-post="/issue-85">
+    <InputText @bind-Value="Input.Value" data-issue-85-input />
+    <button type="submit">Submit</button>
+</EditForm>
+
+<p data-issue-85-result
+   data-bound-value="@Input.Value"
+   data-submitted-value="@submittedValue"
+   data-request-id="@RequestProbe.Id"
+   data-binding-count="@RequestProbe.BindingCount"
+   data-initialization-count="@RequestProbe.InitializationCount"
+   data-callback-count="@RequestProbe.CallbackCount">
+    @Input.Value
+</p>
+
+@code {
+    private Issue85FormInput input = new();
+    private string? submittedValue;
+
+    [SupplyParameterFromForm(FormName = "issue-85-form")]
+    private Issue85FormInput Input
+    {
+        get => input;
+        set
+        {
+            input = value;
+            RequestProbe.RecordBinding();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        RequestProbe.RecordInitialization();
+    }
+
+    private void HandleValidSubmit()
+    {
+        submittedValue = Input.Value;
+        RequestProbe.RecordCallback();
+    }
+
+    public sealed class Issue85FormInput
+    {
+        public string Value { get; set; } = string.Empty;
+    }
+}
