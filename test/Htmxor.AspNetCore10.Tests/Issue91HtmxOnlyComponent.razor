@@ -1,0 +1,30 @@
+@attribute [Htmxor.HtmxRoute("/reports/{ReportId:int}", Methods = new[] { "GET" })]
+@attribute [Authorize(Policy = "issue-91-policy")]
+@inject Issue91RequestProbe RequestProbe
+@using Microsoft.AspNetCore.Authorization
+
+<section data-issue-91-component>
+    <p data-request-values>@ReportId|@QueryValue|@HttpContext.User.Identity?.Name|@RequestProbe.Value|@InitializationCount|@GroupMarker</p>
+</section>
+
+@code {
+    [Parameter]
+    public int ReportId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "query")]
+    public string? QueryValue { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private int InitializationCount { get; set; }
+
+    private string? GroupMarker
+        => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue91GroupMetadata>()?.Value;
+
+    protected override void OnInitialized()
+    {
+        InitializationCount = RequestProbe.RecordInitialization();
+    }
+}
