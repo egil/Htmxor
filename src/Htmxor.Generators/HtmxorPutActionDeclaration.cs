@@ -13,6 +13,10 @@ internal sealed class HtmxorPutActionDeclaration
 	private static readonly Regex PageDirective = new(
 		"^\\s*@page(?:\\s|$)",
 		RegexOptions.CultureInvariant | RegexOptions.Multiline);
+	private static readonly Regex RazorCodeTransition = new(
+		"^[ \\t]*@(?:code|functions|if|for|foreach|while|switch|try|lock|do)\\b|" +
+		"^[ \\t]*@\\{|^[ \\t]*@using\\s*\\(|@\\(",
+		RegexOptions.CultureInvariant | RegexOptions.Multiline);
 	private static readonly Regex SupportedBinding = new(
 		"@onput\\s*=\\s*\"(?<handler>[A-Za-z_][A-Za-z0-9_]*)\"",
 		RegexOptions.CultureInvariant);
@@ -67,7 +71,7 @@ internal sealed class HtmxorPutActionDeclaration
 			return null;
 		}
 
-		var attributeIndices = FindMarkupAttributeIndices(source);
+		var attributeIndices = FindMarkupAttributeIndices(GetSupportedMarkupPrefix(source));
 		if (attributeIndices.Count == 0)
 		{
 			return null;
@@ -121,6 +125,12 @@ internal sealed class HtmxorPutActionDeclaration
 		return indices;
 	}
 
+	private static string GetSupportedMarkupPrefix(string source)
+	{
+		var transition = RazorCodeTransition.Match(source);
+		return transition.Success ? source.Substring(0, transition.Index) : source;
+	}
+
 	private static bool IsMarkupAttribute(string source, int attributeIndex)
 	{
 		var tagStart = source.LastIndexOf('<', attributeIndex);
@@ -128,9 +138,29 @@ internal sealed class HtmxorPutActionDeclaration
 			source.LastIndexOf('>', attributeIndex) < tagStart &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "@*", "*@") &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "<!--", "-->") &&
+			!IsInsideAttributeValue(source, tagStart, attributeIndex) &&
 			attributeIndex > 0 &&
 			char.IsWhiteSpace(source[attributeIndex - 1]) &&
 			IsAttributeNameTerminator(source, attributeIndex + AttributeName.Length);
+	}
+
+	private static bool IsInsideAttributeValue(string source, int tagStart, int attributeIndex)
+	{
+		var quote = '\0';
+		for (var index = tagStart + 1; index < attributeIndex; index++)
+		{
+			var current = source[index];
+			if (quote == '\0' && (current == '\'' || current == '"'))
+			{
+				quote = current;
+			}
+			else if (current == quote)
+			{
+				quote = '\0';
+			}
+		}
+
+		return quote != '\0';
 	}
 
 	private static bool IsInsideDelimitedRegion(
