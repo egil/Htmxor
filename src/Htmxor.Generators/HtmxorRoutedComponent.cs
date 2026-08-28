@@ -35,10 +35,12 @@ internal sealed class HtmxorRoutedComponent
 	public string? GetUnsupportedReason(
 		HtmxorRouteSymbols symbols,
 		ImmutableHashSet<string> manifest,
-		int routedComponentCount)
+		int routedComponentCount,
+		CancellationToken cancellationToken)
 		=> ValidateManifest(manifest) ??
 			ValidateComponent(symbols) ??
 			ValidateRoute() ??
+			ValidateRouteOrigin(cancellationToken) ??
 			ValidateNormalRoute(symbols) ??
 			ValidateAuthorization(symbols) ??
 			ValidateComponentCount(routedComponentCount);
@@ -115,14 +117,26 @@ internal sealed class HtmxorRoutedComponent
 			.Where(static argument => string.Equals(argument.Key, "Methods", StringComparison.Ordinal))
 			.Select(static argument => argument.Value)
 			.ToImmutableArray();
-		if (methods.Length != 1)
+		if (methods.Length == 0)
 		{
-			return "HtmxRoute must explicitly declare Methods with one GET value";
+			return null;
 		}
 
-		return HasOnlyGet(methods[0])
+		return methods.Length == 1 && HasOnlyGet(methods[0])
 			? null
-			: "HtmxRoute Methods must resolve to GET only";
+			: "explicit HtmxRoute Methods must resolve to GET only";
+	}
+
+	private string? ValidateRouteOrigin(CancellationToken cancellationToken)
+	{
+		var path = Routes[0].ApplicationSyntaxReference?
+			.GetSyntax(cancellationToken)
+			.GetLocation()
+			.GetMappedLineSpan()
+			.Path;
+		return path is not null && path.EndsWith("_Imports.razor", StringComparison.OrdinalIgnoreCase)
+			? "HtmxRoute declarations from _Imports.razor are not supported"
+			: null;
 	}
 
 	private string? ValidateNormalRoute(HtmxorRouteSymbols symbols)

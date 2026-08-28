@@ -118,7 +118,8 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		var generatedAction = new HtmxorGeneratedComponentAction(
 			typeof(global::Htmxor.TestApp.App),
 			HttpMethods.Put,
-			"PackageConsumer.App.PutReport");
+			"PackageConsumer.App.PutReport",
+			usesStockRoute: true);
 
 		var exception = Assert.Throws<InvalidOperationException>(() =>
 			componentBuilder.AddHtmxorAttributedComponentEndpoints(
@@ -149,7 +150,8 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		var generatedAction = new HtmxorGeneratedComponentAction(
 			fixture.Types[1],
 			HttpMethods.Put,
-			"PackageConsumer.StockReportComponent.PutReport");
+			"PackageConsumer.StockReportComponent.PutReport",
+			usesStockRoute: true);
 
 		componentBuilder.AddHtmxorAttributedComponentEndpoints(
 			group,
@@ -163,6 +165,60 @@ public sealed class HtmxorAttributedRouteCatalogTests
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
 		Assert.Empty(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
 		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
+	}
+
+	[Fact]
+	public async Task Bridge_widens_an_omitted_methods_htmx_route_only_for_its_generated_action()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.ReportComponent",
+				"/reports/{ReportId:int}",
+				"report.policy",
+				ExplicitMethods: false));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			HttpMethods.Patch,
+			"PackageConsumer.ReportComponent.PatchReport",
+			usesStockRoute: false);
+
+		componentBuilder.AddHtmxorAttributedComponentEndpoints(
+			group,
+			fixture.Assembly,
+			fixture.Manifest,
+			[generatedAction]);
+
+		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
+		Assert.Equal(
+			[HttpMethods.Get, HttpMethods.Patch],
+			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
+		var action = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
+		Assert.Equal(HttpMethods.Patch, action.HttpMethod);
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
+	}
+
+	[Fact]
+	public async Task Bridge_fails_closed_before_mapping_when_explicit_methods_conflict_with_a_binding()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition("PackageConsumer.ReportComponent", "/reports/{ReportId:int}", "report.policy"));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			HttpMethods.Put,
+			"PackageConsumer.ReportComponent.PutReport",
+			usesStockRoute: false);
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[generatedAction]));
+
+		Assert.Contains("explicit HtmxRoute.Methods is authoritative", exception.Message, StringComparison.Ordinal);
+		Assert.Empty(GetGeneratedEndpoints(app));
 	}
 
 	[Fact]
@@ -187,7 +243,8 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		var generatedAction = new HtmxorGeneratedComponentAction(
 			fixture.Types[1],
 			HttpMethods.Put,
-			"PackageConsumer.StockReportComponent.PutReport");
+			"PackageConsumer.StockReportComponent.PutReport",
+			usesStockRoute: true);
 
 		var exception = Assert.Throws<InvalidOperationException>(() =>
 			componentBuilder.AddHtmxorAttributedComponentEndpoints(
@@ -209,8 +266,9 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
 		var generatedAction = new HtmxorGeneratedComponentAction(
 			fixture.Types[0],
-			HttpMethods.Post,
-			"PackageConsumer.ReportComponent.PostReport");
+			HttpMethods.Trace,
+			"PackageConsumer.ReportComponent.TraceReport",
+			usesStockRoute: false);
 
 		var exception = Assert.Throws<InvalidOperationException>(() =>
 			componentBuilder.AddHtmxorAttributedComponentEndpoints(
@@ -219,7 +277,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				fixture.Manifest,
 				[generatedAction]));
 
-		Assert.Contains("supports only a generated PUT action", exception.Message, StringComparison.Ordinal);
+		Assert.Contains("uses unsupported method", exception.Message, StringComparison.Ordinal);
 		Assert.Empty(GetGeneratedEndpoints(app));
 	}
 
@@ -232,11 +290,13 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		var firstAction = new HtmxorGeneratedComponentAction(
 			fixture.Types[0],
 			HttpMethods.Put,
-			"PackageConsumer.ReportComponent.PutReport");
+			"PackageConsumer.ReportComponent.PutReport",
+			usesStockRoute: false);
 		var secondAction = new HtmxorGeneratedComponentAction(
 			fixture.Types[0],
 			HttpMethods.Put,
-			"PackageConsumer.ReportComponent.PutReportAgain");
+			"PackageConsumer.ReportComponent.PutReportAgain",
+			usesStockRoute: false);
 
 		var exception = Assert.Throws<InvalidOperationException>(() =>
 			componentBuilder.AddHtmxorAttributedComponentEndpoints(
@@ -245,12 +305,12 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				fixture.Manifest,
 				[firstAction, secondAction]));
 
-		Assert.Contains("supports exactly one generated component action", exception.Message, StringComparison.Ordinal);
+		Assert.Contains("declares more than one generated PUT action", exception.Message, StringComparison.Ordinal);
 		Assert.Empty(GetGeneratedEndpoints(app));
 	}
 
 	private static void AssertDescriptor(
-		HtmxorComponentGetRouteDescriptor descriptor,
+		HtmxorComponentRouteDescriptor descriptor,
 		Type componentType,
 		string route,
 		string policy)
@@ -314,7 +374,8 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		bool HasAdditionalRouteFilter = false,
 		bool HasThrowingMetadata = false,
 		bool HasHtmxRoute = true,
-		IReadOnlyList<string>? StockRoutes = null);
+		IReadOnlyList<string>? StockRoutes = null,
+		bool ExplicitMethods = true);
 
 	private sealed record DynamicComponentAssembly(Assembly Assembly, Type[] Types, string[] Manifest)
 	{
@@ -369,11 +430,13 @@ public sealed class HtmxorAttributedRouteCatalogTests
 
 		private static void AddRoute(TypeBuilder type, ComponentDefinition definition)
 		{
-			var properties = new List<PropertyInfo>
+			var properties = new List<PropertyInfo>();
+			var values = new List<object>();
+			if (definition.ExplicitMethods)
 			{
-				typeof(HtmxRouteAttribute).GetProperty(nameof(HtmxRouteAttribute.Methods))!,
-			};
-			var values = new List<object> { new[] { HttpMethods.Get } };
+				properties.Add(typeof(HtmxRouteAttribute).GetProperty(nameof(HtmxRouteAttribute.Methods))!);
+				values.Add(new[] { HttpMethods.Get });
+			}
 			if (definition.HasAdditionalRouteFilter)
 			{
 				properties.Add(typeof(HtmxRouteAttribute).GetProperty(nameof(HtmxRouteAttribute.Target))!);

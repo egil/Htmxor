@@ -48,7 +48,11 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 
 		foreach (var component in components)
 		{
-			var reason = component.GetUnsupportedReason(symbols, manifest, components.Length);
+			var reason = component.GetUnsupportedReason(
+				symbols,
+				manifest,
+				components.Length,
+				context.CancellationToken);
 			if (reason is not null)
 			{
 				context.ReportDiagnostic(Diagnostic.Create(

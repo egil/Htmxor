@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components;
 
+using Microsoft.AspNetCore.Http;
+
 namespace Htmxor.Builder;
 public class HtmxorComponentEndpointDataSourceTest
 {
@@ -15,7 +17,17 @@ public class HtmxorComponentEndpointDataSourceTest
 
 		var endpoints = cut.Endpoints;
 		endpoints.Should().HaveCount(3);
-		endpoints[0].Metadata.Should().Contain(new EndpointMetadata(new HtmxRouteAttribute("/route-only")));
+		endpoints[0].Metadata.Should().Contain(new EndpointMetadata(new HtmxRouteAttribute("/route-only")
+		{
+			Methods =
+			[
+				HttpMethods.Get,
+				HttpMethods.Post,
+				HttpMethods.Put,
+				HttpMethods.Patch,
+				HttpMethods.Delete,
+			],
+		}));
 		endpoints[1].Metadata.Should().Contain(new EndpointMetadata(new HtmxRouteAttribute("/hx-only")));
 		endpoints[2].Metadata.Should().Contain(new EndpointMetadata(new HtmxRouteAttribute("/hx-and-route") { Target = "target" }));
 	}

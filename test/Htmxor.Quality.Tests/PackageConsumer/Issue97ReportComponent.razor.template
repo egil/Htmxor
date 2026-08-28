@@ -1,4 +1,4 @@
-@attribute [Htmxor.HtmxRoute("/htmx-reports/{ReportId:int}", Methods = new[] { "GET" })]
+@attribute [Htmxor.HtmxRoute("/htmx-reports/{ReportId:int}")]
 @attribute [Authorize(Policy = "issue-97-report-policy")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms

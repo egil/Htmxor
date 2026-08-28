@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Htmxor.Generators.Tests;
 
-public sealed class HtmxorPutActionGeneratorTests
+public sealed class HtmxorActionGeneratorTests
 {
 	private const string RootNamespace = "Htmxor.Consumer";
 	private const string RuntimeStubs = """
@@ -69,7 +69,8 @@ public sealed class HtmxorPutActionGeneratorTests
 			public sealed class HtmxorGeneratedComponentAction(
 				Type componentType,
 				string httpMethod,
-				string handlerIdentity);
+				string handlerIdentity,
+				bool usesStockRoute);
 		}
 
 		namespace Htmxor.Endpoints
@@ -98,11 +99,88 @@ public sealed class HtmxorPutActionGeneratorTests
 					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
 
 				private Task PutReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+
+				private Task PostReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+
+				private Task PatchReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+
+				private Task DeleteReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
 			}
 		}
 		""";
 	private static readonly string ProjectDirectory = Path.GetFullPath(
-		Path.Combine(Path.GetTempPath(), "htmxor-put-generator-tests"));
+		Path.Combine(Path.GetTempPath(), "htmxor-action-generator-tests"));
+
+	[Theory]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "button", "@onpost", "POST", "PostReport")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "button", "@onput", "PUT", "PutReport")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "InputText", "@onpatch", "PATCH", "PatchReport")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "InputText", "@ondelete", "DELETE", "DeleteReport")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "button", "@onpost", "POST", "PostReport")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "button", "@onput", "PUT", "PutReport")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "InputText", "@onpatch", "PATCH", "PatchReport")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "InputText", "@ondelete", "DELETE", "DeleteReport")]
+	public void Route_owner_and_unsafe_binding_emit_one_compiling_action(
+		string routeDeclaration,
+		string tagName,
+		string binding,
+		string httpMethod,
+		string handlerName)
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			<{tagName} {binding}="{handlerName}" />
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = Assert.Single(
+			run.RunResult.Results
+				.SelectMany(static result => result.GeneratedSources)
+				.Where(static source => source.HintName != "HtmxorGeneratedRouteRegistration.g.cs"))
+			.SourceText
+			.ToString();
+		Assert.Contains($"\"{httpMethod}\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
+	public void Component_tag_binding_after_bind_attribute_emits_a_compiling_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@attribute [Htmxor.HtmxRoute("/reports/{ReportId:int}")]
+			<InputText @bind-Value="InputValue" @onpatch="PatchReport" />
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PatchReport", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
+	public void Multiple_unsafe_bindings_on_one_html_tag_emit_distinct_compiling_actions()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<button hx-put="/reports/41" hx-delete="/reports/41" @onput="PutReport" @ondelete="DeleteReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, DeleteReport", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
 
 	[Fact]
 	public void Simple_stock_page_method_group_emits_one_shared_action_and_compiles_with_route_manifest()
@@ -119,7 +197,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
 		var routeSource = GetGeneratedSource(run, "HtmxorGeneratedRouteRegistration.g.cs");
-		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedPutAction.g.cs");
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
 		Assert.Contains("AddGeneratedActions(generatedActions)", routeSource, StringComparison.Ordinal);
 		Assert.Contains(
 			"actions.Add(global::Htmxor.Consumer.ReportComponent.__HtmxorGeneratedPutAction)",
@@ -158,19 +236,29 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedPutAction.g.cs");
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
 		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
-	[Fact]
-	public void Hx_put_without_onput_emits_only_the_route_manifest()
+	[Theory]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "hx-post")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "hx-put")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "hx-patch")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "hx-delete")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "hx-post")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "hx-put")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "hx-patch")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "hx-delete")]
+	public void Client_unsafe_attribute_without_a_binding_emits_only_the_route_manifest(
+		string routeDeclaration,
+		string clientAttribute)
 	{
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
-			"""
-			@page "/reports/{ReportId:int}"
-			<button hx-put="/reports/41?source=queue">Save</button>
+			$"""
+			{routeDeclaration}
+			<button {clientAttribute}="/reports/41?source=queue">Save</button>
 			"""));
 
 		Assert.Empty(run.DriverDiagnostics);
@@ -180,23 +268,43 @@ public sealed class HtmxorPutActionGeneratorTests
 			static source => source.HintName == "HtmxorGeneratedRouteRegistration.g.cs");
 		Assert.DoesNotContain(
 			run.RunResult.Results.SelectMany(static result => result.GeneratedSources),
-			static source => source.HintName == "HtmxorGeneratedPutAction.g.cs");
+			static source => source.HintName == "HtmxorGeneratedActions.g.cs");
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
-	[Fact]
-	public void Explicit_get_only_htmx_route_onput_does_not_emit_a_stock_page_action()
+	[Theory]
+	[InlineData("@page \"/reports/{ReportId:int}\"")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]")]
+	public void Htmx_four_action_and_method_do_not_grant_a_server_action(string routeDeclaration)
 	{
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
-			"""
-			@attribute [Htmxor.HtmxRoute("/reports/{ReportId:int}", Methods = new[] { "GET" })]
-			<button hx-put="/reports/41" @onput="PutReport">Save</button>
+			$"""
+			{routeDeclaration}
+			<button hx-action="/reports/41" hx-method="PUT">Save</button>
 			"""));
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Theory]
+	[InlineData("@page \"/reports/{ReportId:int}\"")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]")]
+	public void Htmx_four_query_does_not_grant_a_query_server_action(string routeDeclaration)
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			<button hx-query="/reports/41">Query</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -214,7 +322,7 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -230,7 +338,7 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -246,7 +354,7 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -262,7 +370,7 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -280,7 +388,7 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -297,7 +405,7 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -316,7 +424,7 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -332,7 +440,7 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -348,7 +456,7 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedPutAction.g.cs");
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
 		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("/reports/{ReportId:int}", actionSource, StringComparison.Ordinal);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
@@ -369,50 +477,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
 		Assert.Contains("simple method-group", diagnostic.GetMessage(), StringComparison.Ordinal);
-		AssertNoPutSource(run);
-	}
-
-	[Fact]
-	public void Multiple_onput_declarations_fail_closed_in_stable_external_path_order()
-	{
-		var alpha = new RazorInput(
-			"AlphaComponent.razor",
-			"""
-			@page "/alpha/{Id:int}"
-			<button @onput="PutAlpha">Alpha</button>
-			""");
-		var zeta = new RazorInput(
-			"ZetaComponent.razor",
-			"""
-			@page "/zeta/{Id:int}"
-			<button @onput="PutZeta">Zeta</button>
-			""");
-
-		var reverse = RunGenerators(zeta, alpha);
-		var forward = RunGenerators(alpha, zeta);
-		var reverseDiagnostics = reverse.RunResult.Diagnostics;
-		var forwardDiagnostics = forward.RunResult.Diagnostics;
-
-		Assert.Equal(2, reverseDiagnostics.Length);
-		Assert.Equal(
-			new[] { alpha.FullPath, zeta.FullPath },
-			reverseDiagnostics.Select(static diagnostic => diagnostic.Location.GetLineSpan().Path));
-		Assert.Equal(
-			forwardDiagnostics.Select(static diagnostic => diagnostic.GetMessage()),
-			reverseDiagnostics.Select(static diagnostic => diagnostic.GetMessage()));
-		Assert.Equal(
-			forwardDiagnostics.Select(static diagnostic => diagnostic.Location.GetLineSpan().Path),
-			reverseDiagnostics.Select(static diagnostic => diagnostic.Location.GetLineSpan().Path));
-		Assert.All(reverseDiagnostics, diagnostic =>
-		{
-			Assert.Equal("HTMXOR002", diagnostic.Id);
-			Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-			Assert.Equal(LocationKind.ExternalFile, diagnostic.Location.Kind);
-			Assert.Contains("exactly one", diagnostic.GetMessage(), StringComparison.Ordinal);
-			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
-		});
-		AssertNoPutSource(reverse);
-		AssertNoPutSource(forward);
+		AssertNoActionSource(run);
 	}
 
 	private static void AssertUnsupportedDiagnostic(
@@ -428,10 +493,10 @@ public sealed class HtmxorPutActionGeneratorTests
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
 
-	private static void AssertNoPutSource(GeneratorRun run)
+	private static void AssertNoActionSource(GeneratorRun run)
 		=> Assert.DoesNotContain(
 			run.RunResult.Results.SelectMany(static result => result.GeneratedSources),
-			static source => source.HintName == "HtmxorGeneratedPutAction.g.cs");
+			static source => source.HintName == "HtmxorGeneratedActions.g.cs");
 
 	private static string GetGeneratedSource(GeneratorRun run, string hintName)
 		=> Assert.Single(
@@ -458,7 +523,7 @@ public sealed class HtmxorPutActionGeneratorTests
 			new ISourceGenerator[]
 			{
 				new HtmxorRouteGenerator().AsSourceGenerator(),
-				new HtmxorPutActionGenerator().AsSourceGenerator(),
+				new HtmxorActionGenerator().AsSourceGenerator(),
 			},
 			inputs.Select(static input => (AdditionalText)new TextAdditionalText(
 				input.FullPath,

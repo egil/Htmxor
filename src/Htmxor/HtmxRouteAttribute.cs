@@ -12,7 +12,7 @@ namespace Htmxor;
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribute>
 {
-	public static readonly string[] DefaultHttpMethods = [HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Patch, HttpMethods.Delete];
+	public static readonly string[] DefaultHttpMethods = [HttpMethods.Get];
 
 	/// <summary>
 	/// Gets the route template.
@@ -22,7 +22,7 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 
 	/// <summary>
 	/// Gets the HTTP methods supported by the route.
-	/// If null or empty, this route allow all HTTP methods Htmx supports (<see cref="DefaultHttpMethods"/>).
+	/// GET is implicit. Htmxor infers unsafe methods from supported component bindings when this property is omitted.
 	/// </summary>
 	public string[] Methods { get; init; } = DefaultHttpMethods;
 

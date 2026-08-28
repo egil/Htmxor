@@ -9,7 +9,9 @@ public sealed class PackedPackageConsumerTests
 	private const string UnsupportedPutHandlerMessage =
 		"@onput must use one double-quoted simple method-group name";
 	private const string AmbiguousStockRouteMessage =
-		"requires exactly one compiled stock route";
+		"exactly one stock route and no HtmxRoute";
+	private const string ExplicitMethodsConflictMessage =
+		"explicit HtmxRoute.Methods is authoritative";
 
 	[Fact]
 	public async Task Package_only_application_infers_stock_and_htmx_only_unsafe_actions()
@@ -30,25 +32,20 @@ public sealed class PackedPackageConsumerTests
 	}
 
 	[Fact]
-	public async Task Package_only_application_rejects_a_put_component_with_two_compiled_stock_routes()
+	public async Task Package_only_application_rejects_a_component_with_two_compiled_stock_routes()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		workspace.UseSecondCompiledPageRoute();
 
-		var result = await workspace.RunAsync();
+		var result = await workspace.BuildForDiagnosticAsync();
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
-		var testRun = TrxTestRun.Read(workspace.TrxPath);
 
-		Assert.True(
-			result.ExitCode != 0,
-			"Expected Htmxor registration to reject the second compiled stock route. " +
-			"Instead the consumer exited successfully after its eight hosted checks targeted " +
-			"that route, including the authorized antiforgery-valid PUT and callback. " +
-			$"TRX: {testRun}" + Environment.NewLine + output);
+		Assert.NotEqual(0, result.ExitCode);
+		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.Contains("Issue100ReportPage.razor", output, StringComparison.Ordinal);
 		Assert.Contains(AmbiguousStockRouteMessage, output, StringComparison.Ordinal);
-		Assert.Equal(new TrxTestRun(11, 11, 0, 11, 0, 0, 0), testRun);
+		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
 
 	[Fact]
@@ -64,6 +61,23 @@ public sealed class PackedPackageConsumerTests
 		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
 		Assert.Contains("Issue100ReportPage.razor", output, StringComparison.Ordinal);
 		Assert.Contains(UnsupportedPutHandlerMessage, output, StringComparison.Ordinal);
+		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+	}
+
+	[Fact]
+	public async Task Package_only_application_rejects_an_explicit_methods_conflict()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseExplicitMethodsConflict();
+
+		var result = await workspace.BuildForDiagnosticAsync();
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+
+		Assert.NotEqual(0, result.ExitCode);
+		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.Contains("Issue97ReportComponent.razor", output, StringComparison.Ordinal);
+		Assert.Contains(ExplicitMethodsConflictMessage, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
@@ -149,6 +163,29 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 			supportedHandler,
 			computedHandler,
 			StringComparison.Ordinal);
+
+		File.WriteAllText(componentPath, rewritten);
+	}
+
+	public void UseExplicitMethodsConflict()
+	{
+		var componentPath = Path.Combine(
+			consumerDirectory,
+			"Issue97ReportComponent.razor");
+		var source = File.ReadAllText(componentPath);
+		const string omittedMethods =
+			"Htmxor.HtmxRoute(\"/htmx-reports/{ReportId:int}\")";
+		const string explicitMethods =
+			"Htmxor.HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = new[] { \"GET\" })";
+		var rewritten = source.Replace(
+			omittedMethods,
+			explicitMethods,
+			StringComparison.Ordinal);
+		if (string.Equals(source, rewritten, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged package consumer must contain one omitted-Methods report route.");
+		}
 
 		File.WriteAllText(componentPath, rewritten);
 	}
@@ -402,7 +439,7 @@ internal static class PackageConsumerEvidence
 			consumerDirectory,
 			"Issue100ReportPage.razor"));
 		const string reportRoute =
-			"@attribute [Htmxor.HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = new[] { \"GET\" })]";
+			"@attribute [Htmxor.HtmxRoute(\"/htmx-reports/{ReportId:int}\")]";
 		const string summaryRoute =
 			"@attribute [Htmxor.HtmxRoute(SummaryRoute, Methods = [ SummaryMethod ])]";
 		const string summaryAuthorization = "@attribute [Authorize(SummaryPolicy)]";
