@@ -375,6 +375,34 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
 
+	[Fact]
+	public async Task Binding_inside_explicit_htmx_route_methods_is_supported()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Htmxor.HtmxRouteAttribute("/reports/{Id:int}", Methods = ["GET", "PATCH"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("reports.write")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task PatchReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			@attribute [Htmxor.HtmxRoute("/reports/{Id:int}", Methods = ["GET", "PATCH"])]
+			<button @onpatch="PatchReport">Patch</button>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor, includeRouteAnalyzer: true);
+
+		Assert.Empty(diagnostics);
+	}
+
 	private static string ComponentPath(string relativePath)
 		=> Path.Combine(ProjectDirectory, relativePath);
 
@@ -467,7 +495,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
 		string source,
-		AdditionalText razor)
+		AdditionalText razor,
+		bool includeRouteAnalyzer = false)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 		var compilation = CSharpCompilation.Create(
@@ -481,9 +510,15 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			ImmutableArray.Create(razor),
 			new TestAnalyzerConfigOptionsProvider(ProjectDirectory));
 
+		var analyzers = includeRouteAnalyzer
+			? ImmutableArray.Create<DiagnosticAnalyzer>(
+				new HtmxorRouteDeclarationAnalyzer(),
+				new HtmxorActionDeclarationAnalyzer())
+			: ImmutableArray.Create<DiagnosticAnalyzer>(new HtmxorActionDeclarationAnalyzer());
+
 		return await compilation
 			.WithAnalyzers(
-				ImmutableArray.Create<DiagnosticAnalyzer>(new HtmxorActionDeclarationAnalyzer()),
+				analyzers,
 				analyzerOptions)
 			.GetAnalyzerDiagnosticsAsync();
 	}
