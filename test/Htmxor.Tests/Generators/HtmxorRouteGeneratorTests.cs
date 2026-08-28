@@ -12,6 +12,11 @@ public sealed class HtmxorRouteGeneratorTests
 		using System.Reflection;
 		using System.Collections.Generic;
 
+		namespace Htmxor.Builder
+		{
+			internal sealed class HtmxorGeneratedComponentAction;
+		}
+
 		namespace Microsoft.AspNetCore.Routing
 		{
 			internal sealed class RouteGroupBuilder;
@@ -27,7 +32,8 @@ public sealed class HtmxorRouteGeneratorTests
 					this RazorComponentsEndpointConventionBuilder builder,
 					Routing.RouteGroupBuilder endpoints,
 					Assembly applicationAssembly,
-					IEnumerable<string> projectRootComponentTypeNames)
+					IReadOnlyList<string> projectRootComponentTypeNames,
+					IReadOnlyList<Htmxor.Builder.HtmxorGeneratedComponentAction> generatedActions)
 					=> builder;
 			}
 		}
@@ -67,6 +73,7 @@ public sealed class HtmxorRouteGeneratorTests
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.Contains("ProjectRootComponentTypeNames", generatedSource, StringComparison.Ordinal);
+		Assert.Contains("AddGeneratedActions(generatedActions)", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("NestedComponent", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("_Imports", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("HtmxRoute", generatedSource, StringComparison.Ordinal);

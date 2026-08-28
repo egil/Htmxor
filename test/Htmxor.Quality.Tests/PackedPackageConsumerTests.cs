@@ -6,6 +6,9 @@ namespace Htmxor.Quality.Tests;
 
 public sealed class PackedPackageConsumerTests
 {
+	private const string UnsupportedPutHandlerMessage =
+		"@onput must use one double-quoted simple method-group name";
+
 	[Fact]
 	public async Task Package_only_application_registers_two_generated_routes_and_one_put_action()
 	{
@@ -18,9 +21,26 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(3, 3, 3, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(8, 8, 8, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
+	}
+
+	[Fact]
+	public async Task Package_only_application_rejects_a_computed_put_handler()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseComputedPutHandler();
+
+		var result = await workspace.BuildForDiagnosticAsync();
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+
+		Assert.NotEqual(0, result.ExitCode);
+		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.Contains("Issue97ReportComponent.razor", output, StringComparison.Ordinal);
+		Assert.Contains(UnsupportedPutHandlerMessage, output, StringComparison.Ordinal);
+		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 }
 
@@ -53,6 +73,13 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 
 	public string ConsumerDirectory => consumerDirectory;
 
+	public string ConsumerAssemblyPath => Path.Combine(
+		consumerDirectory,
+		"bin",
+		"Release",
+		"net10.0",
+		"Htmxor.PackageConsumer.dll");
+
 	public string PackagePath => Assert.Single(Directory.EnumerateFiles(packageDirectory, "*.nupkg"));
 
 	public string PackageVersion { get; } = $"0.0.0-issue97-{Guid.NewGuid():N}";
@@ -63,9 +90,42 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 	{
 		await PackAsync();
 		await RestoreAsync();
-		await BuildAsync();
+		await BuildRequiredAsync();
 
 		return await TestAsync();
+	}
+
+	public async Task<ProcessResult> BuildForDiagnosticAsync()
+	{
+		await PackAsync();
+		await RestoreAsync();
+
+		return await BuildAsync();
+	}
+
+	public void UseComputedPutHandler()
+	{
+		var componentPath = Path.Combine(
+			consumerDirectory,
+			"Issue97ReportComponent.razor");
+		var source = File.ReadAllText(componentPath);
+		const string supportedHandler = "@onput=\"PutReport\"";
+		const string computedHandler =
+			"@onput=\"@((HtmxEventArgs args) => PutReport(args))\"";
+		var handlerIndex = source.IndexOf(supportedHandler, StringComparison.Ordinal);
+		if (handlerIndex < 0 ||
+			handlerIndex != source.LastIndexOf(supportedHandler, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged package consumer must contain exactly one supported PUT handler.");
+		}
+
+		var rewritten = source.Replace(
+			supportedHandler,
+			computedHandler,
+			StringComparison.Ordinal);
+
+		File.WriteAllText(componentPath, rewritten);
 	}
 
 	private void StageConsumer()
@@ -131,13 +191,26 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 			"--packages",
 			packagesDirectory);
 
-	private Task<ProcessResult> BuildAsync() =>
+	private Task<ProcessResult> BuildRequiredAsync() =>
 		RunRequiredAsync(
 			"build",
 			projectPath,
 			"--configuration",
 			"Release",
 			"--no-restore");
+
+	private Task<ProcessResult> BuildAsync() =>
+		runner.RunAsync(new(
+			"dotnet",
+			consumerDirectory,
+			[
+				"build",
+				projectPath,
+				"--configuration",
+				"Release",
+				"--no-restore",
+			],
+			EnsureSuccess: false));
 
 	private Task<ProcessResult> TestAsync() =>
 		runner.RunAsync(new(
