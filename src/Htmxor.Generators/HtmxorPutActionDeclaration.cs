@@ -174,9 +174,9 @@ internal sealed class HtmxorPutActionDeclaration
 
 	private static bool IsSupportedDirectiveLine(string line)
 	{
-		if (line.IndexOf('<') >= 0 ||
-			line.IndexOf('>') >= 0 ||
-			line.IndexOf("\"\"\"", StringComparison.Ordinal) >= 0)
+		if (!HasOnlySingleLineLexicalContent(line) ||
+			line.IndexOf('<') >= 0 ||
+			line.IndexOf('>') >= 0)
 		{
 			return false;
 		}
@@ -189,6 +189,14 @@ internal sealed class HtmxorPutActionDeclaration
 			line.IndexOf('(') < 0;
 		return isAttributeDirective || isUsingDirective || isInjectDirective;
 	}
+
+	private static bool HasOnlySingleLineLexicalContent(string line)
+		=> line.IndexOf("/*", StringComparison.Ordinal) < 0 &&
+			line.IndexOf("*/", StringComparison.Ordinal) < 0 &&
+			line.IndexOf("//", StringComparison.Ordinal) < 0 &&
+			line.IndexOf("\"\"\"", StringComparison.Ordinal) < 0 &&
+			line.IndexOf('$') < 0 &&
+			line.IndexOf('@', 1) < 0;
 
 	private static bool HasSupportedTagPrefix(string source, int tagStart, int attributeIndex)
 	{
