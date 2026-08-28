@@ -199,6 +199,37 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
+	public async Task Bridge_binds_an_action_allowed_by_explicit_htmx_route_methods()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.ReportComponent",
+				"/reports/{ReportId:int}",
+				"report.policy",
+				Methods: [HttpMethods.Get, HttpMethods.Patch]));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			HttpMethods.Patch,
+			"PackageConsumer.ReportComponent.PatchReport",
+			usesStockRoute: false);
+
+		componentBuilder.AddHtmxorAttributedComponentEndpoints(
+			group,
+			fixture.Assembly,
+			fixture.Manifest,
+			[generatedAction]);
+
+		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
+		Assert.Equal(
+			[HttpMethods.Get, HttpMethods.Patch],
+			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
+		var action = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
+		Assert.Equal(HttpMethods.Patch, action.HttpMethod);
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
+	}
+
+	[Fact]
 	public async Task Bridge_fails_closed_before_mapping_when_explicit_methods_conflict_with_a_binding()
 	{
 		var fixture = DynamicComponentAssembly.Create(
@@ -375,7 +406,8 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		bool HasThrowingMetadata = false,
 		bool HasHtmxRoute = true,
 		IReadOnlyList<string>? StockRoutes = null,
-		bool ExplicitMethods = true);
+		bool ExplicitMethods = true,
+		IReadOnlyList<string>? Methods = null);
 
 	private sealed record DynamicComponentAssembly(Assembly Assembly, Type[] Types, string[] Manifest)
 	{
@@ -435,7 +467,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 			if (definition.ExplicitMethods)
 			{
 				properties.Add(typeof(HtmxRouteAttribute).GetProperty(nameof(HtmxRouteAttribute.Methods))!);
-				values.Add(new[] { HttpMethods.Get });
+				values.Add((definition.Methods ?? [HttpMethods.Get]).ToArray());
 			}
 			if (definition.HasAdditionalRouteFilter)
 			{
