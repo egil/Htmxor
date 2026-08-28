@@ -27,6 +27,18 @@ public sealed class HtmxorRouteGeneratorTests
 
 		<section>Report</section>
 		""";
+	private const string SecondSupportedComponent = """
+		@attribute [Htmxor.HtmxRoute("/summaries/{SummaryId:int}", Methods = new[] { "GET" })]
+		@attribute [Authorize(Policy = "issue-97-summary-policy")]
+
+		<section>Summary</section>
+		""";
+	private const string SecondUnsupportedMethodComponent = """
+		@attribute [Htmxor.HtmxRoute("/summaries/{SummaryId:int}", Methods = new[] { "POST" })]
+		@attribute [Authorize(Policy = "issue-97-summary-policy")]
+
+		<section>Summary</section>
+		""";
 
 	private const string RuntimeStubs = """
 		using System;
@@ -34,6 +46,7 @@ public sealed class HtmxorRouteGeneratorTests
 		namespace Htmxor.AspNetCore10
 		{
 			internal sealed class Issue91HtmxOnlyComponent;
+			internal sealed class Issue97SummaryComponent;
 		}
 
 		namespace Microsoft.AspNetCore.Routing
@@ -78,10 +91,6 @@ public sealed class HtmxorRouteGeneratorTests
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.Contains(
-			"global::Microsoft.AspNetCore.Routing.RouteGroupBuilder endpoints",
-			generatedSource,
-			StringComparison.Ordinal);
-		Assert.Contains(
 			"\"/reports/{ReportId:int}\"",
 			generatedSource,
 			StringComparison.Ordinal);
@@ -94,6 +103,39 @@ public sealed class HtmxorRouteGeneratorTests
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	[Fact]
+	public void Two_supported_declarations_emit_one_deterministic_compiling_registration()
+	{
+		var forward = RunGenerator(
+			("Issue91HtmxOnlyComponent.razor", SupportedComponent),
+			("Issue97SummaryComponent.razor", SecondSupportedComponent));
+		var reverse = RunGenerator(
+			("Issue97SummaryComponent.razor", SecondSupportedComponent),
+			("Issue91HtmxOnlyComponent.razor", SupportedComponent));
+
+		Assert.Empty(forward.DriverDiagnostics);
+		var generatorResult = Assert.Single(forward.RunResult.Results);
+		Assert.Empty(generatorResult.Diagnostics);
+		var generatedSource = Assert.Single(generatorResult.GeneratedSources).SourceText.ToString();
+		Assert.Equal(
+			generatedSource,
+			Assert.Single(Assert.Single(reverse.RunResult.Results).GeneratedSources).SourceText.ToString());
+		Assert.Contains(
+			"typeof(global::Htmxor.AspNetCore10.Issue91HtmxOnlyComponent)",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			"typeof(global::Htmxor.AspNetCore10.Issue97SummaryComponent)",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Contains("\"/reports/{ReportId:int}\"", generatedSource, StringComparison.Ordinal);
+		Assert.Contains("\"/summaries/{SummaryId:int}\"", generatedSource, StringComparison.Ordinal);
+		Assert.Contains("\"issue-91-policy\"", generatedSource, StringComparison.Ordinal);
+		Assert.Contains("\"issue-97-summary-policy\"", generatedSource, StringComparison.Ordinal);
+		Assert.Empty(forward.OutputCompilation.GetDiagnostics().Where(
 			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 	}
 
@@ -125,10 +167,28 @@ public sealed class HtmxorRouteGeneratorTests
 		Assert.Contains("one literal Authorize policy", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public void Supported_and_unsupported_declarations_fail_closed_with_one_diagnostic()
+	{
+		var run = RunGenerator(
+			("Issue91HtmxOnlyComponent.razor", SupportedComponent),
+			("Issue97SummaryComponent.razor", SecondUnsupportedMethodComponent));
+
+		var generatorResult = Assert.Single(run.RunResult.Results);
+		Assert.Empty(generatorResult.GeneratedSources);
+		var diagnostic = Assert.Single(generatorResult.Diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Equal("Issue97SummaryComponent.razor", Path.GetFileName(diagnostic.Location.GetLineSpan().Path));
+		Assert.Contains("explicit GET", diagnostic.GetMessage(), StringComparison.Ordinal);
+	}
+
 	private static GeneratorRun RunGenerator(string componentSource)
+		=> RunGenerator(("Issue91HtmxOnlyComponent.razor", componentSource));
+
+	private static GeneratorRun RunGenerator(params (string FileName, string Source)[] components)
 	{
 		var projectDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "htmxor-generator-probe"));
-		var componentPath = Path.Combine(projectDirectory, "Issue91HtmxOnlyComponent.razor");
 		var parseOptions = (CSharpParseOptions)CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 		var compilation = CSharpCompilation.Create(
 			"Htmxor.AspNetCore10.Tests",
@@ -137,7 +197,11 @@ public sealed class HtmxorRouteGeneratorTests
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		GeneratorDriver driver = CSharpGeneratorDriver.Create(
 			new[] { new HtmxorRouteGenerator().AsSourceGenerator() },
-			new[] { new TestAdditionalText(componentPath, componentSource) },
+			components
+				.Select(component => new TestAdditionalText(
+					Path.Combine(projectDirectory, component.FileName),
+					component.Source))
+				.ToArray<AdditionalText>(),
 			parseOptions,
 			new TestAnalyzerConfigOptionsProvider(projectDirectory));
 

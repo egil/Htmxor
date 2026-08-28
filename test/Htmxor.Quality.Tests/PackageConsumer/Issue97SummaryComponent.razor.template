@@ -1,0 +1,18 @@
+@attribute [Htmxor.HtmxRoute("/summaries/{SummaryId:int}", Methods = new[] { "GET" })]
+@attribute [Authorize(Policy = "issue-97-summary-policy")]
+@using Microsoft.AspNetCore.Authorization
+
+<section data-issue-97-summary-component>
+    <p data-summary-request-values>@SummaryId|@HttpContext.User.Identity?.Name|@GroupMarker</p>
+</section>
+
+@code {
+    [Parameter]
+    public string? SummaryId { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private string? GroupMarker
+        => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue97GroupMetadata>()?.Value;
+}
