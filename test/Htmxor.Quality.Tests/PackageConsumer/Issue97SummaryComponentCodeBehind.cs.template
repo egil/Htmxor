@@ -1,0 +1,8 @@
+using Microsoft.AspNetCore.Routing;
+
+namespace Htmxor.PackageConsumer;
+
+[Host("summaries.internal.example")]
+public partial class Issue97SummaryComponent
+{
+}

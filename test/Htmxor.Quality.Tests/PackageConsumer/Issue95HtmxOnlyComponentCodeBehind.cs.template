@@ -1,8 +1,0 @@
-using Microsoft.AspNetCore.Routing;
-
-namespace Htmxor.PackageConsumer;
-
-[Host("internal.example")]
-public partial class Issue95HtmxOnlyComponent
-{
-}

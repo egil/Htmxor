@@ -7,7 +7,7 @@ namespace Htmxor.Quality.Tests;
 public sealed class PackedPackageConsumerTests
 {
 	[Fact]
-	public async Task Package_only_application_registers_generated_route()
+	public async Task Package_only_application_registers_two_generated_routes()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 
@@ -17,7 +17,7 @@ public sealed class PackedPackageConsumerTests
 		Assert.True(
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError);
-		Assert.Equal(new TrxTestRun(1, 1, 1, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(2, 2, 2, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -54,7 +54,7 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 
 	public string PackagePath => Assert.Single(Directory.EnumerateFiles(packageDirectory, "*.nupkg"));
 
-	public string PackageVersion { get; } = $"0.0.0-issue95-{Guid.NewGuid():N}";
+	public string PackageVersion { get; } = $"0.0.0-issue97-{Guid.NewGuid():N}";
 
 	public string TrxPath => Path.Combine(resultsDirectory, "package-consumer.trx");
 
@@ -229,6 +229,10 @@ internal static class PackageConsumerEvidence
 		var applicationSource = string.Join(Environment.NewLine, source);
 
 		Assert.Equal(1, Count(applicationSource, "AddHtmxorComponentEndpoints(routes)"));
+		Assert.Equal(1, Count(applicationSource, "MapGroup(RoutePrefix)"));
+		Assert.Equal(1, Count(applicationSource, "MapRazorComponents<Issue97App>()"));
+		Assert.Equal(2, Count(applicationSource, "Htmxor.HtmxRoute("));
+		Assert.Equal(2, Count(applicationSource, "@attribute [Authorize(Policy = "));
 		Assert.DoesNotContain("InternalsVisibleTo", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("Issue91GeneratedRoute", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain(
@@ -237,6 +241,7 @@ internal static class PackageConsumerEvidence
 			StringComparison.Ordinal);
 		Assert.DoesNotContain("MapHtmxorGeneratedComponentEndpoint", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapGet(", applicationSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("MapMethods(", applicationSource, StringComparison.Ordinal);
 	}
 
 	private static void AssertRuntimeDependencies(string consumerDirectory)

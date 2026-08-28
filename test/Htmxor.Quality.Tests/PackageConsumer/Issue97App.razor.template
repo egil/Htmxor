@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <body data-stock-shell>
-    <Router AppAssembly="typeof(Issue95App).Assembly">
+    <Router AppAssembly="typeof(Issue97App).Assembly">
         <Found Context="routeData">
             <RouteView RouteData="routeData" />
         </Found>

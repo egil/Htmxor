@@ -1,11 +1,14 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Htmxor;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,10 +20,17 @@ namespace Htmxor.PackageConsumer;
 
 public sealed class PackageConsumerTests : IAsyncLifetime
 {
-	private const string PolicyName = "issue-95-policy";
-	private const string RoutePrefix = "/issue-95-group";
-	private const string RequestPath = "/issue-95-group/reports/42";
-	private const string AllowedHost = "internal.example";
+	private const string ReportPolicyName = "issue-97-report-policy";
+	private const string SummaryPolicyName = "issue-97-summary-policy";
+	private const string RoutePrefix = "/issue-97-group";
+	private const string ReportDeclaredRoute = "/reports/{ReportId:int}";
+	private const string SummaryDeclaredRoute = "/summaries/{SummaryId:int}";
+	private const string ReportRequestPath = "/issue-97-group/reports/42";
+	private const string SummaryRequestPath = "/issue-97-group/summaries/84";
+	private const string RejectedReportPath = "/issue-97-group/reports/not-an-int";
+	private const string RejectedSummaryPath = "/issue-97-group/summaries/not-an-int";
+	private const string ReportHost = "reports.internal.example";
+	private const string SummaryHost = "summaries.internal.example";
 	private WebApplication app = default!;
 	private HttpClient client = default!;
 
@@ -36,9 +46,19 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			.AddScheme<AuthenticationSchemeOptions, PackageConsumerAuthenticationHandler>(
 				PackageConsumerAuthenticationHandler.SchemeName,
 				_ => { });
-		builder.Services.AddAuthorization(options => options.AddPolicy(
-			PolicyName,
-			policy => policy.RequireClaim(PackageConsumerAuthenticationHandler.AccessClaim, "granted")));
+		builder.Services.AddAuthorization(options =>
+		{
+			options.AddPolicy(
+				ReportPolicyName,
+				policy => policy.RequireClaim(
+					PackageConsumerAuthenticationHandler.AccessClaim,
+					PackageConsumerAuthenticationHandler.ReportAccess));
+			options.AddPolicy(
+				SummaryPolicyName,
+				policy => policy.RequireClaim(
+					PackageConsumerAuthenticationHandler.AccessClaim,
+					PackageConsumerAuthenticationHandler.SummaryAccess));
+		});
 		builder.Services.AddRazorComponents().AddHtmx();
 
 		app = builder.Build();
@@ -46,8 +66,8 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		app.UseAuthorization();
 		app.UseAntiforgery();
 		var routes = app.MapGroup(RoutePrefix)
-			.WithMetadata(Issue95GroupMetadata.Instance);
-		routes.MapRazorComponents<Issue95App>()
+			.WithMetadata(Issue97GroupMetadata.Instance);
+		routes.MapRazorComponents<Issue97App>()
 			.AddHtmxorComponentEndpoints(routes);
 
 		await app.StartAsync();
@@ -55,54 +75,194 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 	}
 
 	[Fact]
-	public async Task Package_only_application_registers_the_generated_htmx_only_route()
+	public async Task Report_route_preserves_its_component_policy_and_metadata()
 	{
-		using var directResponse = await SendAsync(direct: true, authenticated: true);
-		var directBody = await directResponse.Content.ReadAsStringAsync();
+		await AssertDirectResponseAsync(
+			ReportRequestPath,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost,
+			"data-issue-97-report-component",
+			"data-report-request-values>42|issue-97-report-user|group-convention-preserved</p>",
+			"data-issue-97-summary-component");
+		var endpoint = AssertGeneratedEndpoint<Issue97ReportComponent>(
+			GetGeneratedComponentEndpoints(),
+			ReportDeclaredRoute,
+			ReportPolicyName);
+		AssertHost(endpoint, ReportHost);
 
-		Assert.Equal(HttpStatusCode.OK, directResponse.StatusCode);
-		Assert.Contains("data-issue-95-component", directBody, StringComparison.Ordinal);
-		Assert.Contains(
-			"data-request-values>42|issue-95-user|group-convention-preserved</p>",
-			directBody,
-			StringComparison.Ordinal);
-		Assert.DoesNotContain("<html", directBody, StringComparison.OrdinalIgnoreCase);
-		Assert.DoesNotContain("data-stock-shell", directBody, StringComparison.Ordinal);
-
-		using var normalResponse = await SendAsync(direct: false, authenticated: true);
-		var normalBody = await normalResponse.Content.ReadAsStringAsync();
-		Assert.Equal(HttpStatusCode.NotFound, normalResponse.StatusCode);
-		Assert.DoesNotContain("data-issue-95-component", normalBody, StringComparison.Ordinal);
-
-		using var anonymousResponse = await SendAsync(direct: true, authenticated: false);
-		var anonymousBody = await anonymousResponse.Content.ReadAsStringAsync();
-		Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
-		Assert.DoesNotContain("data-issue-95-component", anonymousBody, StringComparison.Ordinal);
-
-		using var rejectedHostResponse = await SendAsync(
+		await AssertUnavailableAsync(
+			ReportRequestPath,
+			direct: false,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost,
+			HttpStatusCode.NotFound);
+		await AssertUnavailableAsync(
+			ReportRequestPath,
 			direct: true,
-			authenticated: true,
-			host: "external.example");
-		var rejectedHostBody = await rejectedHostResponse.Content.ReadAsStringAsync();
-		Assert.Equal(HttpStatusCode.NotFound, rejectedHostResponse.StatusCode);
-		Assert.DoesNotContain("data-issue-95-component", rejectedHostBody, StringComparison.Ordinal);
+			PackageConsumerAuthenticationHandler.SummaryUserName,
+			ReportHost,
+			HttpStatusCode.Forbidden);
+		await AssertUnavailableAsync(
+			ReportRequestPath,
+			direct: true,
+			userName: null,
+			ReportHost,
+			HttpStatusCode.Unauthorized);
+		await AssertUnavailableAsync(
+			ReportRequestPath,
+			direct: true,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			SummaryHost,
+			HttpStatusCode.NotFound);
+		await AssertUnavailableAsync(
+			RejectedReportPath,
+			direct: true,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost,
+			HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task Summary_route_preserves_its_component_policy_and_metadata()
+	{
+		await AssertDirectResponseAsync(
+			SummaryRequestPath,
+			PackageConsumerAuthenticationHandler.SummaryUserName,
+			SummaryHost,
+			"data-issue-97-summary-component",
+			"data-summary-request-values>84|issue-97-summary-user|group-convention-preserved</p>",
+			"data-issue-97-report-component");
+		var endpoints = GetGeneratedComponentEndpoints();
+		Assert.Equal(2, endpoints.Length);
+		var endpoint = AssertGeneratedEndpoint<Issue97SummaryComponent>(
+			endpoints,
+			SummaryDeclaredRoute,
+			SummaryPolicyName);
+		AssertHost(endpoint, SummaryHost);
+
+		await AssertUnavailableAsync(
+			SummaryRequestPath,
+			direct: false,
+			PackageConsumerAuthenticationHandler.SummaryUserName,
+			SummaryHost,
+			HttpStatusCode.NotFound);
+		await AssertUnavailableAsync(
+			SummaryRequestPath,
+			direct: true,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			SummaryHost,
+			HttpStatusCode.Forbidden);
+		await AssertUnavailableAsync(
+			SummaryRequestPath,
+			direct: true,
+			userName: null,
+			SummaryHost,
+			HttpStatusCode.Unauthorized);
+		await AssertUnavailableAsync(
+			SummaryRequestPath,
+			direct: true,
+			PackageConsumerAuthenticationHandler.SummaryUserName,
+			ReportHost,
+			HttpStatusCode.NotFound);
+		await AssertUnavailableAsync(
+			RejectedSummaryPath,
+			direct: true,
+			PackageConsumerAuthenticationHandler.SummaryUserName,
+			SummaryHost,
+			HttpStatusCode.NotFound);
+	}
+
+	private async Task AssertDirectResponseAsync(
+		string path,
+		string userName,
+		string host,
+		string expectedComponent,
+		string expectedValues,
+		string otherComponent)
+	{
+		using var response = await SendAsync(path, direct: true, userName, host);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Contains(expectedComponent, body, StringComparison.Ordinal);
+		Assert.Contains(expectedValues, body, StringComparison.Ordinal);
+		Assert.DoesNotContain(otherComponent, body, StringComparison.Ordinal);
+		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", body, StringComparison.Ordinal);
+	}
+
+	private async Task AssertUnavailableAsync(
+		string path,
+		bool direct,
+		string? userName,
+		string host,
+		HttpStatusCode expectedStatus)
+	{
+		using var response = await SendAsync(path, direct, userName, host);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(expectedStatus, response.StatusCode);
+		Assert.DoesNotContain("data-issue-97-report-component", body, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-97-summary-component", body, StringComparison.Ordinal);
+	}
+
+	private RouteEndpoint[] GetGeneratedComponentEndpoints() =>
+		((IEndpointRouteBuilder)app).DataSources
+			.SelectMany(dataSource => dataSource.Endpoints)
+			.OfType<RouteEndpoint>()
+			.Where(endpoint =>
+			{
+				var componentType = endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type;
+				return componentType == typeof(Issue97ReportComponent) ||
+					componentType == typeof(Issue97SummaryComponent);
+			})
+			.ToArray();
+
+	private static RouteEndpoint AssertGeneratedEndpoint<TComponent>(
+		IEnumerable<RouteEndpoint> endpoints,
+		string declaredRoute,
+		string policyName)
+	{
+		var endpoint = Assert.Single(endpoints, endpoint =>
+			endpoint.Metadata.GetRequiredMetadata<ComponentTypeMetadata>().Type == typeof(TComponent));
+		Assert.Equal(RoutePrefix + declaredRoute, endpoint.RoutePattern.RawText);
+		Assert.Equal(
+			[HttpMethods.Get],
+			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
+		Assert.Same(
+			Issue97GroupMetadata.Instance,
+			endpoint.Metadata.GetRequiredMetadata<Issue97GroupMetadata>());
+		var route = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
+		Assert.Equal(declaredRoute, route.Template);
+		Assert.Equal(HttpMethods.Get, Assert.Single(route.Methods));
+		var authorization = Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>());
+		Assert.Equal(policyName, authorization.Policy);
+
+		return endpoint;
+	}
+
+	private static void AssertHost(RouteEndpoint endpoint, string host)
+	{
+		var hostMetadata = Assert.Single(endpoint.Metadata.GetOrderedMetadata<IHostMetadata>());
+		Assert.Equal([host], hostMetadata.Hosts);
 	}
 
 	private async Task<HttpResponseMessage> SendAsync(
+		string path,
 		bool direct,
-		bool authenticated,
-		string host = AllowedHost)
+		string? userName,
+		string host)
 	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, RequestPath);
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
 		request.Headers.Host = host;
 		if (direct)
 		{
 			request.Headers.Add("HX-Request", "true");
 		}
 
-		if (authenticated)
+		if (userName is not null)
 		{
-			request.Headers.Add(PackageConsumerAuthenticationHandler.UserHeaderName, "issue-95-user");
+			request.Headers.Add(PackageConsumerAuthenticationHandler.UserHeaderName, userName);
 		}
 
 		return await client.SendAsync(request);
@@ -118,9 +278,9 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 	}
 }
 
-internal sealed record Issue95GroupMetadata(string Value)
+internal sealed record Issue97GroupMetadata(string Value)
 {
-	public static Issue95GroupMetadata Instance { get; } = new("group-convention-preserved");
+	public static Issue97GroupMetadata Instance { get; } = new("group-convention-preserved");
 }
 
 internal sealed class PackageConsumerAuthenticationHandler(
@@ -129,9 +289,13 @@ internal sealed class PackageConsumerAuthenticationHandler(
 	UrlEncoder encoder)
 	: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
-	public const string SchemeName = "issue-95-test";
-	public const string UserHeaderName = "X-Issue-95-User";
-	public const string AccessClaim = "issue-95-access";
+	public const string SchemeName = "issue-97-test";
+	public const string UserHeaderName = "X-Issue-97-User";
+	public const string AccessClaim = "issue-97-access";
+	public const string ReportAccess = "report";
+	public const string SummaryAccess = "summary";
+	public const string ReportUserName = "issue-97-report-user";
+	public const string SummaryUserName = "issue-97-summary-user";
 
 	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
 	{
@@ -140,14 +304,26 @@ internal sealed class PackageConsumerAuthenticationHandler(
 			return Task.FromResult(AuthenticateResult.NoResult());
 		}
 
-		var identity = new ClaimsIdentity(
-			[
-				new Claim(ClaimTypes.Name, userName.ToString()),
-				new Claim(AccessClaim, "granted"),
-			],
-			SchemeName);
+		var user = userName.ToString();
+		var identity = new ClaimsIdentity(CreateClaims(user), SchemeName);
 		var principal = new ClaimsPrincipal(identity);
 
 		return Task.FromResult(AuthenticateResult.Success(new(principal, SchemeName)));
 	}
+
+	private static Claim[] CreateClaims(string userName) =>
+		userName switch
+		{
+			ReportUserName =>
+			[
+				new Claim(ClaimTypes.Name, userName),
+				new Claim(AccessClaim, ReportAccess),
+			],
+			SummaryUserName =>
+			[
+				new Claim(ClaimTypes.Name, userName),
+				new Claim(AccessClaim, SummaryAccess),
+			],
+			_ => [new Claim(ClaimTypes.Name, userName)],
+		};
 }
