@@ -138,9 +138,9 @@ and its
 
 Registering the directive for component imports is significant. Effective
 component metadata can originate in `_Imports.razor`, not only in the component
-file that Htmxor happens to scan. The bounded v1 fallback therefore includes the
-root `_Imports.razor`. It rejects nested imports instead of pretending to
-reproduce Razor's full import hierarchy.
+file that Htmxor happens to scan. Issue #97 does not prove root or nested import
+behavior. A future tracer must observe the effective attributes produced by the
+real Razor build pipeline instead of reconstructing import scope from raw text.
 
 ## Executable SDK 10.0.400 probe
 
@@ -376,7 +376,7 @@ the result is based on compiler semantics rather than a Razor text scanner.
 | --- | --- | --- | --- | --- |
 | Path-only generator, final-compilation analyzer, and compiled-metadata runtime catalog | Yes | Yes | Chosen and executable for the v1 envelope | Three narrow phases and a startup assembly scan |
 | Wait for Razor pre-compilation declarations, then use semantic attribute discovery | Yes | Yes | No in the inspected source and SDK 10.0.400 default pipeline | Requires a Razor implementation and SDK-version gate |
-| Put attributes on a user-authored `.razor.cs` partial class | Yes | No | Yes | Changes the public developer model |
+| Require attributes on a user-authored `.razor.cs` partial class | Yes | No | Yes | Replaces rather than extends the public developer model |
 | Load or redistribute the SDK's current Razor compiler | Potentially | Yes | No | Couples Htmxor to SDK-private, rapidly changing compiler internals |
 | Locate or parse directives from raw `.razor` input | Partial | Yes | Rejected after review | Cannot cover component-local semantics or the Razor grammar reliably |
 | Interpret attribute names or values directly from raw `.razor` text | No | Yes | Rejected | Cannot preserve legal C# equivalence or exact symbol identity |
@@ -403,6 +403,13 @@ Re-run the Razor/analyzer probe before claiming a new SDK or compiler. Keep
 runtime reflection isolated in the catalog and do not claim publish trimming,
 Native AOT, IDE live-analysis parity, or startup performance until those
 boundaries are measured.
+
+Do not promote the project-root manifest from an issue #97 eligibility filter
+to the permanent declaration source. Future v1 tracers for attributes on a
+`.razor.cs` partial, a component authored entirely in `.cs`, and effective
+attributes from `_Imports.razor` should feed the same compiler-bound validation
+and compiled-metadata catalog. The original compiled `HtmxRouteAttribute`
+remains authoritative at runtime.
 
 When Razor exposes its partial declarations through pre-compilation output,
 replace the fallback with direct semantic discovery through

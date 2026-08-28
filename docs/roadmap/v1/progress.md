@@ -501,6 +501,18 @@ constraints or hosts return `404`.
   future SDK or analyzer-pipeline changes, more than two routed components,
   multiple routes on one component, collision policy, normal-only or dual
   reachability, unsafe methods, and a final public API remain unproved.
+- The compiler-bound route-declaration model is independent of the source file,
+  but issue #97 exercises attributes authored only in its two project-root
+  `.razor` files. It does not prove attributes on a matching `.razor.cs` partial
+  declaration, a component authored entirely in `.cs`, or attributes applied to
+  descendants through root or nested `_Imports.razor` scope. The path-derived
+  project-root manifest is an issue #97 eligibility filter, not the final
+  declaration source. Likely v1 follow-up work is one real package-consumer
+  tracer for each discovery mode. Each future discovery path must feed the same
+  compiler-bound validation and compiled-metadata runtime catalog, with the
+  original compiled `HtmxRouteAttribute` remaining authoritative. No
+  `_Imports.razor` behavior is claimed until its tracer runs through the actual
+  Razor build pipeline.
 - Issues #95 and #97 package that exact tracer and no broader behavior. Generated
   registration overload selection requires the application to pass an endpoint
   argument whose static type is exactly `RouteGroupBuilder`. Widening it to
