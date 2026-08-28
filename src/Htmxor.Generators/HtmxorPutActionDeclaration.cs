@@ -13,10 +13,6 @@ internal sealed class HtmxorPutActionDeclaration
 	private static readonly Regex PageDirective = new(
 		"^\\s*@page(?:\\s|$)",
 		RegexOptions.CultureInvariant | RegexOptions.Multiline);
-	private static readonly Regex RazorCodeTransition = new(
-		"^[ \\t]*@(?:code|functions|if|for|foreach|while|switch|try|lock|do)\\b|" +
-		"^[ \\t]*@\\{|^[ \\t]*@using\\s*\\(|@\\(",
-		RegexOptions.CultureInvariant | RegexOptions.Multiline);
 	private static readonly Regex SupportedBinding = new(
 		"@onput\\s*=\\s*\"(?<handler>[A-Za-z_][A-Za-z0-9_]*)\"",
 		RegexOptions.CultureInvariant);
@@ -71,7 +67,7 @@ internal sealed class HtmxorPutActionDeclaration
 			return null;
 		}
 
-		var attributeIndices = FindMarkupAttributeIndices(GetSupportedMarkupPrefix(source));
+		var attributeIndices = FindMarkupAttributeIndices(source);
 		if (attributeIndices.Count == 0)
 		{
 			return null;
@@ -125,16 +121,11 @@ internal sealed class HtmxorPutActionDeclaration
 		return indices;
 	}
 
-	private static string GetSupportedMarkupPrefix(string source)
-	{
-		var transition = RazorCodeTransition.Match(source);
-		return transition.Success ? source.Substring(0, transition.Index) : source;
-	}
-
 	private static bool IsMarkupAttribute(string source, int attributeIndex)
 	{
 		var tagStart = source.LastIndexOf('<', attributeIndex);
 		return tagStart >= 0 &&
+			HasSupportedPreamble(source, tagStart) &&
 			source.LastIndexOf('>', attributeIndex) < tagStart &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "@*", "*@") &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "<!--", "-->") &&
@@ -142,6 +133,61 @@ internal sealed class HtmxorPutActionDeclaration
 			attributeIndex > 0 &&
 			char.IsWhiteSpace(source[attributeIndex - 1]) &&
 			IsAttributeNameTerminator(source, attributeIndex + AttributeName.Length);
+	}
+
+	private static bool HasSupportedPreamble(string source, int tagStart)
+	{
+		var tagLineStart = source.LastIndexOf('\n', tagStart);
+		tagLineStart = tagLineStart < 0 ? 0 : tagLineStart + 1;
+		if (!IsWhitespace(source, tagLineStart, tagStart))
+		{
+			return false;
+		}
+
+		var lines = source
+			.Substring(0, tagLineStart)
+			.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+		foreach (var line in lines)
+		{
+			var trimmed = line.Trim();
+			if (trimmed.Length > 0 && !IsSupportedDirectiveLine(trimmed))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private static bool IsWhitespace(string source, int start, int end)
+	{
+		for (var index = start; index < end; index++)
+		{
+			if (!char.IsWhiteSpace(source[index]))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private static bool IsSupportedDirectiveLine(string line)
+	{
+		if (line.IndexOf('<') >= 0 ||
+			line.IndexOf('>') >= 0 ||
+			line.IndexOf("\"\"\"", StringComparison.Ordinal) >= 0)
+		{
+			return false;
+		}
+
+		var isAttributeDirective = line.StartsWith("@attribute [", StringComparison.Ordinal) &&
+			line.EndsWith("]", StringComparison.Ordinal);
+		var isUsingDirective = line.StartsWith("@using ", StringComparison.Ordinal) &&
+			line.IndexOf('(') < 0;
+		var isInjectDirective = line.StartsWith("@inject ", StringComparison.Ordinal) &&
+			line.IndexOf('(') < 0;
+		return isAttributeDirective || isUsingDirective || isInjectDirective;
 	}
 
 	private static bool IsInsideAttributeValue(string source, int tagStart, int attributeIndex)
