@@ -72,6 +72,11 @@
 			Pack="true"
 			PackagePath="analyzers/dotnet/cs/"
 			Visible="false" />
+		<None
+			Include="..\Htmxor.Generators\bin\$(Configuration)\netstandard2.0\Htmxor.Generators.pdb"
+			Pack="true"
+			PackagePath="analyzers/dotnet/cs/"
+			Visible="false" />
 	</ItemGroup>
 
 	<Target Name="SetPackageReleaseNotes" BeforeTargets="GenerateNuspec">
