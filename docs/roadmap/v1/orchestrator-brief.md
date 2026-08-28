@@ -82,6 +82,8 @@ Prefer the next slice that does the most to reduce one of these risks:
   case without endpoint boilerplate.
 - Fragment handling performs or transfers work it claims to avoid.
 - The application cannot choose and upgrade its own HTMX runtime.
+- Behavior differs from application-supplied htmx 4.0.0 running with htmx 4
+  defaults.
 - Package, browser, cache, or performance behavior differs from project-reference
   tests.
 
@@ -96,6 +98,9 @@ that leaves reusable verification behind.
 - Do not copy private Blazor renderer code or use new private reflection.
 - Do not treat HTMX headers as authorization evidence.
 - Do not bind Htmxor to one embedded HTMX version.
+- Use application-supplied htmx 4.0.0 with htmx 4 defaults for v1 browser,
+  example, and release evidence. Do not claim compatibility with another htmx
+  version unless that version was executed.
 - Do not claim support for a .NET version, browser path, package, or performance
   budget that was not executed.
 - Do not publish issues, pull requests, packages, or releases without the user's

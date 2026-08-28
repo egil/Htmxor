@@ -52,6 +52,13 @@ without a wrapper. If the developer supplies element, identifier, or HTML
 attributes, the fragment wraps its child content and emits those values. There
 is no separate `HtmxFragmentElement` concept in v1.
 
+htmx 4's `<hx-partial>` is a client-side delivery envelope for multi-target
+responses. It does not replace the server-side `HtmxFragment` selection
+boundary. Application-authored `<hx-partial>` markup can compose inside a
+fragment and must reach the response unchanged. Any future typed convenience
+helper remains an explicit, optional markup adapter rather than a second
+fragment-selection concept.
+
 Fragment selection must have clear execution semantics. The component and any
 required ancestors may run their normal lifecycle, but Htmxor should not render
 excluded child branches below a known selection boundary. Tests and benchmarks
@@ -83,15 +90,41 @@ supported .NET version.
 
 ## The application owns HTMX
 
-Htmxor v1 does not require or distribute one specific HTMX runtime. The
-application chooses the script, version, extensions, content security policy,
-and upgrade schedule.
+Htmxor v1 targets application-supplied htmx 4.0.0 for its documentation,
+examples, browser conformance, and release evidence. Conformance uses htmx 4
+defaults rather than a compatibility extension or configuration that restores
+htmx 2 behavior.
+
+Htmxor does not distribute or silently select that runtime. The application
+chooses the script source, extensions, content security policy, and upgrade
+schedule. The server integration should remain compatible with other htmx
+versions where they share the required HTTP protocol, but Htmxor claims another
+version only after executing its compatibility evidence.
 
 The server integration must understand the stable HTTP protocol it needs and
 provide bounded hooks for new request headers, response headers, and extension
 behavior. An analyzer may validate values against a developer-selected HTMX
 profile. It must not reject unknown attributes, extension syntax, or newer
 values merely because Htmxor does not know them yet.
+
+Relevant htmx 4 changes include retained `HX-Request`, the new `HX-Request-Type`
+distinction, `HX-Source` in place of the old trigger identity headers, explicit
+attribute inheritance, changed error-response swapping, changed DELETE form-data
+behavior, main-content-before-out-of-band swap ordering, standardized event
+names and request context, extension API changes, and response-header changes.
+This is a risk inventory rather than an exhaustive feature requirement. Htmxor
+must test any behavior it builds on instead of carrying forward htmx 1 or 2
+assumptions. Client-side declarations such as `hx-action`, `hx-method`, and
+`hx-query` still do not grant server methods.
+
+The established v1 server-method model remains implicit GET plus POST, PUT,
+PATCH, and DELETE inferred from component intent. htmx 4's `QUERY` method has no
+matching component directive in that model and is not inferred. Supporting it
+requires a separate public-model decision and evidence.
+
+Targeting htmx 4 does not make every optional htmx 4 client feature a v1
+requirement beyond an explicitly agreed composition such as the raw
+`<hx-partial>` pass-through above.
 
 ## Security and HTTP behavior
 
@@ -118,9 +151,10 @@ allocations, response bytes, and work skipped by fragment selection. V1 needs an
 explicit request-cost budget based on those results.
 
 The exact release-candidate package must pass the supported .NET compatibility
-matrix, security tests, browser conformance tests using application-supplied
-HTMX scripts, package validation, and a clean Production publish and consumer
-test. Project-reference tests alone are not release evidence.
+matrix, security tests, browser conformance tests using an application-supplied
+htmx 4.0.0 script with htmx 4 defaults, package validation, and a clean
+Production publish and consumer test. Project-reference tests alone are not
+release evidence.
 
 ## Outside v1
 
@@ -135,5 +169,6 @@ V1 is complete when a developer can add Htmxor to a stock Blazor static SSR
 application, leave existing pages and forms unchanged, and progressively add
 component-owned HTMX routes, actions, and fragments without writing endpoint
 boilerplate or giving up Blazor behavior. The result must be secure by default,
-independent of the application's HTMX version, supported on the declared .NET
-versions, and within the published request-cost budget.
+proved against application-supplied htmx 4.0.0 without embedding that runtime,
+supported on the declared .NET versions, and within the published request-cost
+budget.
