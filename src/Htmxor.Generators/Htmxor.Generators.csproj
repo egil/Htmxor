@@ -15,4 +15,10 @@
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="all" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<Compile
+			Include="..\Htmxor\Builder\HtmxorRouteTemplateContract.cs"
+			Link="Shared\HtmxorRouteTemplateContract.cs" />
+	</ItemGroup>
+
 </Project>

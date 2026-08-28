@@ -143,19 +143,20 @@ internal static class HtmxorAttributedRouteCatalog
 				"HtmxRoute must declare explicit GET-only Methods and no other route filters");
 		}
 
-		RoutePattern pattern;
+		if (!HtmxorRouteTemplateContract.IsSupported(template))
+		{
+			throw Unsupported(
+				componentType,
+				"the HtmxRoute template must use supported literal segments and constrained route parameters");
+		}
+
 		try
 		{
-			pattern = RoutePatternFactory.Parse(template);
+			RoutePatternFactory.Parse(template);
 		}
 		catch (RoutePatternException exception)
 		{
 			throw Unsupported(componentType, "the HtmxRoute template is not a valid route pattern", exception);
-		}
-
-		if (!pattern.Parameters.Any(static parameter => parameter.ParameterPolicies.Count > 0))
-		{
-			throw Unsupported(componentType, "the HtmxRoute template must contain a constrained parameter");
 		}
 
 		return template;

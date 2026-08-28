@@ -169,6 +169,18 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"constrained")]
 	[InlineData(
+		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:}\", Methods = [\"GET\"])]",
+		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
+		"constrained")]
+	[InlineData(
+		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id=foo:bar}\", Methods = [\"GET\"])]",
+		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
+		"constrained")]
+	[InlineData(
+		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}/{broken\", Methods = [\"GET\"])]",
+		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
+		"constrained")]
+	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Microsoft.AspNetCore.Components.RouteAttribute(\"/normal/{Id:int}\")]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"normal Blazor route")]
