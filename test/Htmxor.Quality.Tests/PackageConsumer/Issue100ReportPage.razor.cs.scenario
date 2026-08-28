@@ -1,0 +1,6 @@
+using Microsoft.AspNetCore.Components;
+
+namespace Htmxor.PackageConsumer;
+
+[Route("/alternate-reports/{ReportId:int}")]
+public partial class Issue100ReportPage;

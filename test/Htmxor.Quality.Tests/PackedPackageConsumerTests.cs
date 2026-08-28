@@ -8,6 +8,8 @@ public sealed class PackedPackageConsumerTests
 {
 	private const string UnsupportedPutHandlerMessage =
 		"@onput must use one double-quoted simple method-group name";
+	private const string AmbiguousStockRouteMessage =
+		"requires exactly one compiled stock route";
 
 	[Fact]
 	public async Task Package_only_application_registers_two_generated_get_routes_and_one_stock_page_put_action()
@@ -23,6 +25,28 @@ public sealed class PackedPackageConsumerTests
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
 		Assert.Equal(new TrxTestRun(8, 8, 8, 0, 0, 0, 0), testRun);
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
+	}
+
+	[Fact]
+	public async Task Package_only_application_rejects_a_put_component_with_two_compiled_stock_routes()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseSecondCompiledPageRoute();
+
+		var result = await workspace.RunAsync();
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+		var testRun = TrxTestRun.Read(workspace.TrxPath);
+
+		Assert.True(
+			result.ExitCode != 0,
+			"Expected Htmxor registration to reject the second compiled stock route. " +
+			"Instead the consumer exited successfully after its eight hosted checks targeted " +
+			"that route, including the authorized antiforgery-valid PUT and callback. " +
+			$"TRX: {testRun}" + Environment.NewLine + output);
+		Assert.Contains(AmbiguousStockRouteMessage, output, StringComparison.Ordinal);
+		Assert.Equal(new TrxTestRun(8, 8, 0, 8, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -156,6 +180,40 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 			StringComparison.Ordinal);
 
 		File.WriteAllText(componentPath, rewritten);
+	}
+
+	public void UseSecondCompiledPageRoute()
+	{
+		var assets = Path.Combine(
+			repositoryRoot,
+			"test",
+			"Htmxor.Quality.Tests",
+			"PackageConsumer");
+		var partialTemplate = Path.Combine(
+			assets,
+			"Issue100ReportPage.razor.cs.scenario");
+		File.Copy(
+			partialTemplate,
+			Path.Combine(consumerDirectory, "Issue100ReportPage.razor.cs"));
+
+		var testsPath = Path.Combine(consumerDirectory, "PackageConsumerTests.cs");
+		var source = File.ReadAllText(testsPath);
+		var rewritten = source
+			.Replace(
+				"private const string PageDeclaredRoute = \"/reports/{ReportId:int}\";",
+				"private const string PageDeclaredRoute = \"/alternate-reports/{ReportId:int}\";",
+				StringComparison.Ordinal)
+			.Replace(
+				"private const string PageRequestPath = \"/reports/42\";",
+				"private const string PageRequestPath = \"/alternate-reports/42\";",
+				StringComparison.Ordinal);
+		if (string.Equals(source, rewritten, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged package consumer must contain the stock page route constants.");
+		}
+
+		File.WriteAllText(testsPath, rewritten);
 	}
 
 	private void StageConsumer()

@@ -463,8 +463,13 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			((IEndpointRouteBuilder)app).DataSources
 				.SelectMany(dataSource => dataSource.Endpoints)
 				.OfType<RouteEndpoint>(),
-			endpoint => endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type ==
-				typeof(Issue100ReportPage));
+			endpoint =>
+				endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type ==
+					typeof(Issue100ReportPage) &&
+				string.Equals(
+					endpoint.RoutePattern.RawText,
+					PageDeclaredRoute,
+					StringComparison.Ordinal));
 		Assert.Equal(PageDeclaredRoute, endpoint.RoutePattern.RawText);
 		Assert.Equal(
 			[HttpMethods.Get, HttpMethods.Post, HttpMethods.Put],
