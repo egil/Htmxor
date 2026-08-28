@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Immutable;
-using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -15,7 +14,7 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 	private static readonly DiagnosticDescriptor UnsupportedDeclaration = new(
 		"HTMXOR001",
 		"Unsupported HTMX-only route declaration",
-		"Htmxor supports up to two project-root components without @page; each component must declare one literal constrained HtmxRoute with explicit GET only and one literal Authorize policy",
+		"Htmxor supports up to two project-root components without @page; each component must resolve one constrained HtmxRoute with explicit GET-only Methods, no other route filters, and one Authorize policy with compiler-resolved constant values and without roles or authentication schemes",
 		"Htmxor.Generators",
 		DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
@@ -23,40 +22,56 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
 		// Razor and Htmxor generators run in the same unordered pass, so consume the raw Razor input.
-		var declarations = context.AdditionalTextsProvider
+		var inputs = context.AdditionalTextsProvider
 			.Where(static file => file.Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase))
-			.Select(static (file, cancellationToken) => RouteDeclaration.Read(file, cancellationToken))
-			.Where(static declaration => declaration.HasDeclaration)
+			.Select(static (file, cancellationToken) => RazorSourceFile.Read(file, cancellationToken))
 			.Collect()
+			.Combine(context.CompilationProvider)
 			.Combine(context.AnalyzerConfigOptionsProvider);
 
 		context.RegisterSourceOutput(
-			declarations,
-			static (productionContext, input) => Emit(productionContext, input.Left, input.Right));
+			inputs,
+			static (productionContext, input) => Emit(
+				productionContext,
+				input.Left.Left,
+				input.Left.Right,
+				input.Right));
 	}
 
 	private static void Emit(
 		SourceProductionContext context,
-		ImmutableArray<RouteDeclaration> declarations,
+		ImmutableArray<RazorSourceFile> files,
+		Compilation compilation,
 		AnalyzerConfigOptionsProvider optionsProvider)
 	{
-		if (declarations.IsDefaultOrEmpty)
+		if (files.IsDefaultOrEmpty)
 		{
 			return;
 		}
 
+		var hasProject = TryGetProject(optionsProvider, out var project);
+		var declarations = RouteDeclaration.Bind(
+			files,
+			compilation,
+			project.RootNamespace,
+			project.ProjectDirectory);
 		var orderedDeclarations = declarations
 			.OrderBy(static declaration => declaration.ComponentName, StringComparer.Ordinal)
+			.ThenBy(static declaration => declaration.Path, StringComparer.Ordinal)
 			.ToImmutableArray();
-		if (orderedDeclarations.Length > 2 ||
-			!TryGetProject(optionsProvider, out var project))
+		if (orderedDeclarations.IsDefaultOrEmpty)
+		{
+			return;
+		}
+
+		if (orderedDeclarations.Length > 2 || !hasProject)
 		{
 			ReportUnsupportedDeclarations(context, orderedDeclarations);
 			return;
 		}
 
 		var unsupportedDeclarations = orderedDeclarations
-			.Where(declaration => !IsSupported(declaration, project))
+			.Where(static declaration => !declaration.IsSupported)
 			.ToImmutableArray();
 		if (!unsupportedDeclarations.IsDefaultOrEmpty)
 		{
@@ -68,13 +83,6 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 			"HtmxorGeneratedRouteRegistration.g.cs",
 			SourceText.From(Render(project.RootNamespace, orderedDeclarations), Encoding.UTF8));
 	}
-
-	private static bool IsSupported(RouteDeclaration declaration, ProjectInput project) =>
-		declaration.IsSupported &&
-		string.Equals(
-			Path.GetDirectoryName(declaration.Path),
-			project.ProjectDirectory,
-			StringComparison.OrdinalIgnoreCase);
 
 	private static void ReportUnsupportedDeclarations(
 		SourceProductionContext context,
