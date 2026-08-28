@@ -1,11 +1,9 @@
 using System.ComponentModel;
 using System.Reflection;
-using Htmxor;
 using Htmxor.Builder;
 using Htmxor.Endpoints;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
@@ -27,48 +25,27 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		=> AddHtmxorComponentEndpoints(builder, endpoints, []);
 
 	[EditorBrowsable(EditorBrowsableState.Never)]
-	public static IEndpointConventionBuilder MapHtmxorGeneratedComponentEndpoint(
-		IEndpointRouteBuilder endpoints,
-		Type componentType,
-		string normalizedRoute,
-		string authorizationPolicy)
+	public static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
+		this RazorComponentsEndpointConventionBuilder builder,
+		RouteGroupBuilder endpoints,
+		Assembly applicationAssembly,
+		IReadOnlyList<string> projectRootComponentTypeNames)
 	{
+		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(endpoints);
-		ArgumentNullException.ThrowIfNull(componentType);
-		ArgumentException.ThrowIfNullOrWhiteSpace(normalizedRoute);
-		ArgumentException.ThrowIfNullOrWhiteSpace(authorizationPolicy);
-		var descriptor = new HtmxorComponentGetRouteDescriptor(
-			componentType,
-			normalizedRoute,
-			GetGeneratedComponentMetadata(componentType, normalizedRoute, authorizationPolicy));
+		ArgumentNullException.ThrowIfNull(applicationAssembly);
+		ArgumentNullException.ThrowIfNull(projectRootComponentTypeNames);
+		var descriptors = HtmxorAttributedRouteCatalog.Build(
+			applicationAssembly,
+			projectRootComponentTypeNames);
 
-		return MapHtmxorComponentEndpoint(endpoints, descriptor);
-	}
-
-	private static object[] GetGeneratedComponentMetadata(
-		Type componentType,
-		string normalizedRoute,
-		string authorizationPolicy)
-	{
-		var metadata = componentType.GetCustomAttributes(inherit: true).ToArray();
-		var routes = metadata.OfType<HtmxRouteAttribute>().ToArray();
-		if (routes.Length != 1 ||
-			!string.Equals(routes[0].Template, normalizedRoute, StringComparison.Ordinal) ||
-			routes[0].Methods.Length != 1 ||
-			!HttpMethods.IsGet(routes[0].Methods[0]))
+		builder.AddHtmxorComponentEndpoints(endpoints);
+		foreach (var descriptor in descriptors)
 		{
-			throw new InvalidOperationException(
-				$"Component '{componentType}' no longer matches its generated HTMX-only GET route.");
+			endpoints.MapHtmxorComponentEndpoint(descriptor);
 		}
 
-		if (!metadata.OfType<IAuthorizeData>().Any(
-			authorize => string.Equals(authorize.Policy, authorizationPolicy, StringComparison.Ordinal)))
-		{
-			throw new InvalidOperationException(
-				$"Component '{componentType}' no longer declares its generated authorization policy.");
-		}
-
-		return metadata;
+		return builder;
 	}
 
 	internal static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
