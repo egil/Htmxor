@@ -38,6 +38,8 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 	private const string SummaryHost = "summaries.internal.example";
 	private const string PutHandlerIdentity =
 		"Htmxor.PackageConsumer.Issue100ReportPage.PUT.PutReport";
+	private const string PatchHandlerIdentity =
+		"Htmxor.PackageConsumer.Issue97ReportComponent.PATCH.PatchReport";
 	private WebApplication app = default!;
 	private HttpClient client = default!;
 	private Issue100ApplicationProbe applicationProbe = default!;
@@ -234,6 +236,71 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		AssertStockPageEndpoint();
 	}
 
+	[Fact]
+	public async Task Delete_action_uses_the_stock_page_request_component()
+	{
+		var (token, cookie, _) = await GetAntiforgeryCredentialsAsync();
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Delete,
+			PageRequestPath + "?source=from-query",
+			ReportHost,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			cookie,
+			token);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"Expected 200 OK, received {(int)response.StatusCode} {response.StatusCode}. " +
+			$"Probe: binding={applicationProbe.BindingCount}, " +
+			$"initialization={applicationProbe.InitializationCount}, " +
+			$"callback={applicationProbe.CallbackCount}. Body: {body}");
+		Assert.Contains(
+			$"delete|42|from-query|{PackageConsumerAuthenticationHandler.ReportUserName}|from-request-scope|true",
+			body,
+			StringComparison.Ordinal);
+		Assert.Equal(1, applicationProbe.BindingCount);
+		Assert.Equal(1, applicationProbe.InitializationCount);
+		Assert.Equal(1, applicationProbe.CallbackCount);
+	}
+
+	[Fact]
+	public async Task Patch_action_uses_the_htmx_only_request_component_and_code_behind_handler()
+	{
+		var (token, cookie, getRequestId) = await GetAntiforgeryCredentialsAsync();
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Patch,
+			ReportRequestPath + "?source=from-query",
+			ReportHost,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			cookie,
+			token,
+			"Htmxor.PackageConsumer.Forged.PATCH.OtherCallback");
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"Expected 200 OK, received {(int)response.StatusCode} {response.StatusCode}. " +
+			$"Probe: binding={applicationProbe.BindingCount}, " +
+			$"initialization={applicationProbe.InitializationCount}, " +
+			$"callback={applicationProbe.CallbackCount}. Body: {body}");
+		Assert.Contains(
+			$"patch|42|from-query|{PackageConsumerAuthenticationHandler.ReportUserName}|from-request-scope|true",
+			body,
+			StringComparison.Ordinal);
+		Assert.NotEqual(getRequestId, ExtractAttribute(body, "data-issue-103-patch-result", "data-request-id"));
+		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.Equal(1, applicationProbe.BindingCount);
+		Assert.Equal(1, applicationProbe.InitializationCount);
+		Assert.Equal(1, applicationProbe.CallbackCount);
+	}
+
 	[Theory]
 	[InlineData(null)]
 	[InlineData("invalid-token")]
@@ -285,7 +352,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		applicationProbe.Reset();
 
 		using var request = CreateActionRequest(
-			HttpMethod.Delete,
+			HttpMethod.Patch,
 			PageRequestPath + "?source=rejected",
 			ReportHost,
 			PackageConsumerAuthenticationHandler.ReportUserName,
@@ -297,6 +364,28 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 
 		Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
 		Assert.DoesNotContain("data-issue-100-put-result", body, StringComparison.Ordinal);
+		AssertNoApplicationCodeRan();
+	}
+
+	[Fact]
+	public async Task Stock_put_cannot_invoke_the_htmx_only_patch_callback()
+	{
+		var (token, cookie, _) = await GetAntiforgeryCredentialsAsync();
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Put,
+			ReportRequestPath,
+			ReportHost,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			cookie,
+			token,
+			PatchHandlerIdentity);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+		Assert.DoesNotContain("data-issue-103-patch-result", body, StringComparison.Ordinal);
 		AssertNoApplicationCodeRan();
 	}
 
@@ -499,7 +588,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			endpoint.Metadata.GetRequiredMetadata<Issue97GroupMetadata>());
 		var route = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
 		Assert.Equal(declaredRoute, route.Template);
-		Assert.Equal(HttpMethods.Get, Assert.Single(route.Methods));
+		Assert.Equal(expectedMethods, route.Methods);
 		var authorization = Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>());
 		Assert.Equal(policyName, authorization.Policy);
 

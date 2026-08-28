@@ -1,8 +1,15 @@
 using Microsoft.AspNetCore.Routing;
+using Htmxor;
 
 namespace Htmxor.PackageConsumer;
 
 [Host("reports.internal.example")]
 public partial class Issue97ReportComponent
 {
+	private void PatchReport(HtmxEventArgs _)
+	{
+		RequestProbe.RecordCallback();
+		callbackObservation =
+			$"patch|{ReportId}|{Source}|{HttpContext.User.Identity?.Name}|{RequestProbe.Value}|{lifecycleReady.ToString().ToLowerInvariant()}";
+	}
 }

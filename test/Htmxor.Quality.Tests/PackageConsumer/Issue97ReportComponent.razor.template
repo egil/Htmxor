@@ -1,14 +1,32 @@
 @attribute [Htmxor.HtmxRoute("/htmx-reports/{ReportId:int}", Methods = new[] { "GET" })]
 @attribute [Authorize(Policy = "issue-97-report-policy")]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue100RequestProbe RequestProbe
 
-<button hx-put="/issue-97-group/htmx-reports/@ReportId?source=@Source">No server action</button>
+<InputText @bind-Value="InputValue"
+           hx-patch="/issue-97-group/htmx-reports/42"
+           @onpatch="PatchReport" />
 
 <section data-issue-97-report-component>
     <p data-report-request-values>@ReportId|@HttpContext.User.Identity?.Name|@GroupMarker</p>
+    <p data-issue-103-patch-result
+       data-report-id="@ReportId"
+       data-query-source="@Source"
+       data-user="@HttpContext.User.Identity?.Name"
+       data-request-id="@RequestProbe.Id"
+       data-binding-count="@RequestProbe.BindingCount"
+       data-initialization-count="@RequestProbe.InitializationCount"
+       data-callback-count="@RequestProbe.CallbackCount"
+       data-lifecycle-ready="@lifecycleReady.ToString().ToLowerInvariant()">
+        @callbackObservation
+    </p>
 </section>
 
 @code {
+    private bool lifecycleReady;
+    private string? callbackObservation;
+
     [Parameter]
     public string? ReportId { get; set; }
 
@@ -19,6 +37,19 @@
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
+    private string? InputValue { get; set; }
+
     private string? GroupMarker
         => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue97GroupMetadata>()?.Value;
+
+    protected override void OnInitialized()
+    {
+        RequestProbe.RecordInitialization();
+    }
+
+    protected override void OnParametersSet()
+    {
+        lifecycleReady = true;
+        RequestProbe.RecordBinding();
+    }
 }
