@@ -351,23 +351,34 @@ Protected behavior for issue #97:
 > maps both routes so each authorized direct HTMX request reaches its own
 > component while normal requests cannot reach either.
 
-The bounded generator now orders the complete declaration set by component name,
-validates every declaration before emission, and generates one registration
-extension for one or two supported project-root components. That extension
-performs the application-level Htmxor registration once and adds each validated
-component to the exact caller-provided route group. If any declaration is
-unsupported, the generator emits a deterministic `HTMXOR001` diagnostic for the
-invalid declaration and no partial registration source.
+The bounded generator now locates the proved project-root Razor directives, then
+passes each complete C# attribute list and `using` through Roslyn syntax and
+semantic binding in a copy of the application compilation. Route, method, and
+policy values come only from `AttributeData` and `TypedConstant` for the exact
+`HtmxRouteAttribute` and `AuthorizeAttribute` symbols. Compiler-equivalent array
+creation, collection expressions, aliases, constants, combined and multiline
+attribute lists, and post-markup directives therefore converge on their bound
+values instead of a text spelling.
+
+The generator orders the complete declaration set by component name, validates
+every declaration before emission, and generates one registration extension for
+one or two supported project-root components. That extension performs the
+application-level Htmxor registration once and adds each validated component to
+the exact caller-provided route group. If syntax, binding, imports, or metadata
+falls outside the proved envelope, the generator emits a deterministic
+`HTMXOR001` diagnostic and no partial registration source.
 
 The package-only consumer declares exactly two project-root components with the
 original `HtmxRouteAttribute`, no `@page`, distinct constrained GET routes,
 distinct authorization policies, distinct output, and distinct effective
-`Host` metadata from their C# partial types. One `/issue-97-group` route group,
-one `MapRazorComponents` call, and one application-level Htmxor registration
-produce exactly two component endpoints. Each route returns `200` only for its
-own authorized direct HTMX request, renders its own output without the stock
-shell, and retains its own compiled route attribute, authorization policy, host,
-and group metadata. Normal requests return `404`; the other component's policy
+`Host` metadata from their C# partial types. Its summary route uses a C#
+collection expression after component markup, and its authorization policy uses
+the attribute constructor. One `/issue-97-group` route group, one
+`MapRazorComponents` call, and one application-level Htmxor registration produce
+exactly two component endpoints. Each route returns `200` only for its own
+authorized direct HTMX request, renders its own output without the stock shell,
+and retains its own compiled route attribute, authorization policy, host, and
+group metadata. Normal requests return `404`; the other component's policy
 returns `403`; anonymous direct requests return `401`; and rejected route
 constraints or hosts return `404`.
 
@@ -444,6 +455,9 @@ constraints or hosts return `404`.
 - Fast-profile proof at the same clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` passed 103 quality tests, 40 .NET 10 hosted tests, and 155 non-browser library and generator tests. Total: 298 discovered, 298 executed, 298 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
 - Full-profile proof at the same clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` passed 103 quality tests, 40 .NET 10 hosted tests, and all 157 library, generator, and browser tests. Total: 300 discovered, 300 executed, 300 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its fresh Cobertura report was `artifacts/results/full/htmxor/101680d4-a3ff-4099-831a-10326ea5027f/coverage.cobertura.xml`.
 - Mutation testing was not run. Issue #97 makes it optional diagnostic evidence and does not require unrelated mutant repair.
+- Compiler-backed follow-up negative control used exact Git tree `471a19734492799f1886eb6b1981db51a49738c9` over clean commit `75b1dbc4873dc1ad466ed48c445813716f94d4e3`. The only mutation changed registration rendering to `declarations.Take(1)`. The focused `PackedPackageConsumerTests` command packed the package, restored and built the .NET 10 consumer, loaded the generator, and discovered and executed one outer test plus two inner hosted tests. The report test passed; the summary test failed with expected `200` but actual `404`. Inner totals were 2 discovered, 2 executed, 1 passed, 1 failed, 0 skipped, 0 errors, and 0 timeouts. The temporary mutation was immediately reverted and the worktree returned to the clean parent tree.
+- Compiler-backed fast-profile proof at implementation commit `38dc18473a5b4d84714833a6cccbe9518ec80a12`: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` passed 103 quality tests, 40 .NET 10 hosted tests, and 162 non-browser library and generator tests. Total: 305 discovered, 305 executed, 305 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. The only worktree difference reported by the command was the then-untracked research note; production and test inputs matched the commit.
+- Full-scope mutation was not run. It is optional diagnostic evidence for this issue and would include unrelated legacy production scope.
 
 ## Remaining limits
 
@@ -466,14 +480,14 @@ constraints or hosts return `404`.
   full range of application group and security conventions. PUT, PATCH, and
   DELETE still have only test-stand-in generated descriptors, and per-component
   POST discovery beyond the stock named-form proof remains unproved.
-- Issue #93 replaces only the issue #91 stand-in. Its exact parser supports one
-  project-root component, the current single-line attribute syntax, one literal
-  constrained route, explicit GET only, one literal authorization policy, and
-  component namespace inference from the project root namespace and file name.
-  It does not support nested component directories, `_Imports.razor` namespaces,
-  general C# expressions, more than two declarations or components, route
-  collisions, normal-only or dual reachability, unsafe methods, or a final
-  public API. Issue #97 broadens only the declaration count from one to two.
+- The issue #97 follow-up replaces the literal attribute parser inside the
+  project-root tracer. It uses Roslyn for complete captured C# attribute lists,
+  usings, exact symbol identity, and bound constant values, including the root
+  `_Imports.razor`. It does not claim the full Razor grammar. Nested component
+  directories or imports, component-generated members that are unavailable to
+  a sibling generator, future SDK directive changes, more than two components,
+  multiple routes on one component, collision policy, normal-only or dual
+  reachability, unsafe methods, and a final public API remain unproved.
 - Issues #95 and #97 package that exact tracer and no broader behavior. Generated
   registration overload selection requires the application to pass an endpoint
   argument whose static type is exactly `RouteGroupBuilder`. Widening it to
@@ -484,9 +498,10 @@ constraints or hosts return `404`.
   and out of scope.
 - The analyzer currently activates for every application that restores the
   package. Applications with more than two `HtmxRoute` components, or with a
-  route declaration outside this tracer's exact syntax, receive build errors.
+  route declaration outside this tracer's proved directive, import, and binding
+  envelope, receive build errors.
   Exactly two project-root components are proved; multiple attributes on one
-  component, collision policy, nested namespaces, general Razor or C# parsing,
+  component, collision policy, nested namespaces, full Razor parsing,
   broader route filters, and unsafe action discovery remain unproved. This
   fail-fast behavior is accepted for the locally packed beta spike: it does not
   affect applications with no `HtmxRoute` declaration and avoids silently
