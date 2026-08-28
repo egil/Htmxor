@@ -313,7 +313,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
-	public async Task Bridge_maps_nothing_when_more_than_one_generated_action_is_supplied()
+	public async Task Bridge_maps_nothing_when_a_component_has_two_generated_actions_for_one_method()
 	{
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition("PackageConsumer.ReportComponent", "/reports/{ReportId:int}", "report.policy"));
