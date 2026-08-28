@@ -25,7 +25,7 @@ Last updated: 2026-08-28
 - Verified compiler-backed follow-up commit for issue #97: `3dc8350de488ace5d02d4244bdd87ef9953d0469`, based on merged `origin/main` commit `7f88974aa94bb77c8a50cdff7ecd92f4e7993861`.
 - Verified post-review constrained-route fix for issue #97: `f02a1c84dde19ed5221396339ce22ac4e936bbc6`.
 - This issue #97 progress change is documentation-only. Executable claims are tied to the tested implementation commits above, not to the later documentation head.
-- Verified executable proof commit for issue #100: `d7d6a90bd33f33636a377067e0a81d7b3aeae1f4`, based on exact fetched `origin/main` commit `d6e440f0fcb029174571979062705681b7a94d46`.
+- Verified executable proof commit for issue #100: `043c5a2367cb7fba3034a0cccab6eb1c281a4505`, based on exact fetched `origin/main` commit `d6e440f0fcb029174571979062705681b7a94d46`.
 - This issue #100 progress change is documentation-only. Executable claims are tied to the tested commit above, not to the later documentation head.
 - Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR on TestServer. Issues #95, #97, and #100 use a separate external .NET 10 Razor consumer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project.
 - V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer; issue #97, deterministic aggregation of two supported package-consumer declarations through that single registration call; issue #100, one package-generated component-owned PUT callback with server-owned method and action identity.
@@ -399,8 +399,10 @@ Protected behavior for issue #100:
 > invalid request cannot bind input or invoke it.
 
 The narrow action generator recognizes one project-root, non-`@page`
-component whose pre-code markup contains one double-quoted `@onput` simple
-method-group binding. It does not inspect `hx-put`. It contributes one opaque
+component whose first markup start tag follows only a simple one-line
+directive preamble and contains one double-quoted `@onput` simple method-group
+binding. This is a deliberately fail-closed lexical envelope, not a Razor
+grammar. It does not inspect `hx-put`. It contributes one opaque
 component, PUT method, and server-owned handler token through the existing
 application-level generated registration, and emits a partial component hook
 that first awaits normal `SetParametersAsync` processing. The hook consumes
@@ -429,9 +431,9 @@ select a callback; dispatch remains tied to the server token.
 
 A computed `@onput` lambda fails the separate package-only Release build with
 nonconfigurable `HTMXOR002` and produces no consumer assembly. Razor and HTML
-comments, quoted attribute values, and Razor code strings do not declare an
-action. The existing issue #87 stock `@page` PUT, PATCH, and DELETE stand-ins
-remain separate and green.
+comments, quoted attribute values, Razor code strings, raw attribute metadata,
+and script text do not declare an action. The existing issue #87 stock `@page`
+PUT, PATCH, and DELETE stand-ins remain separate and green.
 
 ## Executable evidence
 
@@ -518,10 +520,12 @@ remain separate and green.
 - Post-review package proof at executable tree `f02a1c84dde19ed5221396339ce22ac4e936bbc6` passed 1 of 1 outer tests with 2 of 2 parsed inner hosted tests. The fast profile passed 103 quality, 40 .NET 10 hosted, and 176 non-browser library tests: 319 discovered, executed, and passed. The full profile passed 103 quality, 40 hosted, and all 178 library and browser tests: 321 discovered, executed, and passed. Both profiles had 0 failures, skips, errors, or timeouts and Release builds with 0 warnings or errors. The full profile's canonical coverage report was `artifacts/results/full/htmxor/27a133a0-a1fd-471e-941f-b5a55e95f78a/coverage.cobertura.xml`.
 - Full-scope mutation was not run. It is optional diagnostic evidence for this issue and would include unrelated legacy production scope.
 - Meaningful red for issue #100 is preserved at clean test-only commit `d78eb90cacf906add7d7df5cf24a553b649bc91b`, whose production tree is exact base `d6e440f0fcb029174571979062705681b7a94d46`: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min` packed Htmxor, restored and built the separate .NET 10 consumer, and started its TestServer. The outer test discovered, executed, and failed 1 of 1; its inner TRX discovered and executed 3 hosted tests, with both existing GET tests passing and the PUT test failing only because expected `200` was actual `405`. Binding, initialization, and callback counts remained zero.
-- The first independent Standards and Spec reviews of exact clean head `c8e206ffb2ea0ce6c731c5587fbce5b3f9ccf1f5` both found that `@onput`-shaped text inside a quoted attribute value or Razor code string could be mistaken for a binding. Review-fix red at clean test-only commit `beb1d0efd9808d0d7fd5fa1abbcd23db0e2c7549` used `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Nonbinding_onput" --blame-hang --blame-hang-timeout 10min`; 2 tests were discovered and executed, and both failed only because the generator emitted PUT source. The fix restricts this tracer to pre-code markup and tracks attribute-value quotes; the same 2 cases then passed.
-- Focused generator and runtime proof at exact clean executable commit `d7d6a90bd33f33636a377067e0a81d7b3aeae1f4`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorRouteGeneratorTests|FullyQualifiedName~HtmxorPutActionGeneratorTests|FullyQualifiedName~HtmxorAttributedRouteCatalogTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 18 of 18 tests. The selection covers compiling shared-token output from both generators, `hx-put` exclusion, deterministic dynamic and multiple-declaration diagnostics, stock-page and non-binding-text exclusion, path-only GET discovery, and pre-mapping runtime rejection.
+- The first independent Standards and Spec reviews of exact clean head `c8e206ffb2ea0ce6c731c5587fbce5b3f9ccf1f5` both found that `@onput`-shaped text inside a quoted attribute value or Razor code string could be mistaken for a binding. Review-fix red at clean test-only commit `beb1d0efd9808d0d7fd5fa1abbcd23db0e2c7549` used `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Nonbinding_onput" --blame-hang --blame-hang-timeout 10min`; 2 tests were discovered and executed, and both failed only because the generator emitted PUT source. The fix tracked attribute-value quotes and stopped discovery at known code transitions; the same 2 cases then passed.
+- Separate Standards and Spec rereviews of exact clean head `ee36fe2752f491f17935aca6e7a0091d9c6309cd` found two remaining nonbinding contexts: an `@attribute` raw string and script text. Review-fix red at clean test-only commit `cd43888ce47405bd45d8f5069577cafc2a84aaa6` used `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Nonbinding_onput_inside_an_attribute_raw_string|FullyQualifiedName~Nonbinding_onput_inside_script_text" --blame-hang --blame-hang-timeout 10min`; both tests built and executed, and both failed only because PUT source was emitted. Commit `bb6986a622d38250c1a6062fcd5104bec1deb815` replaced the transition allow-list with the first-markup-tag envelope; the same 2 cases then passed.
+- Issue #101's generated-source readability note is incorporated only in the two new PUT renderer methods at `043c5a2367cb7fba3034a0cccab6eb1c281a4505`. The pre-existing route renderer remains unchanged; the raw interpolated templates preserve handler-identity escaping, and the focused tests compile their output.
+- Focused generator and runtime proof at exact clean executable commit `043c5a2367cb7fba3034a0cccab6eb1c281a4505`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorRouteGeneratorTests|FullyQualifiedName~HtmxorPutActionGeneratorTests|FullyQualifiedName~HtmxorAttributedRouteCatalogTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 20 of 20 tests. The selection covers compiling shared-token output from both generators, `hx-put` exclusion, deterministic dynamic and multiple-declaration diagnostics, stock-page and non-binding-text exclusion, path-only GET discovery, and pre-mapping runtime rejection.
 - Focused package proof at the same exact clean commit: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 2 of 2 outer tests. The successful package consumer's parsed inner TRX discovered, executed, and passed 8 of 8 hosted HTTP tests. The other outer test packed and restored the same package, then proved the computed callback fails the Release build with `HTMXOR002` and no consumer assembly.
-- Fast-profile proof at the same exact clean commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj --no-restore -- check --profile fast` recorded clean HEAD `d7d6a90bd33f33636a377067e0a81d7b3aeae1f4`, passed 104 quality tests, 40 .NET 10 hosted tests, and 187 non-browser library, generator, analyzer, and runtime tests. Total: 331 discovered, 331 executed, 331 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Fast-profile proof at the same exact clean commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj --no-restore -- check --profile fast` recorded clean HEAD `043c5a2367cb7fba3034a0cccab6eb1c281a4505`, passed 104 quality tests, 40 .NET 10 hosted tests, and 189 non-browser library, generator, analyzer, and runtime tests. Total: 333 discovered, 333 executed, 333 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
 - Issue #100's exact-head proofs used .NET SDK 10.0.400 on Microsoft Windows NT 10.0.26200.0. The local full profile and mutation testing were not run: ordinary pull-request CI owns the configured fast and full profiles, and issue #100 makes mutation optional.
 
 ## Remaining limits
@@ -587,10 +591,12 @@ remain separate and green.
   final v1 compatibility contract and must be resolved before a stable release
   candidate.
 - Issue #100 recognizes exactly one double-quoted simple `@onput` method group
-  in pre-code markup of one project-root `.razor` component without `@page`.
-  Its quote- and transition-aware scanner prevents the proved comment,
-  attribute-value, and code-string lookalikes from exposing PUT, but it does
-  not claim the Razor grammar. Markup after code or control transitions,
+  on the first markup start tag after only simple one-line `@attribute`,
+  `@using`, and `@inject` directives in one project-root `.razor` component
+  without `@page`. Its scanner prevents the proved comment, attribute-value,
+  code-string, raw-attribute, and script-text lookalikes from exposing PUT, but
+  it does not claim the Razor grammar. A preceding comment or markup element,
+  a multiline directive, markup after code or control transitions,
   conditional markup, local `@namespace`, nested components, `.razor.cs` and
   all-C# action declarations, multiple components or actions, other verbs,
   overloads, repeated parameter delivery, exceptions, cancellation, and the
@@ -610,8 +616,9 @@ before adding another verb or binding source:
 > while lookalike text and unsupported expressions cannot expose PUT.
 
 This comes next because issue #100 proves the end-to-end package, security, and
-lifecycle contract but intentionally recognizes only pre-code top-level markup.
-Generalizing verbs on that lexical seam would multiply a method-allow-list risk.
+lifecycle contract but intentionally recognizes only the first markup tag after
+a simple directive preamble. Generalizing verbs on that lexical seam would
+multiply a method-allow-list risk.
 The next evidence should retain both packaged GET routes and the complete PUT
 HTTP matrix, add one semantically equivalent declaration outside the current
 lexical envelope, and prove comments, strings, lambdas, and client HTMX
