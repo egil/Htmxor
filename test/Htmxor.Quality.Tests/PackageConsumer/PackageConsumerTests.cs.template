@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +34,8 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 	private const string RejectedSummaryPath = "/issue-97-group/summaries/not-an-int";
 	private const string ReportHost = "reports.internal.example";
 	private const string SummaryHost = "summaries.internal.example";
+	private const string PutHandlerIdentity =
+		"Htmxor.PackageConsumer.Issue97ReportComponent.PUT.PutReport";
 	private WebApplication app = default!;
 	private HttpClient client = default!;
 	private Issue100ApplicationProbe applicationProbe = default!;
@@ -95,8 +98,10 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		var endpoint = AssertGeneratedEndpoint<Issue97ReportComponent>(
 			GetGeneratedComponentEndpoints(),
 			ReportDeclaredRoute,
-			ReportPolicyName);
+			ReportPolicyName,
+			[HttpMethods.Get, HttpMethods.Put]);
 		AssertHost(endpoint, ReportHost);
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 
 		await AssertUnavailableAsync(
 			ReportRequestPath,
@@ -145,7 +150,8 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		var endpoint = AssertGeneratedEndpoint<Issue97SummaryComponent>(
 			endpoints,
 			SummaryDeclaredRoute,
-			SummaryPolicyName);
+			SummaryPolicyName,
+			[HttpMethods.Get]);
 		AssertHost(endpoint, SummaryHost);
 
 		await AssertUnavailableAsync(
@@ -186,7 +192,14 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		var (token, cookie, getRequestId) = await GetAntiforgeryCredentialsAsync();
 		applicationProbe.Reset();
 
-		using var request = CreateReportActionRequest(HttpMethod.Put, cookie, token);
+		using var request = CreateActionRequest(
+			HttpMethod.Put,
+			ReportRequestPath + "?source=from-query",
+			ReportHost,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			cookie,
+			token,
+			"Htmxor.PackageConsumer.Forged.PUT.OtherCallback");
 		using var response = await client.SendAsync(request);
 		var body = await response.Content.ReadAsStringAsync();
 
@@ -218,6 +231,94 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		Assert.Equal(1, applicationProbe.CallbackCount);
 	}
 
+	[Theory]
+	[InlineData(null)]
+	[InlineData("invalid-token")]
+	public async Task Missing_or_invalid_antiforgery_rejects_before_binding_or_callback(string? token)
+	{
+		var (_, cookie, _) = await GetAntiforgeryCredentialsAsync();
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Put,
+			ReportRequestPath + "?source=rejected",
+			ReportHost,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			cookie,
+			token);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+		Assert.DoesNotContain("data-issue-100-put-result", body, StringComparison.Ordinal);
+		AssertNoApplicationCodeRan();
+	}
+
+	[Fact]
+	public async Task Unauthorized_put_rejects_before_binding_or_callback()
+	{
+		var (token, cookie, _) = await GetAntiforgeryCredentialsAsync();
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Put,
+			ReportRequestPath + "?source=rejected",
+			ReportHost,
+			PackageConsumerAuthenticationHandler.SummaryUserName,
+			cookie,
+			token);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+		Assert.DoesNotContain("data-issue-100-put-result", body, StringComparison.Ordinal);
+		AssertNoApplicationCodeRan();
+	}
+
+	[Fact]
+	public async Task Different_method_cannot_invoke_the_put_callback()
+	{
+		var (token, cookie, _) = await GetAntiforgeryCredentialsAsync();
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Delete,
+			ReportRequestPath + "?source=rejected",
+			ReportHost,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			cookie,
+			token,
+			PutHandlerIdentity);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+		Assert.DoesNotContain("data-issue-100-put-result", body, StringComparison.Ordinal);
+		AssertNoApplicationCodeRan();
+	}
+
+	[Fact]
+	public async Task Hx_put_without_onput_cannot_invoke_the_report_callback_on_another_route()
+	{
+		var (token, cookie, _) = await GetAntiforgeryCredentialsAsync();
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Put,
+			SummaryRequestPath,
+			SummaryHost,
+			PackageConsumerAuthenticationHandler.SummaryUserName,
+			cookie,
+			token,
+			PutHandlerIdentity);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+		Assert.DoesNotContain("data-issue-100-put-result", body, StringComparison.Ordinal);
+		AssertNoApplicationCodeRan();
+	}
+
 	private async Task<(string Token, string Cookie, string RequestId)> GetAntiforgeryCredentialsAsync()
 	{
 		using var response = await SendAsync(
@@ -234,20 +335,46 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			ExtractAttribute(body, "data-issue-100-put-result", "data-request-id"));
 	}
 
-	private static HttpRequestMessage CreateReportActionRequest(
+	private static HttpRequestMessage CreateActionRequest(
 		HttpMethod method,
-		string cookie,
-		string token)
+		string path,
+		string host,
+		string? userName,
+		string? cookie,
+		string? token,
+		string? clientHandlerIdentity = null)
 	{
-		var request = new HttpRequestMessage(method, ReportRequestPath + "?source=from-query");
-		request.Headers.Host = ReportHost;
+		var request = new HttpRequestMessage(method, path);
+		request.Headers.Host = host;
 		request.Headers.Add("HX-Request", "true");
-		request.Headers.Add(
-			PackageConsumerAuthenticationHandler.UserHeaderName,
-			PackageConsumerAuthenticationHandler.ReportUserName);
-		request.Headers.Add("Cookie", cookie);
-		request.Headers.Add("RequestVerificationToken", token);
+		if (userName is not null)
+		{
+			request.Headers.Add(PackageConsumerAuthenticationHandler.UserHeaderName, userName);
+		}
+
+		if (cookie is not null)
+		{
+			request.Headers.Add("Cookie", cookie);
+		}
+
+		if (token is not null)
+		{
+			request.Headers.Add("RequestVerificationToken", token);
+		}
+
+		if (clientHandlerIdentity is not null)
+		{
+			request.Headers.Add("HXOR-Event-Handler-Id", clientHandlerIdentity);
+		}
+
 		return request;
+	}
+
+	private void AssertNoApplicationCodeRan()
+	{
+		Assert.Equal(0, applicationProbe.BindingCount);
+		Assert.Equal(0, applicationProbe.InitializationCount);
+		Assert.Equal(0, applicationProbe.CallbackCount);
 	}
 
 	private static string ExtractAttribute(string html, string elementMarker, string attributeName)
@@ -323,13 +450,14 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 	private static RouteEndpoint AssertGeneratedEndpoint<TComponent>(
 		IEnumerable<RouteEndpoint> endpoints,
 		string declaredRoute,
-		string policyName)
+		string policyName,
+		IReadOnlyList<string> expectedMethods)
 	{
 		var endpoint = Assert.Single(endpoints, endpoint =>
 			endpoint.Metadata.GetRequiredMetadata<ComponentTypeMetadata>().Type == typeof(TComponent));
 		Assert.Equal(RoutePrefix + declaredRoute, endpoint.RoutePattern.RawText);
 		Assert.Equal(
-			[HttpMethods.Get],
+			expectedMethods,
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
 		Assert.Same(
 			Issue97GroupMetadata.Instance,

@@ -108,6 +108,76 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		Assert.Empty(GetGeneratedEndpoints(app));
 	}
 
+	[Fact]
+	public async Task Bridge_maps_nothing_when_a_generated_action_is_outside_the_validated_routes()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition("PackageConsumer.ReportComponent", "/reports/{ReportId:int}", "report.policy"));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			typeof(global::Htmxor.TestApp.App),
+			HttpMethods.Put,
+			"PackageConsumer.App.PutReport");
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[generatedAction]));
+
+		Assert.Contains("does not belong to a supported HTMX-only route", exception.Message, StringComparison.Ordinal);
+		Assert.Empty(GetGeneratedEndpoints(app));
+	}
+
+	[Fact]
+	public async Task Bridge_maps_nothing_when_a_generated_action_uses_an_unsupported_method()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition("PackageConsumer.ReportComponent", "/reports/{ReportId:int}", "report.policy"));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			HttpMethods.Post,
+			"PackageConsumer.ReportComponent.PostReport");
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[generatedAction]));
+
+		Assert.Contains("supports only a generated PUT action", exception.Message, StringComparison.Ordinal);
+		Assert.Empty(GetGeneratedEndpoints(app));
+	}
+
+	[Fact]
+	public async Task Bridge_maps_nothing_when_more_than_one_generated_action_is_supplied()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition("PackageConsumer.ReportComponent", "/reports/{ReportId:int}", "report.policy"));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var firstAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			HttpMethods.Put,
+			"PackageConsumer.ReportComponent.PutReport");
+		var secondAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			HttpMethods.Put,
+			"PackageConsumer.ReportComponent.PutReportAgain");
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[firstAction, secondAction]));
+
+		Assert.Contains("supports exactly one generated component action", exception.Message, StringComparison.Ordinal);
+		Assert.Empty(GetGeneratedEndpoints(app));
+	}
+
 	private static void AssertDescriptor(
 		HtmxorComponentGetRouteDescriptor descriptor,
 		Type componentType,
