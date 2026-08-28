@@ -13,6 +13,7 @@ public sealed class PackedPackageConsumerTests
 	public async Task Package_only_application_registers_two_generated_routes_and_one_put_action()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseLaterPageDirectiveLikeComment();
 
 		var result = await workspace.RunAsync();
 		var testRun = TrxTestRun.Read(workspace.TrxPath);
@@ -123,6 +124,35 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 		var rewritten = source.Replace(
 			supportedHandler,
 			computedHandler,
+			StringComparison.Ordinal);
+
+		File.WriteAllText(componentPath, rewritten);
+	}
+
+	public void UseLaterPageDirectiveLikeComment()
+	{
+		var componentPath = Path.Combine(
+			consumerDirectory,
+			"Issue97ReportComponent.razor");
+		var source = File.ReadAllText(componentPath);
+		const string codeBlockStart = "@code {";
+		var codeBlockIndex = source.IndexOf(codeBlockStart, StringComparison.Ordinal);
+		if (codeBlockIndex < 0 ||
+			codeBlockIndex != source.LastIndexOf(codeBlockStart, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged package consumer must contain exactly one code block.");
+		}
+
+		const string codeBlockWithPageLikeComment = """
+			@code {
+			    /*
+			    @page "/not-a-directive"
+			    */
+			""";
+		var rewritten = source.Replace(
+			codeBlockStart,
+			codeBlockWithPageLikeComment,
 			StringComparison.Ordinal);
 
 		File.WriteAllText(componentPath, rewritten);
