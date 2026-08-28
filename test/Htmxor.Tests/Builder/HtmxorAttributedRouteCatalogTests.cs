@@ -348,6 +348,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	{
 		Assert.Same(componentType, descriptor.ComponentType);
 		Assert.Equal(route, descriptor.NormalizedRoute);
+		Assert.Equal([HttpMethods.Get], descriptor.HttpMethods);
 		var routeMetadata = Assert.Single(descriptor.Metadata.OfType<HtmxRouteAttribute>());
 		Assert.Equal(route, routeMetadata.Template);
 		Assert.Equal(HttpMethods.Get, Assert.Single(routeMetadata.Methods));
