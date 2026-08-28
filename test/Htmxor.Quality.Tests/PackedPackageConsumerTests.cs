@@ -235,7 +235,8 @@ internal static class PackageConsumerEvidence
 			consumerDirectory,
 			"Issue97SummaryComponent.razor"));
 		const string summaryRoute =
-			"@attribute [Htmxor.HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [ \"GET\" ])]";
+			"@attribute [Htmxor.HtmxRoute(SummaryRoute, Methods = [ SummaryMethod ])]";
+		const string summaryAuthorization = "@attribute [Authorize(SummaryPolicy)]";
 
 		Assert.Equal(1, Count(applicationSource, "AddHtmxorComponentEndpoints(routes)"));
 		Assert.Equal(1, Count(applicationSource, "MapGroup(RoutePrefix)"));
@@ -243,7 +244,8 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(2, Count(razorSource, "Htmxor.HtmxRoute"));
 		Assert.Equal(2, Count(razorSource, "Authorize"));
 		Assert.Equal(1, Count(summarySource, summaryRoute));
-		AssertSummaryDirectiveOrdering(summarySource, summaryRoute);
+		Assert.Equal(1, Count(summarySource, summaryAuthorization));
+		AssertSummaryDirectiveOrdering(summarySource, summaryRoute, summaryAuthorization);
 		Assert.DoesNotContain("InternalsVisibleTo", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("Issue91GeneratedRoute", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain(
@@ -255,25 +257,35 @@ internal static class PackageConsumerEvidence
 		Assert.DoesNotContain("MapMethods(", applicationSource, StringComparison.Ordinal);
 	}
 
-	private static void AssertSummaryDirectiveOrdering(string summarySource, string summaryRoute)
+	private static void AssertSummaryDirectiveOrdering(
+		string summarySource,
+		string summaryRoute,
+		string summaryAuthorization)
 	{
 		var usingIndex = summarySource.IndexOf(
 			"@using Microsoft.AspNetCore.Authorization",
 			StringComparison.Ordinal);
-		var authorizeIndex = summarySource.IndexOf(
-			"@attribute [Authorize(\"issue-97-summary-policy\")]",
+		var codeIndex = summarySource.IndexOf("@code {", StringComparison.Ordinal);
+		var commentLikeTextIndex = summarySource.IndexOf(
+			"private const string RazorCommentLikeText = \"@*\";",
 			StringComparison.Ordinal);
 		var routeIndex = summarySource.IndexOf(summaryRoute, StringComparison.Ordinal);
+		var authorizeIndex = summarySource.IndexOf(summaryAuthorization, StringComparison.Ordinal);
 		var markupIndex = summarySource.IndexOf(
 			"<section data-issue-97-summary-component>",
 			StringComparison.Ordinal);
 
-		Assert.True(
-			usingIndex >= 0 &&
-			usingIndex < authorizeIndex &&
-			authorizeIndex < markupIndex &&
-			markupIndex < routeIndex,
-			summarySource);
+		int[] directiveOrder =
+		[
+			usingIndex,
+			markupIndex,
+			codeIndex,
+			commentLikeTextIndex,
+			routeIndex,
+			authorizeIndex,
+		];
+		Assert.DoesNotContain(-1, directiveOrder);
+		Assert.Equal(directiveOrder.Order(), directiveOrder);
 	}
 
 	private static void AssertRuntimeDependencies(string consumerDirectory)
