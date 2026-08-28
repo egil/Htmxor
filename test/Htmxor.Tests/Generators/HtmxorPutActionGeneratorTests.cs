@@ -175,6 +175,38 @@ public sealed class HtmxorPutActionGeneratorTests
 	}
 
 	[Fact]
+	public void Nonbinding_onput_inside_an_attribute_value_does_not_emit_an_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			<div title='prefix @onput="PutReport" suffix'>No action</div>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoPutSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
+	public void Nonbinding_onput_inside_a_code_string_does_not_emit_an_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			""""
+			@code {
+				private const string Sample = """<button @onput="PutReport">""";
+			}
+			""""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoPutSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
 	public void Stock_page_onput_does_not_emit_an_htmx_only_action()
 	{
 		var run = RunGenerators(new RazorInput(
