@@ -30,7 +30,9 @@ Last updated: 2026-08-28
 - This issue #100 progress change is documentation-only. Executable claims are tied to the tested commits above, not to the later documentation head.
 - Preserved meaningful-red commit for issue #103 after rebase: `371c1125a4442b6df688a686abbe8b49269721a6`.
 - Verified implementation commit for issue #103: `fb7e31f3d8378d7b7ab8f521f862429da14dfb50`, based on exact fetched `origin/main` commit `b313e8dc6913ae7cbe424e86192aad7440761ac1`.
-- This issue #103 progress change is documentation-only. Executable claims are tied to the tested implementation commit above, not to the later documentation head.
+- Preserved post-review explicit-allow-list red for issue #103: `b78ff30f3c43acbef1ab99b69e51fad7b539879d`.
+- Verified post-review explicit-allow-list fix for issue #103: `732a957c36d080ddef39ca24db744b7d0c803fa4`.
+- This issue #103 progress change is documentation-only. Executable claims are tied to the tested implementation and post-review fix commits above, not to the later documentation head.
 - Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR on TestServer. Issues #95, #97, #100, and #103 use a separate external .NET 10 Razor consumer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -465,9 +467,11 @@ an omitted-`Methods` `HtmxRoute` produces one HTMX-only endpoint with implicit
 GET plus only its declared unsafe methods. The runtime validates the complete
 action and route set before adding endpoint conventions or mappings.
 
-An explicit `HtmxRoute.Methods` set is authoritative. A binding outside that set
+An explicit `HtmxRoute.Methods` set is authoritative. A supported binding whose
+method belongs to that set is generated and mapped; a binding outside that set
 produces deterministic nonconfigurable `HTMXOR002`, and runtime validation also
-fails before mapping if analyzer diagnostics are bypassed. Route declarations
+fails before mapping if analyzer diagnostics are bypassed. `HTMXOR002` has one
+internal descriptor shared by analyzer and generator. Route declarations
 originating from `_Imports.razor` are rejected for both stock and HTMX-only
 owners. Client-only `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, htmx 4
 `hx-action` plus `hx-method`, and `hx-query` declarations emit no action and do
@@ -581,6 +585,12 @@ handler, renderer copy, private reflection, or global Blazor service replacement
 - Focused package proof at the same exact clean implementation commit: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 4 of 4 outer tests. The supported package consumer's parsed inner TRX discovered, executed, and passed 11 of 11 hosted HTTP tests. The other package builds retained the multiple-stock-route and computed-handler failures and proved the new explicit-method conflict produces nonconfigurable `HTMXOR002` without a consumer assembly.
 - Fast-profile proof at the same exact clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` recorded clean HEAD `fb7e31f3d8378d7b7ab8f521f862429da14dfb50`, passed 106 quality tests, 40 .NET 10 hosted tests, and 219 non-browser library, generator, analyzer, and runtime tests. Total: 365 discovered, 365 executed, 365 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
 - Full-profile proof at the same exact clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` recorded clean HEAD `fb7e31f3d8378d7b7ab8f521f862429da14dfb50`, passed 106 quality tests, 40 .NET 10 hosted tests, and all 221 library, generator, analyzer, runtime, and legacy-browser tests. Total: 367 discovered, 367 executed, 367 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its canonical coverage report was `artifacts/results/full/htmxor/77d75cf8-6d20-498c-80c3-2a4027532b45/coverage.cobertura.xml`.
+- Independent review at documentation head `a7bc1e09c305b1964cadb9a807e4d442f863f93f` found that explicit `HtmxRoute.Methods` was treated as a blanket GET-only restriction rather than an authoritative membership allow-list, and that analyzer and generator duplicated the `HTMXOR002` descriptor. Those reviews and the preceding evidence were invalidated by the fixes below.
+- Post-review meaningful red is preserved at clean test-only commit `b78ff30f3c43acbef1ab99b69e51fad7b539879d`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Binding_inside_explicit_htmx_route_methods_is_supported|FullyQualifiedName~Bridge_binds_an_action_allowed_by_explicit_htmx_route_methods" --blame-hang --blame-hang-timeout 5min` discovered and executed 2 tests; both failed. The compiler test received `HTMXOR001` because explicit GET plus PATCH was rejected, and the runtime catalog test threw before binding the explicitly allowed PATCH. Setup, build, and discovery succeeded.
+- Post-review focused compiler, analyzer, and runtime-catalog proof at exact clean fix commit `732a957c36d080ddef39ca24db744b7d0c803fa4`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorActionGeneratorTests|FullyQualifiedName~HtmxorAttributedRouteCatalogTests|FullyQualifiedName~HtmxorRouteDeclarationAnalyzerTests" --blame-hang --blame-hang-timeout 5min` discovered, executed, and passed 70 of 70 tests. Matching explicit GET plus PATCH declarations now compile and bind while inferred methods outside the explicit set still fail closed with nonconfigurable `HTMXOR002`; unsupported `QUERY` remains rejected, omitted-`Methods` inference is unchanged, and the client-only negative controls remain covered.
+- Post-review package proof at the same exact clean fix commit: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 4 of 4 outer tests. The supported package consumer's parsed inner TRX discovered, executed, and passed 11 of 11 hosted HTTP tests. The rejected consumers retained their multiple-stock-route, computed-handler, and explicit-method-conflict failures.
+- Post-review fast-profile proof at the same exact clean fix commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` recorded clean HEAD `732a957c36d080ddef39ca24db744b7d0c803fa4`, passed 106 quality tests, 40 .NET 10 hosted tests, and 221 non-browser library, generator, analyzer, and runtime tests. Total: 367 discovered, 367 executed, 367 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Post-review full-profile proof at the same exact clean fix commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` recorded clean HEAD `732a957c36d080ddef39ca24db744b7d0c803fa4`, passed 106 quality tests, 40 .NET 10 hosted tests, and all 223 library, generator, analyzer, runtime, and legacy-browser tests. Total: 369 discovered, 369 executed, 369 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its canonical coverage report was `artifacts/results/full/htmxor/1052b5d6-42d0-4e23-bf98-5966e6a5441a/coverage.cobertura.xml`.
 - The first sandboxed post-rebase locked restore failed with `NU1301` because NuGet network access was denied; it was setup evidence and its chained no-restore test had no valid restored input. The same `dotnet restore --locked-mode` outside that boundary succeeded before all reported post-rebase proofs.
 - Issue #103's exact-head proofs used .NET SDK 10.0.400 on Microsoft Windows NT 10.0.26200.0. The full profile's existing Chromium fixture still used embedded htmx 1.9.12 and did not exercise issue #103's package routes or application-supplied htmx 4.0.0. Mutation testing was not run; it is optional for this proof of concept.
 
@@ -689,11 +699,10 @@ Issue #103 owns the shared method-inference path:
 > `@page` route or an HTMX-only `HtmxRoute` without `Methods`, Htmxor keeps GET
 > implicit and derives POST, PUT, PATCH, and DELETE server intent from supported
 > `@onpost`, `@onput`, `@onpatch`, and `@ondelete` declarations. Explicit
-> `Methods` remains authoritative, conflicts fail with a deterministic
+> `Methods` remains authoritative by membership, conflicts fail with a deterministic
 > diagnostic, and client `hx-*` declarations never add a server method.
 
-This server-side slice does not prove htmx 4 browser compatibility. Before its
-final evidence or progress update, recheck the live tracker, competing
-ownership, branch publication state, and `origin/main`. Stop for the user if
-the result requires changing the v1 goal, supported framework, or security
-posture.
+This server-side slice does not prove htmx 4 browser compatibility or add QUERY
+support. Publication still requires a current tracker, competing-ownership,
+branch, and `origin/main` check. Stop for the user if the result requires
+changing the v1 goal, supported framework, or security posture.
