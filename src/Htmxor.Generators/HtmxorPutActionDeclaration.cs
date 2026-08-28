@@ -127,10 +127,9 @@ internal sealed class HtmxorPutActionDeclaration
 		return tagStart >= 0 &&
 			HasSupportedPreamble(source, tagStart) &&
 			source.LastIndexOf('>', attributeIndex) < tagStart &&
-			!HasRawStringDelimiterBeforeAttribute(source, tagStart, attributeIndex) &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "@*", "*@") &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "<!--", "-->") &&
-			!IsInsideAttributeValue(source, tagStart, attributeIndex) &&
+			HasSupportedTagPrefix(source, tagStart, attributeIndex) &&
 			attributeIndex > 0 &&
 			char.IsWhiteSpace(source[attributeIndex - 1]) &&
 			IsAttributeNameTerminator(source, attributeIndex + AttributeName.Length);
@@ -191,34 +190,137 @@ internal sealed class HtmxorPutActionDeclaration
 		return isAttributeDirective || isUsingDirective || isInjectDirective;
 	}
 
-	private static bool HasRawStringDelimiterBeforeAttribute(
-		string source,
-		int tagStart,
-		int attributeIndex)
-		=> source.IndexOf(
-			"\"\"\"",
-			tagStart,
-			attributeIndex - tagStart,
-			StringComparison.Ordinal) >= 0;
-
-	private static bool IsInsideAttributeValue(string source, int tagStart, int attributeIndex)
+	private static bool HasSupportedTagPrefix(string source, int tagStart, int attributeIndex)
 	{
-		var quote = '\0';
-		for (var index = tagStart + 1; index < attributeIndex; index++)
+		var index = SkipName(source, tagStart + 1, attributeIndex);
+		if (index < 0)
 		{
-			var current = source[index];
-			if (quote == '\0' && (current == '\'' || current == '"'))
+			return false;
+		}
+
+		while (index < attributeIndex)
+		{
+			index = SkipWhitespace(source, index, attributeIndex);
+			if (index == attributeIndex)
 			{
-				quote = current;
+				return true;
 			}
-			else if (current == quote)
+
+			index = SkipName(source, index, attributeIndex);
+			if (index < 0)
 			{
-				quote = '\0';
+				return false;
+			}
+
+			if (index < attributeIndex && source[index] == '=')
+			{
+				index = SkipSupportedAttributeValue(source, index + 1, attributeIndex);
+				if (index < 0)
+				{
+					return false;
+				}
 			}
 		}
 
-		return quote != '\0';
+		return true;
 	}
+
+	private static int SkipName(string source, int start, int end)
+	{
+		var index = start;
+		while (index < end && IsNameCharacter(source[index]))
+		{
+			index++;
+		}
+
+		return index == start ? -1 : index;
+	}
+
+	private static int SkipWhitespace(string source, int start, int end)
+	{
+		var index = start;
+		while (index < end && char.IsWhiteSpace(source[index]))
+		{
+			index++;
+		}
+
+		return index;
+	}
+
+	private static int SkipSupportedAttributeValue(string source, int start, int end)
+	{
+		if (start >= end || source[start] != '"')
+		{
+			return -1;
+		}
+
+		var index = start + 1;
+		while (index < end)
+		{
+			if (source[index] == '"')
+			{
+				return index + 1;
+			}
+
+			if (source[index] == '@')
+			{
+				index = SkipSimpleRazorIdentifier(source, index + 1, end);
+				if (index < 0)
+				{
+					return -1;
+				}
+
+				continue;
+			}
+
+			if (!IsSupportedAttributeValueCharacter(source[index]))
+			{
+				return -1;
+			}
+
+			index++;
+		}
+
+		return -1;
+	}
+
+	private static int SkipSimpleRazorIdentifier(string source, int start, int end)
+	{
+		if (start >= end || !IsIdentifierStart(source[start]))
+		{
+			return -1;
+		}
+
+		var index = start + 1;
+		while (index < end &&
+			(IsIdentifierPart(source[index]) || source[index] == '.'))
+		{
+			index++;
+		}
+
+		return index;
+	}
+
+	private static bool IsNameCharacter(char value)
+		=> char.IsLetterOrDigit(value) || value == '-' || value == '_' || value == ':';
+
+	private static bool IsIdentifierStart(char value)
+		=> char.IsLetter(value) || value == '_';
+
+	private static bool IsIdentifierPart(char value)
+		=> char.IsLetterOrDigit(value) || value == '_';
+
+	private static bool IsSupportedAttributeValueCharacter(char value)
+		=> char.IsLetterOrDigit(value) ||
+			value == '/' ||
+			value == '-' ||
+			value == '_' ||
+			value == '.' ||
+			value == '?' ||
+			value == '=' ||
+			value == '&' ||
+			value == ':' ||
+			value == '%';
 
 	private static bool IsInsideDelimitedRegion(
 		string source,
