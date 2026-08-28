@@ -130,7 +130,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			PackageConsumerAuthenticationHandler.SummaryUserName,
 			SummaryHost,
 			"data-issue-97-summary-component",
-			"data-summary-request-values>84|issue-97-summary-user|group-convention-preserved</p>",
+			"data-summary-request-values>84|issue-97-summary-user|group-convention-preserved|@*</p>",
 			"data-issue-97-report-component");
 		var endpoints = GetGeneratedComponentEndpoints();
 		Assert.Equal(2, endpoints.Length);
