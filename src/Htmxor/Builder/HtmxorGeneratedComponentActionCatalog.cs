@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 
 namespace Htmxor.Builder;
@@ -40,6 +41,16 @@ internal static class HtmxorGeneratedComponentActionCatalog
 		{
 			throw new InvalidOperationException(
 				$"Generated component action '{action.HandlerIdentity}' does not belong to the project-root component manifest.");
+		}
+
+		var compiledStockRouteCount = action.ComponentType.CustomAttributes.Count(
+			static attribute => attribute.AttributeType == typeof(RouteAttribute));
+		if (compiledStockRouteCount != 1)
+		{
+			throw new InvalidOperationException(
+				$"Generated component action '{action.HandlerIdentity}' on component " +
+				$"'{action.ComponentType.FullName}' requires exactly one compiled stock route; " +
+				$"found {compiledStockRouteCount}.");
 		}
 	}
 
