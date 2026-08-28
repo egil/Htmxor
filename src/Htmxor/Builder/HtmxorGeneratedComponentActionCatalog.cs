@@ -1,18 +1,21 @@
+using System.Reflection;
 using Microsoft.AspNetCore.Http;
 
 namespace Htmxor.Builder;
 
 internal static class HtmxorGeneratedComponentActionCatalog
 {
-	public static IReadOnlyList<HtmxorComponentActionDescriptor> Bind(
-		IReadOnlyList<HtmxorComponentGetRouteDescriptor> routes,
+	public static void Validate(
+		Assembly applicationAssembly,
+		IReadOnlyList<string> projectRootComponentTypeNames,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
 	{
-		ArgumentNullException.ThrowIfNull(routes);
+		ArgumentNullException.ThrowIfNull(applicationAssembly);
+		ArgumentNullException.ThrowIfNull(projectRootComponentTypeNames);
 		ArgumentNullException.ThrowIfNull(generatedActions);
 		if (generatedActions.Count == 0)
 		{
-			return [];
+			return;
 		}
 
 		if (generatedActions.Count != 1)
@@ -27,17 +30,35 @@ internal static class HtmxorGeneratedComponentActionCatalog
 			throw new InvalidOperationException("Htmxor supports only a generated PUT action.");
 		}
 
-		var route = routes.SingleOrDefault(route => route.ComponentType == action.ComponentType)
-			?? throw new InvalidOperationException(
-				$"Generated component action '{action.HandlerIdentity}' does not belong to a supported HTMX-only route.");
-		return
-		[
-			new HtmxorComponentActionDescriptor(
+		var componentTypeName = action.ComponentType.FullName;
+		if (!string.Equals(
+			action.ComponentType.Assembly.FullName,
+			applicationAssembly.FullName,
+			StringComparison.Ordinal) ||
+			componentTypeName is null ||
+			!projectRootComponentTypeNames.Contains(componentTypeName, StringComparer.Ordinal))
+		{
+			throw new InvalidOperationException(
+				$"Generated component action '{action.HandlerIdentity}' does not belong to the project-root component manifest.");
+		}
+	}
+
+	public static IReadOnlyList<HtmxorComponentActionDescriptor> Bind(
+		Type componentType,
+		string normalizedRoute,
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
+	{
+		ArgumentNullException.ThrowIfNull(componentType);
+		ArgumentException.ThrowIfNullOrWhiteSpace(normalizedRoute);
+		ArgumentNullException.ThrowIfNull(generatedActions);
+		return generatedActions
+			.Where(action => action.ComponentType == componentType)
+			.Select(action => new HtmxorComponentActionDescriptor(
 				action.ComponentType,
-				route.NormalizedRoute,
-				HttpMethods.Put,
+				normalizedRoute,
+				action.HttpMethod,
 				action.HandlerIdentity,
-				action),
-		];
+				action))
+			.ToArray();
 	}
 }

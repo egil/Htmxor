@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Reflection.Emit;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
@@ -109,7 +110,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
-	public async Task Bridge_maps_nothing_when_a_generated_action_is_outside_the_validated_routes()
+	public async Task Bridge_maps_nothing_when_a_generated_action_is_outside_the_project_root_manifest()
 	{
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition("PackageConsumer.ReportComponent", "/reports/{ReportId:int}", "report.policy"));
@@ -126,8 +127,33 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				fixture.Manifest,
 				[generatedAction]));
 
-		Assert.Contains("does not belong to a supported HTMX-only route", exception.Message, StringComparison.Ordinal);
+		Assert.Contains("does not belong to the project-root component manifest", exception.Message, StringComparison.Ordinal);
 		Assert.Empty(GetGeneratedEndpoints(app));
+	}
+
+	[Fact]
+	public async Task Bridge_does_not_widen_an_explicit_get_only_route_for_a_generated_stock_action()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition("PackageConsumer.ReportComponent", "/reports/{ReportId:int}", "report.policy"));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			HttpMethods.Put,
+			"PackageConsumer.ReportComponent.PutReport");
+
+		componentBuilder.AddHtmxorAttributedComponentEndpoints(
+			group,
+			fixture.Assembly,
+			fixture.Manifest,
+			[generatedAction]);
+
+		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
+		Assert.Equal(
+			[HttpMethods.Get],
+			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
+		Assert.Empty(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
+		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
 	}
 
 	[Fact]
