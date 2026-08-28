@@ -138,6 +138,30 @@ public sealed class HtmxorPutActionGeneratorTests
 	}
 
 	[Fact]
+	public void Page_directive_like_text_inside_later_code_comment_does_not_suppress_supported_action()
+	{
+		var report = new RazorInput(
+			"ReportComponent.razor",
+			"""
+			<button hx-put="/reports/41?source=queue" @onput="PutReport">Save</button>
+
+			@code {
+				/*
+				@page "/not-a-directive"
+				*/
+			}
+			""");
+
+		var run = RunGenerators(report);
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedPutAction.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
 	public void Hx_put_without_onput_emits_only_the_route_manifest()
 	{
 		var run = RunGenerators(new RazorInput(
