@@ -127,6 +127,7 @@ internal sealed class HtmxorPutActionDeclaration
 		return tagStart >= 0 &&
 			HasSupportedPreamble(source, tagStart) &&
 			source.LastIndexOf('>', attributeIndex) < tagStart &&
+			!HasRawStringDelimiterBeforeAttribute(source, tagStart, attributeIndex) &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "@*", "*@") &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "<!--", "-->") &&
 			!IsInsideAttributeValue(source, tagStart, attributeIndex) &&
@@ -189,6 +190,16 @@ internal sealed class HtmxorPutActionDeclaration
 			line.IndexOf('(') < 0;
 		return isAttributeDirective || isUsingDirective || isInjectDirective;
 	}
+
+	private static bool HasRawStringDelimiterBeforeAttribute(
+		string source,
+		int tagStart,
+		int attributeIndex)
+		=> source.IndexOf(
+			"\"\"\"",
+			tagStart,
+			attributeIndex - tagStart,
+			StringComparison.Ordinal) >= 0;
 
 	private static bool IsInsideAttributeValue(string source, int tagStart, int attributeIndex)
 	{
