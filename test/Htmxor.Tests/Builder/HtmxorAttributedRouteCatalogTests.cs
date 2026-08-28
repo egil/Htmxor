@@ -135,12 +135,21 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	public async Task Bridge_does_not_widen_an_explicit_get_only_route_for_a_generated_stock_action()
 	{
 		var fixture = DynamicComponentAssembly.Create(
-			new ComponentDefinition("PackageConsumer.ReportComponent", "/reports/{ReportId:int}", "report.policy"));
+			new ComponentDefinition(
+				"PackageConsumer.HtmxReportComponent",
+				"/reports/{ReportId:int}",
+				"report.policy"),
+			new ComponentDefinition(
+				"PackageConsumer.StockReportComponent",
+				"/unused",
+				"stock.policy",
+				HasHtmxRoute: false,
+				StockRoutes: ["/stock-reports/{ReportId:int}"]));
 		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
 		var generatedAction = new HtmxorGeneratedComponentAction(
-			fixture.Types[0],
+			fixture.Types[1],
 			HttpMethods.Put,
-			"PackageConsumer.ReportComponent.PutReport");
+			"PackageConsumer.StockReportComponent.PutReport");
 
 		componentBuilder.AddHtmxorAttributedComponentEndpoints(
 			group,
@@ -154,6 +163,42 @@ public sealed class HtmxorAttributedRouteCatalogTests
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
 		Assert.Empty(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
 		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
+	}
+
+	[Fact]
+	public async Task Bridge_maps_nothing_when_a_generated_action_component_has_two_stock_routes()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.HtmxReportComponent",
+				"/reports/{ReportId:int}",
+				"report.policy"),
+			new ComponentDefinition(
+				"PackageConsumer.StockReportComponent",
+				"/unused",
+				"stock.policy",
+				HasHtmxRoute: false,
+				StockRoutes:
+				[
+					"/stock-reports/{ReportId:int}",
+					"/alternate-reports/{ReportId:int}",
+				]));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[1],
+			HttpMethods.Put,
+			"PackageConsumer.StockReportComponent.PutReport");
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[generatedAction]));
+
+		Assert.Contains("requires exactly one compiled stock route", exception.Message, StringComparison.Ordinal);
+		Assert.Contains("PackageConsumer.StockReportComponent", exception.Message, StringComparison.Ordinal);
+		Assert.Empty(GetGeneratedEndpoints(app));
 	}
 
 	[Fact]
@@ -267,7 +312,9 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		string Policy,
 		bool UseNamedPolicy = false,
 		bool HasAdditionalRouteFilter = false,
-		bool HasThrowingMetadata = false);
+		bool HasThrowingMetadata = false,
+		bool HasHtmxRoute = true,
+		IReadOnlyList<string>? StockRoutes = null);
 
 	private sealed record DynamicComponentAssembly(Assembly Assembly, Type[] Types, string[] Manifest)
 	{
@@ -292,7 +339,11 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				TypeAttributes.Public | TypeAttributes.Class,
 				typeof(ComponentBase));
 			type.DefineDefaultConstructor(MethodAttributes.Public);
-			AddRoute(type, definition);
+			if (definition.HasHtmxRoute)
+			{
+				AddRoute(type, definition);
+			}
+			AddStockRoutes(type, definition.StockRoutes);
 			AddAuthorization(type, definition);
 			if (definition.HasThrowingMetadata)
 			{
@@ -302,6 +353,18 @@ public sealed class HtmxorAttributedRouteCatalogTests
 			}
 
 			return type.CreateType()!;
+		}
+
+		private static void AddStockRoutes(
+			TypeBuilder type,
+			IReadOnlyList<string>? stockRoutes)
+		{
+			foreach (var stockRoute in stockRoutes ?? [])
+			{
+				type.SetCustomAttribute(new CustomAttributeBuilder(
+					typeof(RouteAttribute).GetConstructor([typeof(string)])!,
+					[stockRoute]));
+			}
 		}
 
 		private static void AddRoute(TypeBuilder type, ComponentDefinition definition)
