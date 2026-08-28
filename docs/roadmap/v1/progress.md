@@ -502,17 +502,16 @@ constraints or hosts return `404`.
   multiple routes on one component, collision policy, normal-only or dual
   reachability, unsafe methods, and a final public API remain unproved.
 - The compiler-bound route-declaration model is independent of the source file,
-  but issue #97 exercises attributes authored only in its two project-root
-  `.razor` files. It does not prove attributes on a matching `.razor.cs` partial
-  declaration, a component authored entirely in `.cs`, or attributes applied to
-  descendants through root or nested `_Imports.razor` scope. The path-derived
-  project-root manifest is an issue #97 eligibility filter, not the final
-  declaration source. Likely v1 follow-up work is one real package-consumer
-  tracer for each discovery mode. Each future discovery path must feed the same
-  compiler-bound validation and compiled-metadata runtime catalog, with the
-  original compiled `HtmxRouteAttribute` remaining authoritative. No
-  `_Imports.razor` behavior is claimed until its tracer runs through the actual
-  Razor build pipeline.
+  but issue #97 proves only `HtmxRoute` attributes authored in its two
+  project-root `.razor` files. The agreed v1 model also accepts the attribute on
+  the matching `.razor.cs` partial or on a component authored entirely in C#;
+  both discovery paths remain unproved and require real package-consumer
+  tracers. The path-derived project-root manifest is an issue #97 eligibility
+  filter, not the final declaration source. Every discovery path must feed the
+  same compiler-bound validation and compiled-metadata runtime catalog, with the
+  original compiled `HtmxRouteAttribute` authoritative. V1 does not treat
+  `_Imports.razor` as an `HtmxRoute` declaration source. Effective non-route
+  metadata from imports remains a separate unproved metadata-preservation case.
 - Issues #95 and #97 package that exact tracer and no broader behavior. Generated
   registration overload selection requires the application to pass an endpoint
   argument whose static type is exactly `RouteGroupBuilder`. Widening it to
