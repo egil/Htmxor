@@ -5,7 +5,10 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject Issue100RequestProbe RequestProbe
 
-<button hx-put="/reports/@ReportId?source=@Source" @onput="PutReport">Update report</button>
+<button hx-put="/reports/@ReportId?source=@Source"
+        hx-delete="/reports/@ReportId?source=@Source"
+        @onput="PutReport"
+        @ondelete="DeleteReport">Update report</button>
 <AntiforgeryToken />
 
 <section data-issue-100-report-page>
@@ -53,5 +56,12 @@
         RequestProbe.RecordCallback();
         callbackObservation =
             $"put|{ReportId}|{Source}|{HttpContext.User.Identity?.Name}|{RequestProbe.Value}|{lifecycleReady.ToString().ToLowerInvariant()}";
+    }
+
+    private void DeleteReport(HtmxEventArgs _)
+    {
+        RequestProbe.RecordCallback();
+        callbackObservation =
+            $"delete|{ReportId}|{Source}|{HttpContext.User.Identity?.Name}|{RequestProbe.Value}|{lifecycleReady.ToString().ToLowerInvariant()}";
     }
 }

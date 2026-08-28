@@ -12,7 +12,7 @@ public sealed class PackedPackageConsumerTests
 		"requires exactly one compiled stock route";
 
 	[Fact]
-	public async Task Package_only_application_registers_two_generated_get_routes_and_one_stock_page_put_action()
+	public async Task Package_only_application_infers_stock_and_htmx_only_unsafe_actions()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		workspace.UseLaterPageDirectiveLikeComment();
@@ -24,7 +24,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(8, 8, 8, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(11, 11, 11, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -46,7 +46,7 @@ public sealed class PackedPackageConsumerTests
 			"that route, including the authorized antiforgery-valid PUT and callback. " +
 			$"TRX: {testRun}" + Environment.NewLine + output);
 		Assert.Contains(AmbiguousStockRouteMessage, output, StringComparison.Ordinal);
-		Assert.Equal(new TrxTestRun(8, 8, 0, 8, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(11, 11, 0, 11, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -413,8 +413,12 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(1, Count(applicationSource, "MapRazorComponents<Issue97App>()"));
 		Assert.Equal(2, Count(razorSource, "Htmxor.HtmxRoute"));
 		Assert.Equal(3, Count(razorSource, "Authorize"));
-		Assert.Equal(3, Count(razorSource, "hx-put="));
+		Assert.Equal(2, Count(razorSource, "hx-put="));
+		Assert.Equal(1, Count(razorSource, "hx-patch="));
+		Assert.Equal(1, Count(razorSource, "hx-delete="));
 		Assert.Equal(1, Count(razorSource, "@onput=\"PutReport\""));
+		Assert.Equal(1, Count(razorSource, "@onpatch=\"PatchReport\""));
+		Assert.Equal(1, Count(razorSource, "@ondelete=\"DeleteReport\""));
 		Assert.Equal(1, Count(pageSource, pageRoute));
 		Assert.Equal(1, Count(pageSource, "@onput=\"PutReport\""));
 		Assert.Equal(1, Count(reportSource, reportRoute));
