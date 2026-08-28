@@ -139,16 +139,28 @@ internal sealed class HtmxorPutActionDeclaration
 		var lines = source
 			.Substring(0, tagLineStart)
 			.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+		var pageDirectiveCount = 0;
 		foreach (var line in lines)
 		{
 			var trimmed = line.Trim();
-			if (trimmed.Length > 0 && !IsSupportedDirectiveLine(trimmed))
+			if (trimmed.Length == 0)
+			{
+				continue;
+			}
+
+			if (IsSupportedPageDirectiveLine(trimmed))
+			{
+				pageDirectiveCount++;
+				continue;
+			}
+
+			if (!IsSupportedDirectiveLine(trimmed))
 			{
 				return false;
 			}
 		}
 
-		return true;
+		return pageDirectiveCount == 1;
 	}
 
 	private static bool IsWhitespace(string source, int start, int end)
@@ -180,6 +192,15 @@ internal sealed class HtmxorPutActionDeclaration
 		var isInjectDirective = line.StartsWith("@inject ", StringComparison.Ordinal) &&
 			line.IndexOf('(') < 0;
 		return isAttributeDirective || isUsingDirective || isInjectDirective;
+	}
+
+	private static bool IsSupportedPageDirectiveLine(string line)
+	{
+		const string prefix = "@page \"";
+		return HasOnlySingleLineLexicalContent(line) &&
+			line.StartsWith(prefix, StringComparison.Ordinal) &&
+			line.EndsWith("\"", StringComparison.Ordinal) &&
+			line.IndexOf('\"', prefix.Length) == line.Length - 1;
 	}
 
 	private static bool HasOnlySingleLineLexicalContent(string line)

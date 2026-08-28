@@ -185,6 +185,22 @@ public sealed class HtmxorPutActionGeneratorTests
 	}
 
 	[Fact]
+	public void Explicit_get_only_htmx_route_onput_does_not_emit_a_stock_page_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@attribute [Htmxor.HtmxRoute("/reports/{ReportId:int}", Methods = new[] { "GET" })]
+			<button hx-put="/reports/41" @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoPutSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
 	public void Onput_text_outside_a_markup_attribute_does_not_emit_an_action()
 	{
 		var run = RunGenerators(new RazorInput(
