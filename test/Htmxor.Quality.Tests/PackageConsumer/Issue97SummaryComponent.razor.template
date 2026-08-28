@@ -1,10 +1,11 @@
-@attribute [Htmxor.HtmxRoute("/summaries/{SummaryId:int}", Methods = new[] { "GET" })]
-@attribute [Authorize(Policy = "issue-97-summary-policy")]
 @using Microsoft.AspNetCore.Authorization
+@attribute [Authorize("issue-97-summary-policy")]
 
 <section data-issue-97-summary-component>
     <p data-summary-request-values>@SummaryId|@HttpContext.User.Identity?.Name|@GroupMarker</p>
 </section>
+
+@attribute [Htmxor.HtmxRoute("/summaries/{SummaryId:int}", Methods = [ "GET" ])]
 
 @code {
     [Parameter]

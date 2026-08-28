@@ -16,7 +16,8 @@ public sealed class PackedPackageConsumerTests
 
 		Assert.True(
 			result.ExitCode == 0,
-			result.StandardOutput + Environment.NewLine + result.StandardError);
+			result.StandardOutput + Environment.NewLine + result.StandardError +
+			Environment.NewLine + $"TRX: {testRun}");
 		Assert.Equal(new TrxTestRun(2, 2, 2, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
@@ -227,12 +228,22 @@ internal static class PackageConsumerEvidence
 			.Select(File.ReadAllText)
 			.ToArray();
 		var applicationSource = string.Join(Environment.NewLine, source);
+		var razorSource = string.Join(
+			Environment.NewLine,
+			Directory.EnumerateFiles(consumerDirectory, "*.razor").Select(File.ReadAllText));
+		var summarySource = File.ReadAllText(Path.Combine(
+			consumerDirectory,
+			"Issue97SummaryComponent.razor"));
+		const string summaryRoute =
+			"@attribute [Htmxor.HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [ \"GET\" ])]";
 
 		Assert.Equal(1, Count(applicationSource, "AddHtmxorComponentEndpoints(routes)"));
 		Assert.Equal(1, Count(applicationSource, "MapGroup(RoutePrefix)"));
 		Assert.Equal(1, Count(applicationSource, "MapRazorComponents<Issue97App>()"));
-		Assert.Equal(2, Count(applicationSource, "Htmxor.HtmxRoute("));
-		Assert.Equal(2, Count(applicationSource, "@attribute [Authorize(Policy = "));
+		Assert.Equal(2, Count(razorSource, "Htmxor.HtmxRoute"));
+		Assert.Equal(2, Count(razorSource, "Authorize"));
+		Assert.Equal(1, Count(summarySource, summaryRoute));
+		AssertSummaryDirectiveOrdering(summarySource, summaryRoute);
 		Assert.DoesNotContain("InternalsVisibleTo", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("Issue91GeneratedRoute", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain(
@@ -242,6 +253,27 @@ internal static class PackageConsumerEvidence
 		Assert.DoesNotContain("MapHtmxorGeneratedComponentEndpoint", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapGet(", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapMethods(", applicationSource, StringComparison.Ordinal);
+	}
+
+	private static void AssertSummaryDirectiveOrdering(string summarySource, string summaryRoute)
+	{
+		var usingIndex = summarySource.IndexOf(
+			"@using Microsoft.AspNetCore.Authorization",
+			StringComparison.Ordinal);
+		var authorizeIndex = summarySource.IndexOf(
+			"@attribute [Authorize(\"issue-97-summary-policy\")]",
+			StringComparison.Ordinal);
+		var routeIndex = summarySource.IndexOf(summaryRoute, StringComparison.Ordinal);
+		var markupIndex = summarySource.IndexOf(
+			"<section data-issue-97-summary-component>",
+			StringComparison.Ordinal);
+
+		Assert.True(
+			usingIndex >= 0 &&
+			usingIndex < authorizeIndex &&
+			authorizeIndex < markupIndex &&
+			markupIndex < routeIndex,
+			summarySource);
 	}
 
 	private static void AssertRuntimeDependencies(string consumerDirectory)
