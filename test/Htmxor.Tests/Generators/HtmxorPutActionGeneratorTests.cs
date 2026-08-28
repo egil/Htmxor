@@ -190,6 +190,21 @@ public sealed class HtmxorPutActionGeneratorTests
 	}
 
 	[Fact]
+	public void Nonbinding_onput_inside_a_raw_string_attribute_value_does_not_emit_an_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			""""
+			<div title="@(""" @onput="PutReport" """)">No action</div>
+			""""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoPutSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
 	public void Nonbinding_onput_inside_a_code_string_does_not_emit_an_action()
 	{
 		var run = RunGenerators(new RazorInput(
