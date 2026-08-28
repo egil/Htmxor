@@ -105,11 +105,12 @@ public sealed class HtmxorPutActionGeneratorTests
 		Path.Combine(Path.GetTempPath(), "htmxor-put-generator-tests"));
 
 	[Fact]
-	public void Simple_project_root_method_group_emits_one_shared_action_and_compiles_with_route_manifest()
+	public void Simple_stock_page_method_group_emits_one_shared_action_and_compiles_with_route_manifest()
 	{
 		var report = new RazorInput(
 			"ReportComponent.razor",
 			"""
+			@page "/reports/{ReportId:int}"
 			<button hx-put="/reports/41?source=queue" @onput="PutReport">Save</button>
 			""");
 
@@ -143,6 +144,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var report = new RazorInput(
 			"ReportComponent.razor",
 			"""
+			@page "/reports/{ReportId:int}"
 			<button hx-put="/reports/41?source=queue" @onput="PutReport">Save</button>
 
 			@code {
@@ -167,6 +169,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			"""
+			@page "/reports/{ReportId:int}"
 			<button hx-put="/reports/41?source=queue">Save</button>
 			"""));
 
@@ -187,9 +190,10 @@ public sealed class HtmxorPutActionGeneratorTests
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			"""
+			@page "/reports/{ReportId:int}"
+			<button title="@onput=&quot;TitleHandler&quot;">No action</button>
 			@* <button @onput="CommentHandler">Comment</button> *@
 			<!-- <button @onput="HtmlCommentHandler">Comment</button> -->
-			<button title="@onput=&quot;TitleHandler&quot;">No action</button>
 			"""));
 
 		Assert.Empty(run.DriverDiagnostics);
@@ -204,6 +208,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			"""
+			@page "/reports/{ReportId:int}"
 			<div title='prefix @onput="PutReport" suffix'>No action</div>
 			"""));
 
@@ -219,6 +224,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			""""
+			@page "/reports/{ReportId:int}"
 			<div title="@(""" @onput="PutReport" """)">No action</div>
 			""""));
 
@@ -234,6 +240,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			"""
+			@page "/reports/{ReportId:int}"
 			<div title="@($"{/* @onput="PutReport" */ 1}")">No action</div>
 			"""));
 
@@ -249,6 +256,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			""""
+			@page "/reports/{ReportId:int}"
 			@code {
 				private const string Sample = """<button @onput="PutReport">""";
 			}
@@ -266,6 +274,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			""""
+			@page "/reports/{ReportId:int}"
 			@attribute [System.ComponentModel.Description("""<button @onput="PutReport">""")]
 			<div>No action</div>
 			""""));
@@ -282,6 +291,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			"""
+			@page "/reports/{ReportId:int}"
 			@attribute [System.Obsolete(/*]
 			<button @onput="PutReport">
 			*/ "message")]
@@ -300,6 +310,7 @@ public sealed class HtmxorPutActionGeneratorTests
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			"""
+			@page "/reports/{ReportId:int}"
 			<script>const sample = '<button @onput="PutReport">';</script>
 			"""));
 
@@ -310,7 +321,7 @@ public sealed class HtmxorPutActionGeneratorTests
 	}
 
 	[Fact]
-	public void Stock_page_onput_does_not_emit_an_htmx_only_action()
+	public void Stock_page_onput_emits_an_action_without_copying_route_text()
 	{
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
@@ -321,7 +332,9 @@ public sealed class HtmxorPutActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoPutSource(run);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedPutAction.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("/reports/{ReportId:int}", actionSource, StringComparison.Ordinal);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -329,6 +342,7 @@ public sealed class HtmxorPutActionGeneratorTests
 	public void Dynamic_onput_fails_closed_at_the_external_attribute_location()
 	{
 		const string content = """
+			@page "/reports/{ReportId:int}"
 			<button
 				hx-put="/reports/41"
 				@onput="@(() => PutReport(default!))">Save</button>
@@ -347,10 +361,16 @@ public sealed class HtmxorPutActionGeneratorTests
 	{
 		var alpha = new RazorInput(
 			"AlphaComponent.razor",
-			"<button @onput=\"PutAlpha\">Alpha</button>");
+			"""
+			@page "/alpha/{Id:int}"
+			<button @onput="PutAlpha">Alpha</button>
+			""");
 		var zeta = new RazorInput(
 			"ZetaComponent.razor",
-			"<button @onput=\"PutZeta\">Zeta</button>");
+			"""
+			@page "/zeta/{Id:int}"
+			<button @onput="PutZeta">Zeta</button>
+			""");
 
 		var reverse = RunGenerators(zeta, alpha);
 		var forward = RunGenerators(alpha, zeta);

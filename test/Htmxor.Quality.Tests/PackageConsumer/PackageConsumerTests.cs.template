@@ -26,16 +26,18 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 	private const string ReportPolicyName = "issue-97-report-policy";
 	private const string SummaryPolicyName = "issue-97-summary-policy";
 	private const string RoutePrefix = "/issue-97-group";
-	private const string ReportDeclaredRoute = "/reports/{ReportId:int}";
+	private const string ReportDeclaredRoute = "/htmx-reports/{ReportId:int}";
 	private const string SummaryDeclaredRoute = "/summaries/{SummaryId:int}";
-	private const string ReportRequestPath = "/issue-97-group/reports/42";
+	private const string PageDeclaredRoute = "/reports/{ReportId:int}";
+	private const string ReportRequestPath = "/issue-97-group/htmx-reports/42";
 	private const string SummaryRequestPath = "/issue-97-group/summaries/84";
-	private const string RejectedReportPath = "/issue-97-group/reports/not-an-int";
+	private const string PageRequestPath = "/reports/42";
+	private const string RejectedReportPath = "/issue-97-group/htmx-reports/not-an-int";
 	private const string RejectedSummaryPath = "/issue-97-group/summaries/not-an-int";
 	private const string ReportHost = "reports.internal.example";
 	private const string SummaryHost = "summaries.internal.example";
 	private const string PutHandlerIdentity =
-		"Htmxor.PackageConsumer.Issue97ReportComponent.PUT.PutReport";
+		"Htmxor.PackageConsumer.Issue100ReportPage.PUT.PutReport";
 	private WebApplication app = default!;
 	private HttpClient client = default!;
 	private Issue100ApplicationProbe applicationProbe = default!;
@@ -77,7 +79,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		app.UseAntiforgery();
 		var routes = app.MapGroup(RoutePrefix)
 			.WithMetadata(Issue97GroupMetadata.Instance);
-		routes.MapRazorComponents<Issue97App>()
+		app.MapRazorComponents<Issue97App>()
 			.AddHtmxorComponentEndpoints(routes);
 
 		await app.StartAsync();
@@ -99,9 +101,9 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			GetGeneratedComponentEndpoints(),
 			ReportDeclaredRoute,
 			ReportPolicyName,
-			[HttpMethods.Get, HttpMethods.Put]);
+			[HttpMethods.Get]);
 		AssertHost(endpoint, ReportHost);
-		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
+		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
 
 		await AssertUnavailableAsync(
 			ReportRequestPath,
@@ -194,7 +196,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 
 		using var request = CreateActionRequest(
 			HttpMethod.Put,
-			ReportRequestPath + "?source=from-query",
+			PageRequestPath + "?source=from-query",
 			ReportHost,
 			PackageConsumerAuthenticationHandler.ReportUserName,
 			cookie,
@@ -229,6 +231,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		Assert.Equal(1, applicationProbe.BindingCount);
 		Assert.Equal(1, applicationProbe.InitializationCount);
 		Assert.Equal(1, applicationProbe.CallbackCount);
+		AssertStockPageEndpoint();
 	}
 
 	[Theory]
@@ -241,7 +244,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 
 		using var request = CreateActionRequest(
 			HttpMethod.Put,
-			ReportRequestPath + "?source=rejected",
+			PageRequestPath + "?source=rejected",
 			ReportHost,
 			PackageConsumerAuthenticationHandler.ReportUserName,
 			cookie,
@@ -262,7 +265,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 
 		using var request = CreateActionRequest(
 			HttpMethod.Put,
-			ReportRequestPath + "?source=rejected",
+			PageRequestPath + "?source=rejected",
 			ReportHost,
 			PackageConsumerAuthenticationHandler.SummaryUserName,
 			cookie,
@@ -283,7 +286,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 
 		using var request = CreateActionRequest(
 			HttpMethod.Delete,
-			ReportRequestPath + "?source=rejected",
+			PageRequestPath + "?source=rejected",
 			ReportHost,
 			PackageConsumerAuthenticationHandler.ReportUserName,
 			cookie,
@@ -322,12 +325,18 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 	private async Task<(string Token, string Cookie, string RequestId)> GetAntiforgeryCredentialsAsync()
 	{
 		using var response = await SendAsync(
-			ReportRequestPath + "?source=from-query",
-			direct: true,
+			PageRequestPath + "?source=from-query",
+			direct: false,
 			PackageConsumerAuthenticationHandler.ReportUserName,
 			ReportHost);
 		var body = await response.Content.ReadAsStringAsync();
 		Assert.True(response.StatusCode == HttpStatusCode.OK, body);
+		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
+		Assert.Contains("data-issue-100-report-page", body, StringComparison.Ordinal);
+		Assert.Contains(
+			"data-page-request-values>42|from-query|issue-97-report-user</p>",
+			body,
+			StringComparison.Ordinal);
 
 		return (
 			ExtractAttribute(body, "name=\"__RequestVerificationToken\"", "value"),
@@ -433,6 +442,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		Assert.Equal(expectedStatus, response.StatusCode);
 		Assert.DoesNotContain("data-issue-97-report-component", body, StringComparison.Ordinal);
 		Assert.DoesNotContain("data-issue-97-summary-component", body, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-100-report-page", body, StringComparison.Ordinal);
 	}
 
 	private RouteEndpoint[] GetGeneratedComponentEndpoints() =>
@@ -446,6 +456,26 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 					componentType == typeof(Issue97SummaryComponent);
 			})
 			.ToArray();
+
+	private void AssertStockPageEndpoint()
+	{
+		var endpoint = Assert.Single(
+			((IEndpointRouteBuilder)app).DataSources
+				.SelectMany(dataSource => dataSource.Endpoints)
+				.OfType<RouteEndpoint>(),
+			endpoint => endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type ==
+				typeof(Issue100ReportPage));
+		Assert.Equal(PageDeclaredRoute, endpoint.RoutePattern.RawText);
+		Assert.Equal(
+			[HttpMethods.Get, HttpMethods.Post, HttpMethods.Put],
+			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
+		Assert.Null(endpoint.Metadata.GetMetadata<Issue97GroupMetadata>());
+		Assert.Empty(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
+		Assert.Equal(
+			ReportPolicyName,
+			Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()).Policy);
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
+	}
 
 	private static RouteEndpoint AssertGeneratedEndpoint<TComponent>(
 		IEnumerable<RouteEndpoint> endpoints,
