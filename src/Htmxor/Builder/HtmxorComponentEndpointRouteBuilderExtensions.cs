@@ -30,19 +30,40 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		RouteGroupBuilder endpoints,
 		Assembly applicationAssembly,
 		IReadOnlyList<string> projectRootComponentTypeNames)
+		=> AddHtmxorAttributedComponentEndpoints(
+			builder,
+			endpoints,
+			applicationAssembly,
+			projectRootComponentTypeNames,
+			[]);
+
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	public static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
+		this RazorComponentsEndpointConventionBuilder builder,
+		RouteGroupBuilder endpoints,
+		Assembly applicationAssembly,
+		IReadOnlyList<string> projectRootComponentTypeNames,
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(endpoints);
 		ArgumentNullException.ThrowIfNull(applicationAssembly);
 		ArgumentNullException.ThrowIfNull(projectRootComponentTypeNames);
+		ArgumentNullException.ThrowIfNull(generatedActions);
 		var descriptors = HtmxorAttributedRouteCatalog.Build(
 			applicationAssembly,
 			projectRootComponentTypeNames);
+		var actionDescriptors = HtmxorGeneratedComponentActionCatalog.Bind(
+			descriptors,
+			generatedActions);
 
 		builder.AddHtmxorComponentEndpoints(endpoints);
 		foreach (var descriptor in descriptors)
 		{
-			endpoints.MapHtmxorComponentEndpoint(descriptor);
+			var endpointActions = actionDescriptors
+				.Where(action => action.ComponentType == descriptor.ComponentType)
+				.ToArray();
+			endpoints.MapHtmxorComponentEndpoint(descriptor, endpointActions);
 		}
 
 		return builder;
@@ -63,17 +84,22 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 	internal static IEndpointConventionBuilder MapHtmxorComponentEndpoint(
 		this IEndpointRouteBuilder endpoints,
-		HtmxorComponentGetRouteDescriptor generatedRoute)
+		HtmxorComponentGetRouteDescriptor generatedRoute,
+		IReadOnlyList<HtmxorComponentActionDescriptor> generatedActions)
 	{
 		ArgumentNullException.ThrowIfNull(endpoints);
 		ArgumentNullException.ThrowIfNull(generatedRoute);
+		ArgumentNullException.ThrowIfNull(generatedActions);
 		ArgumentException.ThrowIfNullOrWhiteSpace(generatedRoute.NormalizedRoute);
 		ArgumentNullException.ThrowIfNull(generatedRoute.Metadata);
 		RequestDelegate requestDelegate = static context => context.RequestServices
 			.GetRequiredService<IRazorComponentEndpointInvoker>()
 			.Render(context);
 		var builder = endpoints.MapGet(generatedRoute.NormalizedRoute, requestDelegate);
-		builder.Add(endpointBuilder => ConfigureGeneratedGetEndpoint(endpointBuilder, generatedRoute));
+		builder.Add(endpointBuilder => ConfigureGeneratedGetEndpoint(
+			endpointBuilder,
+			generatedRoute,
+			generatedActions));
 
 		return builder;
 	}
@@ -110,7 +136,8 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 	private static void ConfigureGeneratedGetEndpoint(
 		EndpointBuilder endpointBuilder,
-		HtmxorComponentGetRouteDescriptor generatedRoute)
+		HtmxorComponentGetRouteDescriptor generatedRoute,
+		IReadOnlyList<HtmxorComponentActionDescriptor> generatedActions)
 	{
 		foreach (var metadata in generatedRoute.Metadata)
 		{
@@ -121,7 +148,17 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		endpointBuilder.Metadata.Add(new ComponentTypeMetadata(generatedRoute.ComponentType));
 		endpointBuilder.Metadata.Add(HtmxOnlyGetDirectRoot);
 		endpointBuilder.Metadata.Add(HtmxorDirectEndpointMetadata.Instance);
-		endpointBuilder.DisplayName = $"{generatedRoute.NormalizedRoute} ({generatedRoute.ComponentType.Name}) (HTMX-only GET)";
+		endpointBuilder.DisplayName = generatedActions.Count == 0
+			? $"{generatedRoute.NormalizedRoute} ({generatedRoute.ComponentType.Name}) (HTMX-only GET)"
+			: $"{generatedRoute.NormalizedRoute} ({generatedRoute.ComponentType.Name}) (HTMX-only GET and PUT)";
+		if (generatedActions.Count > 0)
+		{
+			var stockRequestDelegate = endpointBuilder.RequestDelegate
+				?? throw new InvalidOperationException("A generated component endpoint must have a request delegate.");
+			var actions = generatedActions.ToArray();
+			AddActionMetadata(endpointBuilder, actions);
+			endpointBuilder.RequestDelegate = context => InvokeGeneratedEndpoint(context, stockRequestDelegate, actions);
+		}
 	}
 
 	private static HtmxorComponentActionDescriptor[] GetEndpointActions(
@@ -201,20 +238,63 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		RequestDelegate stockRequestDelegate,
 		HtmxorComponentActionDescriptor action)
 	{
-		var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
-		try
+		if (!await TryActivateAction(context, action))
 		{
-			// Use one fail-closed path because ASP.NET Core antiforgery middleware skips DELETE.
-			await antiforgery.ValidateRequestAsync(context);
-		}
-		catch (AntiforgeryValidationException)
-		{
-			context.Response.StatusCode = StatusCodes.Status400BadRequest;
 			return;
 		}
 
-		context.RequestServices.GetRequiredService<HtmxorComponentActionRequest>().Activate(action);
 		await InvokeDirectEndpoint(context, stockRequestDelegate);
+	}
+
+	private static async Task InvokeGeneratedEndpoint(
+		HttpContext context,
+		RequestDelegate stockRequestDelegate,
+		IReadOnlyList<HtmxorComponentActionDescriptor> endpointActions)
+	{
+		var action = endpointActions.SingleOrDefault(action =>
+			string.Equals(action.HttpMethod, context.Request.Method, StringComparison.OrdinalIgnoreCase));
+		if (action is null)
+		{
+			await stockRequestDelegate(context);
+			return;
+		}
+
+		if (await TryActivateAction(context, action))
+		{
+			await stockRequestDelegate(context);
+		}
+	}
+
+	private static async Task<bool> TryActivateAction(
+		HttpContext context,
+		HtmxorComponentActionDescriptor action)
+	{
+		if (context.Features.Get<IAntiforgeryValidationFeature>() is { } validationFeature)
+		{
+			if (!validationFeature.IsValid)
+			{
+				context.Response.StatusCode = StatusCodes.Status400BadRequest;
+				return false;
+			}
+		}
+		else
+		{
+			try
+			{
+				// Use one fail-closed path because ASP.NET Core antiforgery middleware skips DELETE.
+				await context.RequestServices
+					.GetRequiredService<IAntiforgery>()
+					.ValidateRequestAsync(context);
+			}
+			catch (AntiforgeryValidationException)
+			{
+				context.Response.StatusCode = StatusCodes.Status400BadRequest;
+				return false;
+			}
+		}
+
+		context.RequestServices.GetRequiredService<HtmxorComponentActionRequest>().Activate(action);
+		return true;
 	}
 
 	private static async Task InvokeDirectEndpoint(HttpContext context, RequestDelegate stockRequestDelegate)

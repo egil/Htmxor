@@ -2,7 +2,7 @@ using Htmxor.Builder;
 
 namespace Htmxor.Endpoints;
 
-internal sealed class HtmxorComponentActionRequest
+internal sealed class HtmxorComponentActionRequest : IHtmxorGeneratedComponentActionRequest
 {
 	private HtmxorComponentActionDescriptor? activeDescriptor;
 
@@ -21,5 +21,16 @@ internal sealed class HtmxorComponentActionRequest
 		return ReferenceEquals(
 			Interlocked.CompareExchange(ref activeDescriptor, null, descriptor),
 			descriptor);
+	}
+
+	bool IHtmxorGeneratedComponentActionRequest.TryConsume(HtmxorGeneratedComponentAction action)
+	{
+		ArgumentNullException.ThrowIfNull(action);
+		var descriptor = Volatile.Read(ref activeDescriptor);
+		return descriptor is not null &&
+			ReferenceEquals(descriptor.GeneratedAction, action) &&
+			ReferenceEquals(
+				Interlocked.CompareExchange(ref activeDescriptor, null, descriptor),
+				descriptor);
 	}
 }

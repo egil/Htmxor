@@ -30,6 +30,25 @@ internal static class ProjectRootComponentManifest
 			.ToImmutableArray();
 	}
 
+	public static string? GetTypeName(
+		AdditionalText additionalFile,
+		AnalyzerConfigOptionsProvider optionsProvider)
+	{
+		if (additionalFile is null)
+		{
+			throw new ArgumentNullException(nameof(additionalFile));
+		}
+
+		if (optionsProvider is null)
+		{
+			throw new ArgumentNullException(nameof(optionsProvider));
+		}
+
+		return TryGetProject(optionsProvider, out var projectDirectory, out var rootNamespace)
+			? GetTypeName(additionalFile.Path, projectDirectory, rootNamespace)
+			: null;
+	}
+
 	private static string? GetTypeName(
 		string path,
 		string projectDirectory,
