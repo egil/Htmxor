@@ -2,9 +2,11 @@
 
 Status: agreed product and engineering target.
 
-Htmxor v1 lets a Blazor developer add HTMX behavior to static server-rendered
-Razor components without creating a parallel controller or Minimal API layer.
-The `.razor` component owns its route, request handling, lifecycle, and output.
+Htmxor v1 lets a developer add HTMX behavior to static server-rendered Blazor
+components without creating a parallel controller or Minimal API layer. The
+component type owns its route, request handling, lifecycle, and output, whether
+authored in `.razor`, split between `.razor` and a matching `.razor.cs` partial,
+or authored entirely in C#.
 
 Adding Htmxor to an existing Blazor static SSR application must not change pages
 that have not opted into HTMX behavior. Components built for stock static SSR,
@@ -19,8 +21,11 @@ requests, or through both paths.
 - `@page` owns the normal Blazor route. By convention, it also makes the same
   component available to a direct HTMX GET. A component can opt out and remain
   normal-only.
-- A component without `@page` can declare an HTMX-only route in the `.razor`
-  file. Application code does not add a matching endpoint elsewhere.
+- A component without `@page` can declare an HTMX-only route by applying
+  `HtmxRoute` to that component: through `@attribute` in `.razor`, on its
+  matching `.razor.cs` partial, or on a component authored entirely in C#.
+  `HtmxRoute` is component-specific and is not supplied through
+  `_Imports.razor`. Application code does not add a matching endpoint elsewhere.
 - GET is the only implicit HTTP method. Htmxor infers POST from stock Blazor form
   declarations and infers POST, PUT, PATCH, or DELETE from statically
   discoverable `@onpost`, `@onput`, `@onpatch`, or `@ondelete` bindings. `hx-*`
