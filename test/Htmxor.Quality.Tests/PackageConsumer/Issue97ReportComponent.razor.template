@@ -1,18 +1,60 @@
 @attribute [Htmxor.HtmxRoute("/reports/{ReportId:int}", Methods = new[] { "GET" })]
 @attribute [Authorize(Policy = "issue-97-report-policy")]
+@using Htmxor
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue100RequestProbe RequestProbe
+
+<button hx-put="/issue-97-group/reports/@ReportId?source=@Source" @onput="PutReport">Update report</button>
+<AntiforgeryToken />
 
 <section data-issue-97-report-component>
     <p data-report-request-values>@ReportId|@HttpContext.User.Identity?.Name|@GroupMarker</p>
+    <p data-issue-100-put-result
+       data-report-id="@ReportId"
+       data-query-source="@Source"
+       data-user="@HttpContext.User.Identity?.Name"
+       data-request-id="@RequestProbe.Id"
+       data-binding-count="@RequestProbe.BindingCount"
+       data-initialization-count="@RequestProbe.InitializationCount"
+       data-callback-count="@RequestProbe.CallbackCount"
+       data-lifecycle-ready="@lifecycleReady.ToString().ToLowerInvariant()">
+        @callbackObservation
+    </p>
 </section>
 
 @code {
+    private bool lifecycleReady;
+    private string? callbackObservation;
+
     [Parameter]
     public string? ReportId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "source")]
+    public string? Source { get; set; }
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
     private string? GroupMarker
         => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue97GroupMetadata>()?.Value;
+
+    protected override void OnInitialized()
+    {
+        RequestProbe.RecordInitialization();
+    }
+
+    protected override void OnParametersSet()
+    {
+        lifecycleReady = true;
+        RequestProbe.RecordBinding();
+    }
+
+    private void PutReport(HtmxEventArgs _)
+    {
+        RequestProbe.RecordCallback();
+        callbackObservation =
+            $"put|{ReportId}|{Source}|{HttpContext.User.Identity?.Name}|{RequestProbe.Value}|{lifecycleReady.ToString().ToLowerInvariant()}";
+    }
 }

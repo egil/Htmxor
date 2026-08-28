@@ -7,7 +7,7 @@ namespace Htmxor.Quality.Tests;
 public sealed class PackedPackageConsumerTests
 {
 	[Fact]
-	public async Task Package_only_application_registers_two_generated_routes()
+	public async Task Package_only_application_registers_two_generated_routes_and_one_put_action()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 
@@ -18,7 +18,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(2, 2, 2, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(3, 3, 3, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -243,6 +243,8 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(1, Count(applicationSource, "MapRazorComponents<Issue97App>()"));
 		Assert.Equal(2, Count(razorSource, "Htmxor.HtmxRoute"));
 		Assert.Equal(2, Count(razorSource, "Authorize"));
+		Assert.Equal(2, Count(razorSource, "hx-put="));
+		Assert.Equal(1, Count(razorSource, "@onput=\"PutReport\""));
 		Assert.Equal(1, Count(summarySource, summaryRoute));
 		Assert.Equal(1, Count(summarySource, summaryAuthorization));
 		AssertSummaryDirectiveOrdering(summarySource, summaryRoute, summaryAuthorization);
@@ -254,6 +256,7 @@ internal static class PackageConsumerEvidence
 			StringComparison.Ordinal);
 		Assert.DoesNotContain("MapHtmxorGeneratedComponentEndpoint", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapGet(", applicationSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("MapPut(", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapMethods(", applicationSource, StringComparison.Ordinal);
 	}
 

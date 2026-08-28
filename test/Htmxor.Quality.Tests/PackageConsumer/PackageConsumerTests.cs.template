@@ -1,11 +1,13 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.RegularExpressions;
 using Htmxor;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components.Endpoints;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -33,6 +35,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 	private const string SummaryHost = "summaries.internal.example";
 	private WebApplication app = default!;
 	private HttpClient client = default!;
+	private Issue100ApplicationProbe applicationProbe = default!;
 
 	public async Task InitializeAsync()
 	{
@@ -42,6 +45,8 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			EnvironmentName = Environments.Development,
 		});
 		builder.WebHost.UseTestServer();
+		builder.Logging.ClearProviders();
+		builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
 		builder.Services.AddAuthentication(PackageConsumerAuthenticationHandler.SchemeName)
 			.AddScheme<AuthenticationSchemeOptions, PackageConsumerAuthenticationHandler>(
 				PackageConsumerAuthenticationHandler.SchemeName,
@@ -60,6 +65,8 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 					PackageConsumerAuthenticationHandler.SummaryAccess));
 		});
 		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddSingleton<Issue100ApplicationProbe>();
+		builder.Services.AddScoped<Issue100RequestProbe>();
 
 		app = builder.Build();
 		app.UseAuthentication();
@@ -72,6 +79,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 
 		await app.StartAsync();
 		client = app.GetTestClient();
+		applicationProbe = app.Services.GetRequiredService<Issue100ApplicationProbe>();
 	}
 
 	[Fact]
@@ -170,6 +178,100 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			PackageConsumerAuthenticationHandler.SummaryUserName,
 			SummaryHost,
 			HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task Put_action_uses_the_authorized_request_component_and_renders_callback_state()
+	{
+		var (token, cookie, getRequestId) = await GetAntiforgeryCredentialsAsync();
+		applicationProbe.Reset();
+
+		using var request = CreateReportActionRequest(HttpMethod.Put, cookie, token);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"Expected 200 OK, received {(int)response.StatusCode} {response.StatusCode}. " +
+			$"Probe: binding={applicationProbe.BindingCount}, " +
+			$"initialization={applicationProbe.InitializationCount}, " +
+			$"callback={applicationProbe.CallbackCount}. Body: {body}");
+		Assert.Contains("data-report-id=\"42\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-query-source=\"from-query\"", body, StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-user=\"{PackageConsumerAuthenticationHandler.ReportUserName}\"",
+			body,
+			StringComparison.Ordinal);
+		Assert.Contains("data-binding-count=\"1\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-initialization-count=\"1\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-callback-count=\"1\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-lifecycle-ready=\"true\"", body, StringComparison.Ordinal);
+		Assert.Contains(
+			$"put|42|from-query|{PackageConsumerAuthenticationHandler.ReportUserName}|from-request-scope|true",
+			body,
+			StringComparison.Ordinal);
+		Assert.NotEqual(getRequestId, ExtractAttribute(body, "data-issue-100-put-result", "data-request-id"));
+		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", body, StringComparison.Ordinal);
+		Assert.Equal(1, applicationProbe.BindingCount);
+		Assert.Equal(1, applicationProbe.InitializationCount);
+		Assert.Equal(1, applicationProbe.CallbackCount);
+	}
+
+	private async Task<(string Token, string Cookie, string RequestId)> GetAntiforgeryCredentialsAsync()
+	{
+		using var response = await SendAsync(
+			ReportRequestPath + "?source=from-query",
+			direct: true,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost);
+		var body = await response.Content.ReadAsStringAsync();
+		Assert.True(response.StatusCode == HttpStatusCode.OK, body);
+
+		return (
+			ExtractAttribute(body, "name=\"__RequestVerificationToken\"", "value"),
+			ExtractAntiforgeryCookie(response),
+			ExtractAttribute(body, "data-issue-100-put-result", "data-request-id"));
+	}
+
+	private static HttpRequestMessage CreateReportActionRequest(
+		HttpMethod method,
+		string cookie,
+		string token)
+	{
+		var request = new HttpRequestMessage(method, ReportRequestPath + "?source=from-query");
+		request.Headers.Host = ReportHost;
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add(
+			PackageConsumerAuthenticationHandler.UserHeaderName,
+			PackageConsumerAuthenticationHandler.ReportUserName);
+		request.Headers.Add("Cookie", cookie);
+		request.Headers.Add("RequestVerificationToken", token);
+		return request;
+	}
+
+	private static string ExtractAttribute(string html, string elementMarker, string attributeName)
+	{
+		var markerIndex = html.IndexOf(elementMarker, StringComparison.Ordinal);
+		Assert.True(markerIndex >= 0, $"Expected an element containing '{elementMarker}'.");
+		var elementStart = html.LastIndexOf('<', markerIndex);
+		var elementEnd = html.IndexOf('>', markerIndex);
+		Assert.True(elementStart >= 0 && elementEnd > elementStart, $"Expected complete markup around '{elementMarker}'.");
+		var element = html[elementStart..(elementEnd + 1)];
+		var match = Regex.Match(
+			element,
+			$"(?:^|\\s){Regex.Escape(attributeName)}=\"(?<value>[^\"]*)\"",
+			RegexOptions.CultureInvariant);
+		Assert.True(match.Success, $"Expected attribute '{attributeName}' in '{element}'.");
+		return WebUtility.HtmlDecode(match.Groups["value"].Value);
+	}
+
+	private static string ExtractAntiforgeryCookie(HttpResponseMessage response)
+	{
+		var cookie = Assert.Single(
+			response.Headers.GetValues("Set-Cookie"),
+			value => value.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal));
+		return cookie.Split(';', 2)[0];
 	}
 
 	private async Task AssertDirectResponseAsync(
@@ -326,4 +428,61 @@ internal sealed class PackageConsumerAuthenticationHandler(
 			],
 			_ => [new Claim(ClaimTypes.Name, userName)],
 		};
+}
+
+internal sealed class Issue100ApplicationProbe
+{
+	private int bindingCount;
+	private int initializationCount;
+	private int callbackCount;
+
+	public int BindingCount => Volatile.Read(ref bindingCount);
+
+	public int InitializationCount => Volatile.Read(ref initializationCount);
+
+	public int CallbackCount => Volatile.Read(ref callbackCount);
+
+	public void RecordBinding() => Interlocked.Increment(ref bindingCount);
+
+	public void RecordInitialization() => Interlocked.Increment(ref initializationCount);
+
+	public void RecordCallback() => Interlocked.Increment(ref callbackCount);
+
+	public void Reset()
+	{
+		Interlocked.Exchange(ref bindingCount, 0);
+		Interlocked.Exchange(ref initializationCount, 0);
+		Interlocked.Exchange(ref callbackCount, 0);
+	}
+}
+
+internal sealed class Issue100RequestProbe(Issue100ApplicationProbe applicationProbe)
+{
+	public string Id { get; } = Guid.NewGuid().ToString("D");
+
+	public string Value { get; } = "from-request-scope";
+
+	public int BindingCount { get; private set; }
+
+	public int InitializationCount { get; private set; }
+
+	public int CallbackCount { get; private set; }
+
+	public void RecordBinding()
+	{
+		BindingCount++;
+		applicationProbe.RecordBinding();
+	}
+
+	public void RecordInitialization()
+	{
+		InitializationCount++;
+		applicationProbe.RecordInitialization();
+	}
+
+	public void RecordCallback()
+	{
+		CallbackCount++;
+		applicationProbe.RecordCallback();
+	}
 }
