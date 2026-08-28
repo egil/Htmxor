@@ -187,6 +187,7 @@ internal static class PackageConsumerEvidence
 
 		Assert.Contains("lib/net8.0/Htmxor.dll", paths);
 		Assert.Contains("analyzers/dotnet/cs/Htmxor.Generators.dll", paths);
+		Assert.Contains("analyzers/dotnet/cs/Htmxor.Generators.pdb", paths);
 		Assert.DoesNotContain(paths, IsForbiddenPackageAssembly);
 		AssertNuspecDependencies(package);
 	}
