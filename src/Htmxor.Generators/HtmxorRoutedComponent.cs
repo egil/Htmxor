@@ -94,9 +94,9 @@ internal sealed class HtmxorRoutedComponent
 			return "HtmxRoute must resolve one nonblank constant route template";
 		}
 
-		return HasConstrainedParameter(template)
+		return HtmxorRouteTemplateContract.IsSupported(template)
 			? null
-			: "HtmxRoute must contain a constrained route parameter";
+			: "HtmxRoute must use supported literal segments and constrained route parameters";
 	}
 
 	private static string? ValidateRouteNamedArguments(AttributeData route)
@@ -263,21 +263,4 @@ internal sealed class HtmxorRoutedComponent
 			methods.Values[0].Value is string method &&
 			string.Equals(method, "GET", StringComparison.Ordinal);
 
-	private static bool HasConstrainedParameter(string template)
-	{
-		var openingBrace = template.IndexOf('{');
-		while (openingBrace >= 0)
-		{
-			var closingBrace = template.IndexOf('}', openingBrace + 1);
-			var constraint = template.IndexOf(':', openingBrace + 1);
-			if (closingBrace >= 0 && constraint > openingBrace && constraint < closingBrace)
-			{
-				return true;
-			}
-
-			openingBrace = template.IndexOf('{', openingBrace + 1);
-		}
-
-		return false;
-	}
 }
