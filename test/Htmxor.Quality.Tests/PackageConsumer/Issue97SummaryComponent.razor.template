@@ -1,5 +1,7 @@
 @using Microsoft.AspNetCore.Authorization
 
+<button hx-put="/issue-97-group/summaries/@SummaryId">No server action</button>
+
 <section data-issue-97-summary-component>
     <p data-summary-request-values>@SummaryId|@HttpContext.User.Identity?.Name|@GroupMarker|@RazorCommentLikeText</p>
 </section>
