@@ -58,7 +58,7 @@ public sealed class HtmxorActionGenerator : IIncrementalGenerator
 		foreach (var declaration in declarations)
 		{
 			context.ReportDiagnostic(Diagnostic.Create(
-				HtmxorActionDiagnostics.UnsupportedDeclaration,
+				HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration,
 				Location.Create(declaration.Path, declaration.Span, declaration.LineSpan),
 				declaration.UnsupportedReason));
 		}

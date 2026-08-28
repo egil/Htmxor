@@ -130,16 +130,21 @@ internal static class HtmxorAttributedRouteCatalog
 		}
 
 		var route = ReadRoute(componentType, routedType.Routes[0]);
-		if (route.MethodsExplicit && generatedActions.Any(action =>
-			action.ComponentType == componentType && !action.UsesStockRoute))
+		var conflictingAction = route.ExplicitMethods is null
+			? null
+			: generatedActions.FirstOrDefault(action =>
+				action.ComponentType == componentType &&
+				!action.UsesStockRoute &&
+				!route.ExplicitMethods.Contains(action.HttpMethod, StringComparer.OrdinalIgnoreCase));
+		if (conflictingAction is not null)
 		{
 			throw Unsupported(
 				componentType,
-				"explicit HtmxRoute.Methods is authoritative and cannot be widened by component bindings");
+				$"explicit HtmxRoute.Methods is authoritative and does not allow the {conflictingAction.HttpMethod} binding");
 		}
 
 		var policy = ReadAuthorizationPolicy(componentType);
-		return new ValidatedDeclaration(componentType, route.Template, policy);
+		return new ValidatedDeclaration(componentType, route.Template, policy, route.ExplicitMethods);
 	}
 
 	private static ValidatedRoute ReadRoute(Type componentType, CustomAttributeData attribute)
@@ -153,13 +158,15 @@ internal static class HtmxorAttributedRouteCatalog
 
 		if (attribute.NamedArguments.Count > 1 ||
 			attribute.NamedArguments.Count == 1 &&
-			(!string.Equals(attribute.NamedArguments[0].MemberName, nameof(HtmxRouteAttribute.Methods), StringComparison.Ordinal) ||
-			!IsExplicitGet(attribute.NamedArguments[0].TypedValue)))
+			!string.Equals(attribute.NamedArguments[0].MemberName, nameof(HtmxRouteAttribute.Methods), StringComparison.Ordinal))
 		{
 			throw Unsupported(
 				componentType,
-				"HtmxRoute must omit Methods or declare explicit GET-only Methods, with no other route filters");
+				"HtmxRoute supports only the Methods named argument");
 		}
+		var explicitMethods = attribute.NamedArguments.Count == 0
+			? null
+			: ReadExplicitMethods(componentType, attribute.NamedArguments[0].TypedValue);
 
 		if (!HtmxorRouteTemplateContract.IsSupported(template))
 		{
@@ -177,20 +184,50 @@ internal static class HtmxorAttributedRouteCatalog
 			throw Unsupported(componentType, "the HtmxRoute template is not a valid route pattern", exception);
 		}
 
-		return new ValidatedRoute(template, attribute.NamedArguments.Count == 1);
+		return new ValidatedRoute(template, explicitMethods);
 	}
 
-	private static bool IsExplicitGet(CustomAttributeTypedArgument methodsArgument)
+	private static string[] ReadExplicitMethods(
+		Type componentType,
+		CustomAttributeTypedArgument methodsArgument)
 	{
 		if (methodsArgument.Value is not IEnumerable<CustomAttributeTypedArgument> methods)
 		{
-			return false;
+			throw Unsupported(
+				componentType,
+				"explicit HtmxRoute.Methods must be a non-empty unique subset of GET, POST, PUT, PATCH, and DELETE");
 		}
 
-		var values = methods.ToArray();
-		return values.Length == 1 &&
-			values[0].Value is string method &&
-			string.Equals(method, HttpMethods.Get, StringComparison.Ordinal);
+		var values = methods
+			.Select(static argument => argument.Value as string)
+			.ToArray();
+		if (values.Length == 0 ||
+			values.Any(static method => method is null || !TryNormalizeMethod(method, out _)) ||
+			values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != values.Length)
+		{
+			throw Unsupported(
+				componentType,
+				"explicit HtmxRoute.Methods must be a non-empty unique subset of GET, POST, PUT, PATCH, and DELETE");
+		}
+
+		return values
+			.Select(static method =>
+			{
+				TryNormalizeMethod(method!, out var normalized);
+				return normalized!;
+			})
+			.ToArray();
+	}
+
+	private static bool TryNormalizeMethod(string method, out string? normalized)
+	{
+		normalized = HttpMethods.IsGet(method) ? HttpMethods.Get
+			: HttpMethods.IsPost(method) ? HttpMethods.Post
+			: HttpMethods.IsPut(method) ? HttpMethods.Put
+			: HttpMethods.IsPatch(method) ? HttpMethods.Patch
+			: HttpMethods.IsDelete(method) ? HttpMethods.Delete
+			: null;
+		return normalized is not null;
 	}
 
 	private static string ReadAuthorizationPolicy(Type componentType)
@@ -267,10 +304,10 @@ internal static class HtmxorAttributedRouteCatalog
 		}
 
 		var route = metadata.OfType<HtmxRouteAttribute>().SingleOrDefault();
+		var expectedMethods = declaration.ExplicitMethods ?? HtmxRouteAttribute.DefaultHttpMethods;
 		if (route is null ||
 			!string.Equals(route.Template, declaration.Route, StringComparison.Ordinal) ||
-			route.Methods.Length != 1 ||
-			!string.Equals(route.Methods[0], HttpMethods.Get, StringComparison.Ordinal))
+			!route.Methods.SequenceEqual(expectedMethods, StringComparer.OrdinalIgnoreCase))
 		{
 			throw Unsupported(
 				declaration.ComponentType,
@@ -288,7 +325,8 @@ internal static class HtmxorAttributedRouteCatalog
 		return new HtmxorComponentRouteDescriptor(
 			declaration.ComponentType,
 			declaration.Route,
-			metadata);
+			metadata,
+			expectedMethods.ToArray());
 	}
 
 	private static InvalidOperationException Unsupported(Type componentType, string reason)
@@ -306,7 +344,11 @@ internal static class HtmxorAttributedRouteCatalog
 
 	private sealed record RoutedType(Type ComponentType, CustomAttributeData[] Routes);
 
-	private sealed record ValidatedRoute(string Template, bool MethodsExplicit);
+	private sealed record ValidatedRoute(string Template, string[]? ExplicitMethods);
 
-	private sealed record ValidatedDeclaration(Type ComponentType, string Route, string Policy);
+	private sealed record ValidatedDeclaration(
+		Type ComponentType,
+		string Route,
+		string Policy,
+		string[]? ExplicitMethods);
 }

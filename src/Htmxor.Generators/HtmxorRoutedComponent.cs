@@ -122,9 +122,9 @@ internal sealed class HtmxorRoutedComponent
 			return null;
 		}
 
-		return methods.Length == 1 && HasOnlyGet(methods[0])
+		return methods.Length == 1 && HasSupportedExplicitMethods(methods[0])
 			? null
-			: "explicit HtmxRoute Methods must resolve to GET only";
+			: "explicit HtmxRoute Methods must resolve to a non-empty unique subset of GET, POST, PUT, PATCH, and DELETE";
 	}
 
 	private string? ValidateRouteOrigin(CancellationToken cancellationToken)
@@ -271,10 +271,25 @@ internal sealed class HtmxorRoutedComponent
 				: null;
 	}
 
-	private static bool HasOnlyGet(TypedConstant methods)
-		=> methods.Kind == TypedConstantKind.Array &&
-			methods.Values.Length == 1 &&
-			methods.Values[0].Value is string method &&
-			string.Equals(method, "GET", StringComparison.Ordinal);
+	private static bool HasSupportedExplicitMethods(TypedConstant methods)
+	{
+		if (methods.Kind != TypedConstantKind.Array || methods.Values.Length == 0)
+		{
+			return false;
+		}
+
+		var uniqueMethods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		return methods.Values.All(value =>
+			value.Value is string method &&
+			IsSupportedMethod(method) &&
+			uniqueMethods.Add(method));
+	}
+
+	private static bool IsSupportedMethod(string method)
+		=> string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(method, "PUT", StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(method, "PATCH", StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(method, "DELETE", StringComparison.OrdinalIgnoreCase);
 
 }

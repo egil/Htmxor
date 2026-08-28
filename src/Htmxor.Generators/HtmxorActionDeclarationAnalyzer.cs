@@ -10,7 +10,7 @@ namespace Htmxor.Generators;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 {
-	private static readonly DiagnosticDescriptor UnsupportedDeclaration = new(
+	internal static readonly DiagnosticDescriptor UnsupportedDeclaration = new(
 		"HTMXOR002",
 		"Unsupported component action declaration",
 		"Unsupported component action declaration: {0}",

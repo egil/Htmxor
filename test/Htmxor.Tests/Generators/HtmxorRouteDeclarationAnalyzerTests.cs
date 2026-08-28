@@ -27,7 +27,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var summary = ComponentSource(
 			"SummaryComponent",
 			summaryPath,
-			"[global::Htmxor.HtmxRouteAttribute(\"/summaries/{SummaryId:int}\", Methods = [\"POST\"])]",
+			"[global::Htmxor.HtmxRouteAttribute(\"/summaries/{SummaryId:int}\", Methods = [\"QUERY\"])]",
 			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"summaries.read\")]");
 
 		var diagnostics = await RunAnalyzerAsync(
@@ -141,9 +141,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	[Theory]
 	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"POST\"])]",
+		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"QUERY\"])]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"GET only")]
+		"GET, POST, PUT, PATCH, and DELETE")]
 	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Htmxor.HtmxRouteAttribute(\"/other/{Id:int}\", Methods = [\"GET\"])]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",

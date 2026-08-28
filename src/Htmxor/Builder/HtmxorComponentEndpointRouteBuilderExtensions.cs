@@ -110,7 +110,10 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		RequestDelegate requestDelegate = static context => context.RequestServices
 			.GetRequiredService<IRazorComponentEndpointInvoker>()
 			.Render(context);
-		var builder = endpoints.MapGet(generatedRoute.NormalizedRoute, requestDelegate);
+		var builder = endpoints.MapMethods(
+			generatedRoute.NormalizedRoute,
+			generatedRoute.HttpMethods,
+			requestDelegate);
 		builder.Add(endpointBuilder => ConfigureGeneratedEndpoint(
 			endpointBuilder,
 			generatedRoute,
@@ -167,6 +170,10 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		endpointBuilder.Metadata.Add(new ComponentTypeMetadata(generatedRoute.ComponentType));
 		endpointBuilder.Metadata.Add(HtmxOnlyDirectRoot);
 		endpointBuilder.Metadata.Add(HtmxorDirectEndpointMetadata.Instance);
+		if (generatedRoute.HttpMethods.Any(IsUnsafeMethod))
+		{
+			RequireAntiforgery(endpointBuilder);
+		}
 		var endpointActions = HtmxorGeneratedComponentActionCatalog.Bind(
 			generatedRoute.ComponentType,
 			generatedRoute.NormalizedRoute,
@@ -237,8 +244,22 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			endpointBuilder.Metadata.Add(action);
 		}
 
-		endpointBuilder.Metadata.Add(new RequireAntiforgeryTokenAttribute());
+		RequireAntiforgery(endpointBuilder);
 	}
+
+	private static void RequireAntiforgery(EndpointBuilder endpointBuilder)
+	{
+		if (!endpointBuilder.Metadata.OfType<IAntiforgeryMetadata>().Any(static metadata => metadata.RequiresValidation))
+		{
+			endpointBuilder.Metadata.Add(new RequireAntiforgeryTokenAttribute());
+		}
+	}
+
+	private static bool IsUnsafeMethod(string method)
+		=> HttpMethods.IsPost(method) ||
+			HttpMethods.IsPut(method) ||
+			HttpMethods.IsPatch(method) ||
+			HttpMethods.IsDelete(method);
 
 	private static async Task InvokeEndpoint(
 		HttpContext context,
