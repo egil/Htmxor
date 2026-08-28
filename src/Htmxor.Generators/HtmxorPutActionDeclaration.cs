@@ -10,9 +10,6 @@ namespace Htmxor.Generators;
 internal sealed class HtmxorPutActionDeclaration
 {
 	private const string AttributeName = "@onput";
-	private static readonly Regex PageDirective = new(
-		"^\\s*@page(?:\\s|$)",
-		RegexOptions.CultureInvariant | RegexOptions.Multiline);
 	private static readonly Regex SupportedBinding = new(
 		"@onput\\s*=\\s*\"(?<handler>[A-Za-z_][A-Za-z0-9_]*)\"",
 		RegexOptions.CultureInvariant);
@@ -62,11 +59,6 @@ internal sealed class HtmxorPutActionDeclaration
 		}
 
 		var source = text.ToString();
-		if (PageDirective.IsMatch(source))
-		{
-			return null;
-		}
-
 		var attributeIndices = FindMarkupAttributeIndices(source);
 		if (attributeIndices.Count == 0)
 		{
