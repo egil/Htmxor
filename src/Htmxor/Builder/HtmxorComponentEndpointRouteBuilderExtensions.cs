@@ -1,8 +1,11 @@
+using System.ComponentModel;
 using System.Reflection;
+using Htmxor;
 using Htmxor.Builder;
 using Htmxor.Endpoints;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
@@ -22,6 +25,51 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		this RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints)
 		=> AddHtmxorComponentEndpoints(builder, endpoints, []);
+
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	public static IEndpointConventionBuilder MapHtmxorGeneratedComponentEndpoint(
+		IEndpointRouteBuilder endpoints,
+		Type componentType,
+		string normalizedRoute,
+		string authorizationPolicy)
+	{
+		ArgumentNullException.ThrowIfNull(endpoints);
+		ArgumentNullException.ThrowIfNull(componentType);
+		ArgumentException.ThrowIfNullOrWhiteSpace(normalizedRoute);
+		ArgumentException.ThrowIfNullOrWhiteSpace(authorizationPolicy);
+		var descriptor = new HtmxorComponentGetRouteDescriptor(
+			componentType,
+			normalizedRoute,
+			GetGeneratedComponentMetadata(componentType, normalizedRoute, authorizationPolicy));
+
+		return MapHtmxorComponentEndpoint(endpoints, descriptor);
+	}
+
+	private static object[] GetGeneratedComponentMetadata(
+		Type componentType,
+		string normalizedRoute,
+		string authorizationPolicy)
+	{
+		var metadata = componentType.GetCustomAttributes(inherit: true).ToArray();
+		var routes = metadata.OfType<HtmxRouteAttribute>().ToArray();
+		if (routes.Length != 1 ||
+			!string.Equals(routes[0].Template, normalizedRoute, StringComparison.Ordinal) ||
+			routes[0].Methods.Length != 1 ||
+			!HttpMethods.IsGet(routes[0].Methods[0]))
+		{
+			throw new InvalidOperationException(
+				$"Component '{componentType}' no longer matches its generated HTMX-only GET route.");
+		}
+
+		if (!metadata.OfType<IAuthorizeData>().Any(
+			authorize => string.Equals(authorize.Policy, authorizationPolicy, StringComparison.Ordinal)))
+		{
+			throw new InvalidOperationException(
+				$"Component '{componentType}' no longer declares its generated authorization policy.");
+		}
+
+		return metadata;
+	}
 
 	internal static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
 		this RazorComponentsEndpointConventionBuilder builder,
