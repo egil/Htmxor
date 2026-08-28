@@ -1,0 +1,4 @@
+@namespace Htmxor.PackageConsumer
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Http

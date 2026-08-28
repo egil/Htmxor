@@ -30,64 +30,42 @@ public sealed class HtmxorRouteGeneratorTests
 
 	private const string RuntimeStubs = """
 		using System;
-		using System.Collections.Generic;
 
 		namespace Htmxor.AspNetCore10
 		{
 			internal sealed class Issue91HtmxOnlyComponent;
 		}
 
-		namespace Htmxor
-		{
-			internal sealed class HtmxRouteAttribute(string template) : Attribute
-			{
-				public string Template { get; } = template;
-				public string[] Methods { get; set; } = Array.Empty<string>();
-			}
-		}
-
-		namespace Htmxor.Builder
-		{
-			internal sealed class HtmxorComponentGetRouteDescriptor(
-				Type componentType,
-				string normalizedRoute,
-				IReadOnlyList<object> metadata);
-		}
-
-		namespace Microsoft.AspNetCore.Authorization
-		{
-			internal sealed class AuthorizeAttribute(string policy) : Attribute;
-		}
-
-		namespace Microsoft.AspNetCore.Http
-		{
-			internal static class HttpMethods
-			{
-				public const string Get = "GET";
-			}
-		}
-
 		namespace Microsoft.AspNetCore.Routing
 		{
 			internal interface IEndpointRouteBuilder;
+			internal sealed class RouteGroupBuilder : IEndpointRouteBuilder;
 		}
 
 		namespace Microsoft.AspNetCore.Builder
 		{
+			internal sealed class RazorComponentsEndpointConventionBuilder;
 			internal interface IEndpointConventionBuilder;
 
 			internal static class HtmxorComponentEndpointRouteBuilderExtensions
 			{
-				internal static IEndpointConventionBuilder MapHtmxorComponentEndpoint(
-					this Routing.IEndpointRouteBuilder endpoints,
-					Htmxor.Builder.HtmxorComponentGetRouteDescriptor descriptor)
+				internal static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
+					this RazorComponentsEndpointConventionBuilder builder,
+					Routing.IEndpointRouteBuilder endpoints)
+					=> builder;
+
+				internal static IEndpointConventionBuilder MapHtmxorGeneratedComponentEndpoint(
+					Routing.IEndpointRouteBuilder endpoints,
+					Type componentType,
+					string normalizedRoute,
+					string authorizationPolicy)
 					=> null!;
 			}
 		}
 		""";
 
 	[Fact]
-	public void Supported_declaration_emits_compiling_descriptor_and_group_registration()
+	public void Supported_declaration_emits_compiling_application_registration_overload()
 	{
 		var run = RunGenerator(SupportedComponent);
 
@@ -100,15 +78,19 @@ public sealed class HtmxorRouteGeneratorTests
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.Contains(
-			"public const string NormalizedRoute = \"/reports/{ReportId:int}\";",
+			"global::Microsoft.AspNetCore.Routing.RouteGroupBuilder endpoints",
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.Contains(
-			"public const string PolicyName = \"issue-91-policy\";",
+			"\"/reports/{ReportId:int}\"",
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.Contains(
-			"MapHtmxorComponentEndpoint(endpoints, Descriptor)",
+			"\"issue-91-policy\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			"MapHtmxorGeneratedComponentEndpoint(",
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(

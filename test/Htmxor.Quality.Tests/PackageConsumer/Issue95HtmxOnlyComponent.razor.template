@@ -1,0 +1,18 @@
+@attribute [Htmxor.HtmxRoute("/reports/{ReportId:int}", Methods = new[] { "GET" })]
+@attribute [Authorize(Policy = "issue-95-policy")]
+@using Microsoft.AspNetCore.Authorization
+
+<section data-issue-95-component>
+    <p data-request-values>@ReportId|@HttpContext.User.Identity?.Name|@GroupMarker</p>
+</section>
+
+@code {
+    [Parameter]
+    public string? ReportId { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private string? GroupMarker
+        => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue95GroupMetadata>()?.Value;
+}
