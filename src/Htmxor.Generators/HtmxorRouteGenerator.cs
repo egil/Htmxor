@@ -118,7 +118,7 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 			"HtmxorComponentEndpointRouteBuilderExtensions.AddHtmxorComponentEndpoints(\n" +
 			"\t\t\tbuilder,\n" +
 			"\t\t\t(global::Microsoft.AspNetCore.Routing.IEndpointRouteBuilder)endpoints);\n" +
-			string.Concat(declarations.Take(1).Select(declaration => RenderRegistration(rootNamespace, declaration))) +
+			string.Concat(declarations.Select(declaration => RenderRegistration(rootNamespace, declaration))) +
 			"\n\t\treturn configured;\n" +
 			"\t}\n" +
 			"}\n";
