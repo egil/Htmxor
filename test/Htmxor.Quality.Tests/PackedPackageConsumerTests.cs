@@ -10,7 +10,7 @@ public sealed class PackedPackageConsumerTests
 		"@onput must use one double-quoted simple method-group name";
 
 	[Fact]
-	public async Task Package_only_application_registers_two_generated_routes_and_one_put_action()
+	public async Task Package_only_application_registers_two_generated_get_routes_and_one_stock_page_put_action()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		workspace.UseLaterPageDirectiveLikeComment();
@@ -38,7 +38,7 @@ public sealed class PackedPackageConsumerTests
 
 		Assert.NotEqual(0, result.ExitCode);
 		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
-		Assert.Contains("Issue97ReportComponent.razor", output, StringComparison.Ordinal);
+		Assert.Contains("Issue100ReportPage.razor", output, StringComparison.Ordinal);
 		Assert.Contains(UnsupportedPutHandlerMessage, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
@@ -108,7 +108,7 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 	{
 		var componentPath = Path.Combine(
 			consumerDirectory,
-			"Issue97ReportComponent.razor");
+			"Issue100ReportPage.razor");
 		var source = File.ReadAllText(componentPath);
 		const string supportedHandler = "@onput=\"PutReport\"";
 		const string computedHandler =
@@ -133,7 +133,7 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 	{
 		var componentPath = Path.Combine(
 			consumerDirectory,
-			"Issue97ReportComponent.razor");
+			"Issue100ReportPage.razor");
 		var source = File.ReadAllText(componentPath);
 		const string codeBlockStart = "@code {";
 		var codeBlockIndex = source.IndexOf(codeBlockStart, StringComparison.Ordinal);
@@ -337,17 +337,30 @@ internal static class PackageConsumerEvidence
 		var summarySource = File.ReadAllText(Path.Combine(
 			consumerDirectory,
 			"Issue97SummaryComponent.razor"));
+		var reportSource = File.ReadAllText(Path.Combine(
+			consumerDirectory,
+			"Issue97ReportComponent.razor"));
+		var pageSource = File.ReadAllText(Path.Combine(
+			consumerDirectory,
+			"Issue100ReportPage.razor"));
+		const string reportRoute =
+			"@attribute [Htmxor.HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = new[] { \"GET\" })]";
 		const string summaryRoute =
 			"@attribute [Htmxor.HtmxRoute(SummaryRoute, Methods = [ SummaryMethod ])]";
 		const string summaryAuthorization = "@attribute [Authorize(SummaryPolicy)]";
+		const string pageRoute = "@page \"/reports/{ReportId:int}\"";
 
 		Assert.Equal(1, Count(applicationSource, "AddHtmxorComponentEndpoints(routes)"));
 		Assert.Equal(1, Count(applicationSource, "MapGroup(RoutePrefix)"));
 		Assert.Equal(1, Count(applicationSource, "MapRazorComponents<Issue97App>()"));
 		Assert.Equal(2, Count(razorSource, "Htmxor.HtmxRoute"));
-		Assert.Equal(2, Count(razorSource, "Authorize"));
-		Assert.Equal(2, Count(razorSource, "hx-put="));
+		Assert.Equal(3, Count(razorSource, "Authorize"));
+		Assert.Equal(3, Count(razorSource, "hx-put="));
 		Assert.Equal(1, Count(razorSource, "@onput=\"PutReport\""));
+		Assert.Equal(1, Count(pageSource, pageRoute));
+		Assert.Equal(1, Count(pageSource, "@onput=\"PutReport\""));
+		Assert.Equal(1, Count(reportSource, reportRoute));
+		Assert.DoesNotContain("@onput", reportSource, StringComparison.Ordinal);
 		Assert.Equal(1, Count(summarySource, summaryRoute));
 		Assert.Equal(1, Count(summarySource, summaryAuthorization));
 		AssertSummaryDirectiveOrdering(summarySource, summaryRoute, summaryAuthorization);
