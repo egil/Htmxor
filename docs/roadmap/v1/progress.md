@@ -29,8 +29,15 @@ Last updated: 2026-08-28
 - Verified post-review compiled-route fix for issue #100: `42082a1bacb71364f5ccf513c8b5e791528d83cf`.
 - This issue #100 progress change is documentation-only. Executable claims are tied to the tested commits above, not to the later documentation head.
 - Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR on TestServer. Issues #95, #97, and #100 use a separate external .NET 10 Razor consumer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project.
+- Product target correction authorized on 2026-08-28: v1 documentation,
+  examples, browser conformance, and release evidence target an
+  application-supplied htmx 4.0.0 script running with htmx 4 defaults. Htmxor
+  does not embed or silently select that runtime. This records a product
+  decision, not executed htmx 4 compatibility evidence.
 - V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer; issue #97, deterministic aggregation of two supported package-consumer declarations through that single registration call; issue #100, one package-generated stock-page PUT callback bound to the compiled component endpoint while two explicit HTMX-only controls remain GET-only.
-- Current implementation slice: issue #100. The live v1 milestone contains issue #100 and parent issue #77; no later implementation child is filed.
+- Current implementation slice: issue #103, shared unsafe-method inference for stock
+  `@page` and omitted-`Methods` HTMX-only routes. The live v1 milestone contains
+  issue #103 and parent issue #77.
 
 ## Proven v1 behavior
 
@@ -542,6 +549,26 @@ remain separate and green.
 - The issue #85, #87, and #89 hosts run on Windows TestServer with the stock ephemeral Data Protection provider. They do not exercise Kestrel, TLS, persistent key storage, server-farm key sharing, Linux, a browser, or an application-selected HTMX runtime.
 - Issues #91, #93, #95, #97, and #100 ran their hosted contract only on Windows TestServer. They did not exercise Kestrel, TLS, Linux runtime, a browser, or an application-selected HTMX runtime. Earlier broader full profiles exercised the existing Chromium tests on Windows, but did not prove fresh browser provisioning or the package-only routes and action in a browser.
 - The tests do not exercise layouts, caching, concurrency, enhanced navigation, interactive render modes, fragments, browser behavior, or performance.
+- The existing browser fixture still loads Htmxor's embedded htmx 1.9.12 asset.
+  `HtmxConfig` and `HtmxHeadOutlet` still describe and emit the legacy
+  `htmx-config` schema. The shipped `htmxor.js` adapter listens for
+  `htmx:configRequest` and reads the old event-detail shape, while htmx 4 uses
+  `htmx:config:request` and `detail.ctx`. The legacy event-header extension uses
+  the old callback API, and `HtmxResponseHeaderNames` still exposes
+  `HX-Trigger-After-Swap` and `HX-Trigger-After-Settle`, which htmx 4 consolidates
+  into `HX-Trigger`. This is legacy coverage and does not prove the htmx 4.0.0
+  target.
+- No executed evidence yet covers htmx 4 explicit inheritance,
+  `HX-Request-Type`, `HX-Source`, the changed `HX-Target` format,
+  error-response swapping, DELETE form-data behavior,
+  main-content-before-out-of-band ordering, standardized events and request
+  context, extension registration, or `hx-action` and `hx-method`. New optional
+  client features are not automatically v1 requirements. For the agreed raw
+  `<hx-partial>` composition, target and `id` behavior, partial-only responses,
+  main-before-partial ordering, mixed main/OOB/partial content, swap selection,
+  and browser execution remain unproved. htmx 4's `QUERY` method is not part of
+  the established v1 component-directive method model and requires a separate
+  product decision.
 - The legacy test application still uses internal private-reflection discovery and global service replacements. Later slices must replace the behavior they cover instead of extending that prototype.
 - Issue #91 proves one assumed-generated HTMX-only GET route with an `int`
   constraint, one authorization policy, and one application route-group metadata
@@ -615,23 +642,19 @@ remain separate and green.
   case comes from a second `[Route]` on the `.razor.cs` partial; Htmxor does not
   choose between those routes or discover an action in code-behind.
 
-## Recommended next slice
+## Current implementation slice
 
-Under parent issue #77, select one package-only tracer for method inference on
-a genuinely HTMX-only route before adding another verb or binding source:
+Issue #103 owns the shared method-inference path:
 
 > When a package-only .NET 10 Blazor static SSR application declares an
-> `HtmxRoute` without a `Methods` argument and one supported `@onput` callback,
-> Htmxor derives the server method allow-list from the component declaration.
-> An explicit `Methods` argument remains authoritative, and a conflicting
-> component directive fails with a deterministic diagnostic. Client `hx-*`
-> attributes never add a server method.
+> `@page` route or an HTMX-only `HtmxRoute` without `Methods`, Htmxor keeps GET
+> implicit and derives POST, PUT, PATCH, and DELETE server intent from supported
+> `@onpost`, `@onput`, `@onpatch`, and `@ondelete` declarations. Explicit
+> `Methods` remains authoritative, conflicts fail with a deterministic
+> diagnostic, and client `hx-*` declarations never add a server method.
 
-This comes next because issue #100 corrects the ordinary `@page` convention but
-deliberately leaves the current explicit GET-only `HtmxRoute` contract intact.
-The next evidence should retain the packaged stock-page matrix and both explicit
-GET controls, add one omitted-`Methods` HTMX-only PUT tracer, and prove an
-explicit mismatch fails without widening the endpoint. Recheck the live
-tracker, competing ownership, branch publication state, and `origin/main`
-before refining or filing that slice; stop for the user if the result requires
-changing the v1 goal, supported framework, or security posture.
+This server-side slice does not prove htmx 4 browser compatibility. Before its
+final evidence or progress update, recheck the live tracker, competing
+ownership, branch publication state, and `origin/main`. Stop for the user if
+the result requires changing the v1 goal, supported framework, or security
+posture.
