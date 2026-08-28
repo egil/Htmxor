@@ -10,12 +10,19 @@ internal static class HtmxorAttributedRouteCatalog
 {
 	private const int MaximumRouteCount = 2;
 
-	public static IReadOnlyList<HtmxorComponentGetRouteDescriptor> Build(
+	public static IReadOnlyList<HtmxorComponentRouteDescriptor> Build(
 		Assembly applicationAssembly,
 		IReadOnlyList<string> projectRootComponentTypeNames)
+		=> Build(applicationAssembly, projectRootComponentTypeNames, []);
+
+	public static IReadOnlyList<HtmxorComponentRouteDescriptor> Build(
+		Assembly applicationAssembly,
+		IReadOnlyList<string> projectRootComponentTypeNames,
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
 	{
 		ArgumentNullException.ThrowIfNull(applicationAssembly);
 		ArgumentNullException.ThrowIfNull(projectRootComponentTypeNames);
+		ArgumentNullException.ThrowIfNull(generatedActions);
 
 		var manifestTypeNames = ValidateManifest(projectRootComponentTypeNames);
 		var routedTypes = GetRoutedTypes(applicationAssembly);
@@ -33,7 +40,7 @@ internal static class HtmxorAttributedRouteCatalog
 		}
 
 		var declarations = routedTypes
-			.Select(ValidateDeclaration)
+			.Select(routedType => ValidateDeclaration(routedType, generatedActions))
 			.ToArray();
 
 		return declarations
@@ -106,7 +113,9 @@ internal static class HtmxorAttributedRouteCatalog
 		}
 	}
 
-	private static ValidatedDeclaration ValidateDeclaration(RoutedType routedType)
+	private static ValidatedDeclaration ValidateDeclaration(
+		RoutedType routedType,
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
 	{
 		var componentType = routedType.ComponentType;
 		if (routedType.Routes.Length != 1)
@@ -121,11 +130,19 @@ internal static class HtmxorAttributedRouteCatalog
 		}
 
 		var route = ReadRoute(componentType, routedType.Routes[0]);
+		if (route.MethodsExplicit && generatedActions.Any(action =>
+			action.ComponentType == componentType && !action.UsesStockRoute))
+		{
+			throw Unsupported(
+				componentType,
+				"explicit HtmxRoute.Methods is authoritative and cannot be widened by component bindings");
+		}
+
 		var policy = ReadAuthorizationPolicy(componentType);
-		return new ValidatedDeclaration(componentType, route, policy);
+		return new ValidatedDeclaration(componentType, route.Template, policy);
 	}
 
-	private static string ReadRoute(Type componentType, CustomAttributeData attribute)
+	private static ValidatedRoute ReadRoute(Type componentType, CustomAttributeData attribute)
 	{
 		if (attribute.ConstructorArguments.Count != 1 ||
 			attribute.ConstructorArguments[0].Value is not string template ||
@@ -134,13 +151,14 @@ internal static class HtmxorAttributedRouteCatalog
 			throw Unsupported(componentType, "the HtmxRoute template must be a non-blank string");
 		}
 
-		if (attribute.NamedArguments.Count != 1 ||
-			!string.Equals(attribute.NamedArguments[0].MemberName, nameof(HtmxRouteAttribute.Methods), StringComparison.Ordinal) ||
-			!IsExplicitGet(attribute.NamedArguments[0].TypedValue))
+		if (attribute.NamedArguments.Count > 1 ||
+			attribute.NamedArguments.Count == 1 &&
+			(!string.Equals(attribute.NamedArguments[0].MemberName, nameof(HtmxRouteAttribute.Methods), StringComparison.Ordinal) ||
+			!IsExplicitGet(attribute.NamedArguments[0].TypedValue)))
 		{
 			throw Unsupported(
 				componentType,
-				"HtmxRoute must declare explicit GET-only Methods and no other route filters");
+				"HtmxRoute must omit Methods or declare explicit GET-only Methods, with no other route filters");
 		}
 
 		if (!HtmxorRouteTemplateContract.IsSupported(template))
@@ -159,7 +177,7 @@ internal static class HtmxorAttributedRouteCatalog
 			throw Unsupported(componentType, "the HtmxRoute template is not a valid route pattern", exception);
 		}
 
-		return template;
+		return new ValidatedRoute(template, attribute.NamedArguments.Count == 1);
 	}
 
 	private static bool IsExplicitGet(CustomAttributeTypedArgument methodsArgument)
@@ -233,7 +251,7 @@ internal static class HtmxorAttributedRouteCatalog
 		return attributes.ToArray();
 	}
 
-	private static HtmxorComponentGetRouteDescriptor CreateDescriptor(ValidatedDeclaration declaration)
+	private static HtmxorComponentRouteDescriptor CreateDescriptor(ValidatedDeclaration declaration)
 	{
 		object[] metadata;
 		try
@@ -267,7 +285,7 @@ internal static class HtmxorAttributedRouteCatalog
 				"its constructed Authorize metadata does not match the validated declaration");
 		}
 
-		return new HtmxorComponentGetRouteDescriptor(
+		return new HtmxorComponentRouteDescriptor(
 			declaration.ComponentType,
 			declaration.Route,
 			metadata);
@@ -287,6 +305,8 @@ internal static class HtmxorAttributedRouteCatalog
 	private static string GetTypeName(Type type) => type.FullName ?? type.Name;
 
 	private sealed record RoutedType(Type ComponentType, CustomAttributeData[] Routes);
+
+	private sealed record ValidatedRoute(string Template, bool MethodsExplicit);
 
 	private sealed record ValidatedDeclaration(Type ComponentType, string Route, string Policy);
 }

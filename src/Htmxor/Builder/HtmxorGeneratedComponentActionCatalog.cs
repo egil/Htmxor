@@ -19,16 +19,38 @@ internal static class HtmxorGeneratedComponentActionCatalog
 			return;
 		}
 
-		if (generatedActions.Count != 1)
+		foreach (var action in generatedActions)
 		{
-			throw new InvalidOperationException("Htmxor supports exactly one generated component action.");
+			ValidateAction(
+				action ?? throw new InvalidOperationException("A generated component action cannot be null."),
+				applicationAssembly,
+				projectRootComponentTypeNames);
 		}
 
-		var action = generatedActions[0]
-			?? throw new InvalidOperationException("The generated component action cannot be null.");
-		if (!HttpMethods.IsPut(action.HttpMethod))
+		var duplicate = generatedActions
+			.GroupBy(static action => action.ComponentType)
+			.SelectMany(static component => component.GroupBy(
+				static action => action.HttpMethod,
+				StringComparer.OrdinalIgnoreCase))
+			.FirstOrDefault(group => group.Count() > 1);
+		if (duplicate is not null)
 		{
-			throw new InvalidOperationException("Htmxor supports only a generated PUT action.");
+			var action = duplicate.First();
+			throw new InvalidOperationException(
+				$"Component '{action.ComponentType.FullName}' declares more than one " +
+				$"generated {action.HttpMethod} action.");
+		}
+	}
+
+	private static void ValidateAction(
+		HtmxorGeneratedComponentAction action,
+		Assembly applicationAssembly,
+		IReadOnlyList<string> projectRootComponentTypeNames)
+	{
+		if (!IsSupportedUnsafeMethod(action.HttpMethod))
+		{
+			throw new InvalidOperationException(
+				$"Generated component action '{action.HandlerIdentity}' uses unsupported method '{action.HttpMethod}'.");
 		}
 
 		var componentTypeName = action.ComponentType.FullName;
@@ -43,16 +65,30 @@ internal static class HtmxorGeneratedComponentActionCatalog
 				$"Generated component action '{action.HandlerIdentity}' does not belong to the project-root component manifest.");
 		}
 
-		var compiledStockRouteCount = action.ComponentType.CustomAttributes.Count(
+		var stockRouteCount = action.ComponentType.CustomAttributes.Count(
 			static attribute => attribute.AttributeType == typeof(RouteAttribute));
-		if (compiledStockRouteCount != 1)
+		var htmxRouteCount = action.ComponentType.CustomAttributes.Count(
+			static attribute => attribute.AttributeType == typeof(HtmxRouteAttribute));
+		var hasExpectedOwner = action.UsesStockRoute
+			? stockRouteCount == 1 && htmxRouteCount == 0
+			: stockRouteCount == 0 && htmxRouteCount == 1;
+		if (!hasExpectedOwner)
 		{
+			var expectedOwner = action.UsesStockRoute
+				? "exactly one compiled stock route and no HtmxRoute"
+				: "exactly one HtmxRoute and no compiled stock route";
 			throw new InvalidOperationException(
 				$"Generated component action '{action.HandlerIdentity}' on component " +
-				$"'{action.ComponentType.FullName}' requires exactly one compiled stock route; " +
-				$"found {compiledStockRouteCount}.");
+				$"'{action.ComponentType.FullName}' requires {expectedOwner}; " +
+				$"found {stockRouteCount} stock and {htmxRouteCount} HTMX-only routes.");
 		}
 	}
+
+	private static bool IsSupportedUnsafeMethod(string method)
+		=> HttpMethods.IsPost(method) ||
+			HttpMethods.IsPut(method) ||
+			HttpMethods.IsPatch(method) ||
+			HttpMethods.IsDelete(method);
 
 	public static IReadOnlyList<HtmxorComponentActionDescriptor> Bind(
 		Type componentType,

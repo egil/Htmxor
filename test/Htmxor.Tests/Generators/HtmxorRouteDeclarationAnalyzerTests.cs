@@ -145,10 +145,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"GET only")]
 	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\")]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"explicitly declare Methods")]
-	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Htmxor.HtmxRouteAttribute(\"/other/{Id:int}\", Methods = [\"GET\"])]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"exactly one HtmxRoute")]
@@ -290,6 +286,95 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Equal(paths, diagnostics.Select(diagnostic => diagnostic.Location.GetMappedLineSpan().Path));
 	}
 
+	[Fact]
+	public async Task Htmx_route_originating_from_imports_fails_closed()
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var importsPath = ComponentPath("_Imports.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			#line 1 "{{EscapePath(importsPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/items/{Id:int}")]
+			#line 20 "{{EscapePath(componentPath)}}"
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("items.read")]
+			#line default
+			public sealed class ItemComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath, importsPath });
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Contains("HtmxRoute declarations from _Imports.razor are not supported", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Equal(importsPath, diagnostic.Location.GetMappedLineSpan().Path);
+	}
+
+	[Fact]
+	public async Task Stock_route_without_a_local_page_declaration_fails_closed_for_an_action()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var importsPath = ComponentPath("_Imports.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			#line 1 "{{EscapePath(importsPath)}}"
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			#line default
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task PutReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			<button @onput="PutReport">Save</button>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains("without a local @page cannot use a compiled stock route", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+	}
+
+	[Fact]
+	public async Task Binding_outside_explicit_htmx_route_methods_is_nonconfigurable()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Htmxor.HtmxRouteAttribute("/reports/{Id:int}", Methods = ["GET"])]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task PatchReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			@attribute [Htmxor.HtmxRoute("/reports/{Id:int}", Methods = ["GET"])]
+			<button @onpatch="PatchReport">Patch</button>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains("explicit HtmxRoute.Methods is authoritative", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+	}
+
 	private static string ComponentPath(string relativePath)
 		=> Path.Combine(ProjectDirectory, relativePath);
 
@@ -380,6 +465,29 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			.ToImmutableArray();
 	}
 
+	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
+		string source,
+		AdditionalText razor)
+	{
+		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var compilation = CSharpCompilation.Create(
+			"Htmxor.ActionAnalyzer.Tests",
+			new[] { CSharpSyntaxTree.ParseText(source, parseOptions, "ReportComponent.razor.g.cs") },
+			References,
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		Assert.Empty(compilation.GetDiagnostics().Where(
+			static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var analyzerOptions = new AnalyzerOptions(
+			ImmutableArray.Create(razor),
+			new TestAnalyzerConfigOptionsProvider(ProjectDirectory));
+
+		return await compilation
+			.WithAnalyzers(
+				ImmutableArray.Create<DiagnosticAnalyzer>(new HtmxorActionDeclarationAnalyzer()),
+				analyzerOptions)
+			.GetAnalyzerDiagnosticsAsync();
+	}
+
 	private static ImmutableArray<MetadataReference> CreateReferences()
 	{
 		var platformAssemblies = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))?
@@ -405,6 +513,14 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		public override SourceText GetText(CancellationToken cancellationToken = default)
 			=> throw new InvalidOperationException("The analyzer must not read Razor content.");
+	}
+
+	private sealed class SourceAdditionalText(string path, string content) : AdditionalText
+	{
+		public override string Path { get; } = path;
+
+		public override SourceText GetText(CancellationToken cancellationToken = default)
+			=> SourceText.From(content);
 	}
 
 	private sealed class TestAnalyzerConfigOptionsProvider(string projectDirectory)

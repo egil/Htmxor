@@ -1,10 +1,14 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Http;
 
 namespace Htmxor.Builder;
 
 internal sealed record class ComponentInfo
 {
+	private static readonly string[] LegacyStockRouteMethods =
+		[HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Patch, HttpMethods.Delete];
+
 	[DynamicallyAccessedMembers(LinkerFlags.Component)]
 	public Type ComponentType { get; }
 
@@ -40,7 +44,10 @@ internal sealed record class ComponentInfo
 
 		var routes = componentType
 			.GetCustomAttributes<RouteAttribute>(true)
-			.Select(x => new HtmxRouteAttribute(x.Template));
+			.Select(x => new HtmxRouteAttribute(x.Template)
+			{
+				Methods = LegacyStockRouteMethods,
+			});
 
 		// Add any normal routes whose template does not overlap with an existing hxRoute.
 		// HxRoutes takes precedence.

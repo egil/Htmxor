@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -7,23 +8,32 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Htmxor.Generators;
 
-internal sealed class HtmxorPutActionDeclaration
+internal sealed class HtmxorComponentActionDeclaration
 {
-	private const string AttributeName = "@onput";
-	private static readonly Regex SupportedBinding = new(
-		"@onput\\s*=\\s*\"(?<handler>[A-Za-z_][A-Za-z0-9_]*)\"",
-		RegexOptions.CultureInvariant);
+	private static readonly ActionBinding[] SupportedBindings =
+	{
+		new("@onpost", "POST"),
+		new("@onput", "PUT"),
+		new("@onpatch", "PATCH"),
+		new("@ondelete", "DELETE"),
+	};
 
-	private HtmxorPutActionDeclaration(
+	private HtmxorComponentActionDeclaration(
 		string componentTypeName,
+		string attributeName,
+		string httpMethod,
 		string? handlerName,
+		bool usesStockRoute,
 		string path,
 		TextSpan span,
 		LinePositionSpan lineSpan,
 		string? unsupportedReason)
 	{
 		ComponentTypeName = componentTypeName;
+		AttributeName = attributeName;
+		HttpMethod = httpMethod;
 		HandlerName = handlerName;
+		UsesStockRoute = usesStockRoute;
 		Path = path;
 		Span = span;
 		LineSpan = lineSpan;
@@ -32,7 +42,13 @@ internal sealed class HtmxorPutActionDeclaration
 
 	public string ComponentTypeName { get; }
 
+	public string AttributeName { get; }
+
+	public string HttpMethod { get; }
+
 	public string? HandlerName { get; }
+
+	public bool UsesStockRoute { get; }
 
 	public string Path { get; }
 
@@ -42,93 +58,133 @@ internal sealed class HtmxorPutActionDeclaration
 
 	public string? UnsupportedReason { get; }
 
-	public static HtmxorPutActionDeclaration? Parse(
+	public static ImmutableArray<HtmxorComponentActionDeclaration> ParseAll(
 		AdditionalText additionalFile,
 		string? componentTypeName,
 		CancellationToken cancellationToken)
 	{
 		if (componentTypeName is null)
 		{
-			return null;
+			return ImmutableArray<HtmxorComponentActionDeclaration>.Empty;
 		}
 
 		var text = additionalFile.GetText(cancellationToken);
 		if (text is null)
 		{
-			return null;
+			return ImmutableArray<HtmxorComponentActionDeclaration>.Empty;
 		}
 
 		var source = text.ToString();
-		var attributeIndices = FindMarkupAttributeIndices(source);
-		if (attributeIndices.Count == 0)
+		var declarations = ImmutableArray.CreateBuilder<HtmxorComponentActionDeclaration>();
+		foreach (var binding in SupportedBindings)
 		{
-			return null;
+			var candidates = FindMarkupAttributes(source, binding.AttributeName);
+			foreach (var candidate in candidates)
+			{
+				declarations.Add(Parse(
+					componentTypeName,
+					additionalFile.Path,
+					text,
+					source,
+					binding,
+					candidate,
+					candidates.Count));
+			}
 		}
 
-		var attributeIndex = attributeIndices[0];
-		var span = new TextSpan(attributeIndex, AttributeName.Length);
-		if (attributeIndices.Count > 1)
+		return declarations.ToImmutable();
+	}
+
+	private static HtmxorComponentActionDeclaration Parse(
+		string componentTypeName,
+		string path,
+		SourceText text,
+		string source,
+		ActionBinding binding,
+		MarkupAttribute candidate,
+		int methodDeclarationCount)
+	{
+		var span = new TextSpan(candidate.Index, binding.AttributeName.Length);
+		if (methodDeclarationCount > 1)
 		{
 			return Unsupported(
 				componentTypeName,
-				additionalFile.Path,
+				binding,
+				candidate.UsesStockRoute,
+				path,
 				text,
 				span,
-				"exactly one @onput declaration is supported");
+				"at most one " + binding.AttributeName + " binding per component is supported");
 		}
 
-		var match = SupportedBinding.Match(source, attributeIndex);
+		var match = binding.SupportedBinding.Match(source, candidate.Index);
 		return match.Success &&
-			match.Index == attributeIndex &&
+			match.Index == candidate.Index &&
 			IsBindingTerminator(source, match.Index + match.Length)
-			? new HtmxorPutActionDeclaration(
+			? new HtmxorComponentActionDeclaration(
 				componentTypeName,
+				binding.AttributeName,
+				binding.HttpMethod,
 				match.Groups["handler"].Value,
-				additionalFile.Path,
+				candidate.UsesStockRoute,
+				path,
 				span,
 				text.Lines.GetLinePositionSpan(span),
 				unsupportedReason: null)
 			: Unsupported(
 				componentTypeName,
-				additionalFile.Path,
+				binding,
+				candidate.UsesStockRoute,
+				path,
 				text,
 				span,
-				"@onput must use one double-quoted simple method-group name");
+				binding.AttributeName + " must use one double-quoted simple method-group name");
 	}
 
-	private static IReadOnlyList<int> FindMarkupAttributeIndices(string source)
+	private static IReadOnlyList<MarkupAttribute> FindMarkupAttributes(
+		string source,
+		string attributeName)
 	{
-		var indices = new List<int>();
+		var attributes = new List<MarkupAttribute>();
 		var searchIndex = 0;
-		while ((searchIndex = source.IndexOf(AttributeName, searchIndex, StringComparison.Ordinal)) >= 0)
+		while ((searchIndex = source.IndexOf(attributeName, searchIndex, StringComparison.Ordinal)) >= 0)
 		{
-			if (IsMarkupAttribute(source, searchIndex))
+			if (IsMarkupAttribute(source, searchIndex, attributeName, out var usesStockRoute))
 			{
-				indices.Add(searchIndex);
+				attributes.Add(new MarkupAttribute(searchIndex, usesStockRoute));
 			}
 
-			searchIndex += AttributeName.Length;
+			searchIndex += attributeName.Length;
 		}
 
-		return indices;
+		return attributes;
 	}
 
-	private static bool IsMarkupAttribute(string source, int attributeIndex)
+	private static bool IsMarkupAttribute(
+		string source,
+		int attributeIndex,
+		string attributeName,
+		out bool usesStockRoute)
 	{
+		usesStockRoute = false;
 		var tagStart = source.LastIndexOf('<', attributeIndex);
 		return tagStart >= 0 &&
-			HasSupportedPreamble(source, tagStart) &&
+			TryGetRouteOwner(source, tagStart, out usesStockRoute) &&
 			source.LastIndexOf('>', attributeIndex) < tagStart &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "@*", "*@") &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "<!--", "-->") &&
 			HasSupportedTagPrefix(source, tagStart, attributeIndex) &&
 			attributeIndex > 0 &&
 			char.IsWhiteSpace(source[attributeIndex - 1]) &&
-			IsAttributeNameTerminator(source, attributeIndex + AttributeName.Length);
+			IsAttributeNameTerminator(source, attributeIndex + attributeName.Length);
 	}
 
-	private static bool HasSupportedPreamble(string source, int tagStart)
+	private static bool TryGetRouteOwner(
+		string source,
+		int tagStart,
+		out bool usesStockRoute)
 	{
+		usesStockRoute = false;
 		var tagLineStart = source.LastIndexOf('\n', tagStart);
 		tagLineStart = tagLineStart < 0 ? 0 : tagLineStart + 1;
 		if (!IsWhitespace(source, tagLineStart, tagStart))
@@ -160,7 +216,8 @@ internal sealed class HtmxorPutActionDeclaration
 			}
 		}
 
-		return pageDirectiveCount == 1;
+		usesStockRoute = pageDirectiveCount == 1;
+		return pageDirectiveCount <= 1;
 	}
 
 	private static bool IsWhitespace(string source, int start, int end)
@@ -213,7 +270,7 @@ internal sealed class HtmxorPutActionDeclaration
 
 	private static bool HasSupportedTagPrefix(string source, int tagStart, int attributeIndex)
 	{
-		var index = SkipName(source, tagStart + 1, attributeIndex);
+		var index = SkipName(source, tagStart + 1, attributeIndex, allowRazorPrefix: false);
 		if (index < 0)
 		{
 			return false;
@@ -227,7 +284,7 @@ internal sealed class HtmxorPutActionDeclaration
 				return true;
 			}
 
-			index = SkipName(source, index, attributeIndex);
+			index = SkipName(source, index, attributeIndex, allowRazorPrefix: true);
 			if (index < 0)
 			{
 				return false;
@@ -246,15 +303,21 @@ internal sealed class HtmxorPutActionDeclaration
 		return true;
 	}
 
-	private static int SkipName(string source, int start, int end)
+	private static int SkipName(string source, int start, int end, bool allowRazorPrefix)
 	{
 		var index = start;
+		if (allowRazorPrefix && index < end && source[index] == '@')
+		{
+			index++;
+		}
+
+		var nameStart = index;
 		while (index < end && IsNameCharacter(source[index]))
 		{
 			index++;
 		}
 
-		return index == start ? -1 : index;
+		return index == nameStart ? -1 : index;
 	}
 
 	private static int SkipWhitespace(string source, int start, int end)
@@ -360,17 +423,53 @@ internal sealed class HtmxorPutActionDeclaration
 			source[index] == '/' ||
 			char.IsWhiteSpace(source[index]);
 
-	private static HtmxorPutActionDeclaration Unsupported(
+	private static HtmxorComponentActionDeclaration Unsupported(
 		string componentTypeName,
+		ActionBinding binding,
+		bool usesStockRoute,
 		string path,
 		SourceText text,
 		TextSpan span,
 		string reason)
 		=> new(
 			componentTypeName,
+			binding.AttributeName,
+			binding.HttpMethod,
 			handlerName: null,
+			usesStockRoute,
 			path,
 			span,
 			text.Lines.GetLinePositionSpan(span),
 			reason);
+
+	private sealed class ActionBinding
+	{
+		public ActionBinding(string attributeName, string httpMethod)
+		{
+			AttributeName = attributeName;
+			HttpMethod = httpMethod;
+			SupportedBinding = new Regex(
+				Regex.Escape(attributeName) + "\\s*=\\s*\"(?<handler>[A-Za-z_][A-Za-z0-9_]*)\"",
+				RegexOptions.CultureInvariant);
+		}
+
+		public string AttributeName { get; }
+
+		public string HttpMethod { get; }
+
+		public Regex SupportedBinding { get; }
+	}
+
+	private sealed class MarkupAttribute
+	{
+		public MarkupAttribute(int index, bool usesStockRoute)
+		{
+			Index = index;
+			UsesStockRoute = usesStockRoute;
+		}
+
+		public int Index { get; }
+
+		public bool UsesStockRoute { get; }
+	}
 }

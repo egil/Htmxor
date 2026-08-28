@@ -103,9 +103,9 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			GetGeneratedComponentEndpoints(),
 			ReportDeclaredRoute,
 			ReportPolicyName,
-			[HttpMethods.Get]);
+			[HttpMethods.Get, HttpMethods.Patch]);
 		AssertHost(endpoint, ReportHost);
-		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 
 		await AssertUnavailableAsync(
 			ReportRequestPath,
@@ -561,7 +561,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 					StringComparison.Ordinal));
 		Assert.Equal(PageDeclaredRoute, endpoint.RoutePattern.RawText);
 		Assert.Equal(
-			[HttpMethods.Get, HttpMethods.Post, HttpMethods.Put],
+			[HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Delete],
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
 		Assert.Null(endpoint.Metadata.GetMetadata<Issue97GroupMetadata>());
 		Assert.Empty(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
@@ -588,7 +588,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			endpoint.Metadata.GetRequiredMetadata<Issue97GroupMetadata>());
 		var route = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
 		Assert.Equal(declaredRoute, route.Template);
-		Assert.Equal(expectedMethods, route.Methods);
+		Assert.Equal(new[] { HttpMethods.Get }, route.Methods);
 		var authorization = Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>());
 		Assert.Equal(policyName, authorization.Policy);
 
