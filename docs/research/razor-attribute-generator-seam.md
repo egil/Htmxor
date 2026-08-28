@@ -41,31 +41,31 @@ emits the completed component C# as an implementation output. An executable
 probe confirms that a sibling generator's `CompilationProvider` does not see
 that implementation output.
 
-Roslyn now has the exact platform seam that would solve this:
-`RegisterPreCompilationSourceOutput`. It was designed primarily to let Razor
-place its partial component declarations in the initial compilation. Such
-declarations would be visible to Htmxor's normal incremental-generator phase.
-However, the pinned Razor main snapshot still keeps those declarations private,
-and the exact SDK probe has the same externally visible boundary. Depending on
-the seam now would therefore require a Razor implementation change and a
-compiler/SDK support decision. This is a statement about the inspected source
-and toolchain, not a prediction about later Razor adoption.
+The same packaged-DLL probe establishes a supported compiler-backed seam for
+validation: a C# `DiagnosticAnalyzer` receives the completed compilation after
+Razor and ordinary source-generator outputs have been added. It sees the real
+generated component symbol, exact attribute symbols, fully resolved
+`AttributeData`, and Razor-mapped source locations. Component-local constants,
+including constants declared later in `@code`, are therefore available without
+reading or parsing Razor text.
 
-Issue #97 uses a bounded fallback while that platform seam is unavailable. It
-does not interpret C# attribute expressions. Htmxor locates only the Razor
-directive boundaries exercised by the v1 contract, retains each complete C#
-attribute list and `using`, and asks Roslyn to parse and bind them on a synthetic
-partial component added to a copy of the application's compilation. It then
-reads `AttributeData` and `TypedConstant` values only for exact attribute type
-symbols. Anything the locator, parser, or semantic model cannot prove fails
-closed without generating a partial registration.
+An analyzer cannot emit registration source or communicate values back to a
+sibling generator. Issue #97 consequently separates three responsibilities:
 
-This fallback is intentionally narrower than Razor. It covers project-root
-components, the root `_Imports.razor`, and the observed `@attribute`, `@using`,
-`@namespace`, and `@page` directive boundaries. It does not claim the full Razor
-grammar, nested import behavior, or compatibility with an untested future SDK.
-The SDK 10.0.400 post-markup and multiline probe below defines part of its
-executable compatibility envelope.
+1. a path-only source generator emits one application-local registration
+   wrapper and a sorted manifest of project-root component metadata names;
+2. a diagnostic analyzer validates every actual `HtmxRouteAttribute`
+   declaration in the final compilation by exact symbol and bound value;
+3. the generated wrapper passes its assembly and manifest to a runtime catalog,
+   which validates all compiled declarations before mapping any endpoint and
+   preserves their effective metadata.
+
+The source generator and analyzer use `AdditionalText.Path` only. Neither calls
+`AdditionalText.GetText`, recognizes Razor directives, parses C# snippets, or
+depends on directive placement. Unsupported but compiler-valid declarations
+produce deterministic nonconfigurable `HTMXOR001` build errors. The runtime
+catalog independently fails closed if analyzer execution is bypassed or the
+compiled metadata differs from the supported contract.
 
 A user-authored `.razor.cs` partial class remains a fully compiler-native option,
 but requiring it would change the public developer model. The executable probe
@@ -224,6 +224,29 @@ before C# compilation. It has no raw Razor additional text. That is evidence
 that a two-stage build can expose the right semantic input, not evidence that
 the default one-pass pipeline does.
 
+### Final-compilation analyzer probe
+
+A second ignored SDK 10.0.400 probe under
+`artifacts/analyzer-pipeline-probe` packages one diagnostic analyzer and two
+observer generators in the same analyzer DLL. Its component places multiline
+route and authorization directives after markup and takes the route method and
+policy from constants declared later in `@code`.
+
+The generator's `CompilationProvider` reported the Razor component and an
+ordinary sibling generator's output as missing; it saw only post-initialization
+output. The diagnostic analyzer reported the Razor component, sibling output,
+and post-initialization output as present. It read the exact bound values
+`/probe/{Id:int}`, `[GET]`, and `policy.from.component.code` from
+`AttributeData`. The route attribute's physical syntax reference pointed into
+`ProbeComponent_razor.g.cs`, while `GetMappedLineSpan()` identified the original
+multiline span in `ProbeComponent.razor`.
+
+The consumer built successfully with SDK 10.0.400 and Roslyn 5.9.0. Packing the
+observer confirmed that the analyzer and generators used the same ordinary
+`analyzers/dotnet/cs` NuGet asset. This rules out analyzer ordering or a second
+package as the explanation for the different visibility: diagnostic analyzers
+receive the final compilation, whereas sibling generators do not.
+
 ## Why a sibling generator cannot bind the generated attribute yet
 
 Standard source output is added only to the final compilation. It is not an
@@ -247,60 +270,51 @@ declaration compilation and implementation output described above, and the SDK
 10.0.400 probe observes the same boundary. The Roslyn capability alone does not
 expose Razor-generated component symbols in that toolchain.
 
-## Chosen bounded v1 fallback
+## Chosen compiler-backed v1 seam
 
-Htmxor now uses the smallest fallback that keeps C# interpretation in Roslyn.
-It has two distinct stages.
+[`HtmxorRouteGenerator`](../../src/Htmxor.Generators/HtmxorRouteGenerator.cs)
+does not inspect Razor content. It uses the additional-file paths and standard
+Razor build properties to select project-root component filenames, sorts their
+metadata names ordinally, and emits one application-local overload. The
+overload passes that manifest, its own application assembly, and the caller's
+exact `RouteGroupBuilder` to Htmxor runtime infrastructure. It contains no
+route, policy, component `typeof`, or per-component endpoint registration.
 
-First,
-[`RazorDirectiveLocator`](../../src/Htmxor.Generators/RazorDirectiveDocument.cs)
-scans `SourceText` for the supported directive keywords at the start of a line
-after whitespace and outside Razor comments. It recognizes only `@attribute`,
-`@using`, `@namespace`, and `@page`. It does not use a regular expression or
-attempt to parse markup, code blocks, or the rest of Razor. For each
-`@attribute`, it gives the remaining source to Roslyn and retains one complete,
-diagnostic-free `AttributeListSyntax`. It also parses complete `@using`
-directives with Roslyn. The locator's job ends at finding these observed Razor
-boundaries.
+[`HtmxorRouteDeclarationAnalyzer`](../../src/Htmxor.Generators/HtmxorRouteDeclarationAnalyzer.cs)
+runs against the final C# compilation with generated-code analysis enabled. It
+enumerates exact `Htmxor.HtmxRouteAttribute` symbols in the application assembly
+and reads only `AttributeData.ConstructorArguments` and `NamedArguments`.
+Aliases, local or external constants, explicit arrays, collection expressions,
+raw strings, qualification, formatting, comments, and directive position are
+therefore C# and Razor compiler concerns rather than Htmxor grammar.
 
-Second,
-[`ComponentAttributeBinding`](../../src/Htmxor.Generators/ComponentAttributeBinding.cs)
-builds a synthetic partial class from the root `_Imports.razor` and component
-usings and attribute lists. It uses the application's `CSharpParseOptions`, root
-namespace, references, and existing symbols. It adds that syntax tree to a copy
-of the application `Compilation`, gets the declared class symbol, and consumes
-the resulting `AttributeData`. It requires every syntactic attribute to bind,
-rejects syntax or typed-constant errors, and maps an attribute location back to
-the original Razor file.
+The analyzer requires the supported issue #97 envelope: at most two concrete
+project-root `IComponent` types, no normal component route, exactly one
+constrained HTMX route with explicit GET-only methods and no other filters, and
+one standard effective authorization policy without roles, authentication
+schemes, or anonymous access. It reports one useful deterministic
+`HTMXOR001` error at the generated attribute's Razor-mapped location for each
+unsupported declaration. The diagnostic is nonconfigurable because omitting a
+route or security constraint would silently change reachable application
+behavior.
 
-[`RouteDeclaration`](../../src/Htmxor.Generators/RouteDeclaration.cs) resolves
-`Htmxor.HtmxRouteAttribute` and
-`Microsoft.AspNetCore.Authorization.AuthorizeAttribute` by metadata name and
-compares symbols with `SymbolEqualityComparer.Default`. It reads the route,
-methods, and policy from constructor and named `TypedConstant` values. Attribute
-aliases, constant aliases, `new[] { "GET" }`, `["GET"]`, multiline formatting,
-comments, and combined attributes in one list therefore converge on their bound
-values when they are legal in that context. Text checks for `HtmxRoute` exist
-only to detect an unresolved route candidate and fail closed. They never extract
-a route, method, or policy.
+[`HtmxorAttributedRouteCatalog`](../../src/Htmxor/Builder/HtmxorAttributedRouteCatalog.cs)
+uses public compiled metadata as the runtime data plane. It independently
+checks exact attribute types and the generated project-root manifest, validates
+and constructs the complete descriptor set before any endpoint is mapped, then
+preserves each component's effective metadata on the endpoint created through
+the supplied route group. This runtime check is not a parser and does not make
+request headers authorization evidence.
 
-The supported Razor envelope stays narrow. Components and the optional
-`_Imports.razor` must sit at the project root. Nested imports, `@page`, an
-incompatible `@namespace`, malformed directives, unresolved attributes,
-binding-count mismatches, and declarations outside the supported route and
-authorization contract produce the deterministic unsupported-declaration
-diagnostic. Htmxor does not silently omit a declaration it can identify but
-cannot prove.
+The manifest and analyzer deliberately reject routed nested components and
+namespace shapes outside this tracer. Malformed C# or Razor remains a compiler
+error. Compiler-valid but unsupported Htmxor declarations remain `HTMXOR001`.
+Neither case is silently dropped.
 
-This design accepts compiler-equivalent C# forms inside each captured complete
-attribute list. It does not claim that Htmxor implements Razor's grammar or that
-the locator will match future SDK behavior without another executable probe.
+## Possible future platform simplification
 
-## Preferred future platform seam
-
-Once Razor emits declaration C# as pre-compilation source, Htmxor should stop
-reading `.razor` text. Its route input should instead begin with the semantic
-attribute provider:
+If Razor later emits declaration C# as pre-compilation source, Htmxor could move
+registration-value generation back into one semantic source-generator phase:
 
 ```csharp
 context.SyntaxProvider.ForAttributeWithMetadataName(
@@ -335,37 +349,36 @@ At that boundary, both example `Methods` spellings have the same semantic array
 value. Unsupported declarations can be rejected deterministically based on
 their values and symbols instead of silently falling through a textual grammar.
 
-Executable regression coverage for the bounded fallback, and later for a move to
-the platform seam, should include at least:
+Executable regression coverage for the current analyzer, and later for a move
+to that platform seam, should include at least:
 
 1. `new[] { "GET" }` and `["GET"]` producing byte-identical route models;
 2. qualified and imported attribute names resolving to the same attribute
    symbol;
 3. reordered named arguments and harmless whitespace/comments;
-4. multiline `@attribute` directives after markup and before a later local
-   `@using`, matching the SDK 10.0.400 probe;
-5. effective aliases, constants, and attributes supplied through
-   `_Imports.razor`;
+4. multiline `@attribute` directives after markup and component-local constants
+   declared in `@code`, matching the SDK 10.0.400 probe;
+5. effective aliases, constants, and attributes supplied by normal C# and Razor
+   compilation context;
 6. invalid or ambiguous C# failing from Roslyn syntax or binding evidence rather
    than a value inferred from text;
 7. multiple or unsupported effective declarations failing closed without
    partial generated registration.
 
-The current
-[semantic-equivalence fixture](../../test/Htmxor.Tests/Generators/HtmxorRouteGeneratorTests.cs)
-starts with markup, uses one multiline attribute list containing both supported
-attributes, and places its local `@using` directives afterward. Together with
-the SDK 10.0.400 probe, it encodes the observed post-markup and multiline
-behavior rather than the descriptor's more restrictive wording.
+The package-consumer fixture keeps its second directive after markup and
+`@code`, takes route, method, and policy from component-local constants, and
+includes the text `@*` inside a C# string. Together with the SDK probe, it proves
+the result is based on compiler semantics rather than a Razor text scanner.
 
 ## Current choices for Htmxor v1
 
 | Choice | Compiler-backed | Keeps `@attribute` in `.razor` | Current supported seam | Cost |
 | --- | --- | --- | --- | --- |
-| Locate bounded directives, then bind complete C# lists in a copied `Compilation` | Yes for captured C# | Yes | Chosen and executable for the v1 envelope | Htmxor owns a small observed-boundary locator and must reject anything it cannot prove |
+| Path-only generator, final-compilation analyzer, and compiled-metadata runtime catalog | Yes | Yes | Chosen and executable for the v1 envelope | Three narrow phases and a startup assembly scan |
 | Wait for Razor pre-compilation declarations, then use semantic attribute discovery | Yes | Yes | No in the inspected source and SDK 10.0.400 default pipeline | Requires a Razor implementation and SDK-version gate |
 | Put attributes on a user-authored `.razor.cs` partial class | Yes | No | Yes | Changes the public developer model |
 | Load or redistribute the SDK's current Razor compiler | Potentially | Yes | No | Couples Htmxor to SDK-private, rapidly changing compiler internals |
+| Locate or parse directives from raw `.razor` input | Partial | Yes | Rejected after review | Cannot cover component-local semantics or the Razor grammar reliably |
 | Interpret attribute names or values directly from raw `.razor` text | No | Yes | Rejected | Cannot preserve legal C# equivalence or exact symbol identity |
 | Disable Razor source generation so Razor output is materialized before C# compilation | Yes | Yes | Executable in the probe | Changes the project-wide build pipeline and still needs IDE/build/package parity evidence |
 
@@ -379,22 +392,20 @@ contract.
 
 ## Recommendation
 
-Use the bounded fallback for the issue #97 v1 contract. Keep its responsibilities
-separate: locate only the proved Razor directive boundaries, then hand complete
-C# attribute lists and usings to Roslyn. Generate a route only from exact
-attribute symbols and bound `AttributeData`. Preserve the deterministic
-unsupported-declaration diagnostic whenever syntax, binding, import scope, or
-metadata falls outside the proved envelope. Never drop a declaration because a
-text pattern did not fit.
+Use the path-only generator, final-compilation analyzer, and runtime catalog for
+the issue #97 contract. Keep collection expressions, explicit array creation,
+aliases, component-local constants, lookalike attribute types, and multiline
+post-markup directives as executable regressions. The generator must retain a
+throwing `AdditionalText.GetText()` test so future changes cannot quietly
+reintroduce a text parser.
 
-Keep collection expressions, equivalent array creation, aliases, constants,
-lookalike attribute types, root imports, and the multiline post-markup form as
-executable regression cases. Re-run the Razor probe before claiming support for
-a new SDK behavior. Do not broaden the locator into a Razor parser based on an
-assumed grammar.
+Re-run the Razor/analyzer probe before claiming a new SDK or compiler. Keep
+runtime reflection isolated in the catalog and do not claim publish trimming,
+Native AOT, IDE live-analysis parity, or startup performance until those
+boundaries are measured.
 
 When Razor exposes its partial declarations through pre-compilation output,
 replace the fallback with direct semantic discovery through
-`ForAttributeWithMetadataName`. That remains the cleaner platform integration,
+`ForAttributeWithMetadataName`. That could simplify registration generation,
 but its absence in SDK 10.0.400 is no longer a blocker for this deliberately
 bounded v1 design.
