@@ -21,9 +21,11 @@ Last updated: 2026-08-28
 - This issue #93 progress change is documentation-only. Executable claims are tied to the tested implementation and post-review fix commits above, not to the later documentation head.
 - Verified executable fix commit for issue #95: `58fa7aece281f053b1b7bffeec7ebcb8f7dfb33e`, based on exact `origin/main` commit `55e8d23ea18d4a0c8068be436afc95256a97be09`.
 - This issue #95 progress change is documentation-only. Executable claims are tied to the tested commit above, not to the later documentation head.
-- Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR on TestServer. Issue #95 adds a separate external .NET 10 Razor consumer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project.
-- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer.
-- Current implementation slice: issue #95. The live v1 milestone contains issue #95 and parent issue #77; no later child is implementation-ready.
+- Verified implementation commit for issue #97: `a94cf491205ed12863ad8ed0ca623a1a7b686c6b`, based on exact fetched `origin/main` commit `e222f75e72f152718c43c534944717dc1a62c51a`.
+- This issue #97 progress change is documentation-only. Executable claims are tied to the tested implementation commit above, not to the later documentation head.
+- Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR on TestServer. Issues #95 and #97 use a separate external .NET 10 Razor consumer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project.
+- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer; issue #97, deterministic aggregation of two supported package-consumer declarations through that single registration call.
+- Current implementation slice: issue #97. The live v1 milestone contains issue #97 and parent issue #77; no later child is implementation-ready.
 
 ## Proven v1 behavior
 
@@ -342,6 +344,33 @@ Package inspection verifies the runtime assembly and analyzer locations, no
 generator or Roslyn dependency in the nuspec, and no generator or Roslyn
 assembly in the consumer runtime dependency graph or output.
 
+Protected behavior for issue #97:
+
+> When a package-only .NET 10 Blazor static SSR application declares two
+> supported HTMX-only GET components and calls Htmxor registration once, Htmxor
+> maps both routes so each authorized direct HTMX request reaches its own
+> component while normal requests cannot reach either.
+
+The bounded generator now orders the complete declaration set by component name,
+validates every declaration before emission, and generates one registration
+extension for one or two supported project-root components. That extension
+performs the application-level Htmxor registration once and adds each validated
+component to the exact caller-provided route group. If any declaration is
+unsupported, the generator emits a deterministic `HTMXOR001` diagnostic for the
+invalid declaration and no partial registration source.
+
+The package-only consumer declares exactly two project-root components with the
+original `HtmxRouteAttribute`, no `@page`, distinct constrained GET routes,
+distinct authorization policies, distinct output, and distinct effective
+`Host` metadata from their C# partial types. One `/issue-97-group` route group,
+one `MapRazorComponents` call, and one application-level Htmxor registration
+produce exactly two component endpoints. Each route returns `200` only for its
+own authorized direct HTMX request, renders its own output without the stock
+shell, and retains its own compiled route attribute, authorization policy, host,
+and group metadata. Normal requests return `404`; the other component's policy
+returns `403`; anonymous direct requests return `401`; and rejected route
+constraints or hosts return `404`.
+
 ## Executable evidence
 
 - Meaningful red at `66139317b9edae1fff2ff73fa5175381ee3487b1`: the new .NET 10 hosted test discovered and executed one test, then failed during real application startup with the expected `NullReferenceException` in the obsolete private-reflection component discovery path.
@@ -407,10 +436,18 @@ assembly in the consumer runtime dependency graph or output.
 - Meziantou NuGet validator 2.0.3, run locally with `ContinuousIntegrationBuild=true`, reported no analyzer symbol-location or deterministic-path errors after the fix. It could not validate the two analyzer source URLs because commit `58fa7aece281f053b1b7bffeec7ebcb8f7dfb33e` had not yet been pushed; final source-link and package validation therefore remain a publication-boundary CI check.
 - The referenced base-main CI test job did not execute tests because `packages.microsoft.com` returned `403` while Playwright installed Ubuntu dependencies. This is external setup evidence, not a passing baseline or a product failure. Issue #95 does not change the runner.
 - Mutation testing was not run. Issue #95 makes it optional diagnostic evidence for this proof of concept.
+- Baseline test-only evidence for issue #97 is preserved at commit `86e53fabdbb60945b800e0af117e097de90c9ff0`, whose production tree is unchanged from exact base `e222f75e72f152718c43c534944717dc1a62c51a`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Two_supported_declarations_emit_one_deterministic_compiling_registration" --blame-hang --blame-hang-timeout 5min` discovered and executed one test; it failed with two `HTMXOR001` diagnostics because the generator rejected both supported declarations. The packed consumer at the same test-only tree likewise reached consumer compilation and failed with `HTMXOR001`. These are expected compilation failures, not meaningful behavioral red.
+- Meaningful red is preserved at commit `65a636da4b7b0b8c1e9533dec2133bfc09d334d3`, whose exact tree is `37369dba82ed8fdbdb1273de2845bcee37f685e7`. The focused `PackedPackageConsumerTests` command packed the package, restored and built the consumer, loaded the generator, and discovered and executed one outer test plus two inner hosted tests. The report test passed with `200`; the summary test failed with expected `200` but actual `404` because the controlled generator emitted only the first validated registration. The temporary one-route control is completed by the following implementation commit.
+- Focused generator proof at clean implementation commit `a94cf491205ed12863ad8ed0ca623a1a7b686c6b`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorRouteGeneratorTests" --blame-hang --blame-hang-timeout 5min` discovered, executed, and passed 5 of 5 tests. The two supported declarations emitted one byte-identical generated source regardless of input order, both registrations compiled, and a supported-plus-unsupported set emitted no source with one deterministic diagnostic.
+- Focused package proof at the same clean implementation commit: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 5min` discovered, executed, and passed 1 of 1 outer tests. Its parsed inner TRX recorded 2 discovered, 2 executed, and 2 passed. The outer test also checked the local package assets, consumer dependency and output boundaries, exactly two authored route and policy declarations, one route group, one component mapping, one Htmxor registration call, and no generated-type or per-component endpoint code.
+- Existing single-route regression proof at the same clean implementation commit: `dotnet test test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Issue91HtmxOnlyRouteTests" --blame-hang --blame-hang-timeout 5min` discovered, executed, and passed 1 of 1 hosted tests.
+- Fast-profile proof at the same clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` passed 103 quality tests, 40 .NET 10 hosted tests, and 155 non-browser library and generator tests. Total: 298 discovered, 298 executed, 298 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Full-profile proof at the same clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` passed 103 quality tests, 40 .NET 10 hosted tests, and all 157 library, generator, and browser tests. Total: 300 discovered, 300 executed, 300 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its fresh Cobertura report was `artifacts/results/full/htmxor/101680d4-a3ff-4099-831a-10326ea5027f/coverage.cobertura.xml`.
+- Mutation testing was not run. Issue #97 makes it optional diagnostic evidence and does not require unrelated mutant repair.
 
 ## Remaining limits
 
-- Issue #95 proves one locally packed package with the current SDK and dependency set. It does not prove publishing, package signing, a release candidate, package compatibility across SDK or compiler versions, a fresh Linux restore, or a broader target-framework matrix.
+- Issues #95 and #97 prove one locally packed package with the current SDK and dependency set. They do not prove publishing, package signing, a release candidate, package compatibility across SDK or compiler versions, a fresh Linux restore, or a broader target-framework matrix.
 - The matrix uses one representative valid and rejected value per documented constraint. It does not exhaust textual representations, undocumented custom conversion constraints, catch-all routes, or unconstrained routes.
 - The direct path is proved on ASP.NET Core 10 only. The supported framework matrix remains unproved.
 - The authorization proof uses one deterministic scheme and one claim policy. It does not cover scheme selection, custom challenge or forbid handlers, identity-provider integration, or authorization on other HTTP methods.
@@ -418,7 +455,7 @@ assembly in the consumer runtime dependency graph or output.
 - The issue #87 and #89 unsafe-action stand-ins still assume future generator output. Their discovery, Razor expression and action-metadata analysis, diagnostics, and generated lifecycle integration remain unproved.
 - Issue #89 covers an application-authored public `SetParametersAsync` override. An application that explicitly implements `IComponent.SetParametersAsync` would conflict with the generated explicit member and needs a future diagnostic or developer-model decision. Repeated parameter delivery, an override that intentionally omits its base call, async actions, request-body and form binding, multiple actions on one verb, multiple routes or components, navigation, exception and cancellation behavior, `ShouldRender` overrides, and streaming SSR remain unexercised.
 - The issue #85, #87, and #89 hosts run on Windows TestServer with the stock ephemeral Data Protection provider. They do not exercise Kestrel, TLS, persistent key storage, server-farm key sharing, Linux, a browser, or an application-selected HTMX runtime.
-- Issues #91, #93, and #95 ran their hosted contract only on Windows TestServer. They did not exercise Kestrel, TLS, Linux runtime, a browser, or an application-selected HTMX runtime. The broader full profile exercised the existing Chromium tests on Windows, but did not prove fresh browser provisioning or the package-only route in a browser.
+- Issues #91, #93, #95, and #97 ran their hosted contract only on Windows TestServer. They did not exercise Kestrel, TLS, Linux runtime, a browser, or an application-selected HTMX runtime. The broader full profile exercised the existing Chromium tests on Windows, but did not prove fresh browser provisioning or the package-only routes in a browser.
 - The tests do not exercise layouts, caching, concurrency, enhanced navigation, interactive render modes, fragments, browser behavior, or performance.
 - The legacy test application still uses internal private-reflection discovery and global service replacements. Later slices must replace the behavior they cover instead of extending that prototype.
 - Issue #91 proves one assumed-generated HTMX-only GET route with an `int`
@@ -434,9 +471,10 @@ assembly in the consumer runtime dependency graph or output.
   constrained route, explicit GET only, one literal authorization policy, and
   component namespace inference from the project root namespace and file name.
   It does not support nested component directories, `_Imports.razor` namespaces,
-  general C# expressions, multiple declarations or components, route collisions,
-  normal-only or dual reachability, unsafe methods, or a final public API.
-- Issue #95 packages that exact tracer and no broader behavior. Generated
+  general C# expressions, more than two declarations or components, route
+  collisions, normal-only or dual reachability, unsafe methods, or a final
+  public API. Issue #97 broadens only the declaration count from one to two.
+- Issues #95 and #97 package that exact tracer and no broader behavior. Generated
   registration overload selection requires the application to pass an endpoint
   argument whose static type is exactly `RouteGroupBuilder`. Widening it to
   `IEndpointRouteBuilder`, or passing the application instead, selects the
@@ -445,18 +483,33 @@ assembly in the consumer runtime dependency graph or output.
   generated-to-runtime bridge into a final public developer API remain unproved
   and out of scope.
 - The analyzer currently activates for every application that restores the
-  package. Applications with more than one `HtmxRoute` component, or with an
-  existing route declaration outside this tracer's exact syntax, receive build
-  errors. This fail-fast behavior is accepted for the locally packed beta spike:
-  it does not affect applications with no `HtmxRoute` declaration and avoids
-  silently omitting routes or security metadata. It is not the final v1
-  compatibility contract and must be resolved before a stable release candidate.
+  package. Applications with more than two `HtmxRoute` components, or with a
+  route declaration outside this tracer's exact syntax, receive build errors.
+  Exactly two project-root components are proved; multiple attributes on one
+  component, collision policy, nested namespaces, general Razor or C# parsing,
+  broader route filters, and unsafe action discovery remain unproved. This
+  fail-fast behavior is accepted for the locally packed beta spike: it does not
+  affect applications with no `HtmxRoute` declaration and avoids silently
+  omitting routes or security metadata. It is not the final v1 compatibility
+  contract and must be resolved before a stable release candidate.
 
 ## Recommended next slice
 
-No next child is implementation-ready. Before a stable release candidate, use
-the evidence from issue #95 to decide under parent issue #77 how the generator
-supports progressive adoption and multiple `HtmxRoute` declarations without
-adding routine registration ceremony. Recheck the live tracker, branch
-publication state, and `origin/main` before refining that slice. Do not silently
-generalize this tracer into the final generator interface.
+Under parent issue #77, select one package-only unsafe-action generation tracer
+that replaces a single fixed issue #87 assumed descriptor without broadening the
+Razor syntax matrix:
+
+> When a package-only .NET 10 Blazor static SSR application declares one
+> supported component-owned PUT callback and calls Htmxor registration once,
+> Htmxor generates the action registration so an authorized, antiforgery-valid
+> request reaches that component instance callback, while an invalid request
+> cannot bind input or invoke it.
+
+This comes next because issues #87 and #89 already prove the runtime method,
+authorization, antiforgery, and lifecycle contract under fixed assumed output,
+while issue #97 removes the immediate multi-component registration blocker. The
+next evidence should keep both packaged GET routes green, preserve a buildable
+and runnable `405` negative control before the action descriptor exists, and
+then prove generated method and handler identity, callback dispatch, and
+fail-closed unsupported input at the package boundary. Recheck the live tracker,
+branch publication state, and `origin/main` before refining or filing that slice.
