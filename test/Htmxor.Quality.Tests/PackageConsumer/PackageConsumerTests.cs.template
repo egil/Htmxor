@@ -1,0 +1,153 @@
+using System.Net;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+public sealed class PackageConsumerTests : IAsyncLifetime
+{
+	private const string PolicyName = "issue-95-policy";
+	private const string RoutePrefix = "/issue-95-group";
+	private const string RequestPath = "/issue-95-group/reports/42";
+	private const string AllowedHost = "internal.example";
+	private WebApplication app = default!;
+	private HttpClient client = default!;
+
+	public async Task InitializeAsync()
+	{
+		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+		{
+			ApplicationName = typeof(PackageConsumerTests).Assembly.GetName().Name,
+			EnvironmentName = Environments.Development,
+		});
+		builder.WebHost.UseTestServer();
+		builder.Services.AddAuthentication(PackageConsumerAuthenticationHandler.SchemeName)
+			.AddScheme<AuthenticationSchemeOptions, PackageConsumerAuthenticationHandler>(
+				PackageConsumerAuthenticationHandler.SchemeName,
+				_ => { });
+		builder.Services.AddAuthorization(options => options.AddPolicy(
+			PolicyName,
+			policy => policy.RequireClaim(PackageConsumerAuthenticationHandler.AccessClaim, "granted")));
+		builder.Services.AddRazorComponents().AddHtmx();
+
+		app = builder.Build();
+		app.UseAuthentication();
+		app.UseAuthorization();
+		app.UseAntiforgery();
+		var routes = app.MapGroup(RoutePrefix)
+			.WithMetadata(Issue95GroupMetadata.Instance);
+		routes.MapRazorComponents<Issue95App>()
+			.AddHtmxorComponentEndpoints(routes);
+
+		await app.StartAsync();
+		client = app.GetTestClient();
+	}
+
+	[Fact]
+	public async Task Package_only_application_registers_the_generated_htmx_only_route()
+	{
+		using var directResponse = await SendAsync(direct: true, authenticated: true);
+		var directBody = await directResponse.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, directResponse.StatusCode);
+		Assert.Contains("data-issue-95-component", directBody, StringComparison.Ordinal);
+		Assert.Contains(
+			"data-request-values>42|issue-95-user|group-convention-preserved</p>",
+			directBody,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("<html", directBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", directBody, StringComparison.Ordinal);
+
+		using var normalResponse = await SendAsync(direct: false, authenticated: true);
+		var normalBody = await normalResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.NotFound, normalResponse.StatusCode);
+		Assert.DoesNotContain("data-issue-95-component", normalBody, StringComparison.Ordinal);
+
+		using var anonymousResponse = await SendAsync(direct: true, authenticated: false);
+		var anonymousBody = await anonymousResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+		Assert.DoesNotContain("data-issue-95-component", anonymousBody, StringComparison.Ordinal);
+
+		using var rejectedHostResponse = await SendAsync(
+			direct: true,
+			authenticated: true,
+			host: "external.example");
+		var rejectedHostBody = await rejectedHostResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.NotFound, rejectedHostResponse.StatusCode);
+		Assert.DoesNotContain("data-issue-95-component", rejectedHostBody, StringComparison.Ordinal);
+	}
+
+	private async Task<HttpResponseMessage> SendAsync(
+		bool direct,
+		bool authenticated,
+		string host = AllowedHost)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, RequestPath);
+		request.Headers.Host = host;
+		if (direct)
+		{
+			request.Headers.Add("HX-Request", "true");
+		}
+
+		if (authenticated)
+		{
+			request.Headers.Add(PackageConsumerAuthenticationHandler.UserHeaderName, "issue-95-user");
+		}
+
+		return await client.SendAsync(request);
+	}
+
+	public async Task DisposeAsync()
+	{
+		client?.Dispose();
+		if (app is not null)
+		{
+			await app.DisposeAsync();
+		}
+	}
+}
+
+internal sealed record Issue95GroupMetadata(string Value)
+{
+	public static Issue95GroupMetadata Instance { get; } = new("group-convention-preserved");
+}
+
+internal sealed class PackageConsumerAuthenticationHandler(
+	IOptionsMonitor<AuthenticationSchemeOptions> options,
+	ILoggerFactory logger,
+	UrlEncoder encoder)
+	: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+	public const string SchemeName = "issue-95-test";
+	public const string UserHeaderName = "X-Issue-95-User";
+	public const string AccessClaim = "issue-95-access";
+
+	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+	{
+		if (!Request.Headers.TryGetValue(UserHeaderName, out var userName))
+		{
+			return Task.FromResult(AuthenticateResult.NoResult());
+		}
+
+		var identity = new ClaimsIdentity(
+			[
+				new Claim(ClaimTypes.Name, userName.ToString()),
+				new Claim(AccessClaim, "granted"),
+			],
+			SchemeName);
+		var principal = new ClaimsPrincipal(identity);
+
+		return Task.FromResult(AuthenticateResult.Success(new(principal, SchemeName)));
+	}
+}
