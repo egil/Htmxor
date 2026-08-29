@@ -51,6 +51,7 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 			var reason = component.GetUnsupportedReason(
 				symbols,
 				manifest,
+				context.Options.AnalyzerConfigOptionsProvider,
 				components.Length,
 				context.CancellationToken);
 			if (reason is not null)
