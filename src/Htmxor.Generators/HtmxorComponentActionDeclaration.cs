@@ -263,12 +263,31 @@ internal sealed class HtmxorComponentActionDeclaration
 			return false;
 		}
 
-		var nameStart = line[1] == '/' ? 2 : 1;
+		const int nameStart = 1;
 		var nameEnd = SkipName(line, nameStart, line.Length - 1, allowRazorPrefix: false);
-		return nameEnd > nameStart &&
-			(nameEnd == line.Length - 1 ||
+		if (nameEnd <= nameStart ||
+			!(nameEnd == line.Length - 1 ||
 			char.IsWhiteSpace(line[nameEnd]) ||
-			line[nameEnd] == '>');
+			line[nameEnd] == '>'))
+		{
+			return false;
+		}
+
+		return IsSelfClosingMarkupLine(line) ||
+			line.EndsWith(
+				"</" + line.Substring(nameStart, nameEnd - nameStart) + ">",
+				StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static bool IsSelfClosingMarkupLine(string line)
+	{
+		var index = line.Length - 2;
+		while (index >= 0 && char.IsWhiteSpace(line[index]))
+		{
+			index--;
+		}
+
+		return index >= 0 && line[index] == '/';
 	}
 
 	private static bool HasSupportedMarkupBounds(string line)
@@ -277,7 +296,8 @@ internal sealed class HtmxorComponentActionDeclaration
 			line[0] == '<' &&
 			line[line.Length - 1] == '>' &&
 			line[1] != '!' &&
-			line[1] != '?';
+			line[1] != '?' &&
+			line[1] != '/';
 
 	private static bool IsSupportedPageDirectiveLine(string line)
 	{
