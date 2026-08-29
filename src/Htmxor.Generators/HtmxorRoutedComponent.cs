@@ -83,6 +83,12 @@ internal sealed class HtmxorRoutedComponent
 			return "the HtmxRoute component must be a project-root Razor component";
 		}
 
+		var csharpRouteOriginReason = ValidateCSharpRouteOrigin(csharpComponent);
+		if (csharpRouteOriginReason is not null)
+		{
+			return csharpRouteOriginReason;
+		}
+
 		return Routes.Length == 1 && !csharpComponent.HasExplicitMethods
 			? "a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods"
 			: null;
@@ -111,6 +117,19 @@ internal sealed class HtmxorRoutedComponent
 			path,
 			Routes.Length == 1 && Routes[0].NamedArguments.Any(static argument =>
 				string.Equals(argument.Key, "Methods", StringComparison.Ordinal)));
+	}
+
+	private string? ValidateCSharpRouteOrigin(CSharpRoutedComponent component)
+	{
+		if (Routes.Length != 1 ||
+			!HtmxorRouteManifest.HasCompiledRazorDeclaration(Type))
+		{
+			return null;
+		}
+
+		return HtmxorRouteManifest.IsMatchingRazorCodeBehind(Type, component.Path)
+			? null
+			: "a C# HtmxRoute declaration on a Razor component must use the matching .razor.cs partial";
 	}
 
 	private string? ValidateComponent(HtmxorRouteSymbols symbols)
