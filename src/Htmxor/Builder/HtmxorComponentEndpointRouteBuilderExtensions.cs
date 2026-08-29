@@ -249,7 +249,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 	private static void RequireAntiforgery(EndpointBuilder endpointBuilder)
 	{
-		if (!endpointBuilder.Metadata.OfType<IAntiforgeryMetadata>().Any(static metadata => metadata.RequiresValidation))
+		if (endpointBuilder.Metadata.OfType<IAntiforgeryMetadata>().LastOrDefault()?.RequiresValidation != true)
 		{
 			endpointBuilder.Metadata.Add(new RequireAntiforgeryTokenAttribute());
 		}
