@@ -1,6 +1,6 @@
 # Htmxor v1 progress
 
-Last updated: 2026-08-28
+Last updated: 2026-08-29
 
 ## Repository state
 
@@ -477,10 +477,11 @@ owners. Client-only `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, htmx 4
 `hx-action` plus `hx-method`, and `hx-query` declarations emit no action and do
 not alter the GET, POST, PUT, PATCH, and DELETE server allow-list.
 
-The locally packed consumer retains the two existing explicit GET-only routes,
-adds a stock report-page DELETE, and gives one omitted-`Methods` HTMX-only route
-a PATCH binding on a Razor component tag. That PATCH handler lives in the
-matching `.razor.cs` partial. Authorized, antiforgery-valid requests reach only
+The locally packed consumer retains its two existing HTMX-only routes: the
+summary route remains explicit GET-only, while the report route now omits
+`Methods` and infers PATCH from a Razor component-tag binding. It also adds a
+stock report-page DELETE. The PATCH handler lives in the matching `.razor.cs`
+partial. Authorized, antiforgery-valid requests reach only
 their route- and method-selected request component, complete route/query
 parameter delivery and initialization, invoke the selected callback once, and
 render its state through static SSR. Representative wrong-method, cross-route,
