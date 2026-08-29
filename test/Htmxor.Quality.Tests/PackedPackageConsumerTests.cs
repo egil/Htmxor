@@ -554,6 +554,8 @@ internal static class PackageConsumerEvidence
 		Assert.Contains("lib/net8.0/Htmxor.dll", paths);
 		Assert.Contains("analyzers/dotnet/cs/Htmxor.Generators.dll", paths);
 		Assert.Contains("analyzers/dotnet/cs/Htmxor.Generators.pdb", paths);
+		Assert.Contains("staticwebassets/htmxor.js", paths);
+		Assert.DoesNotContain(paths, IsHtmxRuntimeOrLegacyExtension);
 		Assert.DoesNotContain(paths, IsForbiddenPackageAssembly);
 		AssertNuspecDependencies(package);
 	}
@@ -688,6 +690,11 @@ internal static class PackageConsumerEvidence
 			!path.Equals("analyzers/dotnet/cs/Htmxor.Generators.dll", StringComparison.Ordinal)) ||
 		path.StartsWith("lib/", StringComparison.Ordinal) &&
 		path.EndsWith("Htmxor.Generators.dll", StringComparison.Ordinal);
+
+	private static bool IsHtmxRuntimeOrLegacyExtension(string path) =>
+		path.EndsWith("/htmx.min.js", StringComparison.Ordinal) ||
+		path.EndsWith("/htmx.d.ts", StringComparison.Ordinal) ||
+		path.EndsWith("/event-header.js", StringComparison.Ordinal);
 
 	private static bool IsBuildOnlyAssembly(string? fileName) =>
 		fileName is not null &&
