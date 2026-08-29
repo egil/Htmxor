@@ -12,6 +12,24 @@ public sealed class HtmxorRouteGeneratorTests
 		using System.Reflection;
 		using System.Collections.Generic;
 
+		namespace Htmxor
+		{
+			[global::System.AttributeUsage(global::System.AttributeTargets.Class)]
+			internal sealed class HtmxRouteAttribute(string template) : global::System.Attribute
+			{
+				public string Template { get; } = template;
+
+				public string[] Methods { get; set; } = [];
+			}
+		}
+
+		namespace Microsoft.AspNetCore.Components
+		{
+			internal interface IComponent;
+
+			internal abstract class ComponentBase : IComponent;
+		}
+
 		namespace Htmxor.Builder
 		{
 			internal sealed class HtmxorGeneratedComponentAction;
@@ -38,6 +56,32 @@ public sealed class HtmxorRouteGeneratorTests
 			}
 		}
 		""";
+	private const string AllCSharpComponent = """
+		namespace Htmxor.Consumer;
+
+		[global::Htmxor.HtmxRouteAttribute("/csharp/{Id:int}", Methods = ["GET"])]
+		internal sealed class AllCSharpComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+		""";
+
+	[Fact]
+	public void All_CSharp_component_with_explicit_methods_is_in_generated_registration()
+	{
+		var run = RunGeneratorWithCSharpSource(
+			AllCSharpComponent,
+			"RazorControl.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.AllCSharpComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+	}
 
 	[Fact]
 	public void Project_root_paths_emit_one_sorted_runtime_manifest_without_reading_Razor_content()
@@ -98,12 +142,34 @@ public sealed class HtmxorRouteGeneratorTests
 		=> source.Split(value, StringSplitOptions.None).Length - 1;
 
 	private static GeneratorRun RunGenerator(params string[] relativePaths)
+		=> RunGeneratorCore(null, relativePaths);
+
+	private static GeneratorRun RunGeneratorWithCSharpSource(
+		string csharpSource,
+		params string[] relativePaths)
+		=> RunGeneratorCore(csharpSource, relativePaths);
+
+	private static GeneratorRun RunGeneratorCore(
+		string? csharpSource,
+		params string[] relativePaths)
 	{
 		var projectDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "htmxor-generator-probe"));
 		var parseOptions = (CSharpParseOptions)CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var syntaxTrees = new List<SyntaxTree>
+		{
+			CSharpSyntaxTree.ParseText(RuntimeStubs, parseOptions),
+		};
+		if (csharpSource is not null)
+		{
+			syntaxTrees.Add(CSharpSyntaxTree.ParseText(
+				csharpSource,
+				parseOptions,
+				Path.Combine(projectDirectory, "AllCSharpComponent.cs")));
+		}
+
 		var compilation = CSharpCompilation.Create(
 			"Htmxor.Consumer.Tests",
-			new[] { CSharpSyntaxTree.ParseText(RuntimeStubs, parseOptions) },
+			syntaxTrees,
 			new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		GeneratorDriver driver = CSharpGeneratorDriver.Create(
