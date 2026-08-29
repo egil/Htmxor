@@ -407,6 +407,41 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
+	public async Task Imported_static_handler_outside_component_is_rejected_as_a_nonconfigurable_action_declaration()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			global using static ExternalHandlers;
+
+			public static class ExternalHandlers
+			{
+				public static global::System.Threading.Tasks.Task DeleteReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			@page "/reports/{Id:int}"
+			<button @ondelete="DeleteReport">Delete</button>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains("handler 'DeleteReport' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+	}
+
+	[Fact]
 	public async Task Binding_outside_explicit_htmx_route_methods_is_nonconfigurable()
 	{
 		var componentPath = ComponentPath("ReportComponent.razor");
