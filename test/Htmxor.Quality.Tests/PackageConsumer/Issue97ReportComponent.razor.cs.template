@@ -3,6 +3,7 @@ using Htmxor;
 
 namespace Htmxor.PackageConsumer;
 
+[HtmxRoute("/htmx-reports/{ReportId:int}", Methods = ["GET", "PATCH"])]
 [Host("reports.internal.example")]
 public partial class Issue97ReportComponent
 {
