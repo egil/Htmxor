@@ -517,6 +517,24 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	[Fact]
+	public void Nonbinding_ondelete_after_self_closing_script_syntax_does_not_emit_an_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<script />
+				<button @ondelete="DeleteReport">
+			</script>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
 	public void Nonbinding_ondelete_after_misleading_script_slash_does_not_emit_an_action()
 	{
 		var run = RunGenerators(new RazorInput(
