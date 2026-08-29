@@ -183,6 +183,24 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	[Fact]
+	public void Stock_page_binding_after_prior_self_closing_markup_emits_a_compiling_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<hr />
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
 	public void Omitted_methods_component_binding_after_prior_markup_emits_a_compiling_action()
 	{
 		var run = RunGenerators(new RazorInput(
