@@ -14,6 +14,8 @@ public sealed class PackedPackageConsumerTests
 		"explicit HtmxRoute.Methods is authoritative";
 	private const string MissingCSharpMethodsMessage =
 		"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods";
+	private const string MismatchedCSharpPartialMessage =
+		"a C# HtmxRoute declaration on a Razor component must use the matching .razor.cs partial";
 
 	[Fact]
 	public async Task Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions()
@@ -118,6 +120,23 @@ public sealed class PackedPackageConsumerTests
 		var routeRegistration = workspace.ReadGeneratedRouteRegistration();
 		Assert.Contains("Issue97ReportComponent", routeRegistration, StringComparison.Ordinal);
 		Assert.DoesNotContain("Issue97SummaryComponent", routeRegistration, StringComparison.Ordinal);
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+	}
+
+	[Fact]
+	public async Task Package_only_application_rejects_an_explicit_route_in_a_nonmatching_partial()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseNonmatchingExplicitRoutePartial();
+
+		var result = await workspace.BuildForDiagnosticAsync();
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+
+		Assert.NotEqual(0, result.ExitCode);
+		Assert.Contains("HTMXOR001", output, StringComparison.Ordinal);
+		Assert.Contains("Issue97ReportRoute.cs", output, StringComparison.Ordinal);
+		Assert.Contains(MismatchedCSharpPartialMessage, output, StringComparison.Ordinal);
+		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 }
@@ -272,6 +291,17 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 		File.Copy(
 			scenarioPath,
 			Path.Combine(consumerDirectory, "Issue97SummaryComponent.razor"));
+	}
+
+	public void UseNonmatchingExplicitRoutePartial()
+	{
+		var matchingPath = Path.Combine(
+			consumerDirectory,
+			"Issue97ReportComponent.razor.cs");
+		var nonmatchingPath = Path.Combine(
+			consumerDirectory,
+			"Issue97ReportRoute.cs");
+		File.Move(matchingPath, nonmatchingPath);
 	}
 
 	public void UseActionlessUnsafeSummaryRoute()
