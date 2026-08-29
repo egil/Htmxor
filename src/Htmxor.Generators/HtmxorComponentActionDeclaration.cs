@@ -272,7 +272,7 @@ internal sealed class HtmxorComponentActionDeclaration
 
 		var openingTagEnd = line.IndexOf('>', nameEnd);
 		return openingTagEnd >= 0 &&
-			(IsSelfClosingMarkupLine(line, openingTagEnd) ||
+			(IsSelfClosingMarkupLine(line, nameStart, nameEnd, openingTagEnd) ||
 			IsPlainMarkupElementLine(line, nameStart, nameEnd, openingTagEnd));
 	}
 
@@ -285,9 +285,14 @@ internal sealed class HtmxorComponentActionDeclaration
 			char.IsWhiteSpace(line[nameEnd]) ||
 			line[nameEnd] == '>');
 
-	private static bool IsSelfClosingMarkupLine(string line, int openingTagEnd)
+	private static bool IsSelfClosingMarkupLine(
+		string line,
+		int nameStart,
+		int nameEnd,
+		int openingTagEnd)
 	{
-		if (openingTagEnd != line.Length - 1)
+		if (openingTagEnd != line.Length - 1 ||
+			!IsVoidHtmlElement(line, nameStart, nameEnd))
 		{
 			return false;
 		}
@@ -299,6 +304,13 @@ internal sealed class HtmxorComponentActionDeclaration
 		}
 
 		return index >= 0 && line[index] == '/';
+	}
+
+	private static bool IsVoidHtmlElement(string line, int nameStart, int nameEnd)
+	{
+		const string voidElementNames = "|area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr|";
+		var name = "|" + line.Substring(nameStart, nameEnd - nameStart).ToLowerInvariant() + "|";
+		return voidElementNames.IndexOf(name, StringComparison.Ordinal) >= 0;
 	}
 
 	private static bool IsPlainMarkupElementLine(
