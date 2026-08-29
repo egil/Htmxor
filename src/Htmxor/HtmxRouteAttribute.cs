@@ -12,7 +12,9 @@ namespace Htmxor;
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribute>
 {
-	public static readonly string[] DefaultHttpMethods = [HttpMethods.Get];
+	internal static readonly string ImplicitHttpMethod = HttpMethods.Get;
+
+	public static string[] DefaultHttpMethods => [ImplicitHttpMethod];
 
 	/// <summary>
 	/// Gets the route template.
@@ -25,7 +27,7 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 	/// When omitted, GET is implicit and Htmxor infers unsafe methods from supported component bindings.
 	/// When specified, this allow-list is authoritative.
 	/// </summary>
-	public string[] Methods { get; init; } = DefaultHttpMethods;
+	public string[] Methods { get; init; } = [ImplicitHttpMethod];
 
 	/// <summary>
 	/// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.CurrentURL"/> header matches the specified value. 

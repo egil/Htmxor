@@ -304,7 +304,7 @@ internal static class HtmxorAttributedRouteCatalog
 		}
 
 		var route = metadata.OfType<HtmxRouteAttribute>().SingleOrDefault();
-		var expectedMethods = declaration.ExplicitMethods ?? HtmxRouteAttribute.DefaultHttpMethods;
+		var expectedMethods = declaration.ExplicitMethods ?? [HtmxRouteAttribute.ImplicitHttpMethod];
 		if (route is null ||
 			!string.Equals(route.Template, declaration.Route, StringComparison.Ordinal) ||
 			!route.Methods.SequenceEqual(expectedMethods, StringComparer.OrdinalIgnoreCase))
