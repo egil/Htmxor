@@ -8,6 +8,17 @@ namespace Htmxor.Configuration;
 public class HtmxHeadOutletTest : TestContext
 {
 	[Fact]
+	public void Head_outlet_emits_no_Htmxor_owned_htmx_runtime_or_configuration()
+	{
+		Services.AddSingleton(new HtmxConfig());
+
+		var cut = RenderComponent<HtmxHeadOutlet>();
+
+		cut.FindAll("meta[name='htmx-config']").Should().BeEmpty();
+		cut.FindAll("script[src*='/htmx/']").Should().BeEmpty();
+	}
+
+	[Fact]
 	public void HtmxConfig_serializer()
 	{
 		var config = new HtmxConfig
