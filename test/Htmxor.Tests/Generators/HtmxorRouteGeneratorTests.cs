@@ -167,6 +167,26 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	[Fact]
+	public void All_CSharp_component_in_arbitrary_file_remains_registered_with_same_named_Razor_input()
+	{
+		var run = RunGeneratorWithCSharpSourceAtPath(
+			AllCSharpComponent,
+			"Widgets.cs",
+			"AllCSharpComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Equal(
+			1,
+			Count(generatedSource, "\"Htmxor.Consumer.AllCSharpComponent\""));
+	}
+
+	[Fact]
 	public void Matching_Razor_code_behind_without_methods_is_not_in_generated_registration()
 	{
 		var source = AllCSharpComponent.Replace(
