@@ -230,6 +230,39 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
+	public void Build_keeps_omitted_methods_get_only_when_public_defaults_are_mutated()
+	{
+		foreach (var injectedMethod in new[] { HttpMethods.Post, "TRACE" })
+		{
+			var publicDefaults = HtmxRouteAttribute.DefaultHttpMethods;
+			var originalDefaults = publicDefaults.ToArray();
+			try
+			{
+				publicDefaults[0] = injectedMethod;
+				var fixture = DynamicComponentAssembly.Create(
+					new ComponentDefinition(
+						"PackageConsumer.ReportComponent",
+						"/reports/{ReportId:int}",
+						"report.policy",
+						ExplicitMethods: false));
+
+				var descriptor = Assert.Single(HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+				AssertDescriptor(
+					descriptor,
+					fixture.Types[0],
+					"/reports/{ReportId:int}",
+					"report.policy");
+				Assert.Equal(new[] { HttpMethods.Get }, new HtmxRouteAttribute("/control").Methods);
+			}
+			finally
+			{
+				Array.Copy(originalDefaults, publicDefaults, originalDefaults.Length);
+			}
+		}
+	}
+
+	[Fact]
 	public async Task Unsafe_generated_route_requires_effective_antiforgery_after_prior_disabling_metadata()
 	{
 		await using var app = CreateApplication(out var group, out _, out _);
