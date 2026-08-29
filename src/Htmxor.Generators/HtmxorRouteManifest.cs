@@ -15,7 +15,9 @@ internal static class HtmxorRouteManifest
 		AnalyzerConfigOptionsProvider optionsProvider)
 	{
 		var omittedCSharpComponents = csharpComponents
-			.Where(static component => !component.HasExplicitMethods)
+			.Where(static component =>
+				!component.HasExplicitMethods &&
+				!IsRazorGeneratedPath(component.Path))
 			.Select(static component => component.TypeName)
 			.ToImmutableHashSet(StringComparer.Ordinal);
 
