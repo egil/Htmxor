@@ -50,6 +50,7 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			}
 
 			var reason = GetUnsupportedReason(
+				context.Compilation,
 				context.Compilation.Assembly.GetTypeByMetadataName(declaration.ComponentTypeName),
 				declaration,
 				symbols);
@@ -75,11 +76,12 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 				context.CancellationToken));
 
 	private static string? GetUnsupportedReason(
+		Compilation compilation,
 		INamedTypeSymbol? component,
 		HtmxorComponentActionDeclaration declaration,
 		HtmxorRouteSymbols symbols)
 	{
-		var componentReason = GetComponentUnsupportedReason(component, declaration.HandlerName);
+		var componentReason = GetComponentUnsupportedReason(compilation, component, declaration.HandlerName);
 		if (componentReason is not null)
 		{
 			return componentReason;
@@ -125,6 +127,7 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			.ToImmutableArray();
 
 	private static string? GetComponentUnsupportedReason(
+		Compilation compilation,
 		INamedTypeSymbol? component,
 		string? handlerName)
 	{
@@ -133,12 +136,15 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			return "the action owner must compile as a project-root Razor component";
 		}
 
-		return handlerName is not null && HasUnsupportedHandlerMember(component, handlerName)
+		return handlerName is not null && HasUnsupportedHandlerMember(compilation, component, handlerName)
 			? "handler '" + handlerName + "' must be an instance method on the request-owned component"
 			: null;
 	}
 
-	private static bool HasUnsupportedHandlerMember(INamedTypeSymbol component, string handlerName)
+	private static bool HasUnsupportedHandlerMember(
+		Compilation compilation,
+		INamedTypeSymbol component,
+		string handlerName)
 	{
 		var hasInstanceMethod = false;
 
@@ -146,6 +152,11 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 		{
 			foreach (var member in current.GetMembers(handlerName))
 			{
+				if (!compilation.IsSymbolAccessibleWithin(member, component))
+				{
+					continue;
+				}
+
 				if (member is not IMethodSymbol method || method.IsStatic)
 				{
 					return true;
