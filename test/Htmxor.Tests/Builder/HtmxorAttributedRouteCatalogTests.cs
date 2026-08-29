@@ -230,6 +230,25 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
+	public async Task Unsafe_generated_route_requires_effective_antiforgery_after_prior_disabling_metadata()
+	{
+		await using var app = CreateApplication(out var group, out _, out _);
+		var descriptor = new HtmxorComponentRouteDescriptor(
+			typeof(global::Htmxor.TestApp.App),
+			"/unsafe",
+			[
+				new TestAntiforgeryMetadata(true),
+				new TestAntiforgeryMetadata(false),
+			],
+			[HttpMethods.Get, HttpMethods.Delete]);
+
+		group.MapHtmxorComponentEndpoint(descriptor, []);
+
+		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
+	}
+
+	[Fact]
 	public async Task Bridge_fails_closed_before_mapping_when_explicit_methods_conflict_with_a_binding()
 	{
 		var fixture = DynamicComponentAssembly.Create(
@@ -397,6 +416,8 @@ public sealed class HtmxorAttributedRouteCatalogTests
 			.ToArray();
 
 	private sealed record GroupMetadata(string Value);
+
+	private sealed record TestAntiforgeryMetadata(bool RequiresValidation) : IAntiforgeryMetadata;
 
 	private sealed record ComponentDefinition(
 		string TypeName,
