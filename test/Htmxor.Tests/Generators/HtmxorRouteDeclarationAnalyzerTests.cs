@@ -111,6 +111,72 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
+	public async Task CSharp_line_mapping_cannot_waive_the_methods_requirement()
+	{
+		var componentPath = ComponentPath("AllCSharpComponent.cs");
+		var razorPath = ComponentPath("AllCSharpComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}};
+
+			#line 12 "{{EscapePath(razorPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/csharp/{Id:int}")]
+			#line default
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("csharp.read")]
+			public sealed class AllCSharpComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { razorPath },
+			new[] { componentPath });
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal(
+			"Unsupported HTMX-only route declaration: " +
+			"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods",
+			diagnostic.GetMessage());
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+	}
+
+	[Fact]
+	public async Task Same_named_Razor_binding_cannot_attach_to_all_CSharp_component()
+	{
+		var componentPath = ComponentPath("ReportComponent.cs");
+		var razorPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Htmxor.HtmxRouteAttribute("/reports/{Id:int}", Methods = ["GET", "DELETE"])]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task DeleteReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			razorPath,
+			"""
+			<button @ondelete="DeleteReport">Delete</button>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(
+			source,
+			razor,
+			sourcePath: componentPath);
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains(
+			"the action owner must compile from the matching project-root Razor component",
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		Assert.Equal(razorPath, diagnostic.Location.GetLineSpan().Path);
+	}
+
+	[Fact]
 	public async Task Unsupported_second_declaration_reports_one_mapped_nonconfigurable_diagnostic()
 	{
 		var reportPath = ComponentPath("ReportComponent.razor");
@@ -725,12 +791,15 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		IEnumerable<string>? sourcePaths = null)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var additionalPaths = razorPaths.ToArray();
 		var paths = sourcePaths?.ToArray();
 		var trees = sources
 			.Select((source, index) => CSharpSyntaxTree.ParseText(
 				source,
 				parseOptions,
-				paths is null ? $"Component{index}.razor.g.cs" : paths[index]))
+				paths is null
+					? RazorGeneratedPath(Path.GetFileNameWithoutExtension(additionalPaths[index]))
+					: paths[index]))
 			.ToImmutableArray();
 		var compilation = CSharpCompilation.Create(
 			"Htmxor.Analyzer.Tests",
@@ -739,7 +808,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		Assert.Empty(compilation.GetDiagnostics().Where(
 			static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
-		var additionalFiles = razorPaths
+		var additionalFiles = additionalPaths
 			.Select(static path => new ThrowingAdditionalText(path))
 			.ToImmutableArray<AdditionalText>();
 		var analyzerOptions = new AnalyzerOptions(
@@ -761,12 +830,16 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
 		string source,
 		AdditionalText razor,
-		bool includeRouteAnalyzer = false)
+		bool includeRouteAnalyzer = false,
+		string? sourcePath = null)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 		var compilation = CSharpCompilation.Create(
 			"Htmxor.ActionAnalyzer.Tests",
-			new[] { CSharpSyntaxTree.ParseText(source, parseOptions, "ReportComponent.razor.g.cs") },
+			new[] { CSharpSyntaxTree.ParseText(
+				source,
+				parseOptions,
+				sourcePath ?? RazorGeneratedPath("ReportComponent")) },
 			References,
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		Assert.Empty(compilation.GetDiagnostics().Where(
@@ -787,6 +860,12 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 				analyzerOptions)
 			.GetAnalyzerDiagnosticsAsync();
 	}
+
+	private static string RazorGeneratedPath(string componentName)
+		=> Path.Combine(
+			"Microsoft.CodeAnalysis.Razor.Compiler",
+			"Microsoft.NET.Sdk.Razor.SourceGenerators.RazorSourceGenerator",
+			componentName + "_razor.g.cs");
 
 	private static ImmutableArray<MetadataReference> CreateReferences()
 	{
