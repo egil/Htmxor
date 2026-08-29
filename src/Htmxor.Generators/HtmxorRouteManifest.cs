@@ -94,6 +94,16 @@ internal static class HtmxorRouteManifest
 				StringComparison.Ordinal));
 	}
 
+	public static bool IsMatchingRazorCodeBehind(
+		INamedTypeSymbol type,
+		string path)
+		=> string.Equals(
+			Path.GetFileName(path),
+			type.Name + ".razor.cs",
+			Path.DirectorySeparatorChar == '\\'
+				? StringComparison.OrdinalIgnoreCase
+				: StringComparison.Ordinal);
+
 	public static bool IsRazorGeneratedPath(string path)
 	{
 		// This compiler-owned path is the ownership fence when a same-named Razor file
