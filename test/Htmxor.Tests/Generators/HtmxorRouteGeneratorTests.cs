@@ -197,6 +197,39 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	[Fact]
+	public void Razor_generated_omitted_methods_candidate_does_not_suppress_Razor_manifest()
+	{
+		const string source = """
+			namespace Htmxor.Consumer;
+
+			[global::Htmxor.HtmxRouteAttribute("/razor")]
+			internal sealed class RazorControl : global::Microsoft.AspNetCore.Components.ComponentBase;
+			""";
+		var generatedPath = Path.Combine(
+			"obj",
+			"generated",
+			"Microsoft.CodeAnalysis.Razor.Compiler",
+			"Microsoft.NET.Sdk.Razor.SourceGenerators.RazorSourceGenerator",
+			"RazorControl_razor.g.cs");
+		var run = RunGeneratorWithCSharpSourceAtPath(
+			source,
+			generatedPath,
+			"RazorControl.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.RazorControl\"",
+			generatedSource,
+			StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void Equivalent_CSharp_route_candidate_is_unchanged_on_incremental_rerun()
 	{
 		var equivalentSource = AllCSharpComponent.Replace(
