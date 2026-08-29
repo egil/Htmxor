@@ -10,8 +10,7 @@ namespace Htmxor;
 public enum SwapStyle
 {
 	/// <summary>
-	/// Default style is what is specified in <see cref="HtmxConfig.DefaultSwapStyle"/> for the application
-	/// or htmx's default, which is <see cref="innerHTML"/>.
+	/// Uses the default swap style configured by the application-owned htmx runtime.
 	/// </summary>
 	/// <remarks>
 	/// This SwapStyle cannot be used directly in markup

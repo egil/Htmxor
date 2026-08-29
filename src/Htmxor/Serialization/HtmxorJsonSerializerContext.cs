@@ -10,11 +10,8 @@ namespace Htmxor.Serialization;
 	UseStringEnumConverter = true,
 	GenerationMode = JsonSourceGenerationMode.Default,
 	Converters = [
-		typeof(TimespanMillisecondJsonConverter),
 		typeof(SwapStyleEnumConverter),
-		typeof(JsonCamelCaseStringEnumConverter<ScrollBehavior>),
 	])]
-[JsonSerializable(typeof(HtmxConfig))]
 [JsonSerializable(typeof(LocationTarget))]
 [JsonSerializable(typeof(AjaxContext))]
 internal sealed partial class HtmxorJsonSerializerContext : JsonSerializerContext

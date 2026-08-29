@@ -1,11 +1,9 @@
 using Htmxor;
-using Htmxor.Antiforgery;
 using Htmxor.Builder;
 using Htmxor.DependencyInjection;
 using Htmxor.Endpoints;
 using Htmxor.Http;
 using Htmxor.Rendering;
-using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
@@ -14,7 +12,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 
 #pragma warning disable IDE0130
 namespace Microsoft.Extensions.DependencyInjection;
@@ -27,24 +24,14 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class HtmxorApplicationBuilderExtensions
 {
 	/// <summary>
-	/// Add and configure Htmx.
+	/// Adds Htmxor's server integration.
 	/// </summary>
 	/// <param name="razorComponentsBuilder"></param>
-	/// <param name="configureHtmx"></param>
-	public static IRazorComponentsBuilder AddHtmx(this IRazorComponentsBuilder razorComponentsBuilder, Action<HtmxConfig>? configureHtmx = null)
+	public static IRazorComponentsBuilder AddHtmx(this IRazorComponentsBuilder razorComponentsBuilder)
 	{
 		ArgumentNullException.ThrowIfNull(razorComponentsBuilder);
 		var services = razorComponentsBuilder.Services;
 		services.AddHttpContextAccessor();
-		services.AddSingleton(serviceProvider =>
-		{
-			var config = new HtmxConfig
-			{
-				Antiforgery = new HtmxorAntiforgeryOptions(serviceProvider.GetRequiredService<IOptions<AntiforgeryOptions>>()),
-			};
-			configureHtmx?.Invoke(config);
-			return config;
-		});
 		services.AddScoped(serviceProvider =>
 		{
 			var httpContext = serviceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext
@@ -61,9 +48,9 @@ public static class HtmxorApplicationBuilderExtensions
 	}
 
 	// The legacy test application retains the prototype pipeline while its deferred behaviors are characterized.
-	internal static IRazorComponentsBuilder AddLegacyHtmx(this IRazorComponentsBuilder razorComponentsBuilder, Action<HtmxConfig>? configureHtmx = null)
+	internal static IRazorComponentsBuilder AddLegacyHtmx(this IRazorComponentsBuilder razorComponentsBuilder)
 	{
-		AddHtmx(razorComponentsBuilder, configureHtmx);
+		AddHtmx(razorComponentsBuilder);
 		var services = razorComponentsBuilder.Services;
 
 		// Override routing
