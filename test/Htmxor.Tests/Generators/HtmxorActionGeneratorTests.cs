@@ -201,6 +201,23 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	[Fact]
+	public void Binding_after_prior_self_closing_component_markup_fails_closed()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<InputText @bind-Value="InputValue" />
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
 	public void Omitted_methods_component_binding_after_prior_markup_emits_a_compiling_action()
 	{
 		var run = RunGenerators(new RazorInput(
