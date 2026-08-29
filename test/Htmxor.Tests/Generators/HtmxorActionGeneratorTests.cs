@@ -165,6 +165,42 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	[Fact]
+	public void Stock_page_html_binding_after_prior_markup_emits_a_compiling_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<p>Review the report before saving.</p>
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
+	public void Omitted_methods_component_binding_after_prior_markup_emits_a_compiling_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@attribute [Htmxor.HtmxRoute("/reports/{ReportId:int}")]
+			<p>Review the report before saving.</p>
+			<InputText @bind-Value="InputValue" @onpatch="PatchReport" />
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PatchReport", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
 	public void Multiple_unsafe_bindings_on_one_html_tag_emit_distinct_compiling_actions()
 	{
 		var run = RunGenerators(new RazorInput(
