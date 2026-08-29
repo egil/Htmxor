@@ -81,7 +81,11 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 		HtmxorComponentActionDeclaration declaration,
 		HtmxorRouteSymbols symbols)
 	{
-		var componentReason = GetComponentUnsupportedReason(compilation, component, declaration.HandlerName);
+		var componentReason = GetComponentUnsupportedReason(
+			compilation,
+			component,
+			declaration.HandlerName,
+			declaration.Path);
 		if (componentReason is not null)
 		{
 			return componentReason;
@@ -129,11 +133,13 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 	private static string? GetComponentUnsupportedReason(
 		Compilation compilation,
 		INamedTypeSymbol? component,
-		string? handlerName)
+		string? handlerName,
+		string razorPath)
 	{
-		if (component is null)
+		if (component is null ||
+			!HtmxorRouteManifest.HasCompiledRazorDeclaration(component, razorPath))
 		{
-			return "the action owner must compile as a project-root Razor component";
+			return "the action owner must compile from the matching project-root Razor component";
 		}
 
 		return handlerName is not null && HasUnsupportedHandlerMember(compilation, component, handlerName)

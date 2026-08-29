@@ -71,15 +71,15 @@ internal static class ProjectRootComponentManifest
 			: rootNamespace + "." + componentName;
 	}
 
-	private static bool PathsEqual(string? left, string right)
-		=> left is not null && string.Equals(
+	internal static bool PathsEqual(string? left, string right)
+		=> !string.IsNullOrEmpty(left) && string.Equals(
 			Path.GetFullPath(left),
 			Path.GetFullPath(right),
 			Path.DirectorySeparatorChar == '\\'
 				? StringComparison.OrdinalIgnoreCase
 				: StringComparison.Ordinal);
 
-	private static bool TryGetProject(
+	internal static bool TryGetProject(
 		AnalyzerConfigOptionsProvider optionsProvider,
 		out string projectDirectory,
 		out string rootNamespace)

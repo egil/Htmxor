@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Htmxor.Generators;
 
@@ -35,9 +36,10 @@ internal sealed class HtmxorRoutedComponent
 	public string? GetUnsupportedReason(
 		HtmxorRouteSymbols symbols,
 		ImmutableHashSet<string> manifest,
+		AnalyzerConfigOptionsProvider optionsProvider,
 		int routedComponentCount,
 		CancellationToken cancellationToken)
-		=> ValidateManifest(manifest) ??
+		=> ValidateManifest(manifest, optionsProvider) ??
 			ValidateComponent(symbols) ??
 			ValidateRoute() ??
 			ValidateRouteOrigin(cancellationToken) ??
@@ -57,10 +59,59 @@ internal sealed class HtmxorRoutedComponent
 		return attributeLocation ?? Type.Locations.FirstOrDefault() ?? Location.None;
 	}
 
-	private string? ValidateManifest(ImmutableHashSet<string> manifest)
-		=> manifest.Contains(GetMetadataName())
-			? null
-			: "the HtmxRoute component must be a project-root Razor component";
+	private string? ValidateManifest(
+		ImmutableHashSet<string> manifest,
+		AnalyzerConfigOptionsProvider optionsProvider)
+	{
+		if (Routes.All(static route =>
+			route.ApplicationSyntaxReference is { } reference &&
+			HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath)))
+		{
+			return manifest.Contains(GetMetadataName())
+				? null
+				: "the HtmxRoute component must be a project-root Razor component";
+		}
+
+		var csharpComponent = GetCSharpComponent();
+		if (csharpComponent is null)
+		{
+			return "the HtmxRoute component must be a project-root Razor component";
+		}
+
+		if (!HtmxorRouteManifest.IsProjectRoot(csharpComponent, optionsProvider))
+		{
+			return "the HtmxRoute component must be a project-root Razor component";
+		}
+
+		return Routes.Length == 1 && !csharpComponent.HasExplicitMethods
+			? "a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods"
+			: null;
+	}
+
+	private CSharpRoutedComponent? GetCSharpComponent()
+	{
+		if (Type.ContainingType is not null)
+		{
+			return null;
+		}
+
+		var path = Routes
+			.Select(static route => route.ApplicationSyntaxReference?.SyntaxTree.FilePath)
+			.FirstOrDefault(static candidate =>
+				!string.IsNullOrEmpty(candidate) &&
+				!HtmxorRouteManifest.IsRazorGeneratedPath(candidate!));
+		if (path is null)
+		{
+			return null;
+		}
+
+		return new CSharpRoutedComponent(
+			GetMetadataName(),
+			Type.ContainingNamespace.ToDisplayString(),
+			path,
+			Routes.Length == 1 && Routes[0].NamedArguments.Any(static argument =>
+				string.Equals(argument.Key, "Methods", StringComparison.Ordinal)));
+	}
 
 	private string? ValidateComponent(HtmxorRouteSymbols symbols)
 	{

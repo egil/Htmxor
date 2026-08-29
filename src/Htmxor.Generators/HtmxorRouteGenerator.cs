@@ -12,16 +12,31 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 {
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
-		var projectRootComponents = context.AdditionalTextsProvider
+		var razorComponents = context.AdditionalTextsProvider
 			.Where(static file => file.Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase))
-			.Collect()
+			.Collect();
+		var csharpComponents = context.SyntaxProvider
+			.ForAttributeWithMetadataName(
+				"Htmxor.HtmxRouteAttribute",
+				static (_, _) => true,
+				static (attributeContext, _) =>
+					HtmxorRouteManifest.GetCSharpComponent(attributeContext))
+			.WithTrackingName("CSharpRouteCandidates")
+			.Where(static component => component is not null)
+			.Select(static (component, _) => component!)
+			.Collect();
+		var projectRootComponents = razorComponents
+			.Combine(csharpComponents)
 			.Combine(context.AnalyzerConfigOptionsProvider);
 
 		context.RegisterSourceOutput(
 			projectRootComponents,
 			static (productionContext, input) => Emit(
 				productionContext,
-				ProjectRootComponentManifest.GetTypeNames(input.Left, input.Right)));
+				HtmxorRouteManifest.GetTypeNames(
+					input.Left.Left,
+					input.Left.Right,
+					input.Right)));
 	}
 
 	private static void Emit(
