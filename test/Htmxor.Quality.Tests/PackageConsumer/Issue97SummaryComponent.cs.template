@@ -1,0 +1,65 @@
+using Htmxor;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+namespace Htmxor.PackageConsumer;
+
+[HtmxRoute("/summaries/{SummaryId:int}", Methods = ["GET"])]
+[Authorize(Policy = "issue-97-summary-policy")]
+[Host("summaries.internal.example")]
+public sealed class Issue97SummaryComponent : ComponentBase
+{
+	private bool lifecycleReady;
+
+	[Parameter]
+	public string? SummaryId { get; set; }
+
+	[CascadingParameter]
+	private HttpContext HttpContext { get; set; } = default!;
+
+	[Inject]
+	private Issue100RequestProbe RequestProbe { get; set; } = default!;
+
+	private string? GroupMarker
+		=> HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue97GroupMetadata>()?.Value;
+
+	protected override void OnInitialized()
+	{
+		RequestProbe.RecordInitialization();
+	}
+
+	protected override void OnParametersSet()
+	{
+		lifecycleReady = true;
+		RequestProbe.RecordBinding();
+	}
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "button");
+		builder.AddAttribute(1, "hx-delete", "/issue-97-group/summaries/" + SummaryId);
+		builder.AddAttribute(
+			2,
+			"ondelete",
+			EventCallback.Factory.Create<HtmxEventArgs>(this, DeleteSummary));
+		builder.AddContent(3, "No server action");
+		builder.CloseElement();
+
+		builder.OpenElement(4, "section");
+		builder.AddAttribute(5, "data-issue-97-summary-component", string.Empty);
+		builder.OpenElement(6, "p");
+		builder.AddAttribute(7, "data-summary-request-values", string.Empty);
+		builder.AddContent(
+			8,
+			$"{SummaryId}|{HttpContext.User.Identity?.Name}|{GroupMarker}|" +
+			$"{RequestProbe.BindingCount}|{RequestProbe.InitializationCount}|" +
+			lifecycleReady.ToString().ToLowerInvariant());
+		builder.CloseElement();
+		builder.CloseElement();
+	}
+
+	private void DeleteSummary(HtmxEventArgs _) => RequestProbe.RecordCallback();
+}

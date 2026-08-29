@@ -12,9 +12,11 @@ public sealed class PackedPackageConsumerTests
 		"exactly one stock route and no HtmxRoute";
 	private const string ExplicitMethodsConflictMessage =
 		"explicit HtmxRoute.Methods is authoritative";
+	private const string MissingCSharpMethodsMessage =
+		"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods";
 
 	[Fact]
-	public async Task Package_only_application_infers_stock_and_htmx_only_unsafe_actions()
+	public async Task Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		workspace.UseLaterPageDirectiveLikeComment();
@@ -26,9 +28,26 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(14, 14, 14, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(12, 12, 12, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
+	}
+
+	[Fact]
+	public async Task Package_only_application_preserves_actionless_unsafe_route_antiforgery()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseActionlessUnsafeSummaryRoute();
+
+		var result = await workspace.RunAsync();
+		var testRun = TrxTestRun.Read(workspace.TrxPath);
+
+		Assert.True(
+			result.ExitCode == 0,
+			result.StandardOutput + Environment.NewLine + result.StandardError +
+			Environment.NewLine + $"TRX: {testRun}");
+		Assert.Equal(new TrxTestRun(14, 14, 14, 0, 0, 0, 0), testRun);
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 
 	[Fact]
@@ -81,6 +100,26 @@ public sealed class PackedPackageConsumerTests
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
+
+	[Fact]
+	public async Task Package_only_application_rejects_a_CSharp_route_without_methods()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseAllCSharpRouteWithoutMethods();
+
+		var result = await workspace.BuildForDiagnosticAsync();
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+
+		Assert.NotEqual(0, result.ExitCode);
+		Assert.Contains("HTMXOR001", output, StringComparison.Ordinal);
+		Assert.Contains("Issue97SummaryComponent.cs", output, StringComparison.Ordinal);
+		Assert.Contains(MissingCSharpMethodsMessage, output, StringComparison.Ordinal);
+		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
+		var routeRegistration = workspace.ReadGeneratedRouteRegistration();
+		Assert.Contains("Issue97ReportComponent", routeRegistration, StringComparison.Ordinal);
+		Assert.DoesNotContain("Issue97SummaryComponent", routeRegistration, StringComparison.Ordinal);
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+	}
 }
 
 internal sealed class PackageConsumerWorkspace : IDisposable
@@ -94,6 +133,7 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 	private readonly string resultsDirectory;
 	private readonly string projectPath;
 	private readonly string nugetConfigPath;
+	private readonly string generatedSourcesDirectory;
 	private readonly ProcessRunner runner = new();
 
 	public PackageConsumerWorkspace(string repositoryRoot)
@@ -105,6 +145,7 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 		resultsDirectory = Path.Combine(temporaryDirectory.Path, "results");
 		projectPath = Path.Combine(consumerDirectory, "Htmxor.PackageConsumer.csproj");
 		nugetConfigPath = Path.Combine(consumerDirectory, "NuGet.config");
+		generatedSourcesDirectory = Path.Combine(consumerDirectory, "obj", "generated");
 		Directory.CreateDirectory(consumerDirectory);
 		Directory.CreateDirectory(packageDirectory);
 		StageConsumer();
@@ -124,6 +165,16 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 	public string PackageVersion { get; } = $"0.0.0-issue97-{Guid.NewGuid():N}";
 
 	public string TrxPath => Path.Combine(resultsDirectory, "package-consumer.trx");
+
+	public string ReadGeneratedRouteRegistration()
+	{
+		var path = Assert.Single(
+			Directory.EnumerateFiles(
+				generatedSourcesDirectory,
+				"HtmxorGeneratedRouteRegistration.g.cs",
+				SearchOption.AllDirectories));
+		return File.ReadAllText(path);
+	}
 
 	public async Task<ProcessResult> RunAsync()
 	{
@@ -171,23 +222,107 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 	{
 		var componentPath = Path.Combine(
 			consumerDirectory,
-			"Issue97ReportComponent.razor");
+			"Issue97ReportComponent.razor.cs");
 		var source = File.ReadAllText(componentPath);
-		const string omittedMethods =
-			"Htmxor.HtmxRoute(\"/htmx-reports/{ReportId:int}\")";
-		const string explicitMethods =
-			"Htmxor.HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = new[] { \"GET\" })";
+		const string supportedMethods =
+			"HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = [\"GET\", \"PATCH\"])";
+		const string conflictingMethods =
+			"HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = [\"GET\"])";
 		var rewritten = source.Replace(
-			omittedMethods,
-			explicitMethods,
+			supportedMethods,
+			conflictingMethods,
 			StringComparison.Ordinal);
 		if (string.Equals(source, rewritten, StringComparison.Ordinal))
 		{
 			throw new InvalidOperationException(
-				"The staged package consumer must contain one omitted-Methods report route.");
+				"The staged package consumer must contain one explicit GET/PATCH report route.");
 		}
 
 		File.WriteAllText(componentPath, rewritten);
+	}
+
+	public void UseAllCSharpRouteWithoutMethods()
+	{
+		var componentPath = Path.Combine(
+			consumerDirectory,
+			"Issue97SummaryComponent.cs");
+		var source = File.ReadAllText(componentPath);
+		const string explicitMethods =
+			"HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [\"GET\"])";
+		const string omittedMethods =
+			"HtmxRoute(\"/summaries/{SummaryId:int}\")";
+		var rewritten = source.Replace(
+			explicitMethods,
+			omittedMethods,
+			StringComparison.Ordinal);
+		if (string.Equals(source, rewritten, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged package consumer must contain one explicit-Methods all-C# route.");
+		}
+
+		File.WriteAllText(componentPath, rewritten);
+
+		var scenarioPath = Path.Combine(
+			repositoryRoot,
+			"test",
+			"Htmxor.Quality.Tests",
+			"PackageConsumer",
+			"Issue97SummaryComponent.razor.scenario");
+		File.Copy(
+			scenarioPath,
+			Path.Combine(consumerDirectory, "Issue97SummaryComponent.razor"));
+	}
+
+	public void UseActionlessUnsafeSummaryRoute()
+	{
+		var componentPath = Path.Combine(
+			consumerDirectory,
+			"Issue97SummaryComponent.cs");
+		var componentSource = File.ReadAllText(componentPath);
+		const string getOnlyRoute =
+			"HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [\"GET\"])";
+		const string unsafeRoute =
+			"HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [\"GET\", \"DELETE\"])";
+		var rewrittenComponent = componentSource.Replace(
+			getOnlyRoute,
+			unsafeRoute,
+			StringComparison.Ordinal);
+		if (string.Equals(componentSource, rewrittenComponent, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged package consumer must contain one explicit-GET all-C# route.");
+		}
+
+		File.WriteAllText(componentPath, rewrittenComponent);
+
+		var projectSource = File.ReadAllText(projectPath);
+		const string rootNamespace =
+			"<RootNamespace>Htmxor.PackageConsumer</RootNamespace>";
+		var scenarioProperties =
+			rootNamespace + Environment.NewLine +
+			"\t\t<DefineConstants>ISSUE103_ACTIONLESS_UNSAFE</DefineConstants>";
+		var rewrittenProject = projectSource.Replace(
+			rootNamespace,
+			scenarioProperties,
+			StringComparison.Ordinal);
+		if (string.Equals(projectSource, rewrittenProject, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged package consumer project must contain its root namespace property.");
+		}
+
+		File.WriteAllText(projectPath, rewrittenProject);
+
+		var scenarioPath = Path.Combine(
+			repositoryRoot,
+			"test",
+			"Htmxor.Quality.Tests",
+			"PackageConsumer",
+			"Issue103ActionlessUnsafeTests.cs.scenario");
+		File.Copy(
+			scenarioPath,
+			Path.Combine(consumerDirectory, "Issue103ActionlessUnsafeTests.cs"));
 	}
 
 	public void UseLaterPageDirectiveLikeComment()
@@ -334,6 +469,8 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 				"--configuration",
 				"Release",
 				"--no-restore",
+				"-p:EmitCompilerGeneratedFiles=true",
+				$"-p:CompilerGeneratedFilesOutputPath={generatedSourcesDirectory}",
 			],
 			EnsureSuccess: false));
 
@@ -429,9 +566,19 @@ internal static class PackageConsumerEvidence
 		var razorSource = string.Join(
 			Environment.NewLine,
 			Directory.EnumerateFiles(consumerDirectory, "*.razor").Select(File.ReadAllText));
-		var summarySource = File.ReadAllText(Path.Combine(
+		var summaryPath = Path.Combine(
 			consumerDirectory,
-			"Issue97SummaryComponent.razor"));
+			"Issue97SummaryComponent.cs");
+		var summaryRazorPath = Path.Combine(
+			consumerDirectory,
+			"Issue97SummaryComponent.razor");
+		Assert.True(
+			File.Exists(summaryPath),
+			"The summary tracer must be authored exclusively in C#.");
+		Assert.False(
+			File.Exists(summaryRazorPath),
+			"The all-C# summary tracer must not have a companion Razor file.");
+		var summarySource = File.ReadAllText(summaryPath);
 		var reportSource = File.ReadAllText(Path.Combine(
 			consumerDirectory,
 			"Issue97ReportComponent.razor"));
@@ -446,17 +593,17 @@ internal static class PackageConsumerEvidence
 			consumerDirectory,
 			"Issue100ReportPage.razor"));
 		const string reportRoute =
-			"@attribute [Htmxor.HtmxRoute(\"/htmx-reports/{ReportId:int}\")]";
+			"[HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = [\"GET\", \"PATCH\"])]";
 		const string summaryRoute =
-			"@attribute [Htmxor.HtmxRoute(SummaryRoute, Methods = [ SummaryGetMethod, SummaryDeleteMethod ])]";
-		const string summaryAuthorization = "@attribute [Authorize(SummaryPolicy)]";
+			"[HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [\"GET\"])]";
 		const string pageRoute = "@page \"/reports/{ReportId:int}\"";
 
 		Assert.Equal(1, Count(applicationSource, "AddHtmxorComponentEndpoints(routes)"));
 		Assert.Equal(1, Count(applicationSource, "MapGroup(RoutePrefix)"));
 		Assert.Equal(1, Count(applicationSource, "MapRazorComponents<Issue97App>()"));
-		Assert.Equal(2, Count(razorSource, "Htmxor.HtmxRoute"));
-		Assert.Equal(3, Count(razorSource, "Authorize"));
+		Assert.Equal(2, Count(applicationSource, "HtmxRoute("));
+		Assert.Equal(0, Count(razorSource, "HtmxRoute("));
+		Assert.Equal(2, Count(razorSource, "@attribute [Authorize"));
 		Assert.Equal(2, Count(razorSource, "hx-put="));
 		Assert.Equal(1, Count(razorSource, "hx-patch="));
 		Assert.Equal(1, Count(razorSource, "hx-delete="));
@@ -465,12 +612,22 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(1, Count(razorSource, "@ondelete=\"DeleteReport\""));
 		Assert.Equal(1, Count(pageSource, pageRoute));
 		Assert.Equal(1, Count(pageSource, "@onput=\"PutReport\""));
-		Assert.Equal(1, Count(reportSource, reportRoute));
+		Assert.DoesNotContain("HtmxRoute(", reportSource, StringComparison.Ordinal);
+		Assert.Equal(1, Count(reportSource, "hx-put="));
+		Assert.Equal(1, Count(reportSource, "@onpatch=\"PatchReport\""));
 		Assert.DoesNotContain("@onput", reportSource, StringComparison.Ordinal);
+		Assert.Equal(1, Count(reportPartialSource, reportRoute));
 		Assert.Equal(1, Count(reportPartialSource, "private void PatchReport(HtmxEventArgs _)"));
 		Assert.Equal(1, Count(summarySource, summaryRoute));
-		Assert.Equal(1, Count(summarySource, summaryAuthorization));
-		AssertSummaryDirectiveOrdering(summarySource, summaryRoute, summaryAuthorization);
+		Assert.Equal(1, Count(summarySource, "[Authorize("));
+		Assert.Contains(
+			"protected override void BuildRenderTree(RenderTreeBuilder builder)",
+			summarySource,
+			StringComparison.Ordinal);
+		Assert.Equal(1, Count(summarySource, "\"hx-delete\""));
+		Assert.Equal(1, Count(summarySource, "\"ondelete\""));
+		Assert.Equal(1, Count(summarySource, "EventCallback.Factory.Create<HtmxEventArgs>"));
+		Assert.Equal(1, Count(summarySource, "private void DeleteSummary(HtmxEventArgs _)"));
 		Assert.DoesNotContain("InternalsVisibleTo", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("Issue91GeneratedRoute", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain(
@@ -481,37 +638,6 @@ internal static class PackageConsumerEvidence
 		Assert.DoesNotContain("MapGet(", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapPut(", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapMethods(", applicationSource, StringComparison.Ordinal);
-	}
-
-	private static void AssertSummaryDirectiveOrdering(
-		string summarySource,
-		string summaryRoute,
-		string summaryAuthorization)
-	{
-		var usingIndex = summarySource.IndexOf(
-			"@using Microsoft.AspNetCore.Authorization",
-			StringComparison.Ordinal);
-		var codeIndex = summarySource.IndexOf("@code {", StringComparison.Ordinal);
-		var commentLikeTextIndex = summarySource.IndexOf(
-			"private const string RazorCommentLikeText = \"@*\";",
-			StringComparison.Ordinal);
-		var routeIndex = summarySource.IndexOf(summaryRoute, StringComparison.Ordinal);
-		var authorizeIndex = summarySource.IndexOf(summaryAuthorization, StringComparison.Ordinal);
-		var markupIndex = summarySource.IndexOf(
-			"<section data-issue-97-summary-component>",
-			StringComparison.Ordinal);
-
-		int[] directiveOrder =
-		[
-			usingIndex,
-			markupIndex,
-			codeIndex,
-			commentLikeTextIndex,
-			routeIndex,
-			authorizeIndex,
-		];
-		Assert.DoesNotContain(-1, directiveOrder);
-		Assert.Equal(directiveOrder.Order(), directiveOrder);
 	}
 
 	private static void AssertRuntimeDependencies(string consumerDirectory)

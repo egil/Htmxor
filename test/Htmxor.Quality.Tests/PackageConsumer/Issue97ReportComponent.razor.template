@@ -1,10 +1,10 @@
-@attribute [Htmxor.HtmxRoute("/htmx-reports/{ReportId:int}")]
 @attribute [Authorize(Policy = "issue-97-report-policy")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @inject Issue100RequestProbe RequestProbe
 
 <InputText @bind-Value="InputValue"
+           hx-put="/issue-97-group/htmx-reports/42"
            hx-patch="/issue-97-group/htmx-reports/42"
            @onpatch="PatchReport" />
 
