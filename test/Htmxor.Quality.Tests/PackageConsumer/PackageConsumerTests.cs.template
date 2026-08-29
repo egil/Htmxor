@@ -155,8 +155,10 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			endpoints,
 			SummaryDeclaredRoute,
 			SummaryPolicyName,
-			[HttpMethods.Get]);
+			[HttpMethods.Get, HttpMethods.Delete],
+			[HttpMethods.Get, HttpMethods.Delete]);
 		AssertHost(endpoint, SummaryHost);
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 
 		await AssertUnavailableAsync(
 			SummaryRequestPath,
@@ -188,6 +190,63 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			PackageConsumerAuthenticationHandler.SummaryUserName,
 			SummaryHost,
 			HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task Explicit_delete_without_an_action_validates_then_renders_the_request_component()
+	{
+		var (token, cookie, _) = await GetAntiforgeryCredentialsAsync(
+			PackageConsumerAuthenticationHandler.AllAccessUserName);
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Delete,
+			SummaryRequestPath,
+			SummaryHost,
+			PackageConsumerAuthenticationHandler.AllAccessUserName,
+			cookie,
+			token);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Contains("data-issue-97-summary-component", body, StringComparison.Ordinal);
+		Assert.Equal(1, applicationProbe.BindingCount);
+		Assert.Equal(1, applicationProbe.InitializationCount);
+		Assert.Equal(0, applicationProbe.CallbackCount);
+	}
+
+	[Theory]
+	[InlineData(null)]
+	[InlineData("invalid-token")]
+	public async Task Explicit_delete_without_an_action_rejects_antiforgery_before_component_lifecycle(string? token)
+	{
+		var (_, cookie, _) = await GetAntiforgeryCredentialsAsync(
+			PackageConsumerAuthenticationHandler.AllAccessUserName);
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Delete,
+			SummaryRequestPath,
+			SummaryHost,
+			PackageConsumerAuthenticationHandler.AllAccessUserName,
+			cookie,
+			token);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.BadRequest &&
+			applicationProbe.BindingCount == 0 &&
+			applicationProbe.InitializationCount == 0 &&
+			applicationProbe.CallbackCount == 0,
+			$"Expected antiforgery rejection before component lifecycle. " +
+			$"Received {(int)response.StatusCode} {response.StatusCode}; " +
+			$"binding={applicationProbe.BindingCount}, " +
+			$"initialization={applicationProbe.InitializationCount}, " +
+			$"callback={applicationProbe.CallbackCount}. Body: {body}");
+		Assert.DoesNotContain("data-issue-97-summary-component", body, StringComparison.Ordinal);
+		AssertNoApplicationCodeRan();
 	}
 
 	[Fact]
@@ -411,19 +470,20 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		AssertNoApplicationCodeRan();
 	}
 
-	private async Task<(string Token, string Cookie, string RequestId)> GetAntiforgeryCredentialsAsync()
+	private async Task<(string Token, string Cookie, string RequestId)> GetAntiforgeryCredentialsAsync(
+		string userName = PackageConsumerAuthenticationHandler.ReportUserName)
 	{
 		using var response = await SendAsync(
 			PageRequestPath + "?source=from-query",
 			direct: false,
-			PackageConsumerAuthenticationHandler.ReportUserName,
+			userName,
 			ReportHost);
 		var body = await response.Content.ReadAsStringAsync();
 		Assert.True(response.StatusCode == HttpStatusCode.OK, body);
 		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
 		Assert.Contains("data-issue-100-report-page", body, StringComparison.Ordinal);
 		Assert.Contains(
-			"data-page-request-values>42|from-query|issue-97-report-user</p>",
+			$"data-page-request-values>42|from-query|{userName}</p>",
 			body,
 			StringComparison.Ordinal);
 
@@ -575,7 +635,8 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 		IEnumerable<RouteEndpoint> endpoints,
 		string declaredRoute,
 		string policyName,
-		IReadOnlyList<string> expectedMethods)
+		IReadOnlyList<string> expectedMethods,
+		IReadOnlyList<string>? declaredMethods = null)
 	{
 		var endpoint = Assert.Single(endpoints, endpoint =>
 			endpoint.Metadata.GetRequiredMetadata<ComponentTypeMetadata>().Type == typeof(TComponent));
@@ -588,7 +649,7 @@ public sealed class PackageConsumerTests : IAsyncLifetime
 			endpoint.Metadata.GetRequiredMetadata<Issue97GroupMetadata>());
 		var route = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
 		Assert.Equal(declaredRoute, route.Template);
-		Assert.Equal(new[] { HttpMethods.Get }, route.Methods);
+		Assert.Equal(declaredMethods ?? [HttpMethods.Get], route.Methods);
 		var authorization = Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>());
 		Assert.Equal(policyName, authorization.Policy);
 
@@ -650,6 +711,7 @@ internal sealed class PackageConsumerAuthenticationHandler(
 	public const string SummaryAccess = "summary";
 	public const string ReportUserName = "issue-97-report-user";
 	public const string SummaryUserName = "issue-97-summary-user";
+	public const string AllAccessUserName = "issue-103-all-access-user";
 
 	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
 	{
@@ -676,6 +738,12 @@ internal sealed class PackageConsumerAuthenticationHandler(
 			SummaryUserName =>
 			[
 				new Claim(ClaimTypes.Name, userName),
+				new Claim(AccessClaim, SummaryAccess),
+			],
+			AllAccessUserName =>
+			[
+				new Claim(ClaimTypes.Name, userName),
+				new Claim(AccessClaim, ReportAccess),
 				new Claim(AccessClaim, SummaryAccess),
 			],
 			_ => [new Claim(ClaimTypes.Name, userName)],
