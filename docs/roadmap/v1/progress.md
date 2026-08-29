@@ -682,10 +682,18 @@ handler, renderer copy, private reflection, or global Blazor service replacement
 - The first audit packed-package rerun in the sandbox discovered and executed 4 outer tests, but all 4 failed during fresh temporary-consumer restore with `NU1301` because network access was denied. It was setup evidence, not product evidence; the identical command with network access produced the passing packed-package result above.
 - The first sandboxed post-rebase locked restore failed with `NU1301` because NuGet network access was denied; it was setup evidence and its chained no-restore test had no valid restored input. The same `dotnet restore --locked-mode` outside that boundary succeeded before all reported post-rebase proofs.
 - Issue #103's exact-head proofs used .NET SDK 10.0.400 on Microsoft Windows NT 10.0.26200.0. The full profile's existing Chromium fixture still used embedded htmx 1.9.12 and did not exercise issue #103's package routes or application-supplied htmx 4.0.0. Mutation testing was not run; it is optional for this proof of concept.
+- Issue #106 started from freshly fetched exact `origin/main` `a489f30f7a20ec801fe52b5ab4f894382d1d9c90`. Live issue #106 and parent #77 were open, neither open pull request owned an overlapping file, and the isolated branch `egil/issue-106-explicit-csharp-routes` was clean before work began. The approved mergeable slice discovers project-root C# route declarations only when `HtmxRoute.Methods` is explicit. This includes a matching `.razor.cs` partial and a component authored entirely in C#. Any C#-origin declaration that omits `Methods` fails with deterministic nonconfigurable `HTMXOR001` and contributes no generated registration. Positive omitted-`Methods` `.razor.cs` inference remains deferred, so issue #106 stays open and the pull request must reference rather than close it.
+- Meaningful red is preserved at clean test-only commit `6285dae3646ff8357bdc413315dc1138c69b4de9`, whose production tree is exact base `a489f30f7a20ec801fe52b5ab4f894382d1d9c90`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~All_CSharp_component_with_explicit_methods_is_in_generated_registration" --blame-hang --blame-hang-timeout 5min` compiled the all-C# component and discovered and executed 1 test; 0 passed and 1 failed because `HtmxorGeneratedRouteRegistration.g.cs` omitted `Htmxor.Consumer.AllCSharpComponent`. The assertion failure, not an analyzer compilation error or setup failure, is the behavioral red.
+- Focused compiler proof at exact clean executable head `b51b1644e394b2f8a8c9ca6072a7170fff6e5221`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorRouteGeneratorTests|FullyQualifiedName~HtmxorRouteDeclarationAnalyzerTests" --blame-hang --blame-hang-timeout 5min` discovered, executed, and passed 40 of 40 generator and analyzer tests. The selection covers explicit `.cs` and `.razor.cs` discovery, omitted-Methods diagnostics and registration suppression, C# `#line` provenance, same-name Razor action ownership, explicit method membership, manual render-tree isolation, and incremental candidate reuse. `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorAttributedRouteCatalogTests" --blame-hang --blame-hang-timeout 5min` separately discovered, executed, and passed 16 of 16 runtime-catalog tests.
+- Focused packed-package proof at the same exact clean executable head: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 6 of 6 outer tests. The local pack restored and Release-built an isolated .NET 10 consumer. Its default TestServer run discovered, executed, and passed 12 of 12 tests; the staged explicit actionless-unsafe regression discovered, executed, and passed 14 of 14. The package boundary proves an explicit `GET, PATCH` declaration in the matching `.razor.cs`, an explicit all-C# `GET`, direct rendering with authorization, route binding and lifecycle, normal and unauthorized unavailability, `405` method isolation despite manual `BuildRenderTree` HTMX attributes and callback construction, antiforgery on an explicit unsafe route without an action, and failed compilation plus no generated registration when the all-C# declaration omits `Methods`.
+- Fast-profile proof at the same exact clean executable head: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` passed 108 quality tests, 40 .NET 10 hosted tests, and 250 non-browser library, generator, analyzer, and runtime tests. Total: 398 discovered, 398 executed, 398 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Full-profile proof at the same exact clean executable head: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` passed 108 quality tests, 40 .NET 10 hosted tests, and all 252 library, generator, analyzer, runtime, and legacy-browser tests. Total: 400 discovered, 400 executed, 400 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. It retained two byte-identical fresh Cobertura copies with SHA-256 `F72A814A96D493787E481F49583CD8E792FA96A4BC1FD69A2AFB85DC4EC1C8D8`; the canonical report was `artifacts/results/full/htmxor/f2c18a14-230c-4b18-a3fa-ee70aac14361/coverage.cobertura.xml`.
+- The first sandboxed locked restore and packed-consumer attempts failed only with `NU1301` because network access was denied. A sandboxed broad library run also failed when Windows Event Log access was denied while ASP.NET Data Protection reported an underlying exception. Those are setup-boundary observations, not meaningful red or product results; the same restore and test boundaries outside the sandbox passed before the evidence above.
+- Issue #106's exact-head proofs used .NET SDK 10.0.400 on Microsoft Windows NT 10.0.26200.0. The full profile exercised the existing cached Chromium fixture, but did not prove fresh browser provisioning, Linux, Kestrel, TLS, a published or signed package, a release candidate, other SDK/compiler versions, or the package-only routes in a browser. It did not exercise htmx 4, QUERY, fragments, interactive render modes, performance, or external services. Full-scope mutation was not run; it is optional for this proof of concept and would include unrelated legacy production scope.
 
 ## Remaining limits
 
-- Issues #95, #97, #100, and #103 prove one locally packed package with the current SDK and dependency set. They do not prove publishing, package signing, a release candidate, package compatibility across SDK or compiler versions, a fresh Linux restore, or a broader target-framework matrix.
+- Issues #95, #97, #100, #103, and #106 prove one locally packed package with the current SDK and dependency set. They do not prove publishing, package signing, a release candidate, package compatibility across SDK or compiler versions, a fresh Linux restore, or a broader target-framework matrix.
 - The matrix uses one representative valid and rejected value per documented constraint. It does not exhaust textual representations, undocumented custom conversion constraints, catch-all routes, or unconstrained routes.
 - The direct path is proved on ASP.NET Core 10 only. The supported framework matrix remains unproved.
 - The authorization proof uses one deterministic scheme and one claim policy. It does not cover scheme selection, custom challenge or forbid handlers, identity-provider integration, or authorization on other HTTP methods.
@@ -733,15 +741,14 @@ handler, renderer copy, private reflection, or global Blazor service replacement
   future SDK or analyzer-pipeline changes, more than two routed components,
   multiple routes on one component, collision policy, normal-only or dual
   reachability, and a final public API remain unproved.
-- The compiler-bound route-declaration model is independent of the source file,
-  but issue #97 proves only `HtmxRoute` attributes authored in its two
-  project-root `.razor` files. The agreed v1 model also accepts the attribute on
-  the matching `.razor.cs` partial or on a component authored entirely in C#;
-  both discovery paths remain unproved and require real package-consumer
-  tracers. The path-derived project-root manifest is an issue #97 eligibility
-  filter, not the final declaration source. Every discovery path must feed the
-  same compiler-bound validation and compiled-metadata runtime catalog, with the
-  original compiled `HtmxRouteAttribute` authoritative. V1 does not treat
+- The compiler-bound route-declaration model is independent of the source file.
+  Issue #106 proves explicit `HtmxRoute.Methods` on both a matching project-root
+  `.razor.cs` partial and an all-C# project-root component through the real
+  packed-consumer boundary. The original compiled `HtmxRouteAttribute` remains
+  authoritative. A C# declaration without `Methods`, including one in
+  `.razor.cs`, now fails closed with `HTMXOR001` and no generated registration.
+  Inferring omitted methods from companion Razor markup remains deferred until
+  a supported pre-compilation ownership seam exists. V1 still does not treat
   `_Imports.razor` as an `HtmxRoute` declaration source. Effective non-route
   metadata from imports remains a separate unproved metadata-preservation case.
 - Issues #95, #97, and #100 package those exact tracers and no broader behavior. Generated
@@ -791,16 +798,19 @@ handler, renderer copy, private reflection, or global Blazor service replacement
 
 ## Current implementation slice
 
-Issue #103 owns the shared method-inference path:
+Issue #106 extends the compiler-bound route-discovery path:
 
-> When a package-only .NET 10 Blazor static SSR application declares an
-> `@page` route or an HTMX-only `HtmxRoute` without `Methods`, Htmxor keeps GET
-> implicit and derives POST, PUT, PATCH, and DELETE server intent from supported
-> `@onpost`, `@onput`, `@onpatch`, and `@ondelete` declarations. Explicit
-> `Methods` remains authoritative by membership, conflicts fail with a deterministic
-> diagnostic, and client `hx-*` declarations never add a server method.
+> When a project-root component declares `HtmxRoute` in C# with explicit
+> `Methods`, Htmxor registers exactly that authoritative allow-list whether the
+> declaration is in a matching `.razor.cs` partial or an all-C# component. When
+> a C# declaration omits `Methods`, Htmxor emits deterministic nonconfigurable
+> `HTMXOR001` and generates no registration. Manual render-tree, HTMX attribute,
+> or callback code never infers or widens server methods.
 
-This server-side slice does not prove htmx 4 browser compatibility or add QUERY
+Issue #103 still owns supported markup action inference for Razor-authored
+components. Positive omitted-`Methods` inference from companion Razor markup is
+deferred for C#-authored declarations, so issue #106 remains open. This
+server-side slice does not prove htmx 4 browser compatibility or add QUERY
 support. Publication still requires a current tracker, competing-ownership,
 branch, and `origin/main` check. Stop for the user if the result requires
 changing the v1 goal, supported framework, or security posture.
