@@ -179,7 +179,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			generatedRoute.NormalizedRoute,
 			generatedActions);
 		AddActionMetadata(endpointBuilder, endpointActions.ToArray());
-		if (endpointActions.Count > 0)
+		if (endpointActions.Count > 0 || generatedRoute.HttpMethods.Any(IsUnsafeMethod))
 		{
 			var renderDelegate = endpointBuilder.RequestDelegate
 				?? throw new InvalidOperationException("An HTMX-only component endpoint must have a request delegate.");
@@ -305,7 +305,17 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	{
 		var action = endpointActions.SingleOrDefault(action =>
 			string.Equals(action.HttpMethod, context.Request.Method, StringComparison.OrdinalIgnoreCase));
-		if (action is null || await TryActivateAction(context, action))
+		if (action is null)
+		{
+			if (!IsUnsafeMethod(context.Request.Method) || await ValidateAntiforgery(context))
+			{
+				await renderDelegate(context);
+			}
+
+			return;
+		}
+
+		if (await TryActivateAction(context, action))
 		{
 			await renderDelegate(context);
 		}
@@ -314,6 +324,17 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	private static async Task<bool> TryActivateAction(
 		HttpContext context,
 		HtmxorComponentActionDescriptor action)
+	{
+		if (!await ValidateAntiforgery(context))
+		{
+			return false;
+		}
+
+		context.RequestServices.GetRequiredService<HtmxorComponentActionRequest>().Activate(action);
+		return true;
+	}
+
+	private static async Task<bool> ValidateAntiforgery(HttpContext context)
 	{
 		if (context.Features.Get<IAntiforgeryValidationFeature>() is { } validationFeature)
 		{
@@ -339,7 +360,6 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			}
 		}
 
-		context.RequestServices.GetRequiredService<HtmxorComponentActionRequest>().Activate(action);
 		return true;
 	}
 
