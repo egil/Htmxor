@@ -118,9 +118,11 @@ assumptions. Client-side declarations such as `hx-action`, `hx-method`, and
 `hx-query` still do not grant server methods.
 
 The established v1 server-method model remains implicit GET plus POST, PUT,
-PATCH, and DELETE inferred from component intent. htmx 4's `QUERY` method has no
-matching component directive in that model and is not inferred. Supporting it
-requires a separate public-model decision and evidence.
+PATCH, and DELETE inferred from component intent. For future QUERY support, the
+accepted server declaration is `@onquery`; it must be application-authored
+component intent and requires separate implementation and executable evidence.
+No client attribute, including `hx-query`, `hx-action`, or `hx-method`, ever
+grants QUERY reachability.
 
 Targeting htmx 4 does not make every optional htmx 4 client feature a v1
 requirement beyond an explicitly agreed composition such as the raw
