@@ -32,7 +32,9 @@ Last updated: 2026-08-29
 - Verified implementation commit for issue #103: `fb7e31f3d8378d7b7ab8f521f862429da14dfb50`, based on exact fetched `origin/main` commit `b313e8dc6913ae7cbe424e86192aad7440761ac1`.
 - Preserved post-review explicit-allow-list red for issue #103: `b78ff30f3c43acbef1ab99b69e51fad7b539879d`.
 - Verified post-review explicit-allow-list fix for issue #103: `732a957c36d080ddef39ca24db744b7d0c803fa4`.
-- This issue #103 progress change is documentation-only. Executable claims are tied to the tested implementation and post-review fix commits above, not to the later documentation head.
+- Preserved issue #103 audit reds: effective antiforgery metadata ordering at `834e1058991c191c846ad6252180d7194397308d`, actionless unsafe-route validation at `9ed1938ca40e13cb2ac0d0066ba7b64c5220eab2`, static handler ownership at `adfb00626985a8c5d960af37b92e7dfbd412f342`, mutable omitted-method defaults at `c52ac7c9388d4b40c52205c556d7b03d9a1b4ba7`, and later supported markup at `bc2715c0d650bc434d6656414503764c274bf0ec`.
+- Verified issue #103 audit fix commit: `217dd95642400509759d77c3bd8bc4ca53e178a6`, based on exact fetched `origin/main` commit `b313e8dc6913ae7cbe424e86192aad7440761ac1`.
+- This issue #103 progress change is documentation-only. Executable claims are tied to the tested implementation, post-review, and audit-fix commits above, not to the later documentation head.
 - Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR on TestServer. Issues #95, #97, #100, and #103 use a separate external .NET 10 Razor consumer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -461,11 +463,14 @@ Protected behavior for issue #103:
 
 The shared action generator recognizes simple double-quoted method-group
 bindings for `@onpost`, `@onput`, `@onpatch`, and `@ondelete` on HTML elements or
-Razor component tags. It can emit distinct actions for different unsafe methods
-on one tag. Stock components use their compiled `@page` endpoint as route owner;
-an omitted-`Methods` `HtmxRoute` produces one HTMX-only endpoint with implicit
-GET plus only its declared unsafe methods. The runtime validates the complete
-action and route set before adding endpoint conventions or mappings.
+Razor component tags, including a supported tag after a complete single-line
+ordinary markup line. It can emit distinct actions for different unsafe methods
+on one tag. A handler that resolves to a static method fails with nonconfigurable
+`HTMXOR002`; callbacks remain owned by the request component instance. Stock
+components use their compiled `@page` endpoint as route owner; an
+omitted-`Methods` `HtmxRoute` produces one HTMX-only endpoint with immutable
+implicit GET plus only its declared unsafe methods. The runtime validates the
+complete action and route set before adding endpoint conventions or mappings.
 
 An explicit `HtmxRoute.Methods` set is authoritative. A supported binding whose
 method belongs to that set is generated and mapped; a binding outside that set
@@ -477,11 +482,21 @@ owners. Client-only `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, htmx 4
 `hx-action` plus `hx-method`, and `hx-query` declarations emit no action and do
 not alter the GET, POST, PUT, PATCH, and DELETE server allow-list.
 
+Unsafe endpoint metadata is fail-closed by effective ordering: Htmxor appends
+required antiforgery metadata when an earlier effective entry disables
+validation. An explicit unsafe `HtmxRoute` validates the selected request before
+rendering even when no generated action exists. Public default-method arrays are
+fresh values and cannot mutate the catalog's internal omitted-route GET
+invariant.
+
 The locally packed consumer retains its two existing HTMX-only routes: the
-summary route remains explicit GET-only, while the report route now omits
-`Methods` and infers PATCH from a Razor component-tag binding. It also adds a
-stock report-page DELETE. The PATCH handler lives in the matching `.razor.cs`
-partial. Authorized, antiforgery-valid requests reach only
+summary route explicitly allows GET plus an actionless DELETE, while the report
+route omits `Methods` and infers PATCH from a Razor component-tag binding. It
+also adds a stock report-page DELETE. The PATCH handler lives in the matching
+`.razor.cs` partial. An authorized, antiforgery-valid summary DELETE renders the
+request component without a callback; missing and invalid tokens are rejected
+before parameter binding or initialization. Other authorized,
+antiforgery-valid requests reach only
 their route- and method-selected request component, complete route/query
 parameter delivery and initialization, invoke the selected callback once, and
 render its state through static SSR. Representative wrong-method, cross-route,
@@ -592,6 +607,16 @@ handler, renderer copy, private reflection, or global Blazor service replacement
 - Post-review package proof at the same exact clean fix commit: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 4 of 4 outer tests. The supported package consumer's parsed inner TRX discovered, executed, and passed 11 of 11 hosted HTTP tests. The rejected consumers retained their multiple-stock-route, computed-handler, and explicit-method-conflict failures.
 - Post-review fast-profile proof at the same exact clean fix commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` recorded clean HEAD `732a957c36d080ddef39ca24db744b7d0c803fa4`, passed 106 quality tests, 40 .NET 10 hosted tests, and 221 non-browser library, generator, analyzer, and runtime tests. Total: 367 discovered, 367 executed, 367 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
 - Post-review full-profile proof at the same exact clean fix commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` recorded clean HEAD `732a957c36d080ddef39ca24db744b7d0c803fa4`, passed 106 quality tests, 40 .NET 10 hosted tests, and all 223 library, generator, analyzer, runtime, and legacy-browser tests. Total: 369 discovered, 369 executed, 369 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its canonical coverage report was `artifacts/results/full/htmxor/1052b5d6-42d0-4e23-bf98-5966e6a5441a/coverage.cobertura.xml`.
+- Audit antiforgery-ordering red is preserved at clean test-only commit `834e1058991c191c846ad6252180d7194397308d`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Unsafe_generated_route_requires_effective_antiforgery_after_prior_disabling_metadata" --blame-hang --blame-hang-timeout 5min` discovered and executed 1 test; 0 passed and 1 failed because ordered required-then-disabled metadata left effective validation false. The same command passed 1 of 1 after `6b2fc684afb780a71032b8ec800526a9c830dc0a` appended Htmxor's required metadata when the effective last entry was not true.
+- Audit actionless-route red is preserved at clean test-only commit `9ed1938ca40e13cb2ac0d0066ba7b64c5220eab2`: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Package_only_application_infers_stock_and_htmx_only_unsafe_actions" --blame-hang --blame-hang-timeout 10min` discovered and executed 1 outer test, which failed because its parsed inner run passed 12 and failed 2 of 14 hosted tests. Missing and invalid antiforgery tokens on an explicit GET plus DELETE route with no generated action both returned `200`, bound parameters once, and initialized the component once. The authorized valid-token DELETE already rendered successfully. After `47302b39e2ad02c8bdd2c10eb15bb5da38ebde40`, the same outer selection passed 1 of 1 and its inner run passed 14 of 14; the rejected requests return `400` before binding or initialization while the authorized request still renders without a callback.
+- Audit static-handler red is preserved at clean test-only commit `adfb00626985a8c5d960af37b92e7dfbd412f342`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Static_handler_is_rejected_as_a_nonconfigurable_action_declaration" --blame-hang --blame-hang-timeout 5min` discovered and executed 1 test; 0 passed and 1 failed because the analyzer returned no diagnostic for a static `@ondelete` method group. After `1e641355974493aab0655a9e763fe17e367d3303`, the same command passed 1 of 1 with deterministic nonconfigurable `HTMXOR002` resolved through public Roslyn symbols.
+- Audit mutable-default red is preserved at clean test-only commit `c52ac7c9388d4b40c52205c556d7b03d9a1b4ba7`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Build_keeps_omitted_methods_get_only_when_public_defaults_are_mutated" --blame-hang --blame-hang-timeout 5min` discovered and executed 1 test; 0 passed and 1 failed because mutating the public shared default widened a subsequently constructed omitted route to `POST`. After `18345461d328c70256f8181308cc51b248d16370`, the same command passed 1 of 1 across sequential POST and TRACE mutation controls; new attribute instances and catalog descriptors remained GET-only.
+- Audit later-markup red is preserved at clean test-only commit `bc2715c0d650bc434d6656414503764c274bf0ec`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~binding_after_prior_markup_emits_a_compiling_action" --blame-hang --blame-hang-timeout 5min` discovered and executed 2 tests; both failed because no action source was generated. After `217dd95642400509759d77c3bd8bc4ca53e178a6`, the same command passed 2 of 2 for a later HTML binding under `@page` and a later Razor component-tag binding under omitted-`Methods` `HtmxRoute`. The complete `HtmxorActionGeneratorTests` selection passed 36 of 36, retaining fail-closed comment, code, raw-string, interpolation, and nonbinding controls.
+- Audit focused proof at exact clean implementation commit `217dd95642400509759d77c3bd8bc4ca53e178a6`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorActionGeneratorTests|FullyQualifiedName~HtmxorAttributedRouteCatalogTests|FullyQualifiedName~HtmxorRouteDeclarationAnalyzerTests" --blame-hang --blame-hang-timeout 5min` discovered, executed, and passed 75 of 75 tests.
+- Audit packed-package proof at the same exact clean implementation commit: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 4 of 4 outer tests. The supported package consumer's parsed inner TRX discovered, executed, and passed 14 of 14 hosted HTTP tests. The rejected consumers retained their multiple-stock-route, computed-handler, and explicit-method-conflict failures.
+- Audit fast-profile proof at the same exact clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` recorded clean HEAD `217dd95642400509759d77c3bd8bc4ca53e178a6`, passed 106 quality tests, 40 .NET 10 hosted tests, and 226 non-browser library, generator, analyzer, and runtime tests. Total: 372 discovered, 372 executed, 372 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Audit full-profile proof at the same exact clean implementation commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` recorded clean HEAD `217dd95642400509759d77c3bd8bc4ca53e178a6`, passed 106 quality tests, 40 .NET 10 hosted tests, and all 228 library, generator, analyzer, runtime, and legacy-browser tests. Total: 374 discovered, 374 executed, 374 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its canonical coverage report was `artifacts/results/full/htmxor/c95a2b41-c438-43ae-a4d5-e98b7b93288e/coverage.cobertura.xml`.
+- The first audit packed-package rerun in the sandbox discovered and executed 4 outer tests, but all 4 failed during fresh temporary-consumer restore with `NU1301` because network access was denied. It was setup evidence, not product evidence; the identical command with network access produced the passing packed-package result above.
 - The first sandboxed post-rebase locked restore failed with `NU1301` because NuGet network access was denied; it was setup evidence and its chained no-restore test had no valid restored input. The same `dotnet restore --locked-mode` outside that boundary succeeded before all reported post-rebase proofs.
 - Issue #103's exact-head proofs used .NET SDK 10.0.400 on Microsoft Windows NT 10.0.26200.0. The full profile's existing Chromium fixture still used embedded htmx 1.9.12 and did not exercise issue #103's package routes or application-supplied htmx 4.0.0. Mutation testing was not run; it is optional for this proof of concept.
 
@@ -679,10 +704,11 @@ handler, renderer copy, private reflection, or global Blazor service replacement
   final v1 compatibility contract and must be resolved before a stable release
   candidate.
 - Issue #103 recognizes simple double-quoted method groups for `@onpost`,
-  `@onput`, `@onpatch`, and `@ondelete` on the first supported HTML or Razor
-  component start tag. It supports multiple different unsafe methods on that tag
-  and one packaged handler implemented in the matching `.razor.cs` partial, but
-  it does not claim the Razor grammar. Preceding markup, complex or dynamic
+  `@onput`, `@onpatch`, and `@ondelete` on supported HTML or Razor component
+  start tags, including after a complete single-line ordinary markup line. It
+  supports multiple different unsafe methods on one tag and one packaged handler
+  implemented in the matching `.razor.cs` partial, but it does not claim the
+  Razor grammar. Arbitrary or multiline preceding markup, complex or dynamic
   expressions, markup after code or control transitions, conditional markup,
   local `@namespace`, nested components, all-C# action declarations, action
   declarations authored in `.razor.cs`, overloads, or multiple callbacks for
