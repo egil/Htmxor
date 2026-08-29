@@ -435,6 +435,13 @@ internal static class PackageConsumerEvidence
 		var reportSource = File.ReadAllText(Path.Combine(
 			consumerDirectory,
 			"Issue97ReportComponent.razor"));
+		var reportPartialPath = Path.Combine(
+			consumerDirectory,
+			"Issue97ReportComponent.razor.cs");
+		Assert.True(
+			File.Exists(reportPartialPath),
+			"The packaged PATCH handler must live in the matching Issue97ReportComponent.razor.cs partial.");
+		var reportPartialSource = File.ReadAllText(reportPartialPath);
 		var pageSource = File.ReadAllText(Path.Combine(
 			consumerDirectory,
 			"Issue100ReportPage.razor"));
@@ -460,6 +467,7 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(1, Count(pageSource, "@onput=\"PutReport\""));
 		Assert.Equal(1, Count(reportSource, reportRoute));
 		Assert.DoesNotContain("@onput", reportSource, StringComparison.Ordinal);
+		Assert.Equal(1, Count(reportPartialSource, "private void PatchReport(HtmxEventArgs _)"));
 		Assert.Equal(1, Count(summarySource, summaryRoute));
 		Assert.Equal(1, Count(summarySource, summaryAuthorization));
 		AssertSummaryDirectiveOrdering(summarySource, summaryRoute, summaryAuthorization);
