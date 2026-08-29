@@ -35,6 +35,26 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
+	public async Task Matching_Razor_code_behind_with_explicit_methods_is_supported()
+	{
+		var componentPath = ComponentPath("CodeBehindComponent.razor.cs");
+		var source = $$"""
+			namespace {{RootNamespace}};
+
+			[global::Htmxor.HtmxRouteAttribute("/code-behind/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("code-behind.read")]
+			public sealed partial class CodeBehindComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { ComponentPath("CodeBehindComponent.razor") },
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
 	public async Task All_CSharp_component_without_methods_reports_nonconfigurable_error()
 	{
 		var componentPath = ComponentPath("AllCSharpComponent.cs");
@@ -56,7 +76,35 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Equal(
 			"Unsupported HTMX-only route declaration: " +
-			"an all-C# component must explicitly declare HtmxRoute.Methods",
+			"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods",
+			diagnostic.GetMessage());
+		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+	}
+
+	[Fact]
+	public async Task Matching_Razor_code_behind_without_methods_reports_nonconfigurable_error()
+	{
+		var componentPath = ComponentPath("CodeBehindComponent.razor.cs");
+		var source = $$"""
+			namespace {{RootNamespace}};
+
+			[global::Htmxor.HtmxRouteAttribute("/code-behind/{Id:int}")]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("code-behind.read")]
+			public sealed partial class CodeBehindComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { ComponentPath("CodeBehindComponent.razor") },
+			new[] { componentPath });
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Equal(
+			"Unsupported HTMX-only route declaration: " +
+			"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods",
 			diagnostic.GetMessage());
 		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
