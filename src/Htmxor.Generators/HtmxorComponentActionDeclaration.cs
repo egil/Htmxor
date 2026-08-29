@@ -265,29 +265,54 @@ internal sealed class HtmxorComponentActionDeclaration
 
 		const int nameStart = 1;
 		var nameEnd = SkipName(line, nameStart, line.Length - 1, allowRazorPrefix: false);
-		if (nameEnd <= nameStart ||
-			!(nameEnd == line.Length - 1 ||
-			char.IsWhiteSpace(line[nameEnd]) ||
-			line[nameEnd] == '>'))
+		if (!HasSupportedMarkupNameBoundary(line, nameStart, nameEnd))
 		{
 			return false;
 		}
 
-		return IsSelfClosingMarkupLine(line) ||
-			line.EndsWith(
-				"</" + line.Substring(nameStart, nameEnd - nameStart) + ">",
-				StringComparison.OrdinalIgnoreCase);
+		var openingTagEnd = line.IndexOf('>', nameEnd);
+		return openingTagEnd >= 0 &&
+			(IsSelfClosingMarkupLine(line, openingTagEnd) ||
+			IsPlainMarkupElementLine(line, nameStart, nameEnd, openingTagEnd));
 	}
 
-	private static bool IsSelfClosingMarkupLine(string line)
+	private static bool HasSupportedMarkupNameBoundary(
+		string line,
+		int nameStart,
+		int nameEnd)
+		=> nameEnd > nameStart &&
+			(nameEnd == line.Length - 1 ||
+			char.IsWhiteSpace(line[nameEnd]) ||
+			line[nameEnd] == '>');
+
+	private static bool IsSelfClosingMarkupLine(string line, int openingTagEnd)
 	{
-		var index = line.Length - 2;
+		if (openingTagEnd != line.Length - 1)
+		{
+			return false;
+		}
+
+		var index = openingTagEnd - 1;
 		while (index >= 0 && char.IsWhiteSpace(line[index]))
 		{
 			index--;
 		}
 
 		return index >= 0 && line[index] == '/';
+	}
+
+	private static bool IsPlainMarkupElementLine(
+		string line,
+		int nameStart,
+		int nameEnd,
+		int openingTagEnd)
+	{
+		var closingTag = "</" + line.Substring(nameStart, nameEnd - nameStart) + ">";
+		var closingTagStart = line.Length - closingTag.Length;
+		return closingTagStart > openingTagEnd &&
+			line.EndsWith(closingTag, StringComparison.OrdinalIgnoreCase) &&
+			line.IndexOf('<', openingTagEnd + 1) == closingTagStart &&
+			line.IndexOf('>', openingTagEnd + 1) == line.Length - 1;
 	}
 
 	private static bool HasSupportedMarkupBounds(string line)
