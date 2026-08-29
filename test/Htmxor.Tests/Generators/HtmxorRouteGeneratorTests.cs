@@ -136,23 +136,14 @@ public sealed class HtmxorRouteGeneratorTests
 			", Methods = [\"GET\"]",
 			string.Empty,
 			StringComparison.Ordinal);
-		var run = RunGeneratorWithCSharpSource(source, "RazorControl.razor");
+		var run = RunGeneratorWithCSharpSource(source);
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
 			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 		var result = Assert.Single(run.RunResult.Results);
 		Assert.Empty(result.Diagnostics);
-		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
-
-		Assert.Contains(
-			"\"Htmxor.Consumer.RazorControl\"",
-			generatedSource,
-			StringComparison.Ordinal);
-		Assert.DoesNotContain(
-			"\"Htmxor.Consumer.AllCSharpComponent\"",
-			generatedSource,
-			StringComparison.Ordinal);
+		Assert.Empty(result.GeneratedSources);
 	}
 
 	[Fact]
@@ -203,6 +194,25 @@ public sealed class HtmxorRouteGeneratorTests
 			"\"Htmxor.Consumer.AllCSharpComponent\"",
 			generatedSource,
 			StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Equivalent_CSharp_route_candidate_is_unchanged_on_incremental_rerun()
+	{
+		var equivalentSource = AllCSharpComponent.Replace(
+			"internal sealed class AllCSharpComponent",
+			"internal sealed partial class AllCSharpComponent",
+			StringComparison.Ordinal);
+		var run = RunGeneratorIncrementally(AllCSharpComponent, equivalentSource);
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		var step = Assert.Single(result.TrackedSteps["CSharpRouteCandidates"]);
+		var output = Assert.Single(step.Outputs);
+
+		Assert.Equal(IncrementalStepRunReason.Unchanged, output.Reason);
 	}
 
 	[Fact]
@@ -320,6 +330,36 @@ public sealed class HtmxorRouteGeneratorTests
 			includeActionGenerator: true,
 			Array.Empty<string>());
 
+	private static GeneratorRun RunGeneratorIncrementally(
+		string initialSource,
+		string updatedSource)
+	{
+		var projectDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "htmxor-generator-probe"));
+		var parseOptions = (CSharpParseOptions)CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var componentPath = Path.Combine(projectDirectory, "AllCSharpComponent.cs");
+		var runtimeTree = CSharpSyntaxTree.ParseText(RuntimeStubs, parseOptions);
+		var initialTree = CSharpSyntaxTree.ParseText(initialSource, parseOptions, componentPath);
+		var compilation = CreateCompilation(runtimeTree, initialTree);
+		GeneratorDriver driver = CSharpGeneratorDriver.Create(
+			new[] { new HtmxorRouteGenerator().AsSourceGenerator() },
+			Array.Empty<AdditionalText>(),
+			parseOptions,
+			new TestAnalyzerConfigOptionsProvider(projectDirectory),
+			new GeneratorDriverOptions(
+				IncrementalGeneratorOutputKind.None,
+				trackIncrementalGeneratorSteps: true));
+
+		driver = driver.RunGenerators(compilation);
+		var updatedTree = CSharpSyntaxTree.ParseText(updatedSource, parseOptions, componentPath);
+		var updatedCompilation = compilation.ReplaceSyntaxTree(initialTree, updatedTree);
+		driver = driver.RunGeneratorsAndUpdateCompilation(
+			updatedCompilation,
+			out var outputCompilation,
+			out var driverDiagnostics);
+
+		return new GeneratorRun(driver.GetRunResult(), outputCompilation, driverDiagnostics);
+	}
+
 	private static GeneratorRun RunGeneratorCore(
 		string? csharpSource,
 		string csharpRelativePath,
@@ -340,11 +380,7 @@ public sealed class HtmxorRouteGeneratorTests
 				Path.Combine(projectDirectory, csharpRelativePath)));
 		}
 
-		var compilation = CSharpCompilation.Create(
-			"Htmxor.Consumer.Tests",
-			syntaxTrees,
-			new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
-			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		var compilation = CreateCompilation(syntaxTrees.ToArray());
 		var generators = includeActionGenerator
 			? new[]
 			{
@@ -368,6 +404,13 @@ public sealed class HtmxorRouteGeneratorTests
 
 		return new GeneratorRun(driver.GetRunResult(), outputCompilation, driverDiagnostics);
 	}
+
+	private static CSharpCompilation CreateCompilation(params SyntaxTree[] syntaxTrees)
+		=> CSharpCompilation.Create(
+			"Htmxor.Consumer.Tests",
+			syntaxTrees,
+			new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
 	private sealed record GeneratorRun(
 		GeneratorDriverRunResult RunResult,
