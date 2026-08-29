@@ -319,7 +319,13 @@ internal sealed class HtmxorComponentActionDeclaration
 		int nameEnd,
 		int openingTagEnd)
 	{
-		var closingTag = "</" + line.Substring(nameStart, nameEnd - nameStart) + ">";
+		var name = line.Substring(nameStart, nameEnd - nameStart);
+		if (string.Equals(name, "plaintext", StringComparison.OrdinalIgnoreCase))
+		{
+			return false;
+		}
+
+		var closingTag = "</" + name + ">";
 		var closingTagStart = line.Length - closingTag.Length;
 		return closingTagStart > openingTagEnd &&
 			line.EndsWith(closingTag, StringComparison.OrdinalIgnoreCase) &&
