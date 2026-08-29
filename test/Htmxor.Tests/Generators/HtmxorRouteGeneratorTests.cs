@@ -21,13 +21,42 @@ public sealed class HtmxorRouteGeneratorTests
 
 				public string[] Methods { get; set; } = [];
 			}
+
+			internal sealed class HtmxEventArgs;
 		}
 
 		namespace Microsoft.AspNetCore.Components
 		{
 			internal interface IComponent;
 
-			internal abstract class ComponentBase : IComponent;
+			internal abstract class ComponentBase : IComponent
+			{
+				protected virtual void BuildRenderTree(
+					global::Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+				{
+				}
+			}
+
+			internal readonly struct EventCallback
+			{
+				public static EventCallbackFactory Factory { get; } = new();
+			}
+
+			internal sealed class EventCallbackFactory
+			{
+				public object Create<T>(object receiver, global::System.Action<T> callback)
+					=> callback;
+			}
+		}
+
+		namespace Microsoft.AspNetCore.Components.Rendering
+		{
+			internal sealed class RenderTreeBuilder
+			{
+				public void AddAttribute(int sequence, string name, object value)
+				{
+				}
+			}
 		}
 
 		namespace Htmxor.Builder
@@ -60,7 +89,24 @@ public sealed class HtmxorRouteGeneratorTests
 		namespace Htmxor.Consumer;
 
 		[global::Htmxor.HtmxRouteAttribute("/csharp/{Id:int}", Methods = ["GET"])]
-		internal sealed class AllCSharpComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+		internal sealed class AllCSharpComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+		{
+			protected override void BuildRenderTree(
+				global::Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+			{
+				builder.AddAttribute(0, "hx-delete", "/csharp/42");
+				builder.AddAttribute(
+					1,
+					"ondelete",
+					global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(
+						this,
+						Delete));
+			}
+
+			private void Delete(global::Htmxor.HtmxEventArgs _)
+			{
+			}
+		}
 		""";
 
 	[Fact]
@@ -81,6 +127,75 @@ public sealed class HtmxorRouteGeneratorTests
 			"\"Htmxor.Consumer.AllCSharpComponent\"",
 			generatedSource,
 			StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void All_CSharp_component_without_methods_is_not_in_generated_registration()
+	{
+		var source = AllCSharpComponent.Replace(
+			", Methods = [\"GET\"]",
+			string.Empty,
+			StringComparison.Ordinal);
+		var run = RunGeneratorWithCSharpSource(source, "RazorControl.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.RazorControl\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain(
+			"\"Htmxor.Consumer.AllCSharpComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Matching_Razor_and_CSharp_candidates_emit_one_manifest_entry()
+	{
+		var run = RunGeneratorWithCSharpSource(
+			AllCSharpComponent,
+			"AllCSharpComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Equal(
+			1,
+			Count(generatedSource, "\"Htmxor.Consumer.AllCSharpComponent\""));
+	}
+
+	[Fact]
+	public void Manual_render_tree_intent_does_not_emit_an_action()
+	{
+		var run = RunGeneratorsWithCSharpSource(AllCSharpComponent);
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var generatedSources = run.RunResult.Results
+			.SelectMany(static result => result.GeneratedSources)
+			.ToArray();
+		var registration = Assert.Single(
+			generatedSources,
+			static source => source.HintName == "HtmxorGeneratedRouteRegistration.g.cs");
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.AllCSharpComponent\"",
+			registration.SourceText.ToString(),
+			StringComparison.Ordinal);
+		Assert.DoesNotContain(
+			generatedSources,
+			static source => source.HintName == "HtmxorGeneratedActions.g.cs");
 	}
 
 	[Fact]
@@ -142,15 +257,19 @@ public sealed class HtmxorRouteGeneratorTests
 		=> source.Split(value, StringSplitOptions.None).Length - 1;
 
 	private static GeneratorRun RunGenerator(params string[] relativePaths)
-		=> RunGeneratorCore(null, relativePaths);
+		=> RunGeneratorCore(null, includeActionGenerator: false, relativePaths);
 
 	private static GeneratorRun RunGeneratorWithCSharpSource(
 		string csharpSource,
 		params string[] relativePaths)
-		=> RunGeneratorCore(csharpSource, relativePaths);
+		=> RunGeneratorCore(csharpSource, includeActionGenerator: false, relativePaths);
+
+	private static GeneratorRun RunGeneratorsWithCSharpSource(string csharpSource)
+		=> RunGeneratorCore(csharpSource, includeActionGenerator: true, Array.Empty<string>());
 
 	private static GeneratorRun RunGeneratorCore(
 		string? csharpSource,
+		bool includeActionGenerator,
 		params string[] relativePaths)
 	{
 		var projectDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "htmxor-generator-probe"));
@@ -172,8 +291,15 @@ public sealed class HtmxorRouteGeneratorTests
 			syntaxTrees,
 			new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		var generators = includeActionGenerator
+			? new[]
+			{
+				new HtmxorRouteGenerator().AsSourceGenerator(),
+				new HtmxorActionGenerator().AsSourceGenerator(),
+			}
+			: new[] { new HtmxorRouteGenerator().AsSourceGenerator() };
 		GeneratorDriver driver = CSharpGeneratorDriver.Create(
-			new[] { new HtmxorRouteGenerator().AsSourceGenerator() },
+			generators,
 			relativePaths
 				.Select(relativePath => new ThrowingAdditionalText(
 					Path.Combine(projectDirectory, relativePath)))
