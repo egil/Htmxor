@@ -133,18 +133,21 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			return "the action owner must compile as a project-root Razor component";
 		}
 
-		return handlerName is not null && HasStaticHandler(component, handlerName)
+		return handlerName is not null && HasUnsupportedHandlerMember(component, handlerName)
 			? "handler '" + handlerName + "' must be an instance method on the request-owned component"
 			: null;
 	}
 
-	private static bool HasStaticHandler(INamedTypeSymbol component, string handlerName)
+	private static bool HasUnsupportedHandlerMember(INamedTypeSymbol component, string handlerName)
 	{
 		for (var current = component; current is not null; current = current.BaseType)
 		{
-			if (current.GetMembers(handlerName).OfType<IMethodSymbol>().Any(static method => method.IsStatic))
+			foreach (var member in current.GetMembers(handlerName))
 			{
-				return true;
+				if (member is not IMethodSymbol method || method.IsStatic)
+				{
+					return true;
+				}
 			}
 		}
 
