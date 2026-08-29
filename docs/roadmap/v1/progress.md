@@ -40,6 +40,8 @@ Last updated: 2026-08-29
 - Verified issue #103 second audit-review fixes: `7c2d3365569751d3e63e7c5b19658452e2fced48` and `cfc995d9f14b89441224539d76c0279062ea52a4`.
 - Preserved issue #103 third audit-review residual raw-text red: `2301078da8447b8a4c6e8d733962eeef7a18a80f`.
 - Verified issue #103 third audit-review parser fix: `ce388a1f10fadb121a48ab6f259f62536a5b693b`.
+- Preserved issue #103 fourth audit-review self-closing raw-text red: `67776f803b91a60582246d6c6d022ac8e79db872`.
+- Verified issue #103 fourth audit-review parser fix: `f1a7884364ad241a32050e59115ea62cbbf1dae5`; the compiler-backed fail-closed component-markup boundary is recorded at `36d92a73f1151f14850632a1d45108e2a948bcca`.
 - This issue #103 progress change is documentation-only. Executable claims are tied to the tested implementation, post-review, audit-fix, and audit-review-fix commits above, not to the later documentation head.
 - Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR on TestServer. Issues #95, #97, #100, and #103 use a separate external .NET 10 Razor consumer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project.
 - Product target correction authorized on 2026-08-28: v1 documentation,
@@ -474,10 +476,10 @@ ordinary markup line. It can emit distinct actions for different unsafe methods
 on one tag. A supported handler name must resolve only to instance methods;
 static methods and delegate-valued fields or properties fail with
 nonconfigurable `HTMXOR002`, so callbacks remain owned by the request component
-instance. Prior ordinary markup is limited to a genuine self-closing start tag
-or one matching pair containing supported plain text; incomplete, nested, and
-raw-text shapes fail closed. Stock components use their compiled `@page`
-endpoint as route owner; an
+instance. Prior ordinary markup is limited to self-closing syntax on an actual
+HTML void element or one matching pair containing supported plain text;
+incomplete, nested, non-void self-closing, and raw-text shapes fail closed. Stock
+components use their compiled `@page` endpoint as route owner; an
 omitted-`Methods` `HtmxRoute` produces one HTMX-only endpoint with immutable
 implicit GET plus only its declared unsafe methods. The runtime validates the
 complete action and route set before adding endpoint conventions or mappings.
@@ -645,6 +647,12 @@ handler, renderer copy, private reflection, or global Blazor service replacement
 - Third audit-review packed-package proof at the same exact clean implementation fix: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 4 of 4 outer tests. The supported package consumer's parsed inner TRX discovered, executed, and passed 14 of 14 hosted HTTP tests; the three rejected consumers retained their expected compiler or startup failures.
 - Third audit-review fast-profile proof at the same exact clean implementation fix: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` recorded clean HEAD `ce388a1f10fadb121a48ab6f259f62536a5b693b`, passed 106 quality tests, 40 .NET 10 hosted tests, and 231 non-browser library, generator, analyzer, and runtime tests. Total: 377 discovered, 377 executed, 377 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
 - Third audit-review full-profile proof at the same exact clean implementation fix: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` recorded clean HEAD `ce388a1f10fadb121a48ab6f259f62536a5b693b`, passed 106 quality tests, 40 .NET 10 hosted tests, and all 233 library, generator, analyzer, runtime, and legacy-browser tests. Total: 379 discovered, 379 executed, 379 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its canonical coverage report was `artifacts/results/full/htmxor/b60caa65-c69b-46a3-ac72-8049f3b43c0f/coverage.cobertura.xml`.
+- A fresh Standards review at exact documentation head `5e208d5ab65bbd32a15fbe1a55c76cc4cf13ad11` invalidated both publication reviews and all preceding exact-head evidence with one P1. The parser accepted `<script />` as complete prior markup even though HTML keeps the raw-text element open, so a later `@ondelete` token emitted a DELETE action. No additional Standards findings were identified; the concurrent Spec review found no defect before the head changed but correctly issued no final verdict.
+- The self-closing raw-text meaningful red is preserved at clean test-only commit `67776f803b91a60582246d6c6d022ac8e79db872`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Nonbinding_ondelete_after_self_closing_script_syntax_does_not_emit_an_action" --blame-hang --blame-hang-timeout 5min` discovered and executed 1 test; 0 passed and 1 failed because `HtmxorGeneratedActions.g.cs` was emitted. After `f1a7884364ad241a32050e59115ea62cbbf1dae5`, that negative and the genuine `<hr />` positive passed 2 of 2. Commit `36d92a73f1151f14850632a1d45108e2a948bcca` adds a passing compiler boundary control proving that a prior self-closing Razor component line fails closed while bindings on Razor component tags after supported ordinary markup remain green.
+- Fourth audit-review focused proof at exact clean evidence commit `36d92a73f1151f14850632a1d45108e2a948bcca`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorActionGeneratorTests|FullyQualifiedName~HtmxorAttributedRouteCatalogTests|FullyQualifiedName~HtmxorRouteDeclarationAnalyzerTests" --blame-hang --blame-hang-timeout 5min` discovered, executed, and passed 82 of 82 tests.
+- Fourth audit-review packed-package proof at the same exact clean evidence commit: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 4 of 4 outer tests. The supported package consumer's parsed inner TRX discovered, executed, and passed 14 of 14 hosted HTTP tests; the three rejected consumers retained their expected compiler or startup failures.
+- Fourth audit-review fast-profile proof at the same exact clean evidence commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` recorded clean HEAD `36d92a73f1151f14850632a1d45108e2a948bcca`, passed 106 quality tests, 40 .NET 10 hosted tests, and 233 non-browser library, generator, analyzer, and runtime tests. Total: 379 discovered, 379 executed, 379 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Fourth audit-review full-profile proof at the same exact clean evidence commit: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` recorded clean HEAD `36d92a73f1151f14850632a1d45108e2a948bcca`, passed 106 quality tests, 40 .NET 10 hosted tests, and all 235 library, generator, analyzer, runtime, and legacy-browser tests. Total: 381 discovered, 381 executed, 381 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors. Its canonical coverage report was `artifacts/results/full/htmxor/ccb7429c-e349-4b6f-a953-610bbb18155d/coverage.cobertura.xml`.
 - The first audit packed-package rerun in the sandbox discovered and executed 4 outer tests, but all 4 failed during fresh temporary-consumer restore with `NU1301` because network access was denied. It was setup evidence, not product evidence; the identical command with network access produced the passing packed-package result above.
 - The first sandboxed post-rebase locked restore failed with `NU1301` because NuGet network access was denied; it was setup evidence and its chained no-restore test had no valid restored input. The same `dotnet restore --locked-mode` outside that boundary succeeded before all reported post-rebase proofs.
 - Issue #103's exact-head proofs used .NET SDK 10.0.400 on Microsoft Windows NT 10.0.26200.0. The full profile's existing Chromium fixture still used embedded htmx 1.9.12 and did not exercise issue #103's package routes or application-supplied htmx 4.0.0. Mutation testing was not run; it is optional for this proof of concept.
@@ -743,9 +751,15 @@ handler, renderer copy, private reflection, or global Blazor service replacement
   declarations authored in `.razor.cs`, overloads, or multiple callbacks for
   one HTTP method remain unproved. Repeated parameter delivery, exceptions,
   cancellation, body and form binding expansion, and QUERY semantics also remain
-  unproved. A generated stock action owner must still have exactly one direct
-  compiled `RouteAttribute`; zero or multiple routes fail before endpoint
-  conventions or HTMX-only mappings are added.
+  unproved. A prior self-closing Razor component line is also outside this POC
+  parser: the generator receives raw `.razor` `AdditionalText` without Razor
+  component-tag resolution, and capitalization cannot safely distinguish a
+  component from case-insensitive HTML raw-text elements. Discovery therefore
+  fails closed at that line. This does not limit supported bindings on Razor
+  component tags after the proved plain-markup prefix. A generated stock action
+  owner must still have exactly one direct compiled `RouteAttribute`; zero or
+  multiple routes fail before endpoint conventions or HTMX-only mappings are
+  added.
 
 ## Current implementation slice
 
