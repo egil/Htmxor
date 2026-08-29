@@ -79,13 +79,15 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 		HtmxorComponentActionDeclaration declaration,
 		HtmxorRouteSymbols symbols)
 	{
-		if (component is null)
+		var componentReason = GetComponentUnsupportedReason(component, declaration.HandlerName);
+		if (componentReason is not null)
 		{
-			return "the action owner must compile as a project-root Razor component";
+			return componentReason;
 		}
 
-		var stockRoutes = GetExactAttributes(component, symbols.Route!);
-		var htmxRoutes = GetExactAttributes(component, symbols.HtmxRoute);
+		var resolvedComponent = component!;
+		var stockRoutes = GetExactAttributes(resolvedComponent, symbols.Route!);
+		var htmxRoutes = GetExactAttributes(resolvedComponent, symbols.HtmxRoute);
 		if (declaration.UsesStockRoute)
 		{
 			return stockRoutes.Length == 1 && htmxRoutes.Length == 0
@@ -121,6 +123,33 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 				attribute.AttributeClass,
 				attributeType))
 			.ToImmutableArray();
+
+	private static string? GetComponentUnsupportedReason(
+		INamedTypeSymbol? component,
+		string? handlerName)
+	{
+		if (component is null)
+		{
+			return "the action owner must compile as a project-root Razor component";
+		}
+
+		return handlerName is not null && HasStaticHandler(component, handlerName)
+			? "handler '" + handlerName + "' must be an instance method on the request-owned component"
+			: null;
+	}
+
+	private static bool HasStaticHandler(INamedTypeSymbol component, string handlerName)
+	{
+		for (var current = component; current is not null; current = current.BaseType)
+		{
+			if (current.GetMembers(handlerName).OfType<IMethodSymbol>().Any(static method => method.IsStatic))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
 
 	private static bool ContainsMethod(TypedConstant methods, string httpMethod)
 		=> methods.Kind == TypedConstantKind.Array && methods.Values.Any(value =>
