@@ -1,4 +1,5 @@
 @using Microsoft.AspNetCore.Authorization
+@inject Issue100RequestProbe RequestProbe
 
 <button hx-put="/issue-97-group/summaries/@SummaryId">No server action</button>
 
@@ -8,7 +9,8 @@
 
 @code {
     private const string SummaryRoute = "/summaries/{SummaryId:int}";
-    private const string SummaryMethod = "GET";
+    private const string SummaryGetMethod = "GET";
+    private const string SummaryDeleteMethod = "DELETE";
     private const string SummaryPolicy = "issue-97-summary-policy";
     private const string RazorCommentLikeText = "@*";
 
@@ -20,7 +22,17 @@
 
     private string? GroupMarker
         => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue97GroupMetadata>()?.Value;
+
+    protected override void OnInitialized()
+    {
+        RequestProbe.RecordInitialization();
+    }
+
+    protected override void OnParametersSet()
+    {
+        RequestProbe.RecordBinding();
+    }
 }
 
-@attribute [Htmxor.HtmxRoute(SummaryRoute, Methods = [ SummaryMethod ])]
+@attribute [Htmxor.HtmxRoute(SummaryRoute, Methods = [ SummaryGetMethod, SummaryDeleteMethod ])]
 @attribute [Authorize(SummaryPolicy)]

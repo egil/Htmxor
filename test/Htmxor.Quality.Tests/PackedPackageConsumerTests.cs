@@ -26,7 +26,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(11, 11, 11, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(14, 14, 14, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -441,7 +441,7 @@ internal static class PackageConsumerEvidence
 		const string reportRoute =
 			"@attribute [Htmxor.HtmxRoute(\"/htmx-reports/{ReportId:int}\")]";
 		const string summaryRoute =
-			"@attribute [Htmxor.HtmxRoute(SummaryRoute, Methods = [ SummaryMethod ])]";
+			"@attribute [Htmxor.HtmxRoute(SummaryRoute, Methods = [ SummaryGetMethod, SummaryDeleteMethod ])]";
 		const string summaryAuthorization = "@attribute [Authorize(SummaryPolicy)]";
 		const string pageRoute = "@page \"/reports/{ReportId:int}\"";
 
