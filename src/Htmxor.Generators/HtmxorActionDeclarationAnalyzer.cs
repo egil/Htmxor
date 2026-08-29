@@ -140,6 +140,8 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 
 	private static bool HasUnsupportedHandlerMember(INamedTypeSymbol component, string handlerName)
 	{
+		var hasInstanceMethod = false;
+
 		for (var current = component; current is not null; current = current.BaseType)
 		{
 			foreach (var member in current.GetMembers(handlerName))
@@ -148,10 +150,12 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 				{
 					return true;
 				}
+
+				hasInstanceMethod = true;
 			}
 		}
 
-		return false;
+		return !hasInstanceMethod;
 	}
 
 	private static bool ContainsMethod(TypedConstant methods, string httpMethod)
