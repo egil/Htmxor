@@ -1,5 +1,6 @@
 using Bunit;
 using Htmxor.Components;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Configuration;
 
@@ -22,5 +23,16 @@ public class HtmxHeadOutletTest : TestContext
 			.GetProperty("UseEmbeddedHtmx")
 			.Should()
 			.BeNull();
+	}
+
+	[Fact]
+	public void Public_registration_exposes_no_Htmxor_owned_client_configuration()
+	{
+		var addHtmx = typeof(HtmxorApplicationBuilderExtensions)
+			.GetMethods()
+			.Single(method => method.Name == nameof(HtmxorApplicationBuilderExtensions.AddHtmx));
+
+		addHtmx.GetParameters().Should().ContainSingle();
+		typeof(HtmxHeadOutlet).Assembly.GetType("Htmxor.HtmxConfig").Should().BeNull();
 	}
 }

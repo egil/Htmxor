@@ -6,6 +6,8 @@
 
 To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
 
+The application supplies and configures the htmx runtime; Htmxor does not distribute one. The sample applications supply exact htmx 4.0.0 with its defaults. Current browser evidence covers only the package-browser GET path described in the [v1 progress record](roadmap/v1/progress.md). Unsafe requests and the remaining htmx 4 behavior need separate evidence.
+
 To start fresh from a (new) Blazor Web App project, follow these steps:
 
 1. **Add the Htmxor Package**
@@ -44,11 +46,9 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
       app.Run();
     ```
-    Note: You can use `AddHtmx(options => { ... })` to change [htmx's config](https://htmx.org/reference/#config) for your app.
-
 3. **Update App.razor**
 
-   Modify `App.razor` to include Htmxor components:
+   Add the application-owned runtime and the Htmxor adapter to `App.razor`. This example uses the exact htmx 4.0.0 asset shipped with the sample repository:
 
     ```diff
       <!DOCTYPE html>
@@ -62,6 +62,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
           <link rel="stylesheet" href="app.css" />
           <link rel="stylesheet" href="MinimalHtmxorApp.styles.css" />
           <link rel="icon" type="image/png" href="favicon.png" />
+    +     <script defer src="htmx-4.0.0.min.js"></script>
     +     <HtmxHeadOutlet />
           <HeadOutlet />
       </head>
