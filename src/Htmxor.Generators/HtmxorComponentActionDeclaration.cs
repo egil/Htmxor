@@ -210,6 +210,11 @@ internal sealed class HtmxorComponentActionDeclaration
 				continue;
 			}
 
+			if (IsSupportedMarkupLine(trimmed))
+			{
+				continue;
+			}
+
 			if (!IsSupportedDirectiveLine(trimmed))
 			{
 				return false;
@@ -250,6 +255,29 @@ internal sealed class HtmxorComponentActionDeclaration
 			line.IndexOf('(') < 0;
 		return isAttributeDirective || isUsingDirective || isInjectDirective;
 	}
+
+	private static bool IsSupportedMarkupLine(string line)
+	{
+		if (!HasSupportedMarkupBounds(line))
+		{
+			return false;
+		}
+
+		var nameStart = line[1] == '/' ? 2 : 1;
+		var nameEnd = SkipName(line, nameStart, line.Length - 1, allowRazorPrefix: false);
+		return nameEnd > nameStart &&
+			(nameEnd == line.Length - 1 ||
+			char.IsWhiteSpace(line[nameEnd]) ||
+			line[nameEnd] == '>');
+	}
+
+	private static bool HasSupportedMarkupBounds(string line)
+		=> HasOnlySingleLineLexicalContent(line) &&
+			line.Length >= 3 &&
+			line[0] == '<' &&
+			line[line.Length - 1] == '>' &&
+			line[1] != '!' &&
+			line[1] != '?';
 
 	private static bool IsSupportedPageDirectiveLine(string line)
 	{
