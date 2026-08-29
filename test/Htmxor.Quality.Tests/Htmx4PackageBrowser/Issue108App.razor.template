@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<base href="/" />
+	<script src="/htmx-4.0.0.min.js"></script>
+	<HtmxHeadOutlet />
+</head>
+<body data-stock-shell>
+	<Router AppAssembly="typeof(Issue108App).Assembly">
+		<Found Context="routeData">
+			<RouteView RouteData="routeData" />
+		</Found>
+	</Router>
+</body>
+</html>

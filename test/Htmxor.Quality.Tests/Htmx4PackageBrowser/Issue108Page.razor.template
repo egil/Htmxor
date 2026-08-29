@@ -1,0 +1,11 @@
+@page "/issue-108"
+
+<main data-issue-108-page>
+	<h1>Application-owned htmx 4 GET</h1>
+	<button type="button"
+			hx-get="/issue-108/swap"
+			hx-target="#issue-108-target">
+		Load component
+	</button>
+	<div id="issue-108-target">Waiting for component response</div>
+</main>

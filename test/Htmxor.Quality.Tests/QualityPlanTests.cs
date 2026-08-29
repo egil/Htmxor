@@ -15,6 +15,10 @@ public sealed class QualityPlanTests
 		AssertCommonPreparation(plan.Preparation);
 		Assert.Equal(3, plan.Tests.Count);
 		AssertAspNetCore10Boundary(plan);
+		var quality = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj");
+		Assert.Equal(
+			["--filter", "Category!=Browser"],
+			quality.Command.Arguments.TakeLast(2));
 		var htmxor = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Tests/Htmxor.Tests.csproj");
 		Assert.Equal(
 			[
@@ -70,6 +74,7 @@ public sealed class QualityPlanTests
 		Assert.True(htmxor.RequiresCoverage);
 		var quality = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj");
 		Assert.DoesNotContain("--collect", quality.Command.Arguments);
+		Assert.DoesNotContain("--filter", quality.Command.Arguments);
 		Assert.False(quality.RequiresCoverage);
 	}
 
