@@ -483,6 +483,35 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
+	public async Task Accessible_base_instance_handler_is_supported()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			public abstract class ReportComponentBase : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				protected global::System.Threading.Tasks.Task DeleteReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : ReportComponentBase;
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			@page "/reports/{Id:int}"
+			<button @ondelete="DeleteReport">Delete</button>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
 	public async Task Binding_outside_explicit_htmx_route_methods_is_nonconfigurable()
 	{
 		var componentPath = ComponentPath("ReportComponent.razor");
