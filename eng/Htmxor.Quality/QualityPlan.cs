@@ -13,7 +13,8 @@ internal sealed record QualityPlan(
 
 internal static class QualityPlanFactory
 {
-	private const string BrowserFilter = "FullyQualifiedName!~Htmxor.E2E";
+	private const string BrowserFilter = "Category!=Browser";
+	private const string LegacyBrowserFilter = "FullyQualifiedName!~Htmxor.E2E";
 
 	public static QualityPlan Create(
 		string repositoryRoot,
@@ -27,8 +28,18 @@ internal static class QualityPlanFactory
 
 		return options.Profile switch
 		{
-			QualityProfile.Fast => CreateTests(repositoryRoot, resultsDirectory, BrowserFilter, collectCoverage: false),
-			QualityProfile.Full => CreateTests(repositoryRoot, resultsDirectory, null, collectCoverage: true),
+			QualityProfile.Fast => CreateTests(
+				repositoryRoot,
+				resultsDirectory,
+				BrowserFilter,
+				LegacyBrowserFilter,
+				collectCoverage: false),
+			QualityProfile.Full => CreateTests(
+				repositoryRoot,
+				resultsDirectory,
+				qualityFilter: null,
+				htmxorFilter: null,
+				collectCoverage: true),
 			QualityProfile.Mutation => CreateMutation(repositoryRoot, resultsDirectory),
 			_ => throw new ArgumentOutOfRangeException(nameof(options)),
 		};
@@ -48,14 +59,15 @@ internal static class QualityPlanFactory
 	private static QualityPlan CreateTests(
 		string repositoryRoot,
 		string resultsDirectory,
-		string? filter,
+		string? qualityFilter,
+		string? htmxorFilter,
 		bool collectCoverage)
 	{
 		var tests = new[]
 		{
-			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj", "quality", null, collectCoverage: false),
+			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj", "quality", qualityFilter, collectCoverage: false),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore10", null, collectCoverage: false),
-			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Tests/Htmxor.Tests.csproj", "htmxor", filter, collectCoverage),
+			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Tests/Htmxor.Tests.csproj", "htmxor", htmxorFilter, collectCoverage),
 		};
 		return new(CommonPreparation(repositoryRoot), tests, null);
 	}

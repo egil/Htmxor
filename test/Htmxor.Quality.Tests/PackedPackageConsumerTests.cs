@@ -4,6 +4,7 @@ using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
 
+[Collection(PackageConsumerCollection.Name)]
 public sealed class PackedPackageConsumerTests
 {
 	private const string UnsupportedPutHandlerMessage =
