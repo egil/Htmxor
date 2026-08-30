@@ -70,7 +70,8 @@ Last updated: 2026-08-30
 - This issue #56 progress change is documentation-only. Executable claims are tied to the tested executable, fixture-correction, and post-review heads above, not to the later documentation head.
 - Preserved meaningful-red commit for issue #111: `e84fc820d6ad9b9928df70badb04eacc36fce1af`, based on exact `origin/main` commit `065fbc9135f9b6e6820e43461c3586657197c5ca`.
 - Verified executable proof commit for issue #111: `d2f5f90bbcd1cae78570ddc3dc2253b426878e9f`.
-- This issue #111 progress change is documentation-only. Executable claims are tied to the tested proof commit above, not to this later documentation head.
+- Verified mixed QUERY and unsafe-action security characterization for issue #111: `f65f49ebaa055219e41eb9a308679ff6bcc1ac3d`.
+- This issue #111 progress change is documentation-only. Executable claims are tied to the tested proof and security-characterization commits above, not to this later documentation head.
 - Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR. Issues #95, #97, #100, #103, and #106 use a separate external .NET 10 Razor consumer on TestServer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project. Issues #108, #56, and #111 use a separate package-only .NET 10 application on real Kestrel with Chromium.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -619,9 +620,13 @@ conflict before mapping. Client `hx-query`, `hx-action`, and `hx-method`
 attributes and manual `BuildRenderTree` calls emit no generated action.
 
 QUERY is a supported generated action but is not in Htmxor's unsafe-method
-predicate. It therefore receives neither unsafe-method antiforgery metadata nor
-Htmxor antiforgery validation merely because it has request content. Existing
-POST, PUT, PATCH, and DELETE actions retain their prior metadata and validation.
+predicate. A QUERY-only endpoint receives neither unsafe-method antiforgery
+metadata nor Htmxor antiforgery validation merely because it has request
+content. When the same endpoint also declares POST, endpoint-wide required-
+antiforgery metadata remains present for the unsafe action, but real ASP.NET
+Core still permits token-free QUERY while rejecting missing-token POST before
+callback effects. Existing POST, PUT, PATCH, and DELETE actions retain their
+prior metadata and validation.
 
 The separate package-only `net10.0` consumer owns the exact htmx 4.0.0 asset,
 restores a locally packed Htmxor package, starts real Kestrel, and runs real
@@ -836,8 +841,9 @@ or callback effects.
 - Meaningful red is preserved at clean test-only commit `e84fc820d6ad9b9928df70badb04eacc36fce1af`: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Htmx4PackageBrowserTests" --blame-hang --blame-hang-timeout 5min` successfully packed Htmxor, restored and Release-built the separate .NET 10 consumer, started Kestrel, and launched Chromium. Its inner run discovered and executed 2 browser tests; the existing unsafe-action test passed and the QUERY test failed. Chromium sent a real QUERY with form-encoded content to the stock page, which returned `405` instead of the required `200`. This was a behavioral reachability failure, not a build, setup, browser, or discovery failure.
 - Focused compiler and runtime proof at exact clean executable head `d2f5f90bbcd1cae78570ddc3dc2253b426878e9f`: `dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorActionGeneratorTests|FullyQualifiedName~HtmxorRouteGeneratorTests|FullyQualifiedName~HtmxorRouteDeclarationAnalyzerTests|FullyQualifiedName~HtmxorAttributedRouteCatalogTests" --blame-hang --blame-hang-timeout 5min` discovered, executed, and passed 109 of 109 tests. It covers both route owners, explicit QUERY acceptance and exclusion, GET preservation, safe metadata, client-only controls, and manual-render-tree non-discovery.
 - Focused package-only browser proof at the same exact clean head: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Htmx4PackageBrowserTests" --blame-hang --blame-hang-timeout 5min` discovered, executed, and passed 1 of 1 outer tests. The asserted external-consumer TRX discovered, executed, and passed 2 of 2 browser tests through the locally packed package, real Kestrel, and real Chromium.
-- Fast-profile proof at the same exact clean head: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` passed 117 quality tests, 40 .NET 10 hosted tests, and 257 non-browser library, generator, analyzer, and runtime tests. Total: 414 discovered, 414 executed, 414 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
-- Full-profile proof at the same exact clean head: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` passed 118 quality tests, 40 .NET 10 hosted tests, and all 259 library, generator, analyzer, runtime, and legacy-browser tests. Total: 417 discovered, 417 executed, 417 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors and retained the canonical fresh coverage report at `artifacts/results/full/htmxor/7f0cfb81-f118-412e-a418-4437532c6995/coverage.cobertura.xml`.
+- Final security characterization at exact clean executable head `f65f49ebaa055219e41eb9a308679ff6bcc1ac3d` used the same focused package-browser command and passed 1 of 1 outer tests with 2 of 2 asserted external browser tests. The stock issue #111 endpoint was proved to carry both QUERY and POST method metadata plus required-antiforgery metadata. On that same endpoint, real Chromium observed missing-token POST return `400` with no callback effects, then sent token-free QUERY with form content and received `200`, the matching request-instance callback, shell-free static SSR, and a visible swap.
+- Fast-profile proof at the same exact clean security-characterization head: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast` passed 117 quality tests, 40 .NET 10 hosted tests, and 257 non-browser library, generator, analyzer, and runtime tests. Total: 414 discovered, 414 executed, 414 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Full-profile proof at the same exact clean security-characterization head: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` passed 118 quality tests, 40 .NET 10 hosted tests, and all 259 library, generator, analyzer, runtime, and legacy-browser tests. Total: 417 discovered, 417 executed, 417 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors and retained the canonical fresh coverage report at `artifacts/results/full/htmxor/eb64a18a-2b8f-4ad0-824a-48b19c9d1961/coverage.cobertura.xml`.
 - The first independent Standards review of exact clean executable head `d2f5f90bbcd1cae78570ddc3dc2253b426878e9f` passed with zero findings. The independent Spec review found one P2 documentation gap: this progress record still described QUERY as unimplemented. No executable defect was identified; this documentation change resolves that finding.
 - Issue #111's exact-head proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Microsoft.Playwright 1.62.0, Chromium 151.0.7922.34, Ubuntu 26.04.1 under WSL2, exact application-owned htmx 4.0.0, and Kestrel loopback HTTP. It did not exercise TLS, Windows, macOS, Firefox, WebKit, a published or signed package, a release candidate, another target framework, another htmx version, fresh browser provisioning, or external services. Full-scope mutation was not run; issue #111 makes it optional, and the configured full mutation workload includes unrelated legacy production scope.
 
@@ -875,8 +881,8 @@ or callback effects.
 - Issue #111 proves one QUERY callback per route owner with one form-encoded
   value read through the public request API. It does not prove JSON or other
   content types, large or streaming bodies, cancellation, concurrent QUERY
-  requests, multiple QUERY bindings on one component, QUERY composition with an
-  unsafe action on the same component, or typed HTMX-only route conversion.
+  requests, multiple QUERY bindings on one component, other mixed safe/unsafe
+  method combinations, or typed HTMX-only route conversion.
   Client declarations, including `hx-query`, `hx-action`, and `hx-method`, never
   grant QUERY reachability.
 - The legacy test application still uses internal private-reflection discovery and global service replacements. Later slices must replace the behavior they cover instead of extending that prototype.
@@ -972,6 +978,9 @@ package-only browser proof for both route-owner conventions. It does not add
 general `hx-action` or `hx-method` progressive enhancement, fragments,
 response-header migration, error swapping, caching, TLS, publication, broader
 Razor grammar, C# action discovery, or another browser/framework matrix.
+The same browser boundary also proves mixed-method security: adding POST to the
+stock QUERY owner retains required-antiforgery endpoint metadata, token-free
+QUERY still succeeds, and missing-token POST fails before callback effects.
 
 The recommended next slice is issue #50's cache-handling contract. At the live
 tracker check on 2026-08-30, #50 was open and unassigned and no open pull request
