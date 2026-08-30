@@ -15,6 +15,7 @@
     }
 }
 <form hx-put="/click-to-edit-1/contact/@Id" hx-target="this" hx-swap="outerHTML">
+    <AntiforgeryToken />
     <div>
         <label>First Name</label>
         <input type="text" name="Contact.FirstName" value="@contact.FirstName">

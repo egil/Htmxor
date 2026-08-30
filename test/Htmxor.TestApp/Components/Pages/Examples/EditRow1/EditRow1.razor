@@ -13,6 +13,7 @@
         return Id == Guid.Empty || (id == Id && !request.Path.ToUriComponent().EndsWith("/edit"));
     }
 }
+<AntiforgeryToken />
 <table class="table">
     <thead>
         <tr>

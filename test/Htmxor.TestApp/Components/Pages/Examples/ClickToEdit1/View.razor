@@ -27,7 +27,7 @@
     <div><label>First Name</label>: @Contact.FirstName</div>
     <div><label>Last Name</label>: @Contact.LastName</div>
     <div><label>Email</label>: @Contact.Email</div>
-    <button hx-get="/click-to-edit-1/contact/@Id/edit" class="btn btn-primary">
+    <button hx-get="/click-to-edit-1/contact/@Id/edit" hx-target="closest div" hx-swap="outerHTML" class="btn btn-primary">
         Click To Edit
     </button>
 </div>

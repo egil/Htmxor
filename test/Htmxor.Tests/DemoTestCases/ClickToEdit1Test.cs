@@ -32,7 +32,7 @@ public class ClickToEdit1Test : TestAppTestBase
                     <div><label>First Name</label>: {contact.FirstName}</div>
                     <div><label>Last Name</label>: {contact.LastName}</div>
                     <div><label>Email</label>: {contact.Email}</div>
-                    <button hx-get="/click-to-edit-1/contact/{contact.Id}/edit" class="btn btn-primary">
+                    <button hx-get="/click-to-edit-1/contact/{contact.Id}/edit" hx-target="closest div" hx-swap="outerHTML" class="btn btn-primary">
                         Click To Edit
                     </button>
                 </div>
@@ -58,6 +58,7 @@ public class ClickToEdit1Test : TestAppTestBase
 			s.StatusCodeShouldBe(HttpStatusCode.OK);
 			s.ContentShouldBeHtml(FullPageContent($"""
                 <form hx-put="/click-to-edit-1/contact/{contact.Id}" hx-target="this" hx-swap="outerHTML">
+                  <input type="hidden" name="__RequestVerificationToken" value:ignore>
                   <div>
                     <label>First Name</label>
                     <input type="text" name="Contact.FirstName" value="{contact.FirstName}">
@@ -99,7 +100,7 @@ public class ClickToEdit1Test : TestAppTestBase
                     <div><label>First Name</label>: {contact.FirstName}</div>
                     <div><label>Last Name</label>: {contact.LastName}</div>
                     <div><label>Email</label>: {contact.Email}</div>
-                    <button hx-get="/click-to-edit-1/contact/{contact.Id}/edit" class="btn btn-primary">
+                    <button hx-get="/click-to-edit-1/contact/{contact.Id}/edit" hx-target="closest div" hx-swap="outerHTML" class="btn btn-primary">
                         Click To Edit
                     </button>
                 </div>
@@ -126,6 +127,7 @@ public class ClickToEdit1Test : TestAppTestBase
 			s.StatusCodeShouldBe(HttpStatusCode.OK);
 			s.ContentShouldBeHtml($"""
                 <form hx-put="/click-to-edit-1/contact/{contact.Id}" hx-target="this" hx-swap="outerHTML">
+                  <input type="hidden" name="__RequestVerificationToken" value:ignore>
                   <div>
                     <label>First Name</label>
                     <input type="text" name="Contact.FirstName" value="{contact.FirstName}">
@@ -175,7 +177,7 @@ public class ClickToEdit1Test : TestAppTestBase
                     <div><label>First Name</label>: Foo</div>
                     <div><label>Last Name</label>: Bar</div>
                     <div><label>Email</label>: foo@bar.com</div>
-                    <button hx-get="/click-to-edit-1/contact/{contact.Id}/edit" class="btn btn-primary">
+                    <button hx-get="/click-to-edit-1/contact/{contact.Id}/edit" hx-target="closest div" hx-swap="outerHTML" class="btn btn-primary">
                         Click To Edit
                     </button>
                 </div>

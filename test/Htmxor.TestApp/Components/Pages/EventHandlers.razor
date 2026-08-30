@@ -36,35 +36,37 @@
         content = nameof(OnClick);
     }
 }
-<div hx-target="this">
-    <button @onget=OnGet hx-get="/EventHandlers">
+<div id="event-handlers">
+    <AntiforgeryToken />
+    <button @onget=OnGet hx-get="/EventHandlers" hx-target="#event-handlers" hx-swap="outerHTML">
         GET
     </button>
-    <button @onget=OnGet hx-get="/EventHandlers">
+    <button @onget=OnGet hx-get="/EventHandlers" hx-target="#event-handlers" hx-swap="outerHTML">
         GET
     </button>
-    <button @onget=@(e => content = "OnGetInline") hx-get="/EventHandlers?inline#foo">
+    <button @onget=@(e => content = "OnGetInline") hx-get="/EventHandlers?inline#foo" hx-target="#event-handlers" hx-swap="outerHTML">
         GET INLINE
     </button>
-    <button @onget=@(e => content = "OnGetInline2-1") hx-get="/EventHandlers?inline#bar">
+    <button @onget=@(e => content = "OnGetInline2-1") hx-get="/EventHandlers?inline#bar" hx-target="#event-handlers" hx-swap="outerHTML">
         GET INLINE 2
     </button>
-    <button @onget=@(e => content = "OnGetInline2-2") hx-get="/EventHandlers?inline#bar">
+    <button @onget=@(e => content = "OnGetInline2-2") hx-get="/EventHandlers?inline#bar" hx-target="#event-handlers" hx-swap="outerHTML">
         GET INLINE 2
     </button>
-    <button @onpost=OnPost hx-post="/EventHandlers">
+    <button @onpost=OnPost hx-post="/EventHandlers" hx-target="#event-handlers" hx-swap="outerHTML">
         POST
     </button>
-    <button @onput=OnPut hx-put="/EventHandlers">
+    <button @onput=OnPut hx-put="/EventHandlers" hx-target="#event-handlers" hx-swap="outerHTML">
         PUT
     </button>
-    <button @onpatch=OnPatch hx-patch="/EventHandlers">
+    <button @onpatch=OnPatch hx-patch="/EventHandlers" hx-target="#event-handlers" hx-swap="outerHTML">
         PATCH
     </button>
-    <button @ondelete=OnDelete hx-delete="/EventHandlers">
+    <button @ondelete=OnDelete hx-delete="/EventHandlers" hx-target="#event-handlers" hx-swap="outerHTML">
         DELETE
     </button>
-    <form @onsubmit=OnSubmit @formname="classic-form" method="post" action="/EventHandlers" hx-boost="true">
+    <form @onsubmit=OnSubmit @formname="classic-form" method="post" action="/EventHandlers" hx-post="/EventHandlers" hx-target="#event-handlers" hx-swap="outerHTML">
+        <AntiforgeryToken />
         <button type="submit">SUBMIT</button>
     </form>
     <div id="handler">@content</div>
