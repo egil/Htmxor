@@ -18,6 +18,7 @@ public class HxValsTest : TestAppTestBase
 
 			s.StatusCodeShouldBe(HttpStatusCode.OK);
 			s.ContentShouldBeHtml(FullPageContent($$"""
+                <input type="hidden" name="__RequestVerificationToken" value:ignore>
                 <button hx-post="/hx-vals-escaped"
                         hx-vals='{"myVal": "My Value"}'
                         type="button">
