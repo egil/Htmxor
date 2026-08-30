@@ -13,7 +13,7 @@
                 <th>Email</th>
             </tr>
         </thead>
-        <HtmxFragment Match=@(req => req.Target == "tbody#contacts-table")>
+        <HtmxFragment Match=@(req => req.Target == "contacts-table")>
             <tbody id="contacts-table" hx-get hx-trigger=@Trigger.OnEvent("newContact").From("body") hx-swap=@SwapStyles.OuterHTML>
                 @foreach (var contact in Contacts.Data.Values.OrderBy(x => x.Modified).Take(20))
                 {
