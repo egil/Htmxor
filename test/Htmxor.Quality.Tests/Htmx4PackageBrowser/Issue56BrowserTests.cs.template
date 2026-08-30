@@ -20,6 +20,27 @@ public sealed class Issue56BrowserTests
 	private const string ApplicationHtmxPath = "/htmx-4.0.0.min.js";
 	private const string Issue111Path = "/issue-111";
 	private const string Issue50Path = "/issue-50/cache";
+	private const string Issue18Path = "/issue-18/headers";
+
+	[Fact]
+	public async Task Component_controls_dynamic_response_header_without_request_leakage()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
+
+		var requests = new[]
+		{
+			AssertResponseHeaderAsync(client, "da-DK", htmx: false),
+			AssertResponseHeaderAsync(client, "en-GB", htmx: true),
+			AssertNoResponseHeaderAsync(client, htmx: false),
+			AssertResponseHeaderAsync(client, "is-IS", htmx: true),
+			AssertNoResponseHeaderAsync(client, htmx: true),
+			AssertResponseHeaderAsync(client, "fo-FO", htmx: false),
+		};
+
+		await Task.WhenAll(requests);
+	}
 
 	[Fact]
 	public async Task Output_cache_attribute_activates_a_razor_component_endpoint()
@@ -219,6 +240,41 @@ public sealed class Issue56BrowserTests
 			.AddHtmxorComponentEndpoints(routes);
 
 		return app;
+	}
+
+	private static async Task AssertResponseHeaderAsync(
+		HttpClient client,
+		string language,
+		bool htmx)
+	{
+		using var response = await SendGetAsync(client, $"{Issue18Path}?language={language}", htmx);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Equal(language, Assert.Single(response.Content.Headers.ContentLanguage));
+		var body = await response.Content.ReadAsStringAsync();
+		Assert.Equal(!htmx, body.Contains("data-stock-shell", StringComparison.Ordinal));
+		Assert.Contains("data-issue-18-header", body, StringComparison.Ordinal);
+		Assert.Contains("data-response-started=\"false\"", body, StringComparison.Ordinal);
+	}
+
+	private static async Task AssertNoResponseHeaderAsync(HttpClient client, bool htmx)
+	{
+		using var response = await SendGetAsync(client, GetOnlyPath, htmx);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Empty(response.Content.Headers.ContentLanguage);
+	}
+
+	private static async Task<HttpResponseMessage> SendGetAsync(
+		HttpClient client,
+		string path,
+		bool htmx)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		if (htmx)
+		{
+			request.Headers.Add("HX-Request", "true");
+		}
+
+		return await client.SendAsync(request);
 	}
 
 	private static async Task<string> AssertCachedRepresentationAsync(HttpClient client, bool htmx)

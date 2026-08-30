@@ -1,0 +1,5 @@
+@page "/issue-18/headers"
+
+<main data-issue-18-header data-response-started="false">
+	<h1>Dynamic response header</h1>
+</main>
