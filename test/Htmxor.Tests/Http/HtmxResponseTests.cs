@@ -317,6 +317,38 @@ public class HtmxResponseTests : TestContext
 	}
 
 	[Fact]
+	public void Trigger_overloads_reject_null_event_names()
+	{
+		var withoutDetail = CreateHttpContext().GetHtmxContext().Response;
+		var withDetail = CreateHttpContext().GetHtmxContext().Response;
+
+		var withoutDetailException = Assert.Throws<ArgumentNullException>(
+			() => withoutDetail.Trigger(null!));
+		var withDetailException = Assert.Throws<ArgumentNullException>(
+			() => withDetail.Trigger(null!, new { Message = "detail" }));
+
+		Assert.Equal("eventName", withoutDetailException.ParamName);
+		Assert.Equal("eventName", withDetailException.ParamName);
+	}
+
+	[Theory]
+	[InlineData("")]
+	[InlineData(" ")]
+	public void Trigger_overloads_reject_whitespace_event_names(string eventName)
+	{
+		var withoutDetail = CreateHttpContext().GetHtmxContext().Response;
+		var withDetail = CreateHttpContext().GetHtmxContext().Response;
+
+		var withoutDetailException = Assert.Throws<ArgumentException>(
+			() => withoutDetail.Trigger(eventName));
+		var withDetailException = Assert.Throws<ArgumentException>(
+			() => withDetail.Trigger(eventName, new { Message = "detail" }));
+
+		Assert.Equal("eventName", withoutDetailException.ParamName);
+		Assert.Equal("eventName", withDetailException.ParamName);
+	}
+
+	[Fact]
 	public void Htmx4_response_trigger_surface_does_not_expose_removed_timing_api()
 	{
 		var assembly = typeof(HtmxResponse).Assembly;
