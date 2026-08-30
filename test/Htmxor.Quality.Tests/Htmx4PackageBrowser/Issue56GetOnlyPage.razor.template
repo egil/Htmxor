@@ -1,0 +1,3 @@
+@page "/issue-56/get-only"
+
+<p data-issue-56-get-only>Unrelated GET-only page</p>

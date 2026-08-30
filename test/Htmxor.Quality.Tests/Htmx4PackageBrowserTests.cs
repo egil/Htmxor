@@ -9,7 +9,7 @@ public sealed class Htmx4PackageBrowserTests
 {
 	[Fact]
 	[Trait("Category", "Browser")]
-	public async Task Package_only_net10_application_uses_application_owned_htmx4_for_component_get()
+	public async Task Package_only_net10_application_uses_application_owned_htmx4_for_unsafe_actions()
 	{
 		using var workspace = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find());
 
@@ -64,7 +64,7 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 
 	public string PackagePath => Assert.Single(Directory.EnumerateFiles(packageDirectory, "*.nupkg"));
 
-	public string PackageVersion { get; } = $"0.0.0-issue108-{Guid.NewGuid():N}";
+	public string PackageVersion { get; } = $"0.0.0-issue56-{Guid.NewGuid():N}";
 
 	public string ProjectPath => projectPath;
 

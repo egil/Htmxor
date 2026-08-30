@@ -1,0 +1,35 @@
+@page "/issue-56"
+@using Htmxor
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue56RequestProbe Probe
+
+<button type="button" hx-post="/issue-56" hx-put="/issue-56" hx-patch="/issue-56" hx-delete="/issue-56" @onpost="Post" @onput="Put" @onpatch="Patch" @ondelete="Delete" hx-target="#issue-56-target">Action</button>
+<AntiforgeryToken />
+<main data-issue-56-page>
+	<h1>Application-owned htmx 4 unsafe actions</h1>
+	<div id="issue-56-target">
+		@if (callback is not null)
+		{
+			<p data-issue-56-result="@callback.ToLowerInvariant()">@callback callback</p>
+		}
+	</div>
+</main>
+
+@code {
+	private string? callback;
+
+	protected override void OnInitialized() => Probe.RecordInitialization();
+
+	protected override void OnParametersSet() => Probe.RecordBinding();
+
+	private void Post(HtmxEventArgs _) => Record("POST");
+	private void Put(HtmxEventArgs _) => Record("PUT");
+	private void Patch(HtmxEventArgs _) => Record("PATCH");
+	private void Delete(HtmxEventArgs _) => Record("DELETE");
+
+	private void Record(string method)
+	{
+		callback = method;
+		Probe.RecordCallback(method);
+	}
+}
