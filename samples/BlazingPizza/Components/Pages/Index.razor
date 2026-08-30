@@ -25,6 +25,7 @@
     }
 </div>
 <HtmxFragmentElement Id="sidebar" class="bg-dark text-white ms-auto d-flex flex-column fw-lighter" Element="form">
+    <AntiforgeryToken />
     @if (order.Pizzas.Any())
     {
         <div class="flex-grow-1 p-3 d-flex gap-3 flex-column">

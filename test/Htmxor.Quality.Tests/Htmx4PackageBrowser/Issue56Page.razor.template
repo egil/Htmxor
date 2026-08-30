@@ -3,8 +3,10 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject Issue56RequestProbe Probe
 
-<button type="button" hx-post="/issue-56" hx-put="/issue-56" hx-patch="/issue-56" hx-delete="/issue-56" @onpost="Post" @onput="Put" @onpatch="Patch" @ondelete="Delete" hx-target="#issue-56-target">Action</button>
-<AntiforgeryToken />
+<form method="post" hx-post="/issue-56" hx-put="/issue-56" hx-patch="/issue-56" hx-delete="/issue-56" @onpost="Post" @onput="Put" @onpatch="Patch" @ondelete="Delete" @formname="issue-56-actions" hxor-eventid="issue-56-action-context" hx-target="body">
+	<AntiforgeryToken />
+	<button type="submit">Action</button>
+</form>
 <main data-issue-56-page>
 	<h1>Application-owned htmx 4 unsafe actions</h1>
 	<div id="issue-56-target">

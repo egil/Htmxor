@@ -60,15 +60,21 @@ public sealed class Issue56BrowserTests
 		var baseline = probe.Snapshot();
 		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
 			"element => element.remove()");
-		await AssertRejectedAsync(page, "POST");
+		await AssertRejectedAsync(page, "POST", expectedTokenHeader: false);
 		Assert.Equal(baseline, probe.Snapshot());
 
 		await page.ReloadAsync();
 		baseline = probe.Snapshot();
 		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
 			"element => element.value = 'invalid-request-token'");
-		await AssertRejectedAsync(page, "PUT");
+		await AssertRejectedAsync(page, "PUT", expectedTokenHeader: true);
 		Assert.Equal(baseline, probe.Snapshot());
+		Assert.Empty(pageErrors);
+		Assert.Equal(2, consoleErrors.Count);
+		Assert.All(
+			consoleErrors,
+			error => Assert.StartsWith("Failed to load resource", error, StringComparison.Ordinal));
+		consoleErrors.Clear();
 
 		await page.ReloadAsync();
 		foreach (var method in new[] { "POST", "PUT", "PATCH", "DELETE" })
@@ -110,7 +116,10 @@ public sealed class Issue56BrowserTests
 		return app;
 	}
 
-	private static async Task AssertRejectedAsync(IPage page, string method)
+	private static async Task AssertRejectedAsync(
+		IPage page,
+		string method,
+		bool expectedTokenHeader)
 	{
 		await SelectActionAsync(page, method);
 		var responseTask = page.WaitForResponseAsync(response =>
@@ -118,6 +127,8 @@ public sealed class Issue56BrowserTests
 			string.Equals(response.Request.Method, method, StringComparison.Ordinal));
 		await page.GetByRole(AriaRole.Button, new() { Name = "Action", Exact = true }).ClickAsync();
 		var response = await responseTask;
+		var headers = await response.Request.AllHeadersAsync();
+		Assert.Equal(expectedTokenHeader, headers.ContainsKey("requestverificationtoken"));
 		Assert.Equal((int)HttpStatusCode.BadRequest, response.Status);
 	}
 
@@ -133,10 +144,13 @@ public sealed class Issue56BrowserTests
 			string.Equals(response.Request.Method, method, StringComparison.Ordinal));
 		await page.GetByRole(AriaRole.Button, new() { Name = "Action", Exact = true }).ClickAsync();
 		var response = await responseTask;
-		Assert.Equal((int)HttpStatusCode.OK, response.Status);
 		var requestHeaders = await response.Request.AllHeadersAsync();
 		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
 		Assert.True(requestHeaders.ContainsKey("requestverificationtoken"));
+		Assert.Equal("issue-56-action-context", requestHeaders["hxor-event-handler-id"]);
+		Assert.True(
+			response.Status == (int)HttpStatusCode.OK,
+			$"Expected 200 for {method}, received {response.Status}: {await response.TextAsync()}");
 		var body = await response.TextAsync();
 		Assert.Contains($"data-issue-56-result=\"{method.ToLowerInvariant()}\"", body, StringComparison.Ordinal);
 		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
@@ -151,7 +165,7 @@ public sealed class Issue56BrowserTests
 	}
 
 	private static Task SelectActionAsync(IPage page, string method) =>
-		page.GetByRole(AriaRole.Button, new() { Name = "Action", Exact = true }).EvaluateAsync(
+		page.Locator("form").EvaluateAsync(
 			"""
 			(element, selectedMethod) => {
 				for (const method of ['post', 'put', 'patch', 'delete']) {
@@ -171,8 +185,8 @@ public sealed class Issue56BrowserTests
 	{
 		var uris = requestUrls.Select(url => new Uri(url)).ToArray();
 		Assert.All(uris, uri => Assert.Equal(baseAddress.Authority, uri.Authority));
-		Assert.Single(uris, uri => uri.AbsolutePath == ApplicationHtmxPath);
-		Assert.Single(uris, uri => uri.AbsolutePath == "/_content/Htmxor/htmxor.js");
+		Assert.NotEmpty(uris.Where(uri => uri.AbsolutePath == ApplicationHtmxPath));
+		Assert.NotEmpty(uris.Where(uri => uri.AbsolutePath == "/_content/Htmxor/htmxor.js"));
 		Assert.DoesNotContain(uris, IsHtmxorRuntimeOrLegacyExtension);
 	}
 

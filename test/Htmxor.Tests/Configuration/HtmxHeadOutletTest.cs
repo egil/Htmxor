@@ -35,4 +35,17 @@ public class HtmxHeadOutletTest : TestContext
 		addHtmx.GetParameters().Should().ContainSingle();
 		typeof(HtmxHeadOutlet).Assembly.GetType("Htmxor.HtmxConfig").Should().BeNull();
 	}
+
+	[Fact]
+	public void Public_registration_exposes_no_readable_token_cookie_middleware()
+	{
+		var assembly = typeof(HtmxHeadOutlet).Assembly;
+
+		assembly.GetType("Microsoft.AspNetCore.Builder.HtmxorAntiforgeryApplicationBuilderExtensions")
+			.Should()
+			.BeNull();
+		assembly.GetType("Htmxor.Antiforgery.HtmxorAntiforgeryMiddleware")
+			.Should()
+			.BeNull();
+	}
 }

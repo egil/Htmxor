@@ -1,30 +1,18 @@
-document.addEventListener('htmx:configRequest', (evt) => {
-	const httpVerb = evt.detail.verb.toUpperCase();
-	if (httpVerb === 'GET' || httpVerb === 'HEAD' || httpVerb === 'OPTIONS' || httpVerb === 'TRACE')
+document.addEventListener('htmx:config:request', (event) => {
+	const context = event.detail.ctx;
+	const sourceElement = context.sourceElement;
+	const request = context.request;
+	const eventHandlerId = sourceElement.getAttribute('hxor-eventid');
+	if (eventHandlerId)
+		request.headers['HXOR-Event-Handler-Id'] = eventHandlerId;
+
+	const method = request.method.toUpperCase();
+	if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS' || method === 'TRACE')
 		return;
 
-	const antiforgery = htmx.config.antiforgery;
-
-	if (antiforgery) {
-		// already specified on form, short circuit
-		if (evt.detail.parameters[antiforgery.formFieldName])
-			return;
-
-		const requestToken = document.cookie
-			.split("; ")
-			.find(row => row.startsWith(antiforgery.cookieName + "="))
-			.split("=")[1];
-
-		if (antiforgery.headerName) {
-			evt.detail.headers[antiforgery.headerName] = requestToken;
-		} else {
-			evt.detail.parameters[antiforgery.formFieldName] = requestToken;
-		}
-	}
-});
-
-document.addEventListener('htmx:configRequest', (evt) => {
-	const eventIdAttr = evt.detail.elt.attributes['hxor-eventid'];
-	if (eventIdAttr && eventIdAttr.value)
-		evt.detail.headers["HXOR-Event-Handler-Id"] = eventIdAttr.value;
+	const form = sourceElement.form ?? sourceElement.closest('form');
+	const requestToken = (form ?? document)
+		.querySelector("input[name='__RequestVerificationToken']");
+	if (requestToken?.value)
+		request.headers.RequestVerificationToken = requestToken.value;
 });

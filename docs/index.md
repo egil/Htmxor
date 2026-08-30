@@ -7,10 +7,9 @@
 To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
 
 The application supplies and configures the htmx runtime; Htmxor does not
-distribute one. Current browser evidence covers the application-owned htmx
-4.0.0 GET path described in the [v1 progress record](roadmap/v1/progress.md).
-Unsafe samples retain an explicitly application-owned legacy runtime until the
-htmx 4 unsafe-request and antiforgery adapter has separate proof.
+distribute one. Current browser evidence covers application-owned htmx 4.0.0
+GET, POST, PUT, PATCH, and DELETE paths described in the
+[v1 progress record](roadmap/v1/progress.md).
 
 To start fresh from a (new) Blazor Web App project, follow these steps:
 
@@ -44,9 +43,9 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
       app.UseStaticFiles();
       app.UseAntiforgery();
-    + app.UseHtmxAntiforgery();
+    + var htmxorRoutes = app.MapGroup(string.Empty);
       app.MapRazorComponents<App>()
-    +    .AddHtmxorComponentEndpoints(app);
+    +    .AddHtmxorComponentEndpoints(htmxorRoutes);
 
       app.Run();
     ```
@@ -61,8 +60,11 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
    records the source archive, license, and exact asset used by current
    browser evidence.
 
-   This htmx 4 path currently proves GET only. Do not infer unsafe-method or
-   antiforgery compatibility from this setup.
+   Unsafe components render stock Blazor antiforgery credentials through an
+   `EditForm` or `<AntiforgeryToken />`. The adapter sends that request token
+   through htmx 4's request context; ASP.NET Core owns the antiforgery cookie
+   and validates the request before component callbacks run. Htmxor does not
+   require a separate antiforgery middleware or readable request-token cookie.
 
 4. **Update App.razor**
 
