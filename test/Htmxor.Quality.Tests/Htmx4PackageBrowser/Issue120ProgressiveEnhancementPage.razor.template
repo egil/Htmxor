@@ -6,11 +6,11 @@
 @inject Issue120RequestProbe Probe
 
 <form id="issue-120-form"
-	action="/issue-120/native/7"
 	method="post"
-	hx-action="/issue-120/enhanced/7"
 	hx-method="put"
 	@onpost="Post"
+	action="@NativeAction"
+	hx-action="@EnhancedAction"
 	hx-target="#issue-120-target"
 	@formname="issue-120-progressive-form">
 	<AntiforgeryToken />
@@ -31,6 +31,9 @@
 @code {
 	[Parameter]
 	public int ItemId { get; set; }
+
+	private string NativeAction => $"/issue-120/native/{ItemId}";
+	private string EnhancedAction => $"/issue-120/enhanced/{ItemId}";
 
 	private readonly string requestId = Guid.NewGuid().ToString("N");
 	private string? callback;

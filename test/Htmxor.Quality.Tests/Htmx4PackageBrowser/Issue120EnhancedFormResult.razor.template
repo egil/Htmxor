@@ -17,6 +17,7 @@
 
 @code {
 	[Parameter]
+	// String is deliberate because typed constrained binding on HTMX-only direct routes remains an issue #120 follow-up.
 	public string ItemId { get; set; } = string.Empty;
 
 	private readonly string requestId = Guid.NewGuid().ToString("N");
