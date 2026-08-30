@@ -137,6 +137,40 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
     Note that we set up the custom layout for all components by defining the `[HtmxLayout(typeof(HtmxorLayout))]` attribute in the `_Imports.razor` file.
 
+## Response headers
+
+A static SSR component can set an application response header through the
+standard cascading `HttpContext`. Do so during parameter or initialization
+lifecycle work, before the response starts:
+
+```razor
+@using Microsoft.AspNetCore.Http
+@using System.Globalization
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string SelectedLanguage => CultureInfo.CurrentUICulture.Name;
+
+    protected override void OnParametersSet()
+    {
+        if (HttpContext is not null && !HttpContext.Response.HasStarted)
+        {
+            HttpContext.Response.Headers.ContentLanguage = SelectedLanguage;
+        }
+    }
+}
+```
+
+The application remains responsible for choosing and validating the value and
+for any cache policy affected by it. The cascading `HttpContext` is available
+during static SSR; do not rely on it in interactive rendering or attempt to
+change headers after the response has started. Htmxor preserves headers written
+this way on both the stock full-page GET and direct shell-free GET paths, so an
+additional Htmxor response-header API is not needed for this application-owned
+case.
+
 ## Output caching
 
 For the bounded case where one component URL returns the stock full page when
