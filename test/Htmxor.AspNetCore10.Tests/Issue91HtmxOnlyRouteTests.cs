@@ -121,6 +121,43 @@ public sealed class Issue91HtmxOnlyRouteTests : IAsyncLifetime
 		}
 	}
 
+	[Theory]
+	[InlineData(null)]
+	[InlineData("")]
+	[InlineData("unknown")]
+	[InlineData("full")]
+	public async Task Htmx_only_get_rejects_requests_without_one_partial_request_type(string? requestType)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, RequestPath);
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add(Issue91AuthenticationHandler.UserHeaderName, "issue-91-user");
+		if (requestType is not null)
+		{
+			request.Headers.TryAddWithoutValidation("HX-Request-Type", requestType);
+		}
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+		Assert.DoesNotContain("data-issue-91-component", body, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task Htmx_only_get_rejects_contradictory_request_types()
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, RequestPath);
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add(Issue91AuthenticationHandler.UserHeaderName, "issue-91-user");
+		request.Headers.TryAddWithoutValidation("HX-Request-Type", ["partial", "full"]);
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+		Assert.DoesNotContain("data-issue-91-component", body, StringComparison.Ordinal);
+	}
+
 	private async Task<HttpResponseMessage> SendAsync(
 		HttpMethod method,
 		bool direct,
