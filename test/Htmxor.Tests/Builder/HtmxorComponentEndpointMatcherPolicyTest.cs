@@ -94,9 +94,8 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/FOO")] },
 		{ new("/") { CurrentURL = "/FOO"}, [(HtmxRequestHeaderNames.CurrentURL, "/foo")] },
 		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
-		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "DIV#FOO")] },
 		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
-		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "SECTION")] },
+		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "section")] },
 	};
 
 	[Theory]
@@ -121,6 +120,7 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	{
 		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/bar")] },
 		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#bar")] },
+		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#FOO")] },
 		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "div#baz")] },
 	};
 
