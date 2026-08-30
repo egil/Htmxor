@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
 using System.Net;
 using Htmxor;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -103,6 +106,7 @@ public sealed class Issue56BrowserTests
 		var probe = new Issue111RequestProbe();
 		await using var app = CreateApplication(new Issue56RequestProbe(), probe);
 		await app.StartAsync();
+		AssertMixedQueryEndpoint(app);
 		var baseAddress = new Uri(Assert.Single(app.Urls));
 
 		using var playwright = await Playwright.CreateAsync();
@@ -116,6 +120,20 @@ public sealed class Issue56BrowserTests
 		Assert.Contains("<html", await navigation.TextAsync(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(0, await page.Locator("input[name='__RequestVerificationToken']").CountAsync());
 		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		var beforeUnsafe = probe.Snapshot();
+		var unsafeStatus = await page.EvaluateAsync<int>(
+			"""
+			async () => (await fetch('/issue-111', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					'HX-Request': 'true'
+				},
+				body: 'unsafeValue=missing-token'
+			})).status
+			""");
+		Assert.Equal((int)HttpStatusCode.BadRequest, unsafeStatus);
+		Assert.Equal(beforeUnsafe, probe.Snapshot());
 
 		var stockResponse = await SubmitQueryAsync(page, "stock-query", Issue111Path);
 		await AssertSuccessfulQueryAsync(page, stockResponse, "stock", "stock-content");
@@ -146,6 +164,24 @@ public sealed class Issue56BrowserTests
 		var negativeResponse = await SubmitQueryAsync(page, "client-only-query", "/issue-111/no-action");
 		Assert.Equal((int)HttpStatusCode.MethodNotAllowed, negativeResponse.Status);
 		Assert.Equal(beforeNegative, probe.Snapshot());
+	}
+
+	private static void AssertMixedQueryEndpoint(WebApplication app)
+	{
+		var endpoint = Assert.Single(
+			((IEndpointRouteBuilder)app).DataSources
+				.SelectMany(dataSource => dataSource.Endpoints)
+				.OfType<RouteEndpoint>()
+				.Where(endpoint => string.Equals(
+					endpoint.RoutePattern.RawText,
+					Issue111Path,
+					StringComparison.Ordinal)));
+		var methodMetadata = endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>();
+		Assert.Contains(
+			methodMetadata.HttpMethods,
+			method => string.Equals(method, "QUERY", StringComparison.OrdinalIgnoreCase));
+		Assert.Contains(methodMetadata.HttpMethods, HttpMethods.IsPost);
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 	}
 
 	private static WebApplication CreateApplication(

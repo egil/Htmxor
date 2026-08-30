@@ -4,7 +4,7 @@
 @inject IHttpContextAccessor HttpContextAccessor
 @inject Issue111RequestProbe Probe
 
-<main data-issue-111-page @onquery="QueryStock">
+<main data-issue-111-page @onquery="QueryStock" @onpost="PostStock">
 	<h1>Component-owned QUERY actions</h1>
 	<form id="stock-query" hx-query="/issue-111" hx-target="#issue-111-target">
 		<input name="queryValue" value="stock-content" />
@@ -32,6 +32,11 @@
 		var form = await HttpContextAccessor.HttpContext!.Request.ReadFormAsync();
 		submittedValue = form["queryValue"].ToString();
 		Probe.RecordCallback("stock", requestId, submittedValue);
+	}
+
+	private void PostStock(HtmxEventArgs _)
+	{
+		Probe.RecordCallback("unsafe", requestId, "missing-token");
 	}
 }
 
