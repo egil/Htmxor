@@ -8,12 +8,12 @@ namespace Htmxor.Http;
 
 public class HtmxResponseTests : TestContext
 {
-	private static HttpContext CreateHttpContext(JsonOptions? jsonOptions = null)
+	private static HttpContext CreateHttpContext(Action<JsonOptions>? configureJsonOptions = null)
 	{
 		var services = new ServiceCollection();
-		if (jsonOptions is not null)
+		if (configureJsonOptions is not null)
 		{
-			services.AddSingleton(jsonOptions);
+			services.Configure(configureJsonOptions);
 		}
 
 		var result = new DefaultHttpContext()
@@ -300,9 +300,8 @@ public class HtmxResponseTests : TestContext
 	[Fact]
 	public void Trigger_uses_application_json_options_for_event_details()
 	{
-		var jsonOptions = new JsonOptions();
-		jsonOptions.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower;
-		var context = CreateHttpContext(jsonOptions);
+		var context = CreateHttpContext(options =>
+			options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower);
 		var response = context.GetHtmxContext().Response;
 
 		response.Trigger("showMessage", new { MessageLevel = "info" });
