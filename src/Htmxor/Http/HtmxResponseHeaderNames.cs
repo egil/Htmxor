@@ -50,14 +50,4 @@ public static class HtmxResponseHeaderNames
 	/// Allows you to trigger client-side events.
 	/// </summary>
 	public const string Trigger = "HX-Trigger";
-
-	/// <summary>
-	/// Allows you to trigger client-side events after the settle step.
-	/// </summary>
-	public const string TriggerAfterSettle = "HX-Trigger-After-Settle";
-
-	/// <summary>
-	/// Allows you to trigger client-side events after the swap step.
-	/// </summary>
-	public const string TriggerAfterSwap = "HX-Trigger-After-Swap";
 }
