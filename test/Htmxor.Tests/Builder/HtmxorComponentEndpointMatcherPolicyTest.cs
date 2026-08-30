@@ -94,8 +94,9 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/FOO")] },
 		{ new("/") { CurrentURL = "/FOO"}, [(HtmxRequestHeaderNames.CurrentURL, "/foo")] },
 		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
+		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "DIV#foo")] },
 		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
-		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "section")] },
+		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "SECTION")] },
 	};
 
 	[Theory]

@@ -92,11 +92,7 @@ public sealed class HtmxAsyncLoad : ConditionalComponentBase
 	}
 
 	private bool MatchesElementIdentity(string? identity)
-		=> identity is not null &&
-			identity.Length == Element.Length + Id.Length + 1 &&
-			identity.StartsWith(Element, StringComparison.OrdinalIgnoreCase) &&
-			identity[Element.Length] == '#' &&
-			identity.AsSpan(Element.Length + 1).SequenceEqual(Id.AsSpan());
+		=> HtmxElementIdentity.Matches(Element, Id, identity);
 
 	private static void RemoveControlledAttributeAndThrow(IDictionary<string, object> attributes, string attributeName)
 	{
