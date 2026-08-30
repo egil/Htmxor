@@ -16,6 +16,7 @@ internal sealed class HtmxorComponentActionDeclaration
 		new("@onput", "PUT"),
 		new("@onpatch", "PATCH"),
 		new("@ondelete", "DELETE"),
+		new("@onquery", "QUERY"),
 	};
 
 	private HtmxorComponentActionDeclaration(

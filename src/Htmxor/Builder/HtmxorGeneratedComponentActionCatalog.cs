@@ -47,7 +47,7 @@ internal static class HtmxorGeneratedComponentActionCatalog
 		Assembly applicationAssembly,
 		IReadOnlyList<string> projectRootComponentTypeNames)
 	{
-		if (!IsSupportedUnsafeMethod(action.HttpMethod))
+		if (!IsSupportedActionMethod(action.HttpMethod))
 		{
 			throw new InvalidOperationException(
 				$"Generated component action '{action.HandlerIdentity}' uses unsupported method '{action.HttpMethod}'.");
@@ -84,11 +84,12 @@ internal static class HtmxorGeneratedComponentActionCatalog
 		}
 	}
 
-	private static bool IsSupportedUnsafeMethod(string method)
+	private static bool IsSupportedActionMethod(string method)
 		=> HttpMethods.IsPost(method) ||
 			HttpMethods.IsPut(method) ||
 			HttpMethods.IsPatch(method) ||
-			HttpMethods.IsDelete(method);
+			HttpMethods.IsDelete(method) ||
+			Constants.HttpMethods.IsQuery(method);
 
 	public static IReadOnlyList<HtmxorComponentActionDescriptor> Bind(
 		Type componentType,

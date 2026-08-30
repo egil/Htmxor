@@ -10,6 +10,7 @@ namespace Htmxor;
 [EventHandler("onput", typeof(HtmxEventArgs), enableStopPropagation: false, enablePreventDefault: false)]
 [EventHandler("onpatch", typeof(HtmxEventArgs), enableStopPropagation: false, enablePreventDefault: false)]
 [EventHandler("ondelete", typeof(HtmxEventArgs), enableStopPropagation: false, enablePreventDefault: false)]
+[EventHandler("onquery", typeof(HtmxEventArgs), enableStopPropagation: false, enablePreventDefault: false)]
 public static class EventHandlers
 {
 }

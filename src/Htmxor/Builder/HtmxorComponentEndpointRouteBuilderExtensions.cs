@@ -244,7 +244,10 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			endpointBuilder.Metadata.Add(action);
 		}
 
-		RequireAntiforgery(endpointBuilder);
+		if (endpointActions.Any(action => IsUnsafeMethod(action.HttpMethod)))
+		{
+			RequireAntiforgery(endpointBuilder);
+		}
 	}
 
 	private static void RequireAntiforgery(EndpointBuilder endpointBuilder)
@@ -325,7 +328,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		HttpContext context,
 		HtmxorComponentActionDescriptor action)
 	{
-		if (!await ValidateAntiforgery(context))
+		if (IsUnsafeMethod(action.HttpMethod) && !await ValidateAntiforgery(context))
 		{
 			return false;
 		}

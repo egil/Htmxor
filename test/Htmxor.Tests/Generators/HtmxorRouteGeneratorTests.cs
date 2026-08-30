@@ -95,15 +95,26 @@ public sealed class HtmxorRouteGeneratorTests
 				global::Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
 			{
 				builder.AddAttribute(0, "hx-delete", "/csharp/42");
+				builder.AddAttribute(1, "hx-query", "/csharp/42");
 				builder.AddAttribute(
-					1,
+					2,
 					"ondelete",
 					global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(
 						this,
 						Delete));
+				builder.AddAttribute(
+					3,
+					"onquery",
+					global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(
+						this,
+						Query));
 			}
 
 			private void Delete(global::Htmxor.HtmxEventArgs _)
+			{
+			}
+
+			private void Query(global::Htmxor.HtmxEventArgs _)
 			{
 			}
 		}

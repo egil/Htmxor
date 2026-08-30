@@ -1,8 +1,0 @@
-using Microsoft.AspNetCore.Components;
-
-namespace Htmxor.Htmx4Browser;
-
-[EventHandler("onquery", typeof(HtmxEventArgs), enableStopPropagation: false, enablePreventDefault: false)]
-public static class Issue111EventHandlers
-{
-}

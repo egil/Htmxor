@@ -16,6 +16,7 @@ public static class Constants
 		public const string Put = "PUT";
 		public const string Delete = "DELETE";
 		public const string Patch = "PATCH";
+		public const string Query = "QUERY";
 
 		/// <summary>
 		/// Returns a value that indicates if the HTTP request method is GET.
@@ -63,6 +64,18 @@ public static class Constants
 		public static bool IsPut(string method)
 		{
 			return MethodEquals(Put, method);
+		}
+
+		/// <summary>
+		/// Returns a value that indicates if the HTTP request method is QUERY.
+		/// </summary>
+		/// <param name="method">The HTTP request method.</param>
+		/// <returns>
+		/// <see langword="true" /> if the method is QUERY; otherwise, <see langword="false" />.
+		/// </returns>
+		public static bool IsQuery(string method)
+		{
+			return MethodEquals(Query, method);
 		}
 
 		private static bool MethodEquals(string methodA, string methodB) => StringComparer.OrdinalIgnoreCase.Equals(methodA, methodB);
@@ -143,5 +156,6 @@ public static class Constants
 		public const string Put = "onput";
 		public const string Delete = "ondelete";
 		public const string Patch = "onpatch";
+		public const string Query = "onquery";
 	}
 }
