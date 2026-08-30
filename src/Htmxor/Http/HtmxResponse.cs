@@ -4,6 +4,7 @@ using Htmxor.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Htmxor.Http;
 
@@ -282,7 +283,7 @@ public sealed class HtmxResponse(HttpContext context)
 	/// <param name="eventName">The name of client side event to trigger.</param>
 	/// <param name="detail">The details to pass the client side event.</param>
 	/// <param name="jsonSerializerOptions">The <see cref="JsonSerializerOptions"/> to use to convert the <paramref name="detail"/> into JSON. 
-	/// If not specified, a <see cref="JsonOptions.SerializerOptions"/> is retrieved <see cref="HttpContext.RequestServices"/> and used if available.</param>
+	/// If not specified, the application's configured <see cref="JsonOptions.SerializerOptions"/> are used if available.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Trigger<TEventDetail>(string eventName, TEventDetail detail, JsonSerializerOptions? jsonSerializerOptions = null)
 	{
@@ -295,7 +296,7 @@ public sealed class HtmxResponse(HttpContext context)
 
 	private void MergeTrigger<TEventDetail>(string eventName, TEventDetail? detail, JsonSerializerOptions? jsonSerializerOptions)
 	{
-		jsonSerializerOptions ??= context.RequestServices.GetService<JsonOptions>()?.SerializerOptions;
+		jsonSerializerOptions ??= context.RequestServices.GetService<IOptions<JsonOptions>>()?.Value.SerializerOptions;
 		var itemsKey = ItemsKeyPrefix + HtmxResponseHeaderNames.Trigger;
 		if (!context.Items.TryGetValue(itemsKey, out var current) || current is not List<TriggerHeaderEventSet> headerValueSet)
 		{
