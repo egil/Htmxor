@@ -19,8 +19,7 @@ public class TestAppTestBase : IClassFixture<TestAppFixture>
                 <base href="/">
                 <link rel="stylesheet" href="app.css">
                 <link rel="stylesheet" href="Htmxor.TestApp.styles.css">
-                <meta name="htmx-config" content="{&quot;selfRequestsOnly&quot;:true,&quot;antiforgery&quot;:{&quot;formFieldName&quot;:&quot;__RequestVerificationToken&quot;,&quot;headerName&quot;:&quot;RequestVerificationToken&quot;,&quot;cookieName&quot;:&quot;HX-XSRF-TOKEN&quot;}}">
-                <script defer src="legacy-htmx-1.9.12.min.js"></script>
+                <script defer src="htmx-4.0.0.min.js"></script>
                 <script defer src="_content/Htmxor/htmxor.js"></script>
                 {{{title}}}
             </head>

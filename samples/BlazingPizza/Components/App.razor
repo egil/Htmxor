@@ -12,9 +12,7 @@
     *@
 
     <link rel="stylesheet" href="/app.css" />
-    @* Unsafe htmx 4 adapter behavior is deferred; this sample explicitly owns its legacy runtime. *@
-    <meta name="htmx-config" content='{"selfRequestsOnly":true,"antiforgery":{"formFieldName":"__RequestVerificationToken","headerName":"RequestVerificationToken","cookieName":"HX-XSRF-TOKEN"}}' />
-    <script defer src="legacy-htmx-1.9.12.min.js"></script>
+    <script defer src="htmx-4.0.0.min.js"></script>
     <HtmxHeadOutlet />
     <HeadOutlet />
 </head>

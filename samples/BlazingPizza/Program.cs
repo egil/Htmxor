@@ -70,9 +70,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 
-app.UseHtmxAntiforgery();
+var htmxorRoutes = app.MapGroup(string.Empty);
 app.MapRazorComponents<App>()
-   .AddHtmxorComponentEndpoints(app);
+   .AddHtmxorComponentEndpoints(htmxorRoutes);
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();

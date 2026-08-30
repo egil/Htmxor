@@ -9,9 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" defer></script>
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="HtmxorExamples.styles.css" />
-    @* Unsafe htmx 4 adapter behavior is deferred; this sample explicitly owns its legacy runtime. *@
-    <meta name="htmx-config" content='{"selfRequestsOnly":true,"useTemplateFragments":true,"antiforgery":{"formFieldName":"__RequestVerificationToken","headerName":"RequestVerificationToken","cookieName":"HX-XSRF-TOKEN"}}' />
-    <script defer src="legacy-htmx-1.9.12.min.js"></script>
+    <script defer src="htmx-4.0.0.min.js"></script>
     <HtmxHeadOutlet />
     <HeadOutlet />
 </head>

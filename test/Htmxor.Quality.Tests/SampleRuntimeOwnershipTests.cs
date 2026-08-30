@@ -4,14 +4,14 @@ namespace Htmxor.Quality.Tests;
 
 public sealed class SampleRuntimeOwnershipTests
 {
-	private const string LegacyRuntimeHash =
-		"73EABC44D978B226A667C62CA3C40E99236D11AA6F8FC8A27BE6F0B36A73B42D";
+	private const string Htmx4RuntimeHash =
+		"E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F";
 
 	[Theory]
 	[InlineData("samples/BlazingPizza")]
 	[InlineData("samples/HtmxorExamples")]
 	[InlineData("samples/MinimalHtmxorApp")]
-	public void Unsafe_sample_uses_application_owned_legacy_runtime_until_htmx4_adapter_is_proved(
+	public void Unsafe_sample_uses_application_owned_htmx4_without_legacy_configuration(
 		string samplePath)
 	{
 		var repositoryRoot = RepositoryLocator.Find();
@@ -24,21 +24,20 @@ public sealed class SampleRuntimeOwnershipTests
 		var assetPath = Path.Combine(
 			sampleRoot,
 			"wwwroot",
-			"legacy-htmx-1.9.12.min.js");
+			"htmx-4.0.0.min.js");
 
 		Assert.Matches(@"hx-(post|put|patch|delete)", razorSources);
+		Assert.Contains("<AntiforgeryToken", razorSources, StringComparison.Ordinal);
+		Assert.DoesNotContain("<meta name=\"htmx-config\"", app, StringComparison.Ordinal);
 		Assert.Contains(
-			"<meta name=\"htmx-config\"",
+			"<script defer src=\"htmx-4.0.0.min.js\"></script>",
 			app,
 			StringComparison.Ordinal);
-		Assert.Contains(
-			"<script defer src=\"legacy-htmx-1.9.12.min.js\"></script>",
-			app,
-			StringComparison.Ordinal);
-		Assert.DoesNotContain("htmx-4.0.0.min.js", app, StringComparison.Ordinal);
+		Assert.DoesNotContain("legacy-htmx", app, StringComparison.Ordinal);
 		Assert.True(File.Exists(assetPath), $"Missing application-owned asset: {assetPath}");
 		Assert.Equal(
-			LegacyRuntimeHash,
+			Htmx4RuntimeHash,
 			Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assetPath))));
+		Assert.False(File.Exists(Path.Combine(sampleRoot, "wwwroot", "legacy-htmx-1.9.12.min.js")));
 	}
 }

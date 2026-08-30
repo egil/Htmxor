@@ -7,8 +7,7 @@ builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 var app = builder.Build();
 
 app.UseStaticFiles();
-app.UseAntiforgery()
-   .UseHtmxAntiforgery();
+app.UseAntiforgery();
 
 app.MapRazorComponents<Htmxor.TestApp.App>()
    .AddLegacyHtmxorComponentEndpoints(app);
