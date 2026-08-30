@@ -24,8 +24,8 @@ public sealed class Issue56BrowserTests
 	private const string Issue18Path = "/issue-18/headers";
 	private const string Issue116Path = "/issue-116/trigger";
 	private const string Issue118Path = "/issue-118/request-context";
-	private const string Issue120NativePath = "/issue-120/native/7";
-	private const string Issue120EnhancedPath = "/issue-120/enhanced/7";
+	private const string Issue120NativePath = "/issue-120/native/23";
+	private const string Issue120EnhancedPath = "/issue-120/enhanced/23";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
 
@@ -384,6 +384,9 @@ public sealed class Issue56BrowserTests
 		Assert.NotNull(nativeGet);
 		Assert.Equal((int)HttpStatusCode.OK, nativeGet.Status);
 		Assert.Contains("data-stock-shell", await nativeGet.TextAsync(), StringComparison.Ordinal);
+		var nativeForm = noScriptPage.Locator("#issue-120-form");
+		Assert.Equal(Issue120NativePath, await nativeForm.GetAttributeAsync("action"));
+		Assert.Equal(Issue120EnhancedPath, await nativeForm.GetAttributeAsync("hx-action"));
 
 		var nativeResponseTask = noScriptPage.WaitForResponseAsync(response =>
 			new Uri(response.Url).AbsolutePath == Issue120NativePath &&
@@ -415,6 +418,9 @@ public sealed class Issue56BrowserTests
 		Assert.NotNull(enhancedGet);
 		Assert.Equal((int)HttpStatusCode.OK, enhancedGet.Status);
 		await htmxPage.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		var enhancedForm = htmxPage.Locator("#issue-120-form");
+		Assert.Equal(Issue120NativePath, await enhancedForm.GetAttributeAsync("action"));
+		Assert.Equal(Issue120EnhancedPath, await enhancedForm.GetAttributeAsync("hx-action"));
 
 		var enhancedResponseTask = htmxPage.WaitForResponseAsync(response =>
 			new Uri(response.Url).AbsolutePath == Issue120EnhancedPath &&
