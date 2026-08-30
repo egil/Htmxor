@@ -199,6 +199,37 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
+	public async Task Bridge_widens_an_omitted_methods_htmx_route_for_query_without_antiforgery()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.ReportComponent",
+				"/reports/{ReportId:int}",
+				"report.policy",
+				ExplicitMethods: false));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			Constants.HttpMethods.Query,
+			"PackageConsumer.ReportComponent.QueryReport",
+			usesStockRoute: false);
+
+		componentBuilder.AddHtmxorAttributedComponentEndpoints(
+			group,
+			fixture.Assembly,
+			fixture.Manifest,
+			[generatedAction]);
+
+		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
+		Assert.Equal(
+			[HttpMethods.Get, Constants.HttpMethods.Query],
+			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
+		var action = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
+		Assert.Equal(Constants.HttpMethods.Query, action.HttpMethod);
+		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
+	}
+
+	[Fact]
 	public async Task Bridge_binds_an_action_allowed_by_explicit_htmx_route_methods()
 	{
 		var fixture = DynamicComponentAssembly.Create(
@@ -227,6 +258,35 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		var action = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
 		Assert.Equal(HttpMethods.Patch, action.HttpMethod);
 		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
+	}
+
+	[Fact]
+	public async Task Bridge_binds_query_allowed_by_explicit_htmx_route_methods_without_antiforgery()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.ReportComponent",
+				"/reports/{ReportId:int}",
+				"report.policy",
+				Methods: [HttpMethods.Get, Constants.HttpMethods.Query]));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			Constants.HttpMethods.Query,
+			"PackageConsumer.ReportComponent.QueryReport",
+			usesStockRoute: false);
+
+		componentBuilder.AddHtmxorAttributedComponentEndpoints(
+			group,
+			fixture.Assembly,
+			fixture.Manifest,
+			[generatedAction]);
+
+		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
+		Assert.Equal(
+			[HttpMethods.Get, Constants.HttpMethods.Query],
+			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
+		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
 	}
 
 	[Fact]

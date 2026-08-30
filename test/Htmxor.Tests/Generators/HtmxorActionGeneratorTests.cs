@@ -105,6 +105,8 @@ public sealed class HtmxorActionGeneratorTests
 				private Task PatchReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
 
 				private Task DeleteReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+
+				private Task QueryReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
 			}
 		}
 		""";
@@ -116,11 +118,13 @@ public sealed class HtmxorActionGeneratorTests
 	[InlineData("@page \"/reports/{ReportId:int}\"", "button", "@onput", "PUT", "PutReport")]
 	[InlineData("@page \"/reports/{ReportId:int}\"", "InputText", "@onpatch", "PATCH", "PatchReport")]
 	[InlineData("@page \"/reports/{ReportId:int}\"", "InputText", "@ondelete", "DELETE", "DeleteReport")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "form", "@onquery", "QUERY", "QueryReport")]
 	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "button", "@onpost", "POST", "PostReport")]
 	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "button", "@onput", "PUT", "PutReport")]
 	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "InputText", "@onpatch", "PATCH", "PatchReport")]
 	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "InputText", "@ondelete", "DELETE", "DeleteReport")]
-	public void Route_owner_and_unsafe_binding_emit_one_compiling_action(
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "form", "@onquery", "QUERY", "QueryReport")]
+	public void Route_owner_and_component_binding_emit_one_compiling_action(
 		string routeDeclaration,
 		string tagName,
 		string binding,

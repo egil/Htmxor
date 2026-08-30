@@ -9,7 +9,7 @@ public sealed class Htmx4PackageBrowserTests
 {
 	[Fact]
 	[Trait("Category", "Browser")]
-	public async Task Package_only_net10_application_uses_application_owned_htmx4_for_unsafe_actions()
+	public async Task Package_only_net10_application_uses_application_owned_htmx4_for_component_actions()
 	{
 		using var workspace = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find());
 

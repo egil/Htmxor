@@ -195,7 +195,7 @@ internal static class HtmxorAttributedRouteCatalog
 		{
 			throw Unsupported(
 				componentType,
-				"explicit HtmxRoute.Methods must be a non-empty unique subset of GET, POST, PUT, PATCH, and DELETE");
+				"explicit HtmxRoute.Methods must be a non-empty unique subset of GET, POST, PUT, PATCH, DELETE, and QUERY");
 		}
 
 		var values = methods
@@ -207,7 +207,7 @@ internal static class HtmxorAttributedRouteCatalog
 		{
 			throw Unsupported(
 				componentType,
-				"explicit HtmxRoute.Methods must be a non-empty unique subset of GET, POST, PUT, PATCH, and DELETE");
+				"explicit HtmxRoute.Methods must be a non-empty unique subset of GET, POST, PUT, PATCH, DELETE, and QUERY");
 		}
 
 		return values
@@ -226,6 +226,7 @@ internal static class HtmxorAttributedRouteCatalog
 			: HttpMethods.IsPut(method) ? HttpMethods.Put
 			: HttpMethods.IsPatch(method) ? HttpMethods.Patch
 			: HttpMethods.IsDelete(method) ? HttpMethods.Delete
+			: Constants.HttpMethods.IsQuery(method) ? Constants.HttpMethods.Query
 			: null;
 		return normalized is not null;
 	}

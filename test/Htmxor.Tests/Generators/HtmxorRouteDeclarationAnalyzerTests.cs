@@ -267,7 +267,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var summary = ComponentSource(
 			"SummaryComponent",
 			summaryPath,
-			"[global::Htmxor.HtmxRouteAttribute(\"/summaries/{SummaryId:int}\", Methods = [\"QUERY\"])]",
+			"[global::Htmxor.HtmxRouteAttribute(\"/summaries/{SummaryId:int}\", Methods = [\"TRACE\"])]",
 			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"summaries.read\")]");
 
 		var diagnostics = await RunAnalyzerAsync(
@@ -381,9 +381,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	[Theory]
 	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"QUERY\"])]",
+		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"TRACE\"])]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"GET, POST, PUT, PATCH, and DELETE")]
+		"GET, POST, PUT, PATCH, DELETE, and QUERY")]
 	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Htmxor.HtmxRouteAttribute(\"/other/{Id:int}\", Methods = [\"GET\"])]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
@@ -761,7 +761,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			[global::Htmxor.HtmxRouteAttribute("/reports/{Id:int}", Methods = ["GET"])]
 			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
 			{
-				private global::System.Threading.Tasks.Task PatchReport(global::Htmxor.HtmxEventArgs args)
+				private global::System.Threading.Tasks.Task QueryReport(global::Htmxor.HtmxEventArgs args)
 					=> global::System.Threading.Tasks.Task.CompletedTask;
 			}
 			}
@@ -770,7 +770,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			componentPath,
 			"""
 			@attribute [Htmxor.HtmxRoute("/reports/{Id:int}", Methods = ["GET"])]
-			<button @onpatch="PatchReport">Patch</button>
+			<form @onquery="QueryReport"></form>
 			""");
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
@@ -789,11 +789,11 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var source = $$"""
 			namespace {{RootNamespace}}
 			{
-			[global::Htmxor.HtmxRouteAttribute("/reports/{Id:int}", Methods = ["GET", "PATCH"])]
+			[global::Htmxor.HtmxRouteAttribute("/reports/{Id:int}", Methods = ["GET", "QUERY"])]
 			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("reports.write")]
 			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
 			{
-				private global::System.Threading.Tasks.Task PatchReport(global::Htmxor.HtmxEventArgs args)
+				private global::System.Threading.Tasks.Task QueryReport(global::Htmxor.HtmxEventArgs args)
 					=> global::System.Threading.Tasks.Task.CompletedTask;
 			}
 			}
@@ -801,8 +801,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var razor = new SourceAdditionalText(
 			componentPath,
 			"""
-			@attribute [Htmxor.HtmxRoute("/reports/{Id:int}", Methods = ["GET", "PATCH"])]
-			<button @onpatch="PatchReport">Patch</button>
+			@attribute [Htmxor.HtmxRoute("/reports/{Id:int}", Methods = ["GET", "QUERY"])]
+			<form @onquery="QueryReport"></form>
 			""");
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor, includeRouteAnalyzer: true);

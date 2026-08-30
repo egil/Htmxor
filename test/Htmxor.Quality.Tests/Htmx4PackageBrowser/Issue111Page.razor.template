@@ -4,9 +4,9 @@
 @inject IHttpContextAccessor HttpContextAccessor
 @inject Issue111RequestProbe Probe
 
-<main data-issue-111-page>
+<main data-issue-111-page @onquery="QueryStock">
 	<h1>Component-owned QUERY actions</h1>
-	<form id="stock-query" hx-query="/issue-111" hx-target="#issue-111-target" @onquery="QueryStock">
+	<form id="stock-query" hx-query="/issue-111" hx-target="#issue-111-target">
 		<input name="queryValue" value="stock-content" />
 		<button type="submit">Query stock page</button>
 	</form>

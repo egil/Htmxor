@@ -24,7 +24,7 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 
 	/// <summary>
 	/// Gets the HTTP methods supported by the route.
-	/// On a Razor-authored declaration, omission keeps GET implicit and allows Htmxor to infer unsafe methods
+	/// On a Razor-authored declaration, omission keeps GET implicit and allows Htmxor to infer additional methods
 	/// from supported component bindings. A C#-authored declaration must specify this property.
 	/// When specified, this complete allow-list is authoritative.
 	/// </summary>

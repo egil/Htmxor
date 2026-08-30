@@ -197,7 +197,9 @@ public sealed class Issue56BrowserTests
 		string owner,
 		string submittedValue)
 	{
-		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		Assert.True(
+			response.Status == (int)HttpStatusCode.OK,
+			$"Expected 200 for QUERY, received {response.Status}: {await response.TextAsync()}");
 		var headers = await response.Request.AllHeadersAsync();
 		Assert.Equal("true", headers["hx-request"], StringComparer.OrdinalIgnoreCase);
 		Assert.False(headers.ContainsKey("requestverificationtoken"));
