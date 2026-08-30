@@ -1,4 +1,6 @@
 @page "/issue-50/cache"
+@attribute [OutputCache(VaryByHeaderNames = ["HX-Request"])]
+@using Microsoft.AspNetCore.OutputCaching
 @inject Issue50CacheProbe Probe
 
 <main data-issue-50-cache data-render-count="@renderCount">
