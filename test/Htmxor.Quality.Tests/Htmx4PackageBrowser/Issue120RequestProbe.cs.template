@@ -1,0 +1,19 @@
+using System.Collections.Concurrent;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue120RequestProbe
+{
+	private readonly ConcurrentQueue<Issue120CallbackObservation> observations = new();
+
+	public void RecordCallback(string owner, string method, string path, string requestId) =>
+		observations.Enqueue(new(owner, method, path, requestId));
+
+	public IReadOnlyList<Issue120CallbackObservation> Snapshot() => observations.ToArray();
+}
+
+public sealed record Issue120CallbackObservation(
+	string Owner,
+	string Method,
+	string Path,
+	string RequestId);

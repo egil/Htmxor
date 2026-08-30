@@ -1,0 +1,49 @@
+@page "/issue-120/native/{ItemId:int}"
+@using Htmxor
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+@inject Issue120RequestProbe Probe
+
+<form id="issue-120-form"
+	action="/issue-120/native/7"
+	method="post"
+	hx-action="/issue-120/enhanced/7"
+	hx-method="put"
+	@onpost="Post"
+	hx-target="#issue-120-target"
+	@formname="issue-120-progressive-form">
+	<AntiforgeryToken />
+	<button type="submit">Save progressively</button>
+</form>
+<main data-issue-120-page>
+	<h1>Progressively enhanced component form</h1>
+	<div id="issue-120-target">
+		@if (callback is not null)
+		{
+			<p id="issue-120-result"
+				data-issue-120-result="@callback.ToLowerInvariant()"
+				data-request-id="@requestId">@callback callback</p>
+		}
+	</div>
+</main>
+
+@code {
+	[Parameter]
+	public int ItemId { get; set; }
+
+	private readonly string requestId = Guid.NewGuid().ToString("N");
+	private string? callback;
+
+	private void Post(HtmxEventArgs _) => Record();
+
+	private void Record()
+	{
+		callback = "POST";
+		Probe.RecordCallback(
+			"native",
+			callback,
+			HttpContextAccessor.HttpContext!.Request.Path.Value ?? string.Empty,
+			requestId);
+	}
+}

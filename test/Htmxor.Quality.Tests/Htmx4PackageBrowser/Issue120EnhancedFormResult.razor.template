@@ -1,0 +1,34 @@
+@using Htmxor
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Http
+@attribute [HtmxRoute("/issue-120/enhanced/{ItemId:int}")]
+@attribute [Authorize("issue-120")]
+@inject IHttpContextAccessor HttpContextAccessor
+@inject Issue120RequestProbe Probe
+
+<section data-issue-120-enhanced @onput="Put">
+	@if (callback is not null)
+	{
+		<p id="issue-120-result"
+			data-issue-120-result="@callback.ToLowerInvariant()"
+			data-request-id="@requestId">@callback callback</p>
+	}
+</section>
+
+@code {
+	[Parameter]
+	public string ItemId { get; set; } = string.Empty;
+
+	private readonly string requestId = Guid.NewGuid().ToString("N");
+	private string? callback;
+
+	private void Put(HtmxEventArgs _)
+	{
+		callback = "PUT";
+		Probe.RecordCallback(
+			"enhanced",
+			callback,
+			HttpContextAccessor.HttpContext!.Request.Path.Value ?? string.Empty,
+			requestId);
+	}
+}
