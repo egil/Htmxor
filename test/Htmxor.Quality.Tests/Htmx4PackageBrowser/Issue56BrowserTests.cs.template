@@ -4,6 +4,7 @@ using Htmxor;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,25 @@ public sealed class Issue56BrowserTests
 	private const string GetOnlyPath = "/issue-56/get-only";
 	private const string ApplicationHtmxPath = "/htmx-4.0.0.min.js";
 	private const string Issue111Path = "/issue-111";
+	private const string Issue50Path = "/issue-50/cache";
+
+	[Fact]
+	public async Task Output_cache_keeps_full_and_direct_get_representations_distinct()
+	{
+		foreach (var htmxFirst in new[] { false, true })
+		{
+			var probe = new Issue50CacheProbe();
+			await using var app = CreateApplication(new Issue56RequestProbe(), cacheProbe: probe);
+			await app.StartAsync();
+			using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
+
+			var firstBody = await AssertCachedRepresentationAsync(client, htmxFirst);
+			Assert.Equal(1, probe.RenderCount);
+			var secondBody = await AssertCachedRepresentationAsync(client, !htmxFirst);
+			Assert.Equal(2, probe.RenderCount);
+			Assert.NotEqual(firstBody, secondBody);
+		}
+	}
 
 	[Fact]
 	public async Task Application_owned_htmx4_validates_and_swaps_unsafe_component_actions()
@@ -150,7 +170,8 @@ public sealed class Issue56BrowserTests
 
 	private static WebApplication CreateApplication(
 		Issue56RequestProbe probe,
-		Issue111RequestProbe? issue111Probe = null)
+		Issue111RequestProbe? issue111Probe = null,
+		Issue50CacheProbe? cacheProbe = null)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
@@ -164,19 +185,50 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddAuthentication("Issue111")
 			.AddScheme<AuthenticationSchemeOptions, Issue111AuthenticationHandler>("Issue111", _ => { });
 		builder.Services.AddAuthorizationBuilder().AddPolicy("issue-111", policy => policy.RequireAuthenticatedUser());
+		builder.Services.AddOutputCache();
 		builder.Services.AddSingleton(probe);
 		builder.Services.AddSingleton(issue111Probe ?? new Issue111RequestProbe());
+		builder.Services.AddSingleton(cacheProbe ?? new Issue50CacheProbe());
 
 		var app = builder.Build();
 		app.UseAuthentication();
 		app.UseAuthorization();
 		app.UseAntiforgery();
+		app.UseOutputCache();
 		app.MapStaticAssets();
 		var routes = app.MapGroup(string.Empty);
 		app.MapRazorComponents<Issue56App>()
-			.AddHtmxorComponentEndpoints(routes);
+			.AddHtmxorComponentEndpoints(routes)
+			.CacheOutput();
 
 		return app;
+	}
+
+	private static async Task<string> AssertCachedRepresentationAsync(HttpClient client, bool htmx)
+	{
+		var first = await SendCacheRequestAsync(client, htmx);
+		var second = await SendCacheRequestAsync(client, htmx);
+		Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+		Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+		Assert.False(first.Headers.Contains("Set-Cookie"));
+		Assert.False(second.Headers.Contains("Set-Cookie"));
+		var firstBody = await first.Content.ReadAsStringAsync();
+		var secondBody = await second.Content.ReadAsStringAsync();
+		Assert.Equal(firstBody, secondBody);
+		Assert.Equal(!htmx, firstBody.Contains("data-stock-shell", StringComparison.Ordinal));
+		Assert.Contains("data-issue-50-cache", firstBody, StringComparison.Ordinal);
+		return firstBody;
+	}
+
+	private static async Task<HttpResponseMessage> SendCacheRequestAsync(HttpClient client, bool htmx)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, Issue50Path);
+		if (htmx)
+		{
+			request.Headers.Add("HX-Request", "true");
+		}
+
+		return await client.SendAsync(request);
 	}
 
 	private static async Task<IResponse> SubmitQueryAsync(
