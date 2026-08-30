@@ -1,0 +1,26 @@
+@page "/issue-116/trigger"
+@using Htmxor.Http
+@inject HtmxContext Htmx
+
+<main data-issue-116-trigger>
+	<h1>Response trigger event</h1>
+	<button id="issue-116-get" hx-get="/issue-116/trigger?updated=true" hx-target="#issue-116-target">Update</button>
+	<section id="issue-116-target">
+		<p class="issue-116-result" data-state="@(Updated ? "swapped" : "initial")">
+			@(Updated ? "Server update complete" : "Waiting for server update")
+		</p>
+	</section>
+</main>
+
+@code {
+	[SupplyParameterFromQuery]
+	public bool Updated { get; set; }
+
+	protected override void OnParametersSet()
+	{
+		if (Updated && Htmx.Request.IsHtmxRequest)
+		{
+			Htmx.Response.Trigger("issue116Updated", new { Message = "ready" });
+		}
+	}
+}

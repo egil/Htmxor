@@ -21,6 +21,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue111Path = "/issue-111";
 	private const string Issue50Path = "/issue-50/cache";
 	private const string Issue18Path = "/issue-18/headers";
+	private const string Issue116Path = "/issue-116/trigger";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
 
@@ -248,6 +249,55 @@ public sealed class Issue56BrowserTests
 		var negativeResponse = await SubmitQueryAsync(page, "client-only-query", "/issue-111/no-action");
 		Assert.Equal((int)HttpStatusCode.MethodNotAllowed, negativeResponse.Status);
 		Assert.Equal(beforeNegative, probe.Snapshot());
+	}
+
+	[Fact]
+	public async Task Application_owned_htmx4_dispatches_response_event_after_visible_swap()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue116Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		Assert.Contains("<html", await navigation.TextAsync(), StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", await navigation.TextAsync(), StringComparison.Ordinal);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await page.EvaluateAsync(
+			"""
+			() => {
+				window.issue116Events = [];
+				document.body.addEventListener('issue116Updated', event => {
+					window.issue116Events.push({
+						swapVisible: document.querySelector(".issue-116-result[data-state='swapped']") !== null,
+						message: event.detail.message ?? event.detail.Message
+					});
+				});
+			}
+			""");
+
+		var responseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue116Path &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+		await page.Locator("#issue-116-get").ClickAsync();
+		var response = await responseTask;
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var responseHeaders = await response.AllHeadersAsync();
+		Assert.Contains("hx-trigger", responseHeaders.Keys, StringComparer.OrdinalIgnoreCase);
+		Assert.DoesNotContain("hx-trigger-after-swap", responseHeaders.Keys, StringComparer.OrdinalIgnoreCase);
+		Assert.DoesNotContain("hx-trigger-after-settle", responseHeaders.Keys, StringComparer.OrdinalIgnoreCase);
+		Assert.DoesNotContain("<html", await response.TextAsync(), StringComparison.OrdinalIgnoreCase);
+		await page.Locator(".issue-116-result[data-state='swapped']").WaitForAsync();
+		await page.WaitForFunctionAsync("() => window.issue116Events.length === 1");
+		Assert.True(await page.EvaluateAsync<bool>("() => window.issue116Events[0].swapVisible"));
+		Assert.Equal(
+			"ready",
+			await page.EvaluateAsync<string>("() => window.issue116Events[0].message"));
 	}
 
 	private static WebApplication CreateApplication(
