@@ -231,6 +231,7 @@ public sealed class Issue87UnsafeActionTests : IAsyncLifetime
 	{
 		var request = CreateAuthorizedRequest(new HttpMethod(method), "/issue-87/42?source=from-query");
 		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
 		if (cookie is not null)
 		{
 			request.Headers.Add("Cookie", cookie);

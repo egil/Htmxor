@@ -25,6 +25,12 @@ public sealed class HtmxRequest
 	public bool IsHtmxRequest { get; }
 
 	/// <summary>
+	/// Gets whether htmx requested a full-page or partial representation.
+	/// Invalid, missing, or contradictory values are exposed as <see langword="null"/>.
+	/// </summary>
+	public HtmxRequestType? RequestType { get; }
+
+	/// <summary>
 	/// Gets whether or not the current request is an request initiated via an element using hx-boost.
 	/// </summary>
 	public bool IsBoosted { get; }
@@ -40,24 +46,14 @@ public sealed class HtmxRequest
 	public Uri? CurrentURL { get; }
 
 	/// <summary>
-	/// Gets the `id` of the target element if it exists.
+	/// Gets the target element identity in `tag#id` or `tag` form, if present.
 	/// </summary>
 	public string? Target { get; }
 
 	/// <summary>
-	/// Gets the `name` of the triggered element if it exists.
+	/// Gets the source element identity in `tag#id` or `tag` form, if present.
 	/// </summary>
-	public string? TriggerName { get; }
-
-	/// <summary>
-	/// Gets the `id` of the triggered element if it exists.
-	/// </summary>
-	public string? Trigger { get; }
-
-	/// <summary>
-	/// Gets the user response to an hx-prompt, if any.
-	/// </summary>
-	public string? Prompt { get; }
+	public string? Source { get; }
 
 	/// <summary>
 	/// The `id` of the event handler to trigger on request.
@@ -83,20 +79,27 @@ public sealed class HtmxRequest
 		IsBoosted = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.Boosted);
 		IsHistoryRestoreRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HistoryRestoreRequest);
 		CurrentURL = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.CurrentURL, static value => Uri.TryCreate(value, UriKind.RelativeOrAbsolute, out var uri) ? uri : null);
+		RequestType = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.RequestType, ParseRequestType);
 		Target = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Target);
-		TriggerName = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.TriggerName);
-		Trigger = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Trigger);
-		Prompt = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Prompt);
+		Source = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Source);
 		EventHandlerId = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.EventHandlerId);
 
-		RoutingMode = !IsHtmxRequest || (IsBoosted && Target is null)
-			? RoutingMode.Standard
-			: RoutingMode.Direct;
+		RoutingMode = RequestType is HtmxRequestType.Partial
+			? RoutingMode.Direct
+			: RoutingMode.Standard;
 	}
+
+	private static HtmxRequestType? ParseRequestType(string value)
+		=> value switch
+		{
+			"full" => HtmxRequestType.Full,
+			"partial" => HtmxRequestType.Partial,
+			_ => null,
+		};
 
 	private static string? GetHxValueOrDefault(IHeaderDictionary headers, string key)
 		=> headers.TryGetValue(key, out var values)
-		&& values.Count > 0
+		&& values.Count == 1
 		&& values[0] is var value
 		&& !string.IsNullOrWhiteSpace(value)
 		? value.Trim()

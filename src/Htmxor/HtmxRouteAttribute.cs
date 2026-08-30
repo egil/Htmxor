@@ -37,28 +37,18 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 	public string? CurrentURL { get; init; }
 
 	/// <summary>
-	/// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.Target"/> header matches the specified value. 
+	/// Specify to only use this representation if the complete <see cref="HtmxRequestHeaderNames.Target"/>
+	/// element identity in `tag#id` or `tag` form matches the specified value.
 	/// If null or whitespace, this route is not limited to a specific target.
 	/// </summary>
 	public string? Target { get; init; }
 
 	/// <summary>
-	/// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.Target"/> header matches one of the specified values.
+	/// Specify to only use this representation if the complete <see cref="HtmxRequestHeaderNames.Target"/>
+	/// element identity in `tag#id` or `tag` form matches one of the specified values.
 	/// If null or empty, this route is not limited to a specific set of targets.
 	/// </summary>
 	public string[] Targets { get; init; } = [];
-
-	/// <summary>
-	/// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.Trigger"/> header matches the specified value. 
-	/// If null or whitespace, this route is not limited to a specific trigger.
-	/// </summary>
-	public string? Trigger { get; init; }
-
-	/// <summary>
-	/// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.TriggerName"/> header matches the specified value. 
-	/// If null or whitespace, this route is not limited to a specific trigger name.
-	/// </summary>
-	public string? TriggerName { get; init; }
 
 	/// <summary>
 	/// Constructs an instance of <see cref="HtmxRouteAttribute"/>.
@@ -81,9 +71,7 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 			&& Methods.SequenceEqual(other.Methods, StringComparer.OrdinalIgnoreCase)
 			&& (CurrentURL?.Equals(other.CurrentURL, StringComparison.OrdinalIgnoreCase) ?? true)
 			&& (Target?.Equals(other.Target, StringComparison.OrdinalIgnoreCase) ?? true)
-			&& Targets.SequenceEqual(other.Targets, StringComparer.OrdinalIgnoreCase)
-			&& (Trigger?.Equals(other.Trigger, StringComparison.OrdinalIgnoreCase) ?? true)
-			&& (TriggerName?.Equals(other.TriggerName, StringComparison.OrdinalIgnoreCase) ?? true);
+			&& Targets.SequenceEqual(other.Targets, StringComparer.OrdinalIgnoreCase);
 	}
 
 	public override int GetHashCode()
@@ -108,16 +96,6 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 		for (int i = 0; i < Targets.Length; i++)
 		{
 			hash.Add(Targets[i]);
-		}
-
-		if (Trigger is not null)
-		{
-			hash.Add(Trigger);
-		}
-
-		if (TriggerName is not null)
-		{
-			hash.Add(TriggerName);
 		}
 
 		return hash.ToHashCode();

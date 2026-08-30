@@ -23,6 +23,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue50Path = "/issue-50/cache";
 	private const string Issue18Path = "/issue-18/headers";
 	private const string Issue116Path = "/issue-116/trigger";
+	private const string Issue118Path = "/issue-118/request-context";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
 
@@ -211,7 +212,14 @@ public sealed class Issue56BrowserTests
 
 		using var playwright = await Playwright.CreateAsync();
 		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
-		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		await using var context = await browser.NewContextAsync(new()
+		{
+			BaseURL = baseAddress.AbsoluteUri,
+			ExtraHTTPHeaders = new Dictionary<string, string>
+			{
+				[Issue111AuthenticationHandler.UserHeaderName] = "issue-111-user",
+			},
+		});
 		var page = await context.NewPageAsync();
 
 		var navigation = await page.GotoAsync(Issue111Path);
@@ -299,6 +307,124 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(
 			"ready",
 			await page.EvaluateAsync<string>("() => window.issue116Events[0].message"));
+	}
+
+	[Fact]
+	public async Task Application_owned_htmx4_selects_partial_and_full_representations_with_complete_identities()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue118Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		Assert.Contains("data-stock-shell", await navigation.TextAsync(), StringComparison.Ordinal);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var partialResponseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue118Path);
+		await page.Locator("#issue-118-partial").ClickAsync();
+		var partialResponse = await partialResponseTask;
+		var partialHeaders = await partialResponse.Request.AllHeadersAsync();
+		Assert.Equal("partial", partialHeaders["hx-request-type"]);
+		Assert.Equal("button#issue-118-partial", partialHeaders["hx-source"]);
+		Assert.Equal("div#issue-118-partial-target", partialHeaders["hx-target"]);
+		Assert.DoesNotContain("data-stock-shell", await partialResponse.TextAsync(), StringComparison.Ordinal);
+		var partialContext = page.Locator("#issue-118-partial-target [data-issue-118-context]");
+		await partialContext.WaitForAsync();
+		await AssertRequestContextAsync(
+			partialContext,
+			"partial",
+			"button#issue-118-partial",
+			"div#issue-118-partial-target");
+
+		await page.ReloadAsync();
+		var fullResponseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue118Path);
+		await page.Locator("#issue-118-full").ClickAsync();
+		var fullResponse = await fullResponseTask;
+		var fullHeaders = await fullResponse.Request.AllHeadersAsync();
+		Assert.Equal("full", fullHeaders["hx-request-type"]);
+		Assert.Equal("button#issue-118-full", fullHeaders["hx-source"]);
+		Assert.Equal("div#issue-118-full-target", fullHeaders["hx-target"]);
+		Assert.Contains("data-stock-shell", await fullResponse.TextAsync(), StringComparison.Ordinal);
+		var fullContext = page.Locator("#issue-118-full-target [data-issue-118-context]");
+		await fullContext.WaitForAsync();
+		await AssertRequestContextAsync(
+			fullContext,
+			"full",
+			"button#issue-118-full",
+			"div#issue-118-full-target");
+	}
+
+	[Fact]
+	public async Task Forged_request_headers_do_not_grant_route_method_authorization_or_antiforgery_access()
+	{
+		var probe = new Issue56RequestProbe();
+		await using var app = CreateApplication(probe);
+		await app.StartAsync();
+		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
+
+		foreach (var requestType in new string?[] { null, "", "unknown", "full", "partial, full" })
+		{
+			using var request = CreateForgedRequest(HttpMethod.Get, "/issue-111/htmx-only/7", requestType);
+			request.Headers.Add(Issue111AuthenticationHandler.UserHeaderName, "issue-111-user");
+			using var response = await client.SendAsync(request);
+			Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+		}
+
+		using (var request = CreateForgedRequest(HttpMethod.Delete, GetOnlyPath, "partial"))
+		using (var response = await client.SendAsync(request))
+		{
+			Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+		}
+
+		using (var request = CreateForgedRequest(HttpMethod.Get, "/issue-111/htmx-only/7", "partial"))
+		using (var response = await client.SendAsync(request))
+		{
+			Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+		}
+
+		var beforeUnsafeRequest = probe.Snapshot();
+		using (var request = CreateForgedRequest(HttpMethod.Post, EntryPath, "partial"))
+		using (var response = await client.SendAsync(request))
+		{
+			Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+		}
+		Assert.Equal(beforeUnsafeRequest, probe.Snapshot());
+	}
+
+	private static async Task AssertRequestContextAsync(
+		ILocator locator,
+		string requestType,
+		string source,
+		string target)
+	{
+		Assert.Equal(requestType, await locator.GetAttributeAsync("data-request-type"));
+		Assert.Equal(source, await locator.GetAttributeAsync("data-source"));
+		Assert.Equal(target, await locator.GetAttributeAsync("data-target"));
+	}
+
+	private static HttpRequestMessage CreateForgedRequest(
+		HttpMethod method,
+		string path,
+		string? requestType)
+	{
+		var request = new HttpRequestMessage(method, path);
+		request.Headers.Add("HX-Request", "true");
+		if (requestType is not null)
+		{
+			request.Headers.TryAddWithoutValidation("HX-Request-Type", requestType);
+		}
+		request.Headers.Add("HX-Source", "button#forged-source");
+		request.Headers.Add("HX-Target", "main#forged-target");
+		request.Headers.Add("HXOR-Event-Handler-Id", "forged-action");
+		return request;
 	}
 
 	private static WebApplication CreateApplication(
@@ -415,6 +541,7 @@ public sealed class Issue56BrowserTests
 		if (htmx)
 		{
 			request.Headers.Add("HX-Request", "true");
+			request.Headers.Add("HX-Request-Type", "partial");
 		}
 
 		return await client.SendAsync(request);
@@ -442,6 +569,7 @@ public sealed class Issue56BrowserTests
 		if (htmx)
 		{
 			request.Headers.Add("HX-Request", "true");
+			request.Headers.Add("HX-Request-Type", "partial");
 		}
 
 		return await client.SendAsync(request);
@@ -512,14 +640,15 @@ public sealed class Issue56BrowserTests
 		var response = await responseTask;
 		var requestHeaders = await response.Request.AllHeadersAsync();
 		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("full", requestHeaders["hx-request-type"], StringComparer.OrdinalIgnoreCase);
 		Assert.True(requestHeaders.ContainsKey("requestverificationtoken"));
 		Assert.True(
 			response.Status == (int)HttpStatusCode.OK,
 			$"Expected 200 for {method}, received {response.Status}: {await response.TextAsync()}");
 		var body = await response.TextAsync();
 		Assert.Contains($"data-issue-56-result=\"{method.ToLowerInvariant()}\"", body, StringComparison.Ordinal);
-		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
-		Assert.DoesNotContain("data-stock-shell", body, StringComparison.Ordinal);
+		Assert.Contains("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
 		await page.Locator($"#issue-56-target [data-issue-56-result='{method.ToLowerInvariant()}']").WaitForAsync();
 
 		var after = probe.Snapshot();

@@ -1,0 +1,23 @@
+@page "/issue-118/request-context"
+@using Htmxor.Http
+@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+
+<main data-issue-118-page>
+	<h1>htmx 4 request context</h1>
+	<button id="issue-118-partial" hx-get="/issue-118/request-context" hx-target="#issue-118-partial-target">Load partial</button>
+	<button id="issue-118-full" hx-get="/issue-118/request-context" hx-target="#issue-118-full-target" hx-select="#issue-118-selection">Load full</button>
+	<div id="issue-118-partial-target"></div>
+	<div id="issue-118-full-target"></div>
+	<section id="issue-118-selection"
+		data-issue-118-context
+		data-request-type="@Request.RequestType?.ToString().ToLowerInvariant()"
+		data-source="@Request.Source"
+		data-target="@Request.Target">
+		Request context
+	</section>
+</main>
+
+@code {
+	private HtmxRequest Request => HttpContextAccessor.HttpContext!.GetHtmxContext().Request;
+}

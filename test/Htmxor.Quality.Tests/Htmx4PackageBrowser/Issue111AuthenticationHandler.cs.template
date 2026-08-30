@@ -12,9 +12,12 @@ public sealed class Issue111AuthenticationHandler(
 	UrlEncoder encoder)
 	: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
+	public const string UserHeaderName = "X-Issue-111-User";
+
 	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
 	{
-		if (!Request.Path.StartsWithSegments("/issue-111"))
+		if (!Request.Path.StartsWithSegments("/issue-111") ||
+			!Request.Headers.ContainsKey(UserHeaderName))
 		{
 			return Task.FromResult(AuthenticateResult.NoResult());
 		}

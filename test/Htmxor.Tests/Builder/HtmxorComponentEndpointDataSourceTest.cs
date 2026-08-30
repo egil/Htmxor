@@ -29,7 +29,7 @@ public class HtmxorComponentEndpointDataSourceTest
 			],
 		}));
 		endpoints[1].Metadata.Should().Contain(new EndpointMetadata(new HtmxRouteAttribute("/hx-only")));
-		endpoints[2].Metadata.Should().Contain(new EndpointMetadata(new HtmxRouteAttribute("/hx-and-route") { Target = "target" }));
+		endpoints[2].Metadata.Should().Contain(new EndpointMetadata(new HtmxRouteAttribute("/hx-and-route") { Target = "div#target" }));
 	}
 
 	[Route("/route-only")]
@@ -43,7 +43,7 @@ public class HtmxorComponentEndpointDataSourceTest
 	}
 
 	[Route("/hx-and-route")]
-	[HtmxRoute("/hx-and-route", Target = "target")]
+	[HtmxRoute("/hx-and-route", Target = "div#target")]
 	private sealed class HxAndRouteOnly : NoopComponentBase
 	{
 	}

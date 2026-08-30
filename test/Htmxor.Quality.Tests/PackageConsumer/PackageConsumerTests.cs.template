@@ -478,6 +478,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		var request = new HttpRequestMessage(method, path);
 		request.Headers.Host = host;
 		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
 		if (userName is not null)
 		{
 			request.Headers.Add(PackageConsumerAuthenticationHandler.UserHeaderName, userName);
@@ -648,6 +649,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		if (direct)
 		{
 			request.Headers.Add("HX-Request", "true");
+			request.Headers.Add("HX-Request-Type", "partial");
 		}
 
 		if (userName is not null)

@@ -2,7 +2,7 @@ namespace Htmxor.Http;
 
 /// <summary>
 /// The HTMX request header names.
-/// Based on this version: <seealso href="https://github.com/bigskysoftware/htmx/blob/5aa0ec7e27c0dc282dd728886a77c0e321d3ca67/www/content/reference.md#request-headers-reference-request_headers"/>
+/// Based on the htmx 4 request headers: <seealso href="https://four.htmx.org/docs/whats-new-in-htmx-4#request-headers"/>
 /// </summary>
 public static class HtmxRequestHeaderNames
 {
@@ -22,9 +22,9 @@ public static class HtmxRequestHeaderNames
 	public const string HistoryRestoreRequest = "HX-History-Restore-Request";
 
 	/// <summary>
-	/// The user response to an hx-prompt.
+	/// Indicates whether the request targets a specific element or the whole page.
 	/// </summary>
-	public const string Prompt = "HX-Prompt";
+	public const string RequestType = "HX-Request-Type";
 
 	/// <summary>
 	/// Always <see langword="true" />.
@@ -32,19 +32,14 @@ public static class HtmxRequestHeaderNames
 	public const string HtmxRequest = "HX-Request";
 
 	/// <summary>
-	/// The `id` of the target element if it exists.
+	/// The target element identity in `tag#id` or `tag` form.
 	/// </summary>
 	public const string Target = "HX-Target";
 
 	/// <summary>
-	/// The `name` of the triggered element if it exists.
+	/// The source element identity in `tag#id` or `tag` form.
 	/// </summary>
-	public const string TriggerName = "HX-Trigger-Name";
-
-	/// <summary>
-	/// The `id` of the triggered element if it exists.
-	/// </summary>
-	public const string Trigger = "HX-Trigger";
+	public const string Source = "HX-Source";
 
 	/// <summary>
 	/// The `id` of the event handler to trigger on request.

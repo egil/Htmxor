@@ -38,7 +38,11 @@ public class HtmxFragmentElement : HtmxFragment
 	/// <inheritdoc/>
 	public override bool ShouldOutput([NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren)
 		=> (RenderDuringStandardRequest && context.Request.RoutingMode is RoutingMode.Standard)
-		|| (Match?.Invoke(context.Request) ?? context.Request.Target == Id);
+		|| (context.Request.RoutingMode is RoutingMode.Direct &&
+			(Match?.Invoke(context.Request) ?? string.Equals(
+				context.Request.Target,
+				$"{Element}#{Id}",
+				StringComparison.OrdinalIgnoreCase)));
 
 	/// <inheritdoc/>
 	protected override void OnParametersSet()
