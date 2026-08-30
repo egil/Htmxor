@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Text.Json;
 using Htmxor;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
@@ -275,7 +276,7 @@ public sealed class Issue56BrowserTests
 				document.body.addEventListener('issue116Updated', event => {
 					window.issue116Events.push({
 						swapVisible: document.querySelector(".issue-116-result[data-state='swapped']") !== null,
-						message: event.detail.message ?? event.detail.Message
+						message: event.detail.message
 					});
 				});
 			}
@@ -315,6 +316,8 @@ public sealed class Issue56BrowserTests
 		builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
 		builder.Logging.ClearProviders();
 		var components = builder.Services.AddRazorComponents();
+		builder.Services.ConfigureHttpJsonOptions(options =>
+			options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
 		if (useHtmxor)
 		{
 			components.AddHtmx();
