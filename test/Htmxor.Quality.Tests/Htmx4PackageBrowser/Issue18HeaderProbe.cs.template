@@ -1,0 +1,19 @@
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue18HeaderProbe(int expectedConcurrentRequests)
+{
+	private readonly TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+	private int arrivalCount;
+
+	public int ArrivalCount => Volatile.Read(ref arrivalCount);
+
+	public Task WaitForConcurrentRequestsAsync()
+	{
+		if (Interlocked.Increment(ref arrivalCount) == expectedConcurrentRequests)
+		{
+			gate.SetResult();
+		}
+
+		return gate.Task.WaitAsync(TimeSpan.FromSeconds(10));
+	}
+}

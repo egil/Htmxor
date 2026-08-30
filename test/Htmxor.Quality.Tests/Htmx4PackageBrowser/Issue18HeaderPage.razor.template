@@ -1,5 +1,6 @@
 @page "/issue-18/headers"
 @using Microsoft.AspNetCore.Http
+@inject Issue18HeaderProbe Probe
 
 <main data-issue-18-header data-response-started="@responseHadStarted.ToString().ToLowerInvariant()">
 	<h1>Dynamic response header</h1>
@@ -14,8 +15,9 @@
 	[CascadingParameter]
 	private HttpContext HttpContext { get; set; } = default!;
 
-	protected override void OnParametersSet()
+	protected override async Task OnParametersSetAsync()
 	{
+		await Probe.WaitForConcurrentRequestsAsync();
 		responseHadStarted = HttpContext.Response.HasStarted;
 		HttpContext.Response.Headers.ContentLanguage = Language;
 	}
