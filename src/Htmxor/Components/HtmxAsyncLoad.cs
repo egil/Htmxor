@@ -82,14 +82,21 @@ public sealed class HtmxAsyncLoad : ConditionalComponentBase
 		}
 
 		else if (request.RoutingMode == RoutingMode.Direct &&
-			string.Equals(request.Source, $"{Element}#{Id}", StringComparison.OrdinalIgnoreCase) &&
-			string.Equals(request.Target, $"{Element}#{Id}", StringComparison.OrdinalIgnoreCase))
+			MatchesElementIdentity(request.Source) &&
+			MatchesElementIdentity(request.Target))
 		{
 			builder.AddContent(9, ChildContent);
 		}
 
 		builder.CloseElement();
 	}
+
+	private bool MatchesElementIdentity(string? identity)
+		=> identity is not null &&
+			identity.Length == Element.Length + Id.Length + 1 &&
+			identity.StartsWith(Element, StringComparison.OrdinalIgnoreCase) &&
+			identity[Element.Length] == '#' &&
+			identity.AsSpan(Element.Length + 1).SequenceEqual(Id.AsSpan());
 
 	private static void RemoveControlledAttributeAndThrow(IDictionary<string, object> attributes, string attributeName)
 	{

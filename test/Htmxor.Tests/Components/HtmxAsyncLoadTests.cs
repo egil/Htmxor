@@ -9,6 +9,8 @@ public sealed class HtmxAsyncLoadTests : TestContext
 {
 	[Theory]
 	[InlineData("div#lazy", "div#lazy", true)]
+	[InlineData("DIV#lazy", "DIV#lazy", true)]
+	[InlineData("div#Lazy", "div#Lazy", false)]
 	[InlineData("button#other", "div#lazy", false)]
 	[InlineData("div#lazy", "section#other", false)]
 	public void Partial_request_loads_child_only_for_its_complete_source_and_target_identities(
