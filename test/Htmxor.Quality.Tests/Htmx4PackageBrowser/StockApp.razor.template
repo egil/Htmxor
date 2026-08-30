@@ -5,11 +5,9 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<base href="/" />
 	<link rel="stylesheet" href="@Assets["app.css"]" />
-	<script src="/htmx-4.0.0.min.js"></script>
-	<HtmxHeadOutlet />
 </head>
-<body data-stock-shell>
-	<Router AppAssembly="typeof(Issue56App).Assembly">
+<body data-stock-control>
+	<Router AppAssembly="typeof(StockApp).Assembly">
 		<Found Context="routeData">
 			<RouteView RouteData="routeData" />
 		</Found>

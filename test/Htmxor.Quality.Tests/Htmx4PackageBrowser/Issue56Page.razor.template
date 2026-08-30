@@ -15,6 +15,8 @@
 			<p data-issue-56-result="@callback.ToLowerInvariant()">@callback callback</p>
 		}
 	</div>
+	<button id="issue-75-get" hx-get="/issue-56/get-only" hx-target="#issue-75-target">Load GET</button>
+	<div id="issue-75-target"></div>
 </main>
 
 @code {

@@ -9,7 +9,7 @@ public sealed class Htmx4PackageBrowserTests
 {
 	[Fact]
 	[Trait("Category", "Browser")]
-	public async Task Package_only_net10_application_uses_application_owned_htmx4_for_component_actions()
+	public async Task Package_only_net10_production_publish_preserves_assets_and_component_actions()
 	{
 		using var workspace = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find());
 
@@ -20,7 +20,7 @@ public sealed class Htmx4PackageBrowserTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(5, 5, 5, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(6, 6, 6, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		Htmx4PackageBrowserEvidence.AssertConsumer(workspace);
 	}
@@ -42,6 +42,7 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 	private readonly string packageDirectory;
 	private readonly string packagesDirectory;
 	private readonly string resultsDirectory;
+	private readonly string publishDirectory;
 	private readonly string projectPath;
 	private readonly string nugetConfigPath;
 	private readonly ProcessRunner runner = new();
@@ -53,6 +54,7 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 		packageDirectory = Path.Combine(temporaryDirectory.Path, "packages");
 		packagesDirectory = Path.Combine(temporaryDirectory.Path, "global-packages");
 		resultsDirectory = Path.Combine(temporaryDirectory.Path, "results");
+		publishDirectory = Path.Combine(temporaryDirectory.Path, "publish");
 		projectPath = Path.Combine(consumerDirectory, "Htmxor.Htmx4Browser.csproj");
 		nugetConfigPath = Path.Combine(consumerDirectory, "NuGet.config");
 		Directory.CreateDirectory(consumerDirectory);
@@ -74,7 +76,7 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 	{
 		await PackAsync();
 		await RestoreAsync();
-		await BuildAsync();
+		await PublishAsync();
 
 		return await TestAsync();
 	}
@@ -154,13 +156,15 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 			"--packages",
 			packagesDirectory);
 
-	private Task<ProcessResult> BuildAsync() =>
+	private Task<ProcessResult> PublishAsync() =>
 		RunRequiredAsync(
-			"build",
+			"publish",
 			projectPath,
 			"--configuration",
 			"Release",
-			"--no-restore");
+			"--no-restore",
+			"--output",
+			publishDirectory);
 
 	private Task<ProcessResult> TestAsync() =>
 		runner.RunAsync(new(
@@ -173,6 +177,9 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 				"Release",
 				"--no-build",
 				"--no-restore",
+				$"-p:OutputPath={publishDirectory}",
+				"--environment",
+				"ASPNETCORE_ENVIRONMENT=Production",
 				"--blame-hang",
 				"--blame-hang-timeout",
 				"5min",

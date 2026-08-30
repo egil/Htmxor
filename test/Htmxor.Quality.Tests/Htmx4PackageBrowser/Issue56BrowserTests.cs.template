@@ -21,6 +21,47 @@ public sealed class Issue56BrowserTests
 	private const string Issue111Path = "/issue-111";
 	private const string Issue50Path = "/issue-50/cache";
 	private const string Issue18Path = "/issue-18/headers";
+	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
+	private const string StockPath = "/issue-75/control";
+
+	[Fact]
+	public async Task Production_publish_preserves_stock_fingerprinted_assets_and_direct_component_get()
+	{
+		var stockCssPath = await GetStockCssPathAsync();
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+		using var client = new HttpClient { BaseAddress = baseAddress };
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(EntryPath);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		Assert.Contains("data-stock-shell", await navigation.TextAsync(), StringComparison.Ordinal);
+
+		var cssHref = await page.Locator("link[rel='stylesheet']").GetAttributeAsync("href");
+		var htmxorCssPath = new Uri(baseAddress, Assert.IsType<string>(cssHref)).AbsolutePath;
+		Assert.Equal(stockCssPath, htmxorCssPath);
+		await AssertPublishedAssetAsync(client, htmxorCssPath, "issue-75-production-asset");
+		await AssertPublishedAssetAsync(client, AdapterPath, "htmx:config:request");
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var directResponseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == GetOnlyPath &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+		await page.Locator("#issue-75-get").ClickAsync();
+		var directResponse = await directResponseTask;
+		Assert.Equal((int)HttpStatusCode.OK, directResponse.Status);
+		Assert.Equal(
+			"true",
+			(await directResponse.Request.AllHeadersAsync())["hx-request"],
+			StringComparer.OrdinalIgnoreCase);
+		Assert.DoesNotContain("<html", await directResponse.TextAsync(), StringComparison.OrdinalIgnoreCase);
+		await page.Locator("#issue-75-target [data-issue-56-get-only]").WaitForAsync();
+	}
 
 	[Fact]
 	public async Task Component_controls_dynamic_response_header_without_request_leakage()
@@ -213,16 +254,21 @@ public sealed class Issue56BrowserTests
 		Issue56RequestProbe probe,
 		Issue111RequestProbe? issue111Probe = null,
 		Issue50CacheProbe? cacheProbe = null,
-		Issue18HeaderProbe? issue18Probe = null)
+		Issue18HeaderProbe? issue18Probe = null,
+		bool useHtmxor = true)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
 			ApplicationName = typeof(Issue56BrowserTests).Assembly.GetName().Name,
-			EnvironmentName = Environments.Development,
+			ContentRootPath = AppContext.BaseDirectory,
 		});
 		builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
 		builder.Logging.ClearProviders();
-		builder.Services.AddRazorComponents().AddHtmx();
+		var components = builder.Services.AddRazorComponents();
+		if (useHtmxor)
+		{
+			components.AddHtmx();
+		}
 		builder.Services.AddHttpContextAccessor();
 		builder.Services.AddAuthentication("Issue111")
 			.AddScheme<AuthenticationSchemeOptions, Issue111AuthenticationHandler>("Issue111", _ => { });
@@ -234,16 +280,56 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(issue18Probe ?? new Issue18HeaderProbe(1));
 
 		var app = builder.Build();
+		Assert.True(app.Environment.IsProduction());
 		app.UseAuthentication();
 		app.UseAuthorization();
 		app.UseAntiforgery();
 		app.UseOutputCache();
 		app.MapStaticAssets();
-		var routes = app.MapGroup(string.Empty);
-		app.MapRazorComponents<Issue56App>()
-			.AddHtmxorComponentEndpoints(routes);
+		if (useHtmxor)
+		{
+			var routes = app.MapGroup(string.Empty);
+			app.MapRazorComponents<Issue56App>()
+				.AddHtmxorComponentEndpoints(routes);
+		}
+		else
+		{
+			app.MapRazorComponents<StockApp>();
+		}
 
 		return app;
+	}
+
+	private static async Task<string> GetStockCssPathAsync()
+	{
+		await using var stock = CreateApplication(new Issue56RequestProbe(), useHtmxor: false);
+		await stock.StartAsync();
+		var baseAddress = new Uri(Assert.Single(stock.Urls));
+		using var client = new HttpClient { BaseAddress = baseAddress };
+		using var response = await client.GetAsync(StockPath);
+		var body = await response.Content.ReadAsStringAsync();
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"Expected stock 200, received {(int)response.StatusCode}: {body}");
+		Assert.Contains("data-stock-control", body, StringComparison.Ordinal);
+		var match = System.Text.RegularExpressions.Regex.Match(
+			body,
+			"href=\"(?<path>app\\.[a-z0-9]+\\.css)\"",
+			System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+		Assert.True(match.Success, body);
+		var path = new Uri(baseAddress, match.Groups["path"].Value).AbsolutePath;
+		await AssertPublishedAssetAsync(client, path, "issue-75-production-asset");
+		return path;
+	}
+
+	private static async Task AssertPublishedAssetAsync(
+		HttpClient client,
+		string path,
+		string expectedContent)
+	{
+		using var response = await client.GetAsync(path);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Contains(expectedContent, await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
 	}
 
 	private static async Task AssertResponseHeaderAsync(
