@@ -41,14 +41,20 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
       app.UseHttpsRedirection();
 
-      app.UseStaticFiles();
       app.UseAntiforgery();
+      app.MapStaticAssets();
     + var htmxorRoutes = app.MapGroup(string.Empty);
       app.MapRazorComponents<App>()
     +    .AddHtmxorComponentEndpoints(htmxorRoutes);
 
       app.Run();
     ```
+
+   Keep the stock `MapStaticAssets()` call. Htmxor uses ASP.NET Core static web
+   assets for its adapter and does not require a separate file provider or
+   custom asset pipeline. Verify Production behavior from published output;
+   changing the environment of an unpublished source-tree run is not the same
+   deployment boundary.
 3. **Supply the htmx runtime**
 
    Install the exact `htmx.org@4.0.0` package with your JavaScript package
@@ -78,10 +84,10 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <base href="/" />
-          <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
-          <link rel="stylesheet" href="app.css" />
-          <link rel="stylesheet" href="MinimalHtmxorApp.styles.css" />
-          <link rel="icon" type="image/png" href="favicon.png" />
+          <link rel="stylesheet" href="@Assets["bootstrap/bootstrap.min.css"]" />
+          <link rel="stylesheet" href="@Assets["app.css"]" />
+          <link rel="stylesheet" href="@Assets["MinimalHtmxorApp.styles.css"]" />
+          <link rel="icon" type="image/png" href="@Assets["favicon.png"]" />
     +     <script defer src="htmx-4.0.0.min.js"></script>
     +     <HtmxHeadOutlet />
           <HeadOutlet />
@@ -101,6 +107,12 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
       </html>
     ```
+
+   Preserve the stock `@Assets[...]` references when adding Htmxor. In a
+   published Production app, ASP.NET Core continues to emit and serve their
+   fingerprinted URLs. `HtmxHeadOutlet` adds only Htmxor's
+   `_content/Htmxor/htmxor.js` adapter; the application continues to own the
+   htmx runtime and its application assets.
 
 5. **Create an Optional Direct Request Layout**
 
