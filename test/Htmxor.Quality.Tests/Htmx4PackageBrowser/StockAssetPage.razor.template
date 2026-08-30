@@ -1,0 +1,3 @@
+@page "/issue-75/control"
+
+<main data-stock-asset-page>Stock static asset control</main>
