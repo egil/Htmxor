@@ -14,6 +14,11 @@ public sealed class Issue111AuthenticationHandler(
 {
 	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
 	{
+		if (!Request.Path.StartsWithSegments("/issue-111"))
+		{
+			return Task.FromResult(AuthenticateResult.NoResult());
+		}
+
 		var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, "issue-111-user")], Scheme.Name);
 		var principal = new ClaimsPrincipal(identity);
 		return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name)));

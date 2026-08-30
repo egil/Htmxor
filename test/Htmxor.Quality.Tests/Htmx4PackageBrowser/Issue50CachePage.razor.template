@@ -1,0 +1,12 @@
+@page "/issue-50/cache"
+@inject Issue50CacheProbe Probe
+
+<main data-issue-50-cache data-render-count="@renderCount">
+	<h1>Output cache representation</h1>
+</main>
+
+@code {
+	private int renderCount;
+
+	protected override void OnInitialized() => renderCount = Probe.RecordRender();
+}

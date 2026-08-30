@@ -1,0 +1,10 @@
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue50CacheProbe
+{
+	private int renderCount;
+
+	public int RenderCount => Volatile.Read(ref renderCount);
+
+	public int RecordRender() => Interlocked.Increment(ref renderCount);
+}
