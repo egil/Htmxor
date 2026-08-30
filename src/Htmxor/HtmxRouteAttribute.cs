@@ -69,35 +69,46 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 		return other is not null
 			&& Template.Equals(other.Template, StringComparison.OrdinalIgnoreCase)
 			&& Methods.SequenceEqual(other.Methods, StringComparer.OrdinalIgnoreCase)
-			&& (CurrentURL?.Equals(other.CurrentURL, StringComparison.OrdinalIgnoreCase) ?? true)
-			&& (Target?.Equals(other.Target, StringComparison.OrdinalIgnoreCase) ?? true)
-			&& Targets.SequenceEqual(other.Targets, StringComparer.OrdinalIgnoreCase);
+			&& string.Equals(CurrentURL, other.CurrentURL, StringComparison.OrdinalIgnoreCase)
+			&& HtmxElementIdentity.Equals(Target, other.Target)
+			&& HasSameTargets(Targets, other.Targets);
 	}
 
 	public override int GetHashCode()
 	{
 		var hash = new HashCode();
-		hash.Add(Template);
+		hash.Add(Template, StringComparer.OrdinalIgnoreCase);
 		for (int i = 0; i < Methods.Length; i++)
 		{
-			hash.Add(Methods[i]);
+			hash.Add(Methods[i], StringComparer.OrdinalIgnoreCase);
 		}
 
-		if (CurrentURL is not null)
-		{
-			hash.Add(CurrentURL);
-		}
-
-		if (Target is not null)
-		{
-			hash.Add(Target);
-		}
+		hash.Add(CurrentURL, StringComparer.OrdinalIgnoreCase);
+		hash.Add(HtmxElementIdentity.GetHashCode(Target));
 
 		for (int i = 0; i < Targets.Length; i++)
 		{
-			hash.Add(Targets[i]);
+			hash.Add(HtmxElementIdentity.GetHashCode(Targets[i]));
 		}
 
 		return hash.ToHashCode();
+	}
+
+	private static bool HasSameTargets(string[] left, string[] right)
+	{
+		if (left.Length != right.Length)
+		{
+			return false;
+		}
+
+		for (var index = 0; index < left.Length; index++)
+		{
+			if (!HtmxElementIdentity.Equals(left[index], right[index]))
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 }
