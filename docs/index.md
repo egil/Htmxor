@@ -137,6 +137,42 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
     Note that we set up the custom layout for all components by defining the `[HtmxLayout(typeof(HtmxorLayout))]` attribute in the `_Imports.razor` file.
 
+## Output caching
+
+For the bounded case where one component URL returns the stock full page when
+`HX-Request` is absent and the direct component representation when
+`HX-Request: true` is present, include `HX-Request` in the ASP.NET Core
+OutputCache key. Configure the standard endpoint policy after Htmxor
+registration:
+
+```csharp
+builder.Services.AddOutputCache();
+
+// Authentication and authorization middleware must run before OutputCache.
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseOutputCache();
+
+var htmxorRoutes = app.MapGroup(string.Empty);
+app.MapRazorComponents<App>()
+    .AddHtmxorComponentEndpoints(htmxorRoutes)
+    .CacheOutput(policy => policy.SetVaryByHeader("HX-Request"));
+```
+
+`SetVaryByHeader("HX-Request")` is the endpoint-policy equivalent of
+`OutputCacheAttribute.VaryByHeaderNames = ["HX-Request"]`. Applying
+`[OutputCache]` to a Razor component does not itself activate output caching for
+the component endpoint. This one-header policy is sufficient only while
+`HX-Request` is the sole input that changes the response representation. An
+application that also varies output for boosted requests, targets, history
+restoration, selected fragments, authentication, or other request data must add
+every such input to its cache policy. Htmxor does not infer an application's
+complete cache key.
+
+ASP.NET Core OutputCache caches safe requests by default; do not opt unsafe
+component methods into output caching. Htmxor does not emit an antiforgery
+cookie for a safe GET that contains no stock antiforgery component.
+
 ## Routing in Htmxor
 
 Htmxor routing and Blazor Static Web Apps routing differ in ways that enhance htmx scenarios. In Htmxor, there are two types of routing:
