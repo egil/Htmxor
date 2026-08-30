@@ -25,7 +25,8 @@ public sealed class Issue56BrowserTests
 	[Fact]
 	public async Task Component_controls_dynamic_response_header_without_request_leakage()
 	{
-		await using var app = CreateApplication(new Issue56RequestProbe());
+		var probe = new Issue18HeaderProbe(expectedConcurrentRequests: 4);
+		await using var app = CreateApplication(new Issue56RequestProbe(), issue18Probe: probe);
 		await app.StartAsync();
 		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
 
@@ -40,6 +41,7 @@ public sealed class Issue56BrowserTests
 		};
 
 		await Task.WhenAll(requests);
+		Assert.Equal(4, probe.ArrivalCount);
 	}
 
 	[Fact]
@@ -210,7 +212,8 @@ public sealed class Issue56BrowserTests
 	private static WebApplication CreateApplication(
 		Issue56RequestProbe probe,
 		Issue111RequestProbe? issue111Probe = null,
-		Issue50CacheProbe? cacheProbe = null)
+		Issue50CacheProbe? cacheProbe = null,
+		Issue18HeaderProbe? issue18Probe = null)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
@@ -228,6 +231,7 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(probe);
 		builder.Services.AddSingleton(issue111Probe ?? new Issue111RequestProbe());
 		builder.Services.AddSingleton(cacheProbe ?? new Issue50CacheProbe());
+		builder.Services.AddSingleton(issue18Probe ?? new Issue18HeaderProbe(1));
 
 		var app = builder.Build();
 		app.UseAuthentication();
