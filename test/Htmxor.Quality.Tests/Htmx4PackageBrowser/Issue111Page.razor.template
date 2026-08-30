@@ -1,0 +1,41 @@
+@page "/issue-111"
+@using Htmxor
+@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+@inject Issue111RequestProbe Probe
+
+<main data-issue-111-page>
+	<h1>Component-owned QUERY actions</h1>
+	<form id="stock-query" hx-query="/issue-111" hx-target="#issue-111-target" @onquery="QueryStock">
+		<input name="queryValue" value="stock-content" />
+		<button type="submit">Query stock page</button>
+	</form>
+	<form id="htmx-only-query" hx-query="/issue-111/htmx-only/7" hx-target="#issue-111-target">
+		<input name="queryValue" value="htmx-only-content" />
+		<button type="submit">Query HTMX-only component</button>
+	</form>
+	<form id="client-only-query" hx-query="/issue-111/no-action" hx-target="#issue-111-target">
+		<input name="queryValue" value="client-only-content" />
+		<button type="submit">Query without server action</button>
+	</form>
+	<div id="issue-111-target" data-query-result="initial">Initial QUERY state</div>
+</main>
+
+@code {
+	private readonly string requestId = Guid.NewGuid().ToString("N");
+	private string? submittedValue;
+
+	protected override void OnInitialized() => Probe.RecordInitialization("stock", requestId);
+
+	private async Task QueryStock(HtmxEventArgs _)
+	{
+		var form = await HttpContextAccessor.HttpContext!.Request.ReadFormAsync();
+		submittedValue = form["queryValue"].ToString();
+		Probe.RecordCallback("stock", requestId, submittedValue);
+	}
+}
+
+@if (submittedValue is not null)
+{
+	<p data-query-result="stock" data-request-id="@requestId">@submittedValue</p>
+}

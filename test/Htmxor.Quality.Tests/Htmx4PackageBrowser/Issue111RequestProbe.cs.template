@@ -1,0 +1,29 @@
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue111RequestProbe
+{
+	private readonly object gate = new();
+	private readonly List<Issue111Observation> observations = [];
+
+	public void RecordInitialization(string owner, string requestId) => Record(owner, "initialized", requestId, null);
+
+	public void RecordCallback(string owner, string requestId, string value) => Record(owner, "callback", requestId, value);
+
+	public IReadOnlyList<Issue111Observation> Snapshot()
+	{
+		lock (gate)
+		{
+			return observations.ToArray();
+		}
+	}
+
+	private void Record(string owner, string phase, string requestId, string? value)
+	{
+		lock (gate)
+		{
+			observations.Add(new(owner, phase, requestId, value));
+		}
+	}
+}
+
+public sealed record Issue111Observation(string Owner, string Phase, string RequestId, string? Value);

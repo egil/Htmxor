@@ -1,0 +1,10 @@
+@page "/issue-111/no-action"
+@inject Issue111RequestProbe Probe
+
+<main data-issue-111-no-action>
+	<p>Client QUERY declarations do not grant a server action.</p>
+</main>
+
+@code {
+	protected override void OnInitialized() => Probe.RecordInitialization("no-action", Guid.NewGuid().ToString("N"));
+}

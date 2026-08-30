@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using Htmxor;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ public sealed class Issue56BrowserTests
 	private const string EntryPath = "/issue-56";
 	private const string GetOnlyPath = "/issue-56/get-only";
 	private const string ApplicationHtmxPath = "/htmx-4.0.0.min.js";
+	private const string Issue111Path = "/issue-111";
 
 	[Fact]
 	public async Task Application_owned_htmx4_validates_and_swaps_unsafe_component_actions()
@@ -95,7 +97,60 @@ public sealed class Issue56BrowserTests
 		Assert.Empty(consoleErrors);
 	}
 
-	private static WebApplication CreateApplication(Issue56RequestProbe probe)
+	[Fact]
+	public async Task Application_owned_htmx4_swaps_component_owned_query_actions()
+	{
+		var probe = new Issue111RequestProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+
+		var navigation = await page.GotoAsync(Issue111Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		Assert.Contains("<html", await navigation.TextAsync(), StringComparison.OrdinalIgnoreCase);
+		Assert.Equal(0, await page.Locator("input[name='__RequestVerificationToken']").CountAsync());
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var stockResponse = await SubmitQueryAsync(page, "stock-query", Issue111Path);
+		await AssertSuccessfulQueryAsync(page, stockResponse, "stock", "stock-content");
+		var stockCallback = Assert.Single(
+			probe.Snapshot(),
+			observation => observation.Owner == "stock" && observation.Phase == "callback");
+		Assert.Contains(
+			probe.Snapshot(),
+			observation => observation.Owner == "stock" &&
+				observation.Phase == "initialized" &&
+				observation.RequestId == stockCallback.RequestId);
+
+		await page.GotoAsync(Issue111Path);
+		var htmxOnlyResponse = await SubmitQueryAsync(page, "htmx-only-query", "/issue-111/htmx-only/7");
+		await AssertSuccessfulQueryAsync(page, htmxOnlyResponse, "htmx-only", "htmx-only-content");
+		var htmxOnlyCallback = Assert.Single(
+			probe.Snapshot(),
+			observation => observation.Owner == "htmx-only" && observation.Phase == "callback");
+		Assert.Contains(
+			probe.Snapshot(),
+			observation => observation.Owner == "htmx-only" &&
+				observation.Phase == "initialized" &&
+				observation.RequestId == htmxOnlyCallback.RequestId);
+		Assert.NotEqual(stockCallback.RequestId, htmxOnlyCallback.RequestId);
+
+		await page.GotoAsync(Issue111Path);
+		var beforeNegative = probe.Snapshot();
+		var negativeResponse = await SubmitQueryAsync(page, "client-only-query", "/issue-111/no-action");
+		Assert.Equal((int)HttpStatusCode.MethodNotAllowed, negativeResponse.Status);
+		Assert.Equal(beforeNegative, probe.Snapshot());
+	}
+
+	private static WebApplication CreateApplication(
+		Issue56RequestProbe probe,
+		Issue111RequestProbe? issue111Probe = null)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
@@ -105,9 +160,16 @@ public sealed class Issue56BrowserTests
 		builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
 		builder.Logging.ClearProviders();
 		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddHttpContextAccessor();
+		builder.Services.AddAuthentication("Issue111")
+			.AddScheme<AuthenticationSchemeOptions, Issue111AuthenticationHandler>("Issue111", _ => { });
+		builder.Services.AddAuthorizationBuilder().AddPolicy("issue-111", policy => policy.RequireAuthenticatedUser());
 		builder.Services.AddSingleton(probe);
+		builder.Services.AddSingleton(issue111Probe ?? new Issue111RequestProbe());
 
 		var app = builder.Build();
+		app.UseAuthentication();
+		app.UseAuthorization();
 		app.UseAntiforgery();
 		app.MapStaticAssets();
 		var routes = app.MapGroup(string.Empty);
@@ -115,6 +177,39 @@ public sealed class Issue56BrowserTests
 			.AddHtmxorComponentEndpoints(routes);
 
 		return app;
+	}
+
+	private static async Task<IResponse> SubmitQueryAsync(
+		IPage page,
+		string formId,
+		string expectedPath)
+	{
+		var responseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == expectedPath &&
+			string.Equals(response.Request.Method, "QUERY", StringComparison.Ordinal));
+		await page.Locator($"#{formId} button[type='submit']").ClickAsync();
+		return await responseTask;
+	}
+
+	private static async Task AssertSuccessfulQueryAsync(
+		IPage page,
+		IResponse response,
+		string owner,
+		string submittedValue)
+	{
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var headers = await response.Request.AllHeadersAsync();
+		Assert.Equal("true", headers["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.False(headers.ContainsKey("requestverificationtoken"));
+		Assert.Contains($"queryValue={submittedValue}", response.Request.PostData, StringComparison.Ordinal);
+		var body = await response.TextAsync();
+		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", body, StringComparison.Ordinal);
+		await page.Locator($"[data-query-result='{owner}']").WaitForAsync();
+		Assert.Contains(
+			submittedValue,
+			await page.Locator($"[data-query-result='{owner}']").TextContentAsync(),
+			StringComparison.Ordinal);
 	}
 
 	private static async Task AssertRejectedAsync(
