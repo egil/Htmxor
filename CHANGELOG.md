@@ -2,4 +2,5 @@
 
 ## Breaking changes
 
+- Htmxor request representation now follows htmx 4's `HX-Request-Type`: only `partial` uses direct component output, while `full`, missing, blank, unknown, or contradictory values retain the stock page path. Use nullable `HtmxRequest.RequestType` (`Full` or `Partial`) and replace request `Trigger`/`TriggerName` reads with the complete raw `Source` identity. `Target` now contains `tag#id` or a tag-only identity rather than an id alone. The request `Trigger`, `TriggerName`, and `Prompt` properties and header constants, plus `HtmxRoute.Trigger` and `TriggerName`, have been removed; optional prompt-extension headers remain available through `HttpContext.Request.Headers`.
 - Htmxor now emits response events only through htmx 4's `HX-Trigger` header. Remove the `TriggerTiming` argument from `HtmxResponse.Trigger(...)` calls; htmx 4 dispatches these response events after the swap completes. The `TriggerTiming` type and the `TriggerAfterSwap` and `TriggerAfterSettle` response-header constants have been removed.
