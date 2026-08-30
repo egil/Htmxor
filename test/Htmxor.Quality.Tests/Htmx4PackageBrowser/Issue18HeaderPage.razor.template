@@ -1,5 +1,22 @@
 @page "/issue-18/headers"
+@using Microsoft.AspNetCore.Http
 
-<main data-issue-18-header data-response-started="false">
+<main data-issue-18-header data-response-started="@responseHadStarted.ToString().ToLowerInvariant()">
 	<h1>Dynamic response header</h1>
 </main>
+
+@code {
+	private bool responseHadStarted;
+
+	[SupplyParameterFromQuery]
+	public string Language { get; set; } = string.Empty;
+
+	[CascadingParameter]
+	private HttpContext HttpContext { get; set; } = default!;
+
+	protected override void OnParametersSet()
+	{
+		responseHadStarted = HttpContext.Response.HasStarted;
+		HttpContext.Response.Headers.ContentLanguage = Language;
+	}
+}
