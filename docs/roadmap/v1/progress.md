@@ -63,14 +63,18 @@ Last updated: 2026-08-30
 - Preserved issue #108 pre-publication sample-ownership red: `bc60bff7829162c72c5bcf776d2895b5b5cf7298`. All three unsafe samples failed the new ownership guard because they advertised htmx 4 without retaining the legacy antiforgery configuration required by the current adapter.
 - Verified issue #108 pre-publication review fix: `e2ac91524ec9ce911cb7f66a0fff7bbcee1ff4c2`. The unsafe samples now explicitly own their temporary legacy runtime and configuration, while the documentation gives an exact acquisition and hash-verification path for a fresh application's htmx 4 asset.
 - This issue #108 progress change is documentation-only. Executable claims are tied to the tested Linux pre-publication and review-fix heads above, not to the later documentation head.
-- Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR. Issues #95, #97, #100, #103, and #106 use a separate external .NET 10 Razor consumer on TestServer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project. Issue #108 uses a separate package-only .NET 10 application on real Kestrel with Chromium.
+- Preserved meaningful-red commit for issue #56: `8f830863a41c7c120d351c0727910fab646431f8`.
+- Verified executable proof commit for issue #56: `87cac54b9dfa958d4b3c98a0cfc897bf803cd301`, based on exact `origin/main` commit `8bfa41b3da340b1d10b1d43b31124ece2ba44d4c`.
+- Verified post-proof htmx 4 fixture correction for issue #56: `05b7bbe9035df7b3e31e39d42d596405d5a1203e`. The maintained browser fixture now declares explicit targets and swaps required by htmx 4 defaults.
+- This issue #56 progress change is documentation-only. Executable claims are tied to the tested executable and fixture-correction heads above, not to the later documentation head.
+- Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR. Issues #95, #97, #100, #103, and #106 use a separate external .NET 10 Razor consumer on TestServer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project. Issues #108 and #56 use a separate package-only .NET 10 application on real Kestrel with Chromium.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
   application-supplied htmx 4.0.0 script running with htmx 4 defaults. Htmxor
   does not embed or silently select that runtime. Issue #108 is the first narrow
   executed htmx 4 browser slice; the remaining conformance matrix is unproved.
-- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer; issue #97, deterministic aggregation of two supported package-consumer declarations through that single registration call; issue #100, one package-generated stock-page PUT callback bound to the compiled component endpoint while two explicit HTMX-only controls remain GET-only; issue #103, shared POST, PUT, PATCH, and DELETE inference for stock `@page` and omitted-`Methods` HTMX-only routes with explicit-method conflicts rejected before mapping; issue #106, explicit authoritative C# method discovery for matching `.razor.cs` partials and all-C# components, deterministic rejection and registration suppression when a C# declaration omits `Methods`, and no method widening from manual render-tree code; issue #108, removal of Htmxor-owned htmx distribution and one package-only application-owned htmx 4.0.0 stock-page and component-GET browser path.
-- Current implementation slice: issue #108, application-owned htmx 4.0.0 GET.
+- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer; issue #97, deterministic aggregation of two supported package-consumer declarations through that single registration call; issue #100, one package-generated stock-page PUT callback bound to the compiled component endpoint while two explicit HTMX-only controls remain GET-only; issue #103, shared POST, PUT, PATCH, and DELETE inference for stock `@page` and omitted-`Methods` HTMX-only routes with explicit-method conflicts rejected before mapping; issue #106, explicit authoritative C# method discovery for matching `.razor.cs` partials and all-C# components, deterministic rejection and registration suppression when a C# declaration omits `Methods`, and no method widening from manual render-tree code; issue #108, removal of Htmxor-owned htmx distribution and one package-only application-owned htmx 4.0.0 stock-page and component-GET browser path; issue #56, stock antiforgery and generated POST, PUT, PATCH, and DELETE callback dispatch through the htmx 4 request context in a package-only browser consumer.
+- Current implementation slice: issue #56, htmx 4 unsafe actions and stock antiforgery.
   Issue #106 is closed. Positive omitted-`Methods` inference from companion Razor
   markup remains deferred for C# declarations under the parent v1 work.
 
@@ -562,6 +566,31 @@ static SSR, and visibly swaps that markup into the intended target. The retained
 1.9.12 browser fixture now owns and explicitly labels its legacy asset and
 configuration; it remains regression coverage, not htmx 4 evidence.
 
+Protected behavior for issue #56:
+
+> When a package-only .NET 10 Blazor static SSR application uses stock
+> antiforgery with htmx 4.0.0, Htmxor carries the generated action identity and
+> request-verification token through htmx 4's request context, rejects missing
+> or invalid tokens before effects, and dispatches an antiforgery-valid POST, PUT,
+> PATCH, or DELETE to exactly the matching component-instance callback before
+> swapping shell-free static SSR.
+
+The application owns the exact htmx 4.0.0 asset and uses no Htmxor client
+configuration. Htmxor's narrow adapter observes `htmx:config:request`, reads the
+source element and request from the htmx 4 context, carries the generated action
+identity, and copies the nearest stock Blazor antiforgery input to the
+`RequestVerificationToken` request header only for unsafe methods. The server
+continues to select only compiled generated methods and actions; client
+attributes are transport context, not authority.
+
+Real Chromium proves a normal full-page GET, no unrelated antiforgery cookie on
+a GET-only page, missing-token POST and invalid-token PUT rejection with no
+binding, initialization, or callback effects, and successful POST, PUT, PATCH,
+and DELETE requests. Each valid request reaches exactly its selected callback,
+returns shell-free static SSR, and visibly swaps the response. The package-only
+consumer authors no controller, Minimal API component endpoint, static handler,
+renderer copy, private reflection, or global Blazor service replacement.
+
 ## Executable evidence
 
 - Meaningful red at `66139317b9edae1fff2ff73fa5175381ee3487b1`: the new .NET 10 hosted test discovered and executed one test, then failed during real application startup with the expected `NullReferenceException` in the obsolete private-reflection component discovery path.
@@ -751,10 +780,16 @@ configuration; it remains regression coverage, not htmx 4 evidence.
 - Issue #108's exact-head proofs used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Microsoft.Playwright 1.62.0, cached Chromium revision 1234 / 151.0.7922.34, and Microsoft Windows NT 10.0.26200.0. Kestrel used loopback HTTP. The evidence did not provision a fresh browser, use TLS, run on Linux, publish or sign a package, or call a CDN or other live service during browser execution. Full-scope mutation was not run; issue #108 makes it optional, and it would include unrelated legacy production scope.
 
 - The final pre-publication rerun used the same SDK, runtime, Playwright, and Chromium versions on Ubuntu 26.04 under WSL. Playwright's exact Chromium revision and Linux dependencies were provisioned before the successful focused and full runs. Kestrel again used loopback HTTP. TLS, a published or signed package, a release candidate, other SDK/compiler versions, and external services during browser execution remain unproved. Full-scope mutation was not run; issue #108 makes it optional, and it would include unrelated legacy production scope.
+- Issue #56 started from exact `origin/main` `8bfa41b3da340b1d10b1d43b31124ece2ba44d4c` on isolated branch `egil/issue-56-htmx4-antiforgery`. Live issue #56 and parent #77 were open, the starting worktree was clean, and no observed open pull request owned this unsafe-request adapter slice.
+- Meaningful red is preserved at clean test-only commit `8f830863a41c7c120d351c0727910fab646431f8`, whose production tree is the exact starting base: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Htmx4PackageBrowserTests --blame-hang --blame-hang-timeout 5min --logger "console;verbosity=minimal"` compiled successfully, discovered and executed 1 package-only browser test, and failed 1 of 1. Missing-token POST and invalid-token PUT already returned `400` without effects, but the valid POST expected `200` and received `400` because the legacy adapter did not populate htmx 4's request headers. This was a real Kestrel and Chromium behavioral failure, not a setup or discovery failure.
+- Focused package-only browser and sample proof at clean implementation commit `87cac54b9dfa958d4b3c98a0cfc897bf803cd301`: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Htmx4PackageBrowserTests|FullyQualifiedName~SampleRuntimeOwnershipTests" --blame-hang --blame-hang-timeout 10min` discovered, executed, and passed 4 of 4 outer tests. The browser fixture's parsed external-consumer run passed its one end-to-end test through a locally packed package, real Kestrel, and real Chromium; all three maintained unsafe samples passed exact htmx 4 runtime and stock-antiforgery ownership checks.
+- Full-profile proof at exact clean executable head `05b7bbe9035df7b3e31e39d42d596405d5a1203e`: `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full` passed 113 quality tests, 40 .NET 10 hosted tests, and all 255 library, generator, analyzer, runtime, and browser tests. Total: 408 discovered, 408 executed, 408 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The authoritative Release build produced 0 warnings and 0 errors. The canonical fresh coverage report was `artifacts/results/full/htmxor/dd274f09-8a8f-4cc1-ae54-7fed435fde3c/coverage.cobertura.xml`.
+- Fast-profile proof at the same exact clean executable head passed 112 quality tests, 40 .NET 10 hosted tests, and 253 non-browser library, generator, analyzer, and runtime tests. Total: 405 discovered, 405 executed, 405 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Issue #56's exact-head proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Microsoft.Playwright 1.62.0, Chromium 151.0.7922.34, Ubuntu 26.04 under WSL, and loopback HTTP. It did not exercise TLS, Windows, macOS, Firefox, WebKit, a published or signed package, another target framework, another htmx version, server-farm antiforgery key sharing, or external services. Full-scope mutation was not run: issue #56 makes it optional, and the configured .NET mutation workload does not exercise the changed static JavaScript or browser-test harness.
 
 ## Remaining limits
 
-- Issues #95, #97, #100, #103, #106, and #108 prove one locally packed package with the current SDK and dependency set. They do not prove publishing, package signing, a release candidate, package compatibility across SDK or compiler versions, a fresh Linux restore, or a broader target-framework matrix.
+- Issues #95, #97, #100, #103, #106, #108, and #56 prove one locally packed package with the current SDK and dependency set. They do not prove publishing, package signing, a release candidate, package compatibility across SDK or compiler versions, or a broader target-framework matrix.
 - The matrix uses one representative valid and rejected value per documented constraint. It does not exhaust textual representations, undocumented custom conversion constraints, catch-all routes, or unconstrained routes.
 - The direct path is proved on ASP.NET Core 10 only. The supported framework matrix remains unproved.
 - The authorization proof uses one deterministic scheme and one claim policy. It does not cover scheme selection, custom challenge or forbid handlers, identity-provider integration, or authorization on other HTTP methods.
@@ -763,16 +798,16 @@ configuration; it remains regression coverage, not htmx 4 evidence.
 - Issue #89 covers an application-authored public `SetParametersAsync` override. An application that explicitly implements `IComponent.SetParametersAsync` would conflict with the generated explicit member and needs a future diagnostic or developer-model decision. Repeated parameter delivery, an override that intentionally omits its base call, async actions, request-body and form binding, multiple actions on one verb, multiple-route action mapping, multiple action-owning components, navigation, exception and cancellation behavior, `ShouldRender` overrides, and streaming SSR remain unexercised.
 - The issue #85, #87, and #89 hosts run on Windows TestServer with the stock ephemeral Data Protection provider. They do not exercise Kestrel, TLS, persistent key storage, server-farm key sharing, Linux, a browser, or an application-selected HTMX runtime.
 - Issues #91, #93, #95, #97, #100, and #103 ran their hosted contract only on Windows TestServer. They did not exercise Kestrel, TLS, Linux runtime, a browser, or an application-selected HTMX runtime. Issue #108 adds one package-only Kestrel and Chromium GET path on Windows and Linux, but it does not prove those earlier package-only routes and actions in a browser.
-- Beyond issue #108's single GET, the tests do not exercise layouts, caching, concurrency, enhanced navigation, interactive render modes, fragments, browser behavior, or performance.
+- Beyond issue #108's GET and issue #56's unsafe-action matrix, the htmx 4 browser tests do not exercise layouts, caching, concurrency, enhanced navigation, interactive render modes, fragments, out-of-band content, history, extensions, or performance.
 - Htmxor no longer packages or emits htmx 1.9.12, htmx type declarations, the
   event-header extension, or an Htmxor-owned `htmx-config` payload. The legacy
-  test application and the unsafe samples own their retained 1.9.12 assets and
-  configuration and remain legacy-only regression evidence. They are not htmx
-  4 compatibility proof. Htmxor still owns the narrow `htmxor.js`
-  adapter. Issue #108 does not prove that adapter's unsafe-request,
-  antiforgery, or htmx 4 event-context behavior.
-- Issue #108 covers only one application-owned htmx 4.0.0 GET using htmx 4
-  defaults. Unsafe methods, the htmx 4 antiforgery adapter, `HX-Request-Type`,
+  test application owns its retained 1.9.12 asset and configuration as
+  legacy-only regression evidence. It is not htmx 4 compatibility proof. The
+  maintained samples now own exact htmx 4.0.0 assets and use stock Blazor
+  antiforgery inputs for unsafe requests. Htmxor still owns only the narrow
+  `htmxor.js` adapter.
+- Issues #108 and #56 cover application-owned htmx 4.0.0 GET and unsafe methods
+  using htmx 4 defaults. `HX-Request-Type`,
   `HX-Source`, the changed `HX-Target` format, `hx-action`, `hx-method`,
   `hx-query`, response-header consolidation, explicit inheritance,
   error-response swapping, DELETE body behavior, standardized events and
@@ -865,19 +900,21 @@ configuration; it remains regression coverage, not htmx 4 evidence.
 
 ## Current implementation slice
 
-Issue #108 establishes the first application-owned htmx 4 browser path:
+Issue #56 establishes htmx 4 unsafe actions with stock antiforgery:
 
-> When a .NET 10 Blazor static SSR application supplies htmx 4.0.0, Htmxor
-> emits and packages no htmx runtime or legacy htmx extension, stock full-page
-> GET remains available, and a real Chromium interaction can use `hx-get`
-> against a component-owned route and swap returned static SSR HTML.
+> When a package-only .NET 10 Blazor static SSR application uses stock
+> antiforgery with htmx 4.0.0, Htmxor carries the generated action identity and
+> request-verification token through htmx 4's request context, rejects missing
+> or invalid tokens before effects, and dispatches an antiforgery-valid POST, PUT,
+> PATCH, or DELETE to exactly the matching component-instance callback before
+> swapping shell-free static SSR.
 
-This slice removes the obsolete embedded-runtime option and package assets,
-narrows `HtmxHeadOutlet` to Htmxor's adapter, and proves only stock navigation
-plus one real Chromium component GET and DOM swap. It does not migrate unsafe
-requests or the antiforgery adapter, implement QUERY or `@onquery`, add
-fragments, or claim the remaining htmx 4 matrix. Issue #106 is closed; positive
-omitted-`Methods` inference from companion Razor markup remains deferred under
-the parent v1 work. Publication still requires a current tracker,
-competing-ownership, branch, and `origin/main` check. Stop for the user if the
-result requires changing the v1 goal, supported framework, or security posture.
+This slice migrates the narrow adapter, package-only browser proof, maintained
+samples, and maintained browser fixture. It removes the obsolete Htmxor
+antiforgery middleware and application-builder API. It does not implement QUERY
+or `@onquery`, add fragments or response-header consolidation, broaden the
+framework matrix, or claim other htmx 4 features. The next slice must be chosen
+from the current parent tracker and competing-ownership evidence; positive
+omitted-`Methods` inference from companion Razor markup remains deferred. Stop
+for the user if the result requires changing the v1 goal, supported framework,
+or security posture.
