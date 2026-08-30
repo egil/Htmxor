@@ -1,0 +1,31 @@
+@using Htmxor
+@using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Authorization
+@attribute [HtmxRoute("/issue-111/htmx-only/{ItemId:int}")]
+@attribute [Authorize("issue-111")]
+@inject IHttpContextAccessor HttpContextAccessor
+@inject Issue111RequestProbe Probe
+
+<section data-issue-111-htmx-only data-item-id="@ItemId" @onquery="QueryHtmxOnly">
+	@if (submittedValue is not null)
+	{
+		<p data-query-result="htmx-only" data-request-id="@requestId">@submittedValue</p>
+	}
+</section>
+
+@code {
+	[Parameter]
+	public int ItemId { get; set; }
+
+	private readonly string requestId = Guid.NewGuid().ToString("N");
+	private string? submittedValue;
+
+	protected override void OnInitialized() => Probe.RecordInitialization("htmx-only", requestId);
+
+	private async Task QueryHtmxOnly(HtmxEventArgs _)
+	{
+		var form = await HttpContextAccessor.HttpContext!.Request.ReadFormAsync();
+		submittedValue = form["queryValue"].ToString();
+		Probe.RecordCallback("htmx-only", requestId, submittedValue);
+	}
+}
