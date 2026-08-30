@@ -56,6 +56,7 @@ public sealed class Issue56BrowserTests
 			"4.0.0",
 			await page.EvaluateAsync<string>("() => window.htmx.version"));
 		AssertRuntimeOwnership(requests, baseAddress);
+		await AssertAdapterUsesHtmx4RequestContextAsync(page);
 
 		var baseline = probe.Snapshot();
 		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
@@ -147,7 +148,6 @@ public sealed class Issue56BrowserTests
 		var requestHeaders = await response.Request.AllHeadersAsync();
 		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
 		Assert.True(requestHeaders.ContainsKey("requestverificationtoken"));
-		Assert.Equal("issue-56-action-context", requestHeaders["hxor-event-handler-id"]);
 		Assert.True(
 			response.Status == (int)HttpStatusCode.OK,
 			$"Expected 200 for {method}, received {response.Status}: {await response.TextAsync()}");
@@ -178,6 +178,31 @@ public sealed class Issue56BrowserTests
 			}
 			""",
 			method);
+
+	private static async Task AssertAdapterUsesHtmx4RequestContextAsync(IPage page)
+	{
+		var headers = await page.EvaluateAsync<string?[]>(
+			"""
+			() => {
+				const source = document.createElement('button');
+				source.setAttribute('hxor-eventid', 'opaque-action-identity');
+				const form = document.querySelector('form');
+				form.append(source);
+				const request = { method: 'POST', headers: {} };
+				document.dispatchEvent(new CustomEvent('htmx:config:request', {
+					detail: { ctx: { sourceElement: source, request } }
+				}));
+				source.remove();
+				return [
+					request.headers['HXOR-Event-Handler-Id'] ?? null,
+					request.headers.RequestVerificationToken ?? null
+				];
+			}
+			""");
+
+		Assert.Equal("opaque-action-identity", headers[0]);
+		Assert.False(string.IsNullOrWhiteSpace(headers[1]));
+	}
 
 	private static void AssertRuntimeOwnership(
 		IEnumerable<string> requestUrls,
