@@ -1,0 +1,197 @@
+using System.Collections.Concurrent;
+using System.Net;
+using Htmxor;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Playwright;
+using Xunit;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue56BrowserTests
+{
+	private const string EntryPath = "/issue-56";
+	private const string GetOnlyPath = "/issue-56/get-only";
+	private const string ApplicationHtmxPath = "/htmx-4.0.0.min.js";
+
+	[Fact]
+	public async Task Application_owned_htmx4_validates_and_swaps_unsafe_component_actions()
+	{
+		var probe = new Issue56RequestProbe();
+		await using var app = CreateApplication(probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new()
+		{
+			Headless = true,
+		});
+		await using var context = await browser.NewContextAsync(new()
+		{
+			BaseURL = baseAddress.AbsoluteUri,
+		});
+		var page = await context.NewPageAsync();
+		var requests = new ConcurrentQueue<string>();
+		var pageErrors = new ConcurrentQueue<string>();
+		var consoleErrors = new ConcurrentQueue<string>();
+		page.Request += (_, request) => requests.Enqueue(request.Url);
+		page.PageError += (_, error) => pageErrors.Enqueue(error);
+		page.Console += (_, message) => RecordConsoleError(message, consoleErrors);
+
+		var navigation = await page.GotoAsync(EntryPath);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		var fullPageBody = await navigation.TextAsync();
+		Assert.Contains("<html", fullPageBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", fullPageBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-56-page", fullPageBody, StringComparison.Ordinal);
+		Assert.Equal(0, await page.Locator("meta[name='htmx-config']").CountAsync());
+
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		Assert.Equal(
+			"4.0.0",
+			await page.EvaluateAsync<string>("() => window.htmx.version"));
+		AssertRuntimeOwnership(requests, baseAddress);
+
+		var baseline = probe.Snapshot();
+		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
+			"element => element.remove()");
+		await AssertRejectedAsync(page, "POST");
+		Assert.Equal(baseline, probe.Snapshot());
+
+		await page.ReloadAsync();
+		baseline = probe.Snapshot();
+		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
+			"element => element.value = 'invalid-request-token'");
+		await AssertRejectedAsync(page, "PUT");
+		Assert.Equal(baseline, probe.Snapshot());
+
+		await page.ReloadAsync();
+		foreach (var method in new[] { "POST", "PUT", "PATCH", "DELETE" })
+		{
+			await AssertSuccessfulActionAsync(page, method, probe);
+		}
+
+		var getOnlyResponse = await page.GotoAsync(GetOnlyPath);
+		Assert.NotNull(getOnlyResponse);
+		Assert.Equal((int)HttpStatusCode.OK, getOnlyResponse.Status);
+		Assert.DoesNotContain(
+			getOnlyResponse.Headers,
+			header => string.Equals(header.Key, "set-cookie", StringComparison.OrdinalIgnoreCase) &&
+				header.Value.Contains("HX-XSRF-TOKEN", StringComparison.Ordinal));
+		AssertRuntimeOwnership(requests, baseAddress);
+		Assert.Empty(pageErrors);
+		Assert.Empty(consoleErrors);
+	}
+
+	private static WebApplication CreateApplication(Issue56RequestProbe probe)
+	{
+		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+		{
+			ApplicationName = typeof(Issue56BrowserTests).Assembly.GetName().Name,
+			EnvironmentName = Environments.Development,
+		});
+		builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
+		builder.Logging.ClearProviders();
+		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddSingleton(probe);
+
+		var app = builder.Build();
+		app.UseAntiforgery();
+		app.MapStaticAssets();
+		var routes = app.MapGroup(string.Empty);
+		app.MapRazorComponents<Issue56App>()
+			.AddHtmxorComponentEndpoints(routes);
+
+		return app;
+	}
+
+	private static async Task AssertRejectedAsync(IPage page, string method)
+	{
+		await SelectActionAsync(page, method);
+		var responseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == EntryPath &&
+			string.Equals(response.Request.Method, method, StringComparison.Ordinal));
+		await page.GetByRole(AriaRole.Button, new() { Name = "Action", Exact = true }).ClickAsync();
+		var response = await responseTask;
+		Assert.Equal((int)HttpStatusCode.BadRequest, response.Status);
+	}
+
+	private static async Task AssertSuccessfulActionAsync(
+		IPage page,
+		string method,
+		Issue56RequestProbe probe)
+	{
+		var before = probe.Snapshot();
+		await SelectActionAsync(page, method);
+		var responseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == EntryPath &&
+			string.Equals(response.Request.Method, method, StringComparison.Ordinal));
+		await page.GetByRole(AriaRole.Button, new() { Name = "Action", Exact = true }).ClickAsync();
+		var response = await responseTask;
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var requestHeaders = await response.Request.AllHeadersAsync();
+		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.True(requestHeaders.ContainsKey("requestverificationtoken"));
+		var body = await response.TextAsync();
+		Assert.Contains($"data-issue-56-result=\"{method.ToLowerInvariant()}\"", body, StringComparison.Ordinal);
+		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", body, StringComparison.Ordinal);
+		await page.Locator($"#issue-56-target [data-issue-56-result='{method.ToLowerInvariant()}']").WaitForAsync();
+
+		var after = probe.Snapshot();
+		Assert.Equal(before.BindingCount + 1, after.BindingCount);
+		Assert.Equal(before.InitializationCount + 1, after.InitializationCount);
+		Assert.Equal(before.CallbackCount + 1, after.CallbackCount);
+		Assert.Equal(method, after.LastCallback);
+	}
+
+	private static Task SelectActionAsync(IPage page, string method) =>
+		page.GetByRole(AriaRole.Button, new() { Name = "Action", Exact = true }).EvaluateAsync(
+			"""
+			(element, selectedMethod) => {
+				for (const method of ['post', 'put', 'patch', 'delete']) {
+					if (method.toUpperCase() === selectedMethod) {
+						element.setAttribute(`hx-${method}`, '/issue-56');
+					} else {
+						element.removeAttribute(`hx-${method}`);
+					}
+				}
+			}
+			""",
+			method);
+
+	private static void AssertRuntimeOwnership(
+		IEnumerable<string> requestUrls,
+		Uri baseAddress)
+	{
+		var uris = requestUrls.Select(url => new Uri(url)).ToArray();
+		Assert.All(uris, uri => Assert.Equal(baseAddress.Authority, uri.Authority));
+		Assert.Single(uris, uri => uri.AbsolutePath == ApplicationHtmxPath);
+		Assert.Single(uris, uri => uri.AbsolutePath == "/_content/Htmxor/htmxor.js");
+		Assert.DoesNotContain(uris, IsHtmxorRuntimeOrLegacyExtension);
+	}
+
+	private static bool IsHtmxorRuntimeOrLegacyExtension(Uri uri)
+	{
+		var path = uri.AbsolutePath;
+		return (path.StartsWith("/_content/Htmxor/htmx", StringComparison.Ordinal) &&
+			path != "/_content/Htmxor/htmxor.js") ||
+			path.Contains("event-header", StringComparison.OrdinalIgnoreCase) ||
+			path.Contains("compat", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static void RecordConsoleError(
+		IConsoleMessage message,
+		ConcurrentQueue<string> errors)
+	{
+		if (string.Equals(message.Type, "error", StringComparison.OrdinalIgnoreCase))
+		{
+			errors.Enqueue(message.Text);
+		}
+	}
+}

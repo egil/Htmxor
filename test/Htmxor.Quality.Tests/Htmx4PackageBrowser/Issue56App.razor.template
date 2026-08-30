@@ -8,7 +8,7 @@
 	<HtmxHeadOutlet />
 </head>
 <body data-stock-shell>
-	<Router AppAssembly="typeof(Issue108App).Assembly">
+	<Router AppAssembly="typeof(Issue56App).Assembly">
 		<Found Context="routeData">
 			<RouteView RouteData="routeData" />
 		</Found>

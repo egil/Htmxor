@@ -1,0 +1,31 @@
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue56RequestProbe
+{
+	private int bindingCount;
+	private int initializationCount;
+	private int callbackCount;
+	private string? lastCallback;
+
+	public void RecordBinding() => Interlocked.Increment(ref bindingCount);
+
+	public void RecordInitialization() => Interlocked.Increment(ref initializationCount);
+
+	public void RecordCallback(string method)
+	{
+		Volatile.Write(ref lastCallback, method);
+		Interlocked.Increment(ref callbackCount);
+	}
+
+	public Issue56ProbeSnapshot Snapshot() => new(
+		Volatile.Read(ref bindingCount),
+		Volatile.Read(ref initializationCount),
+		Volatile.Read(ref callbackCount),
+		Volatile.Read(ref lastCallback));
+}
+
+public sealed record Issue56ProbeSnapshot(
+	int BindingCount,
+	int InitializationCount,
+	int CallbackCount,
+	string? LastCallback);

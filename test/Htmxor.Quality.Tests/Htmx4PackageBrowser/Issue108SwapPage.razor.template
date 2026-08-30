@@ -1,3 +1,0 @@
-@page "/issue-108/swap"
-
-<p data-issue-108-swap>Swapped by application-owned htmx 4</p>
