@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 namespace Htmxor.Quality.Tests;
 
@@ -27,7 +28,9 @@ public sealed class SampleRuntimeOwnershipTests
 			"htmx-4.0.0.min.js");
 
 		Assert.Matches(@"hx-(post|put|patch|delete)", razorSources);
-		Assert.Contains("<AntiforgeryToken", razorSources, StringComparison.Ordinal);
+		Assert.True(
+			ContainsStockAntiforgeryUi(razorSources),
+			$"Expected {samplePath} to use EditForm or AntiforgeryToken for stock antiforgery.");
 		Assert.DoesNotContain("<meta name=\"htmx-config\"", app, StringComparison.Ordinal);
 		Assert.Contains(
 			"<script defer src=\"htmx-4.0.0.min.js\"></script>",
@@ -40,4 +43,23 @@ public sealed class SampleRuntimeOwnershipTests
 			Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assetPath))));
 		Assert.False(File.Exists(Path.Combine(sampleRoot, "wwwroot", "legacy-htmx-1.9.12.min.js")));
 	}
+
+	[Theory]
+	[InlineData("<EditForm Model=\"model\">", true)]
+	[InlineData("<AntiforgeryToken />", true)]
+	[InlineData("<form method=\"post\">", false)]
+	[InlineData("<EditFormWrapper>", false)]
+	[InlineData("<AntiforgeryTokenProvider />", false)]
+	public void Stock_antiforgery_ui_accepts_both_supported_components(
+		string razorSource,
+		bool expected)
+	{
+		Assert.Equal(expected, ContainsStockAntiforgeryUi(razorSource));
+	}
+
+	private static bool ContainsStockAntiforgeryUi(string razorSource)
+		=> Regex.IsMatch(
+			razorSource,
+			@"<(?:EditForm|AntiforgeryToken)(?=\s|/?>)",
+			RegexOptions.CultureInvariant);
 }
