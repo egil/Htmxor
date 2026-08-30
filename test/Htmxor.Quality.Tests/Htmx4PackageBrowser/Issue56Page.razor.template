@@ -3,7 +3,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject Issue56RequestProbe Probe
 
-<form method="post" hx-post="/issue-56" hx-put="/issue-56" hx-patch="/issue-56" hx-delete="/issue-56" @onpost="Post" @onput="Put" @onpatch="Patch" @ondelete="Delete" @formname="issue-56-actions" hxor-eventid="issue-56-action-context" hx-target="body">
+<form method="post" hx-post="/issue-56" hx-put="/issue-56" hx-patch="/issue-56" hx-delete="/issue-56" @onpost="Post" @onput="Put" @onpatch="Patch" @ondelete="Delete" @formname="issue-56-actions" hx-target="body">
 	<AntiforgeryToken />
 	<button type="submit">Action</button>
 </form>
