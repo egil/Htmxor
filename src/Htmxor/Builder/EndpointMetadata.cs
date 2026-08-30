@@ -13,10 +13,7 @@ internal sealed record class EndpointMetadata(HtmxRouteAttribute HxRoute)
 		if (htmxRequest is null)
 			return false;
 
-		if (!htmxRequest.IsHtmxRequest)
-			return false;
-
-		if (htmxRequest.IsBoosted)
+		if (htmxRequest.RoutingMode is not RoutingMode.Direct)
 			return false;
 
 		if (currentUrl is not null && Uri.Compare(currentUrl, htmxRequest.CurrentURL, UriComponents.HttpRequestUrl, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
@@ -26,12 +23,6 @@ internal sealed record class EndpointMetadata(HtmxRouteAttribute HxRoute)
 			return false;
 
 		if (HxRoute.Targets.Length > 0 && !HxRoute.Targets.Contains(htmxRequest.Target, StringComparer.OrdinalIgnoreCase))
-			return false;
-
-		if (!string.IsNullOrWhiteSpace(HxRoute.Trigger) && !HxRoute.Trigger.Equals(htmxRequest.Trigger, StringComparison.OrdinalIgnoreCase))
-			return false;
-
-		if (!string.IsNullOrWhiteSpace(HxRoute.TriggerName) && !HxRoute.TriggerName.Equals(htmxRequest.TriggerName, StringComparison.OrdinalIgnoreCase))
 			return false;
 
 		return true;

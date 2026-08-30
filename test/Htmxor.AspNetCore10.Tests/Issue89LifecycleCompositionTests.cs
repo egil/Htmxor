@@ -126,6 +126,7 @@ public sealed class Issue89LifecycleCompositionTests : IAsyncLifetime
 	{
 		var request = CreateAuthorizedRequest(HttpMethod.Delete);
 		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
 		request.Headers.Add("Cookie", cookie);
 		request.Headers.Add("RequestVerificationToken", token);
 		return request;

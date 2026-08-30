@@ -106,6 +106,7 @@ public sealed class Issue83AuthorizationTests : IAsyncLifetime
 		if (direct)
 		{
 			request.Headers.Add("HX-Request", "true");
+			request.Headers.Add("HX-Request-Type", "partial");
 		}
 
 		return await client.SendAsync(request);

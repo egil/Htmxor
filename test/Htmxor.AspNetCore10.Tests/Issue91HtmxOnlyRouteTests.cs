@@ -168,6 +168,7 @@ public sealed class Issue91HtmxOnlyRouteTests : IAsyncLifetime
 		if (direct)
 		{
 			request.Headers.Add("HX-Request", "true");
+			request.Headers.Add("HX-Request-Type", "partial");
 		}
 
 		if (authenticated)

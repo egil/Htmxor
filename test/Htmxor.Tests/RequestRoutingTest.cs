@@ -30,4 +30,15 @@ public class RequestRoutingTest : TestAppTestBase
                 """);
 		});
 	}
+
+	[Fact]
+	public async Task FullHxRequest()
+	{
+		await Host.Scenario(s =>
+		{
+			s.Get.Url("/normal-and-hx");
+			s.WithHxHeaders(requestType: Http.HtmxRequestType.Full);
+			s.ContentShouldBeHtml(FullPageContent("<h1>Hello, world!</h1>", "Home"));
+		});
+	}
 }

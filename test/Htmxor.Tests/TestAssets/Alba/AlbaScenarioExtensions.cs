@@ -10,18 +10,22 @@ internal static class AlbaScenarioExtensions
 	public static Scenario WithHxHeaders(
 		this Scenario scenario,
 		bool isHtmxRequest = true,
+		HtmxRequestType? requestType = HtmxRequestType.Partial,
 		bool? isBoosted = null,
 		bool? isHistoryRestoreRequest = null,
 		string? currentURL = null,
 		string? target = null,
-		string? triggerName = null,
-		string? trigger = null,
-		string? prompt = null,
+		string? source = null,
 		string? eventHandlerId = null)
 	{
 		if (isHtmxRequest)
 		{
 			scenario.WithRequestHeader(HtmxRequestHeaderNames.HtmxRequest, "true");
+			if (requestType is not null)
+			{
+				var value = requestType == HtmxRequestType.Partial ? "partial" : "full";
+				scenario.WithRequestHeader(HtmxRequestHeaderNames.RequestType, value);
+			}
 		}
 
 		if (isBoosted is not null)
@@ -44,19 +48,9 @@ internal static class AlbaScenarioExtensions
 			scenario.WithRequestHeader(HtmxRequestHeaderNames.Target, target);
 		}
 
-		if (triggerName is not null)
+		if (source is not null)
 		{
-			scenario.WithRequestHeader(HtmxRequestHeaderNames.TriggerName, triggerName);
-		}
-
-		if (trigger is not null)
-		{
-			scenario.WithRequestHeader(HtmxRequestHeaderNames.Trigger, trigger);
-		}
-
-		if (prompt is not null)
-		{
-			scenario.WithRequestHeader(HtmxRequestHeaderNames.Prompt, prompt);
+			scenario.WithRequestHeader(HtmxRequestHeaderNames.Source, source);
 		}
 
 		if (eventHandlerId is not null)

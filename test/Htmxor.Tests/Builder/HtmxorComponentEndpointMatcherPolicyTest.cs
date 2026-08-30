@@ -48,7 +48,9 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	{
 		var cut = new ComponentEndpointMatcherPolicy();
 		var httpContext = new HttpContextBuilder()
-			.WithRequestHeader((HtmxRequestHeaderNames.HtmxRequest, null))
+			.WithRequestHeader(
+				(HtmxRequestHeaderNames.HtmxRequest, "true"),
+				(HtmxRequestHeaderNames.RequestType, "partial"))
 			.Build();
 		CandidateSet candidates = CreateHxCandidateSet(new HtmxRouteAttribute("/"));
 
@@ -62,7 +64,9 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	{
 		var cut = new ComponentEndpointMatcherPolicy();
 		var httpContext = new HttpContextBuilder()
-			.WithRequestHeader((HtmxRequestHeaderNames.HtmxRequest, null))
+			.WithRequestHeader(
+				(HtmxRequestHeaderNames.HtmxRequest, "true"),
+				(HtmxRequestHeaderNames.RequestType, "partial"))
 			.Build();
 		CandidateSet candidates = CreateRouteCandidateSet(new RouteAttribute("/"));
 
@@ -89,14 +93,10 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/foo")] },
 		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/FOO")] },
 		{ new("/") { CurrentURL = "/FOO"}, [(HtmxRequestHeaderNames.CurrentURL, "/foo")] },
-		{ new("/") { Target = "#foo"}, [(HtmxRequestHeaderNames.Target, "#foo")] },
-		{ new("/") { Target = "#foo"}, [(HtmxRequestHeaderNames.Target, "#FOO")] },
-		{ new("/") { Targets = ["#foo", "#bar"]}, [(HtmxRequestHeaderNames.Target, "#foo")] },
-		{ new("/") { Targets = ["#foo", "#bar"]}, [(HtmxRequestHeaderNames.Target, "#BAR")] },
-		{ new("/") { Trigger = "#foo"}, [(HtmxRequestHeaderNames.Trigger, "#foo")] },
-		{ new("/") { Trigger = "#foo"}, [(HtmxRequestHeaderNames.Trigger, "#FOO")] },
-		{ new("/") { TriggerName = "#foo"}, [(HtmxRequestHeaderNames.TriggerName, "#foo")] },
-		{ new("/") { TriggerName = "#foo"}, [(HtmxRequestHeaderNames.TriggerName, "#FOO")] },
+		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
+		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "DIV#FOO")] },
+		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
+		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "SECTION")] },
 	};
 
 	[Theory]
@@ -105,7 +105,10 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	{
 		var cut = new ComponentEndpointMatcherPolicy();
 		var httpContext = new HttpContextBuilder()
-			.WithRequestHeader([(HtmxRequestHeaderNames.HtmxRequest, null), .. requestHeaders])
+			.WithRequestHeader([
+				(HtmxRequestHeaderNames.HtmxRequest, "true"),
+				(HtmxRequestHeaderNames.RequestType, "partial"),
+				.. requestHeaders])
 			.Build();
 		var candidates = CreateHxCandidateSet(hxRouteAttribute);
 
@@ -117,10 +120,8 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	public static TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]> NoneMatchingHxRouteRequests = new TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]>
 	{
 		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/bar")] },
-		{ new("/") { Target = "#foo"}, [(HtmxRequestHeaderNames.Target, "#bar")] },
-		{ new("/") { Targets = ["#foo", "#bar"]}, [(HtmxRequestHeaderNames.Target, "#baz")] },
-		{ new("/") { Trigger = "#foo"}, [(HtmxRequestHeaderNames.Trigger, "#bar")] },
-		{ new("/") { TriggerName = "#foo"}, [(HtmxRequestHeaderNames.TriggerName, "#bar")] },
+		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#bar")] },
+		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "div#baz")] },
 	};
 
 	[Theory]
@@ -129,7 +130,10 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	{
 		var cut = new ComponentEndpointMatcherPolicy();
 		var httpContext = new HttpContextBuilder()
-			.WithRequestHeader([(HtmxRequestHeaderNames.HtmxRequest, null), .. requestHeaders])
+			.WithRequestHeader([
+				(HtmxRequestHeaderNames.HtmxRequest, "true"),
+				(HtmxRequestHeaderNames.RequestType, "partial"),
+				.. requestHeaders])
 			.Build();
 		var candidates = CreateHxCandidateSet(hxRouteAttribute);
 

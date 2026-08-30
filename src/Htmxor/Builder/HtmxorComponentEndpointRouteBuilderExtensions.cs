@@ -298,7 +298,13 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			return;
 		}
 
-		await InvokeDirectEndpoint(context, stockRequestDelegate);
+		if (context.GetHtmxContext().Request.RoutingMode is RoutingMode.Direct)
+		{
+			await InvokeDirectEndpoint(context, stockRequestDelegate);
+			return;
+		}
+
+		await stockRequestDelegate(context);
 	}
 
 	private static async Task InvokeGeneratedEndpoint(

@@ -81,7 +81,7 @@ public sealed class HtmxAsyncLoad : ConditionalComponentBase
 			builder.AddContent(8, Loading);
 		}
 
-		else if (request.RoutingMode == RoutingMode.Direct || request.Target == Id && request.Trigger == Id)
+		else if (request.RoutingMode == RoutingMode.Direct)
 		{
 			builder.AddContent(9, ChildContent);
 		}

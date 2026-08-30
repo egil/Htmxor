@@ -55,6 +55,7 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 
 		using var htmxRequest = new HttpRequestMessage(HttpMethod.Get, "/issue-78");
 		htmxRequest.Headers.Add("HX-Request", "true");
+		htmxRequest.Headers.Add("HX-Request-Type", "partial");
 		using var htmxResponse = await client.SendAsync(htmxRequest);
 		var htmxBody = await htmxResponse.Content.ReadAsStringAsync();
 		Assert.Equal(HttpStatusCode.OK, htmxResponse.StatusCode);
@@ -105,6 +106,7 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 		using var normalResponse = await client.GetAsync(requestPath);
 		using var htmxRequest = new HttpRequestMessage(HttpMethod.Get, requestPath);
 		htmxRequest.Headers.Add("HX-Request", "true");
+		htmxRequest.Headers.Add("HX-Request-Type", "partial");
 		using var htmxResponse = await client.SendAsync(htmxRequest);
 
 		Assert.Equal(HttpStatusCode.NotFound, normalResponse.StatusCode);
@@ -147,6 +149,7 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 
 		using var htmxRequest = new HttpRequestMessage(HttpMethod.Get, $"{requestPath}?query=from-query");
 		htmxRequest.Headers.Add("HX-Request", "true");
+		htmxRequest.Headers.Add("HX-Request-Type", "partial");
 		using var htmxResponse = await client.SendAsync(htmxRequest);
 		var htmxBody = await htmxResponse.Content.ReadAsStringAsync();
 		Assert.Equal(HttpStatusCode.OK, htmxResponse.StatusCode);

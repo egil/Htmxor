@@ -28,7 +28,10 @@ public class BulkUpdate1Test : TestAppTestBase
 			s.Post.Url("/bulk-update-1");
 			s.WithFormData(("Active", users[1].Id.ToString()), ("Active", users[3].Id.ToString()));
 			s.WithAntiforgeryTokensFrom(Host);
-			s.WithHxHeaders(target: "toast", trigger: "checked-contacts", currentURL: $"{Host.Server.BaseAddress}bulk-update-1");
+			s.WithHxHeaders(
+				target: "span#toast",
+				source: "form#checked-contacts",
+				currentURL: $"{Host.Server.BaseAddress}bulk-update-1");
 
 			s.StatusCodeShouldBe(HttpStatusCode.OK);
 			s.ContentShouldBeHtml($"""

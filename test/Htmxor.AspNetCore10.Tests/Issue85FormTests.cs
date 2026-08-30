@@ -110,6 +110,7 @@ public sealed class Issue85FormTests : IAsyncLifetime
 			Content = new FormUrlEncodedContent(fields),
 		};
 		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
 		if (cookie is not null)
 		{
 			request.Headers.Add("Cookie", cookie);
