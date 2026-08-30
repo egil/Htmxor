@@ -6,7 +6,11 @@
 
 To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
 
-The application supplies and configures the htmx runtime; Htmxor does not distribute one. The sample applications supply exact htmx 4.0.0 with its defaults. Current browser evidence covers only the package-browser GET path described in the [v1 progress record](roadmap/v1/progress.md). Unsafe requests and the remaining htmx 4 behavior need separate evidence.
+The application supplies and configures the htmx runtime; Htmxor does not
+distribute one. Current browser evidence covers the application-owned htmx
+4.0.0 GET path described in the [v1 progress record](roadmap/v1/progress.md).
+Unsafe samples retain an explicitly application-owned legacy runtime until the
+htmx 4 unsafe-request and antiforgery adapter has separate proof.
 
 To start fresh from a (new) Blazor Web App project, follow these steps:
 
@@ -46,9 +50,23 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
       app.Run();
     ```
-3. **Update App.razor**
+3. **Supply the htmx runtime**
 
-   Add the application-owned runtime and the Htmxor adapter to `App.razor`. This example uses the exact htmx 4.0.0 asset shipped with the sample repository:
+   Install the exact `htmx.org@4.0.0` package with your JavaScript package
+   manager, then copy `node_modules/htmx.org/dist/htmx.min.js` to
+   `wwwroot/htmx-4.0.0.min.js`. Verify that the copied file has SHA-256
+   `E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
+   Its Zero-Clause BSD license must accompany the application. The
+   [package-browser fixture](../test/Htmxor.Quality.Tests/Htmx4PackageBrowser)
+   records the source archive, license, and exact asset used by current
+   browser evidence.
+
+   This htmx 4 path currently proves GET only. Do not infer unsafe-method or
+   antiforgery compatibility from this setup.
+
+4. **Update App.razor**
+
+   Add the application-owned runtime and the Htmxor adapter to `App.razor`:
 
     ```diff
       <!DOCTYPE html>
@@ -82,7 +100,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       </html>
     ```
 
-4. **Create an Optional Direct Request Layout**
+5. **Create an Optional Direct Request Layout**
 
    Optionally, create a layout that will be used during [direct routing](routing.md#direct-routing), e.g., `/Components/Layout/HtmxorLayout.razor`:
 
@@ -93,7 +111,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
     The `HtmxLayoutComponentBase` includes the `<HeadOutlet>` component. This makes it possible to use the `<PageTitle>` component during htmx requests to update the page title.
 
-5. **Update _Imports.razor (Optional)**
+6. **Update _Imports.razor (Optional)**
 
    Modify _Imports.razor to include Htmxor namespaces and set a default layout:
 
