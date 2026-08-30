@@ -22,6 +22,24 @@ public sealed class Issue56BrowserTests
 	private const string Issue50Path = "/issue-50/cache";
 
 	[Fact]
+	public async Task Output_cache_attribute_activates_a_razor_component_endpoint()
+	{
+		var probe = new Issue50CacheProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), cacheProbe: probe);
+		await app.StartAsync();
+		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
+
+		using var first = await SendCacheRequestAsync(client, htmx: false);
+		using var second = await SendCacheRequestAsync(client, htmx: false);
+		Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+		Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+		Assert.Equal(
+			await first.Content.ReadAsStringAsync(),
+			await second.Content.ReadAsStringAsync());
+		Assert.Equal(1, probe.RenderCount);
+	}
+
+	[Fact]
 	public async Task Output_cache_keeps_full_and_direct_get_representations_distinct()
 	{
 		foreach (var htmxFirst in new[] { false, true })
@@ -198,8 +216,7 @@ public sealed class Issue56BrowserTests
 		app.MapStaticAssets();
 		var routes = app.MapGroup(string.Empty);
 		app.MapRazorComponents<Issue56App>()
-			.AddHtmxorComponentEndpoints(routes)
-			.CacheOutput(policy => policy.SetVaryByHeader("HX-Request"));
+			.AddHtmxorComponentEndpoints(routes);
 
 		return app;
 	}
