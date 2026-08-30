@@ -74,14 +74,17 @@ Last updated: 2026-08-30
 - Preserved meaningful-red commit for issue #50: `57a459de02022319538ae17c85ba445683ee7cfe`, based on exact `origin/main` commit `f17fac74fbcee9738b51a53089e7dc2df628b462`.
 - Verified executable and documentation head for issue #50: `35bd2a7b24b85f1d4518c322ce44a9066d645f1e`. The final component-attribute proof is at `7b77a5dc38391cd358932d52310777d93fb546c0`.
 - This issue #50 progress change is documentation-only. Executable claims are tied to the tested head above, not to this later documentation head.
-- Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR. Issues #95, #97, #100, #103, and #106 use a separate external .NET 10 Razor consumer on TestServer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project. Issues #108, #56, #111, and #50 use a separate package-only .NET 10 application on real Kestrel; its browser cases use Chromium and issue #50's cache assertions use `HttpClient`.
+- Preserved meaningful-red commit for issue #18: `e601dd38a67a87b1603ae36ddcb317813073a8f7`, based on exact fetched `origin/main` commit `8693ecb4c9180ba6afbb3bb4f85037cb9dd9f3ff`.
+- Verified executable proof commit for issue #18: `5434ee0e99f6c74a26a94067b273105f28ca98af`.
+- This issue #18 progress change is documentation-only. Executable claims are tied to the tested proof commit above, not to this later documentation head.
+- Framework boundary under test: ASP.NET Core 10.0.11 and Blazor static SSR. Issues #95, #97, #100, #103, and #106 use a separate external .NET 10 Razor consumer on TestServer that restores a locally packed `net8.0` Htmxor package instead of referencing an Htmxor project. Issues #108, #56, #111, #50, and #18 use a separate package-only .NET 10 application on real Kestrel; its browser cases use Chromium, while issues #50 and #18 use `HttpClient` for their server-response assertions.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
   application-supplied htmx 4.0.0 script running with htmx 4 defaults. Htmxor
   does not embed or silently select that runtime. Issue #108 is the first narrow
   executed htmx 4 browser slice; the remaining conformance matrix is unproved.
-- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer; issue #97, deterministic aggregation of two supported package-consumer declarations through that single registration call; issue #100, one package-generated stock-page PUT callback bound to the compiled component endpoint while two explicit HTMX-only controls remain GET-only; issue #103, shared POST, PUT, PATCH, and DELETE inference for stock `@page` and omitted-`Methods` HTMX-only routes with explicit-method conflicts rejected before mapping; issue #106, explicit authoritative C# method discovery for matching `.razor.cs` partials and all-C# components, deterministic rejection and registration suppression when a C# declaration omits `Methods`, and no method widening from manual render-tree code; issue #108, removal of Htmxor-owned htmx distribution and one package-only application-owned htmx 4.0.0 stock-page and component-GET browser path; issue #56, stock antiforgery and generated POST, PUT, PATCH, and DELETE callback dispatch through the htmx 4 request context in a package-only browser consumer; issue #111, generated safe QUERY callback dispatch for stock and HTMX-only route owners through the real htmx 4 package/browser boundary; issue #50, standard OutputCache variation for one stock full/direct GET pair in a package-only Kestrel consumer.
-- Current implementation slice: issue #50, cache handling.
+- V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer; issue #97, deterministic aggregation of two supported package-consumer declarations through that single registration call; issue #100, one package-generated stock-page PUT callback bound to the compiled component endpoint while two explicit HTMX-only controls remain GET-only; issue #103, shared POST, PUT, PATCH, and DELETE inference for stock `@page` and omitted-`Methods` HTMX-only routes with explicit-method conflicts rejected before mapping; issue #106, explicit authoritative C# method discovery for matching `.razor.cs` partials and all-C# components, deterministic rejection and registration suppression when a C# declaration omits `Methods`, and no method widening from manual render-tree code; issue #108, removal of Htmxor-owned htmx distribution and one package-only application-owned htmx 4.0.0 stock-page and component-GET browser path; issue #56, stock antiforgery and generated POST, PUT, PATCH, and DELETE callback dispatch through the htmx 4 request context in a package-only browser consumer; issue #111, generated safe QUERY callback dispatch for stock and HTMX-only route owners through the real htmx 4 package/browser boundary; issue #50, standard OutputCache variation for one stock full/direct GET pair in a package-only Kestrel consumer; issue #18, dynamic application response headers through the stock request-owned `HttpContext` on normal and direct GET paths.
+- Current implementation slice: issue #18, application-owned response headers.
   Positive omitted-`Methods` inference from companion Razor markup remains
   deferred for C# declarations under the parent v1 work.
 
@@ -666,6 +669,29 @@ This one-header policy is proved only for absent `HX-Request` versus
 targets, history restoration, fragment selection, authentication, or other
 request data must include every such input in their cache policy.
 
+Protected behavior for issue #18:
+
+> When a request-owned component dynamically sets one arbitrary non-HTMX
+> response header through supported ASP.NET Core request state, Htmxor preserves
+> that header on stock normal and direct HTMX GET representations before
+> response start, without stale values crossing repeated or interleaved
+> requests.
+
+The separate package-only `net10.0` consumer uses the stock cascading
+`HttpContext` to set `Content-Language` during component parameter processing.
+Concurrent normal and direct requests select distinct standards-defined values;
+both representations return the matching header, the normal response retains
+the stock shell, and the direct response remains shell-free. Interleaved normal
+and direct requests to another route return no `Content-Language`, and the
+component records that the response had not started before its write.
+
+The deletion test leaves no Htmxor production change. The proposed
+`IControlResponseHeaders`, arbitrary attribute execution, and a generic
+`HtmxResponse.Headers` alias add no capability for this bounded dynamic case.
+Static declarative metadata, HTMX response-header migration, trailers,
+redirects, errors, streaming SSR, caching policy, unsafe methods, and broader
+header validation remain separate decisions.
+
 ## Executable evidence
 
 - Meaningful red at `66139317b9edae1fff2ff73fa5175381ee3487b1`: the new .NET 10 hosted test discovered and executed one test, then failed during real application startup with the expected `NullReferenceException` in the obsolete private-reflection component discovery path.
@@ -877,10 +903,16 @@ request data must include every such input in their cache policy.
 - Full-profile proof at the same exact clean head passed 118 quality tests, 40 .NET 10 hosted tests, and all 259 library, generator, analyzer, runtime, and legacy-browser tests. Total: 417 discovered, 417 executed, 417 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors and retained the canonical fresh coverage report at `artifacts/results/full/htmxor/24894a8d-ad53-4ecf-bc23-52b7bdd1d78e/coverage.cobertura.xml`.
 - Independent Standards and Spec reviews of the final executable and guidance head both passed with zero actionable findings after the guidance was bounded to every representation-affecting cache input.
 - Issue #50's exact-head proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Microsoft.Playwright 1.62.0, Chromium 151.0.7922.34, Ubuntu 26.04.1 under WSL2, a locally packed unsigned Htmxor package, and Kestrel loopback HTTP. The cache assertions used `HttpClient`, while the same package consumer's other tests used real Chromium. It did not exercise browser cache storage, TLS, Windows, macOS, Firefox, WebKit, a published or signed package, another framework or htmx version, fresh browser provisioning, authentication-dependent caching, boosted or target-selected representations, distributed providers, invalidation, or external services. Full-scope mutation was not run; issue #50 does not require it and the configured workload includes unrelated production scope.
+- Issue #18 started from freshly fetched exact `origin/main` `8693ecb4c9180ba6afbb3bb4f85037cb9dd9f3ff` on isolated branch `egil/issue-18-response-headers`. Live issue #18 and parent #77 were open and unassigned, and no open pull request owned the slice. Main's fast and full CI test job was green; the workflow was red only because its deployment step received a NuGet `403` for the configured API key.
+- Meaningful red is preserved at clean test-only commit `e601dd38a67a87b1603ae36ddcb317813073a8f7`: the focused package-only command discovered and executed 1 outer test and failed 1. Its separate consumer restored and Release-built, started Kestrel, and discovered and executed 5 inner tests; 4 passed and the new response-header contract failed because `Content-Language` was absent. The component route rendered successfully, so this was a missing HTTP behavior rather than build, setup, discovery, or routing failure.
+- Focused package-only proof at exact clean head `5434ee0e99f6c74a26a94067b273105f28ca98af`: `dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Htmx4PackageBrowserTests --blame-hang --blame-hang-timeout 5min --logger "console;verbosity=minimal"` discovered, executed, and passed 1 of 1 outer tests. The asserted consumer TRX discovered, executed, and passed 5 of 5 inner tests.
+- Fast-profile proof at the same exact clean head passed 117 quality tests, 40 ASP.NET Core 10 hosted tests, and 257 non-browser library, generator, analyzer, and runtime tests. Total: 414 discovered, 414 executed, 414 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors.
+- Full-profile proof at the same exact clean head passed 118 quality tests, 40 ASP.NET Core 10 hosted tests, and all 259 library, generator, analyzer, runtime, and legacy-browser tests. Total: 417 discovered, 417 executed, 417 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The Release build produced 0 warnings and 0 errors and retained the canonical fresh coverage report at `artifacts/results/full/htmxor/3e8cbdb3-9bd3-4e25-9ffa-2f1e63ef9786/coverage.cobertura.xml`.
+- Issue #18's exact-head proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Microsoft.Playwright 1.62.0, Chromium 151.0.7922.34, Ubuntu 26.04.1 under WSL2, a locally packed Htmxor package, Kestrel loopback HTTP, and `HttpClient` response assertions. The maintained full suite exercised cached Chromium, but the issue #18 header requests did not require browser behavior. TLS, Windows, macOS, Firefox, WebKit, a published or signed package, another framework or htmx version, fresh browser provisioning, unsafe methods, caching interaction, redirects, errors, trailers, streaming SSR, and external services were not exercised. Full-scope mutation was not run; it is not required for this POC and the configured workload includes unrelated production scope.
 
 ## Remaining limits
 
-- Issues #95, #97, #100, #103, #106, #108, #56, #111, and #50 prove one locally packed package with the current SDK and dependency set. They do not prove publishing, package signing, a release candidate, package compatibility across SDK or compiler versions, or a broader target-framework matrix.
+- Issues #95, #97, #100, #103, #106, #108, #56, #111, #50, and #18 prove one locally packed package with the current SDK and dependency set. They do not prove publishing, package signing, a release candidate, package compatibility across SDK or compiler versions, or a broader target-framework matrix.
 - The matrix uses one representative valid and rejected value per documented constraint. It does not exhaust textual representations, undocumented custom conversion constraints, catch-all routes, or unconstrained routes.
 - The direct path is proved on ASP.NET Core 10 only. The supported framework matrix remains unproved.
 - The authorization proof uses one deterministic scheme and one claim policy. It does not cover scheme selection, custom challenge or forbid handlers, identity-provider integration, or authorization on other HTTP methods.
@@ -995,26 +1027,21 @@ request data must include every such input in their cache policy.
 
 ## Current implementation slice
 
-Issue #50 establishes one bounded OutputCache contract:
+Issue #18 establishes one bounded application-owned response-header contract:
 
-> When OutputCache is enabled for one stock component URL, Htmxor keeps cached
-> full-page and HTMX-fragment GET representations distinct in either warm-up
-> order, and safe GET remains cacheable.
+> When a request-owned component dynamically sets one arbitrary non-HTMX
+> response header through supported ASP.NET Core request state, Htmxor preserves
+> that header on stock normal and direct HTMX GET representations before
+> response start, without stale values crossing repeated or interleaved
+> requests.
 
-The package-only proof demonstrates that the standard component
-`OutputCacheAttribute.VaryByHeaderNames = ["HX-Request"]` configuration is
-sufficient for the proved absent-versus-true representation pair. Htmxor adds
-no cache implementation and emits no safe-GET antiforgery cookie. Broader
-representation inputs and authentication-dependent policy remain application
-cache-key responsibilities and are not claimed by this slice.
+The package-only proof demonstrates that the standard cascading `HttpContext`
+is sufficient. No Htmxor production API is added. The original issue's static
+declarative idea and the wider htmx 4 response-header migration are not implied
+by this bounded completion.
 
-The recommended next slice is a narrowed issue #18 response-header contract.
-At the live tracker check on 2026-08-30, #18 was open and unassigned. Apply the
-deletion test before adding its proposed public interface: first prove whether
-one request-owned component can set one dynamic non-HTMX response header on
-normal and direct package paths through existing supported ASP.NET Core state.
-Only if that leaves a real declarative gap should the slice introduce the
-smallest public convenience. This comes next because htmx 4 response-header
-consolidation remains unproved, while issue #50 now establishes the adjacent
-HTTP-response boundary. Positive omitted-`Methods` inference from companion
-Razor markup remains deferred.
+The recommended next slice is positive omitted-`Methods` inference from
+companion Razor markup for a matching `.razor.cs` action declaration. It should
+prove one unambiguous component-owned callback through the compiler and package
+boundaries while preserving explicit method authority and fail-closed behavior;
+broader Razor grammar and dynamic handler discovery remain deferred.
