@@ -4,6 +4,11 @@ internal static class HtmxElementIdentity
 {
 	public static bool Equals(string? expected, string? actual)
 	{
+		if (ReferenceEquals(expected, actual))
+		{
+			return true;
+		}
+
 		if (expected is null || actual is null)
 		{
 			return false;
@@ -21,6 +26,30 @@ internal static class HtmxElementIdentity
 				actual.AsSpan(0, actualSeparator),
 				StringComparison.OrdinalIgnoreCase) &&
 			expected.AsSpan(expectedSeparator + 1).SequenceEqual(actual.AsSpan(actualSeparator + 1));
+	}
+
+	public static int GetHashCode(string? identity)
+	{
+		if (identity is null)
+		{
+			return 0;
+		}
+
+		var separator = identity.IndexOf('#', StringComparison.Ordinal);
+		var hash = new HashCode();
+		if (separator < 0)
+		{
+			hash.Add(identity, StringComparer.OrdinalIgnoreCase);
+			hash.Add(false);
+		}
+		else
+		{
+			hash.Add(identity[..separator], StringComparer.OrdinalIgnoreCase);
+			hash.Add(true);
+			hash.Add(identity[(separator + 1)..], StringComparer.Ordinal);
+		}
+
+		return hash.ToHashCode();
 	}
 
 	public static bool Matches(string tag, string id, string? actual)
