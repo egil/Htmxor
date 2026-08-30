@@ -270,6 +270,7 @@ public sealed class HtmxResponse(HttpContext context)
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Trigger(string eventName)
 	{
+		ArgumentNullException.ThrowIfNullOrWhiteSpace(eventName);
 		AssertIsHtmxRequest();
 
 		MergeTrigger(eventName, default(object), null);
@@ -287,6 +288,7 @@ public sealed class HtmxResponse(HttpContext context)
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Trigger<TEventDetail>(string eventName, TEventDetail detail, JsonSerializerOptions? jsonSerializerOptions = null)
 	{
+		ArgumentNullException.ThrowIfNullOrWhiteSpace(eventName);
 		AssertIsHtmxRequest();
 
 		MergeTrigger(eventName, detail, jsonSerializerOptions);
