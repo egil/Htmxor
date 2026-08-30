@@ -1,17 +1,24 @@
 ﻿using Bunit;
 using Htmxor.TestAssets.FluentAssertions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Http;
 
 public class HtmxResponseTests : TestContext
 {
-	private static HttpContext CreateHttpContext()
+	private static HttpContext CreateHttpContext(JsonOptions? jsonOptions = null)
 	{
+		var services = new ServiceCollection();
+		if (jsonOptions is not null)
+		{
+			services.AddSingleton(jsonOptions);
+		}
+
 		var result = new DefaultHttpContext()
 		{
-			RequestServices = new ServiceCollection().BuildServiceProvider()
+			RequestServices = services.BuildServiceProvider()
 		};
 		result.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "";
 		result.GetHtmxContext();
@@ -186,21 +193,18 @@ public class HtmxResponseTests : TestContext
 		context.Response.Headers[HtmxResponseHeaderNames.Reselect].Should().Equal([".new-selection"]);
 	}
 
-	[Theory]
-	[InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
-	[InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
-	[InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
-	public void Trigger_without_details(TriggerTiming triggerTiming, string expectedHeaderKey)
+	[Fact]
+	public void Trigger_without_details_adds_trigger_header()
 	{
 		// Arrange
 		var context = CreateHttpContext();
 		var response = context.GetHtmxContext().Response;
 
 		// Act
-		response.Trigger("event1", timing: triggerTiming);
+		response.Trigger("event1");
 
 		// Assert
-		context.Response.Headers[expectedHeaderKey]
+		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
 			.Should()
 			.ContainSingle()
 			.Which
@@ -208,22 +212,19 @@ public class HtmxResponseTests : TestContext
 			.Be("event1");
 	}
 
-	[Theory]
-	[InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
-	[InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
-	[InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
-	public void Multiple_trigger_events_without_details(TriggerTiming triggerTiming, string expectedHeaderKey)
+	[Fact]
+	public void Multiple_trigger_events_without_details_share_trigger_header()
 	{
 		// Arrange
 		var context = CreateHttpContext();
 		var response = context.GetHtmxContext().Response;
 
 		// Act
-		response.Trigger("event1", timing: triggerTiming);
-		response.Trigger("event2", timing: triggerTiming);
+		response.Trigger("event1");
+		response.Trigger("event2");
 
 		// Assert
-		context.Response.Headers[expectedHeaderKey]
+		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
 			.Should()
 			.ContainSingle()
 			.Which
@@ -231,22 +232,19 @@ public class HtmxResponseTests : TestContext
 			.Be("event1,event2");
 	}
 
-	[Theory]
-	[InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
-	[InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
-	[InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
-	public void Same_trigger_event_twice_without_details(TriggerTiming triggerTiming, string expectedHeaderKey)
+	[Fact]
+	public void Duplicate_trigger_event_is_emitted_once()
 	{
 		// Arrange
 		var context = CreateHttpContext();
 		var response = context.GetHtmxContext().Response;
 
 		// Act
-		response.Trigger("event1", timing: triggerTiming);
-		response.Trigger("event1", timing: triggerTiming);
+		response.Trigger("event1");
+		response.Trigger("event1");
 
 		// Assert
-		context.Response.Headers[expectedHeaderKey]
+		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
 			.Should()
 			.ContainSingle()
 			.Which
@@ -254,11 +252,8 @@ public class HtmxResponseTests : TestContext
 			.Be("event1");
 	}
 
-	[Theory]
-	[InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
-	[InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
-	[InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
-	public void Trigger_DefaultObject_AddsTriggerHeaderWithJsonString(TriggerTiming triggerTiming, string expectedHeaderKey)
+	[Fact]
+	public void Trigger_with_detail_adds_json_trigger_header()
 	{
 		// Arrange
 		var context = CreateHttpContext();
@@ -266,10 +261,10 @@ public class HtmxResponseTests : TestContext
 		var triggerObject = new { level = "info", message = "Here Is A Message" };
 
 		// Act
-		response.Trigger("showMessage", triggerObject, triggerTiming);
+		response.Trigger("showMessage", triggerObject);
 
 		// Assert
-		context.Response.Headers[expectedHeaderKey]
+		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
 			.Should()
 			.ContainSingle()
 			.Which
@@ -279,23 +274,20 @@ public class HtmxResponseTests : TestContext
                 """);
 	}
 
-	[Theory]
-	[InlineData(TriggerTiming.Default, HtmxResponseHeaderNames.Trigger)]
-	[InlineData(TriggerTiming.AfterSwap, HtmxResponseHeaderNames.TriggerAfterSwap)]
-	[InlineData(TriggerTiming.AfterSettle, HtmxResponseHeaderNames.TriggerAfterSettle)]
-	public void Trigger_CanUseExistingTriggerWithMultipleTriggersWithDetail_AddsCorrectTriggerHeader(TriggerTiming triggerTiming, string expectedHeaderKey)
+	[Fact]
+	public void Trigger_combines_events_with_and_without_details()
 	{
 		// Arrange
 		var context = CreateHttpContext();
 		var response = context.GetHtmxContext().Response;
 
 		// Act
-		response.Trigger("event1", triggerTiming);
-		response.Trigger("event2", new { magic = "something" }, triggerTiming);
-		response.Trigger("event3", new { moremagic = false }, triggerTiming);
+		response.Trigger("event1");
+		response.Trigger("event2", new { magic = "something" });
+		response.Trigger("event3", new { moremagic = false });
 
 		// Assert
-		context.Response.Headers[expectedHeaderKey]
+		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
 			.Should()
 			.ContainSingle()
 			.Which
@@ -303,5 +295,40 @@ public class HtmxResponseTests : TestContext
 			.BeJsonSemanticallyEqualTo("""
                 { "event1": null, "event2": { "magic": "something" }, "event3": { "moremagic": false } }
                 """);
+	}
+
+	[Fact]
+	public void Trigger_uses_application_json_options_for_event_details()
+	{
+		var jsonOptions = new JsonOptions();
+		jsonOptions.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower;
+		var context = CreateHttpContext(jsonOptions);
+		var response = context.GetHtmxContext().Response;
+
+		response.Trigger("showMessage", new { MessageLevel = "info" });
+
+		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
+			.Should()
+			.ContainSingle()
+			.Which
+			.Should()
+			.BeJsonSemanticallyEqualTo("""
+                { "showMessage": { "message_level": "info" } }
+                """);
+	}
+
+	[Fact]
+	public void Htmx4_response_trigger_surface_does_not_expose_removed_timing_api()
+	{
+		var assembly = typeof(HtmxResponse).Assembly;
+
+		assembly.GetType("Htmxor.TriggerTiming").Should().BeNull();
+		typeof(HtmxResponseHeaderNames).GetField("TriggerAfterSwap").Should().BeNull();
+		typeof(HtmxResponseHeaderNames).GetField("TriggerAfterSettle").Should().BeNull();
+		Assert.All(
+			typeof(HtmxResponse).GetMethods().Where(method => method.Name == nameof(HtmxResponse.Trigger)),
+			method => Assert.DoesNotContain(
+				method.GetParameters(),
+				parameter => parameter.ParameterType.FullName == "Htmxor.TriggerTiming"));
 	}
 }
