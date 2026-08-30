@@ -1085,8 +1085,11 @@ Htmxor production code or custom asset pipeline is added. The proof does not
 imply self-contained or trimmed publishing, a signed or NuGet-published
 package, or another framework or htmx version.
 
-The recommended next slice is positive omitted-`Methods` inference from
-companion Razor markup for a matching `.razor.cs` action declaration. It should
-prove one unambiguous component-owned callback through the compiler and package
-boundaries while preserving explicit method authority and fail-closed behavior;
-broader Razor grammar and dynamic handler discovery remain deferred.
+The recommended next slice is htmx 4 response-header consolidation. The beta
+`HtmxResponse` surface should remove or replace the obsolete
+`HX-Trigger-After-Swap` and `HX-Trigger-After-Settle` paths and prove supported
+`HX-Trigger` behavior through package and real-browser boundaries. Issue #18
+already proves arbitrary application-owned response headers through the stock
+`HttpContext`; this slice concerns Htmxor's htmx-defined response convenience
+API and migration developer experience. Positive omitted-`Methods` inference
+from companion Razor markup remains explicitly deferred.
