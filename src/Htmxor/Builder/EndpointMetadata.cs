@@ -19,10 +19,10 @@ internal sealed record class EndpointMetadata(HtmxRouteAttribute HxRoute)
 		if (currentUrl is not null && Uri.Compare(currentUrl, htmxRequest.CurrentURL, UriComponents.HttpRequestUrl, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
 			return false;
 
-		if (!string.IsNullOrWhiteSpace(HxRoute.Target) && !HxRoute.Target.Equals(htmxRequest.Target, StringComparison.Ordinal))
+		if (!string.IsNullOrWhiteSpace(HxRoute.Target) && !HtmxElementIdentity.Equals(HxRoute.Target, htmxRequest.Target))
 			return false;
 
-		if (HxRoute.Targets.Length > 0 && !HxRoute.Targets.Contains(htmxRequest.Target, StringComparer.Ordinal))
+		if (HxRoute.Targets.Length > 0 && !HxRoute.Targets.Any(target => HtmxElementIdentity.Equals(target, htmxRequest.Target)))
 			return false;
 
 		return true;
