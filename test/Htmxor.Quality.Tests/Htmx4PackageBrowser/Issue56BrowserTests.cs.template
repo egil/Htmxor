@@ -24,6 +24,8 @@ public sealed class Issue56BrowserTests
 	private const string Issue18Path = "/issue-18/headers";
 	private const string Issue116Path = "/issue-116/trigger";
 	private const string Issue118Path = "/issue-118/request-context";
+	private const string Issue120NativePath = "/issue-120/native/7";
+	private const string Issue120EnhancedPath = "/issue-120/enhanced/7";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
 
@@ -363,6 +365,161 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Progressive_enhancement_preserves_native_post_and_htmx_put_paths()
+	{
+		var probe = new Issue120RequestProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), issue120Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var noScriptContext = await browser.NewContextAsync(new()
+		{
+			BaseURL = baseAddress.AbsoluteUri,
+			JavaScriptEnabled = false,
+		});
+		var noScriptPage = await noScriptContext.NewPageAsync();
+		var nativeGet = await noScriptPage.GotoAsync(Issue120NativePath);
+		Assert.NotNull(nativeGet);
+		Assert.Equal((int)HttpStatusCode.OK, nativeGet.Status);
+		Assert.Contains("data-stock-shell", await nativeGet.TextAsync(), StringComparison.Ordinal);
+
+		var nativeResponseTask = noScriptPage.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue120NativePath &&
+			string.Equals(response.Request.Method, "POST", StringComparison.Ordinal));
+		await noScriptPage.GetByRole(AriaRole.Button, new() { Name = "Save progressively", Exact = true })
+			.ClickAsync();
+		var nativeResponse = await nativeResponseTask;
+		Assert.Equal((int)HttpStatusCode.OK, nativeResponse.Status);
+		var nativeBody = await nativeResponse.TextAsync();
+		Assert.Contains("<html", nativeBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", nativeBody, StringComparison.Ordinal);
+		var nativeCallback = Assert.Single(probe.Snapshot());
+		Assert.Equal("native", nativeCallback.Owner);
+		Assert.Equal("POST", nativeCallback.Method);
+		Assert.Equal(Issue120NativePath, nativeCallback.Path);
+		Assert.Contains("data-issue-120-result=\"post\"", nativeBody, StringComparison.Ordinal);
+		Assert.Equal(Issue120NativePath, new Uri(noScriptPage.Url).AbsolutePath);
+
+		await using var htmxContext = await browser.NewContextAsync(new()
+		{
+			BaseURL = baseAddress.AbsoluteUri,
+			ExtraHTTPHeaders = new Dictionary<string, string>
+			{
+				[Issue111AuthenticationHandler.UserHeaderName] = "issue-120-user",
+			},
+		});
+		var htmxPage = await htmxContext.NewPageAsync();
+		var enhancedGet = await htmxPage.GotoAsync(Issue120NativePath);
+		Assert.NotNull(enhancedGet);
+		Assert.Equal((int)HttpStatusCode.OK, enhancedGet.Status);
+		await htmxPage.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var enhancedResponseTask = htmxPage.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue120EnhancedPath &&
+			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
+		await htmxPage.GetByRole(AriaRole.Button, new() { Name = "Save progressively", Exact = true })
+			.ClickAsync();
+		var enhancedResponse = await enhancedResponseTask;
+		Assert.Equal((int)HttpStatusCode.OK, enhancedResponse.Status);
+		var enhancedHeaders = await enhancedResponse.Request.AllHeadersAsync();
+		Assert.Equal("true", enhancedHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("partial", enhancedHeaders["hx-request-type"], StringComparer.OrdinalIgnoreCase);
+		Assert.True(enhancedHeaders.ContainsKey("requestverificationtoken"));
+		var enhancedBody = await enhancedResponse.TextAsync();
+		Assert.DoesNotContain("<html", enhancedBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", enhancedBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-120-result=\"put\"", enhancedBody, StringComparison.Ordinal);
+		await htmxPage.Locator("#issue-120-target [data-issue-120-result='put']").WaitForAsync();
+		Assert.Equal(Issue120NativePath, new Uri(htmxPage.Url).AbsolutePath);
+
+		var callbacks = probe.Snapshot();
+		Assert.Equal(2, callbacks.Count);
+		var enhancedCallback = Assert.Single(callbacks, callback => callback.Method == "PUT");
+		Assert.Equal("enhanced", enhancedCallback.Owner);
+		Assert.Equal(Issue120EnhancedPath, enhancedCallback.Path);
+		Assert.NotEqual(nativeCallback.RequestId, enhancedCallback.RequestId);
+	}
+
+	[Fact]
+	public async Task Progressive_enhancement_enforces_antiforgery_and_rejects_client_only_delete()
+	{
+		var probe = new Issue120RequestProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), issue120Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var noScriptContext = await browser.NewContextAsync(new()
+		{
+			BaseURL = baseAddress.AbsoluteUri,
+			JavaScriptEnabled = false,
+		});
+		var noScriptPage = await noScriptContext.NewPageAsync();
+		await noScriptPage.GotoAsync(Issue120NativePath);
+		await noScriptPage.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
+			"element => element.remove()");
+		var nativeResponseTask = noScriptPage.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue120NativePath &&
+			string.Equals(response.Request.Method, "POST", StringComparison.Ordinal));
+		await noScriptPage.GetByRole(AriaRole.Button, new() { Name = "Save progressively", Exact = true })
+			.ClickAsync();
+		Assert.Equal((int)HttpStatusCode.BadRequest, (await nativeResponseTask).Status);
+		Assert.Empty(probe.Snapshot());
+
+		await using var unauthenticatedContext = await browser.NewContextAsync(new()
+		{
+			BaseURL = baseAddress.AbsoluteUri,
+		});
+		var unauthenticatedPage = await unauthenticatedContext.NewPageAsync();
+		await unauthenticatedPage.GotoAsync(Issue120NativePath);
+		await unauthenticatedPage.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		var unauthorizedPutTask = unauthenticatedPage.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue120EnhancedPath &&
+			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
+		await unauthenticatedPage.GetByRole(
+			AriaRole.Button,
+			new() { Name = "Save progressively", Exact = true }).ClickAsync();
+		Assert.Equal((int)HttpStatusCode.Unauthorized, (await unauthorizedPutTask).Status);
+		Assert.Empty(probe.Snapshot());
+
+		await using var htmxContext = await browser.NewContextAsync(new()
+		{
+			BaseURL = baseAddress.AbsoluteUri,
+			ExtraHTTPHeaders = new Dictionary<string, string>
+			{
+				[Issue111AuthenticationHandler.UserHeaderName] = "issue-120-user",
+			},
+		});
+		var htmxPage = await htmxContext.NewPageAsync();
+		await htmxPage.GotoAsync(Issue120NativePath);
+		await htmxPage.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await htmxPage.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
+			"element => element.value = 'invalid-request-token'");
+		var invalidPutTask = htmxPage.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue120EnhancedPath &&
+			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
+		await htmxPage.GetByRole(AriaRole.Button, new() { Name = "Save progressively", Exact = true })
+			.ClickAsync();
+		Assert.Equal((int)HttpStatusCode.BadRequest, (await invalidPutTask).Status);
+		Assert.Empty(probe.Snapshot());
+
+		await htmxPage.ReloadAsync();
+		await htmxPage.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await htmxPage.Locator("#issue-120-form").EvaluateAsync(
+			"element => element.setAttribute('hx-method', 'delete')");
+		var deleteResponseTask = htmxPage.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue120EnhancedPath &&
+			string.Equals(response.Request.Method, "DELETE", StringComparison.Ordinal));
+		await htmxPage.GetByRole(AriaRole.Button, new() { Name = "Save progressively", Exact = true })
+			.ClickAsync();
+		Assert.Equal((int)HttpStatusCode.MethodNotAllowed, (await deleteResponseTask).Status);
+		Assert.Empty(probe.Snapshot());
+	}
+
+	[Fact]
 	public async Task Forged_request_headers_do_not_grant_route_method_authorization_or_antiforgery_access()
 	{
 		var probe = new Issue56RequestProbe();
@@ -432,6 +589,7 @@ public sealed class Issue56BrowserTests
 		Issue111RequestProbe? issue111Probe = null,
 		Issue50CacheProbe? cacheProbe = null,
 		Issue18HeaderProbe? issue18Probe = null,
+		Issue120RequestProbe? issue120Probe = null,
 		bool useHtmxor = true)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -451,12 +609,15 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddHttpContextAccessor();
 		builder.Services.AddAuthentication("Issue111")
 			.AddScheme<AuthenticationSchemeOptions, Issue111AuthenticationHandler>("Issue111", _ => { });
-		builder.Services.AddAuthorizationBuilder().AddPolicy("issue-111", policy => policy.RequireAuthenticatedUser());
+		builder.Services.AddAuthorizationBuilder()
+			.AddPolicy("issue-111", policy => policy.RequireAuthenticatedUser())
+			.AddPolicy("issue-120", policy => policy.RequireAuthenticatedUser());
 		builder.Services.AddOutputCache();
 		builder.Services.AddSingleton(probe);
 		builder.Services.AddSingleton(issue111Probe ?? new Issue111RequestProbe());
 		builder.Services.AddSingleton(cacheProbe ?? new Issue50CacheProbe());
 		builder.Services.AddSingleton(issue18Probe ?? new Issue18HeaderProbe(1));
+		builder.Services.AddSingleton(issue120Probe ?? new Issue120RequestProbe());
 
 		var app = builder.Build();
 		Assert.True(app.Environment.IsProduction());
