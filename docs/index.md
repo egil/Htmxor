@@ -107,7 +107,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
         features that are lost by removing blazor.web.js script below.
         Learn more here: https://four.htmx.org/reference/attributes/hx-boost
       -->
-    +<body hx-boost:inherited="true">
+    +     <body hx-boost:inherited="true">
           <Routes />
 
     -     <script src="_framework/blazor.web.js"></script>
@@ -239,7 +239,7 @@ The routing mode is determined by the htmx 4
 [`HX-Request`](https://four.htmx.org/reference/#headers) and
 `HX-Request-Type` headers together:
 
-```python
+```text
 if ( HX-Request is present && HX-Request-Type is exactly "partial" )
     RoutingMode.Direct
 else
