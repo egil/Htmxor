@@ -479,6 +479,14 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	{
 		var selectedEndpoint = context.GetEndpoint() as RouteEndpoint
 			?? throw new InvalidOperationException("A routed Razor component endpoint must be selected before invocation.");
+		var authoredRoutePattern = selectedEndpoint.Metadata
+			.GetRequiredMetadata<HtmxorComponentRoutePatternMetadata>()
+			.RoutePattern;
+		if (ReferenceEquals(authoredRoutePattern, selectedEndpoint.RoutePattern))
+		{
+			await stockRequestDelegate(context);
+			return;
+		}
 		var stockEndpoint = CreateEndpoint(
 			selectedEndpoint,
 			rootComponent: null,
