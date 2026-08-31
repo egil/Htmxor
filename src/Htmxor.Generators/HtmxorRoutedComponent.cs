@@ -37,15 +37,13 @@ internal sealed class HtmxorRoutedComponent
 		HtmxorRouteSymbols symbols,
 		ImmutableHashSet<string> manifest,
 		AnalyzerConfigOptionsProvider optionsProvider,
-		int routedComponentCount,
 		CancellationToken cancellationToken)
 		=> ValidateManifest(manifest, optionsProvider) ??
 			ValidateComponent(symbols) ??
 			ValidateRoute() ??
 			ValidateRouteOrigin(cancellationToken) ??
 			ValidateNormalRoute(symbols) ??
-			ValidateAuthorization(symbols) ??
-			ValidateComponentCount(routedComponentCount);
+			ValidateAuthorization(symbols);
 
 	public Location GetLocation(CancellationToken cancellationToken)
 	{
@@ -274,11 +272,6 @@ internal sealed class HtmxorRoutedComponent
 			? null
 			: "Authorize must resolve one nonblank policy through its constructor or Policy property";
 	}
-
-	private static string? ValidateComponentCount(int routedComponentCount)
-		=> routedComponentCount <= 2
-			? null
-			: "the source assembly may declare at most two HtmxRoute components";
 
 	private string GetMetadataName() => GetMetadataName(Type);
 

@@ -8,8 +8,6 @@ namespace Htmxor.Builder;
 
 internal static class HtmxorAttributedRouteCatalog
 {
-	private const int MaximumRouteCount = 2;
-
 	public static IReadOnlyList<HtmxorComponentRouteDescriptor> Build(
 		Assembly applicationAssembly,
 		IReadOnlyList<string> projectRootComponentTypeNames)
@@ -27,12 +25,6 @@ internal static class HtmxorAttributedRouteCatalog
 		var manifestTypeNames = ValidateManifest(projectRootComponentTypeNames);
 		var routedTypes = GetRoutedTypes(applicationAssembly);
 		ValidateRoutedTypesBelongToManifest(routedTypes, manifestTypeNames);
-		if (routedTypes.Length > MaximumRouteCount)
-		{
-			throw new InvalidOperationException(
-				$"Htmxor supports at most {MaximumRouteCount} project-root HTMX-only route components, " +
-				$"but the application declares {routedTypes.Length}.");
-		}
 
 		foreach (var routedType in routedTypes)
 		{

@@ -308,13 +308,17 @@ public sealed class HtmxorRouteGeneratorTests
 	{
 		var forward = RunGenerator(
 			"ZetaComponent.razor",
+			"DeltaComponent.razor",
 			"Nested/NestedComponent.razor",
 			"_Imports.razor",
-			"AlphaComponent.razor");
+			"AlphaComponent.razor",
+			"GammaComponent.razor");
 		var reverse = RunGenerator(
+			"GammaComponent.razor",
 			"AlphaComponent.razor",
 			"_Imports.razor",
 			"Nested/NestedComponent.razor",
+			"DeltaComponent.razor",
 			"ZetaComponent.razor");
 
 		Assert.Empty(forward.DriverDiagnostics);
@@ -327,10 +331,14 @@ public sealed class HtmxorRouteGeneratorTests
 		Assert.Equal(generatedSource, reverseSource);
 		Assert.Equal(1, Count(generatedSource, "AddHtmxorAttributedComponentEndpoints("));
 		Assert.Equal(1, Count(generatedSource, "\"Htmxor.Consumer.AlphaComponent\""));
+		Assert.Equal(1, Count(generatedSource, "\"Htmxor.Consumer.DeltaComponent\""));
+		Assert.Equal(1, Count(generatedSource, "\"Htmxor.Consumer.GammaComponent\""));
 		Assert.Equal(1, Count(generatedSource, "\"Htmxor.Consumer.ZetaComponent\""));
 		AssertInOrder(
 			generatedSource,
 			"\"Htmxor.Consumer.AlphaComponent\"",
+			"\"Htmxor.Consumer.DeltaComponent\"",
+			"\"Htmxor.Consumer.GammaComponent\"",
 			"\"Htmxor.Consumer.ZetaComponent\"");
 		Assert.Contains(
 			"typeof(HtmxorGeneratedRouteRegistrationExtensions).Assembly",
@@ -350,12 +358,14 @@ public sealed class HtmxorRouteGeneratorTests
 			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 	}
 
-	private static void AssertInOrder(string source, string first, string second)
+	private static void AssertInOrder(string source, params string[] values)
 	{
-		var firstIndex = source.IndexOf(first, StringComparison.Ordinal);
-		var secondIndex = source.IndexOf(second, StringComparison.Ordinal);
+		var indexes = values
+			.Select(value => source.IndexOf(value, StringComparison.Ordinal))
+			.ToArray();
 
-		Assert.True(firstIndex >= 0 && firstIndex < secondIndex, source);
+		Assert.DoesNotContain(indexes, index => index < 0);
+		Assert.Equal(indexes.OrderBy(index => index), indexes);
 	}
 
 	private static int Count(string source, string value)

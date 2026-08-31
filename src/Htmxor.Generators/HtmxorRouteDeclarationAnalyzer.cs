@@ -52,7 +52,6 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 				symbols,
 				manifest,
 				context.Options.AnalyzerConfigOptionsProvider,
-				components.Length,
 				context.CancellationToken);
 			if (reason is not null)
 			{

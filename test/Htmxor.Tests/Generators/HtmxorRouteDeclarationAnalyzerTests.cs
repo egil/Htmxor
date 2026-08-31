@@ -504,14 +504,11 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
-	public async Task More_than_two_supported_components_reports_every_declaration()
+	public async Task Arbitrary_supported_component_count_reports_no_diagnostics()
 	{
-		var paths = new[]
-		{
-			ComponentPath("AlphaComponent.razor"),
-			ComponentPath("BetaComponent.razor"),
-			ComponentPath("GammaComponent.razor"),
-		};
+		var paths = Enumerable.Range(0, 8)
+			.Select(index => ComponentPath($"Component{index}.razor"))
+			.ToArray();
 		var sources = paths.Select((path, index) => ComponentSource(
 			Path.GetFileNameWithoutExtension(path),
 			path,
@@ -520,10 +517,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostics = await RunAnalyzerAsync(sources, paths);
 
-		Assert.Equal(3, diagnostics.Length);
-		Assert.All(diagnostics, diagnostic =>
-			Assert.Contains("at most two", diagnostic.GetMessage(), StringComparison.Ordinal));
-		Assert.Equal(paths, diagnostics.Select(diagnostic => diagnostic.Location.GetMappedLineSpan().Path));
+		Assert.Empty(diagnostics);
 	}
 
 	[Fact]
