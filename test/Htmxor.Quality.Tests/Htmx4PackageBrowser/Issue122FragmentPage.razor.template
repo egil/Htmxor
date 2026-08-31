@@ -16,14 +16,14 @@
 	</section>
 </HtmxFragment>
 
-<HtmxFragmentElement Match="@(_ => true)"
+<HtmxFragment Match="@(_ => true)"
 		RenderDuringStandardRequest="false"
 		Element="hx-partial"
 		Id="issue-122-first"
 		hx-target="#issue-122-first"
 		hx-swap="innerHTML">
 	<span data-state="first-updated">First updated</span>
-</HtmxFragmentElement>
+</HtmxFragment>
 
 <HtmxFragment RenderDuringStandardRequest="false">
 	<hx-partial hx-target="#issue-122-second" hx-swap="outerHTML">

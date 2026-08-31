@@ -24,7 +24,7 @@
         </div>
     }
 </div>
-<HtmxFragmentElement Id="sidebar" class="bg-dark text-white ms-auto d-flex flex-column fw-lighter" Element="form">
+<HtmxFragment Id="sidebar" class="bg-dark text-white ms-auto d-flex flex-column fw-lighter" Element="form">
     <AntiforgeryToken />
     @if (order.Pizzas.Any())
     {
@@ -61,7 +61,7 @@
             </span>
         </div>
     }
-</HtmxFragmentElement>
+</HtmxFragment>
 <div id="configure-dialog"
      class="modal modal-blur fade"
      style="display: none"
