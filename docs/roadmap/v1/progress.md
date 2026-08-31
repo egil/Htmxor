@@ -1715,6 +1715,20 @@ ordinary pull requests and pushes to `main` cannot publish. The exact-head full
 profile's 118 quality tests include the repository policy test that enforces
 that release-only deployment condition.
 
+The first PR run then promoted two vulnerable transitive dependencies from the
+legacy bUnit 1.28.9 test stack to restore errors. The test-only migration to
+bUnit 2.9.0 uses its public component and semantic-markup APIs and removes the
+vulnerable AngleSharp 1.1.1 and preview caching dependency. Focused
+characterization preserves the assertion helper's exact boundary: a leading
+doctype is ignored, semantic fragments and selector results are compared, and
+a fragment expectation cannot accept a full-document response. At final exact
+clean executable commit `35eee93287e81357b14beecee129763e0a178c74`, the
+solution-wide direct and transitive vulnerability audit found no vulnerable
+packages. The fast profile passed 449 of 449 tests (117 quality, 45 ASP.NET
+Core 10, and 287 core), and the full profile passed 452 of 452 tests (118
+quality, 45 ASP.NET Core 10, and 289 core/browser) with two fresh matching
+coverage copies. The Release build completed with zero warnings and errors.
+
 This proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Linux under WSL2, a
 locally packed unsigned package, TestServer, Kestrel loopback HTTP, cached
 Chromium revision 1234 / 151.0.7922.34, and exact application-owned htmx 4.0.0.
