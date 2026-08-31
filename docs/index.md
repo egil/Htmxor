@@ -29,7 +29,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
 2. **Update `Program.cs`**
 
-   Modify `Program.cs` to include Htmxor services and middleware:
+   Modify `Program.cs` to include Htmxor services and endpoint mapping:
 
     ```diff
       var builder = WebApplication.CreateBuilder(args);

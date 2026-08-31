@@ -54,16 +54,18 @@ app.MapRazorComponents<App>()
 app.Run();
 ```
 
-[#145](https://github.com/egil/Htmxor/issues/145) proved this call at the
-application root and through one standard ASP.NET Core route group using a
-separately packed .NET 10 package. Nested groups, multiple Razor component
-applications, group endpoint filters or rate limits, interactive render modes,
-and the grouped Kestrel/browser path remain unproved.
+[#145](https://github.com/egil/Htmxor/issues/145) proved the no-argument mapping
+behavior at the application root and through one standard ASP.NET Core route
+group using a separately packed .NET 10 package. The bounded registration-name
+slice of [#151](https://github.com/egil/Htmxor/issues/151) proves the renamed
+package call. Nested groups, multiple Razor component applications, group
+endpoint filters or rate limits, interactive render modes, and the grouped
+Kestrel/browser path remain unproved.
 
 The registration pair uses the product name: `AddHtmxor()` adds Htmxor's server
 services and `AddHtmxorEndpoints()` connects them to mapped Razor components.
-Neither method supplies the htmx browser runtime. Issue
-[#151](https://github.com/egil/Htmxor/issues/151) still owns the broader v1 API review.
+Neither method supplies the htmx browser runtime. The broader v1 API review in
+[#151](https://github.com/egil/Htmxor/issues/151) remains open.
 
 Supply htmx before the Htmxor adapter in `App.razor`:
 

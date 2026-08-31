@@ -80,8 +80,8 @@ behavior.
 
 | Area | What a developer sees | Recommended change | Verdict |
 | --- | --- | --- | --- |
-| Services | `AddHtmxor()` adds server services; the app supplies htmx | Keep the product name and document runtime ownership | Current naming slice of #151 |
-| Endpoint mapping | `AddHtmxorEndpoints()` works at the root and through one standard route group | Keep the no-argument API and extend proof only when a new grouping case matters | Proved by #145; named by #151 |
+| Services | `AddHtmxor()` adds server services; the app supplies htmx | Keep the product name and document runtime ownership | Renamed package call proved by the bounded #151 slice; broader #151 remains open |
+| Endpoint mapping | `AddHtmxorEndpoints()` works at the root and through one standard route group | Keep the no-argument API and extend proof only when a new grouping case matters | No-argument behavior proved by #145; renamed package call proved by the bounded #151 slice |
 | Script setup | The app loads htmx, then `HtmxHeadOutlet` | Diagnose a missing or misplaced adapter without choosing the app's package source | Good model |
 | Dual `@page` GET | Blazor routing also answers direct htmx GET | Keep GET as the only implicit method | Keep |
 | Normal-only page | No final opt-out exists | Add one component-local marker | Missing |

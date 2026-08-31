@@ -32,9 +32,9 @@ representation. It is not an authentication or authorization check.
 
 ## Configure the application
 
-The no-argument registration API is current.
-[#145](https://github.com/egil/Htmxor/issues/145) proved it at the application
-root and through one standard ASP.NET Core route group:
+The no-argument registration API is current. Issue
+[#145](https://github.com/egil/Htmxor/issues/145) proved the mapping behavior at
+the application root and through one standard ASP.NET Core route group:
 
 ```csharp
 builder.Services
@@ -48,10 +48,11 @@ app.MapRazorComponents<App>()
     .AddHtmxorEndpoints();
 ```
 
-The pair now uses the Htmxor product name consistently. `AddHtmxor()` adds
-server services and `AddHtmxorEndpoints()` connects them to mapped Razor
-components. The application still supplies htmx. Issue
-[#151](https://github.com/egil/Htmxor/issues/151) retains the broader v1 API review.
+The pair now uses the Htmxor product name consistently. The bounded naming
+slice of [#151](https://github.com/egil/Htmxor/issues/151) proves the renamed
+package calls: `AddHtmxor()` adds server services and `AddHtmxorEndpoints()`
+connects them to mapped Razor components. The application still supplies htmx,
+and the broader v1 API review in #151 remains open.
 
 Load the application-owned htmx asset before the Htmxor adapter:
 
