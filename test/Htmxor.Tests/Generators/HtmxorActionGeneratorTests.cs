@@ -151,6 +151,53 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
+	[Theory]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "button", "@onpost", "POST", "PostReport")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "button", "@onput", "PUT", "PutReport")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "InputText", "@onpatch", "PATCH", "PatchReport")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "InputText", "@ondelete", "DELETE", "DeleteReport")]
+	[InlineData("@page \"/reports/{ReportId:int}\"", "form", "@onquery", "QUERY", "QueryReport")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "button", "@onpost", "POST", "PostReport")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "button", "@onput", "PUT", "PutReport")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "InputText", "@onpatch", "PATCH", "PatchReport")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "InputText", "@ondelete", "DELETE", "DeleteReport")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", "form", "@onquery", "QUERY", "QueryReport")]
+	public void Static_id_target_order_preserves_generated_action_and_allow_list(
+		string routeDeclaration,
+		string tagName,
+		string binding,
+		string httpMethod,
+		string handlerName)
+	{
+		var bindingFirst = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			<{tagName} {binding}="{handlerName}" hx-target="#selector" />
+			"""));
+		var targetFirst = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			<{tagName} hx-target="#selector" {binding}="{handlerName}" />
+			"""));
+
+		Assert.Empty(bindingFirst.DriverDiagnostics);
+		Assert.Empty(bindingFirst.RunResult.Diagnostics);
+		Assert.Empty(targetFirst.DriverDiagnostics);
+		Assert.Empty(targetFirst.RunResult.Diagnostics);
+		var bindingFirstAction = GetGeneratedSource(bindingFirst, "HtmxorGeneratedActions.g.cs");
+		var targetFirstAction = GetGeneratedSource(targetFirst, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains($"\"{httpMethod}\"", targetFirstAction, StringComparison.Ordinal);
+		Assert.Contains($"this, {handlerName}", targetFirstAction, StringComparison.Ordinal);
+		Assert.Equal(bindingFirstAction, targetFirstAction);
+		Assert.Equal(
+			GetGeneratedSource(bindingFirst, "HtmxorGeneratedRouteRegistration.g.cs"),
+			GetGeneratedSource(targetFirst, "HtmxorGeneratedRouteRegistration.g.cs"));
+		Assert.Empty(CompilationErrors(bindingFirst.OutputCompilation));
+		Assert.Empty(CompilationErrors(targetFirst.OutputCompilation));
+	}
+
 	[Fact]
 	public void Component_tag_binding_after_bind_attribute_emits_a_compiling_action()
 	{
