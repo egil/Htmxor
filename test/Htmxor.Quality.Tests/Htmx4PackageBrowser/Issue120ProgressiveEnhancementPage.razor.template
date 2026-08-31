@@ -33,7 +33,7 @@
 	public int ItemId { get; set; }
 
 	private string NativeAction => $"/issue-120/native/{ItemId}";
-	private string EnhancedAction => $"/issue-120/enhanced/{ItemId}";
+	private string EnhancedAction => $"/issue-120/enhanced/{ItemId}?source=from-enhanced-action";
 
 	private readonly string requestId = Guid.NewGuid().ToString("N");
 	private string? callback;
