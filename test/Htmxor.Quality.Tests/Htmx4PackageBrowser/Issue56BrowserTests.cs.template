@@ -29,6 +29,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue120EnhancedAction = Issue120EnhancedPath + "?source=from-enhanced-action";
 	private const string Issue122Path = "/issue-122/fragments";
 	private const string Issue129Path = "/issue-129/error";
+	private const string Issue131Path = "/issue-131/delete";
 	private const string Issue64Path = "/issue-64";
 	private const string Issue64RedirectPath = "/issue-64/redirect";
 	private const string Issue64DestinationPath = "/issue-64/destination";
@@ -520,6 +521,112 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Delete_form_inclusion_preserves_application_values_without_exposing_antiforgery()
+	{
+		var probe = new Issue131RequestProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), issue131Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		await page.SetExtraHTTPHeadersAsync(AuthenticatedIssue131Headers());
+		var navigation = await page.GotoAsync(Issue131Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		Assert.Contains("data-stock-shell", await navigation.TextAsync(), StringComparison.Ordinal);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var beforeUnauthorized = probe.Snapshot();
+		await page.SetExtraHTTPHeadersAsync(new Dictionary<string, string>());
+		var unauthorizedResponseTask = WaitForIssue131DeleteAsync(page);
+		await page.Locator("#issue-131-default").ClickAsync();
+		var unauthorizedResponse = await unauthorizedResponseTask;
+		Assert.True(
+			unauthorizedResponse.Status == (int)HttpStatusCode.Unauthorized,
+			$"Expected 401 from {Issue131Path}, received {unauthorizedResponse.Status} from {unauthorizedResponse.Url}.");
+		Assert.Equal(beforeUnauthorized, probe.Snapshot());
+
+		await page.SetExtraHTTPHeadersAsync(AuthenticatedIssue131Headers());
+		await page.ReloadAsync();
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		var beforeInvalidToken = probe.Snapshot();
+		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
+			"element => element.value = 'invalid-request-token'");
+		var invalidTokenResponseTask = WaitForIssue131DeleteAsync(page);
+		await page.Locator("#issue-131-default").ClickAsync();
+		Assert.Equal((int)HttpStatusCode.BadRequest, (await invalidTokenResponseTask).Status);
+		Assert.Equal(beforeInvalidToken, probe.Snapshot());
+
+		await page.ReloadAsync();
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		var defaultToken = await page.Locator("input[name='__RequestVerificationToken']")
+			.GetAttributeAsync("value");
+		Assert.False(string.IsNullOrWhiteSpace(defaultToken));
+		var defaultResponseTask = WaitForIssue131DeleteAsync(page);
+		await page.Locator("#issue-131-default").ClickAsync();
+		var defaultResponse = await defaultResponseTask;
+		Assert.Equal((int)HttpStatusCode.OK, defaultResponse.Status);
+		Assert.Null(defaultResponse.Request.PostData);
+		var defaultUrl = Uri.UnescapeDataString(defaultResponse.Url);
+		Assert.Contains("mode=default", defaultUrl, StringComparison.Ordinal);
+		Assert.Contains("existing=kept", defaultUrl, StringComparison.Ordinal);
+		Assert.DoesNotContain("applicationValue", defaultUrl, StringComparison.Ordinal);
+		Assert.DoesNotContain("__RequestVerificationToken", defaultUrl, StringComparison.Ordinal);
+		Assert.DoesNotContain(defaultToken, defaultUrl, StringComparison.Ordinal);
+		var defaultHeaders = await defaultResponse.Request.AllHeadersAsync();
+		Assert.Equal(defaultToken, defaultHeaders["requestverificationtoken"]);
+		await page.Locator(
+			"#issue-131-default-target [data-issue-131-result='default:absent:kept']")
+			.WaitForAsync();
+
+		await page.ReloadAsync();
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		var explicitToken = await page.Locator("input[name='__RequestVerificationToken']")
+			.GetAttributeAsync("value");
+		Assert.False(string.IsNullOrWhiteSpace(explicitToken));
+		var explicitResponseTask = WaitForIssue131DeleteAsync(page);
+		await page.Locator("#issue-131-explicit").ClickAsync();
+		var explicitResponse = await explicitResponseTask;
+		Assert.Equal((int)HttpStatusCode.OK, explicitResponse.Status);
+		Assert.Null(explicitResponse.Request.PostData);
+		var explicitUrl = Uri.UnescapeDataString(explicitResponse.Url);
+		Assert.Contains("mode=explicit", explicitUrl, StringComparison.Ordinal);
+		Assert.Contains("existing=kept", explicitUrl, StringComparison.Ordinal);
+		Assert.Contains(
+			"applicationValue=issue-131-application-value",
+			explicitUrl,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("__RequestVerificationToken", explicitUrl, StringComparison.Ordinal);
+		Assert.DoesNotContain(explicitToken, explicitUrl, StringComparison.Ordinal);
+		var explicitHeaders = await explicitResponse.Request.AllHeadersAsync();
+		Assert.Equal(explicitToken, explicitHeaders["requestverificationtoken"]);
+		await page.Locator(
+			"#issue-131-explicit-target [data-issue-131-result='explicit:issue-131-application-value:kept']")
+			.WaitForAsync();
+
+		var callbacks = probe.Snapshot()
+			.Where(observation => observation.Phase == "callback")
+			.ToArray();
+		Assert.Equal(2, callbacks.Length);
+		Assert.Equal("default", callbacks[0].Mode);
+		Assert.Null(callbacks[0].ApplicationValue);
+		Assert.Equal("kept", callbacks[0].ExistingValue);
+		Assert.Equal("explicit", callbacks[1].Mode);
+		Assert.Equal("issue-131-application-value", callbacks[1].ApplicationValue);
+		Assert.Equal("kept", callbacks[1].ExistingValue);
+		Assert.NotEqual(callbacks[0].RequestId, callbacks[1].RequestId);
+		Assert.All(
+			callbacks,
+			callback => Assert.Contains(
+				probe.Snapshot(),
+				observation => observation.Phase == "initialized" &&
+					observation.RequestId == callback.RequestId));
+	}
+
+	[Fact]
 	public async Task Progressive_enhancement_preserves_native_post_and_htmx_put_paths()
 	{
 		var probe = new Issue120RequestProbe();
@@ -940,6 +1047,7 @@ public sealed class Issue56BrowserTests
 		Issue18HeaderProbe? issue18Probe = null,
 		Issue120RequestProbe? issue120Probe = null,
 		Issue129RequestProbe? issue129Probe = null,
+		Issue131RequestProbe? issue131Probe = null,
 		bool useHtmxor = true)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -961,7 +1069,8 @@ public sealed class Issue56BrowserTests
 			.AddScheme<AuthenticationSchemeOptions, Issue111AuthenticationHandler>("Issue111", _ => { });
 		builder.Services.AddAuthorizationBuilder()
 			.AddPolicy("issue-111", policy => policy.RequireAuthenticatedUser())
-			.AddPolicy("issue-120", policy => policy.RequireAuthenticatedUser());
+			.AddPolicy("issue-120", policy => policy.RequireAuthenticatedUser())
+			.AddPolicy("issue-131", policy => policy.RequireAuthenticatedUser());
 		builder.Services.AddOutputCache();
 		builder.Services.AddSingleton(probe);
 		builder.Services.AddSingleton(issue111Probe ?? new Issue111RequestProbe());
@@ -969,6 +1078,7 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(issue18Probe ?? new Issue18HeaderProbe(1));
 		builder.Services.AddSingleton(issue120Probe ?? new Issue120RequestProbe());
 		builder.Services.AddSingleton(issue129Probe ?? new Issue129RequestProbe());
+		builder.Services.AddSingleton(issue131Probe ?? new Issue131RequestProbe());
 		builder.Services.AddScoped<Issue120RequestScope>();
 
 		var app = builder.Build();
@@ -1018,6 +1128,17 @@ public sealed class Issue56BrowserTests
 		page.WaitForResponseAsync(response =>
 			new Uri(response.Url).AbsolutePath == Issue129Path &&
 			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
+
+	private static Task<IResponse> WaitForIssue131DeleteAsync(IPage page) =>
+		page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue131Path &&
+			string.Equals(response.Request.Method, "DELETE", StringComparison.Ordinal));
+
+	private static Dictionary<string, string> AuthenticatedIssue131Headers() =>
+		new()
+		{
+			[Issue111AuthenticationHandler.UserHeaderName] = "issue-131-user",
+		};
 
 	private static Task WaitForIssue129RequestAsync(IPage page, int expectedCount) =>
 		page.WaitForFunctionAsync(
