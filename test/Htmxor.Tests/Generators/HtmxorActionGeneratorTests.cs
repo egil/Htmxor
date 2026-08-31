@@ -17,7 +17,17 @@ public sealed class HtmxorActionGeneratorTests
 
 		namespace Microsoft.AspNetCore.Routing
 		{
-			public sealed class RouteGroupBuilder;
+			public interface IEndpointRouteBuilder;
+		}
+
+		namespace Microsoft.AspNetCore.Components.Endpoints.Infrastructure
+		{
+			public static class ComponentEndpointConventionBuilderHelper
+			{
+				public static global::Microsoft.AspNetCore.Routing.IEndpointRouteBuilder GetEndpointRouteBuilder(
+					global::Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder builder)
+					=> throw new global::System.NotImplementedException();
+			}
 		}
 
 		namespace Microsoft.AspNetCore.Builder
@@ -28,7 +38,7 @@ public sealed class HtmxorActionGeneratorTests
 			{
 				public static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
 					this RazorComponentsEndpointConventionBuilder builder,
-					Routing.RouteGroupBuilder endpoints,
+					Routing.IEndpointRouteBuilder endpoints,
 					Assembly applicationAssembly,
 					IReadOnlyList<string> projectRootComponentTypeNames,
 					IReadOnlyList<Htmxor.Builder.HtmxorGeneratedComponentAction> generatedActions)
