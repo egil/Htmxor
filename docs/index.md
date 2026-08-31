@@ -228,9 +228,7 @@ cookie for a safe GET that contains no stock antiforgery component.
 
 ## Routing in Htmxor
 
-Htmxor routing and Blazor Static Web Apps routing differ in ways that enhance htmx scenarios. In Htmxor, there are two types of routing:
-
-In Htmxor, there are **two** types of routing:
+Htmxor distinguishes two routing modes from stock Blazor static SSR:
 
 - **Standard routing**
 - **Direct routing**
