@@ -9,8 +9,18 @@ public sealed class HtmxorGeneratedComponentAction
 		Type componentType,
 		string httpMethod,
 		string handlerIdentity,
-		bool usesStockRoute,
-		Type? routeProcessorType = null)
+		bool usesStockRoute)
+		: this(
+			componentType,
+			httpMethod,
+			handlerIdentity,
+			usesStockRoute,
+			routeProcessorType: null)
+	{
+	}
+
+	public HtmxorGeneratedComponentAction(
+		Type componentType, string httpMethod, string handlerIdentity, bool usesStockRoute, Type? routeProcessorType)
 	{
 		ArgumentNullException.ThrowIfNull(componentType);
 		ArgumentException.ThrowIfNullOrWhiteSpace(httpMethod);
