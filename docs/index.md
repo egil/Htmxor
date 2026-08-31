@@ -107,7 +107,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
         features that are lost by removing blazor.web.js script below.
         Learn more here: https://four.htmx.org/attributes/hx-boost/
       -->
-    + <body hx-boost:inherited="true">
+    +<body hx-boost:inherited="true">
           <Routes />
 
     -     <script src="_framework/blazor.web.js"></script>
@@ -124,7 +124,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
 5. **Create an Optional Direct Request Layout**
 
-   Optionally, create a layout that will be used during [direct routing](htmxor-v1-feature-guide.md#declare-component-routes), e.g., `/Components/Layout/HtmxorLayout.razor`:
+   Optionally, create a layout that will be used during [direct routing](htmxor-v1-feature-guide.md#a-normal-page-that-also-answers-direct-htmx-get), e.g., `/Components/Layout/HtmxorLayout.razor`:
 
     ```razor
     @inherits HtmxLayoutComponentBase
@@ -236,7 +236,8 @@ In Htmxor, there are **two** types of routing:
 - **Direct routing**
 
 The routing mode is determined by the htmx 4
-[`HX-Request-Type`](https://four.htmx.org/reference/#request_headers) header:
+[`HX-Request`](https://four.htmx.org/reference/#request_headers) and
+`HX-Request-Type` headers together:
 
 ```python
 if ( HX-Request is present && HX-Request-Type is exactly "partial" )

@@ -336,15 +336,15 @@ injected or cascaded where the final v1 API permits.
 | `RequestType` | `HX-Request-Type: full\|partial` | Decide stock page versus direct representation |
 | `IsBoosted` | `HX-Boosted` | Preserve boosted navigation semantics |
 | `IsHistoryRestoreRequest` | `HX-History-Restore-Request` | Return the representation history restoration expects |
-| `CurrentURL` | `HX-Current-URL` | Optional browser-location hint |
+| `CurrentUrl` | `HX-Current-URL` | Optional browser-location hint |
 | `Source` | `HX-Source` | Optional `tag#id` source hint |
 | `Target` | `HX-Target` | Optional `tag#id` target hint |
 | `Method`, `Path` | HTTP request line | Bind the action to the normalized route and method |
 
 Every header-derived value is untrusted. A missing, repeated, malformed, or
 contradictory value must be represented explicitly and must not broaden
-reachability. The DX review proposes the normal .NET spelling `CurrentUrl` and a
-clear extension bag/parser for additional protocol headers.
+reachability. Issue #154 owns the `CurrentUrl` rename and a clear extension
+bag/parser for additional protocol headers.
 
 ### Response operations
 
