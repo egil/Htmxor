@@ -24,6 +24,7 @@
 else
 {
 	<section data-issue-133-main="main-updated">Main updated</section>
+	<aside id="issue-133-oob-target" hx-swap-oob="true" data-state="oob-updated">OOB updated</aside>
 }
 
 @code {
