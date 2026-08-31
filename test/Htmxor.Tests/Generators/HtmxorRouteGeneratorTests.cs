@@ -66,7 +66,17 @@ public sealed class HtmxorRouteGeneratorTests
 
 		namespace Microsoft.AspNetCore.Routing
 		{
-			internal sealed class RouteGroupBuilder;
+			internal interface IEndpointRouteBuilder;
+		}
+
+		namespace Microsoft.AspNetCore.Components.Endpoints.Infrastructure
+		{
+			internal static class ComponentEndpointConventionBuilderHelper
+			{
+				internal static global::Microsoft.AspNetCore.Routing.IEndpointRouteBuilder GetEndpointRouteBuilder(
+					global::Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder builder)
+					=> throw new global::System.NotImplementedException();
+			}
 		}
 
 		namespace Microsoft.AspNetCore.Builder
@@ -77,7 +87,7 @@ public sealed class HtmxorRouteGeneratorTests
 			{
 				internal static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
 					this RazorComponentsEndpointConventionBuilder builder,
-					Routing.RouteGroupBuilder endpoints,
+					Routing.IEndpointRouteBuilder endpoints,
 					Assembly applicationAssembly,
 					IReadOnlyList<string> projectRootComponentTypeNames,
 					IReadOnlyList<Htmxor.Builder.HtmxorGeneratedComponentAction> generatedActions)
@@ -154,7 +164,13 @@ public sealed class HtmxorRouteGeneratorTests
 			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 		var result = Assert.Single(run.RunResult.Results);
 		Assert.Empty(result.Diagnostics);
-		Assert.Empty(result.GeneratedSources);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains("AddHtmxorComponentEndpoints(", generatedSource, StringComparison.Ordinal);
+		Assert.DoesNotContain(
+			"Htmxor.Consumer.AllCSharpComponent",
+			generatedSource,
+			StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -304,6 +320,29 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	[Fact]
+	public void Application_without_HtmxRoute_declarations_emits_empty_registration_manifest()
+	{
+		var run = RunGenerator();
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"AddHtmxorComponentEndpoints(",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			"ComponentEndpointConventionBuilderHelper.GetEndpointRouteBuilder(builder)",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("Htmxor.Consumer.", generatedSource, StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	[Fact]
 	public void Project_root_paths_emit_one_sorted_runtime_manifest_without_reading_Razor_content()
 	{
 		var forward = RunGenerator(
@@ -346,6 +385,11 @@ public sealed class HtmxorRouteGeneratorTests
 			StringComparison.Ordinal);
 		Assert.Contains("ProjectRootComponentTypeNames", generatedSource, StringComparison.Ordinal);
 		Assert.Contains("AddGeneratedActions(generatedActions)", generatedSource, StringComparison.Ordinal);
+		Assert.Contains(
+			"ComponentEndpointConventionBuilderHelper.GetEndpointRouteBuilder(builder)",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("RouteGroupBuilder", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("NestedComponent", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("_Imports", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("HtmxRoute", generatedSource, StringComparison.Ordinal);

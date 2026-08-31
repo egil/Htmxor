@@ -43,11 +43,6 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 		SourceProductionContext context,
 		ImmutableArray<string> projectRootComponentTypeNames)
 	{
-		if (projectRootComponentTypeNames.IsDefaultOrEmpty)
-		{
-			return;
-		}
-
 		context.AddSource(
 			"HtmxorGeneratedRouteRegistration.g.cs",
 			SourceText.From(Render(projectRootComponentTypeNames), Encoding.UTF8));
@@ -68,9 +63,10 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 			"\t];\n\n" +
 			"\tinternal static global::Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder " +
 			"AddHtmxorComponentEndpoints(\n" +
-			"\t\tthis global::Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder builder,\n" +
-			"\t\tglobal::Microsoft.AspNetCore.Routing.RouteGroupBuilder endpoints)\n" +
+			"\t\tthis global::Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder builder)\n" +
 			"\t{\n" +
+			"\t\tvar endpoints = global::Microsoft.AspNetCore.Components.Endpoints.Infrastructure." +
+			"ComponentEndpointConventionBuilderHelper.GetEndpointRouteBuilder(builder);\n" +
 			"\t\tvar generatedActions = new global::System.Collections.Generic.List<" +
 			"global::Htmxor.Builder.HtmxorGeneratedComponentAction>();\n" +
 			"\t\tAddGeneratedActions(generatedActions);\n" +

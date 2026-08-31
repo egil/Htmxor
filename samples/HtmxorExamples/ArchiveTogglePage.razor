@@ -1,6 +1,5 @@
 @inherits ConditionalComponentBase
-@page "/examples/archive-toggle"
-@attribute [HtmxRoute("/examples/archive-toggle/{id:guid}", Methods = [HttpMethods.Patch])]
+@page "/examples/archive-toggle/{Id:guid?}"
 @code {
     private IEnumerable<Contact> data = Enumerable.Empty<Contact>();
 
@@ -16,7 +15,13 @@
 
     private void ToggleArchive()
     {
-        Contacts.Data[Id].Archived = !Contacts.Data[Id].Archived;
+        if (!Contacts.Data.TryGetValue(Id, out var contact))
+        {
+            throw new Microsoft.AspNetCore.Http.BadHttpRequestException(
+                "A known contact id is required.");
+        }
+
+        contact.Archived = !contact.Archived;
     }
 }
 <PageTitle>Htmxor - Examples - Contact Archived Toggle</PageTitle>
