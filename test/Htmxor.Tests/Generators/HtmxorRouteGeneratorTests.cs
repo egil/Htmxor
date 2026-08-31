@@ -164,7 +164,13 @@ public sealed class HtmxorRouteGeneratorTests
 			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 		var result = Assert.Single(run.RunResult.Results);
 		Assert.Empty(result.Diagnostics);
-		Assert.Empty(result.GeneratedSources);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains("AddHtmxorComponentEndpoints(", generatedSource, StringComparison.Ordinal);
+		Assert.DoesNotContain(
+			"Htmxor.Consumer.AllCSharpComponent",
+			generatedSource,
+			StringComparison.Ordinal);
 	}
 
 	[Fact]
