@@ -66,7 +66,17 @@ public sealed class HtmxorRouteGeneratorTests
 
 		namespace Microsoft.AspNetCore.Routing
 		{
-			internal sealed class RouteGroupBuilder;
+			internal interface IEndpointRouteBuilder;
+		}
+
+		namespace Microsoft.AspNetCore.Components.Endpoints.Infrastructure
+		{
+			internal static class ComponentEndpointConventionBuilderHelper
+			{
+				internal static global::Microsoft.AspNetCore.Routing.IEndpointRouteBuilder GetEndpointRouteBuilder(
+					global::Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder builder)
+					=> throw new global::System.NotImplementedException();
+			}
 		}
 
 		namespace Microsoft.AspNetCore.Builder
@@ -77,7 +87,7 @@ public sealed class HtmxorRouteGeneratorTests
 			{
 				internal static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
 					this RazorComponentsEndpointConventionBuilder builder,
-					Routing.RouteGroupBuilder endpoints,
+					Routing.IEndpointRouteBuilder endpoints,
 					Assembly applicationAssembly,
 					IReadOnlyList<string> projectRootComponentTypeNames,
 					IReadOnlyList<Htmxor.Builder.HtmxorGeneratedComponentAction> generatedActions)
@@ -346,6 +356,11 @@ public sealed class HtmxorRouteGeneratorTests
 			StringComparison.Ordinal);
 		Assert.Contains("ProjectRootComponentTypeNames", generatedSource, StringComparison.Ordinal);
 		Assert.Contains("AddGeneratedActions(generatedActions)", generatedSource, StringComparison.Ordinal);
+		Assert.Contains(
+			"ComponentEndpointConventionBuilderHelper.GetEndpointRouteBuilder(builder)",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("RouteGroupBuilder", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("NestedComponent", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("_Imports", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("HtmxRoute", generatedSource, StringComparison.Ordinal);

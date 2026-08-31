@@ -31,7 +31,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(13, 13, 13, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(15, 15, 15, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -66,7 +66,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(15, 15, 15, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(17, 17, 17, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 
@@ -679,9 +679,10 @@ internal static class PackageConsumerEvidence
 			"@attribute [HtmxRoute(\"/audits/{AuditId:int}\", Methods = [\"GET\", \"POST\"])]";
 		const string pageRoute = "@page \"/reports/{ReportId:int}\"";
 
-		Assert.Equal(1, Count(applicationSource, "AddHtmxorComponentEndpoints()"));
+		Assert.Equal(2, Count(applicationSource, "AddHtmxorComponentEndpoints()"));
 		Assert.Equal(1, Count(applicationSource, "MapGroup(RoutePrefix)"));
 		Assert.Equal(1, Count(applicationSource, "routes.MapRazorComponents<Issue97App>()"));
+		Assert.Equal(1, Count(applicationSource, "app.MapRazorComponents<Issue97App>()"));
 		Assert.DoesNotContain("AddHtmxorComponentEndpoints(routes)", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapGroup(string.Empty)", applicationSource, StringComparison.Ordinal);
 		Assert.Equal(3, Count(applicationSource, "HtmxRoute("));

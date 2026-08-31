@@ -34,7 +34,7 @@ public sealed class Issue85FormTests : IAsyncLifetime
 		app = builder.Build();
 		app.UseAntiforgery();
 		app.MapRazorComponents<Issue78App>()
-			.AddHtmxorComponentEndpoints(app);
+			.AddHtmxorComponentEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();

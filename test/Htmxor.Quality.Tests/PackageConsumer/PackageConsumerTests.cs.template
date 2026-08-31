@@ -34,7 +34,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	private const string ReportRequestPath = "/issue-97-group/htmx-reports/42";
 	private const string SummaryRequestPath = "/issue-97-group/summaries/84";
 	private const string AuditRequestPath = "/issue-97-group/audits/126";
-	private const string PageRequestPath = "/reports/42";
+	private const string PageRequestPath = RoutePrefix + "/reports/42";
 	private const string RejectedReportPath = "/issue-97-group/htmx-reports/not-an-int";
 	private const string RejectedSummaryPath = "/issue-97-group/summaries/not-an-int";
 	private const string RejectedAuditPath = "/issue-97-group/audits/not-an-int";
@@ -266,6 +266,37 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			HttpStatusCode.NotFound);
 		await AssertUnavailableAsync(
 			RejectedAuditPath,
+			direct: true,
+			PackageConsumerAuthenticationHandler.AuditUserName,
+			AuditHost,
+			HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task Standard_group_owns_stock_and_generated_paths_without_unprefixed_duplicates()
+	{
+		AssertStockPageEndpoint();
+
+		await AssertUnavailableAsync(
+			"/reports/42",
+			direct: true,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost,
+			HttpStatusCode.NotFound);
+		await AssertUnavailableAsync(
+			"/htmx-reports/42",
+			direct: true,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost,
+			HttpStatusCode.NotFound);
+		await AssertUnavailableAsync(
+			"/summaries/84",
+			direct: true,
+			PackageConsumerAuthenticationHandler.SummaryUserName,
+			SummaryHost,
+			HttpStatusCode.NotFound);
+		await AssertUnavailableAsync(
+			"/audits/126",
 			direct: true,
 			PackageConsumerAuthenticationHandler.AuditUserName,
 			AuditHost,
@@ -668,13 +699,15 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 					typeof(Issue100ReportPage) &&
 				string.Equals(
 					endpoint.RoutePattern.RawText,
-					PageDeclaredRoute,
+					RoutePrefix + PageDeclaredRoute,
 					StringComparison.Ordinal));
-		Assert.Equal(PageDeclaredRoute, endpoint.RoutePattern.RawText);
+		Assert.Equal(RoutePrefix + PageDeclaredRoute, endpoint.RoutePattern.RawText);
 		Assert.Equal(
 			[HttpMethods.Get, HttpMethods.Post, HttpMethods.Put, HttpMethods.Delete],
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
-		Assert.Null(endpoint.Metadata.GetMetadata<Issue97GroupMetadata>());
+		Assert.Same(
+			Issue97GroupMetadata.Instance,
+			endpoint.Metadata.GetRequiredMetadata<Issue97GroupMetadata>());
 		Assert.Empty(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
 		Assert.Equal(
 			ReportPolicyName,
