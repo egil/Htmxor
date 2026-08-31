@@ -4,12 +4,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Configuration;
 
-public class HtmxHeadOutletTest : TestContext
+public class HtmxHeadOutletTest : BunitContext
 {
 	[Fact]
 	public void Head_outlet_emits_no_Htmxor_owned_htmx_runtime_or_configuration()
 	{
-		var cut = RenderComponent<HtmxHeadOutlet>();
+		var cut = Render<HtmxHeadOutlet>();
 
 		cut.FindAll("meta[name='htmx-config']").Should().BeEmpty();
 		cut.FindAll("script[src*='/htmx/']").Should().BeEmpty();
