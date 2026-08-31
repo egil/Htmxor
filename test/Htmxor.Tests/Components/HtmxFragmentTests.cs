@@ -5,14 +5,14 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Components;
 
-public sealed class HtmxFragmentTests : TestContext
+public sealed class HtmxFragmentTests : BunitContext
 {
 	[Fact]
 	public void Standard_request_is_wrapperless_by_default()
 	{
 		AddContext();
 
-		var component = RenderComponent<HtmxFragment>(parameters => parameters
+		var component = Render<HtmxFragment>(parameters => parameters
 			.AddChildContent("<span data-fragment>content</span>"));
 
 		component.MarkupMatches("<span data-fragment>content</span>");
@@ -28,7 +28,7 @@ public sealed class HtmxFragmentTests : TestContext
 			["hx-swap"] = "outerHTML",
 		};
 
-		var component = RenderComponent<HtmxFragment>(parameters => parameters
+		var component = Render<HtmxFragment>(parameters => parameters
 			.Add(fragment => fragment.Element, " hx-partial ")
 			.Add(fragment => fragment.Id, " envelope ")
 			.Add(fragment => fragment.AdditionalAttributes, attributes)
@@ -53,7 +53,7 @@ public sealed class HtmxFragmentTests : TestContext
 	{
 		AddContext(target);
 
-		var component = RenderComponent<HtmxFragment>(parameters => parameters
+		var component = Render<HtmxFragment>(parameters => parameters
 			.Add(fragment => fragment.Element, "form")
 			.Add(fragment => fragment.Id, "sidebar")
 			.AddChildContent("<span data-fragment>content</span>"));

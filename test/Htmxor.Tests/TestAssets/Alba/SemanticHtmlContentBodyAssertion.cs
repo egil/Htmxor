@@ -1,18 +1,13 @@
-using System.Runtime.CompilerServices;
-using System.Text;
-using AngleSharp.Diffing.Core;
 using AngleSharp.Dom;
+using AngleSharp.Html.Parser;
 using Bunit;
-using Bunit.Diffing;
-using Bunit.Rendering;
 using Microsoft.AspNetCore.Http;
+using System.Text.RegularExpressions;
 
 namespace Htmxor.TestAssets.Alba;
 
-public sealed class SemanticHtmlContentBodyAssertion : IScenarioAssertion
+public sealed partial class SemanticHtmlContentBodyAssertion : IScenarioAssertion
 {
-	private static readonly HtmlComparer HtmlComparer = new HtmlComparer();
-	private static readonly BunitHtmlParser Parser = new BunitHtmlParser();
 	private readonly string? cssSelector;
 
 	public string Expected { get; }
@@ -27,77 +22,34 @@ public sealed class SemanticHtmlContentBodyAssertion : IScenarioAssertion
 	{
 		var received = ex.ReadBody(context);
 
-		IEnumerable<INode> expectedNodes = Parser.Parse(Expected);
-
-		if (expectedNodes.FirstOrDefault() is { NodeType: NodeType.DocumentType })
+		try
 		{
-			expectedNodes = expectedNodes.Skip(1);
+			AssertMatches(received, cssSelector, Expected);
 		}
-
-		IEnumerable<INode> receivedNodes = cssSelector is null
-			? Parser.Parse(received)
-			: Parser.Parse(received).QuerySelectorAll(cssSelector);
-
-		if (receivedNodes.FirstOrDefault() is { NodeType: NodeType.DocumentType })
+		catch (HtmlEqualException exception)
 		{
-			receivedNodes = receivedNodes.Skip(1);
-		}
-
-		var diffs = HtmlComparer.Compare(expectedNodes, receivedNodes).ToArray();
-
-		if (diffs.Length > 0)
-		{
-			var builder = new StringBuilder();
-			builder.AppendLine("Response body does not contain the expected HTML:");
-			builder.AppendLine();
-			CreateDiffMessage(
-				receivedNodes.ToDiffMarkup(),
-				expectedNodes.ToDiffMarkup(),
-				diffs,
-				builder);
-			ex.Add(builder.ToString());
+			ex.Add($"Response body does not contain the expected HTML:{Environment.NewLine}{exception.Message}");
 		}
 	}
 
-	private static void CreateDiffMessage(string received, string verified, IReadOnlyList<IDiff> diffs, StringBuilder builder)
+	internal static void AssertMatches(string received, string? cssSelector, string expected)
 	{
-		builder.AppendLine();
-		builder.AppendLine("HTML comparison failed. The following errors were found:");
-
-		for (var i = 0; i < diffs.Count; i++)
+		if (cssSelector is null)
 		{
-			builder.Append($"  {i + 1}: ");
-			builder.AppendLine(diffs[i] switch
-			{
-				NodeDiff { Target: DiffTarget.Text } diff when diff.Control.Path.Equals(diff.Test.Path, StringComparison.Ordinal)
-					=> $"The text in {diff.Control.Path} is different.",
-				NodeDiff { Target: DiffTarget.Text } diff => $"The expected {NodeName(diff.Control)} at {diff.Control.Path} and the actual {NodeName(diff.Test)} at {diff.Test.Path} is different.",
-				NodeDiff diff when diff.Control.Path.Equals(diff.Test.Path, StringComparison.Ordinal)
-					=> $"The {NodeName(diff.Control)}s at {diff.Control.Path} are different.",
-				NodeDiff diff => $"The expected {NodeName(diff.Control)} at {diff.Control.Path} and the actual {NodeName(diff.Test)} at {diff.Test.Path} are different.",
-				AttrDiff diff when diff.Control.Path.Equals(diff.Test.Path, StringComparison.Ordinal)
-					=> $"The values of the attributes at {diff.Control.Path} are different.",
-				AttrDiff diff => $"The value of the attribute {diff.Control.Path} and actual attribute {diff.Test.Path} are different.",
-				MissingNodeDiff diff => $"The {NodeName(diff.Control)} at {diff.Control.Path} is missing.",
-				MissingAttrDiff diff => $"The attribute at {diff.Control.Path} is missing.",
-				UnexpectedNodeDiff diff => $"The {NodeName(diff.Test)} at {diff.Test.Path} was not expected.",
-				UnexpectedAttrDiff diff => $"The attribute at {diff.Test.Path} was not expected.",
-				_ => throw new SwitchExpressionException($"Unknown diff type detected: {diffs[i].GetType()}")
-			});
+			RemoveLeadingDocumentType(received).MarkupMatches(RemoveLeadingDocumentType(expected));
+			return;
 		}
 
-		builder.AppendLine(
-			$"""
-
-             Actual HTML:
-
-             {received}
-
-             Expected HTML:
-
-             {verified}
-             """);
-
-		static string NodeName(ComparisonSource source) => source.Node.NodeType.ToString().ToLowerInvariant();
+		var parser = new HtmlParser();
+		using var document = parser.ParseDocument(received);
+		document.QuerySelectorAll(cssSelector).MarkupMatches(expected);
 	}
+
+	private static string RemoveLeadingDocumentType(string markup)
+	{
+		return LeadingDocumentType().Replace(markup, string.Empty, count: 1);
+	}
+
+	[GeneratedRegex(@"\A\s*<!DOCTYPE[^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex LeadingDocumentType();
 }

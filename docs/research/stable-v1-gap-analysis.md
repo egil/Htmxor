@@ -24,7 +24,7 @@ The four release-blocking themes are:
 
 | Area | Current upstream stable | Prototype | v1 position |
 | --- | --- | --- | --- |
-| .NET and ASP.NET Core | .NET 10 is the current LTS release. The latest servicing release on the research date is 10.0.11, released 2026-08-11. [.NET 10 lifecycle](https://github.com/dotnet/core/blob/main/release-notes/10.0/README.md) and [August 2026 servicing announcement](https://github.com/dotnet/announcements/issues/436) | Targets `net8.0` and directly references `Microsoft.AspNetCore.Components.Web` 8.0.1. [Project file](https://github.com/egil/Htmxor/blob/d8e09e4da17ab4c74fbea95d8e995137785c8395/src/Htmxor/Htmxor.csproj) | Target .NET 10 for v1. Only multi-target .NET 8 if ForTheLeague has a concrete migration need and is willing to carry two framework-specific test matrices. |
+| .NET and ASP.NET Core | .NET 10 is the current LTS release. The latest servicing release on the research date is 10.0.11, released 2026-08-11. [.NET 10 lifecycle](https://github.com/dotnet/core/blob/main/release-notes/10.0/README.md) and [August 2026 servicing announcement](https://github.com/dotnet/announcements/issues/436) | The researched 2024 prototype targeted `net8.0` and directly referenced `Microsoft.AspNetCore.Components.Web` 8.0.1. [Historical project file](https://github.com/egil/Htmxor/blob/d8e09e4da17ab4c74fbea95d8e995137785c8395/src/Htmxor/Htmxor.csproj) | Target .NET 10 only for v1. Existing .NET 8 applications remain on the previous beta package; add .NET 11 later only with a separate target and executed compatibility matrix. |
 | htmx | 2.0.10 is the stable reference on the research date; htmx 4 remains a prerelease. [htmx installation](https://htmx.org/docs/#installing), [v2.0.10 release](https://github.com/bigskysoftware/htmx/releases/tag/v2.0.10), and [v4.0.0-beta6 prerelease](https://github.com/bigskysoftware/htmx/releases/tag/v4.0.0-beta6) | Embeds 1.9.12. [Bundled script](https://github.com/egil/Htmxor/blob/d8e09e4da17ab4c74fbea95d8e995137785c8395/src/Htmxor/wwwroot/htmx/htmx.min.js) | Bundle and require no htmx version. Verify a separately replaceable adapter against 2.0.10, allow application-owned newer/custom runtimes, and treat htmx 4 evidence as preview until upstream stabilizes. |
 
 The repository has only alpha and beta version tags and its last commit is from September 2024. There is no stable 1.0 baseline to preserve.
@@ -33,7 +33,7 @@ The repository has only alpha and beta version tags and its last commit is from 
 
 - `main` is at `d8e09e4` and is 36 commits beyond the `v1.0.0-beta.1` tag. The latest published NuGet prerelease is `1.0.0-beta.1.24`; there is no stable package. [Release comparison](https://github.com/egil/Htmxor/compare/v1.0.0-beta.1...main) and [NuGet package](https://www.nuget.org/packages/Htmxor)
 - GitHub contains 41 issues: 16 open and 25 closed. There are also two stale open pull requests, draft [#41](https://github.com/egil/Htmxor/pull/41) for a component result and [#74](https://github.com/egil/Htmxor/pull/74) for the ignored embedded-script switch. There are no milestones or assignees on the open work.
-- The project has no benchmark project, retained per-request performance evidence, `SECURITY.md`, stable API compatibility baseline, or completed changelog. The CI and release workflows target .NET 8 and use several mutable action or tool versions.
+- At the research baseline, the project had no benchmark project, retained per-request performance evidence, `SECURITY.md`, stable API compatibility baseline, or completed changelog, and its CI and release workflows targeted .NET 8 with several mutable action or tool versions.
 - GitHub security features are enabled, but three high-severity CodeQL findings remain open in the BlazingPizza authentication sample. They may be sample-specific or duplicates, but they require triage before a high-security release. [CodeQL alerts](https://github.com/egil/Htmxor/security/code-scanning)
 - A local run completed 150 non-browser tests. The browser suite could not run because Playwright Chromium is not installed in the environment, so this review does not claim that end-to-end tests are green.
 
@@ -269,7 +269,7 @@ Treat authenticated mutation as a separate adoption gate. A representative form 
 - Add a minimal .NET 10 sample that records the current endpoint-discovery failure.
 - Freeze the endpoint shape: separate fragment routes by default, with same-route negotiation as a tested option.
 - Spike `RazorComponentResult` for GET, named POST form binding, authorization, navigation, and streaming.
-- Decide whether v1 supports trimming and whether .NET 8 compatibility is needed for a ForTheLeague migration window.
+- Decide whether v1 supports trimming. V1 targets .NET 10 only; the previous beta package is the compatibility option for .NET 8 applications.
 
 Exit gate: an architecture decision backed by runnable spikes, with no reliance on undocumented members.
 

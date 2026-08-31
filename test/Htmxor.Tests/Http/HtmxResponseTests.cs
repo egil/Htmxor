@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Http;
 
-public class HtmxResponseTests : TestContext
+public class HtmxResponseTests : BunitContext
 {
 	private static HttpContext CreateHttpContext(Action<JsonOptions>? configureJsonOptions = null)
 	{

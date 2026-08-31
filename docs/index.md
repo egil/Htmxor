@@ -6,6 +6,8 @@
 
 To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
 
+Htmxor v1 requires .NET 10. It does not support .NET 8, and it does not yet claim .NET 11 compatibility.
+
 The application supplies and configures the htmx runtime; Htmxor does not
 distribute one. Current browser evidence covers application-owned htmx 4.0.0
 GET, POST, PUT, PATCH, and DELETE paths described in the

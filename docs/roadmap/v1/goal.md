@@ -41,6 +41,17 @@ requests, or through both paths.
 The common case should need no Htmxor-specific route or method configuration.
 Explicit configuration exists for exceptions, not as routine ceremony.
 
+## Supported framework
+
+Htmxor v1 targets .NET 10 and the supported ASP.NET Core 10 component-endpoint
+APIs required by this model. It does not support .NET 8. Existing .NET 8
+applications can remain on the previous beta package rather than carrying a
+compatibility surface into v1.
+
+.NET 11 is not a v1 compatibility claim yet. It may be added later through a
+separate target and executable framework matrix that retains the .NET 10
+contract.
+
 ## Full pages and fragments
 
 A normal request follows the stock Blazor page and layout path. A direct HTMX

@@ -3,13 +3,11 @@
 
 using System.Diagnostics;
 using System.Globalization;
-using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
 using Htmxor.Http;
 using Htmxor.Rendering.Buffering;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 
@@ -21,14 +19,6 @@ internal partial class HtmxorRenderer
 	{
 		"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"
 	};
-
-	private static readonly CascadingParameterInfo CascadingParameterInfoInstance =
-		(CascadingParameterInfo)Activator.CreateInstance(
-			typeof(CascadingParameterInfo),
-			BindingFlags.NonPublic | BindingFlags.Instance,
-			binder: null,
-			args: [new CascadingParameterAttribute(), string.Empty, typeof(FormMappingContext)],
-			culture: CultureInfo.InvariantCulture)!;
 
 	private readonly TextEncoder javaScriptEncoder;
 	private TextEncoder htmlEncoder;
@@ -224,104 +214,13 @@ internal partial class HtmxorRenderer
 			ref var enclosingElementFrame = ref frames.Array[enclosingElementFrameIndex];
 			if (string.Equals(enclosingElementFrame.ElementName, "form", StringComparison.OrdinalIgnoreCase))
 			{
-				if (TryCreateScopeQualifiedEventName(componentState.ComponentId, namedEventFrame.NamedEventAssignedName, out var combinedFormName))
-				{
-					output.Write("<input type=\"hidden\" name=\"_handler\" value=\"");
-					htmlEncoder.Encode(output, combinedFormName);
-					output.Write("\" />");
-				}
+				output.Write("<input type=\"hidden\" name=\"_handler\" value=\"");
+				htmlEncoder.Encode(output, namedEventFrame.NamedEventAssignedName);
+				output.Write("\" />");
 			}
 		}
 	}
 
-	/// <summary>
-	/// Creates the fully scope-qualified name for a named event, if the component is within
-	/// a <see cref="FormMappingContext"/> (whether or not that mapping context is named).
-	/// </summary>
-	/// <param name="componentId">The ID of the component that defines a named event.</param>
-	/// <param name="assignedEventName">The name assigned to the named event.</param>
-	/// <param name="scopeQualifiedEventName">The scope-qualified event name.</param>
-	/// <returns>A flag to indicate whether a value could be produced.</returns>
-	private bool TryCreateScopeQualifiedEventName(int componentId, string assignedEventName, [NotNullWhen(true)] out string? scopeQualifiedEventName)
-	{
-		if (FindFormMappingContext(componentId) is { } mappingContext)
-		{
-			var mappingScopeName = mappingContext.MappingScopeName;
-			scopeQualifiedEventName = string.IsNullOrEmpty(mappingScopeName)
-				? assignedEventName
-				: $"[{mappingScopeName}]{assignedEventName}";
-			return true;
-		}
-		else
-		{
-			scopeQualifiedEventName = null;
-			return false;
-		}
-	}
-
-	private FormMappingContext? FindFormMappingContext(int forComponentId)
-	{
-		var componentState = GetComponentState(forComponentId);
-
-		// This code was replaced by the reflection based code below
-		//var supplier = CascadingParameterState.GetMatchingCascadingValueSupplier(
-		//    in _findFormMappingContext,
-		//    this,
-		//    componentState);
-
-		var serviceProviderCascadingValueSuppliersProperty = typeof(Renderer).GetProperty("ServiceProviderCascadingValueSuppliers", BindingFlags.Instance | BindingFlags.NonPublic)!;
-		var rendererValueCascadingValueSuppliers = (object[])serviceProviderCascadingValueSuppliersProperty.GetValue(this)!;
-		var valueSupplierType = rendererValueCascadingValueSuppliers.GetType().GetElementType()!;
-
-		var supplier = GetMatchingCascadingValueSupplier(
-			in CascadingParameterInfoInstance,
-			componentState,
-			rendererValueCascadingValueSuppliers,
-			valueSupplierType);
-
-		if (supplier is not null)
-		{
-			var getCurrentValueMethod = valueSupplierType.GetMethod("GetCurrentValue", BindingFlags.Instance | BindingFlags.Public)!;
-			return (FormMappingContext?)getCurrentValueMethod.Invoke(supplier, [CascadingParameterInfoInstance]);
-		}
-
-		return null;
-	}
-
-	internal static object? GetMatchingCascadingValueSupplier(
-		in CascadingParameterInfo info,
-		ComponentState? componentState,
-		object[] rendererValueCascadingValueSuppliers,
-		Type valueSupplierType)
-	{
-		var canSupplyValueMethod = valueSupplierType.GetMethod("CanSupplyValue", BindingFlags.Instance | BindingFlags.Public)!;
-
-		// First scan up through the component hierarchy
-		var candidate = componentState;
-		while (candidate is not null)
-		{
-			var isValueSupplier = Array.Exists(candidate.Component.GetType().GetInterfaces(), x => x == valueSupplierType);
-
-			if (isValueSupplier && (bool)canSupplyValueMethod.Invoke(candidate.Component, [info])!)
-			{
-				return candidate.Component;
-			}
-
-			candidate = candidate.LogicalParentComponentState;
-		}
-
-		// We got to the root and found no match, so now look at the providers registered in DI
-		foreach (var valueSupplier in rendererValueCascadingValueSuppliers)
-		{
-			if ((bool)canSupplyValueMethod.Invoke(valueSupplier, [info])!)
-			{
-				return valueSupplier;
-			}
-		}
-
-		// No match
-		return null;
-	}
 
 	private static bool TryFindEnclosingElementFrame(ArrayRange<RenderTreeFrame> frames, int frameIndex, out int result)
 	{

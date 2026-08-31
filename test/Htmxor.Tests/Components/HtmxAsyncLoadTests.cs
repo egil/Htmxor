@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Components;
 
-public sealed class HtmxAsyncLoadTests : TestContext
+public sealed class HtmxAsyncLoadTests : BunitContext
 {
 	[Theory]
 	[InlineData("div#lazy", "div#lazy", true)]
@@ -25,7 +25,7 @@ public sealed class HtmxAsyncLoadTests : TestContext
 		context.Request.Headers[HtmxRequestHeaderNames.Target] = target;
 		Services.AddSingleton(context.GetHtmxContext());
 
-		var component = RenderComponent<HtmxAsyncLoad>(parameters => parameters
+		var component = Render<HtmxAsyncLoad>(parameters => parameters
 			.Add(component => component.Id, "lazy")
 			.AddChildContent("<span data-lazy-child>loaded</span>"));
 

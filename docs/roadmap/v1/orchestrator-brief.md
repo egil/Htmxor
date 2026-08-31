@@ -98,6 +98,9 @@ that leaves reusable verification behind.
 - Do not copy private Blazor renderer code or use new private reflection.
 - Do not treat HTMX headers as authorization evidence.
 - Do not bind Htmxor to one embedded HTMX version.
+- Keep the v1 package, samples, documentation, and executable evidence on .NET
+  10 only. Do not retain .NET 8 compatibility or claim .NET 11 until a separate
+  target and compatibility matrix are executed.
 - Use application-supplied htmx 4.0.0 with htmx 4 defaults for v1 browser,
   example, and release evidence. Do not claim compatibility with another htmx
   version unless that version was executed.

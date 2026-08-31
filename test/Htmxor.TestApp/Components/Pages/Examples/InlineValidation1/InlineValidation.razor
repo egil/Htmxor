@@ -2,9 +2,14 @@
 @attribute [HtmxRoute("/inline-validation-1/email", Methods = ["POST"])]
 @code {
     [SupplyParameterFromForm]
-    public Contact Contact { get; set; } = new();
+    public Contact Contact { get; set; } = default!;
 
     private bool invalidEmail;
+
+    protected override void OnInitialized()
+    {
+        Contact ??= new();
+    }
 
     private void ValidateEmail(HtmxEventArgs e)
     {
