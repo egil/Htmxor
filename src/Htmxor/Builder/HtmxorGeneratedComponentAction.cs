@@ -9,7 +9,8 @@ public sealed class HtmxorGeneratedComponentAction
 		Type componentType,
 		string httpMethod,
 		string handlerIdentity,
-		bool usesStockRoute)
+		bool usesStockRoute,
+		Type? routeProcessorType = null)
 	{
 		ArgumentNullException.ThrowIfNull(componentType);
 		ArgumentException.ThrowIfNullOrWhiteSpace(httpMethod);
@@ -19,6 +20,7 @@ public sealed class HtmxorGeneratedComponentAction
 		HttpMethod = httpMethod;
 		HandlerIdentity = handlerIdentity;
 		UsesStockRoute = usesStockRoute;
+		RouteProcessorType = routeProcessorType;
 	}
 
 	internal Type ComponentType { get; }
@@ -28,4 +30,6 @@ public sealed class HtmxorGeneratedComponentAction
 	internal string HandlerIdentity { get; }
 
 	internal bool UsesStockRoute { get; }
+
+	internal Type? RouteProcessorType { get; }
 }

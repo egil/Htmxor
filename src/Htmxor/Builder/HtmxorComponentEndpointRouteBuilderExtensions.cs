@@ -178,6 +178,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			generatedRoute.ComponentType,
 			generatedRoute.NormalizedRoute,
 			generatedActions);
+		AddRouteProcessorMetadata(endpointBuilder, generatedRoute, endpointActions);
 		AddActionMetadata(endpointBuilder, endpointActions.ToArray());
 		if (endpointActions.Count > 0 || generatedRoute.HttpMethods.Any(IsUnsafeMethod))
 		{
@@ -191,6 +192,29 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 		endpointBuilder.DisplayName =
 			$"{generatedRoute.NormalizedRoute} ({generatedRoute.ComponentType.Name}) (HTMX-only component)";
+	}
+
+	private static void AddRouteProcessorMetadata(
+		EndpointBuilder endpointBuilder,
+		HtmxorComponentRouteDescriptor generatedRoute,
+		IReadOnlyList<HtmxorComponentActionDescriptor> endpointActions)
+	{
+		var routeProcessors = endpointActions
+			.Select(static action => action.GeneratedAction?.RouteProcessorType)
+			.Where(static type => type is not null)
+			.Distinct()
+			.ToArray();
+		if (routeProcessors.Length > 1)
+		{
+			throw new InvalidOperationException(
+				$"Component route '{generatedRoute.NormalizedRoute}' has conflicting route processors.");
+		}
+		if (routeProcessors.Length == 1)
+		{
+			endpointBuilder.Metadata.Add(new HtmxorRouteProcessorMetadata(
+				generatedRoute.ComponentType,
+				routeProcessors[0]!));
+		}
 	}
 
 	private static HtmxorComponentActionDescriptor[] GetEndpointActions(
@@ -349,7 +373,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		{
 			if (!IsUnsafeMethod(context.Request.Method) || await ValidateAntiforgery(context))
 			{
-				await renderDelegate(context);
+				await InvokeGeneratedRenderEndpoint(context, renderDelegate);
 			}
 
 			return;
@@ -357,7 +381,35 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 		if (await TryActivateAction(context, action))
 		{
+			await InvokeGeneratedRenderEndpoint(context, renderDelegate);
+		}
+	}
+
+	private static async Task InvokeGeneratedRenderEndpoint(
+		HttpContext context,
+		RequestDelegate renderDelegate)
+	{
+		var selectedEndpoint = context.GetEndpoint() as RouteEndpoint
+			?? throw new InvalidOperationException("A generated component endpoint must be selected before invocation.");
+		var routeProcessor = selectedEndpoint.Metadata.GetMetadata<HtmxorRouteProcessorMetadata>();
+		if (routeProcessor is null)
+		{
 			await renderDelegate(context);
+			return;
+		}
+
+		// Present the generated processor only to the stock invoker and Router; the selected endpoint keeps owning reachability.
+		context.SetEndpoint(CreateDirectEndpoint(
+			selectedEndpoint,
+			PageRouteDirectRoot,
+			routeProcessor.ProcessorType));
+		try
+		{
+			await renderDelegate(context);
+		}
+		finally
+		{
+			context.SetEndpoint(selectedEndpoint);
 		}
 	}
 
@@ -409,7 +461,10 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			?? throw new InvalidOperationException("A routed Razor component endpoint must be selected before invocation.");
 		// The stock invoker reads its root component from the selected endpoint.
 		// Change only this request's view of that endpoint.
-		context.SetEndpoint(CreateDirectEndpoint(selectedEndpoint));
+		context.SetEndpoint(CreateDirectEndpoint(
+			selectedEndpoint,
+			PageRouteDirectRoot,
+			componentType: null));
 		try
 		{
 			await stockRequestDelegate(context);
@@ -420,12 +475,20 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		}
 	}
 
-	private static RouteEndpoint CreateDirectEndpoint(RouteEndpoint selectedEndpoint)
+	private static RouteEndpoint CreateDirectEndpoint(
+		RouteEndpoint selectedEndpoint,
+		RootComponentMetadata rootComponent,
+		Type? componentType)
 	{
 		var requestDelegate = selectedEndpoint.RequestDelegate
 			?? throw new InvalidOperationException("A routed Razor component endpoint must have a request delegate.");
 		var metadata = selectedEndpoint.Metadata
-			.Select(item => item is RootComponentMetadata ? PageRouteDirectRoot : item)
+			.Select(item => item switch
+			{
+				RootComponentMetadata => rootComponent,
+				ComponentTypeMetadata when componentType is not null => new ComponentTypeMetadata(componentType),
+				_ => item,
+			})
 			.ToArray();
 		return new RouteEndpoint(
 			requestDelegate,

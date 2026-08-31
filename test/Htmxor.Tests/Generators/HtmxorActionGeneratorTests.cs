@@ -38,12 +38,20 @@ public sealed class HtmxorActionGeneratorTests
 
 		namespace Microsoft.AspNetCore.Components
 		{
+			[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+			public sealed class RouteAttribute(string template) : Attribute;
+
 			public interface IComponent
 			{
 				Task SetParametersAsync(ParameterView parameters);
 			}
 
 			public readonly struct ParameterView;
+
+			public class ComponentBase : IComponent
+			{
+				public virtual Task SetParametersAsync(ParameterView parameters) => Task.CompletedTask;
+			}
 
 			[AttributeUsage(AttributeTargets.Property)]
 			public sealed class InjectAttribute : Attribute;
@@ -70,7 +78,8 @@ public sealed class HtmxorActionGeneratorTests
 				Type componentType,
 				string httpMethod,
 				string handlerIdentity,
-				bool usesStockRoute);
+				bool usesStockRoute,
+				Type? routeProcessorType = null);
 		}
 
 		namespace Htmxor.Endpoints
@@ -705,6 +714,30 @@ public sealed class HtmxorActionGeneratorTests
 		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
 		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("/reports/{ReportId:int}", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
+	public void Omitted_methods_htmx_only_action_emits_stock_route_processor()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@attribute [Htmxor.HtmxRoute("/reports/{ReportId:int}")]
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains(
+			"[global::Microsoft.AspNetCore.Components.RouteAttribute(\"/reports/{ReportId:int}\")]",
+			actionSource,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			"typeof(__HtmxorRouteProcessor)",
+			actionSource,
+			StringComparison.Ordinal);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 

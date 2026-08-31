@@ -112,12 +112,16 @@ public sealed class HtmxorActionGenerator : IIncrementalGenerator
 			RenderActionProperty(declaration, indent)));
 		var dispatch = string.Concat(declarations.Select(declaration =>
 			RenderDispatch(declaration, indent)));
+		var routeProcessor = RenderRouteProcessor(
+			declarations[0],
+			indent + "\t");
 
 		return
 			$$"""
 			{{namespaceStart}}{{indent}}public partial class {{componentName}} : global::Microsoft.AspNetCore.Components.IComponent
 			{{indent}}{
 			{{actionProperties}}
+			{{routeProcessor}}
 			{{indent}}	[global::Microsoft.AspNetCore.Components.InjectAttribute]
 			{{indent}}	private global::Htmxor.Endpoints.IHtmxorGeneratedComponentActionRequest __HtmxorGeneratedActionRequest { get; set; } = default!;
 
@@ -134,6 +138,22 @@ public sealed class HtmxorActionGenerator : IIncrementalGenerator
 			""";
 	}
 
+	private static string RenderRouteProcessor(
+		HtmxorComponentActionDeclaration declaration,
+		string indent)
+	{
+		if (declaration.UsesStockRoute || declaration.RouteTemplate is null)
+		{
+			return string.Empty;
+		}
+
+		return
+			$"\n{indent}[global::Microsoft.AspNetCore.Components.RouteAttribute(\"{EscapeStringLiteral(declaration.RouteTemplate)}\")]\n" +
+			$"{indent}private sealed class __HtmxorRouteProcessor : global::Microsoft.AspNetCore.Components.ComponentBase\n" +
+			$"{indent}{{\n" +
+			$"{indent}}}\n";
+	}
+
 	private static string RenderActionProperty(
 		HtmxorComponentActionDeclaration declaration,
 		string indent)
@@ -142,12 +162,16 @@ public sealed class HtmxorActionGenerator : IIncrementalGenerator
 		var handlerIdentity = EscapeStringLiteral(
 			declaration.ComponentTypeName + "." + declaration.HttpMethod + "." + declaration.HandlerName);
 		var usesStockRoute = declaration.UsesStockRoute ? "true" : "false";
+		var routeProcessorType = declaration.UsesStockRoute || declaration.RouteTemplate is null
+			? "null"
+			: "typeof(__HtmxorRouteProcessor)";
 		return
 			$"{indent}\tinternal static global::Htmxor.Builder.HtmxorGeneratedComponentAction {propertyName} {{ get; }} = new(\n" +
 			$"{indent}\t\ttypeof(global::{declaration.ComponentTypeName}),\n" +
 			$"{indent}\t\t\"{declaration.HttpMethod}\",\n" +
 			$"{indent}\t\t\"{handlerIdentity}\",\n" +
-			$"{indent}\t\t{usesStockRoute});\n\n";
+			$"{indent}\t\t{usesStockRoute},\n" +
+			$"{indent}\t\t{routeProcessorType});\n\n";
 	}
 
 	private static string RenderDispatch(

@@ -25,6 +25,7 @@ internal sealed class HtmxorComponentActionDeclaration
 		string httpMethod,
 		string? handlerName,
 		bool usesStockRoute,
+		string? routeTemplate,
 		string path,
 		TextSpan span,
 		LinePositionSpan lineSpan,
@@ -35,6 +36,7 @@ internal sealed class HtmxorComponentActionDeclaration
 		HttpMethod = httpMethod;
 		HandlerName = handlerName;
 		UsesStockRoute = usesStockRoute;
+		RouteTemplate = routeTemplate;
 		Path = path;
 		Span = span;
 		LineSpan = lineSpan;
@@ -50,6 +52,8 @@ internal sealed class HtmxorComponentActionDeclaration
 	public string? HandlerName { get; }
 
 	public bool UsesStockRoute { get; }
+
+	public string? RouteTemplate { get; }
 
 	public string Path { get; }
 
@@ -112,6 +116,7 @@ internal sealed class HtmxorComponentActionDeclaration
 				componentTypeName,
 				binding,
 				candidate.UsesStockRoute,
+				candidate.RouteTemplate,
 				path,
 				text,
 				span,
@@ -128,6 +133,7 @@ internal sealed class HtmxorComponentActionDeclaration
 				binding.HttpMethod,
 				match.Groups["handler"].Value,
 				candidate.UsesStockRoute,
+				candidate.RouteTemplate,
 				path,
 				span,
 				text.Lines.GetLinePositionSpan(span),
@@ -136,6 +142,7 @@ internal sealed class HtmxorComponentActionDeclaration
 				componentTypeName,
 				binding,
 				candidate.UsesStockRoute,
+				candidate.RouteTemplate,
 				path,
 				text,
 				span,
@@ -150,9 +157,14 @@ internal sealed class HtmxorComponentActionDeclaration
 		var searchIndex = 0;
 		while ((searchIndex = source.IndexOf(attributeName, searchIndex, StringComparison.Ordinal)) >= 0)
 		{
-			if (IsMarkupAttribute(source, searchIndex, attributeName, out var usesStockRoute))
+			if (IsMarkupAttribute(
+				source,
+				searchIndex,
+				attributeName,
+				out var usesStockRoute,
+				out var routeTemplate))
 			{
-				attributes.Add(new MarkupAttribute(searchIndex, usesStockRoute));
+				attributes.Add(new MarkupAttribute(searchIndex, usesStockRoute, routeTemplate));
 			}
 
 			searchIndex += attributeName.Length;
@@ -165,12 +177,14 @@ internal sealed class HtmxorComponentActionDeclaration
 		string source,
 		int attributeIndex,
 		string attributeName,
-		out bool usesStockRoute)
+		out bool usesStockRoute,
+		out string? routeTemplate)
 	{
 		usesStockRoute = false;
+		routeTemplate = null;
 		var tagStart = source.LastIndexOf('<', attributeIndex);
 		return tagStart >= 0 &&
-			TryGetRouteOwner(source, tagStart, out usesStockRoute) &&
+			TryGetRouteOwner(source, tagStart, out usesStockRoute, out routeTemplate) &&
 			source.LastIndexOf('>', attributeIndex) < tagStart &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "@*", "*@") &&
 			!IsInsideDelimitedRegion(source, attributeIndex, "<!--", "-->") &&
@@ -183,9 +197,11 @@ internal sealed class HtmxorComponentActionDeclaration
 	private static bool TryGetRouteOwner(
 		string source,
 		int tagStart,
-		out bool usesStockRoute)
+		out bool usesStockRoute,
+		out string? routeTemplate)
 	{
 		usesStockRoute = false;
+		routeTemplate = null;
 		var tagLineStart = source.LastIndexOf('\n', tagStart);
 		tagLineStart = tagLineStart < 0 ? 0 : tagLineStart + 1;
 		if (!IsWhitespace(source, tagLineStart, tagStart))
@@ -220,10 +236,44 @@ internal sealed class HtmxorComponentActionDeclaration
 			{
 				return false;
 			}
+
+			if (routeTemplate is null && TryReadOmittedHtmxRoute(trimmed, out var declaredRoute))
+			{
+				routeTemplate = declaredRoute;
+			}
 		}
 
 		usesStockRoute = pageDirectiveCount == 1;
 		return pageDirectiveCount <= 1;
+	}
+
+	private static bool TryReadOmittedHtmxRoute(string line, out string? routeTemplate)
+	{
+		string[] prefixes =
+		{
+			"@attribute [HtmxRoute(\"",
+			"@attribute [Htmxor.HtmxRoute(\"",
+			"@attribute [global::Htmxor.HtmxRoute(\"",
+		};
+		const string suffix = "\")]";
+		foreach (var prefix in prefixes)
+		{
+			if (!line.StartsWith(prefix, StringComparison.Ordinal) ||
+				!line.EndsWith(suffix, StringComparison.Ordinal))
+			{
+				continue;
+			}
+
+			var value = line.Substring(prefix.Length, line.Length - prefix.Length - suffix.Length);
+			if (value.Length > 0 && value.IndexOf('"') < 0)
+			{
+				routeTemplate = value;
+				return true;
+			}
+		}
+
+		routeTemplate = null;
+		return false;
 	}
 
 	private static bool IsWhitespace(string source, int start, int end)
@@ -568,6 +618,7 @@ internal sealed class HtmxorComponentActionDeclaration
 		string componentTypeName,
 		ActionBinding binding,
 		bool usesStockRoute,
+		string? routeTemplate,
 		string path,
 		SourceText text,
 		TextSpan span,
@@ -578,6 +629,7 @@ internal sealed class HtmxorComponentActionDeclaration
 			binding.HttpMethod,
 			handlerName: null,
 			usesStockRoute,
+			routeTemplate,
 			path,
 			span,
 			text.Lines.GetLinePositionSpan(span),
@@ -603,14 +655,17 @@ internal sealed class HtmxorComponentActionDeclaration
 
 	private sealed class MarkupAttribute
 	{
-		public MarkupAttribute(int index, bool usesStockRoute)
+		public MarkupAttribute(int index, bool usesStockRoute, string? routeTemplate)
 		{
 			Index = index;
 			UsesStockRoute = usesStockRoute;
+			RouteTemplate = routeTemplate;
 		}
 
 		public int Index { get; }
 
 		public bool UsesStockRoute { get; }
+
+		public string? RouteTemplate { get; }
 	}
 }
