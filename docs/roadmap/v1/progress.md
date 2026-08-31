@@ -1450,12 +1450,13 @@ through Kestrel and Chromium. The narrow adapter correction removes only the
 stock antiforgery field from htmx's pending DELETE values after retaining its
 header; all other values and methods keep their established behavior.
 
-The recommended next slice is native htmx 4 main-target and out-of-band swap
-ordering for one component-owned response. It should use the same package,
-Production Kestrel, and Chromium boundary with one generated action, one main
-target, one application-authored out-of-band target, and deterministic DOM/event
-observations that prove main content applies before out-of-band content without
-changing server fragment selection or route, method, authorization, and
-antiforgery ownership. Streaming, caching expansion, broader fragment shapes,
-lifecycle and excluded-work performance, broader typed constraints, and positive
-omitted-`Methods` inference remain separate slices.
+The recommended next slice is native htmx 4 mixed main-target plus
+application-authored out-of-band response composition for one component-owned
+response. It should use the same package, Production Kestrel, and Chromium
+boundary with one generated action, one main target, one application-authored
+out-of-band target, and deterministic final DOM/event observations that prove
+htmx extracts and processes the out-of-band content before applying the remaining
+main-swap content without changing server fragment selection or route, method,
+authorization, and antiforgery ownership. Streaming, caching expansion, broader
+fragment shapes, lifecycle and excluded-work performance, broader typed
+constraints, and positive omitted-`Methods` inference remain separate slices.
