@@ -14,6 +14,19 @@ namespace Htmxor.Builder;
 public sealed class HtmxorAttributedRouteCatalogTests
 {
 	[Fact]
+	public void Generated_action_preserves_the_original_public_constructor_shape()
+	{
+		var constructor = typeof(HtmxorGeneratedComponentAction).GetConstructor([
+			typeof(Type),
+			typeof(string),
+			typeof(string),
+			typeof(bool),
+		]);
+
+		Assert.NotNull(constructor);
+	}
+
+	[Fact]
 	public void Build_preserves_two_distinct_declarations_in_type_name_order()
 	{
 		var fixture = DynamicComponentAssembly.Create(
