@@ -15,4 +15,7 @@ document.addEventListener('htmx:config:request', (event) => {
 		.querySelector("input[name='__RequestVerificationToken']");
 	if (requestToken?.value)
 		request.headers.RequestVerificationToken = requestToken.value;
+
+	if (method === 'DELETE')
+		request.body?.delete?.('__RequestVerificationToken');
 });
