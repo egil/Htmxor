@@ -1,0 +1,40 @@
+@page "/issue-133/oob-order"
+@using Htmxor
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@attribute [Authorize("issue-133")]
+@inject Issue133RequestProbe Probe
+
+<section @onput="Put"></section>
+
+@if (!updated)
+{
+	<form @formname="issue-133-oob-order">
+		<AntiforgeryToken />
+		<button id="issue-133-update"
+			type="button"
+			hx-put="/issue-133/oob-order"
+			hx-target="#issue-133-main-target">Update main and OOB targets</button>
+	</form>
+	<main data-issue-133-page>
+		<div id="issue-133-main-target" data-state="main-original">Main original</div>
+		<aside id="issue-133-oob-target" data-state="oob-original">OOB original</aside>
+	</main>
+}
+else
+{
+	<section data-issue-133-main="main-updated">Main updated</section>
+}
+
+@code {
+	private readonly string requestId = Guid.NewGuid().ToString("N");
+	private bool updated;
+
+	protected override void OnInitialized() => Probe.RecordInitialization(requestId);
+
+	private void Put()
+	{
+		updated = true;
+		Probe.RecordCallback(requestId);
+	}
+}

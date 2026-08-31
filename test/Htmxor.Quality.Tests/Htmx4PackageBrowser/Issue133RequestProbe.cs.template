@@ -1,0 +1,18 @@
+using System.Collections.Concurrent;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue133RequestProbe
+{
+	private readonly ConcurrentQueue<Issue133Observation> observations = new();
+
+	public void RecordInitialization(string requestId) =>
+		observations.Enqueue(new("initialized", requestId));
+
+	public void RecordCallback(string requestId) =>
+		observations.Enqueue(new("callback", requestId));
+
+	public IReadOnlyList<Issue133Observation> Snapshot() => observations.ToArray();
+}
+
+public sealed record Issue133Observation(string Phase, string RequestId);
