@@ -1,469 +1,321 @@
-# Htmxor v1 developer-experience review
+# Htmxor v1 developer experience review
 
 - Review date: 2026-08-31
-- Repository baseline: `864f3d6451c240b7de9a43e84a73c673fd3c7053`
-- Starting discussion: [#143, “WIP: new devex”](https://github.com/egil/Htmxor/discussions/143)
+- Repository baseline: `4415863e225636d489cca2b375fb83fad583b4f5`
+- Starting discussion: [#143, "WIP: new devex"](https://github.com/egil/Htmxor/discussions/143)
 - Product contract: [Htmxor v1 goal](../roadmap/v1/goal.md)
-- Feature inventory: [Htmxor v1 developer guide and htmx 4 feature map](../htmxor-v1-feature-guide.md)
+- Feature inventory: [Htmxor v1 guide and htmx 4 map](../htmxor-v1-feature-guide.md)
 
-## Review question and protected behavior
+## Verdict
 
-This review asks three questions of every public authoring path:
+The component model is good. A developer should be able to add htmx attributes
+to an `@page`, stock form, or element callback without creating another endpoint
+or learning another renderer.
 
-1. Is the path obvious from the API and normal Razor/Blazor knowledge, or must a
-   developer discover a hidden convention in documentation?
-2. Can Htmxor remove ceremony, ambiguity, or a dangerous default so the common
-   path is the safe path?
-3. Is the API surface consistent in naming, authority, argument behavior,
-   extensibility, diagnostics, and ownership?
+The API is not ready to freeze. Four problems would force the documentation to
+explain around the package:
 
-The behavior this review protects is:
+1. Setup mixes the names `Htmx` and `Htmxor`, so `AddHtmx()` can sound as
+   if it installs the client runtime.
+2. Route and action discovery advertises options that the generator rejects,
+   then reports failures too broadly.
+3. Fragment selection mixes server work with DOM identity and request headers.
+4. The package exports incomplete client helpers and implementation types beside
+   the small server API developers need.
 
-> When a developer progressively enhances a Blazor static-SSR component,
-> Htmxor keeps its route, callbacks, lifecycle, forms, authorization, and HTML
-> in that component while making the intended HTTP representation evident from
-> the declaration.
+The best default is native htmx markup plus a small typed server API. Copying
+every htmx attribute, trigger, swap value, configuration option, and extension
+into C# would make Htmxor lag behind htmx without making Razor easier to read.
 
-The review considers the agreed v1 plan over the prototype wherever the two
-differ. It does not propose controllers, Minimal API duplicates, static action
-handlers, private renderer code, reflection over private framework state, HTMX
-headers as authorization, or an Htmxor-owned htmx runtime.
+## Questions used in the review
 
-## Method
+For each developer task, the review asks:
 
-The review followed these surfaces from authoring to wire behavior:
+1. Can a Blazor developer find the path from the API and ordinary Razor
+   knowledge?
+2. Can Htmxor remove a step, an ambiguity, or an unsafe default?
+3. Do names, authority rules, argument checks, diagnostics, and extension points
+   behave the same way across the API?
 
-- application registration and runtime ownership;
+The behavior to protect is:
+
+> When a developer enhances a Blazor static-SSR component with htmx, Htmxor
+> keeps the route, callbacks, lifecycle, forms, authorization, and HTML in that
+> component and makes the HTTP representation clear from the declaration.
+
+The agreed v1 plan takes precedence over prototype code. This review does not
+add controllers, duplicate Minimal API endpoints, static action handlers,
+private renderer code, private reflection, header-based authorization, or an
+Htmxor-owned htmx runtime.
+
+## What was checked
+
+The review followed each task from Razor declaration to HTTP behavior:
+
+- service registration, endpoint mapping, and script ownership;
 - normal-only, HTMX-only, and dual component routes;
-- implicit GET, stock forms, and component-owned POST/PUT/PATCH/DELETE/QUERY
+- GET, stock forms, and component-owned POST, PUT, PATCH, DELETE, and QUERY
   callbacks;
-- source-generator discovery and diagnostics;
-- full output, one fragment, several fragments, OOB output, and
+- generator discovery and build diagnostics;
+- full components, one fragment, several fragments, OOB content, and
   `<hx-partial>`;
 - `HtmxRequest`, `HtmxResponse`, `HtmxContext`, and callback event arguments;
-- the public trigger/swap/constants helpers;
+- trigger, swap, constant, layout, and async helper types;
 - authorization, antiforgery, validation, caching, redirects, errors, history,
-  concurrency, and interactive-Blazor boundaries; and
-- the complete official htmx 4.0.0 attribute, header, configuration, event,
-  JavaScript, CSS, and extension inventory.
+  concurrency, and interactive Blazor; and
+- the official htmx 4.0.0 attributes, headers, configuration, events,
+  JavaScript API, CSS classes, and extensions.
 
 The official [htmx 4 documentation](https://four.htmx.org/docs/),
 [reference](https://four.htmx.org/reference/), editor metadata, and
-[extension catalog](https://four.htmx.org/extensions/) were used as the client
-completeness checklist. A small .NET 10 Razor compile probe confirmed that
-representative colon forms such as `hx-status:422`, `hx-on:click`,
-`hx-sse:connect`, `hx-live:text`, and `<hx-partial>` can be authored as raw
-markup. That compile probe proves syntax acceptance only, not runtime behavior.
+[extension catalog](https://four.htmx.org/extensions/) supplied the client
+inventory. A .NET 10 Razor probe compiled representative colon attributes such
+as `hx-status:422`, `hx-on:click`, `hx-sse:connect`, and `hx-live:text`, plus
+`<hx-partial>`. That proves Razor accepts the syntax. It does not prove browser
+behavior.
 
-## Executive verdict
+## API scorecard
 
-The v1 component-owned model is strong and more teachable than the prototype:
-developers should ordinarily add htmx attributes to an `@page`, a stock form,
-or an element with an instance callback. They should not have to create an
-endpoint layer or learn a second rendering model.
-
-The API is not ready to freeze, however. Four cross-cutting inconsistencies
-would make documentation compensate for avoidable design ambiguity:
-
-1. Setup mixes `Htmx` and `Htmxor` naming and currently exposes route-group
-   plumbing.
-2. Route/action discovery has false affordances and insufficiently specific
-   failure diagnostics.
-3. Server fragment selection is entangled with DOM identity and request-target
-   headers, especially for multi-target responses.
-4. The public package mixes the intended server model with incomplete client
-   DSLs and infrastructure/prototype types.
-
-The correct default is raw htmx markup plus a small, consistent, typed server
-surface. Mirroring every htmx attribute, trigger, swap value, extension, and
-configuration option in Htmxor would create permanent version lag without
-making Razor clearer.
-
-## Surface scorecard
-
-| Surface | Is the path obvious? | Pit-of-success opportunity | Consistency verdict |
+| Area | What a developer sees | Recommended change | Verdict |
 | --- | --- | --- | --- |
-| Add services | Mostly; `AddHtmx()` reads like it adds the client runtime, although it adds Htmxor services | Name the product consistently and state that the app supplies htmx | Needs decision |
-| Map endpoints | No; an empty route group is implementation plumbing | Complete [#145](https://github.com/egil/Htmxor/issues/145) so the common call is parameterless | Planned fix |
-| Supply htmx | Yes after documentation says the app owns it | Make missing/wrong ordering diagnosable without selecting a CDN or package manager | Consistent with v1 |
-| Dual `@page` GET | Yes; convention follows Blazor | Keep GET the only implicit method | Strong |
-| Normal-only page | No public marker is frozen | One explicit, component-local opt-out with an obvious name | V1 gap |
-| HTMX-only route | Mostly; `HtmxRoute` is discoverable | Make Razor, code-behind, and C# forms equivalent and diagnose `_Imports` misuse | Good concept, incomplete affordances |
-| Method reachability | Common static callbacks are readable | Infer only from server intent; require a narrow explicit declaration for dynamic cases | Strong authority model |
-| Callback execution | Yes; instance callbacks preserve Blazor expectations | Prefer parameterless callbacks and offer context only when needed | Strong |
-| Stock forms | Yes to a Blazor developer | Preserve normal submit, validation, antiforgery, and lifecycle with no parallel form API | Strong |
-| Unsafe methods | Mostly; HTML itself cannot express PUT/PATCH/DELETE forms | Render/transport stock antiforgery credentials and fail closed before callbacks | Strong if diagnostics and evidence stay complete |
-| Whole component response | Yes | Convention should require no fragment declaration | Strong |
-| One fragment | Partly; `HtmxFragment` is understandable | Give selection a stable name independent of DOM wrapper identity | Needs redesign |
-| Several fragments | No; `Match` lambdas and rendering flags hide intent | Select named fragments once, then use raw OOB/partial delivery markup | V1 gap |
-| OOB and `<hx-partial>` | Yes if kept as htmx markup | Do not introduce a competing Htmxor component hierarchy | Strong composition rule |
-| Request context | Mostly | Use .NET naming, explicit invalid states, and an extension-header seam | Needs consistency pass |
-| Response headers | Mostly; fluent names are readable | Make validation, HTMX-only guards, body effects, URL overloads, and extension escape hatches uniform | Needs consistency pass |
-| Raw htmx attributes | Yes; this is htmx's native model | Add profile-aware diagnostics without rejecting unknown syntax | Strong default |
-| Trigger/swap builders | No; they look authoritative but omit htmx 4 values and carry older syntax | Remove from the stable core or make them optional profile adapters with raw escape hatches | Do not freeze as-is |
-| Layout/async helpers | Requires Htmxor-specific concepts | Retain only behavior that cannot be clearer with stock components and explicit fragments | Re-evaluate before freeze |
-| Client extensions | Yes as raw application-owned markup | Add bounded server protocol hooks only where an extension sends/needs server data | Strong composition rule |
-| Cache/history/error behavior | Not obvious from local markup alone | Provide recipes, analyzers where possible, and executable conformance; do not hide general HTTP policy | Documentation plus evidence required |
-| Interactive Blazor coexistence | Not locally obvious | Document one DOM/navigation owner per boundary and supply tested patterns | Existing [#57](https://github.com/egil/Htmxor/issues/57) remains relevant |
+| Services | `AddHtmx()` can sound like a client-library installer | Use one product name and state that the app supplies htmx | Decide before v1 |
+| Endpoint mapping | `AddHtmxorComponentEndpoints()` works at the root and through one standard route group | Keep the no-argument API and extend proof only when a new grouping case matters | Proved by #145 |
+| Script setup | The app loads htmx, then `HtmxHeadOutlet` | Diagnose a missing or misplaced adapter without choosing the app's package source | Good model |
+| Dual `@page` GET | Blazor routing also answers direct htmx GET | Keep GET as the only implicit method | Keep |
+| Normal-only page | No final opt-out exists | Add one component-local marker | Missing |
+| HTMX-only route | `HtmxRoute` is easy to find | Make Razor, code-behind, and C# declarations equivalent | Keep, finish diagnostics |
+| Actions | Instance callbacks sit beside their markup | Infer only static server declarations and diagnose the rest | Keep |
+| Forms | Stock Blazor forms remain stock | Preserve fallback submit, binding, validation, antiforgery, and lifecycle | Keep |
+| Whole component | No fragment declaration is needed | Keep the convention free of extra ceremony | Keep |
+| One fragment | `HtmxFragment` is clear, but `Id` has two jobs | Give server selection its own stable name | Redesign |
+| Several fragments | Lambdas and render flags hide the result | Select an ordered set of names once per response | Missing |
+| OOB and partial delivery | Native htmx markup already expresses it | Do not add another Htmxor component hierarchy | Keep |
+| Request data | The context shape is easy to learn | Fix .NET naming and represent invalid headers safely | Finish |
+| Response operations | Fluent methods fit the protocol | Use the same guards, validation, return type, and body rules | Finish |
+| Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
+| Trigger and swap helpers | Their typed names imply full coverage, but they omit htmx 4 behavior | Remove them from core v1 or move them to a versioned optional package | Do not freeze |
+| Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
+| Client extensions | Raw markup works without package changes | Add a server hook only when an extension sends server data | Keep |
+| Interactive Blazor | DOM ownership is not obvious from local markup | Document and test one owner for each DOM and navigation region | Track in #57 |
 
-## Detailed findings
+## Findings
 
-### 1. Registration exposes two vocabularies and one implementation detail
+### 1. Setup still uses two names for one product
 
-Current setup uses `AddHtmx()` but
-`AddHtmxorComponentEndpoints(htmxorRoutes)`. The first name can reasonably be
-read as installing the htmx browser runtime, which v1 explicitly does not do.
-The second makes every app create an empty route group solely to pass Htmxor's
-plumbing back to Htmxor.
+Current setup uses `AddHtmx()` for services and
+`AddHtmxorComponentEndpoints()` for endpoints. The first name can sound as if
+it installs htmx. It does not.
 
-[#145](https://github.com/egil/Htmxor/issues/145) correctly removes the route
-group from the common call. Before v1 freezes, choose one product vocabulary and
-one level of specificity. The clearest candidate pair is:
+[#145](https://github.com/egil/Htmxor/issues/145) removed the old destination
+argument and proved the no-argument call at the application root and through one
+standard ASP.NET Core route group. The remaining problem is naming. Before v1,
+choose one vocabulary for the two extension methods. The clearest pair is:
 
 ```csharp
 builder.Services.AddRazorComponents().AddHtmxor();
 app.MapRazorComponents<App>().AddHtmxorEndpoints();
 ```
 
-Keeping the current names is also possible, but the documentation would always
-need to explain that `AddHtmx()` does not add htmx. A rename before stable v1 is
-cheaper than carrying that ambiguity indefinitely. Advanced route-group
-customization, if retained, should be a separately named overload rather than a
-required empty-group ritual.
+Keeping the old names is possible, but every setup page would need a warning
+that `AddHtmx()` does not add htmx. Renaming before the stable release is the
+cheaper choice. Do not restore the destination argument that #145 removed.
 
-Acceptance should compile both a minimal app and an app whose Razor-component
-builder has authorization, rate-limit, host, cache, and arbitrary endpoint
-conventions, and prove the generated representations inherit the effective
-conventions.
+The #145 proof covers component policy and metadata, hosts, route constraints,
+antiforgery, generated methods, and shared group metadata. It does not cover
+nested groups, multiple Razor component applications, group endpoint filters or
+rate limits, interactive render modes, or the grouped path on Kestrel or in a
+browser.
 
-### 2. `HtmxRoute` advertises properties the v1 generator rejects
+### 2. `HtmxRoute` offers members the generator refuses
 
-`HtmxRouteAttribute` currently exposes `CurrentURL`, `Target`, and `Targets`.
-The source-generator v1 path rejects non-`Methods` named arguments with the
-generic `HTMXOR001` diagnostic. This is a high-friction false affordance:
-IntelliSense tells a developer a declaration is supported, then a distant build
-step says the route is unsupported without identifying a stable replacement.
+`HtmxRouteAttribute` exports `CurrentURL`, `Target`, and `Targets`. The v1
+generator rejects those named arguments with the generic `HTMXOR001` diagnostic.
+IntelliSense therefore recommends declarations that cannot build.
 
-The properties also encourage routes to be selected by client-supplied browser
-state or DOM identity. `HX-Current-URL`, `HX-Source`, and `HX-Target` are useful
-representation hints, but URLs plus HTTP methods should identify the server
-capability. Extended htmx selectors such as `closest`, `next`, and `find` do not
-require target IDs, further weakening target identity as a primary route key.
+Those members also point developers toward the wrong authority rule.
+`HX-Current-URL`, `HX-Source`, and `HX-Target` can help choose a representation,
+but they come from the client. A URL and HTTP method must identify the server
+capability. Htmx selectors such as `closest`, `next`, and `find` do not even
+require a target ID.
 
-V1 should either implement a narrowly justified property through the full
-pipeline or remove it from the public declaration. Do not leave public members
-that are guaranteed build errors. Prefer component code or explicit fragment
-selection for representation decisions after route authorization.
+V1 should implement a member through the full request path or remove it. It
+should not publish members that always fail at build time. Representation
+choices can happen in component code or through explicit fragment selection
+after routing and authorization.
 
-### 3. Route and callback discovery needs cause-specific diagnostics
+### 3. Build failures need specific diagnostics
 
-The convention is simple: GET is implicit, stock forms and statically
-discoverable instance callbacks expose additional methods, and dynamic cases
-need an explicit declaration. The current source parser proves only a bounded
-set of Razor text shapes and reports two broad diagnostics. A developer can
-otherwise have markup that looks correct but no generated action.
+The rule is simple: GET is implicit; stock forms and static instance callbacks
+add methods; dynamic cases need an explicit declaration. The compiler should
+make every exception to that rule easy to fix.
 
-The generator should diagnose at least these cases separately:
+It needs distinct diagnostics for:
 
-- `HtmxRoute` in `_Imports.razor` or a non-component/global location;
-- a C# route with no explicit methods;
-- unsupported, malformed, duplicated, or contradictory `Methods` values;
-- a dynamic callback expression that cannot be resolved statically;
-- multiple callbacks competing for the same method/action;
-- a client method attribute whose statically known method has no server action;
-- an unsafe action with no available stock antiforgery credential path; and
-- a route template or component shape outside the supported compiler seam.
+- `HtmxRoute` placed in `_Imports.razor` or another global location;
+- a C# route without an explicit method list;
+- malformed, duplicated, unsupported, or contradictory `Methods` values;
+- a callback expression the generator cannot resolve;
+- two callbacks competing for one method and action;
+- a statically known client method with no matching server action;
+- an unsafe action with no stock antiforgery credential path; and
+- a route template or component form outside the compiler's supported model.
 
-Each diagnostic should point to the authoring location, state what Htmxor did
-not generate, and give the narrow remediation. Unknown client attributes or
-extension values must not become build errors. Code-behind and pure-C#
-components require equivalent declaration tests, not a Razor-only happy path.
+Each diagnostic should point to the declaration, say what Htmxor did not
+generate, and give the shortest fix. Unknown client attributes and extension
+values must remain valid markup. Code-behind and C# components need the same
+coverage as Razor components.
 
-The normal-only opt-out belongs in the same reachability model. It should be one
-component-local declaration and should conflict clearly with an HTMX-only
-declaration rather than relying on ordering or request headers.
+The normal-only opt-out belongs here too. It should be one local declaration
+with a clear conflict if the component is also marked HTMX-only.
 
-### 4. Fragment selection conflates execution identity and DOM delivery
+### 4. Fragment names and DOM IDs do different jobs
 
-`HtmxFragment` is the right single concept, and the v1 goal is right to reject a
-second `HtmxFragmentElement` abstraction. Its current selection API is not yet
-the right concept boundary.
+`HtmxFragment` is the right single component. Its current selection rules are
+hard to predict.
 
-Today `Id` can both request a wrapper and act as the default direct-request
-selection key. `Match` accepts an arbitrary predicate over request headers.
-`RenderDuringStandardRequest` adds another branch. A wrapperless fragment with
-no ID matches every direct target by default. Multi-fragment responses therefore
-require readers to mentally execute predicates and flags, and DOM renaming can
-silently change server work.
-
-The amended discussion's current multi-target example is particularly easy to
-misread: an `<hx-partial>` envelope describes where htmx delivers returned
-markup, but it does not by itself cause the enclosing server fragment to be
-selected. Documentation cannot repair that missing declaration.
+Today `Id` can request a wrapper and select server output. `Match` can run an
+arbitrary predicate over request headers. `RenderDuringStandardRequest` adds
+another branch. A wrapperless fragment without an ID matches every direct
+target. In a multi-fragment response, a reader has to evaluate all of those
+rules before knowing which child components run. Renaming a DOM node can also
+change server work.
 
 V1 should separate:
 
-- a stable server selection name;
-- optional wrapper element, ID, and attributes;
-- whether the fragment appears in the normal full representation; and
-- client delivery through the primary swap, OOB markup, or `<hx-partial>`.
+- the stable server selection name;
+- the optional wrapper element, ID, and attributes;
+- inclusion in a normal full response; and
+- browser delivery by the main swap, OOB markup, or `<hx-partial>`.
 
-One direct request should be able to select the whole component, one name, or an
-ordered set of names without a `Match` lambda. The selection must be bound to
-the authorized component route and must define duplicate/unknown-name behavior.
-Excluded child branches below a known boundary must not execute their own
-lifecycle or data work; the owning component and necessary ancestors may.
+One request should select the whole component, one name, or an ordered set of
+names without a `Match` lambda. The contract must define duplicate and unknown
+names. A child excluded below a known fragment boundary must not render or run
+its own lifecycle work. The component and required ancestors may run.
 
-Do not infer the multi-selection list from `HX-Target`, CSS selectors, or raw
-partial markup. Those concern delivery, are untrusted, and cannot reliably name
-server execution boundaries.
+Do not derive selected names from `HX-Target`, CSS selectors, or partial markup.
+Those values describe browser delivery and cannot grant server access.
 
-### 5. Raw markup is a better default than a complete client DSL
+### 5. Native markup beats an incomplete C# client API
 
-The package currently exposes `Constants`, `Trigger`, `TriggerBuilder`,
-`TriggerModifierBuilder`, `SwapStyle`, `SwapStyleBuilder`, related extensions,
-and supporting enums/records. These types imply a complete, version-aware
-client contract. Against htmx 4.0.0 they are not complete:
+The package exports `Constants`, `Trigger`, trigger builders, `SwapStyle`, swap
+builders, and supporting enums and records. Their names imply a complete,
+version-aware htmx model, but the htmx 4 inventory shows gaps:
 
-- swap styles omit htmx 4 aliases, morph styles, `outerSync`, `textContent`, and
+- swap helpers omit aliases, morph styles, `outerSync`, `textContent`, and
   extension styles;
-- swap modifiers omit newer options and some emitted selector syntax follows an
-  older grammar;
-- trigger builders omit htmx 4 event modifiers and intersection options while
-  retaining older-version concepts; and
-- a closed enum cannot represent an application extension without falling back
-  to a raw string in a different API path.
+- modifier helpers omit current options and emit some older selector syntax;
+- trigger helpers omit current event and intersection options while retaining
+  concepts from older htmx versions; and
+- closed enums cannot represent extension values on the same code path.
 
-Razor already accepts the native attributes and colon syntax. The official htmx
-editor metadata is a better source of client completions than a server package
-release. Htmxor should therefore make literal htmx markup the documented common
-path and choose one of two stable dispositions:
+Razor accepts native htmx markup and colon attributes. Official editor metadata
+already supplies client completions. Htmxor should either remove these helpers
+from core v1 or move them to an optional, htmx-versioned package with a raw
+string fallback and metadata-driven parity tests.
 
-1. remove the client DSL from the v1 stable package; or
-2. move it to an explicitly optional, profile-versioned adapter that has a raw
-   escape hatch and executable parity tests generated from the selected
-   official metadata.
+Adding the missing 4.0.0 constants by hand would only postpone the next drift.
+Typed response helpers are different: they serialize response headers and
+coordinate status and body behavior that Razor markup cannot express.
 
-Do not “complete” the current DSL by manually adding 4.0.0 constants. That only
-moves the drift date. Server response helpers remain valuable because they
-encode response-header serialization and body/status interactions that are not
-visible in Razor markup.
+### 6. The HTTP context needs one set of rules
 
-### 6. The request/response context is useful but internally uneven
+`HtmxContext` with `Request` and `Response` is easy to learn. Its details need a
+final pass:
 
-`HtmxContext` as `Request` plus `Response`, and `HtmxEventArgs` exposing the
-same pair, are easy to learn. The details need a final consistency pass:
+- use .NET acronym casing such as `CurrentUrl`, `PushUrl`, and `ReplaceUrl`;
+- distinguish missing, malformed, repeated, and contradictory header values;
+- parse booleans by allowed values rather than header presence;
+- mark every header-derived value as untrusted;
+- type all seven core request headers and all nine core response headers;
+- provide validated APIs for extension request and response headers;
+- give every response method the same request guard, argument checks, fluent
+  return, URL overload policy, and documented body effect; and
+- remove or prove protocol behavior carried forward from older htmx versions.
 
-- use normal .NET acronym casing (`CurrentUrl`, `PushUrl`, `ReplaceUrl`);
-- distinguish missing, malformed, repeated, and contradictory header values so
-  invalid input cannot broaden behavior;
-- parse booleans by their allowed value, not header presence alone;
-- document every header-derived member as untrusted;
-- expose all seven core htmx 4 request headers without making extension headers
-  wait for a package release;
-- keep all nine core response headers typed, while providing a bounded extension
-  response-header escape hatch;
-- make every response mutator use the same HTMX-request guard, argument
-  validation, fluent return, URI/string overload policy, and body-side-effect
-  rules; and
-- remove or re-prove earlier-version protocol such as status-based polling
-  helpers before it appears in a htmx 4 stable API.
+General HTTP belongs on `HttpContext`. Htmxor does not need wrappers for cookies,
+ETags, content language, or ASP.NET Core output-cache policy.
 
-General HTTP remains `HttpContext`. A second wrapper for status-independent
-headers, cookies, ETags, content language, or ASP.NET Core output-cache policy
-would make the service less consistent, not more.
+### 7. The package exports more than the developer model
 
-### 7. The exported package surface is larger than the intended developer model
+The current package mixes authoring types with renderer, generator, and
+prototype types. Examples include `IHtmxorComponentEndpointInvoker`, generated
+action request types, `ConditionalComponentBase`, `IConditionalRender`,
+`HtmxorNavigationException`, `AjaxContext`, the client helper internals, and
+prototype layout and async components.
 
-The current source exposes authoring types alongside types that appear public
-for renderer, source-generator, or prototype reasons. Examples include
-`IHtmxorComponentEndpointInvoker`, generated action request types,
-`ConditionalComponentBase`, `IConditionalRender`, `HtmxorNavigationException`,
-`AjaxContext`, client DSL internals, and layout/async helpers inherited from the
-prototype.
+V1 needs a reviewed public allow-list:
 
-V1 needs an explicit public allow-list and API-compatibility baseline. A useful
-first classification is:
-
-| Disposition | Candidate surface |
+| Decision | Candidate APIs |
 | --- | --- |
-| Keep and stabilize | registration/mapping, `HtmxRoute`, the normal-only marker, `HtmxFragment`, `HtmxHeadOutlet`, `HtmxContext`, request/response types, callback event arguments, core header names |
-| Reshape before freeze | fragment selection, route method declarations, protocol naming/parsing, response consistency, extension hooks |
-| Decide from demonstrated need | direct-request layout and async-load conveniences, structured `HX-Location` model |
-| Internalize or remove from the stable contract | invoker/generator bridges, renderer exceptions, conditional-render infrastructure, incomplete client DSL implementation types |
+| Keep | registration and mapping, `HtmxRoute`, normal-only marker, `HtmxFragment`, `HtmxHeadOutlet`, context and request/response types, callback event arguments, core header names |
+| Reshape | fragment selection, method declarations, header parsing and naming, response rules, extension headers |
+| Require a demonstrated use case | direct-request layout, async-load helpers, structured `HX-Location` model |
+| Make internal or remove | renderer and generator bridges, renderer exceptions, conditional-render machinery, incomplete client helper implementation types |
 
-This is a review classification, not an instruction to delete types blindly.
-Each candidate must be checked against existing consumers and approved v1
-requirements. The stable baseline should fail CI when a public API changes
-without review and should prevent source-generator cross-assembly requirements
-from becoming accidental user promises.
+This table is a review result, not permission to delete types without checking
+consumers. An API compatibility baseline should catch unreviewed changes and
+prevent generator assembly needs from becoming accidental user promises.
 
-### 8. Documentation needs a claim vocabulary, not only examples
+### 8. Examples need honest status labels
 
-The starting discussion is an effective compact walkthrough but currently
-mixes executable current syntax, intended v1 behavior, and unapproved ideas. In
-particular, registration is about to change, the fragment multi-target example
-does not state server-selection semantics, QUERY is accepted intent but not yet
-a complete release claim, and raw htmx extension composition can be mistaken
-for Htmxor conformance.
+Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
+ideas that still need API decisions. Registration syntax is now current and
+proved for the #145 cases, but its naming remains open. Multi-fragment
+selection, QUERY, and optional extension use still need explicit status labels.
 
-Every example should carry or link to one of these statuses: accepted v1
-contract, proved slice, client composition, DX proposal, outside v1, or not yet
-exercised. This keeps a complete htmx feature guide honest without implying that
-Htmxor owns or has browser-tested every optional extension.
+The discussion should stay short and link to the repository guide for the full
+inventory. Examples should identify whether they show an accepted v1 contract,
+a proved slice, application-owned client behavior, an API proposal, behavior
+outside v1, or behavior not yet exercised. Passing markup through the renderer
+does not prove browser or extension compatibility.
 
-The compact discussion should become the on-ramp and link to the repository
-guide for the exhaustive matrix. The guide should be release-versioned and the
-discussion should not be the only durable specification.
+## Conclusions by htmx feature family
 
-## Htmx feature-by-feature DX conclusions
-
-The exhaustive feature map records every individual attribute and extension.
-Across those features, five reusable conclusions avoid one-off APIs:
-
-| Feature family | DX conclusion |
+| Feature family | Htmxor rule |
 | --- | --- |
-| Request verbs, forms, values, validation | Htmxor owns server reachability, callback execution, binding compatibility, and antiforgery. Raw htmx owns initiation. |
-| Triggering, synchronization, confirmation, indicators | These are client behavior. Teach server idempotency, cancellation, and honest status; add no Htmxor DSL requirement. |
-| Targeting, selecting, swapping, OOB, partials | Htmxor selects server execution boundaries; htmx selects DOM delivery. Never conflate the two. |
-| History, boost, redirects, statuses, caching | Htmxor must preserve representation and HTTP semantics; the application owns navigation/cache policy. These need recipes and conformance tests. |
-| Events, JS API, configuration, CSS, extensions | Application-owned client surface. Htmxor passes markup through and exposes bounded request/response protocol hooks only where necessary. |
+| Request verbs, forms, values, validation | Htmxor owns server access, callback execution, binding compatibility, and antiforgery. Native htmx starts the request. |
+| Triggers, synchronization, confirmation, indicators | These stay in client markup. Server code must tolerate duplicates, cancellation, and overlap. |
+| Targets, selectors, swaps, OOB, partials | Htmxor selects server output. Htmx chooses DOM delivery. |
+| History, boost, redirects, statuses, caching | Preserve HTTP and representation rules. The application chooses navigation and cache policy. |
+| Events, JavaScript, configuration, CSS, extensions | The application owns the client code. Htmxor only needs protocol APIs for data the server must read or write. |
 
-This division is the simplest consistent service boundary. It lets a developer
-use a new client feature without waiting for Htmxor while still receiving help
-where server correctness is difficult.
+This split lets an application adopt a new htmx client feature without waiting
+for Htmxor while keeping the difficult server rules typed and testable.
 
-## Published v1 issue boundaries
+## Published v1 issues
 
-The deletion test for each issue is: if this issue is removed, can the
-v1 completion test still offer an obvious, safe, consistent public developer
-model? Each issue below fails that test independently and has a
-separately verifiable outcome.
+| Issue | Decision or result |
+| --- | --- |
+| [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Settle names, approve the public allow-list, decide the client helpers, and add API compatibility checks |
+| [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
+| [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
+| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Normalize names and validation, cover core headers, add extension headers, and test exact HTTP input and output |
 
-### A. Freeze a minimal and consistently named v1 public API
+Existing issues keep their current scope:
 
-Published issue: [#151, `refactor(api): freeze the minimal Htmxor v1 public surface`](https://github.com/egil/Htmxor/issues/151).
+- [#145](https://github.com/egil/Htmxor/issues/145) is closed after proving the
+  no-argument registration at the root and through one standard route group.
+- [#148](https://github.com/egil/Htmxor/issues/148) owns the .NET 10 target.
+- [#57](https://github.com/egil/Htmxor/issues/57) covers Blazor coexistence.
+- [#58](https://github.com/egil/Htmxor/issues/58) covers multi-target browser
+  delivery, which is separate from server fragment selection.
+- [#69](https://github.com/egil/Htmxor/issues/69) records a concrete `hx-vals`
+  use case.
+- [#16](https://github.com/egil/Htmxor/issues/16) covers streaming, which is
+  outside the v1 goal.
 
-Outcome:
+Most htmx attributes and extensions do not need Htmxor issues. They already work
+as native markup. Splitting them into dozens of tickets would imply that Htmxor
+owns client features it intends to pass through.
 
-- decide the service and endpoint extension names, building on rather than
-  duplicating #145;
-- publish the intentional authoring API allow-list;
-- internalize or explicitly approve infrastructure/prototype exports;
-- decide the fate of the client trigger/swap/constants DSL;
-- add an API-compatibility baseline and package-level test; and
-- document source and binary compatibility policy before stable v1.
+## Documentation result
 
-Excluded: implementing the no-route-group mapping already owned by #145,
-changing the .NET target owned by #148, or redesigning route/fragment behavior.
+The guide accounts for all 49 official htmx 4.0.0 editor attributes, seven core
+request headers, nine core response headers, 22 global configuration entries,
+60 documented events, 12 JavaScript methods, six CSS classes, and 17 official
+extensions. Each entry says what Htmxor or the application must do on the
+server.
 
-### B. Make route and action declarations diagnostically complete
-
-Published issue: [#152, `feat(routing): make v1 reachability and action declarations self-explanatory`](https://github.com/egil/Htmxor/issues/152).
-
-Outcome:
-
-- freeze the normal-only opt-out;
-- make Razor, code-behind, and pure-C# route declarations equivalent;
-- remove or implement every advertised `HtmxRoute` member;
-- support the agreed static callback shapes and a narrow explicit dynamic-case
-  declaration; and
-- emit cause-specific, location-specific diagnostics for every unsupported or
-  contradictory declaration without rejecting unknown client syntax.
-
-Excluded: changing the instance-callback model, allowing client attributes to
-grant methods, or introducing controllers/Minimal APIs.
-
-### C. Separate named server fragment selection from DOM delivery
-
-Published issue: [#153, `feat(fragments): separate server selection from DOM delivery`](https://github.com/egil/Htmxor/issues/153).
-
-Outcome:
-
-- add a stable server fragment name independent of wrapper ID;
-- define whole, single, and ordered multi-fragment selection;
-- define unknown/duplicate name and standard-request behavior;
-- keep raw OOB and `<hx-partial>` markup as delivery composition; and
-- prove excluded child branches do not render or execute while required owners
-  and ancestors retain documented lifecycle behavior.
-
-Excluded: a second fragment component concept, selecting capabilities from
-untrusted target headers, streaming responses, or detached hydration.
-
-### D. Make the htmx 4 request/response context consistent and extensible
-
-Published issue: [#154, `refactor(protocol): finalize the Htmxor v1 HTTP context`](https://github.com/egil/Htmxor/issues/154).
-
-Outcome:
-
-- normalize .NET naming and invalid-value behavior;
-- type all core htmx 4 request and response headers;
-- make response mutators behaviorally uniform;
-- add bounded request/response extension-header hooks;
-- remove or re-prove protocol inherited from earlier htmx versions; and
-- add wire-level tests for malformed/repeated headers, full/partial request
-  type, boost, history, redirects, events, errors, and empty responses.
-
-Excluded: wrapping general `HttpContext` behavior or claiming every extension
-without exact evidence.
-
-## Existing ownership and non-issues
-
-Do not create duplicate tickets for work already owned:
-
-- [#145](https://github.com/egil/Htmxor/issues/145) owns removal of route-group
-  plumbing from registration.
-- [#148](https://github.com/egil/Htmxor/issues/148) owns the .NET 10-only target
-  decision and migration.
-- [#57](https://github.com/egil/Htmxor/issues/57) remains the existing
-  coexistence discussion and should be reconciled with the v1 DOM-ownership
-  contract rather than replaced.
-- [#58](https://github.com/egil/Htmxor/issues/58) concerns multi-target client
-  delivery; the fragment issue must distinguish that from server selection.
-- [#69](https://github.com/egil/Htmxor/issues/69) is a concrete custom-component
-  `hx-vals` scenario; it should use the raw-markup and stock-binding policy
-  rather than create a general client DSL.
-- [#16](https://github.com/egil/Htmxor/issues/16) concerns streaming, which the
-  agreed v1 goal excludes.
-
-The review does not propose an issue for every htmx attribute or extension.
-Most work without an Htmxor-specific API. Creating dozens of feature tickets
-would obscure the four server-side contract gaps and imply ownership Htmxor
-does not want.
-
-## Recommended discussion amendment
-
-Discussion #143 should remain a concise v1 on-ramp with these changes:
-
-1. Lead with the four-rule mental model and label the page as intended v1, not
-   current beta documentation.
-2. Show the no-route-group registration from #145 and flag the naming decision
-   until issue A resolves it.
-3. Keep `@page`, `HtmxRoute`, stock form, and instance callback examples, while
-   explicitly stating that client attributes never grant reachability.
-4. Mark QUERY as accepted intent awaiting complete evidence.
-5. Replace the current multi-target example with the explicit separation of
-   named server selection and raw OOB/`<hx-partial>` delivery; if the name API is
-   not approved yet, label it pseudocode rather than executable syntax.
-6. Link the exhaustive guide, the v1 goal, the progress evidence, and the four
-   approved issue boundaries.
-7. State that the application owns htmx 4.0.0 and optional extensions, and that
-   raw markup is the default client API.
-
-## Acceptance for this documentation review
-
-The review is complete when:
-
-- the feature guide accounts for every official htmx 4.0.0 editor attribute,
-  all seven core request headers, all nine core response headers, every global
-  configuration entry, the public JavaScript/event/CSS surfaces, and all 17
-  official extensions;
-- every feature identifies the Htmxor server consequence or explicitly says it
-  is application-owned composition;
-- current behavior, agreed v1 behavior, proposed API, outside-v1 behavior, and
-  unexercised claims are distinguishable;
-- the review records an explicit disposition for every category of exported
-  Htmxor API;
-- issue boundaries do not duplicate current owners; and
-- repository validation records the exact HEAD, commands, counts, and any
-  browser/runtime dependency not exercised.
+Repository verification must record the exact commit, commands, test counts,
+and any browser, operating system, runtime, service, extension, or configuration
+that was not exercised.

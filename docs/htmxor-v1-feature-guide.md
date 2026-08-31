@@ -1,47 +1,40 @@
-# Htmxor v1 developer guide and htmx 4 feature map
+# Htmxor v1 guide and htmx 4 map
 
-Status: DX review draft for the intended Htmxor v1 contract.
+Status: design draft for the planned Htmxor v1 API, not current beta
+documentation.
 
-This guide describes the developer model Htmxor v1 is intended to expose. It
-does not claim that every example is available in the current beta or at the
-current repository head. The [v1 goal](roadmap/v1/goal.md) is authoritative
-where it differs from the current implementation. The
-[v1 progress record](roadmap/v1/progress.md) identifies behavior that has
-executable evidence.
+The [v1 goal](roadmap/v1/goal.md) is the authority when this guide and the
+current code differ. The [v1 progress record](roadmap/v1/progress.md) says which
+parts have executable evidence.
 
-The htmx baseline for this guide is application-supplied htmx 4.0.0 with its
-default configuration. The application owns the htmx runtime, extensions,
-content security policy, and upgrade schedule. Htmxor supplies server
-integration and a small browser adapter; it does not bundle htmx. Consult the
+This guide uses application-supplied htmx 4.0.0 with its default configuration.
+The application owns the htmx runtime, extensions, content security policy, and
+upgrade schedule. Htmxor supplies server integration and a small browser
+adapter. It does not bundle htmx. Use the
 [official htmx 4 documentation](https://four.htmx.org/docs/),
 [reference](https://four.htmx.org/reference/), and
 [extension catalog](https://four.htmx.org/extensions/) for client semantics.
 
-## The intended pit of success
+Htmxor has a narrow job: let a static-SSR component answer htmx requests without
+forcing the application to build a second endpoint or rendering layer.
 
-> When a developer chooses an htmx feature in a Blazor static-SSR component,
-> Htmxor makes the server declaration and response path obvious without hiding
-> native htmx markup or weakening stock Blazor behavior.
+## Working model
 
-Four rules explain the model:
-
-1. The Razor component owns its routes, request callbacks, lifecycle, and HTML.
-2. Server reachability comes from `@page`, `HtmxRoute`, stock forms, and
-   statically discoverable component callbacks. Client-authored `hx-*`
-   attributes never grant a server route or method.
-3. A normal request uses stock Blazor routing. A direct htmx request returns the
-   component output or explicitly selected `HtmxFragment` boundaries.
-4. Write ordinary htmx attributes and elements in Razor. Htmxor should type the
-   server protocol where that prevents mistakes, not mirror the entire evolving
-   browser API in C#.
+- The Razor component owns its routes, request callbacks, lifecycle, and HTML.
+- `@page`, `HtmxRoute`, stock forms, and statically discoverable component
+  callbacks grant server access. Client-authored `hx-*` attributes do not.
+- A normal request uses stock Blazor routing. A direct htmx request returns the
+  component or named `HtmxFragment` output.
+- Write htmx attributes and elements in Razor. Htmxor types the server protocol
+  where a typed API prevents mistakes. It does not copy the browser API into C#.
 
 HTMX request headers are untrusted input. An HTMX-only route is a representation
 choice, not authorization. Component authorization, antiforgery, host,
-rate-limit, cache, and other endpoint policies remain authoritative.
+rate-limit, cache, and other endpoint policies still apply.
 
-## Configure an application
+## Configure the application
 
-The current v1 plan retains these names while removing the route-group argument:
+The current API uses these names and no route-group argument:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -61,11 +54,16 @@ app.MapRazorComponents<App>()
 app.Run();
 ```
 
-The no-argument endpoint mapping is planned by
-[#145](https://github.com/egil/Htmxor/issues/145). The DX review separately asks
-whether v1 should consistently use the product name in both extension methods,
-for example `AddHtmxor()` and `AddHtmxorEndpoints()`. Until that decision is
-made, examples must identify whether they use the current or proposed names.
+[#145](https://github.com/egil/Htmxor/issues/145) proved this call at the
+application root and through one standard ASP.NET Core route group using a
+separately packed .NET 10 package. Nested groups, multiple Razor component
+applications, group endpoint filters or rate limits, interactive render modes,
+and the grouped Kestrel/browser path remain unproved.
+
+[#151](https://github.com/egil/Htmxor/issues/151) will decide whether both
+extension methods should use the product name, such as `AddHtmxor()` and
+`AddHtmxorEndpoints()`. Until then, examples use the current names and label
+proposed names.
 
 Supply htmx before the Htmxor adapter in `App.razor`:
 
@@ -77,12 +75,11 @@ Supply htmx before the Htmxor adapter in `App.razor`:
 </head>
 ```
 
-`HtmxHeadOutlet` adds only the Htmxor static-web-asset adapter. The adapter binds
-rendered component callbacks to the next request and transports the stock
-Blazor antiforgery token for unsafe methods. It is not an htmx loader or general
-configuration component.
+`HtmxHeadOutlet` adds the Htmxor static-web-asset adapter. The adapter binds
+rendered component callbacks to the next request and carries the stock Blazor
+antiforgery token for unsafe methods. It does not load or configure htmx.
 
-## Choose component reachability
+## Choose which requests reach a component
 
 ### A normal page that also answers direct htmx GET
 
@@ -108,10 +105,10 @@ state, lifecycle methods, and static SSR rendering stay under Blazor.
 
 ### A normal-only page
 
-V1 requires an explicit opt-out for a page that must not expose the conventional
-direct GET. The public marker and its name are not yet frozen. Until they are,
-do not invent an `hx-*` convention or rely on target headers to opt out. This is
-a v1 API gap, not application boilerplate developers should recreate.
+V1 needs an explicit opt-out for a page that must not answer the conventional
+direct GET. The marker and its name are not yet settled. Until they are, do not
+invent an `hx-*` convention or use target headers as an opt-out. This gap belongs
+in Htmxor, not in each application.
 
 ### An HTMX-only component route
 
@@ -152,17 +149,17 @@ inferred list.
 
 ## Declare component actions
 
-The v1 method model is deliberately small:
+The v1 method model is small:
 
 | HTTP method | Server declaration | Status |
 | --- | --- | --- |
 | `GET` | Implicit for `@page` and Razor-authored `HtmxRoute` | Accepted v1 model |
-| `POST` | Stock static-SSR form or statically discoverable `@onpost` | Accepted and proved in bounded slices |
-| `PUT` | Statically discoverable `@onput` | Accepted and proved in bounded slices |
-| `PATCH` | Statically discoverable `@onpatch` | Accepted and proved in bounded slices |
-| `DELETE` | Statically discoverable `@ondelete` | Accepted and proved in bounded slices |
+| `POST` | Stock static-SSR form or statically discoverable `@onpost` | Accepted and proved in focused tests |
+| `PUT` | Statically discoverable `@onput` | Accepted and proved in focused tests |
+| `PATCH` | Statically discoverable `@onpatch` | Accepted and proved in focused tests |
+| `DELETE` | Statically discoverable `@ondelete` | Accepted and proved in focused tests |
 | `QUERY` | Application-authored `@onquery` | Accepted future intent; needs complete executable evidence |
-| Other methods | Narrow explicit declaration and extension seam | Not implicit in v1 |
+| Other methods | Narrow explicit declaration and extension API | Not implicit in v1 |
 
 An ordinary element callback keeps behavior near the markup:
 
@@ -270,7 +267,7 @@ wrapper `Id`, plus one explicit response-level way to select multiple names.
 The exact names remain to be decided; examples must not present a proposed
 `Name` or `RenderFragments` member as shipped API.
 
-This separation is important:
+Keep server execution separate from browser delivery:
 
 | Concern | Owned by |
 | --- | --- |
@@ -313,8 +310,8 @@ Out-of-band markup identifies the destination on the returned element:
 
 `<hx-partial>` is an htmx delivery envelope, not a second Htmxor fragment
 concept. Htmx 4 processes the main swap before out-of-band and partial swaps.
-Pure OOB or pure partial responses should deliberately suppress or empty the
-main swap according to htmx's documented behavior.
+For a pure OOB or partial response, suppress or empty the main swap according to
+htmx's documented behavior.
 
 ## Inspect the request and shape the response
 
@@ -342,8 +339,8 @@ clear extension bag/parser for additional protocol headers.
 
 ### Response operations
 
-The intended response API covers all core htmx 4 response headers and ordinary
-HTTP status/body control:
+The response API covers all core htmx 4 response headers plus HTTP status and
+body control:
 
 | Operation | Wire result | Use |
 | --- | --- | --- |
@@ -359,14 +356,13 @@ HTTP status/body control:
 | `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics |
 | `EmptyBody()` | Empty HTTP body | Return only status, headers, cookies, and other metadata |
 
-Every mutator should consistently reject use outside an htmx request, validate
-its argument, return the same response object for fluent composition, and
-document whether it suppresses the body. URLs are application data; the
-application must validate local-only navigation where required. Extension
-response headers need a bounded escape hatch instead of a new Htmxor release for
-every htmx extension.
+Each response method must reject use outside an htmx request, validate its
+argument, return the response object, and state whether it suppresses the body.
+The application must validate navigation URLs where local-only navigation is
+required. Htmxor also needs a validated way to write extension response headers
+without a package release for every extension.
 
-## Complete htmx 4 attribute map
+## Htmx 4 attribute reference
 
 Razor accepts ordinary htmx attribute names, including colon modifiers and
 extension syntax. Prefer literal markup when the value is clear:
@@ -387,12 +383,12 @@ unknown attributes or newer extension values. Static analysis, when enabled,
 must use a selected htmx profile and remain forward-compatible.
 
 The following tables cover every attribute in the official htmx 4.0.0 editor
-metadata. “Server consequence” describes what Htmxor or the application must do;
-all DOM behavior remains htmx-owned.
+metadata. The last column says what Htmxor or the application must do on the
+server. Htmx still owns all DOM behavior.
 
 ### Requests, triggers, targeting, and swaps
 
-| Attribute | htmx behavior | Htmxor usage and server consequence |
+| Attribute | htmx behavior | Server work |
 | --- | --- | --- |
 | `hx-get` | Issue GET | Use an `@page` or `HtmxRoute` GET. Keep GET side-effect free. |
 | `hx-post` | Issue POST | Use a stock form or `@onpost`; render antiforgery credentials. |
@@ -428,7 +424,7 @@ this exact profile and allow unknown extension styles.
 
 ### Values, forms, request control, and UI state
 
-| Attribute | htmx behavior | Htmxor usage and server consequence |
+| Attribute | htmx behavior | Server work |
 | --- | --- | --- |
 | `hx-vals` | Add request values using HCON/JSON or `js:` | Bind through stock query/form/component facilities. Validate input; do not bind domain entities blindly. |
 | `hx-include` | Include values from selected elements | The resulting request is ordinary untrusted input. Extended selectors are client-only. |
@@ -457,7 +453,7 @@ be used where another tool cannot.
 
 ### History and navigation
 
-| Attribute | htmx behavior | Htmxor usage and server consequence |
+| Attribute | htmx behavior | Server work |
 | --- | --- | --- |
 | `hx-push-url` | Push `true`, `false`, or a URL | Return a restorable full-page URL. `HX-Push-Url` may override it. |
 | `hx-replace-url` | Replace `true`, `false`, or a URL | Return a restorable full-page URL. `HX-Replace-Url` may override it. |
@@ -479,8 +475,8 @@ are separate systems.
 | `hx-head` | `hx-head` | Application owns the extension and full head-merging policy. `PageTitle` in returned HTML is the narrower core case. |
 | `hx-browser-indicator` | `hx-browser-indicator` | Client-only browser loading indicator. |
 | `hx-targets` | `hx-targets` | Sends one response to multiple matching targets. Select server output independently. |
-| `hx-ptag` | `hx-ptag` | Extension request headers need an explicit parser/escape hatch and correct cache variation. |
-| `hx-nonce` | `hx-csp` | Application owns the CSP extension, nonce creation, and trust boundary. Never echo an untrusted nonce. |
+| `hx-ptag` | `hx-ptag` | Add an explicit parser for its request headers and vary caches by any value that changes output. |
+| `hx-nonce` | `hx-csp` | The application owns the CSP extension and creates trusted nonces. Never echo a client-supplied nonce. |
 | `hx-live`, `hx-live:*` | `hx-live` | Client reactive behavior over returned DOM. Keep component/static-SSR and client state ownership explicit. |
 | `hx-prompt` | `hx-prompt` | `HX-Prompt` is untrusted input; validate it like any other value. |
 
@@ -491,8 +487,8 @@ pass through.
 
 ## Common component recipes
 
-These recipes combine the feature families without introducing another Htmxor
-abstraction.
+These recipes use native htmx markup and the server APIs above. They add no
+Htmxor helper types.
 
 ### Active search
 
@@ -519,7 +515,7 @@ Use `load`, `revealed`, or `intersect` on a safe component GET:
 <div hx-get="/products/page/2"
      hx-trigger="revealed"
      hx-swap="outerHTML">
-    Loading…
+    Loading...
 </div>
 ```
 
@@ -588,10 +584,10 @@ use a relative target only for delivery:
 }
 ```
 
-This can be the `ProductRow` component rendered repeatedly by a normal list
-page. Its route and callback grant DELETE. `closest li` is not a server key.
-Render a stock antiforgery token in the owning static-SSR output and keep the
-action safe against duplicate delivery.
+A normal list page can render this `ProductRow` repeatedly. Its route and
+callback grant DELETE. `closest li` is not a server key. Render a stock
+antiforgery token in the static-SSR output and keep the action safe against
+duplicate delivery.
 
 ### Boosted navigation and history
 
@@ -634,8 +630,8 @@ extract a subsection. Honor `HX-Request-Type: full`; do not always assume an
 
 Return the selected server fragment containing raw `hx-swap-oob` elements or
 `<hx-partial>` envelopes. Main content is processed before additional targets in
-htmx 4. Use `hx-swap="none"`, `swapEmpty`, or the relevant global setting
-deliberately for a response with no main payload.
+htmx 4. For a response with no main payload, choose `hx-swap="none"`,
+`swapEmpty`, or the matching global setting.
 
 ### Empty, no-content, validation, and error responses
 
@@ -654,7 +650,7 @@ perform a full navigation, refresh, or only mutate history. Test authentication
 challenges and return URLs; a response header is not a substitute for endpoint
 authorization.
 
-## Complete htmx HTTP header map
+## Htmx HTTP headers
 
 ### Request headers
 
@@ -686,16 +682,15 @@ must not elevate any of them to authentication or authorization evidence.
 | `HX-Reselect` | `Reselect(...)` |
 | `HX-Trigger` | `Trigger(...)` |
 
-Ordinary application response headers, cookies, status codes, and cache headers
-remain available through the static-SSR `HttpContext` before the response
-starts. Htmxor does not need bespoke wrappers for `Content-Language`, ETag,
-`Cache-Control`, or other general HTTP features.
+Use the static-SSR `HttpContext` for application headers, cookies, status codes,
+and cache headers before the response starts. Htmxor does not need wrappers for
+`Content-Language`, ETag, `Cache-Control`, or other general HTTP features.
 
 ## Events, JavaScript, CSS, and configuration
 
-These are htmx client surfaces. Htmxor returns markup that participates in them
-and uses `htmx:config:request` in its adapter, but it must not take ownership of
-the application's scripting policy.
+Htmx owns the client features in this section. Htmxor returns markup that uses
+them and listens to `htmx:config:request` in its adapter. The application owns
+its scripts and content security policy.
 
 ### Event families
 
@@ -736,13 +731,15 @@ The global htmx 4 API exposes `ajax`, `find`, `findAll`, `process`, `swap`,
 `initialize`, `on`, `onLoad`, `trigger`, `registerExtension`, `parseInterval`,
 and `timeout`, plus `htmx.config`. Use these directly in application JavaScript
 or extensions. Htmxor does not wrap them. If application code inserts htmx
-markup outside an htmx swap, call `htmx.process` at that ownership boundary.
+markup outside an htmx swap, that code must call `htmx.process`.
 
-### Other client integration surfaces
+### Other client integrations
 
 - Installation can use a vendored script, npm/bundler import, ES module, CDN,
-  or the application-selected `htmax.js` bundle. Htmxor v1 evidence vendors the
-  exact 4.0.0 asset; Htmxor neither chooses nor downloads it at runtime.
+  or the application-selected
+  [`htmax.js`](https://four.htmx.org/docs/htmax) distribution. Htmxor v1
+  evidence vendors the exact 4.0.0 asset; Htmxor neither chooses nor downloads
+  it at runtime.
 - `hx-on:*`, standard listeners, Alpine.js, `hx-live`, hyperscript, and other
   JavaScript libraries can all react to returned markup. The application owns
   script order, state, CSP, cleanup, and any Alpine compatibility extension.
@@ -791,12 +788,12 @@ Set initialization-only options (`prefix`, `extensions`, and `metaCharacter`)
 through the htmx configuration meta tag before htmx initializes. The application
 owns that tag. Htmxor's evidence uses defaults unless a test names an override.
 
-## Complete extension composition map
+## Official extension map
 
-Extensions are application-owned scripts or modules loaded after htmx (or an
-application-selected `htmax.js` bundle). Htmxor must accept their markup and
-headers, but support claims require executable evidence for the exact extension
-and version.
+Extensions are application-owned scripts or modules loaded after htmx or
+supplied by the `htmax.js` distribution described above. Htmxor must accept
+their markup and headers, but support claims require executable evidence for the
+exact extension and version.
 
 | Official extension | Composition with Htmxor v1 |
 | --- | --- |
@@ -818,9 +815,9 @@ and version.
 | `hx-alpine-compat` | Client interoperability; define Alpine, htmx, and interactive-Blazor DOM ownership. |
 | `hx-csp` | Application owns nonce policy and strict-CSP setup; Htmxor must not weaken it. |
 
-Third-party and future extensions follow the same rule: raw markup first,
-ordinary HTTP/application endpoints where appropriate, and a bounded Htmxor
-protocol hook only when server integration is genuinely required.
+Third-party and future extensions follow the same rule: start with raw markup,
+use application HTTP endpoints where needed, and add an Htmxor protocol API only
+when the extension sends data the server must understand.
 
 ## Caching, security, and operational behavior
 
@@ -842,11 +839,11 @@ methods.
   effective endpoint metadata on every generated representation.
 - Validate antiforgery before binding or callbacks for POST, PUT, PATCH, DELETE,
   and every other unsafe method.
-- Escape untrusted output. Isolate deliberately raw HTML and consider
-  `hx-ignore` at trust boundaries.
-- Keep htmx's same-origin default unless the application deliberately defines a
-  CORS policy. An htmx attribute cannot widen the global fetch mode.
-- Choose a CSP profile deliberately. Trigger filters, `js:` values, and inline
+- Escape untrusted output. Isolate intentional raw HTML and consider
+  `hx-ignore` where untrusted and trusted markup meet.
+- Keep htmx's same-origin default unless the application defines a CORS policy.
+  An htmx attribute cannot widen the global fetch mode.
+- Choose a CSP profile. Trigger filters, `js:` values, and inline
   `hx-on` require evaluated or inline script capabilities; strict-CSP apps should
   use external listeners and the application-owned `hx-csp` strategy where
   appropriate.
@@ -875,7 +872,7 @@ fragment hydrates. Do not let htmx replace DOM owned by an interactive Blazor
 root unless the application has an explicit integration contract. Use stable
 boundaries, `hx-preserve`, morph-skip attributes, or targets outside the
 interactive subtree. Enhanced Blazor navigation and htmx boosting also need one
-declared owner per navigation surface.
+declared owner in each navigation region.
 
 ## Diagnostics and release claims
 
@@ -904,15 +901,15 @@ history modes, streaming transports, interactive DOM coexistence, CSP profiles,
 and performance are not proved merely because their markup compiles or passes
 through.
 
-## Current beta versus intended v1
+## Current beta and planned v1
 
-The current repository contains valuable prototypes and evidence, but its
-public surface is not the final guide:
+The current repository contains useful prototypes and evidence, but parts of its
+public API do not yet match this guide:
 
-- endpoint registration currently exposes a route group that v1 plans to hide;
 - `HtmxRoute` exposes target/current-URL properties that the current source
   generator rejects on the v1 path;
-- direct method inference and diagnostics cover only bounded Razor syntax;
+- direct method inference and diagnostics cover only a limited set of Razor
+  syntax;
 - fragment selection currently couples `Id`, request-target matching, `Match`,
   and rendering flags rather than a clear named-selection model;
 - the C# trigger and swap helpers do not cover the complete htmx 4 profile and

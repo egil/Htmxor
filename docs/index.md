@@ -2,13 +2,12 @@
 
 [add introduction]
 
-## V1 developer model
+## V1 design
 
-The [v1 developer guide and complete htmx 4 feature map](htmxor-v1-feature-guide.md)
-documents the intended stable-v1 experience. It is a design draft rather than
-documentation for the current beta. Its companion
-[developer-experience review](research/htmxor-v1-dx-review.md) records the API
-findings, proposed decisions, and issue boundaries.
+The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) describes the planned
+API. It is not documentation for the current beta. The
+[developer experience review](research/htmxor-v1-dx-review.md) explains the
+remaining API decisions and links the issues that track them.
 
 ## Getting Started
 
