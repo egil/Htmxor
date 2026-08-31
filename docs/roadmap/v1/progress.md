@@ -1692,9 +1692,21 @@ signature, and the full-page characterization now includes .NET 10's stock
 `blazor-focus-on-navigate` marker. No issue #145 no-argument registration or
 route-group behavior is included.
 
-Exact clean executable commit `15872457cedc4fdc02875fdec6a280dfc8abccb7`
-passed the focused package-only proof: one outer test and all 13 external
-consumer assertions. The locally packed package contains
+An independent Spec review at documentation head
+`4ad2eb4ef3f07fe94a6850c2abe9082b819ec9a8` found that the maintained samples
+still bypassed the generator while using source project references. Exact clean
+executable commit `6d9f493bc3a180aed1639095c7083c16656ec8c7` adds the generator as an analyzer
+to all three samples, relocates the two example route owners to the generator's
+existing project-root contract, preserves their component-instance callbacks,
+and uses stock generated-action routing rather than expanding the deferred
+issue #145 registration model. All three samples passed individual Release
+builds, and the example assembly contains the generated route-registration and
+component-action markers. The two remaining CI setup jobs now explicitly select
+the .NET 10 SDK.
+
+The same exact executable commit passed the focused package-only proof: one
+outer test and all 13 external consumer assertions. The locally packed package
+contains
 `lib/net10.0/Htmxor.dll`, contains no `lib/net8.0/Htmxor.dll`, packages the
 generator under `analyzers/dotnet/cs`, and restores into a separate `net10.0`
 consumer with no Htmxor project reference. The repository fast profile passed
@@ -1703,7 +1715,9 @@ profile passed 447 of 447 tests: 118 quality, 45 ASP.NET Core 10, and 284 core
 tests, including the cached Chromium cases, and retained one nonempty Cobertura
 coverage report. Analyzer and style error gates and the authoritative Release
 solution build passed. `dotnet pack` passed the project's built-in package
-validation with a `net10.0` package asset.
+validation with a `net10.0` package asset. These post-review profiles ran from
+an isolated clean clone of the exact executable commit so unrelated concurrent
+checkout edits could remain untouched.
 
 This proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Linux under WSL2, a
 locally packed unsigned package, TestServer, Kestrel loopback HTTP, cached
