@@ -28,6 +28,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue120EnhancedPath = "/issue-120/enhanced/23";
 	private const string Issue120EnhancedAction = Issue120EnhancedPath + "?source=from-enhanced-action";
 	private const string Issue122Path = "/issue-122/fragments";
+	private const string Issue129Path = "/issue-129/error";
 	private const string Issue64Path = "/issue-64";
 	private const string Issue64RedirectPath = "/issue-64/redirect";
 	private const string Issue64DestinationPath = "/issue-64/destination";
@@ -402,6 +403,108 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(HttpStatusCode.NotFound, invalidResponse.StatusCode);
 		Assert.Equal(1, probe.InitializationCount);
 		Assert.Empty(probe.Snapshot());
+	}
+
+	[Fact]
+	public async Task Application_owned_htmx4_applies_default_and_source_owned_error_swap_policies()
+	{
+		var probe = new Issue129RequestProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), issue129Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue129Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		var normalBody = await navigation.TextAsync();
+		Assert.Contains("<html", normalBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		Assert.Equal("4.0.0", await page.EvaluateAsync<string>("() => window.htmx.version"));
+
+		var beforeRejectedRequest = probe.Snapshot();
+		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
+			"element => element.remove()");
+		var rejectedResponseTask = WaitForIssue129PutAsync(page);
+		await page.Locator("#issue-129-default").ClickAsync();
+		Assert.Equal((int)HttpStatusCode.BadRequest, (await rejectedResponseTask).Status);
+		Assert.Equal(beforeRejectedRequest, probe.Snapshot());
+
+		await page.ReloadAsync();
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await page.EvaluateAsync(
+			"""
+			() => {
+				window.issue129Errors = [];
+				window.issue129Finals = 0;
+				document.body.addEventListener('htmx:response:error', event => {
+					window.issue129Errors.push({
+						status: event.detail.ctx.response.status,
+						source: event.detail.ctx.sourceElement.id
+					});
+				});
+				document.body.addEventListener('htmx:finally:request', () => {
+					window.issue129Finals++;
+				});
+			}
+			""");
+
+		var defaultResponseTask = WaitForIssue129PutAsync(page);
+		await page.Locator("#issue-129-default").ClickAsync();
+		var defaultResponse = await defaultResponseTask;
+		Assert.Equal((int)HttpStatusCode.UnprocessableEntity, defaultResponse.Status);
+		var defaultRequestHeaders = await defaultResponse.Request.AllHeadersAsync();
+		Assert.Equal("true", defaultRequestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("partial", defaultRequestHeaders["hx-request-type"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("button#issue-129-default", defaultRequestHeaders["hx-source"]);
+		Assert.True(defaultRequestHeaders.ContainsKey("requestverificationtoken"));
+		var defaultBody = await defaultResponse.TextAsync();
+		Assert.Contains(
+			"<section data-issue-129-error=\"unprocessable\">unprocessable component response</section>",
+			defaultBody,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("__RequestVerificationToken", defaultBody, StringComparison.Ordinal);
+		await page.Locator("#issue-129-default-target [data-issue-129-error='unprocessable']")
+			.WaitForAsync();
+		await WaitForIssue129RequestAsync(page, expectedCount: 1);
+
+		var noSwapTarget = page.Locator("#issue-129-no-swap-target");
+		var unchangedMarkup = await noSwapTarget.EvaluateAsync<string>("element => element.outerHTML");
+		var noSwapResponseTask = WaitForIssue129PutAsync(page);
+		await page.Locator("#issue-129-no-swap").ClickAsync();
+		var noSwapResponse = await noSwapResponseTask;
+		Assert.Equal((int)HttpStatusCode.UnprocessableEntity, noSwapResponse.Status);
+		var noSwapRequestHeaders = await noSwapResponse.Request.AllHeadersAsync();
+		Assert.Equal("button#issue-129-no-swap", noSwapRequestHeaders["hx-source"]);
+		Assert.True(noSwapRequestHeaders.ContainsKey("requestverificationtoken"));
+		Assert.Equal(defaultBody, await noSwapResponse.TextAsync());
+		await WaitForIssue129RequestAsync(page, expectedCount: 2);
+		Assert.Equal(
+			unchangedMarkup,
+			await noSwapTarget.EvaluateAsync<string>("element => element.outerHTML"));
+
+		var errors = await page.EvaluateAsync<JsonElement>("() => window.issue129Errors");
+		var observedErrors = errors.EnumerateArray().ToArray();
+		Assert.Equal(2, observedErrors.Length);
+		Assert.Equal(422, observedErrors[0].GetProperty("status").GetInt32());
+		Assert.Equal("issue-129-default", observedErrors[0].GetProperty("source").GetString());
+		Assert.Equal(422, observedErrors[1].GetProperty("status").GetInt32());
+		Assert.Equal("issue-129-no-swap", observedErrors[1].GetProperty("source").GetString());
+
+		var observations = probe.Snapshot();
+		var callbacks = observations.Where(observation => observation.Phase == "callback").ToArray();
+		Assert.Equal(2, callbacks.Length);
+		Assert.NotEqual(callbacks[0].RequestId, callbacks[1].RequestId);
+		Assert.All(
+			callbacks,
+			callback => Assert.Contains(
+				observations,
+				observation => observation.Phase == "initialized" &&
+					observation.RequestId == callback.RequestId));
 	}
 
 	[Fact]
@@ -824,6 +927,7 @@ public sealed class Issue56BrowserTests
 		Issue50CacheProbe? cacheProbe = null,
 		Issue18HeaderProbe? issue18Probe = null,
 		Issue120RequestProbe? issue120Probe = null,
+		Issue129RequestProbe? issue129Probe = null,
 		bool useHtmxor = true)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -852,6 +956,7 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(cacheProbe ?? new Issue50CacheProbe());
 		builder.Services.AddSingleton(issue18Probe ?? new Issue18HeaderProbe(1));
 		builder.Services.AddSingleton(issue120Probe ?? new Issue120RequestProbe());
+		builder.Services.AddSingleton(issue129Probe ?? new Issue129RequestProbe());
 		builder.Services.AddScoped<Issue120RequestScope>();
 
 		var app = builder.Build();
@@ -896,6 +1001,16 @@ public sealed class Issue56BrowserTests
 		await AssertPublishedAssetAsync(client, path, "issue-75-production-asset");
 		return path;
 	}
+
+	private static Task<IResponse> WaitForIssue129PutAsync(IPage page) =>
+		page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue129Path &&
+			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
+
+	private static Task WaitForIssue129RequestAsync(IPage page, int expectedCount) =>
+		page.WaitForFunctionAsync(
+			"expected => window.issue129Errors.length === expected && window.issue129Finals === expected",
+			expectedCount);
 
 	private static async Task AssertPublishedAssetAsync(
 		HttpClient client,

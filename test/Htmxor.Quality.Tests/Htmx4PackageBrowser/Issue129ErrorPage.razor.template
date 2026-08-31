@@ -1,0 +1,43 @@
+@page "/issue-129/error"
+@using Htmxor
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue129RequestProbe Probe
+
+<section @onput="Put"></section>
+
+@if (responseState is null)
+{
+	<form @formname="issue-129-error">
+		<AntiforgeryToken />
+		<button id="issue-129-default"
+			type="button"
+			hx-put="/issue-129/error"
+			hx-target="#issue-129-default-target">Return default error</button>
+		<button id="issue-129-no-swap"
+			type="button"
+			hx-put="/issue-129/error"
+			hx-target="#issue-129-no-swap-target"
+			hx-status:422="swap:none">Return error without swapping</button>
+	</form>
+	<main data-issue-129-page>
+		<div id="issue-129-default-target">default target unchanged</div>
+		<div id="issue-129-no-swap-target">no-swap target unchanged</div>
+	</main>
+}
+else
+{
+	<section data-issue-129-error="unprocessable">unprocessable component response</section>
+}
+
+@code {
+	private readonly string requestId = Guid.NewGuid().ToString("N");
+	private string? responseState;
+
+	protected override void OnInitialized() => Probe.RecordInitialization(requestId);
+
+	private void Put(HtmxEventArgs args)
+	{
+		responseState = "unprocessable";
+		Probe.RecordCallback(requestId);
+	}
+}
