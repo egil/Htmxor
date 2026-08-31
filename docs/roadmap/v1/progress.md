@@ -137,6 +137,9 @@ Last updated: 2026-08-31
 - Issue #145 preserved compiler red: `3fe79959dc2112f4346b85f6d9071ebf41b040c3`, based on the then-current `origin/main` commit `864f3d6451c240b7de9a43e84a73c673fd3c7053`; the package consumer could not compile the required no-argument registration API.
 - Issue #145 preserved package-runtime red: `58731a0ac5ddf92216e7828f289368958497945b`; 4 of 13 external consumer checks passed and 9 failed because stock Blazor rejected the grouped route template.
 - Issue #145 verified executable proof commit after rebasing onto the .NET 10-only main commit `5003a245fe3d81f5d74bbc91c9ff558fb13e964d`: `9d98226b64838d89eeb709dedf20f9cd3038170f`.
+- Issue #151 registration-name baseline and live `origin/main`: `6b5ad905ed0a49ec90dcbe225fff30f409566f47`.
+- Issue #151 preserved meaningful packed-package API red: `23ac89334355b1a67cd1f018265df84f0eed03c1`.
+- Issue #151 verified executable registration-name proof: `20a6c407f2401619d86c68679ab0008c55d0a3bb`.
 - Framework boundary under test: .NET SDK 10.0.400, ASP.NET Core 10.0.11, and Blazor static SSR. The package, repository tooling, tests, test application, and maintained samples now target `net10.0`; the generator remains a `netstandard2.0` compiler component packaged under `analyzers/dotnet/cs`. Current package-only TestServer and Kestrel/Chromium consumers restore a locally packed `net10.0` Htmxor package. Earlier `net8.0` package references below record historical exact-head evidence and are not current compatibility claims.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -1762,6 +1765,26 @@ names:
 Both names identify Htmxor's server integration. They do not install, select, or
 configure htmx; the application owns that runtime. The beta does not retain
 forwarding aliases for the old names.
+
+At exact red commit `23ac89334355b1a67cd1f018265df84f0eed03c1`,
+the separately packed application compiled and executed 17 tests. Fifteen
+passed, while the service and endpoint API assertions failed because the
+package exposed `AddHtmx()` and generated `AddHtmxorComponentEndpoints()`.
+The missing-name assertions were the intended API failure.
+
+At exact clean executable commit
+`20a6c407f2401619d86c68679ab0008c55d0a3bb`, the focused registration and
+generator suite passed 16 of 16 tests. The focused packed-package command passed
+1 of 1 outer tests while asserting 17 of 17 external consumer tests. The fast
+profile passed 452 of 452 tests: 117 quality, 45 ASP.NET Core 10, and 290 core
+tests. Its Release build completed with zero warnings and errors, and its
+analyzer and style gates passed.
+
+The package proof used a locally packed unsigned `net10.0` package and
+TestServer. Local verification did not exercise a published or signed package,
+Kestrel, TLS, a browser, another operating system, .NET 11, or another htmx
+version. The full and mutation profiles were not run; full-scope mutation is not
+required for this naming-only pull-request slice.
 
 This slice changes names, not the mapping path proved by issue #145. That issue's
 exact package evidence used the earlier `AddHtmxorComponentEndpoints()` spelling
