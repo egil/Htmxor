@@ -856,9 +856,10 @@ Protected behavior for issue #127:
 The bounded action generator emits one private nested route-processing component
 for the supported literal omitted-Methods Razor route. It carries the same
 template through the public stock `RouteAttribute`, but is not an exported page
-or an endpoint owner. Runtime validation requires that processor to be an
-private nested application component with exactly one route matching the compiled
-`HtmxRoute`. The generated HTMX-only endpoint remains the only selected route.
+or an endpoint owner. Runtime validation requires the processor to be a
+nonabstract `IComponent` in the application assembly, not a public top-level
+type, and to have exactly one stock route matching the compiled `HtmxRoute`.
+The generated HTMX-only endpoint remains the only selected route.
 
 For each matching request, Htmxor changes only the request-local endpoint view
 given to the stock Razor component invoker: the stock public `Router` receives
@@ -1170,7 +1171,7 @@ path.
 - Fast-profile proof at the same exact clean head passed 117 quality tests, 45 ASP.NET Core 10 hosted tests, and 281 non-browser library, generator, analyzer, and runtime tests. Total: 443 discovered, 443 executed, 443 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The authoritative Release build produced 0 warnings and 0 errors.
 - Full-profile proof at the same exact clean head passed 118 quality tests, 45 ASP.NET Core 10 hosted tests, and all 283 library, generator, analyzer, runtime, and legacy-browser tests. Total: 446 discovered, 446 executed, 446 passed, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The authoritative Release build produced 0 warnings and 0 errors and retained fresh coverage at `artifacts/results/full/htmxor/14ccda5b-e07b-478f-b7f9-f509082bec68/coverage.cobertura.xml`.
 - Issue #127's exact-head proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Microsoft.Playwright 1.62.0, cached Chromium revision 1234 / 151.0.7922.34 on Ubuntu 26.04.1 under WSL2, exact application-owned htmx 4.0.0, a locally packed unsigned Htmxor package, a published framework-dependent `net10.0` application, Production, and Kestrel loopback HTTP. It did not exercise TLS, Windows, macOS, Firefox, WebKit, a NuGet-published or signed package, self-contained or trimmed publish, another target framework or htmx version, fresh browser provisioning, the complete route-constraint matrix, optional, catch-all, custom, or all-C# route declarations, reverse proxies, containers, external services, or full-scope mutation. Mutation was optional for this POC and was not run.
-- Separate independent Standards and Spec reviews inspected the complete `cf468f4db77557fd12a4c955b7daeb239f0a25b2..16ec8f77db0006b317977ea765c624ae3de674a9` executable diff plus this progress draft. Both found and resolved a P2 incorrect full red SHA; Spec also found and resolved P2 prose that briefly described the generated private nested processor as internal and top-level. Final outcomes were 0 findings with worst priority none on both axes. Spec independently passed the documented 77-of-77 generator/catalog command; Standards' attempt at that command was blocked before discovery by sandboxed MSBuild IPC and was recorded only as a setup failure. Neither review independently repeated the heavy package/browser or profile commands.
+- Separate independent Standards and Spec reviews inspected the complete `cf468f4db77557fd12a4c955b7daeb239f0a25b2..16ec8f77db0006b317977ea765c624ae3de674a9` executable diff plus this progress draft. Both found and resolved a P2 incorrect full red SHA; Spec also found and resolved P2 prose that briefly described the generated private nested processor as internal and top-level. Standards' final rereviews found and resolved further P2 prose overclaims that runtime validation requires private nesting or generally nonpublic accessibility; the record now states the actual nonabstract application `IComponent`, not-public-top-level, single-stock-route, and exact-template checks. Final outcomes were 0 findings with worst priority none on both axes. Spec independently passed the documented 77-of-77 generator/catalog command; Standards' attempt at that command was blocked before discovery by sandboxed MSBuild IPC and was recorded only as a setup failure. Neither review independently repeated the heavy package/browser or profile commands.
 - This issue #127 progress commit is documentation-only. Final executable claims remain tied to exact proof head `16ec8f77db0006b317977ea765c624ae3de674a9`.
 
 ## Remaining limits
