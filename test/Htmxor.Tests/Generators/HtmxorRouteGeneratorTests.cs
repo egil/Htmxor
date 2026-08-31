@@ -364,8 +364,8 @@ public sealed class HtmxorRouteGeneratorTests
 			.Select(value => source.IndexOf(value, StringComparison.Ordinal))
 			.ToArray();
 
-		Assert.DoesNotContain(indexes, index => index < 0);
-		Assert.Equal(indexes.OrderBy(index => index), indexes);
+		Assert.True(indexes.All(index => index >= 0), source);
+		Assert.True(indexes.SequenceEqual(indexes.OrderBy(index => index)), source);
 	}
 
 	private static int Count(string source, string value)
