@@ -999,7 +999,10 @@ public sealed class Issue56BrowserTests
 		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
 		Assert.Contains("data-issue-137-descendant=\"selected\"", normalBody, StringComparison.Ordinal);
 		Assert.Contains("data-issue-137-descendant=\"excluded\"", normalBody, StringComparison.Ordinal);
-		AssertIssue137Lifecycle(probe.Snapshot(), expectedExcludedCount: 1);
+		var normalObservations = probe.Snapshot();
+		AssertIssue137Lifecycle(normalObservations, expectedExcludedCount: 1);
+		var normalRequestId = Assert.Single(
+			normalObservations.Select(observation => observation.RequestId).Distinct());
 		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
 
 		var beforeDirectRequest = probe.Snapshot();
@@ -1019,6 +1022,12 @@ public sealed class Issue56BrowserTests
 		Assert.Contains("data-issue-137-descendant=\"selected\"", directBody, StringComparison.Ordinal);
 		Assert.DoesNotContain("data-issue-137-descendant=\"excluded\"", directBody, StringComparison.Ordinal);
 		Assert.DoesNotContain("<button", directBody, StringComparison.OrdinalIgnoreCase);
+
+		var directObservations = probe.Snapshot().Skip(beforeDirectRequest.Count).ToArray();
+		AssertIssue137Lifecycle(directObservations, expectedExcludedCount: 0);
+		var directRequestId = Assert.Single(
+			directObservations.Select(observation => observation.RequestId).Distinct());
+		Assert.NotEqual(normalRequestId, directRequestId);
 		var directShape = await page.EvaluateAsync<JsonElement>(
 			"""
 			body => {
@@ -1035,12 +1044,12 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(
 			new[]
 			{
-				"<div id=\"issue-137-selected\"><span data-issue-137-descendant=\"selected\">selected descendant</span></div>",
+				$"<div id=\"issue-137-selected\"><span data-issue-137-descendant=\"selected\" data-issue-137-request=\"{directRequestId}\">selected descendant</span></div>",
 			},
 			directShape.GetProperty("content").EnumerateArray().Select(element => element.GetString()));
 
-		var directObservations = probe.Snapshot().Skip(beforeDirectRequest.Count).ToArray();
-		AssertIssue137Lifecycle(directObservations, expectedExcludedCount: 0);
+		await page.Locator(
+			$"#issue-137-selected [data-issue-137-request='{directRequestId}']").WaitForAsync();
 		Assert.Equal("selected descendant", await page.Locator(
 			"#issue-137-selected [data-issue-137-descendant='selected']").TextContentAsync());
 		Assert.Equal(1, await page.Locator("#issue-137-select").CountAsync());

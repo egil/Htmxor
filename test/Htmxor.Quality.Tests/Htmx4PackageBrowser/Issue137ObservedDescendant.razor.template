@@ -4,7 +4,8 @@
 @{
 	Record("rendered");
 }
-<span data-issue-137-descendant="@Branch">@Branch descendant</span>
+<span data-issue-137-descendant="@Branch"
+	  data-issue-137-request="@RequestId">@Branch descendant</span>
 
 @code {
 	[Parameter, EditorRequired]
@@ -14,6 +15,8 @@
 
 	protected override void OnParametersSet() => Record("parameters-set");
 
+	private string RequestId => HttpContextAccessor.HttpContext!.TraceIdentifier;
+
 	private void Record(string phase) =>
-		Probe.Record(HttpContextAccessor.HttpContext!.TraceIdentifier, "descendant", phase, Branch);
+		Probe.Record(RequestId, "descendant", phase, Branch);
 }
