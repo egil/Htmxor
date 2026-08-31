@@ -33,6 +33,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue133Path = "/issue-133/oob-order";
 	private const string Issue135Path = "/issue-135/partial-order";
 	private const string Issue137Path = "/issue-137/fragment-lifecycle";
+	private const string Issue139Path = "/issue-139/async-fragment";
 	private const string Issue64Path = "/issue-64";
 	private const string Issue64RedirectPath = "/issue-64/redirect";
 	private const string Issue64DestinationPath = "/issue-64/destination";
@@ -1058,6 +1059,122 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Selected_async_fragment_waits_for_quiescence_before_htmx_observes_response()
+	{
+		var probe = new Issue139AsyncLifecycleProbe();
+		await using var app = CreateApplication(
+			new Issue56RequestProbe(),
+			issue139Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue139Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		var normalBody = await navigation.TextAsync();
+		Assert.Contains("<html", normalBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-139-stock-control", normalBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-139-placeholder=\"selected\"", normalBody, StringComparison.Ordinal);
+		Assert.Empty(probe.Snapshot());
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await page.EvaluateAsync(
+			"""
+			() => {
+				window.issue139ResponseEvents = 0;
+				window.issue139SwapEvents = 0;
+				document.body.addEventListener('htmx:after:request', event => {
+					if (event.detail.ctx.sourceElement.id === 'issue-139-select') {
+						window.issue139ResponseEvents++;
+					}
+				});
+				document.body.addEventListener('htmx:after:swap', event => {
+					if (event.detail.ctx.sourceElement.id === 'issue-139-select') {
+						window.issue139SwapEvents++;
+					}
+				});
+			}
+			""");
+
+		var responseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue139Path &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+		await page.Locator("#issue-139-select").ClickAsync();
+		var requestId = await probe.WaitForSelectedInitializationAsync().WaitAsync(TimeSpan.FromSeconds(30));
+		var completedMarker = page.Locator(
+			$"#issue-139-selected [data-issue-139-completed='{requestId}']");
+
+		try
+		{
+			Assert.False(responseTask.IsCompleted);
+			Assert.Equal(0, await completedMarker.CountAsync());
+			Assert.Equal("Selected placeholder", await page.Locator("#issue-139-selected").TextContentAsync());
+			Assert.Equal(0, await page.EvaluateAsync<int>("() => window.issue139ResponseEvents"));
+			Assert.Equal(0, await page.EvaluateAsync<int>("() => window.issue139SwapEvents"));
+			Assert.DoesNotContain(
+				probe.Snapshot(),
+				observation => string.Equals(observation.Component, "excluded", StringComparison.Ordinal));
+		}
+		finally
+		{
+			probe.ReleaseSelected();
+		}
+
+		var response = await responseTask.WaitAsync(TimeSpan.FromSeconds(30));
+		probe.Record(requestId, "browser", "response-observed");
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var requestHeaders = await response.Request.AllHeadersAsync();
+		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("partial", requestHeaders["hx-request-type"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("div#issue-139-selected", requestHeaders["hx-target"]);
+		var directBody = await response.TextAsync();
+		Assert.DoesNotContain("<html", directBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", directBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-139-stock-control", directBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-139-placeholder", directBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-139-descendant=\"excluded\"", directBody, StringComparison.Ordinal);
+		Assert.Contains($"data-issue-139-completed=\"{requestId}\"", directBody, StringComparison.Ordinal);
+		var directShape = await page.EvaluateAsync<string[]>(
+			"""
+			body => {
+				const template = document.createElement('template');
+				template.innerHTML = body;
+				return Array.from(template.content.childNodes)
+					.filter(node => node.nodeType !== Node.TEXT_NODE || node.textContent.trim().length > 0)
+					.map(node => node.nodeType === Node.ELEMENT_NODE ? node.outerHTML : node.textContent);
+			}
+			""",
+			directBody);
+		Assert.Equal(
+			new[]
+			{
+				$"<div id=\"issue-139-selected\"><span data-issue-139-descendant=\"selected\" data-issue-139-completed=\"{requestId}\">selected completed {requestId}</span></div>",
+			},
+			directShape);
+
+		await completedMarker.WaitForAsync();
+		Assert.Equal($"selected completed {requestId}", await completedMarker.TextContentAsync());
+		Assert.Equal(1, await page.EvaluateAsync<int>("() => window.issue139ResponseEvents"));
+		Assert.Equal(1, await page.EvaluateAsync<int>("() => window.issue139SwapEvents"));
+		Assert.Equal(1, await page.Locator("#issue-139-select").CountAsync());
+		Assert.Equal(1, await page.Locator("#issue-139-excluded").CountAsync());
+
+		var directObservations = probe.Snapshot();
+		Assert.DoesNotContain(
+			directObservations,
+			observation => string.Equals(observation.Component, "excluded", StringComparison.Ordinal));
+		var selectedCompletion = Assert.Single(directObservations, observation =>
+			observation is { Component: "selected", Phase: "initialization-completed" });
+		var browserObservation = Assert.Single(directObservations, observation =>
+			observation is { Component: "browser", Phase: "response-observed" });
+		Assert.True(selectedCompletion.Sequence < browserObservation.Sequence);
+	}
+
+	[Fact]
 	public async Task Progressive_enhancement_preserves_native_post_and_htmx_put_paths()
 	{
 		var probe = new Issue120RequestProbe();
@@ -1482,6 +1599,7 @@ public sealed class Issue56BrowserTests
 		Issue133RequestProbe? issue133Probe = null,
 		Issue135RequestProbe? issue135Probe = null,
 		Issue137LifecycleProbe? issue137Probe = null,
+		Issue139AsyncLifecycleProbe? issue139Probe = null,
 		bool useHtmxor = true)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -1518,6 +1636,7 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(issue133Probe ?? new Issue133RequestProbe());
 		builder.Services.AddSingleton(issue135Probe ?? new Issue135RequestProbe());
 		builder.Services.AddSingleton(issue137Probe ?? new Issue137LifecycleProbe());
+		builder.Services.AddSingleton(issue139Probe ?? new Issue139AsyncLifecycleProbe());
 		builder.Services.AddScoped<Issue120RequestScope>();
 
 		var app = builder.Build();

@@ -1,0 +1,32 @@
+using System.Collections.Concurrent;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue139AsyncLifecycleProbe
+{
+	private readonly ConcurrentQueue<Issue139AsyncObservation> observations = new();
+	private readonly TaskCompletionSource<string> selectedEntered = new(
+		TaskCreationOptions.RunContinuationsAsynchronously);
+	private readonly TaskCompletionSource selectedRelease = new(
+		TaskCreationOptions.RunContinuationsAsynchronously);
+	private long sequence;
+
+	public void Record(string requestId, string component, string phase) =>
+		observations.Enqueue(new(Interlocked.Increment(ref sequence), requestId, component, phase));
+
+	public void SelectedInitializationEntered(string requestId) => selectedEntered.TrySetResult(requestId);
+
+	public Task<string> WaitForSelectedInitializationAsync() => selectedEntered.Task;
+
+	public Task WaitForSelectedReleaseAsync() => selectedRelease.Task;
+
+	public void ReleaseSelected() => selectedRelease.TrySetResult();
+
+	public IReadOnlyList<Issue139AsyncObservation> Snapshot() => observations.ToArray();
+}
+
+public sealed record Issue139AsyncObservation(
+	long Sequence,
+	string RequestId,
+	string Component,
+	string Phase);
