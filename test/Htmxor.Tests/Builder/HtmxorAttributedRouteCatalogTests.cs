@@ -27,16 +27,23 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
-	public void Build_preserves_two_distinct_declarations_in_type_name_order()
+	public void Build_preserves_arbitrary_declarations_in_type_name_order()
 	{
 		var fixture = DynamicComponentAssembly.Create(
 			new("PackageConsumer.SummaryComponent", "/summaries/{SummaryId:int}", "summary.policy"),
-			new("PackageConsumer.ReportComponent", "/reports/{ReportId:guid}", "report.policy", UseNamedPolicy: true));
+			new("PackageConsumer.ReportComponent", "/reports/{ReportId:guid}", "report.policy", UseNamedPolicy: true),
+			new("PackageConsumer.AuditComponent", "/audits/{AuditId:long}", "audit.policy"),
+			new("PackageConsumer.ZebraComponent", "/zebras/{ZebraId:int}", "zebra.policy"));
 
 		var descriptors = HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest);
 
 		Assert.Collection(
 			descriptors,
+			descriptor => AssertDescriptor(
+				descriptor,
+				fixture.Types[2],
+				"/audits/{AuditId:long}",
+				"audit.policy"),
 			descriptor => AssertDescriptor(
 				descriptor,
 				fixture.Types[1],
@@ -46,7 +53,12 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				descriptor,
 				fixture.Types[0],
 				"/summaries/{SummaryId:int}",
-				"summary.policy"));
+				"summary.policy"),
+			descriptor => AssertDescriptor(
+				descriptor,
+				fixture.Types[3],
+				"/zebras/{ZebraId:int}",
+				"zebra.policy"));
 	}
 
 	[Fact]
