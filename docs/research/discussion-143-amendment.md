@@ -232,10 +232,10 @@ beta.
 
 ## Open DX decisions for v1
 
-- Pending issue: `refactor(api): freeze the minimal Htmxor v1 public surface`
-- Pending issue: `feat(routing): make v1 reachability and action declarations self-explanatory`
-- Pending issue: `feat(fragments): separate server selection from DOM delivery`
-- Pending issue: `refactor(protocol): finalize the Htmxor v1 HTTP context`
+- [#151: freeze the minimal Htmxor v1 public surface](https://github.com/egil/Htmxor/issues/151)
+- [#152: make v1 reachability and action declarations self-explanatory](https://github.com/egil/Htmxor/issues/152)
+- [#153: separate server selection from DOM delivery](https://github.com/egil/Htmxor/issues/153)
+- [#154: finalize the Htmxor v1 HTTP context](https://github.com/egil/Htmxor/issues/154)
 
 Existing ownership is preserved: #145 removes route-group plumbing, #148 owns
 the .NET 10 target, #57 tracks Blazor coexistence, #58 tracks multi-target client

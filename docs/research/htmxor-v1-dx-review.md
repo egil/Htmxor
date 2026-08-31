@@ -333,18 +333,18 @@ This division is the simplest consistent service boundary. It lets a developer
 use a new client feature without waiting for Htmxor while still receiving help
 where server correctness is difficult.
 
-## Proposed v1 issue boundaries
+## Published v1 issue boundaries
 
-The deletion test for each proposed issue is: if this issue is removed, can the
+The deletion test for each issue is: if this issue is removed, can the
 v1 completion test still offer an obvious, safe, consistent public developer
-model? Each proposed issue below fails that test independently and has a
+model? Each issue below fails that test independently and has a
 separately verifiable outcome.
 
 ### A. Freeze a minimal and consistently named v1 public API
 
-Proposed title: `refactor(api): freeze the minimal Htmxor v1 public surface`
+Published issue: [#151, `refactor(api): freeze the minimal Htmxor v1 public surface`](https://github.com/egil/Htmxor/issues/151).
 
-Exact proposed body: [public API issue draft](proposed-v1-dx-issue-public-api.md).
+Publication source: [public API issue body](proposed-v1-dx-issue-public-api.md).
 
 Outcome:
 
@@ -361,9 +361,9 @@ changing the .NET target owned by #148, or redesigning route/fragment behavior.
 
 ### B. Make route and action declarations diagnostically complete
 
-Proposed title: `feat(routing): make v1 reachability and action declarations self-explanatory`
+Published issue: [#152, `feat(routing): make v1 reachability and action declarations self-explanatory`](https://github.com/egil/Htmxor/issues/152).
 
-Exact proposed body: [routing issue draft](proposed-v1-dx-issue-routing.md).
+Publication source: [routing issue body](proposed-v1-dx-issue-routing.md).
 
 Outcome:
 
@@ -380,9 +380,9 @@ grant methods, or introducing controllers/Minimal APIs.
 
 ### C. Separate named server fragment selection from DOM delivery
 
-Proposed title: `feat(fragments): separate server selection from DOM delivery`
+Published issue: [#153, `feat(fragments): separate server selection from DOM delivery`](https://github.com/egil/Htmxor/issues/153).
 
-Exact proposed body: [fragment issue draft](proposed-v1-dx-issue-fragments.md).
+Publication source: [fragment issue body](proposed-v1-dx-issue-fragments.md).
 
 Outcome:
 
@@ -398,9 +398,9 @@ untrusted target headers, streaming responses, or detached hydration.
 
 ### D. Make the htmx 4 request/response context consistent and extensible
 
-Proposed title: `refactor(protocol): finalize the Htmxor v1 HTTP context`
+Published issue: [#154, `refactor(protocol): finalize the Htmxor v1 HTTP context`](https://github.com/egil/Htmxor/issues/154).
 
-Exact proposed body: [protocol issue draft](proposed-v1-dx-issue-protocol.md).
+Publication source: [protocol issue body](proposed-v1-dx-issue-protocol.md).
 
 Outcome:
 
