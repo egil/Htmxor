@@ -27,6 +27,9 @@ public sealed class Issue56BrowserTests
 	private const string Issue120NativePath = "/issue-120/native/23";
 	private const string Issue120EnhancedPath = "/issue-120/enhanced/23";
 	private const string Issue122Path = "/issue-122/fragments";
+	private const string Issue64Path = "/issue-64";
+	private const string Issue64RedirectPath = "/issue-64/redirect";
+	private const string Issue64DestinationPath = "/issue-64/destination";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
 
@@ -595,6 +598,78 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(
 			ordinaryMainMarkup,
 			await ordinaryMain.EvaluateAsync<string>("element => element.outerHTML"));
+	}
+
+	[Fact]
+	public async Task NavigateTo_preserves_the_stock_redirect_and_adapts_the_direct_htmx_response()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+		using var handler = new HttpClientHandler { AllowAutoRedirect = false };
+		using var client = new HttpClient(handler) { BaseAddress = baseAddress };
+
+		using var ordinaryResponse = await client.GetAsync(Issue64RedirectPath);
+		Assert.Equal(HttpStatusCode.Found, ordinaryResponse.StatusCode);
+		Assert.Equal(
+			Issue64DestinationPath,
+			new Uri(baseAddress, Assert.IsType<Uri>(ordinaryResponse.Headers.Location)).AbsolutePath);
+		Assert.False(ordinaryResponse.Headers.Contains("HX-Redirect"));
+
+		using var request = new HttpRequestMessage(HttpMethod.Get, Issue64RedirectPath);
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		request.Headers.Add("HX-Source", "button#issue-64-redirect");
+		request.Headers.Add("HX-Target", "div#issue-64-target");
+		using var htmxResponse = await client.SendAsync(request);
+		Assert.Equal(HttpStatusCode.OK, htmxResponse.StatusCode);
+		Assert.Equal(
+			Issue64DestinationPath,
+			Assert.Single(htmxResponse.Headers.GetValues("HX-Redirect")));
+		Assert.Null(htmxResponse.Headers.Location);
+	}
+
+	[Fact]
+	public async Task Application_owned_htmx4_turns_NavigateTo_into_a_full_page_navigation()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue64Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		Assert.Contains("data-stock-shell", await navigation.TextAsync(), StringComparison.Ordinal);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await page.EvaluateAsync(
+			"""
+			() => {
+				sessionStorage.removeItem("issue64-target-swapped");
+				const target = document.querySelector("#issue-64-target");
+				new MutationObserver(() => {
+					if (target.querySelector("[data-issue-64-destination]")) {
+						sessionStorage.setItem("issue64-target-swapped", "true");
+					}
+				}).observe(target, { childList: true, subtree: true });
+			}
+			""");
+
+		await page.Locator("#issue-64-redirect").ClickAsync();
+		await page.WaitForFunctionAsync(
+			"""
+			() => location.pathname === "/issue-64/destination" ||
+				document.querySelector("#issue-64-target [data-issue-64-destination]") !== null
+			""");
+
+		Assert.Equal(Issue64DestinationPath, new Uri(page.Url).AbsolutePath);
+		Assert.Equal(1, await page.Locator("body[data-stock-shell]").CountAsync());
+		Assert.Equal(1, await page.Locator("[data-issue-64-destination]").CountAsync());
+		Assert.Null(await page.EvaluateAsync<string?>("() => sessionStorage.getItem('issue64-target-swapped')"));
+		Assert.Equal(0, await page.Locator("#issue-64-target").CountAsync());
 	}
 
 	[Fact]

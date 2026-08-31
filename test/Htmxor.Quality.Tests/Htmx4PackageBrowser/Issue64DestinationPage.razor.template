@@ -1,0 +1,5 @@
+@page "/issue-64/destination"
+
+<main data-issue-64-destination>
+	<h1>Issue 64 destination</h1>
+</main>
