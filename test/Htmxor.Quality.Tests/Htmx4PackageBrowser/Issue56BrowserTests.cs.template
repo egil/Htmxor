@@ -378,6 +378,11 @@ public sealed class Issue56BrowserTests
 		var baseAddress = new Uri(Assert.Single(app.Urls));
 		using var client = new HttpClient { BaseAddress = baseAddress };
 
+		using var normalRequest = new HttpRequestMessage(HttpMethod.Get, Issue120EnhancedPath);
+		normalRequest.Headers.Add(Issue111AuthenticationHandler.UserHeaderName, "issue-120-user");
+		using var normalResponse = await client.SendAsync(normalRequest);
+		Assert.Equal(HttpStatusCode.NotFound, normalResponse.StatusCode);
+
 		using var validRequest = CreateIssue120DirectGet("/issue-120/enhanced/23?source=from-direct-get");
 		using var validResponse = await client.SendAsync(validRequest);
 		var validBody = await validResponse.Content.ReadAsStringAsync();
@@ -387,6 +392,7 @@ public sealed class Issue56BrowserTests
 		Assert.Contains("data-item-id=\"23\"", validBody, StringComparison.Ordinal);
 		Assert.Contains("data-source=\"from-direct-get\"", validBody, StringComparison.Ordinal);
 		Assert.Contains("data-initialized=\"true\"", validBody, StringComparison.Ordinal);
+		Assert.Matches("data-scope=\"[a-f0-9]{32}\"", validBody);
 		Assert.DoesNotContain("data-stock-shell", validBody, StringComparison.Ordinal);
 		Assert.Equal(1, probe.InitializationCount);
 		Assert.Empty(probe.Snapshot());
@@ -485,6 +491,7 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(23, enhancedCallback.ItemId);
 		Assert.Equal("from-enhanced-action", enhancedCallback.Source);
 		Assert.NotNull(enhancedCallback.Scope);
+		Assert.Contains($"data-scope=\"{enhancedCallback.Scope}\"", enhancedBody, StringComparison.Ordinal);
 		Assert.NotEqual(nativeCallback.RequestId, enhancedCallback.RequestId);
 	}
 

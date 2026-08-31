@@ -82,6 +82,32 @@ internal static class HtmxorGeneratedComponentActionCatalog
 				$"'{action.ComponentType.FullName}' requires {expectedOwner}; " +
 				$"found {stockRouteCount} stock and {htmxRouteCount} HTMX-only routes.");
 		}
+
+		ValidateRouteProcessor(action, applicationAssembly);
+	}
+
+	private static void ValidateRouteProcessor(
+		HtmxorGeneratedComponentAction action,
+		Assembly applicationAssembly)
+	{
+		if (action.RouteProcessorType is null)
+		{
+			return;
+		}
+
+		var processorType = action.RouteProcessorType;
+		var routeCount = processorType.CustomAttributes.Count(
+			static attribute => attribute.AttributeType == typeof(RouteAttribute));
+		if (action.UsesStockRoute ||
+			processorType.Assembly != applicationAssembly ||
+			!typeof(IComponent).IsAssignableFrom(processorType) ||
+			processorType.IsAbstract ||
+			processorType.IsPublic ||
+			routeCount != 1)
+		{
+			throw new InvalidOperationException(
+				$"Generated component action '{action.HandlerIdentity}' has an invalid HTMX-only route processor.");
+		}
 	}
 
 	private static bool IsSupportedActionMethod(string method)
@@ -101,12 +127,30 @@ internal static class HtmxorGeneratedComponentActionCatalog
 		ArgumentNullException.ThrowIfNull(generatedActions);
 		return generatedActions
 			.Where(action => action.ComponentType == componentType)
-			.Select(action => new HtmxorComponentActionDescriptor(
-				action.ComponentType,
-				normalizedRoute,
-				action.HttpMethod,
-				action.HandlerIdentity,
-				action))
+			.Select(action => Bind(action, normalizedRoute))
 			.ToArray();
+	}
+
+	private static HtmxorComponentActionDescriptor Bind(
+		HtmxorGeneratedComponentAction action,
+		string normalizedRoute)
+	{
+		if (action.RouteProcessorType is { } processorType)
+		{
+			var route = processorType.GetCustomAttributes<RouteAttribute>(inherit: false).Single();
+			if (!string.Equals(route.Template, normalizedRoute, StringComparison.Ordinal))
+			{
+				throw new InvalidOperationException(
+					$"Generated component action '{action.HandlerIdentity}' route processor does not match " +
+					$"compiled route '{normalizedRoute}'.");
+			}
+		}
+
+		return new HtmxorComponentActionDescriptor(
+			action.ComponentType,
+			normalizedRoute,
+			action.HttpMethod,
+			action.HandlerIdentity,
+			action);
 	}
 }

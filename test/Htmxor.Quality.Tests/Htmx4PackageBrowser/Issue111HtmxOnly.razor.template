@@ -15,7 +15,7 @@
 
 @code {
 	[Parameter]
-	public string ItemId { get; set; } = string.Empty;
+	public int ItemId { get; set; }
 
 	private readonly string requestId = Guid.NewGuid().ToString("N");
 	private string? submittedValue;
