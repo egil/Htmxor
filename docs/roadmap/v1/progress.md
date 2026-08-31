@@ -137,6 +137,9 @@ Last updated: 2026-08-31
 - Issue #145 preserved compiler red: `3fe79959dc2112f4346b85f6d9071ebf41b040c3`, based on the then-current `origin/main` commit `864f3d6451c240b7de9a43e84a73c673fd3c7053`; the package consumer could not compile the required no-argument registration API.
 - Issue #145 preserved package-runtime red: `58731a0ac5ddf92216e7828f289368958497945b`; 4 of 13 external consumer checks passed and 9 failed because stock Blazor rejected the grouped route template.
 - Issue #145 verified executable proof commit after rebasing onto the .NET 10-only main commit `5003a245fe3d81f5d74bbc91c9ff558fb13e964d`: `9d98226b64838d89eeb709dedf20f9cd3038170f`.
+- Issue #151 registration-naming baseline and freshly queried `origin/main`: `6b5ad905ed0a49ec90dcbe225fff30f409566f47`.
+- Issue #151 preserved meaningful packed-package API red: `6664dacb95ca79306fe4c5ef572d8226d2dbb477`.
+- Issue #151 verified registration-naming implementation: `acf778f3abc19e26ee7524122adb8734181b9781`.
 - Framework boundary under test: .NET SDK 10.0.400, ASP.NET Core 10.0.11, and Blazor static SSR. The package, repository tooling, tests, test application, and maintained samples now target `net10.0`; the generator remains a `netstandard2.0` compiler component packaged under `analyzers/dotnet/cs`. Current package-only TestServer and Kestrel/Chromium consumers restore a locally packed `net10.0` Htmxor package. Earlier `net8.0` package references below record historical exact-head evidence and are not current compatibility claims.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -145,7 +148,8 @@ Last updated: 2026-08-31
   executed htmx 4 browser slice; the remaining conformance matrix is unproved.
 - V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer; issue #97, deterministic aggregation of two supported package-consumer declarations through that single registration call; issue #100, one package-generated stock-page PUT callback bound to the compiled component endpoint while two explicit HTMX-only controls remain GET-only; issue #103, shared POST, PUT, PATCH, and DELETE inference for stock `@page` and omitted-`Methods` HTMX-only routes with explicit-method conflicts rejected before mapping; issue #106, explicit authoritative C# method discovery for matching `.razor.cs` partials and all-C# components, deterministic rejection and registration suppression when a C# declaration omits `Methods`, and no method widening from manual render-tree code; issue #108, removal of Htmxor-owned htmx distribution and one package-only application-owned htmx 4.0.0 stock-page and component-GET browser path; issue #56, stock antiforgery and generated POST, PUT, PATCH, and DELETE callback dispatch through the htmx 4 request context in a package-only browser consumer; issue #111, generated safe QUERY callback dispatch for stock and HTMX-only route owners through the real htmx 4 package/browser boundary; issue #50, standard OutputCache variation for one stock full/direct GET pair in a package-only Kestrel consumer; issue #18, dynamic application response headers through the stock request-owned `HttpContext` on normal and direct GET paths; issues #72 and #75, published Production startup plus stock fingerprinted application-asset and packaged-adapter compatibility; issue #116, one htmx 4 `HX-Trigger` response-event surface with post-swap Chromium dispatch and configured JSON details; issue #118, typed htmx 4 full/partial request context, complete source/target identities, stock/direct representation selection, and forged-header fail-closed controls; issue #120, distinct native POST and htmx 4 PUT form destinations with stock full-page fallback, direct partial swapping, and server-owned route, method, authorization, and antiforgery decisions; issue #122, one pure multi-target htmx 4 partial response composed from server-selected `HtmxFragment` instances; issue #64, stock local `NavigationManager.NavigateTo` redirect parity for ordinary GETs and successful `HX-Redirect` full-page navigation for direct htmx GETs; issue #125, static ID-selector `hx-target` order independence for all five generated action methods under stock and omitted-`Methods` route owners; issue #127, `Int32` route-value delivery for one omitted-Methods generated HTMX-only route on direct GET and its declared PUT action; issue #129, application-selected component error status/body plus native htmx 4 default and source-owned no-swap policies through the published package/browser boundary; issue #131, native htmx 4 DELETE form-value placement without stock antiforgery-token transport through the published package/browser boundary; issue #133, raw application-authored OOB response composition with native htmx 4 main-before-OOB DOM and event order through the published package/browser boundary; issue #135, raw application-authored `<hx-partial>` response composition with native htmx 4 main-before-partial DOM and event order through the published package/browser boundary; issue #137, one selected `HtmxFragment` retaining routed-page and wrapper lifecycle while the excluded sibling descendant performs no initialization, parameter, or render work; issue #139, one selected fragment's gated asynchronous initialization completing before htmx observes the response while the excluded sibling performs no lifecycle or render work; issue #141, arbitrary supported project-root `HtmxRoute` cardinality with three separately packed consumer routes retaining independent contracts through one registration; issue #144, two concurrent selected-fragment requests retaining request-local gates, lifecycle records, response completion, and htmx browser swaps while both excluded siblings perform zero work; issue #148, a .NET 10-only package, repository, samples, tooling, and package-consumer boundary using the supported ASP.NET Core 10 convention-builder helper.
 - Issue #145 additionally proves generated no-argument registration for root and one standard route-group mapping, with all maintained samples consuming the generator as an analyzer and no destination-registration compatibility overload.
-- Current implementation slice: issue #145, generated no-argument registration at the root and through one standard ASP.NET Core route group.
+- The first bounded issue #151 slice additionally proves the product-named `AddHtmxor()` / `AddHtmxorEndpoints()` pair through the packed runtime and generated consumer API, with no obsolete developer-facing aliases.
+- Current implementation slice: issue #151 registration naming. The public allow-list, PublicAPI compatibility baseline, and client-helper decision remain open under #151.
 
 ## Proven v1 behavior
 
@@ -1746,9 +1750,9 @@ mutation was not run; ordinary pull-request verification uses the fast and full
 profiles, and this target-framework migration does not require the scheduled
 full production mutation workload.
 
-## Current implementation slice
+## Previous registration-shape slice
 
-Issue #145 establishes the current registration contract:
+Issue #145 established the no-argument registration shape:
 
 > When a .NET 10 Blazor static-SSR application maps Razor components at the root
 > or through one standard ASP.NET Core route group, Htmxor enables its generated
@@ -1778,9 +1782,9 @@ Blazor's `Router` accepts; ordered endpoint and group metadata remain unchanged,
 and the selected endpoint is restored afterward. No prefix is guessed or
 separately configured.
 
-All three maintained samples target `net10.0`, consume the generator as an
-analyzer,
-and call only `AddHtmxorComponentEndpoints()`. The runtime exposes no public or
+At that verified head, all three maintained samples targeted `net10.0`, consumed
+the generator as an analyzer,
+and called only `AddHtmxorComponentEndpoints()`. The runtime exposes no public or
 implementation-internal two-argument destination-registration bridge. Projects
 with stock pages but no `HtmxRoute` declarations receive a generated empty
 registration manifest, so the same API remains available without inventing
@@ -1802,8 +1806,85 @@ component applications, group endpoint filters or rate limiting, interactive
 render modes, another ASP.NET Core version, or the grouped path on Kestrel or in
 a browser. .NET 11 remains a later independent compatibility slice.
 
-The recommended next slice remains selected-request cancellation at the
-package/Kestrel/Chromium boundary. It should establish that aborting one gated
-browser request cannot emit or swap a late completed marker, leak observations
-into another request, or poison a later selected request, while its excluded
-sibling still records zero work.
+## Current implementation slice
+
+The first bounded slice of issue #151 settles the developer-facing registration
+names:
+
+> When a .NET 10 Blazor static-SSR application registers Htmxor and maps Razor
+> components, Htmxor exposes `AddHtmxor()` and `AddHtmxorEndpoints()` without
+> implying that it installs or owns the application-supplied htmx runtime, while
+> preserving the no-argument root and route-group mapping shape and fluent
+> endpoint-convention builder.
+
+`AddHtmxor()` remains an `IRazorComponentsBuilder` extension that registers
+Htmxor's server integration and returns the same builder. The generated
+parameterless `AddHtmxorEndpoints()` extension returns
+`RazorComponentsEndpointConventionBuilder`, recovers the real endpoint route
+builder through ASP.NET Core 10's supported helper, and retains the #145 root and
+standard route-group behavior. The former developer-facing `AddHtmx()` and
+`AddHtmxorComponentEndpoints()` names are absent. Internal descriptor and legacy
+test-pipeline helpers are not compatibility aliases and retain their scoped
+implementation names.
+
+All three maintained samples, focused runtime tests, the packed TestServer
+consumer, the package/Kestrel/Chromium source template, the README, current
+documentation, changelog, and the three living DX documents use the new pair.
+The separately packed consumer still exercises both root and grouped
+registrations; its existing component policies, hosts, route constraints,
+antiforgery, generated methods, arbitrary group metadata, and fail-closed
+diagnostics remain unchanged.
+
+The packed-package API test was committed first at
+`6664dacb95ca79306fe4c5ef572d8226d2dbb477`. After the package and generated
+consumer built successfully, the focused test failed 1 of 1 for the intended
+reason: the runtime exposed `AddHtmx` and did not expose `AddHtmxor`. At exact
+clean implementation commit `acf778f3abc19e26ee7524122adb8734181b9781`, the
+same test passed 1 of 1 and also required the generated
+`RazorComponentsEndpointConventionBuilder AddHtmxorEndpoints(...)` signature
+while rejecting both obsolete names.
+
+The exact red command was:
+
+```bash
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Packed_package_exposes_only_Htmxor_owned_registration_names" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue151-red.trx" --results-directory artifacts/results/issue151-red-6664dac
+```
+
+The exact green commands were:
+
+```bash
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorRegistrationApiTests|FullyQualifiedName~HtmxorRouteGeneratorTests|FullyQualifiedName~HtmxHeadOutletTest" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue151-green-core.trx" --results-directory artifacts/results/issue151-green-acf778f/core
+dotnet test test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Issue78RoutingTests|FullyQualifiedName~Issue83AuthorizationTests|FullyQualifiedName~Issue85FormTests|FullyQualifiedName~Issue87UnsafeActionTests|FullyQualifiedName~Issue89LifecycleCompositionTests|FullyQualifiedName~Issue91HtmxOnlyRouteTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue151-green-aspnet.trx" --results-directory artifacts/results/issue151-green-acf778f/aspnet
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Packed_package_exposes_only_Htmxor_owned_registration_names" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue151-green-package-api.trx" --results-directory artifacts/results/issue151-green-acf778f/package-api
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min --logger "trx;LogFileName=issue151-green-packed.trx" --results-directory artifacts/results/issue151-green-acf778f/packed
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+```
+
+At that exact implementation commit:
+
+- the focused core API, generator, and client-ownership command passed 16 of 16;
+- the focused ASP.NET Core 10 command passed 45 of 45;
+- all `PackedPackageConsumerTests` passed 8 of 8 outer tests, including the
+  positive consumers' asserted 15-of-15 and 17-of-17 inner results plus five
+  expected diagnostic build failures; and
+- `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check
+  --profile fast` passed analyzer and style verification, the Release build,
+  and 453 of 453 tests: 118 quality, 45 ASP.NET Core 10, and 290 core tests. Its
+  summary recorded the exact HEAD, a clean worktree, and `Valid: true`.
+
+Restore and the Release build reported `NU1900` for three projects because NuGet
+vulnerability data could not load the configured service index; the
+authoritative fast profile still completed with zero test, analyzer, style, or
+build errors. The local full profile and browser boundary were not run for this
+naming-only slice; ordinary
+pull-request CI must run fast and full before acceptance. Full-scope mutation was
+not run and is not required for this pull-request slice. This evidence does not
+extend #145 to nested groups, multiple Razor component applications, group
+filters or rate limiting, interactive render modes, or a grouped browser path,
+and it does not exercise another operating system, ASP.NET Core version, htmx
+version, TLS, proxy, container, published or signed package, or release candidate.
+
+Issue #151 remains open. The recommended next slice is the reviewed stable
+public-type/member allow-list plus its packed-package PublicAPI compatibility
+baseline, because that executable baseline must encode the approved surface
+before later client-helper decisions or #152-#154 redesigns change it.

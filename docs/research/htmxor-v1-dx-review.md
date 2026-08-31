@@ -1,7 +1,10 @@
 # Htmxor v1 developer experience review
 
 - Review date: 2026-08-31
-- Repository baseline: `4415863e225636d489cca2b375fb83fad583b4f5`
+- Original review baseline: `4415863e225636d489cca2b375fb83fad583b4f5`
+- Registration-naming evidence: red
+  `6664dacb95ca79306fe4c5ef572d8226d2dbb477`; verified implementation
+  `acf778f3abc19e26ee7524122adb8734181b9781`
 - Starting discussion: [#143, "WIP: new devex"](https://github.com/egil/Htmxor/discussions/143)
 - Product contract: [Htmxor v1 goal](../roadmap/v1/goal.md)
 - Feature inventory: [Htmxor v1 guide and htmx 4 map](../htmxor-v1-feature-guide.md)
