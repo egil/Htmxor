@@ -7,11 +7,12 @@
 
 <button hx-put="/reports/@ReportId?source=@Source"
         hx-delete="/reports/@ReportId?source=@Source"
+        hx-target="#report-result"
         @onput="PutReport"
         @ondelete="DeleteReport">Update report</button>
 <AntiforgeryToken />
 
-<section data-issue-100-report-page>
+<section id="report-result" data-issue-100-report-page>
     <p data-page-request-values>@ReportId|@Source|@HttpContext.User.Identity?.Name</p>
     <p data-issue-100-put-result
        data-report-id="@ReportId"

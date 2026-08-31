@@ -376,6 +376,7 @@ internal sealed class HtmxorComponentActionDeclaration
 				return true;
 			}
 
+			var attributeNameStart = index;
 			index = SkipName(source, index, attributeIndex, allowRazorPrefix: true);
 			if (index < 0)
 			{
@@ -384,7 +385,12 @@ internal sealed class HtmxorComponentActionDeclaration
 
 			if (index < attributeIndex && source[index] == '=')
 			{
-				index = SkipSupportedAttributeValue(source, index + 1, attributeIndex);
+				index = SkipSupportedAttributeValue(
+					source,
+					index + 1,
+					attributeIndex,
+					attributeNameStart,
+					index);
 				if (index < 0)
 				{
 					return false;
@@ -423,11 +429,21 @@ internal sealed class HtmxorComponentActionDeclaration
 		return index;
 	}
 
-	private static int SkipSupportedAttributeValue(string source, int start, int end)
+	private static int SkipSupportedAttributeValue(
+		string source,
+		int start,
+		int end,
+		int attributeNameStart,
+		int attributeNameEnd)
 	{
 		if (start >= end || source[start] != '"')
 		{
 			return -1;
+		}
+
+		if (IsStaticIdTarget(source, start, end, attributeNameStart, attributeNameEnd))
+		{
+			return SkipStaticIdSelector(source, start + 2, end);
 		}
 
 		var index = start + 1;
@@ -458,6 +474,39 @@ internal sealed class HtmxorComponentActionDeclaration
 		}
 
 		return -1;
+	}
+
+	private static bool IsStaticIdTarget(
+		string source,
+		int valueStart,
+		int valueEnd,
+		int attributeNameStart,
+		int attributeNameEnd)
+		=> attributeNameEnd - attributeNameStart == "hx-target".Length &&
+			string.CompareOrdinal(
+				source,
+				attributeNameStart,
+				"hx-target",
+				0,
+				"hx-target".Length) == 0 &&
+			valueStart + 1 < valueEnd &&
+			source[valueStart + 1] == '#';
+
+	private static int SkipStaticIdSelector(string source, int start, int end)
+	{
+		if (start >= end || !IsIdentifierStart(source[start]))
+		{
+			return -1;
+		}
+
+		var index = start + 1;
+		while (index < end &&
+			(IsIdentifierPart(source[index]) || source[index] == '-'))
+		{
+			index++;
+		}
+
+		return index < end && source[index] == '"' ? index + 1 : -1;
 	}
 
 	private static int SkipSimpleRazorIdentifier(string source, int start, int end)

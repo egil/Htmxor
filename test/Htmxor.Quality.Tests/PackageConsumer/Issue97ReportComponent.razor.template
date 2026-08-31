@@ -6,9 +6,10 @@
 <InputText @bind-Value="InputValue"
            hx-put="/issue-97-group/htmx-reports/42"
            hx-patch="/issue-97-group/htmx-reports/42"
+           hx-target="#patch-result"
            @onpatch="PatchReport" />
 
-<section data-issue-97-report-component>
+<section id="patch-result" data-issue-97-report-component>
     <p data-report-request-values>@ReportId|@HttpContext.User.Identity?.Name|@GroupMarker</p>
     <p data-issue-103-patch-result
        data-report-id="@ReportId"
