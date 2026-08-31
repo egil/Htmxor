@@ -86,7 +86,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 				GroupPolicyName,
 				policy => policy.RequireClaim(PackageConsumerAuthenticationHandler.GroupAccessClaim));
 		});
-		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddRazorComponents().AddHtmxor();
 		builder.Services.AddSingleton<Issue100ApplicationProbe>();
 		builder.Services.AddScoped<Issue100RequestProbe>();
 
@@ -98,7 +98,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			.RequireAuthorization(GroupPolicyName)
 			.WithMetadata(Issue97GroupMetadata.Instance);
 		routes.MapRazorComponents<Issue97App>()
-			.AddHtmxorComponentEndpoints();
+			.AddHtmxorEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();
@@ -120,12 +120,12 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	[Fact]
 	public void Endpoint_registration_names_the_Htmxor_server_integration()
 	{
-		var registrationType = typeof(PackageConsumerTests).Assembly.GetType(
-			"Microsoft.AspNetCore.Builder.HtmxorGeneratedRouteRegistrationExtensions",
-			throwOnError: true)!;
-		var registrationMethods = registrationType
-			.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+		var registrationMethods = typeof(PackageConsumerTests).Assembly
+			.GetTypes()
+			.SelectMany(static type => type.GetMethods(
+				BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
 			.Select(static method => method.Name)
+			.Where(static name => name.StartsWith("AddHtmxor", StringComparison.Ordinal))
 			.ToArray();
 
 		Assert.Contains("AddHtmxorEndpoints", registrationMethods);

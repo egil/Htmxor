@@ -45,7 +45,7 @@ public sealed class Issue145RootRegistrationTests : IAsyncLifetime
 			AddPolicy(options, SummaryPolicyName, PackageConsumerAuthenticationHandler.SummaryAccess);
 			AddPolicy(options, AuditPolicyName, PackageConsumerAuthenticationHandler.AuditAccess);
 		});
-		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddRazorComponents().AddHtmxor();
 		builder.Services.AddSingleton<Issue100ApplicationProbe>();
 		builder.Services.AddScoped<Issue100RequestProbe>();
 
@@ -54,7 +54,7 @@ public sealed class Issue145RootRegistrationTests : IAsyncLifetime
 		app.UseAuthorization();
 		app.UseAntiforgery();
 		app.MapRazorComponents<Issue97App>()
-			.AddHtmxorComponentEndpoints();
+			.AddHtmxorEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();

@@ -41,7 +41,7 @@ public sealed class Issue89LifecycleCompositionTests : IAsyncLifetime
 		builder.Services.AddAuthorization(options => options.AddPolicy(
 			PolicyName,
 			policy => policy.RequireClaim(Issue89AuthenticationHandler.AccessClaim, "granted")));
-		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddRazorComponents().AddHtmxor();
 		builder.Services.AddSingleton<Issue89ApplicationProbe>();
 		builder.Services.AddScoped<Issue89RequestProbe>();
 
