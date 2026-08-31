@@ -2,6 +2,13 @@
 
 [add introduction]
 
+## V1 design
+
+The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) describes the planned
+API. It is not documentation for the current beta. The
+[developer experience review](research/htmxor-v1-dx-review.md) explains the
+remaining API decisions and links the issues that track them.
+
 ## Getting Started
 
 To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
@@ -95,12 +102,12 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       </head>
 
       <!--
-        Adding hx-boost="true" is optional.
+        Adding hx-boost:inherited="true" is optional.
         hx-boost returns the "enhanced navigation" and "enhanced forms"
         features that are lost by removing blazor.web.js script below.
-        Learn more here: https://htmx.org/attributes/hx-boost/
+        Learn more here: https://four.htmx.org/reference/attributes/hx-boost
       -->
-    + <body hx-boost="true">
+    +     <body hx-boost:inherited="true">
           <Routes />
 
     -     <script src="_framework/blazor.web.js"></script>
@@ -117,7 +124,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
 5. **Create an Optional Direct Request Layout**
 
-   Optionally, create a layout that will be used during [direct routing](routing.md#direct-routing), e.g., `/Components/Layout/HtmxorLayout.razor`:
+   Optionally, create a layout that will be used during [direct routing](#direct-routing), e.g., `/Components/Layout/HtmxorLayout.razor`:
 
     ```razor
     @inherits HtmxLayoutComponentBase
@@ -187,8 +194,9 @@ case.
 ## Output caching
 
 For the bounded case where one component URL returns the stock full page when
-`HX-Request` is absent and the direct component representation when
-`HX-Request: true` is present, include `HX-Request` in the ASP.NET Core
+`HX-Request` is absent, the stock htmx full representation when the request type
+is `full`, and the direct component representation when the request type is
+`partial`, include both `HX-Request` and `HX-Request-Type` in the ASP.NET Core
 OutputCache key. Configure the standard component attribute together with the
 OutputCache services and middleware:
 
@@ -203,13 +211,13 @@ app.UseOutputCache();
 
 ```razor
 @using Microsoft.AspNetCore.OutputCaching
-@attribute [OutputCache(VaryByHeaderNames = ["HX-Request"])]
+@attribute [OutputCache(VaryByHeaderNames = ["HX-Request", "HX-Request-Type"])]
 @page "/cached-component"
 ```
 
-The standard `VaryByHeaderNames` configuration is sufficient while
-`HX-Request` is the sole input that changes the response representation.
-`CacheOutput(policy => policy.SetVaryByHeader("HX-Request"))` is its endpoint-
+The standard `VaryByHeaderNames` configuration distinguishes normal, htmx full,
+and htmx partial representations. `CacheOutput(policy =>
+policy.SetVaryByHeader("HX-Request", "HX-Request-Type"))` is its endpoint-
 policy equivalent. An application that also varies output for boosted requests,
 targets, history restoration, selected fragments, authentication, or other
 request data must add every such input to its cache policy. Htmxor does not infer
@@ -221,27 +229,30 @@ cookie for a safe GET that contains no stock antiforgery component.
 
 ## Routing in Htmxor
 
-Htmxor routing and Blazor Static Web Apps routing differ in ways that enhance htmx scenarios. In Htmxor, there are two types of routing:
-
-In Htmxor, there are **two** types of routing:
+Htmxor supports two routing modes for Blazor static SSR:
 
 - **Standard routing**
 - **Direct routing**
 
-The routing mode is determined by the presence or absence of [htmx headers](https://htmx.org/reference/#request_headers):
+The routing mode is determined by the htmx 4
+[`HX-Request`](https://four.htmx.org/reference/#headers) and
+`HX-Request-Type` headers together:
 
-```python
-if ( HX-Request is null || ( HX-Boosted is not null && HX-Target is null ) )
-    RoutingMode.Standard
-else
+```text
+if ( HX-Request is present
+     && HX-Request-Type has exactly one value
+     && that value is exactly "partial" )
     RoutingMode.Direct
+else
+    RoutingMode.Standard
 ```
 
 Here's a detailed look at each mode:
 
 ### Standard Routing
 
-Standard routing is used when the `HX-Request` header is missing, or when `HX-Boosted` is present and `HX-Target` is missing.
+Standard routing is used for a normal browser request and for an htmx request
+whose `HX-Request-Type` is missing, invalid, repeated, or exactly `full`.
 
 In this mode, routing behaves like conventional Blazor Static Web Apps routing. The root component (typically App.razor or the component passed to `MapRazorComponents<TRootComponent>()` in `Program.cs`) is rendered.
 
@@ -256,7 +267,10 @@ App --> Routes --> MainLayout --> MyPage
 
 ### Direct Routing
 
-Direct routing bypasses the root component (`App.razor`) and the standard layout (`MainLayout`). Instead, it routes directly to the component that matches the request.
+Direct routing is selected only when `HX-Request` is present and the single
+`HX-Request-Type` value is exactly `partial`. It bypasses the root component
+(`App.razor`) and the standard layout (`MainLayout`). Instead, it routes
+directly to the component that matches the request.
 
 If the target component has a `HtmxLayout` attribute, that layout is rendered first.
 
