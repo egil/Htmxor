@@ -1708,6 +1708,13 @@ project's built-in package validation with a `net10.0` package asset. The later
 documentation-only head recording this evidence was not executed; all executable
 claims in this section remain tied to `f722029d4cb6dcc8384a5e93cecac88f9c37cb78`.
 
+At that exact executable head, `global.json` pins SDK `10.0.100` with
+`latestFeature` roll-forward so repository evidence stays on the .NET 10 major
+line. CI package deployment is restricted to published GitHub release events;
+ordinary pull requests and pushes to `main` cannot publish. The exact-head full
+profile's 118 quality tests include the repository policy test that enforces
+that release-only deployment condition.
+
 This proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Linux under WSL2, a
 locally packed unsigned package, TestServer, Kestrel loopback HTTP, cached
 Chromium revision 1234 / 151.0.7922.34, and exact application-owned htmx 4.0.0.
