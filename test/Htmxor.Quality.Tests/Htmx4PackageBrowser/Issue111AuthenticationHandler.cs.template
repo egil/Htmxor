@@ -19,7 +19,8 @@ public sealed class Issue111AuthenticationHandler(
 		if ((!Request.Path.StartsWithSegments("/issue-111") &&
 			!Request.Path.StartsWithSegments("/issue-120") &&
 			!Request.Path.StartsWithSegments("/issue-131") &&
-			!Request.Path.StartsWithSegments("/issue-133")) ||
+			!Request.Path.StartsWithSegments("/issue-133") &&
+			!Request.Path.StartsWithSegments("/issue-135")) ||
 			!Request.Headers.ContainsKey(UserHeaderName))
 		{
 			return Task.FromResult(AuthenticateResult.NoResult());
