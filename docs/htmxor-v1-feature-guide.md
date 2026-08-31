@@ -158,8 +158,17 @@ The v1 method model is small:
 | `PUT` | Statically discoverable `@onput` | Accepted and proved in focused tests |
 | `PATCH` | Statically discoverable `@onpatch` | Accepted and proved in focused tests |
 | `DELETE` | Statically discoverable `@ondelete` | Accepted and proved in focused tests |
-| `QUERY` | Application-authored `@onquery` | Accepted future intent; needs complete executable evidence |
+| `QUERY` | Application-authored `@onquery` | Proved for one binding per stock or HTMX-only route owner |
 | Other methods | Narrow explicit declaration and extension API | Not implicit in v1 |
+
+[#111](https://github.com/egil/Htmxor/issues/111) proves one static
+`@onquery` method-group binding on an `@page` and on an omitted-`Methods`
+`HtmxRoute`. Its package-only test uses htmx 4.0.0, form-encoded content, real
+Kestrel, and Chromium. It also proves that client-only `hx-query` cannot grant
+the method. The slice does not cover JSON or other content types, large or
+streaming bodies, cancellation, concurrent QUERY requests, several QUERY
+bindings on one component, composition with an unsafe action, broad typed route
+conversion, or reverse proxies.
 
 An ordinary element callback keeps behavior near the markup:
 
@@ -371,7 +380,6 @@ extension syntax. Prefer literal markup when the value is clear:
 <div hx-confirm:inherited="Add this product?">
     <button hx-post="/cart"
             hx-vals:append="{ source: 'detail' }"
-            hx-status:422="swap"
             hx-on:click="this.disabled = true">
         Add
     </button>
@@ -395,9 +403,10 @@ server. Htmx still owns all DOM behavior.
 | `hx-put` | Issue PUT | Declare `@onput`; unsafe and antiforgery-protected. |
 | `hx-patch` | Issue PATCH | Declare `@onpatch`; unsafe and antiforgery-protected. |
 | `hx-delete` | Issue DELETE | Declare `@ondelete`; unsafe and antiforgery-protected. DELETE values are not body data by default in htmx 4. |
-| `hx-query` | Issue QUERY | Requires application-authored `@onquery`. This is accepted future v1 intent, not a client-granted method. |
-| `hx-action` | Set the request URL | Pair with `hx-method`, or let a verb-specific attribute win. It never grants the server route. |
+| `hx-query` | Issue QUERY | Requires application-authored `@onquery`. Issue #111 proves one form-encoded binding per route owner; the client never grants the method. |
+| `hx-action` | Set the request URL | Pair with `hx-method`. When present, `hx-action` takes precedence over verb-specific htmx attributes. It never grants the server route. |
 | `hx-method` | Select GET, POST, PUT, PATCH, DELETE, or QUERY | The component declaration must independently allow the method. Useful for progressive markup resembling form `action`/`method`. |
+| `hx-on` | Handle one or more htmx or DOM events | Client behavior only. Prefer external listeners where the application's CSP disallows inline script. |
 | `hx-trigger` | Choose events, filters, polling, and modifiers | No server API is needed. Account for duplicate, aborted, delayed, or concurrent requests. |
 | `hx-target` | Choose the primary DOM target | Does not select or authorize a server action. May inform representation; extended selectors need no element ID. |
 | `hx-swap` | Choose insertion/morph/deletion and modifiers | Return compatible HTML. `HtmxResponse.Reswap` can override it. |
@@ -405,6 +414,12 @@ server. Htmx still owns all DOM behavior.
 | `hx-select-oob` | Extract additional OOB selectors | The response must include matching elements. This is client-side selection, not fragment execution control. |
 | `hx-swap-oob` | Mark returned content for an OOB swap | Emit raw markup inside the selected server fragment. Preserve intended IDs/selectors. |
 | `hx-status` | Override swap behavior by exact or wildcard HTTP status | Return honest HTTP statuses. Use this for validation/handled errors instead of flattening every response to 200. |
+
+On a form, native `action` and `method` remain the no-JavaScript destination and
+verb. `hx-action` and `hx-method` may select a different enhanced destination
+and verb when htmx runs. Both server routes must be declared independently.
+`hx-action` takes precedence over `hx-get`, `hx-post`, and the other
+verb-specific htmx attributes on the same element.
 
 `hx-trigger` supports ordinary events; comma-separated triggers; event filters;
 `once`, `changed`, `delay`, `throttle`, `from`, `target`, `prevent`, `stop` or
@@ -492,7 +507,7 @@ Htmxor helper types.
 
 ### Active search
 
-Use a safe GET while the QUERY path is still unproved:
+Use a safe GET for an idempotent search:
 
 ```razor
 <input name="q"
@@ -506,6 +521,11 @@ Use a safe GET while the QUERY path is still unproved:
 Declare `/products/search` as an `@page` or HTMX-only GET component. Bind and
 validate the query as ordinary untrusted input. `hx-sync` suppresses stale
 client delivery; the server must still tolerate cancellation and overlap.
+
+Use `hx-query` only when the component declares `@onquery` and the deployed
+HTTP path accepts QUERY. The proved slice covers one form-encoded value on
+Kestrel and Chromium, not reverse proxies or the broader request shapes listed
+above.
 
 ### Lazy load and infinite scrolling
 
@@ -550,14 +570,17 @@ the client delivery explicitly:
           method="post"
           hx-post="/profile"
           hx-target="this"
-          hx-swap="outerHTML"
-          hx-status:422="swap">
+          hx-swap="outerHTML">
     ...
 </EditForm>
 ```
 
-The callback may set status 422 after normal validation. Unexpected exceptions
-remain errors; do not turn every failure into status 200 merely to force a swap.
+The callback may set status 422 after normal validation. Htmx 4 swaps 422
+responses by default, so this example needs no `hx-status` override. When an
+application changes status handling, values such as `swap:outerHTML`,
+`swap:none`, or `target:#validation-errors` must describe the intended action.
+Unexpected exceptions remain errors; do not turn every failure into status 200
+merely to force a swap.
 
 ### Delete a repeated row
 
@@ -591,8 +614,9 @@ duplicate delivery.
 
 ### Boosted navigation and history
 
-Put `hx-boost="true"` on a deliberate navigation region and keep each link or
-form valid without JavaScript. A boosted request may require a full
+Put `hx-boost:inherited="true"` on a deliberate navigation region, or put
+`hx-boost="true"` on each eligible link or form. Keep each link or form valid
+without JavaScript. A boosted request may require a full
 representation even though `HX-Request` is present. URLs pushed or replaced in
 history must remain refreshable and authorized. Test history cache misses and
 authentication redirects, not only the forward click.

@@ -86,7 +86,7 @@ GET is the only implicit method. A route written in C# must state its full
 | PUT | `@onput` |
 | PATCH | `@onpatch` |
 | DELETE | `@ondelete` |
-| Future QUERY | Application-authored `@onquery` |
+| QUERY, bounded proof | Application-authored `@onquery` |
 
 ```razor
 @page "/reports/{ReportId:int}"
@@ -127,8 +127,14 @@ server declaration, but they cannot create one. If Htmxor cannot resolve a
 callback at build time, the diagnostic should point to that callback and say
 what declaration is needed.
 
-QUERY remains planned v1 behavior. It is not a release claim until the compiler,
-HTTP, proxy, security, and browser paths have executable evidence.
+[#111](https://github.com/egil/Htmxor/issues/111) proves one static
+`@onquery` binding for each stock and HTMX-only route owner through the
+compiler, a separately packed .NET 10 package, Kestrel, Chromium, and htmx 4.0.0
+with form-encoded content. It also proves that client-only `hx-query` receives
+`405` and invokes no callback. This is a bounded slice. JSON and other content
+types, large or streaming bodies, cancellation, concurrent QUERY requests,
+several bindings on one component, composition with unsafe actions, broad typed
+route conversion, and reverse proxies remain unproved.
 
 ## Keep Blazor forms
 
