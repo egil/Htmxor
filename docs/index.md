@@ -2,6 +2,14 @@
 
 [add introduction]
 
+## V1 developer model
+
+The [v1 developer guide and complete htmx 4 feature map](htmxor-v1-feature-guide.md)
+documents the intended stable-v1 experience. It is a design draft rather than
+documentation for the current beta. Its companion
+[developer-experience review](research/htmxor-v1-dx-review.md) records the API
+findings, proposed decisions, and issue boundaries.
+
 ## Getting Started
 
 To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
