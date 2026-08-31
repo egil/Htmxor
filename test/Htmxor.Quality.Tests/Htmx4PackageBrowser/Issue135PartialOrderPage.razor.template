@@ -1,0 +1,44 @@
+@page "/issue-135/partial-order"
+@using Htmxor
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@attribute [Authorize("issue-135")]
+@inject Issue135RequestProbe Probe
+
+<section @onput="Put"></section>
+
+@if (!updated)
+{
+	<form @formname="issue-135-partial-order">
+		<AntiforgeryToken />
+		<button id="issue-135-update"
+			type="button"
+			hx-put="/issue-135/partial-order"
+			hx-target="#issue-135-main-target"
+			hx-swap="innerHTML">Update main and partial targets</button>
+	</form>
+	<main data-issue-135-page>
+		<div id="issue-135-main-target" data-state="main-original">Main original</div>
+		<aside id="issue-135-partial-target" data-state="partial-original">Partial original</aside>
+	</main>
+}
+else
+{
+	<section data-issue-135-main="main-updated">Main updated</section>
+	<hx-partial hx-target="#issue-135-partial-target" hx-swap="innerHTML" data-state="partial-updated">
+		<strong data-issue-135-partial="partial-updated">Partial updated</strong>
+	</hx-partial>
+}
+
+@code {
+	private readonly string requestId = Guid.NewGuid().ToString("N");
+	private bool updated;
+
+	protected override void OnInitialized() => Probe.RecordInitialization(requestId);
+
+	private void Put()
+	{
+		updated = true;
+		Probe.RecordCallback(requestId);
+	}
+}

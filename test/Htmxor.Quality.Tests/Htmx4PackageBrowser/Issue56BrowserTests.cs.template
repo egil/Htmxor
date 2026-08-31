@@ -31,6 +31,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue129Path = "/issue-129/error";
 	private const string Issue131Path = "/issue-131/delete";
 	private const string Issue133Path = "/issue-133/oob-order";
+	private const string Issue135Path = "/issue-135/partial-order";
 	private const string Issue64Path = "/issue-64";
 	private const string Issue64RedirectPath = "/issue-64/redirect";
 	private const string Issue64DestinationPath = "/issue-64/destination";
@@ -766,6 +767,215 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Mixed_main_and_partial_response_swaps_main_before_partial()
+	{
+		var probe = new Issue135RequestProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), issue135Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		await page.SetExtraHTTPHeadersAsync(AuthenticatedIssue135Headers());
+		var navigation = await page.GotoAsync(Issue135Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		var normalBody = await navigation.TextAsync();
+		Assert.Contains("<html", normalBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-135-page", normalBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("<hx-partial", normalBody, StringComparison.OrdinalIgnoreCase);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var beforeUnauthorized = probe.Snapshot();
+		await page.SetExtraHTTPHeadersAsync(new Dictionary<string, string>());
+		var unauthorizedResponseTask = WaitForIssue135PutAsync(page);
+		await page.Locator("#issue-135-update").ClickAsync();
+		Assert.Equal((int)HttpStatusCode.Unauthorized, (await unauthorizedResponseTask).Status);
+		Assert.Equal(beforeUnauthorized, probe.Snapshot());
+
+		await page.SetExtraHTTPHeadersAsync(AuthenticatedIssue135Headers());
+		await page.ReloadAsync();
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		var beforeInvalidToken = probe.Snapshot();
+		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
+			"element => element.value = 'invalid-request-token'");
+		var invalidTokenResponseTask = WaitForIssue135PutAsync(page);
+		await page.Locator("#issue-135-update").ClickAsync();
+		Assert.Equal((int)HttpStatusCode.BadRequest, (await invalidTokenResponseTask).Status);
+		Assert.Equal(beforeInvalidToken, probe.Snapshot());
+
+		await page.ReloadAsync();
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await page.EvaluateAsync(
+			"""
+			() => {
+				window.issue135SwapEvents = [];
+				window.issue135Mutations = [];
+				document.body.addEventListener('htmx:before:settle', event => {
+					if (event.target.id === 'issue-135-main-target' ||
+						event.target.id === 'issue-135-partial-target') {
+						window.issue135SwapEvents.push(event.target.id);
+					}
+				});
+				new MutationObserver(records => {
+					for (const record of records) {
+						if (record.target.id === 'issue-135-main-target') {
+							window.issue135Mutations.push('issue-135-main-target');
+						} else if (record.target.id === 'issue-135-partial-target') {
+							window.issue135Mutations.push('issue-135-partial-target');
+						}
+					}
+				}).observe(document.body, { childList: true, subtree: true });
+			}
+			""");
+
+		var beforeSuccessfulRequest = probe.Snapshot();
+		var responseTask = WaitForIssue135PutAsync(page);
+		await page.Locator("#issue-135-update").ClickAsync();
+		var response = await responseTask;
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var requestHeaders = await response.Request.AllHeadersAsync();
+		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("partial", requestHeaders["hx-request-type"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("button#issue-135-update", requestHeaders["hx-source"]);
+		Assert.True(requestHeaders.ContainsKey("requestverificationtoken"));
+		var responseBody = await response.TextAsync();
+		Assert.DoesNotContain("<html", responseBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", responseBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-135-main=\"main-updated\"", responseBody, StringComparison.Ordinal);
+		Assert.Contains(
+			"<hx-partial hx-target=\"#issue-135-partial-target\" hx-swap=\"innerHTML\" data-state=\"partial-updated\">",
+			responseBody,
+			StringComparison.Ordinal);
+		var responseChildren = await page.EvaluateAsync<JsonElement>(
+			"""
+			body => {
+				const template = document.createElement('template');
+				template.innerHTML = body;
+				return Array.from(template.content.children).map(element => ({
+					tagName: element.localName,
+					attributeNames: Array.from(element.attributes, attribute => attribute.name).sort(),
+					childElementCount: element.childElementCount,
+					text: element.textContent.trim(),
+					mainState: element.getAttribute('data-issue-135-main'),
+					target: element.getAttribute('hx-target'),
+					swap: element.getAttribute('hx-swap'),
+					partialState: element.getAttribute('data-state'),
+					firstChildTagName: element.firstElementChild?.localName ?? null,
+					firstChildAttributeNames: Array.from(
+						element.firstElementChild?.attributes ?? [],
+						attribute => attribute.name).sort(),
+					firstChildState: element.firstElementChild?.getAttribute(
+						'data-issue-135-partial') ?? null,
+					firstChildElementCount: element.firstElementChild?.childElementCount ?? null,
+					firstChildText: element.firstElementChild?.textContent.trim() ?? null
+				}));
+			}
+			""",
+			responseBody);
+		var responseElements = responseChildren.EnumerateArray().ToArray();
+		Assert.Equal(3, responseElements.Length);
+		Assert.Equal("section", responseElements[0].GetProperty("tagName").GetString());
+		Assert.Empty(responseElements[0].GetProperty("attributeNames").EnumerateArray());
+		Assert.Equal(0, responseElements[0].GetProperty("childElementCount").GetInt32());
+		Assert.Equal(string.Empty, responseElements[0].GetProperty("text").GetString());
+		Assert.Equal("section", responseElements[1].GetProperty("tagName").GetString());
+		Assert.Equal(
+			new[] { "data-issue-135-main" },
+			responseElements[1].GetProperty("attributeNames").EnumerateArray()
+				.Select(value => value.GetString()).ToArray());
+		Assert.Equal(0, responseElements[1].GetProperty("childElementCount").GetInt32());
+		Assert.Equal("Main updated", responseElements[1].GetProperty("text").GetString());
+		Assert.Equal("main-updated", responseElements[1].GetProperty("mainState").GetString());
+		Assert.Equal("hx-partial", responseElements[2].GetProperty("tagName").GetString());
+		Assert.Equal(
+			new[] { "data-state", "hx-swap", "hx-target" },
+			responseElements[2].GetProperty("attributeNames").EnumerateArray()
+				.Select(value => value.GetString()).ToArray());
+		Assert.Equal(1, responseElements[2].GetProperty("childElementCount").GetInt32());
+		Assert.Equal("Partial updated", responseElements[2].GetProperty("text").GetString());
+		Assert.Equal("#issue-135-partial-target", responseElements[2].GetProperty("target").GetString());
+		Assert.Equal("innerHTML", responseElements[2].GetProperty("swap").GetString());
+		Assert.Equal("partial-updated", responseElements[2].GetProperty("partialState").GetString());
+		Assert.Equal("strong", responseElements[2].GetProperty("firstChildTagName").GetString());
+		Assert.Equal(
+			new[] { "data-issue-135-partial" },
+			responseElements[2].GetProperty("firstChildAttributeNames").EnumerateArray()
+				.Select(value => value.GetString()).ToArray());
+		Assert.Equal("partial-updated", responseElements[2].GetProperty("firstChildState").GetString());
+		Assert.Equal(0, responseElements[2].GetProperty("firstChildElementCount").GetInt32());
+		Assert.Equal("Partial updated", responseElements[2].GetProperty("firstChildText").GetString());
+		Assert.Equal(
+			1,
+			await page.EvaluateAsync<int>(
+				"""
+				body => {
+					const template = document.createElement('template');
+					template.innerHTML = body;
+					return template.content.querySelectorAll('hx-partial').length;
+				}
+				""",
+				responseBody));
+
+		await page.WaitForFunctionAsync(
+			"() => window.issue135SwapEvents.length === 2 && window.issue135Mutations.length === 2");
+		Assert.Equal(
+			new[] { "issue-135-main-target", "issue-135-partial-target" },
+			await page.EvaluateAsync<string[]>("() => window.issue135SwapEvents"));
+		Assert.Equal(
+			new[] { "issue-135-main-target", "issue-135-partial-target" },
+			await page.EvaluateAsync<string[]>("() => window.issue135Mutations"));
+		var finalMain = await page.Locator("#issue-135-main-target").EvaluateAsync<JsonElement>(
+			"""
+			element => ({
+				children: Array.from(element.children, child => child.outerHTML),
+				nonWhitespaceText: Array.from(element.childNodes)
+					.filter(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim())
+					.map(node => node.textContent.trim())
+			})
+			""");
+		Assert.Equal(
+			new[]
+			{
+				"<section></section>",
+				"<section data-issue-135-main=\"main-updated\">Main updated</section>",
+			},
+			finalMain.GetProperty("children").EnumerateArray()
+				.Select(value => value.GetString()).ToArray());
+		Assert.Empty(finalMain.GetProperty("nonWhitespaceText").EnumerateArray());
+
+		var finalPartial = await page.Locator("#issue-135-partial-target").EvaluateAsync<JsonElement>(
+			"""
+			element => ({
+				children: Array.from(element.children, child => child.outerHTML),
+				nonWhitespaceText: Array.from(element.childNodes)
+					.filter(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim())
+					.map(node => node.textContent.trim())
+			})
+			""");
+		Assert.Equal(
+			new[] { "<strong data-issue-135-partial=\"partial-updated\">Partial updated</strong>" },
+			finalPartial.GetProperty("children").EnumerateArray()
+				.Select(value => value.GetString()).ToArray());
+		Assert.Empty(finalPartial.GetProperty("nonWhitespaceText").EnumerateArray());
+		Assert.Equal(0, await page.Locator("#issue-135-main-target hx-partial").CountAsync());
+		Assert.Equal(0, await page.Locator("hx-partial").CountAsync());
+
+		var successfulRequest = probe.Snapshot().Skip(beforeSuccessfulRequest.Count).ToArray();
+		Assert.Collection(
+			successfulRequest,
+			initialization => Assert.Equal("initialized", initialization.Phase),
+			callback =>
+			{
+				Assert.Equal("callback", callback.Phase);
+				Assert.Equal(successfulRequest[0].RequestId, callback.RequestId);
+			});
+	}
+
+	[Fact]
 	public async Task Progressive_enhancement_preserves_native_post_and_htmx_put_paths()
 	{
 		var probe = new Issue120RequestProbe();
@@ -1188,6 +1398,7 @@ public sealed class Issue56BrowserTests
 		Issue129RequestProbe? issue129Probe = null,
 		Issue131RequestProbe? issue131Probe = null,
 		Issue133RequestProbe? issue133Probe = null,
+		Issue135RequestProbe? issue135Probe = null,
 		bool useHtmxor = true)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -1211,7 +1422,8 @@ public sealed class Issue56BrowserTests
 			.AddPolicy("issue-111", policy => policy.RequireAuthenticatedUser())
 			.AddPolicy("issue-120", policy => policy.RequireAuthenticatedUser())
 			.AddPolicy("issue-131", policy => policy.RequireAuthenticatedUser())
-			.AddPolicy("issue-133", policy => policy.RequireAuthenticatedUser());
+			.AddPolicy("issue-133", policy => policy.RequireAuthenticatedUser())
+			.AddPolicy("issue-135", policy => policy.RequireAuthenticatedUser());
 		builder.Services.AddOutputCache();
 		builder.Services.AddSingleton(probe);
 		builder.Services.AddSingleton(issue111Probe ?? new Issue111RequestProbe());
@@ -1221,6 +1433,7 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(issue129Probe ?? new Issue129RequestProbe());
 		builder.Services.AddSingleton(issue131Probe ?? new Issue131RequestProbe());
 		builder.Services.AddSingleton(issue133Probe ?? new Issue133RequestProbe());
+		builder.Services.AddSingleton(issue135Probe ?? new Issue135RequestProbe());
 		builder.Services.AddScoped<Issue120RequestScope>();
 
 		var app = builder.Build();
@@ -1281,6 +1494,11 @@ public sealed class Issue56BrowserTests
 			new Uri(response.Url).AbsolutePath == Issue133Path &&
 			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
 
+	private static Task<IResponse> WaitForIssue135PutAsync(IPage page) =>
+		page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue135Path &&
+			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
+
 	private static Dictionary<string, string> AuthenticatedIssue131Headers() =>
 		new()
 		{
@@ -1291,6 +1509,12 @@ public sealed class Issue56BrowserTests
 		new()
 		{
 			[Issue111AuthenticationHandler.UserHeaderName] = "issue-133-user",
+		};
+
+	private static Dictionary<string, string> AuthenticatedIssue135Headers() =>
+		new()
+		{
+			[Issue111AuthenticationHandler.UserHeaderName] = "issue-135-user",
 		};
 
 	private static Task WaitForIssue129RequestAsync(IPage page, int expectedCount) =>
