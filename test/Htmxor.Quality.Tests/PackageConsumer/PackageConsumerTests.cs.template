@@ -26,6 +26,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	private const string ReportPolicyName = "issue-97-report-policy";
 	private const string SummaryPolicyName = "issue-97-summary-policy";
 	private const string AuditPolicyName = "issue-141-audit-policy";
+	private const string GroupPolicyName = "issue-145-group-policy";
 	private const string RoutePrefix = "/issue-97-group";
 	private const string ReportDeclaredRoute = "/htmx-reports/{ReportId:int}";
 	private const string SummaryDeclaredRoute = "/summaries/{SummaryId:int}";
@@ -80,6 +81,9 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 				policy => policy.RequireClaim(
 					PackageConsumerAuthenticationHandler.AccessClaim,
 					PackageConsumerAuthenticationHandler.AuditAccess));
+			options.AddPolicy(
+				GroupPolicyName,
+				policy => policy.RequireClaim(PackageConsumerAuthenticationHandler.GroupAccessClaim));
 		});
 		builder.Services.AddRazorComponents().AddHtmx();
 		builder.Services.AddSingleton<Issue100ApplicationProbe>();
@@ -90,6 +94,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		app.UseAuthorization();
 		app.UseAntiforgery();
 		var routes = app.MapGroup(RoutePrefix)
+			.RequireAuthorization(GroupPolicyName)
 			.WithMetadata(Issue97GroupMetadata.Instance);
 		routes.MapRazorComponents<Issue97App>()
 			.AddHtmxorComponentEndpoints();
@@ -276,6 +281,19 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	public async Task Standard_group_owns_stock_and_generated_paths_without_unprefixed_duplicates()
 	{
 		AssertStockPageEndpoint();
+
+		await AssertUnavailableAsync(
+			PageRequestPath,
+			direct: true,
+			PackageConsumerAuthenticationHandler.ReportWithoutGroupUserName,
+			ReportHost,
+			HttpStatusCode.Forbidden);
+		await AssertUnavailableAsync(
+			ReportRequestPath,
+			direct: true,
+			PackageConsumerAuthenticationHandler.ReportWithoutGroupUserName,
+			ReportHost,
+			HttpStatusCode.Forbidden);
 
 		await AssertUnavailableAsync(
 			"/reports/42",
@@ -709,9 +727,9 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			Issue97GroupMetadata.Instance,
 			endpoint.Metadata.GetRequiredMetadata<Issue97GroupMetadata>());
 		Assert.Empty(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
-		Assert.Equal(
-			ReportPolicyName,
-			Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()).Policy);
+		var authorization = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>();
+		Assert.Contains(authorization, data => data.Policy == ReportPolicyName);
+		Assert.Contains(authorization, data => data.Policy == GroupPolicyName);
 		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 	}
 
@@ -734,8 +752,9 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		var route = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
 		Assert.Equal(declaredRoute, route.Template);
 		Assert.Equal(declaredMethods ?? [HttpMethods.Get], route.Methods);
-		var authorization = Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>());
-		Assert.Equal(policyName, authorization.Policy);
+		var authorization = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>();
+		Assert.Contains(authorization, data => data.Policy == policyName);
+		Assert.Contains(authorization, data => data.Policy == GroupPolicyName);
 
 		return endpoint;
 	}
@@ -792,10 +811,12 @@ internal sealed class PackageConsumerAuthenticationHandler(
 	public const string SchemeName = "issue-97-test";
 	public const string UserHeaderName = "X-Issue-97-User";
 	public const string AccessClaim = "issue-97-access";
+	public const string GroupAccessClaim = "issue-145-group-access";
 	public const string ReportAccess = "report";
 	public const string SummaryAccess = "summary";
 	public const string AuditAccess = "audit";
 	public const string ReportUserName = "issue-97-report-user";
+	public const string ReportWithoutGroupUserName = "issue-145-report-without-group-user";
 	public const string SummaryUserName = "issue-97-summary-user";
 	public const string AuditUserName = "issue-141-audit-user";
 	public const string AllAccessUserName = "issue-103-all-access-user";
@@ -821,16 +842,24 @@ internal sealed class PackageConsumerAuthenticationHandler(
 			[
 				new Claim(ClaimTypes.Name, userName),
 				new Claim(AccessClaim, ReportAccess),
+				new Claim(GroupAccessClaim, "allowed"),
+			],
+			ReportWithoutGroupUserName =>
+			[
+				new Claim(ClaimTypes.Name, userName),
+				new Claim(AccessClaim, ReportAccess),
 			],
 			SummaryUserName =>
 			[
 				new Claim(ClaimTypes.Name, userName),
 				new Claim(AccessClaim, SummaryAccess),
+				new Claim(GroupAccessClaim, "allowed"),
 			],
 			AuditUserName =>
 			[
 				new Claim(ClaimTypes.Name, userName),
 				new Claim(AccessClaim, AuditAccess),
+				new Claim(GroupAccessClaim, "allowed"),
 			],
 			AllAccessUserName =>
 			[
@@ -838,6 +867,7 @@ internal sealed class PackageConsumerAuthenticationHandler(
 				new Claim(AccessClaim, ReportAccess),
 				new Claim(AccessClaim, SummaryAccess),
 				new Claim(AccessClaim, AuditAccess),
+				new Claim(GroupAccessClaim, "allowed"),
 			],
 			_ => [new Claim(ClaimTypes.Name, userName)],
 		};
