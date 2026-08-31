@@ -1,0 +1,33 @@
+@page "/issue-122/fragments"
+
+<HtmxFragment Match="@(_ => false)">
+	<main id="issue-122-main" data-main-state="unchanged">
+		<h1>Fragment composition</h1>
+		<button id="issue-122-load"
+			hx-get="/issue-122/fragments"
+			hx-target="#issue-122-main">Load fragment updates</button>
+		<section id="issue-122-alpha"><span data-alpha-state="initial">Alpha initial</span></section>
+		<section id="issue-122-beta"><span data-beta-state="initial">Beta initial</span></section>
+		<section id="issue-122-raw" data-raw-state="initial">Raw initial</section>
+	</main>
+</HtmxFragment>
+
+<HtmxFragment RenderDuringStandardRequest="false"
+	Element="hx-partial"
+	hx-target="#issue-122-alpha"
+	hx-swap="innerHTML"
+	data-envelope="alpha">
+	<span data-alpha-state="updated">Alpha updated</span>
+</HtmxFragment>
+<HtmxFragment RenderDuringStandardRequest="false"
+	Element="hx-partial"
+	hx-target="#issue-122-beta"
+	hx-swap="beforeend"
+	data-envelope="beta">
+	<span data-beta-state="appended">Beta appended</span>
+</HtmxFragment>
+<HtmxFragment RenderDuringStandardRequest="false">
+	<hx-partial hx-target="#issue-122-raw" hx-swap="outerHTML" data-envelope="raw">
+		<section id="issue-122-raw" data-raw-state="updated">Raw updated</section>
+	</hx-partial>
+</HtmxFragment>
