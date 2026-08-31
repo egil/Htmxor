@@ -1686,13 +1686,14 @@ red. The quality and ASP.NET Core 10 projects passed 117 of 117 and 45 of 45
 tests, while the legacy host executed 342 tests and failed 120 when its private
 reflection expected the .NET 8 convention builder. The narrow fix uses the
 supported ASP.NET Core 10 `ComponentEndpointConventionBuilderHelper` and public
-endpoint metadata for that host's discovered component set. The remaining
-compatibility-only renderer call was aligned to the .NET 10 cascading-value
-signature, and the full-page characterization now includes .NET 10's stock
-`blazor-focus-on-navigate` marker. No issue #145 no-argument registration or
-route-group behavior is included.
+endpoint metadata for that host's discovered component set. The legacy scoped
+form-mapping private reflection was removed rather than adapted to another
+private framework signature. Basic assigned form-name rendering and dispatch
+remain symmetric in that compatibility-only pipeline, and the full-page
+characterization now includes .NET 10's stock `blazor-focus-on-navigate` marker.
+No issue #145 no-argument registration or route-group behavior is included.
 
-Exact clean executable commit `15872457cedc4fdc02875fdec6a280dfc8abccb7`
+Exact clean executable commit `f722029d4cb6dcc8384a5e93cecac88f9c37cb78`
 passed the focused package-only proof: one outer test and all 13 external
 consumer assertions. The locally packed package contains
 `lib/net10.0/Htmxor.dll`, contains no `lib/net8.0/Htmxor.dll`, packages the
@@ -1700,10 +1701,12 @@ generator under `analyzers/dotnet/cs`, and restores into a separate `net10.0`
 consumer with no Htmxor project reference. The repository fast profile passed
 444 of 444 tests: 117 quality, 45 ASP.NET Core 10, and 282 core tests. The full
 profile passed 447 of 447 tests: 118 quality, 45 ASP.NET Core 10, and 284 core
-tests, including the cached Chromium cases, and retained one nonempty Cobertura
-coverage report. Analyzer and style error gates and the authoritative Release
-solution build passed. `dotnet pack` passed the project's built-in package
-validation with a `net10.0` package asset.
+tests, including the cached Chromium cases, and retained two fresh matching
+copies of the nonempty Cobertura coverage report. Analyzer and style error gates
+and the authoritative Release solution build passed. `dotnet pack` passed the
+project's built-in package validation with a `net10.0` package asset. The later
+documentation-only head recording this evidence was not executed; all executable
+claims in this section remain tied to `f722029d4cb6dcc8384a5e93cecac88f9c37cb78`.
 
 This proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Linux under WSL2, a
 locally packed unsigned package, TestServer, Kestrel loopback HTTP, cached
@@ -1711,10 +1714,10 @@ Chromium revision 1234 / 151.0.7922.34, and exact application-owned htmx 4.0.0.
 It did not exercise Windows, macOS, Firefox, WebKit, fresh browser or .NET SDK
 provisioning, TLS, a NuGet-published or signed package, a release candidate,
 self-contained or trimmed publish, .NET 11, another framework or htmx version,
-proxies, containers, or external services. Full-scope mutation was not run;
-ordinary pull-request verification uses the fast and full profiles, and this
-target-framework migration does not require the scheduled full production
-mutation workload.
+proxies, containers, external services, or fresh package publication. Full-scope
+mutation was not run; ordinary pull-request verification uses the fast and full
+profiles, and this target-framework migration does not require the scheduled
+full production mutation workload.
 
 After issue #148 merges, the recommended next slice is issue #145. Its existing
 branch should rebase onto this .NET 10 contract, remove the source-reference
