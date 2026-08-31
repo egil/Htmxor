@@ -10,26 +10,23 @@ internal sealed class SwapStyleEnumConverter : JsonConverter<SwapStyle>
 	{
 		var value = reader.GetString();
 
-		var style = value switch
+		return value switch
 		{
-			null => SwapStyle.Default,
-			Constants.SwapStyles.Default => SwapStyle.Default,
-			Constants.SwapStyles.InnerHTML => SwapStyle.innerHTML,
-			Constants.SwapStyles.OuterHTML => SwapStyle.outerHTML,
-			Constants.SwapStyles.BeforeBegin => SwapStyle.beforebegin,
-			Constants.SwapStyles.AfterBegin => SwapStyle.afterbegin,
-			Constants.SwapStyles.BeforeEnd => SwapStyle.beforeend,
-			Constants.SwapStyles.AfterEnd => SwapStyle.afterend,
-			Constants.SwapStyles.Delete => SwapStyle.delete,
-			Constants.SwapStyles.None => SwapStyle.none,
-			_ => throw new SwitchExpressionException(value)
+			null or "" => SwapStyle.Default,
+			"innerHTML" => SwapStyle.innerHTML,
+			"outerHTML" => SwapStyle.outerHTML,
+			"beforebegin" => SwapStyle.beforebegin,
+			"afterbegin" => SwapStyle.afterbegin,
+			"beforeend" => SwapStyle.beforeend,
+			"afterend" => SwapStyle.afterend,
+			"delete" => SwapStyle.delete,
+			"none" => SwapStyle.none,
+			_ => throw new SwitchExpressionException(value),
 		};
-
-		return style;
 	}
 
 	public override void Write(Utf8JsonWriter writer, SwapStyle value, JsonSerializerOptions options)
 	{
-		writer?.WriteStringValue(value.ToHtmxString());
+		writer.WriteStringValue(value.ToHtmxString());
 	}
 }

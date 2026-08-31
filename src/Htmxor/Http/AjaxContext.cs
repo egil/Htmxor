@@ -55,4 +55,3 @@ public class AjaxContext
 	[JsonPropertyName("select")]
 	public string? Select { get; set; }
 }
-

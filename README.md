@@ -14,6 +14,11 @@ builder.Services.AddRazorComponents().AddHtmxor();
 app.MapRazorComponents<App>().AddHtmxorEndpoints();
 ```
 
+Author client behavior with native Razor `hx-*` attributes and literal htmx
+values. Htmxor does not expose a version-bound trigger or swap-builder DSL;
+server response operations such as `HtmxResponse.Trigger(...)` and
+`HtmxResponse.Reswap(...)` remain available.
+
 Blazor Static SSR comes with basic interactivity via enhanced navigation and enhanced form handling.
 Adding Htmx (htmx.org) to the mix gives you access to another level of interactivity while still
 retaining all the advantages of Blazor SSR stateless nature.

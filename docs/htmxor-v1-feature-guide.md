@@ -1,7 +1,8 @@
 # Htmxor v1 guide and htmx 4 map
 
-Status: design draft for the planned Htmxor v1 API. The registration names below
-are current; other proposed APIs remain labeled as proposals.
+Status: design draft for the planned Htmxor v1 API. The registration names and
+client-helper decision below are current; other proposed APIs remain labeled as
+proposals.
 
 The [v1 goal](roadmap/v1/goal.md) is the authority when this guide and the
 current code differ. The [v1 progress record](roadmap/v1/progress.md) says which
@@ -66,9 +67,10 @@ Kestrel/browser path remain unproved.
 `AddHtmxor()` registers Htmxor's server services. `AddHtmxorEndpoints()` adds
 Htmxor's component endpoints to the mapped Razor component application. Neither
 call installs, selects, or configures htmx; the application owns that runtime.
-This naming change is only the first slice of #151. The issue remains open for
-the stable type allow-list, exported-member review, client-helper decision, and
-public-API compatibility baseline.
+This naming change is the first bounded slice of #151. The second bounded slice
+removes the incomplete client trigger, swap, and constants helpers from the
+stable core. The issue remains open for the complete stable type allow-list,
+exported-type and member review, and public-API compatibility baseline.
 
 Supply htmx before the Htmxor adapter in `App.razor`:
 
@@ -370,6 +372,14 @@ body control:
 | `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics |
 | `EmptyBody()` | Empty HTTP body | Return only status, headers, cookies, and other metadata |
 
+The second bounded #151 slice preserves `HtmxResponse.Trigger(...)` and
+`HtmxResponse.Reswap(string)` because they write server-owned response headers;
+they are not client attribute-authoring helpers. It also preserves `SwapStyle`,
+`HtmxResponse.Reswap(SwapStyle, string?)`, `AjaxContext`, and `LocationTarget`
+unchanged for #154 to decide with the complete response contract. The raw
+overload remains the escape hatch for application-selected or extension-provided
+swap values.
+
 Each response method must reject use outside an htmx request, validate its
 argument, return the response object, and state whether it suppresses the body.
 The application must validate navigation URLs where local-only navigation is
@@ -394,6 +404,14 @@ extension syntax. Prefer literal markup when the value is clear:
 Use `@(...)` or an attribute value for C# interpolation. Htmxor should not reject
 unknown attributes or newer extension values. Static analysis, when enabled,
 must use a selected htmx profile and remain forward-compatible.
+
+The second bounded #151 slice therefore removes the public `Constants`, the
+`Trigger` facade, builders, and supporting types, `SwapStyleBuilder`,
+`SwapStyleBuilderExtension`, and `ScrollDirection`, and the builder-based
+`HtmxResponse.Reswap(...)` overload. `SwapStyleExtensions` becomes internal.
+It adds no optional adapter: native Razor and raw string values are the
+forward-compatible client surface. This is a package and markup-authoring
+decision; it does not claim that any browser or extension behavior was executed.
 
 The following tables cover every attribute in the official htmx 4.0.0 editor
 metadata. The last column says what Htmxor or the application must do on the
@@ -940,8 +958,10 @@ through.
 
 ## Current beta and planned v1
 
-The current repository contains useful prototypes and evidence, but parts of its
-public API do not yet match this guide:
+The current repository contains useful prototypes and evidence. The first two
+bounded #151 slices make the registration names current and remove the
+incomplete client trigger, swap, and constants helpers from the stable core.
+Other parts of the public API do not yet match this guide:
 
 - `HtmxRoute` exposes target/current-URL properties that the current source
   generator rejects on the v1 path;
@@ -949,8 +969,6 @@ public API do not yet match this guide:
   syntax;
 - fragment selection currently couples `Id`, request-target matching, `Match`,
   and rendering flags rather than a clear named-selection model;
-- the C# trigger and swap helpers do not cover the complete htmx 4 profile and
-  contain earlier-version assumptions;
 - some infrastructure/prototype types are public because of current assembly
   boundaries rather than an intentional stable developer contract; and
 - several client compositions in this guide are not yet browser-conformance

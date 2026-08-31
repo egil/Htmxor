@@ -166,6 +166,19 @@ public class HtmxResponseTests : BunitContext
 	}
 
 	[Fact]
+	public void Reswap_accepts_an_unknown_extension_value()
+	{
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+
+		response.Reswap("acmeMorph settle:25ms");
+
+		context.Response.Headers[HtmxResponseHeaderNames.Reswap]
+			.Should()
+			.Equal(["acmeMorph settle:25ms"]);
+	}
+
+	[Fact]
 	public void Retarget_AddsRetargetHeader()
 	{
 		// Arrange

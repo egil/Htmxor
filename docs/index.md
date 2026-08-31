@@ -170,7 +170,6 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
     + @using Htmxor.Components
     + @using Htmxor.Http
     + @using Htmxor
-    + @using static Htmxor.Constants
 
     + @* only if adding a custom layout for using during direct requests in step 4 above *@
     + @attribute [HtmxLayout(typeof(HtmxorLayout))]

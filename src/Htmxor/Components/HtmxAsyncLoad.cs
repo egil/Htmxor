@@ -11,6 +11,9 @@ namespace Htmxor.Components;
 /// </summary>
 public sealed class HtmxAsyncLoad : ConditionalComponentBase
 {
+	private const string LoadTrigger = "load";
+	private const string OuterHtmlSwap = "outerHTML";
+
 	[SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "False positive. This is a parameter.")]
 	[Parameter(CaptureUnmatchedValues = true)]
 	public IDictionary<string, object>? AdditionalAttributes { get; set; }
@@ -52,23 +55,23 @@ public sealed class HtmxAsyncLoad : ConditionalComponentBase
 			return;
 		}
 
-		RemoveControlledAttributeAndThrow(AdditionalAttributes, Constants.Attributes.HxGet);
-		RemoveControlledAttributeAndThrow(AdditionalAttributes, Constants.Attributes.HxTrigger);
-		RemoveControlledAttributeAndThrow(AdditionalAttributes, Constants.Attributes.HxTarget);
-		RemoveControlledAttributeAndThrow(AdditionalAttributes, Constants.Attributes.HxSwap);
+		RemoveControlledAttributeAndThrow(AdditionalAttributes, HtmxorAttributeNames.Get);
+		RemoveControlledAttributeAndThrow(AdditionalAttributes, HtmxorAttributeNames.Trigger);
+		RemoveControlledAttributeAndThrow(AdditionalAttributes, HtmxorAttributeNames.Target);
+		RemoveControlledAttributeAndThrow(AdditionalAttributes, HtmxorAttributeNames.Swap);
 	}
 
 	protected override void BuildRenderTree([NotNull] RenderTreeBuilder builder)
 	{
 		var request = Context.Request;
 		builder.OpenElement(1, Element);
-		builder.AddAttribute(2, Constants.Attributes.Id, Id);
+		builder.AddAttribute(2, HtmxorAttributeNames.Id, Id);
 		if (request.RoutingMode == RoutingMode.Standard)
 		{
-			builder.AddAttribute(3, Constants.Attributes.HxGet, request.Path);
-			builder.AddAttribute(4, Constants.Attributes.HxTrigger, Constants.Triggers.Load);
-			builder.AddAttribute(5, Constants.Attributes.HxTarget, $"#{Id}");
-			builder.AddAttribute(6, Constants.Attributes.HxSwap, Constants.SwapStyles.OuterHTML);
+			builder.AddAttribute(3, HtmxorAttributeNames.Get, request.Path);
+			builder.AddAttribute(4, HtmxorAttributeNames.Trigger, LoadTrigger);
+			builder.AddAttribute(5, HtmxorAttributeNames.Target, $"#{Id}");
+			builder.AddAttribute(6, HtmxorAttributeNames.Swap, OuterHtmlSwap);
 		}
 
 		if (AdditionalAttributes is not null)

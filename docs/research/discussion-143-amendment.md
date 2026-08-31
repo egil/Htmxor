@@ -53,9 +53,11 @@ app.MapRazorComponents<App>()
 `AddHtmxor()` registers Htmxor's server services, and
 `AddHtmxorEndpoints()` adds its component endpoints. Neither call installs,
 selects, or configures htmx; the application supplies that runtime. The beta
-does not retain forwarding aliases for the old names. This is only the first
-slice of #151, which remains open for the rest of the stable public-surface
-review.
+does not retain forwarding aliases for the old names. This registration change
+is the first bounded slice of #151. The second removes the incomplete client
+trigger, swap, and constants helpers from the stable core. #151 remains open for
+the complete stable allow-list, exported-type and member review, and public-API
+compatibility baseline.
 
 Load the application-owned htmx asset before the Htmxor adapter:
 
@@ -231,8 +233,18 @@ SSE, WebSocket, and multipart streaming use application endpoints. Streaming
 component responses remain outside v1. Other extensions pass through as markup
 unless their protocol needs a small server hook.
 
-The current trigger and swap C# helpers do not cover htmx 4. They should not
-become stable v1 API merely because they exist in the beta.
+The second bounded #151 slice removes the public `Constants`, the `Trigger`
+facade, builders, and supporting types, `SwapStyleBuilder`,
+`SwapStyleBuilderExtension`, `ScrollDirection`, and the builder-based
+`HtmxResponse.Reswap(...)` overload from the stable core. `SwapStyleExtensions`
+becomes internal. Native Razor and raw strings are the client surface; this
+slice does not add an optional adapter package.
+
+Server-protocol operations remain distinct. `HtmxResponse.Trigger(...)` still
+writes `HX-Trigger`, and raw `HtmxResponse.Reswap(string)` still writes
+`HX-Reswap`. `SwapStyle`, `HtmxResponse.Reswap(SwapStyle, string?)`,
+`AjaxContext`, and `LocationTarget` remain unchanged for #154. These package
+decisions do not claim that browser or extension behavior was executed.
 
 ## V1 decisions still open
 

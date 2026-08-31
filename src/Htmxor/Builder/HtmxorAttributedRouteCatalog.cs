@@ -218,7 +218,7 @@ internal static class HtmxorAttributedRouteCatalog
 			: HttpMethods.IsPut(method) ? HttpMethods.Put
 			: HttpMethods.IsPatch(method) ? HttpMethods.Patch
 			: HttpMethods.IsDelete(method) ? HttpMethods.Delete
-			: Constants.HttpMethods.IsQuery(method) ? Constants.HttpMethods.Query
+			: string.Equals(method, "QUERY", StringComparison.OrdinalIgnoreCase) ? "QUERY"
 			: null;
 		return normalized is not null;
 	}
