@@ -453,6 +453,9 @@ public sealed class Issue56BrowserTests
 			}
 			""");
 
+		var defaultTarget = page.Locator("#issue-129-default-target");
+		var defaultTargetMarkup = await defaultTarget.EvaluateAsync<string>("element => element.outerHTML");
+		Assert.Contains("default target unchanged", defaultTargetMarkup, StringComparison.Ordinal);
 		var defaultResponseTask = WaitForIssue129PutAsync(page);
 		await page.Locator("#issue-129-default").ClickAsync();
 		var defaultResponse = await defaultResponseTask;
@@ -467,10 +470,19 @@ public sealed class Issue56BrowserTests
 			"<section data-issue-129-error=\"unprocessable\">unprocessable component response</section>",
 			defaultBody,
 			StringComparison.Ordinal);
+		Assert.DoesNotContain("<html", defaultBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", defaultBody, StringComparison.Ordinal);
 		Assert.DoesNotContain("__RequestVerificationToken", defaultBody, StringComparison.Ordinal);
 		await page.Locator("#issue-129-default-target [data-issue-129-error='unprocessable']")
 			.WaitForAsync();
 		await WaitForIssue129RequestAsync(page, expectedCount: 1);
+		var swappedDefaultTargetMarkup =
+			await defaultTarget.EvaluateAsync<string>("element => element.outerHTML");
+		Assert.NotEqual(defaultTargetMarkup, swappedDefaultTargetMarkup);
+		Assert.DoesNotContain(
+			"default target unchanged",
+			swappedDefaultTargetMarkup,
+			StringComparison.Ordinal);
 
 		var noSwapTarget = page.Locator("#issue-129-no-swap-target");
 		var unchangedMarkup = await noSwapTarget.EvaluateAsync<string>("element => element.outerHTML");
