@@ -343,8 +343,8 @@ injected or cascaded where the final v1 API permits.
 
 Every header-derived value is untrusted. A missing, repeated, malformed, or
 contradictory value must be represented explicitly and must not broaden
-reachability. Issue #154 owns the `CurrentUrl` rename and a clear extension
-bag/parser for additional protocol headers.
+reachability. The current beta member is `CurrentURL`; issue #154 owns the
+planned `CurrentUrl` rename and a clear API for additional protocol headers.
 
 ### Response operations
 

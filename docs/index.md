@@ -194,8 +194,9 @@ case.
 ## Output caching
 
 For the bounded case where one component URL returns the stock full page when
-`HX-Request` is absent and the direct component representation when
-`HX-Request: true` is present, include `HX-Request` in the ASP.NET Core
+`HX-Request` is absent, the stock htmx full representation when the request type
+is `full`, and the direct component representation when the request type is
+`partial`, include both `HX-Request` and `HX-Request-Type` in the ASP.NET Core
 OutputCache key. Configure the standard component attribute together with the
 OutputCache services and middleware:
 
@@ -210,13 +211,13 @@ app.UseOutputCache();
 
 ```razor
 @using Microsoft.AspNetCore.OutputCaching
-@attribute [OutputCache(VaryByHeaderNames = ["HX-Request"])]
+@attribute [OutputCache(VaryByHeaderNames = ["HX-Request", "HX-Request-Type"])]
 @page "/cached-component"
 ```
 
-The standard `VaryByHeaderNames` configuration is sufficient while
-`HX-Request` is the sole input that changes the response representation.
-`CacheOutput(policy => policy.SetVaryByHeader("HX-Request"))` is its endpoint-
+The standard `VaryByHeaderNames` configuration distinguishes normal, htmx full,
+and htmx partial representations. `CacheOutput(policy =>
+policy.SetVaryByHeader("HX-Request", "HX-Request-Type"))` is its endpoint-
 policy equivalent. An application that also varies output for boosted requests,
 targets, history restoration, selected fragments, authentication, or other
 request data must add every such input to its cache policy. Htmxor does not infer
