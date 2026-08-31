@@ -91,8 +91,8 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		app.UseAntiforgery();
 		var routes = app.MapGroup(RoutePrefix)
 			.WithMetadata(Issue97GroupMetadata.Instance);
-		app.MapRazorComponents<Issue97App>()
-			.AddHtmxorComponentEndpoints(routes);
+		routes.MapRazorComponents<Issue97App>()
+			.AddHtmxorComponentEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();
