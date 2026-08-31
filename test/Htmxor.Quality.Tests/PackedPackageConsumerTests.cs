@@ -641,9 +641,11 @@ internal static class PackageConsumerEvidence
 			"@attribute [HtmxRoute(\"/audits/{AuditId:int}\", Methods = [\"GET\", \"POST\"])]";
 		const string pageRoute = "@page \"/reports/{ReportId:int}\"";
 
-		Assert.Equal(1, Count(applicationSource, "AddHtmxorComponentEndpoints(routes)"));
+		Assert.Equal(1, Count(applicationSource, "AddHtmxorComponentEndpoints()"));
 		Assert.Equal(1, Count(applicationSource, "MapGroup(RoutePrefix)"));
-		Assert.Equal(1, Count(applicationSource, "MapRazorComponents<Issue97App>()"));
+		Assert.Equal(1, Count(applicationSource, "routes.MapRazorComponents<Issue97App>()"));
+		Assert.DoesNotContain("AddHtmxorComponentEndpoints(routes)", applicationSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("MapGroup(string.Empty)", applicationSource, StringComparison.Ordinal);
 		Assert.Equal(3, Count(applicationSource, "HtmxRoute("));
 		Assert.Equal(1, Count(razorSource, "HtmxRoute("));
 		Assert.Equal(3, Count(razorSource, "@attribute [Authorize"));
