@@ -1,7 +1,8 @@
 # Htmxor v1 developer experience
 
-Status: draft replacement for discussion #143. It describes the planned v1 API,
-not every feature in the current beta. The
+Status: draft replacement for discussion #143. It describes the v1 API with
+bounded proved slices and remaining proposals, not every feature in the current
+beta. The
 [v1 goal](https://github.com/egil/Htmxor/blob/main/docs/roadmap/v1/goal.md) wins
 when the plan and the current code differ.
 
@@ -32,27 +33,35 @@ representation. It is not an authentication or authorization check.
 
 ## Configure the application
 
-The no-argument registration API is current.
+The no-argument registration shape is current.
 [#145](https://github.com/egil/Htmxor/issues/145) proved it at the application
 root and through one standard ASP.NET Core route group:
 
 ```csharp
 builder.Services
     .AddRazorComponents()
-    .AddHtmx();
+    .AddHtmxor();
 
 app.UseAntiforgery();
 app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
-    .AddHtmxorComponentEndpoints();
+    .AddHtmxorEndpoints();
 ```
 
-The registration behavior is settled for those cases, but the names are not.
-`AddHtmx()` sounds as if it installs the browser library even though the
-application supplies that library.
-[#151](https://github.com/egil/Htmxor/issues/151) will settle the service and
-endpoint names before v1.
+The product-named pair is current. The bounded registration-naming slice of
+[#151](https://github.com/egil/Htmxor/issues/151) settles `AddHtmxor()` /
+`AddHtmxorEndpoints()` without suggesting that Htmxor installs or owns the
+application-supplied browser library. The endpoint method returns the
+`RazorComponentsEndpointConventionBuilder` so the application can continue
+applying endpoint conventions or metadata through the mapping API. It does not
+finish #151: the public allow-list, PublicAPI compatibility baseline, and
+client-helper decision remain open.
+
+The #145 proof is still bounded to the application root and one standard route
+group. It does not cover nested groups, multiple Razor component applications,
+group endpoint filters or rate limits, interactive render modes, or the grouped
+path on Kestrel or in a browser.
 
 Load the application-owned htmx asset before the Htmxor adapter:
 
@@ -233,7 +242,10 @@ become stable v1 API merely because they exist in the beta.
 
 ## V1 decisions still open
 
-- [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151)
+- [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151):
+  registration names are settled as `AddHtmxor()` / `AddHtmxorEndpoints()`;
+  the public allow-list, PublicAPI baseline, and client-helper decision remain
+  open.
 - [#152: make routes and actions explain themselves](https://github.com/egil/Htmxor/issues/152)
 - [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153)
 - [#154: finish the htmx 4 request and response API](https://github.com/egil/Htmxor/issues/154)

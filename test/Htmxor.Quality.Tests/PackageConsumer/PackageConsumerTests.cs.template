@@ -85,7 +85,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 				GroupPolicyName,
 				policy => policy.RequireClaim(PackageConsumerAuthenticationHandler.GroupAccessClaim));
 		});
-		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddRazorComponents().AddHtmxor();
 		builder.Services.AddSingleton<Issue100ApplicationProbe>();
 		builder.Services.AddScoped<Issue100RequestProbe>();
 
@@ -97,7 +97,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			.RequireAuthorization(GroupPolicyName)
 			.WithMetadata(Issue97GroupMetadata.Instance);
 		routes.MapRazorComponents<Issue97App>()
-			.AddHtmxorComponentEndpoints();
+			.AddHtmxorEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();

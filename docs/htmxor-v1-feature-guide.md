@@ -1,7 +1,7 @@
 # Htmxor v1 guide and htmx 4 map
 
-Status: design draft for the planned Htmxor v1 API, not current beta
-documentation.
+Status: design draft for Htmxor v1. It labels bounded proved slices and
+remaining proposals; it is not documentation for every current beta feature.
 
 The [v1 goal](roadmap/v1/goal.md) is the authority when this guide and the
 current code differ. The [v1 progress record](roadmap/v1/progress.md) says which
@@ -34,14 +34,14 @@ rate-limit, cache, and other endpoint policies still apply.
 
 ## Configure the application
 
-The current API uses these names and no route-group argument:
+The current product-named API uses no route-group argument:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddRazorComponents()
-    .AddHtmx();
+    .AddHtmxor();
 
 var app = builder.Build();
 
@@ -49,21 +49,27 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
-    .AddHtmxorComponentEndpoints();
+    .AddHtmxorEndpoints();
 
 app.Run();
 ```
 
-[#145](https://github.com/egil/Htmxor/issues/145) proved this call at the
-application root and through one standard ASP.NET Core route group using a
-separately packed .NET 10 package. Nested groups, multiple Razor component
-applications, group endpoint filters or rate limits, interactive render modes,
-and the grouped Kestrel/browser path remain unproved.
+[#145](https://github.com/egil/Htmxor/issues/145) proved the no-argument mapping
+shape at the application root and through one standard ASP.NET Core route group
+using a separately packed .NET 10 package. Nested groups, multiple Razor
+component applications, group endpoint filters or rate limits, interactive
+render modes, and the grouped Kestrel/browser path remain unproved.
 
-[#151](https://github.com/egil/Htmxor/issues/151) will decide whether both
-extension methods should use the product name, such as `AddHtmxor()` and
-`AddHtmxorEndpoints()`. Until then, examples use the current names and label
-proposed names.
+The bounded registration-naming slice of
+[#151](https://github.com/egil/Htmxor/issues/151) settles
+`AddHtmxor()` / `AddHtmxorEndpoints()` as the current pair. `AddHtmxor()`
+registers Htmxor's server integration; it does not install, choose, or configure
+the application-owned htmx runtime. `AddHtmxorEndpoints()` returns
+`RazorComponentsEndpointConventionBuilder` so applications can continue the
+mapping chain with their own endpoint conventions or metadata. That API shape
+does not extend #145's behavioral evidence to the unproved cases above. The rest
+of #151 remains open: the public allow-list, PublicAPI compatibility baseline,
+and client-helper decision are not settled by this naming slice.
 
 Supply htmx before the Htmxor adapter in `App.razor`:
 

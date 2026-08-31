@@ -4,30 +4,28 @@ using Htmxor.DependencyInjection;
 using Htmxor.Endpoints;
 using Htmxor.Http;
 using Htmxor.Rendering;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
 
 #pragma warning disable IDE0130
 namespace Microsoft.Extensions.DependencyInjection;
 #pragma warning restore IDE0130
 
 /// <summary>
-/// This class has extension methods for <see cref="IHostApplicationBuilder"/> and <see cref="IApplicationBuilder"/> 
-/// that enable configuration of Htmx in the application.
+/// Provides extension methods that add Htmxor's server integration to Razor Components.
 /// </summary>
 public static class HtmxorApplicationBuilderExtensions
 {
 	/// <summary>
-	/// Adds Htmxor's server integration.
+	/// Adds Htmxor's server integration. The application remains responsible for its
+	/// htmx browser runtime.
 	/// </summary>
 	/// <param name="razorComponentsBuilder"></param>
-	public static IRazorComponentsBuilder AddHtmx(this IRazorComponentsBuilder razorComponentsBuilder)
+	public static IRazorComponentsBuilder AddHtmxor(this IRazorComponentsBuilder razorComponentsBuilder)
 	{
 		ArgumentNullException.ThrowIfNull(razorComponentsBuilder);
 		var services = razorComponentsBuilder.Services;
@@ -50,7 +48,7 @@ public static class HtmxorApplicationBuilderExtensions
 	// The legacy test application retains the prototype pipeline while its deferred behaviors are characterized.
 	internal static IRazorComponentsBuilder AddLegacyHtmx(this IRazorComponentsBuilder razorComponentsBuilder)
 	{
-		AddHtmx(razorComponentsBuilder);
+		AddHtmxor(razorComponentsBuilder);
 		var services = razorComponentsBuilder.Services;
 
 		// Override routing

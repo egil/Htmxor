@@ -3,6 +3,8 @@
 
 This package enables Blazor Static SSR on .NET 10 to be used seamlessly with Htmx.
 
+Applications supply the htmx browser runtime. Htmxor registers only its server integration through `AddHtmxor()` and augments mapped Razor component endpoints through `AddHtmxorEndpoints()`.
+
 Htmxor v1 targets .NET 10 only. Existing .NET 8 applications can continue to use the previous beta package; .NET 11 support will be added only after a separate compatibility matrix is executed.
 
 Blazor Static SSR comes with basic interactivity via enhanced navigation and enhanced form handling.

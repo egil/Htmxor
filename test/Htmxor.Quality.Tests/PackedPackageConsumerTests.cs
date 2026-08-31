@@ -605,7 +605,11 @@ internal static class PackageConsumerEvidence
 
 		Assert.Contains("AddHtmxor", publicStaticMethods);
 		Assert.DoesNotContain("AddHtmx", publicStaticMethods);
-		Assert.Contains("AddHtmxorEndpoints(", generatedRouteRegistration, StringComparison.Ordinal);
+		Assert.Contains(
+			"internal static global::Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder " +
+			"AddHtmxorEndpoints(",
+			generatedRouteRegistration,
+			StringComparison.Ordinal);
 		Assert.DoesNotContain(
 			"AddHtmxorComponentEndpoints(",
 			generatedRouteRegistration,
@@ -706,11 +710,14 @@ internal static class PackageConsumerEvidence
 			"@attribute [HtmxRoute(\"/audits/{AuditId:int}\", Methods = [\"GET\", \"POST\"])]";
 		const string pageRoute = "@page \"/reports/{ReportId:int}\"";
 
-		Assert.Equal(2, Count(applicationSource, "AddHtmxorComponentEndpoints()"));
+		Assert.Equal(2, Count(applicationSource, "AddHtmxor()"));
+		Assert.Equal(2, Count(applicationSource, "AddHtmxorEndpoints()"));
 		Assert.Equal(1, Count(applicationSource, "MapGroup(RoutePrefix)"));
 		Assert.Equal(1, Count(applicationSource, "routes.MapRazorComponents<Issue97App>()"));
 		Assert.Equal(1, Count(applicationSource, "app.MapRazorComponents<Issue97App>()"));
-		Assert.DoesNotContain("AddHtmxorComponentEndpoints(routes)", applicationSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("AddHtmx()", applicationSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("AddHtmxorComponentEndpoints", applicationSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("AddHtmxorEndpoints(routes)", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapGroup(string.Empty)", applicationSource, StringComparison.Ordinal);
 		Assert.Equal(3, Count(applicationSource, "HtmxRoute("));
 		Assert.Equal(1, Count(razorSource, "HtmxRoute("));

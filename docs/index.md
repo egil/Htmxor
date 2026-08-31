@@ -4,8 +4,9 @@
 
 ## V1 design
 
-The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) describes the planned
-API. It is not documentation for the current beta. The
+The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) describes the agreed
+v1 model, bounded proved slices, and remaining design work. It is not
+documentation for every feature in the current beta. The
 [developer experience review](research/htmxor-v1-dx-review.md) explains the
 remaining API decisions and links the issues that track them.
 
@@ -37,7 +38,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       // Add services to the container.
       builder.Services
           .AddRazorComponents()
-    +     .AddHtmx();
+    +     .AddHtmxor();
 
       var app = builder.Build();
 
@@ -53,10 +54,26 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       app.UseAntiforgery();
       app.MapStaticAssets();
       app.MapRazorComponents<App>()
-    +    .AddHtmxorComponentEndpoints();
+    +    .AddHtmxorEndpoints();
 
       app.Run();
     ```
+
+   `AddHtmxor()` and `AddHtmxorEndpoints()` are the current product-named
+   registration pair. They register Htmxor's server integration and endpoint
+   conventions; they do not install or select the application-owned htmx
+   runtime. `AddHtmxorEndpoints()` returns
+   `RazorComponentsEndpointConventionBuilder` so the mapping call can remain in
+   an application endpoint-convention or metadata chain. This bounded
+   [#151](https://github.com/egil/Htmxor/issues/151) decision does not finish
+   that issue: the public allow-list, PublicAPI compatibility baseline, and
+   client-helper decision remain open.
+
+   [#145](https://github.com/egil/Htmxor/issues/145) proved the no-argument
+   mapping behavior at the application root and through one standard ASP.NET
+   Core route group. Nested groups, multiple Razor component applications,
+   group endpoint filters or rate limits, interactive render modes, and the
+   grouped Kestrel/browser path remain unproved.
 
    Keep the stock `MapStaticAssets()` call. Htmxor uses ASP.NET Core static web
    assets for its adapter and does not require a separate file provider or

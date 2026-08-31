@@ -12,15 +12,18 @@ The component model is good. A developer should be able to add htmx attributes
 to an `@page`, stock form, or element callback without creating another endpoint
 or learning another renderer.
 
-The API is not ready to freeze. Four problems would force the documentation to
-explain around the package:
+The bounded registration-naming slice of
+[#151](https://github.com/egil/Htmxor/issues/151) resolves the setup vocabulary:
+`AddHtmxor()` registers services and `AddHtmxorEndpoints()` applies endpoint
+conventions without implying that Htmxor supplies the client runtime.
 
-1. Setup mixes the names `Htmx` and `Htmxor`, so `AddHtmx()` can sound as
-   if it installs the client runtime.
-2. Route and action discovery advertises options that the generator rejects,
+The API is still not ready to freeze. Three problems would force the
+documentation to explain around the package:
+
+1. Route and action discovery advertises options that the generator rejects,
    then reports failures too broadly.
-3. Fragment selection mixes server work with DOM identity and request headers.
-4. The package exports incomplete client helpers and implementation types beside
+2. Fragment selection mixes server work with DOM identity and request headers.
+3. The package exports incomplete client helpers and implementation types beside
    the small server API developers need.
 
 The best default is native htmx markup plus a small typed server API. Copying
@@ -78,8 +81,8 @@ behavior.
 
 | Area | What a developer sees | Recommended change | Verdict |
 | --- | --- | --- | --- |
-| Services | `AddHtmx()` can sound like a client-library installer | Use one product name and state that the app supplies htmx | Decide before v1 |
-| Endpoint mapping | `AddHtmxorComponentEndpoints()` works at the root and through one standard route group | Keep the no-argument API and extend proof only when a new grouping case matters | Proved by #145 |
+| Services | `AddHtmxor()` names the server integration without claiming the client runtime | State that the app supplies htmx | Current; bounded #151 proof |
+| Endpoint mapping | `AddHtmxorEndpoints()` applies Htmxor conventions and returns `RazorComponentsEndpointConventionBuilder` | Keep the no-argument, convention-chain API and extend proof only when a new grouping case matters | #145 behavior; #151 name |
 | Script setup | The app loads htmx, then `HtmxHeadOutlet` | Diagnose a missing or misplaced adapter without choosing the app's package source | Good model |
 | Dual `@page` GET | Blazor routing also answers direct htmx GET | Keep GET as the only implicit method | Keep |
 | Normal-only page | No final opt-out exists | Add one component-local marker | Missing |
@@ -100,31 +103,39 @@ behavior.
 
 ## Findings
 
-### 1. Setup still uses two names for one product
+### 1. Setup now uses one product vocabulary
 
-Current setup uses `AddHtmx()` for services and
-`AddHtmxorComponentEndpoints()` for endpoints. The first name can sound as if
-it installs htmx. It does not.
+Current setup uses `AddHtmxor()` for services and `AddHtmxorEndpoints()` for
+endpoint conventions. The first method registers Htmxor's server integration;
+it does not install, choose, or configure the application-supplied htmx runtime.
+The endpoint method returns `RazorComponentsEndpointConventionBuilder` so the
+application can continue applying endpoint conventions or metadata through the
+mapping API.
 
 [#145](https://github.com/egil/Htmxor/issues/145) removed the old destination
 argument and proved the no-argument call at the application root and through one
-standard ASP.NET Core route group. The remaining problem is naming. Before v1,
-choose one vocabulary for the two extension methods. The clearest pair is:
+standard ASP.NET Core route group. The bounded registration-naming slice of
+[#151](https://github.com/egil/Htmxor/issues/151) keeps that shape and settles
+the product-named pair:
 
 ```csharp
 builder.Services.AddRazorComponents().AddHtmxor();
 app.MapRazorComponents<App>().AddHtmxorEndpoints();
 ```
 
-Keeping the old names is possible, but every setup page would need a warning
-that `AddHtmx()` does not add htmx. Renaming before the stable release is the
-cheaper choice. Do not restore the destination argument that #145 removed.
+The beta does not keep the former names as compatibility aliases: doing so would
+preserve the client-runtime ambiguity that the rename removes. Do not restore
+the destination argument that #145 removed.
 
 The #145 proof covers component policy and metadata, hosts, route constraints,
 antiforgery, generated methods, and shared group metadata. It does not cover
 nested groups, multiple Razor component applications, group endpoint filters or
 rate limits, interactive render modes, or the grouped path on Kestrel or in a
 browser.
+
+This is only the naming decision inside #151. Reviewing the public allow-list,
+adding a PublicAPI compatibility baseline, and deciding the incomplete client
+helpers remain open.
 
 ### 2. `HtmxRoute` offers members the generator refuses
 
@@ -259,8 +270,10 @@ prevent generator assembly needs from becoming accidental user promises.
 ### 8. Examples need honest status labels
 
 Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
-ideas that still need API decisions. Registration and QUERY now have bounded
-proof through #145 and #111, while registration naming remains open.
+ideas that still need API decisions. No-argument registration behavior, its
+product-named API pair, and QUERY now have bounded proof through #145, the first
+#151 slice, and #111 respectively. The rest of #151 remains open: the public
+allow-list, PublicAPI compatibility baseline, and client-helper decision.
 Multi-fragment selection and optional extension use still need explicit status
 labels.
 
@@ -287,7 +300,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 
 | Issue | Decision or result |
 | --- | --- |
-| [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Settle names, approve the public allow-list, decide the client helpers, and add API compatibility checks |
+| [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Registration names are settled as `AddHtmxor()` / `AddHtmxorEndpoints()`; the public allow-list, PublicAPI baseline, and client-helper decision remain open |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
 | [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Normalize names and validation, cover core headers, add extension headers, and test exact HTTP input and output |
