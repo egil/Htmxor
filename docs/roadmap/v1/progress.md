@@ -1798,6 +1798,73 @@ Kestrel, TLS, a browser, another operating system, .NET 11, or another htmx
 version. The full and mutation profiles were not run; full-scope mutation is not
 required for this naming-only pull-request slice.
 
+### Native client authoring without a closed helper DSL
+
+The second bounded slice of issue #151 protects this behavior:
+
+> When a .NET 10 package consumer authors htmx triggers and swaps, Htmxor keeps
+> client syntax in native Razor markup, accepts the complete official htmx 4.0.0
+> attribute profile and unknown extension values, and retains server
+> `HX-Trigger` and `HX-Reswap` operations without exporting an incomplete
+> client DSL.
+
+The audit used official htmx `v4.0.0` at exact upstream commit
+`4195bc0dc26b612ea5bea46f5914c6386eadeba3`. Its editor metadata contains 49
+attributes and `<hx-partial>`. Trigger events and swap styles are open to
+application and extension values; trigger `queue:` and the old SSE form were
+removed in htmx 4, while the beta swap builder omitted current core styles and
+emitted obsolete modifier syntax. No maintained consumer proved a need for a
+versioned optional adapter, so this slice adds none.
+
+At exact red commit `74fe1de7c9dabbb305ac4207ce1721bad2748a69`, the separately
+packed .NET 10 consumer compiled and rendered the 49-attribute metadata profile,
+representative wildcard attributes, `<hx-partial>`, the required `prevent`,
+`rootMargin`, `outerMorph`, `strip`, `swapEmpty`, and `target` syntax, and an
+unknown `hx-future` attribute with an unknown `acmeMorph` swap. It discovered
+and executed 19 tests: 18 passed and the one public-boundary assertion failed
+because the package still exported the targeted constants, trigger, and swap
+builder DSL. The separate rendering and server-operation test passed, proving
+public `SwapStyle` through the typed overload, typed and raw
+`HtmxResponse.Reswap(...)`, and `HtmxResponse.Trigger(...)`. The failing
+boundary assertion stopped before its later `AjaxContext.Swap` shape check; the
+green run below proves that retained shape.
+
+At exact clean executable commit `90ea1245f1c97b1aa9656e00d36b198e118b43b6`,
+the public `Constants` and `Trigger` families, swap builders and their public
+supporting types, and the builder-based `HtmxResponse.Reswap(...)` overload are
+removed. `SwapStyleExtensions` is internal. Maintained samples use native Razor
+literals. `SwapStyle`, `HtmxResponse.Trigger(...)`, raw
+`HtmxResponse.Reswap(string)`, the typed `HtmxResponse.Reswap(SwapStyle,
+string?)` overload, `AjaxContext`, and `LocationTarget` remain unchanged for
+#154. Internal rendering retains only narrowly named attribute constants, and
+server method normalization uses ASP.NET Core `HttpMethods` for standard verbs
+plus a literal `QUERY`, without depending on the removed public constants.
+
+At that exact head, the focused Release suite passed 52 of 52 tests. The focused
+packed-package command passed 1 of 1 outer tests while asserting 19 of 19 tests
+inside the external consumer; the actionless packed scenario passed 1 of 1 while
+asserting 21 of 21 inner tests. The repository fast profile passed 417 of 417
+tests: 117 quality, 45 ASP.NET Core 10, and 255 core tests. Its Release solution
+build completed with zero warnings and errors, and analyzer and style gates
+passed. The recorded commands were:
+
+```text
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-151-client-helpers-red-final.trx" --results-directory artifacts/results/issue-151-client-helpers-red-final --verbosity minimal
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxAsyncLoad|FullyQualifiedName~HtmxFragment|FullyQualifiedName~HtmxorAttributedRouteCatalogTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-151-client-helpers-focused-corrected-final.trx" --results-directory artifacts/results/issue-151-client-helpers-focused-corrected-final --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-151-client-helpers-packed-corrected-final.trx" --results-directory artifacts/results/issue-151-client-helpers-packed-corrected-final --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Package_only_application_preserves_actionless_unsafe_route_antiforgery --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-151-client-helpers-packed-actionless-corrected-final.trx" --results-directory artifacts/results/issue-151-client-helpers-packed-actionless-corrected-final --verbosity minimal
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+```
+
+This evidence proves the packed public boundary, Razor compilation, string
+pass-through, maintained sample compilation, and server header serialization.
+It does not prove browser or extension runtime behavior, CSP, performance,
+Kestrel, TLS, Windows, macOS, Firefox, WebKit, another framework or htmx version,
+a published or signed package, or source/binary compatibility with a prior beta.
+The full and mutation profiles were not run for this bounded task. This later
+progress-only head was not executed; executable claims remain tied to
+`90ea1245f1c97b1aa9656e00d36b198e118b43b6`.
+
 This slice changes names, not the mapping path proved by issue #145. That issue's
 exact package evidence used the earlier `AddHtmxorComponentEndpoints()` spelling
 and established the following behavior.
@@ -1849,7 +1916,8 @@ filters or rate limiting, interactive render modes, another ASP.NET Core
 version, and the grouped Kestrel or browser path remain unproved. .NET 11
 remains a later independent compatibility slice.
 
-This is only the first bounded slice of issue #151. The issue remains open for
-the stable type allow-list, exported-member review, client-helper decision, and
+These are only the first two bounded slices of issue #151. The issue remains
+open for the complete stable type allow-list, exported-member review, and
 public-API compatibility baseline. The orchestrator should select and authorize
-those as separate slices rather than treating this naming change as completion.
+those as separate slices rather than treating either bounded change as
+completion.

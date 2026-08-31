@@ -38,6 +38,11 @@ The nine production methods above the direction-of-travel ceiling of 10 were:
 - `HtmxorRenderer.RenderElement`, complexity 12.
 - `HtmxorRenderer.RenderAttributes`, complexity 22.
 
+The second bounded #151 slice removes `HtmxTriggerSpecification.ToString`.
+The nine-method list remains the historical adoption measurement; current source
+therefore contains eight of those methods, while the fixed project ceiling is
+unchanged.
+
 The one existing test above the focused-test ceiling of 5 was
 `AlbaScenarioExtensions.WithHxHeaders`, complexity 10. This change records that
 debt; it does not refactor product or test behavior merely to establish the
