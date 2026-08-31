@@ -262,9 +262,9 @@ prevent generator assembly needs from becoming accidental user promises.
 
 Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
 ideas that still need API decisions. Registration and QUERY now have bounded
-proof through #145 and #111, while registration naming remains open.
-Multi-fragment selection and optional extension use still need explicit status
-labels.
+proof through #145 and #111, and the first #151 slice makes the consistent
+registration names current. Multi-fragment selection and optional extension use
+still need explicit status labels.
 
 The discussion should stay short and link to the repository guide for the full
 inventory. Examples should identify whether they show an accepted v1 contract,
@@ -289,7 +289,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 
 | Issue | Decision or result |
 | --- | --- |
-| [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Settle names, approve the public allow-list, decide the client helpers, and add API compatibility checks |
+| [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Keep the selected registration names, approve the public allow-list, decide the client helpers, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
 | [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Normalize names and validation, cover core headers, add extension headers, and test exact HTTP input and output |

@@ -1813,8 +1813,9 @@ and the selected endpoint is restored afterward. No prefix is guessed or
 separately configured.
 
 All three maintained samples target `net10.0`, consume the generator as an
-analyzer, and call only `AddHtmxorEndpoints()`. The runtime exposes no public or
-implementation-internal two-argument destination-registration bridge. Projects
+analyzer, and use the `AddHtmxor()` / `AddHtmxorEndpoints()` pair. The runtime
+exposes no public or implementation-internal two-argument
+destination-registration bridge. Projects
 with stock pages but no `HtmxRoute` declarations receive a generated empty
 registration manifest, so the same API remains available without inventing
 component routes. Invalid all-C# declarations still fail closed and suppress
