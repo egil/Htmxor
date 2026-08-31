@@ -9,7 +9,11 @@ API. It is not documentation for the current beta. The
 [developer experience review](research/htmxor-v1-dx-review.md) explains the
 remaining API decisions and links the issues that track them.
 
-## Getting Started
+## Getting Started with the unreleased v1 API
+
+The setup below targets the v1 API on `main`. It does not compile against the
+currently published beta package. Until a v1 package is published, build and
+consume a package from the repository source.
 
 To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
 
@@ -22,9 +26,11 @@ GET, POST, PUT, PATCH, and DELETE paths described in the
 
 To start fresh from a (new) Blazor Web App project, follow these steps:
 
-1. **Add the Htmxor Package**
+1. **Add the Htmxor package**
 
-   Install the [Htmxor package from NuGet](https://www.nuget.org/packages/Htmxor).
+   Consume a package built from current `main`. Published packages remain
+   available on [NuGet](https://www.nuget.org/packages/Htmxor), but the current
+   beta exposes the previous registration API.
 
 
 2. **Update `Program.cs`**
