@@ -30,6 +30,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue122Path = "/issue-122/fragments";
 	private const string Issue129Path = "/issue-129/error";
 	private const string Issue131Path = "/issue-131/delete";
+	private const string Issue133Path = "/issue-133/oob-order";
 	private const string Issue64Path = "/issue-64";
 	private const string Issue64RedirectPath = "/issue-64/redirect";
 	private const string Issue64DestinationPath = "/issue-64/destination";
@@ -627,6 +628,118 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Mixed_main_and_oob_response_swaps_main_before_oob()
+	{
+		var probe = new Issue133RequestProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), issue133Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		await page.SetExtraHTTPHeadersAsync(AuthenticatedIssue133Headers());
+		var navigation = await page.GotoAsync(Issue133Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		var normalBody = await navigation.TextAsync();
+		Assert.Contains("<html", normalBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-133-page", normalBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("hx-swap-oob", normalBody, StringComparison.OrdinalIgnoreCase);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var beforeUnauthorized = probe.Snapshot();
+		await page.SetExtraHTTPHeadersAsync(new Dictionary<string, string>());
+		var unauthorizedResponseTask = WaitForIssue133PutAsync(page);
+		await page.Locator("#issue-133-update").ClickAsync();
+		Assert.Equal((int)HttpStatusCode.Unauthorized, (await unauthorizedResponseTask).Status);
+		Assert.Equal(beforeUnauthorized, probe.Snapshot());
+
+		await page.SetExtraHTTPHeadersAsync(AuthenticatedIssue133Headers());
+		await page.ReloadAsync();
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		var beforeInvalidToken = probe.Snapshot();
+		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
+			"element => element.value = 'invalid-request-token'");
+		var invalidTokenResponseTask = WaitForIssue133PutAsync(page);
+		await page.Locator("#issue-133-update").ClickAsync();
+		Assert.Equal((int)HttpStatusCode.BadRequest, (await invalidTokenResponseTask).Status);
+		Assert.Equal(beforeInvalidToken, probe.Snapshot());
+
+		await page.ReloadAsync();
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await page.EvaluateAsync(
+			"""
+			() => {
+				window.issue133SwapEvents = [];
+				window.issue133Mutations = [];
+				document.body.addEventListener('htmx:before:settle', event => {
+					if (event.target.id === 'issue-133-main-target' ||
+						event.target.id === 'issue-133-oob-target') {
+						window.issue133SwapEvents.push(event.target.id);
+					}
+				});
+				new MutationObserver(records => {
+					for (const record of records) {
+						if (record.target.id === 'issue-133-main-target') {
+							window.issue133Mutations.push('issue-133-main-target');
+						} else if (Array.from(record.addedNodes).some(
+							node => node.id === 'issue-133-oob-target' && node.dataset.state === 'oob-updated')) {
+							window.issue133Mutations.push('issue-133-oob-target');
+						}
+					}
+				}).observe(document.body, { childList: true, subtree: true });
+			}
+			""");
+
+		var responseTask = WaitForIssue133PutAsync(page);
+		await page.Locator("#issue-133-update").ClickAsync();
+		var response = await responseTask;
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var requestHeaders = await response.Request.AllHeadersAsync();
+		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("partial", requestHeaders["hx-request-type"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("button#issue-133-update", requestHeaders["hx-source"]);
+		Assert.True(requestHeaders.ContainsKey("requestverificationtoken"));
+		var responseBody = await response.TextAsync();
+		Assert.DoesNotContain("<html", responseBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", responseBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-133-main=\"main-updated\"", responseBody, StringComparison.Ordinal);
+		Assert.Contains(
+			"id=\"issue-133-oob-target\" hx-swap-oob=\"true\" data-state=\"oob-updated\"",
+			responseBody,
+			StringComparison.Ordinal);
+
+		await page.WaitForFunctionAsync(
+			"() => window.issue133SwapEvents.length === 2 && window.issue133Mutations.length === 2");
+		Assert.Equal(
+			new[] { "issue-133-main-target", "issue-133-oob-target" },
+			await page.EvaluateAsync<string[]>("() => window.issue133SwapEvents"));
+		Assert.Equal(
+			new[] { "issue-133-main-target", "issue-133-oob-target" },
+			await page.EvaluateAsync<string[]>("() => window.issue133Mutations"));
+		Assert.Equal(
+			"Main updated",
+			await page.Locator("#issue-133-main-target [data-issue-133-main='main-updated']")
+				.TextContentAsync());
+		Assert.Equal(
+			"OOB updated",
+			await page.Locator("#issue-133-oob-target[data-state='oob-updated']").TextContentAsync());
+		Assert.Equal(
+			0,
+			await page.Locator("#issue-133-main-target #issue-133-oob-target").CountAsync());
+
+		var observations = probe.Snapshot();
+		var callback = Assert.Single(observations, observation => observation.Phase == "callback");
+		Assert.Contains(
+			observations,
+			observation => observation.Phase == "initialized" &&
+				observation.RequestId == callback.RequestId);
+	}
+
+	[Fact]
 	public async Task Progressive_enhancement_preserves_native_post_and_htmx_put_paths()
 	{
 		var probe = new Issue120RequestProbe();
@@ -1048,6 +1161,7 @@ public sealed class Issue56BrowserTests
 		Issue120RequestProbe? issue120Probe = null,
 		Issue129RequestProbe? issue129Probe = null,
 		Issue131RequestProbe? issue131Probe = null,
+		Issue133RequestProbe? issue133Probe = null,
 		bool useHtmxor = true)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -1070,7 +1184,8 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddAuthorizationBuilder()
 			.AddPolicy("issue-111", policy => policy.RequireAuthenticatedUser())
 			.AddPolicy("issue-120", policy => policy.RequireAuthenticatedUser())
-			.AddPolicy("issue-131", policy => policy.RequireAuthenticatedUser());
+			.AddPolicy("issue-131", policy => policy.RequireAuthenticatedUser())
+			.AddPolicy("issue-133", policy => policy.RequireAuthenticatedUser());
 		builder.Services.AddOutputCache();
 		builder.Services.AddSingleton(probe);
 		builder.Services.AddSingleton(issue111Probe ?? new Issue111RequestProbe());
@@ -1079,6 +1194,7 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(issue120Probe ?? new Issue120RequestProbe());
 		builder.Services.AddSingleton(issue129Probe ?? new Issue129RequestProbe());
 		builder.Services.AddSingleton(issue131Probe ?? new Issue131RequestProbe());
+		builder.Services.AddSingleton(issue133Probe ?? new Issue133RequestProbe());
 		builder.Services.AddScoped<Issue120RequestScope>();
 
 		var app = builder.Build();
@@ -1134,10 +1250,21 @@ public sealed class Issue56BrowserTests
 			new Uri(response.Url).AbsolutePath == Issue131Path &&
 			string.Equals(response.Request.Method, "DELETE", StringComparison.Ordinal));
 
+	private static Task<IResponse> WaitForIssue133PutAsync(IPage page) =>
+		page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue133Path &&
+			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
+
 	private static Dictionary<string, string> AuthenticatedIssue131Headers() =>
 		new()
 		{
 			[Issue111AuthenticationHandler.UserHeaderName] = "issue-131-user",
+		};
+
+	private static Dictionary<string, string> AuthenticatedIssue133Headers() =>
+		new()
+		{
+			[Issue111AuthenticationHandler.UserHeaderName] = "issue-133-user",
 		};
 
 	private static Task WaitForIssue129RequestAsync(IPage page, int expectedCount) =>
