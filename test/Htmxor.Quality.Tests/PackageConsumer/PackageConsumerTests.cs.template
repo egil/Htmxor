@@ -4,10 +4,12 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using Htmxor;
+using Htmxor.Http;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components.Endpoints;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -130,6 +132,97 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 
 		Assert.Contains("AddHtmxorEndpoints", registrationMethods);
 		Assert.DoesNotContain("AddHtmxorComponentEndpoints", registrationMethods);
+	}
+
+	[Fact]
+	public void Package_removes_the_targeted_client_DSL_and_keeps_the_server_swap_contract()
+	{
+		string[] removedClientAuthoringTypes =
+		[
+			"Htmxor.Constants",
+			"Htmxor.HtmxTriggerSpecification",
+			"Htmxor.ScrollDirection",
+			"Htmxor.SwapStyleBuilder",
+			"Htmxor.SwapStyleBuilderExtension",
+			"Htmxor.SwapStyleExtensions",
+			"Htmxor.Trigger",
+			"Htmxor.TriggerBuilder",
+			"Htmxor.TriggerModifierBuilder",
+			"Htmxor.TriggerQueueOption",
+		];
+		var packageAssembly = typeof(HtmxorApplicationBuilderExtensions).Assembly;
+		var exportedTypeNames = packageAssembly
+			.GetExportedTypes()
+			.Select(static type => type.FullName)
+			.OfType<string>()
+			.ToArray();
+		var unexpectedSurface = exportedTypeNames
+			.Intersect(removedClientAuthoringTypes, StringComparer.Ordinal);
+		var reswapOverloads = typeof(HtmxResponse).GetMethods()
+			.Where(static method => method.Name == nameof(HtmxResponse.Reswap))
+			.ToArray();
+
+		Assert.Empty(unexpectedSurface);
+		Assert.Contains("Htmxor.SwapStyle", exportedTypeNames);
+		Assert.Equal(
+			typeof(SwapStyle?),
+			typeof(AjaxContext).GetProperty(nameof(AjaxContext.Swap))?.PropertyType);
+		Assert.Contains(
+			reswapOverloads,
+			static method => method.GetParameters() is [{ ParameterType: var parameterType }, ..]
+				&& parameterType == typeof(SwapStyle));
+		Assert.DoesNotContain(
+			reswapOverloads.SelectMany(static method => method.GetParameters()),
+			static parameter => parameter.ParameterType.FullName == "Htmxor.SwapStyleBuilder");
+	}
+
+	[Fact]
+	public async Task Package_renders_native_htmx4_markup_and_keeps_server_response_operations()
+	{
+		await using var scope = app.Services.CreateAsyncScope();
+		await using var renderer = new HtmlRenderer(
+			scope.ServiceProvider,
+			scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+		var markup = await renderer.Dispatcher.InvokeAsync(async () =>
+		{
+			var output = await renderer.RenderComponentAsync<Issue151ClientMarkup>();
+			return output.ToHtmlString();
+		});
+
+		Assert.Contains(
+			"hx-trigger=\"intersect rootMargin:100px passive prevent\"",
+			markup,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			"hx-swap=\"outerMorph target:#result strip:true swapEmpty:true\"",
+			markup,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			"<hx-partial hx-target=\"#result\" hx-swap=\"acmeMorph\">",
+			markup,
+			StringComparison.Ordinal);
+
+		var context = new DefaultHttpContext
+		{
+			RequestServices = new ServiceCollection().BuildServiceProvider(),
+		};
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
+		var response = new HtmxResponse(context);
+
+		var result = response.Reswap("acmeMorph settle:25ms");
+
+		Assert.Same(response, result);
+		Assert.Equal(
+			"acmeMorph settle:25ms",
+			context.Response.Headers[HtmxResponseHeaderNames.Reswap].ToString());
+		response.Reswap(SwapStyle.outerHTML, "settle:25ms");
+		Assert.Equal(
+			"outerHTML settle:25ms",
+			context.Response.Headers[HtmxResponseHeaderNames.Reswap].ToString());
+		response.Trigger("client:event");
+		Assert.Equal(
+			"client:event",
+			context.Response.Headers[HtmxResponseHeaderNames.Trigger].ToString());
 	}
 
 	[Fact]
