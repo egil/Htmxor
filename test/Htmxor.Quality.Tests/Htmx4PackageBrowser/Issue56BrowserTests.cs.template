@@ -564,13 +564,29 @@ public sealed class Issue56BrowserTests
 		Assert.DoesNotContain("<html", partialBody, StringComparison.OrdinalIgnoreCase);
 		Assert.DoesNotContain("data-stock-shell", partialBody, StringComparison.Ordinal);
 		Assert.DoesNotContain("data-issue-122-page", partialBody, StringComparison.Ordinal);
-		var responseDocument = System.Xml.Linq.XDocument.Parse($"<root>{partialBody}</root>");
-		var envelopes = responseDocument.Root!.Elements().ToArray();
+		var parsedResponse = await page.EvaluateAsync<JsonElement>(
+			"""
+			body => {
+				const template = document.createElement("template");
+				template.innerHTML = body;
+				const fragment = template.content;
+				return {
+					unexpectedText: Array.from(fragment.childNodes)
+						.filter(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0)
+						.map(node => node.textContent),
+					envelopes: Array.from(fragment.children).map(element => ({
+						tagName: element.localName,
+						target: element.getAttribute("hx-target"),
+						swap: element.getAttribute("hx-swap"),
+						state: element.querySelector("[data-state]")?.getAttribute("data-state"),
+					})),
+				};
+			}
+			""",
+			partialBody);
+		Assert.Empty(parsedResponse.GetProperty("unexpectedText").EnumerateArray());
+		var envelopes = parsedResponse.GetProperty("envelopes").EnumerateArray().ToArray();
 		Assert.Equal(2, envelopes.Length);
-		Assert.All(envelopes, envelope => Assert.Equal("hx-partial", envelope.Name.LocalName));
-		Assert.All(
-			responseDocument.Root.Nodes().OfType<System.Xml.Linq.XText>(),
-			text => Assert.True(string.IsNullOrWhiteSpace(text.Value), partialBody));
 		AssertEnvelope(envelopes[0], "#issue-122-first", "innerHTML", "first-updated");
 		AssertEnvelope(envelopes[1], "#issue-122-second", "outerHTML", "second-updated");
 
@@ -630,16 +646,15 @@ public sealed class Issue56BrowserTests
 	}
 
 	private static void AssertEnvelope(
-		System.Xml.Linq.XElement envelope,
+		JsonElement envelope,
 		string target,
 		string swap,
 		string state)
 	{
-		Assert.Equal(target, envelope.Attribute("hx-target")?.Value);
-		Assert.Equal(swap, envelope.Attribute("hx-swap")?.Value);
-		Assert.Contains(
-			envelope.DescendantsAndSelf(),
-			element => string.Equals(element.Attribute("data-state")?.Value, state, StringComparison.Ordinal));
+		Assert.Equal("hx-partial", envelope.GetProperty("tagName").GetString());
+		Assert.Equal(target, envelope.GetProperty("target").GetString());
+		Assert.Equal(swap, envelope.GetProperty("swap").GetString());
+		Assert.Equal(state, envelope.GetProperty("state").GetString());
 	}
 
 	private static HttpRequestMessage CreateForgedRequest(
