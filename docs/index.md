@@ -45,9 +45,8 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
       app.UseAntiforgery();
       app.MapStaticAssets();
-    + var htmxorRoutes = app.MapGroup(string.Empty);
       app.MapRazorComponents<App>()
-    +    .AddHtmxorComponentEndpoints(htmxorRoutes);
+    +    .AddHtmxorComponentEndpoints();
 
       app.Run();
     ```
