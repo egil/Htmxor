@@ -21,7 +21,8 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseAntiforgery();
+var htmxorRoutes = app.MapGroup(string.Empty);
 app.MapRazorComponents<App>()
-   .AddHtmxorComponentEndpoints();
+   .AddHtmxorComponentEndpoints(htmxorRoutes);
 
 app.Run();

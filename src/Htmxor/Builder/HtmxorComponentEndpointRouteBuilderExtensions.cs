@@ -21,6 +21,12 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	private static readonly RootComponentMetadata HtmxOnlyDirectRoot = new(typeof(HtmxorDirectComponentHost));
 
 	[EditorBrowsable(EditorBrowsableState.Never)]
+	public static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
+		this RazorComponentsEndpointConventionBuilder builder,
+		IEndpointRouteBuilder endpoints)
+		=> AddHtmxorComponentEndpoints(builder, endpoints, []);
+
+	[EditorBrowsable(EditorBrowsableState.Never)]
 	public static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
 		this RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints,
