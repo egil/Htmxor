@@ -33,8 +33,9 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
    dotnet pack src/Htmxor/Htmxor.csproj --configuration Release --output artifacts/packages -p:MinVerVersionOverride=1.0.0-local.1
    ```
 
-   Then add that package to the application. Replace the source path with the
-   absolute path to the repository's `artifacts/packages` directory:
+   From the application project directory, add that package. Replace the source
+   path with the absolute path to the repository's `artifacts/packages`
+   directory:
 
    ```console
    dotnet add package Htmxor --version 1.0.0-local.1 --source /absolute/path/to/Htmxor/artifacts/packages
