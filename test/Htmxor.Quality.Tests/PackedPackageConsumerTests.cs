@@ -552,7 +552,8 @@ internal static class PackageConsumerEvidence
 		using var package = ZipFile.OpenRead(packagePath);
 		var paths = package.Entries.Select(entry => entry.FullName).ToArray();
 
-		Assert.Contains("lib/net8.0/Htmxor.dll", paths);
+		Assert.Contains("lib/net10.0/Htmxor.dll", paths);
+		Assert.DoesNotContain("lib/net8.0/Htmxor.dll", paths);
 		Assert.Contains("analyzers/dotnet/cs/Htmxor.Generators.dll", paths);
 		Assert.Contains("analyzers/dotnet/cs/Htmxor.Generators.pdb", paths);
 		Assert.Contains("staticwebassets/htmxor.js", paths);
@@ -564,11 +565,15 @@ internal static class PackageConsumerEvidence
 	public static void AssertConsumer(string consumerDirectory, string packageVersion)
 	{
 		var project = XDocument.Load(Path.Combine(consumerDirectory, "Htmxor.PackageConsumer.csproj"));
+		var targetFramework = Assert.Single(
+			project.Descendants(),
+			element => element.Name.LocalName == "TargetFramework");
 		var references = project.Descendants()
 			.Where(element => element.Name.LocalName == "PackageReference")
 			.ToArray();
 		var htmxor = Assert.Single(references, IsHtmxorPackageReference);
 
+		Assert.Equal("net10.0", targetFramework.Value);
 		Assert.Equal(packageVersion, htmxor.Attribute("Version")?.Value);
 		Assert.Empty(project.Descendants().Where(element => element.Name.LocalName == "ProjectReference"));
 		Assert.Empty(project.Descendants().Where(element => element.Name.LocalName == "InternalsVisibleTo"));
