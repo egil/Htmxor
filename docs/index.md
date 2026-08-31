@@ -124,7 +124,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
 5. **Create an Optional Direct Request Layout**
 
-   Optionally, create a layout that will be used during [direct routing](htmxor-v1-feature-guide.md#a-normal-page-that-also-answers-direct-htmx-get), e.g., `/Components/Layout/HtmxorLayout.razor`:
+   Optionally, create a layout that will be used during [direct routing](#direct-routing), e.g., `/Components/Layout/HtmxorLayout.razor`:
 
     ```razor
     @inherits HtmxLayoutComponentBase
