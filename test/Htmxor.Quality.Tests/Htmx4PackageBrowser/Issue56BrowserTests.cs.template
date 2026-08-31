@@ -822,10 +822,11 @@ public sealed class Issue56BrowserTests
 				});
 				new MutationObserver(records => {
 					for (const record of records) {
-						if (record.target.id === 'issue-135-main-target') {
-							window.issue135Mutations.push('issue-135-main-target');
-						} else if (record.target.id === 'issue-135-partial-target') {
-							window.issue135Mutations.push('issue-135-partial-target');
+						const targetId = record.target.id;
+						if ((targetId === 'issue-135-main-target' ||
+							targetId === 'issue-135-partial-target') &&
+							window.issue135Mutations.at(-1) !== targetId) {
+							window.issue135Mutations.push(targetId);
 						}
 					}
 				}).observe(document.body, { childList: true, subtree: true });
