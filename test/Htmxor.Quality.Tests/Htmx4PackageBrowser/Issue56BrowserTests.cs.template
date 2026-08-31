@@ -694,6 +694,7 @@ public sealed class Issue56BrowserTests
 			}
 			""");
 
+		var beforeSuccessfulRequest = probe.Snapshot();
 		var responseTask = WaitForIssue133PutAsync(page);
 		await page.Locator("#issue-133-update").ClickAsync();
 		var response = await responseTask;
@@ -711,6 +712,28 @@ public sealed class Issue56BrowserTests
 			"id=\"issue-133-oob-target\" hx-swap-oob=\"true\" data-state=\"oob-updated\"",
 			responseBody,
 			StringComparison.Ordinal);
+		var responseChildren = await page.EvaluateAsync<JsonElement>(
+			"""
+			body => {
+				const template = document.createElement('template');
+				template.innerHTML = body;
+				return Array.from(template.content.children).map(element => ({
+					tagName: element.localName,
+					mainState: element.getAttribute('data-issue-133-main'),
+					id: element.id,
+					oob: element.getAttribute('hx-swap-oob'),
+					oobState: element.getAttribute('data-state')
+				}));
+			}
+			""",
+			responseBody);
+		var responseElements = responseChildren.EnumerateArray().ToArray();
+		Assert.Equal(3, responseElements.Length);
+		Assert.Equal("section", responseElements[0].GetProperty("tagName").GetString());
+		Assert.Equal("main-updated", responseElements[1].GetProperty("mainState").GetString());
+		Assert.Equal("issue-133-oob-target", responseElements[2].GetProperty("id").GetString());
+		Assert.Equal("true", responseElements[2].GetProperty("oob").GetString());
+		Assert.Equal("oob-updated", responseElements[2].GetProperty("oobState").GetString());
 
 		await page.WaitForFunctionAsync(
 			"() => window.issue133SwapEvents.length === 2 && window.issue133Mutations.length === 2");
@@ -731,12 +754,15 @@ public sealed class Issue56BrowserTests
 			0,
 			await page.Locator("#issue-133-main-target #issue-133-oob-target").CountAsync());
 
-		var observations = probe.Snapshot();
-		var callback = Assert.Single(observations, observation => observation.Phase == "callback");
-		Assert.Contains(
-			observations,
-			observation => observation.Phase == "initialized" &&
-				observation.RequestId == callback.RequestId);
+		var successfulRequest = probe.Snapshot().Skip(beforeSuccessfulRequest.Count).ToArray();
+		Assert.Collection(
+			successfulRequest,
+			initialization => Assert.Equal("initialized", initialization.Phase),
+			callback =>
+			{
+				Assert.Equal("callback", callback.Phase);
+				Assert.Equal(successfulRequest[0].RequestId, callback.RequestId);
+			});
 	}
 
 	[Fact]
