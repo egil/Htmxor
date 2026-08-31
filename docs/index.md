@@ -228,7 +228,7 @@ cookie for a safe GET that contains no stock antiforgery component.
 
 ## Routing in Htmxor
 
-Htmxor distinguishes two routing modes from stock Blazor static SSR:
+Htmxor supports two routing modes for Blazor static SSR:
 
 - **Standard routing**
 - **Direct routing**
