@@ -344,8 +344,6 @@ separately verifiable outcome.
 
 Published issue: [#151, `refactor(api): freeze the minimal Htmxor v1 public surface`](https://github.com/egil/Htmxor/issues/151).
 
-Publication source: [public API issue body](proposed-v1-dx-issue-public-api.md).
-
 Outcome:
 
 - decide the service and endpoint extension names, building on rather than
@@ -362,8 +360,6 @@ changing the .NET target owned by #148, or redesigning route/fragment behavior.
 ### B. Make route and action declarations diagnostically complete
 
 Published issue: [#152, `feat(routing): make v1 reachability and action declarations self-explanatory`](https://github.com/egil/Htmxor/issues/152).
-
-Publication source: [routing issue body](proposed-v1-dx-issue-routing.md).
 
 Outcome:
 
@@ -382,8 +378,6 @@ grant methods, or introducing controllers/Minimal APIs.
 
 Published issue: [#153, `feat(fragments): separate server selection from DOM delivery`](https://github.com/egil/Htmxor/issues/153).
 
-Publication source: [fragment issue body](proposed-v1-dx-issue-fragments.md).
-
 Outcome:
 
 - add a stable server fragment name independent of wrapper ID;
@@ -399,8 +393,6 @@ untrusted target headers, streaming responses, or detached hydration.
 ### D. Make the htmx 4 request/response context consistent and extensible
 
 Published issue: [#154, `refactor(protocol): finalize the Htmxor v1 HTTP context`](https://github.com/egil/Htmxor/issues/154).
-
-Publication source: [protocol issue body](proposed-v1-dx-issue-protocol.md).
 
 Outcome:
 
