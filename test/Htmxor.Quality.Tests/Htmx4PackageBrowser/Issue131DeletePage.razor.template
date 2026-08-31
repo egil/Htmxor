@@ -1,0 +1,52 @@
+@page "/issue-131/delete"
+@using Htmxor
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Http
+@attribute [Authorize("issue-131")]
+@inject IHttpContextAccessor HttpContextAccessor
+@inject Issue131RequestProbe Probe
+
+<section @ondelete="Delete"></section>
+
+@if (responseState is null)
+{
+	<form @formname="issue-131-delete">
+		<AntiforgeryToken />
+		<input name="applicationValue" value="issue-131-application-value" />
+		<button id="issue-131-default"
+			type="button"
+			hx-delete="issue-131/delete?mode=default&amp;existing=kept"
+			hx-target="#issue-131-default-target">Delete without form inclusion</button>
+		<button id="issue-131-explicit"
+			type="button"
+			hx-delete="issue-131/delete?mode=explicit&amp;existing=kept"
+			hx-include="closest form"
+			hx-target="#issue-131-explicit-target">Delete with form inclusion</button>
+	</form>
+	<main data-issue-131-page>
+		<div id="issue-131-default-target">default target unchanged</div>
+		<div id="issue-131-explicit-target">explicit target unchanged</div>
+	</main>
+}
+else
+{
+	<section data-issue-131-result="@responseState">@responseState</section>
+}
+
+@code {
+	private readonly string requestId = Guid.NewGuid().ToString("N");
+	private string? responseState;
+
+	protected override void OnInitialized() => Probe.RecordInitialization(requestId);
+
+	private void Delete(HtmxEventArgs _)
+	{
+		var query = HttpContextAccessor.HttpContext!.Request.Query;
+		var mode = query["mode"].ToString();
+		var applicationValue = query["applicationValue"].FirstOrDefault();
+		var existingValue = query["existing"].ToString();
+		responseState = $"{mode}:{applicationValue ?? "absent"}:{existingValue}";
+		Probe.RecordCallback(requestId, mode, applicationValue, existingValue);
+	}
+}
