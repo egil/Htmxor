@@ -4,12 +4,15 @@
 
 ## V1 design
 
-The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) describes the planned
-API. It is not documentation for the current beta. The
+The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) documents the current
+registration pair and labels the remaining v1 APIs by status. The
 [developer experience review](research/htmxor-v1-dx-review.md) explains the
 remaining API decisions and links the issues that track them.
 
-## Getting Started
+## Getting Started with the unreleased v1 API
+
+The setup below targets the v1 API in the repository revision containing this
+page. It does not compile against the currently published beta package.
 
 To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
 
@@ -22,14 +25,29 @@ GET, POST, PUT, PATCH, and DELETE paths described in the
 
 To start fresh from a (new) Blazor Web App project, follow these steps:
 
-1. **Add the Htmxor Package**
+1. **Build and add the Htmxor package**
 
-   Install the [Htmxor package from NuGet](https://www.nuget.org/packages/Htmxor).
+   From the Htmxor repository root, build a local package with a known version:
+
+   ```console
+   dotnet pack src/Htmxor/Htmxor.csproj --configuration Release --output artifacts/packages -p:MinVerVersionOverride=1.0.0-local.1
+   ```
+
+   From the application project directory, add that package. Replace the source
+   path with the absolute path to the repository's `artifacts/packages`
+   directory:
+
+   ```console
+   dotnet add package Htmxor --version 1.0.0-local.1 --source /absolute/path/to/Htmxor/artifacts/packages
+   ```
+
+   The published packages on [NuGet](https://www.nuget.org/packages/Htmxor)
+   expose the previous beta registration API until v1 is published.
 
 
 2. **Update `Program.cs`**
 
-   Modify `Program.cs` to include Htmxor services and middleware:
+   Modify `Program.cs` to include Htmxor services and endpoint mapping:
 
     ```diff
       var builder = WebApplication.CreateBuilder(args);
@@ -37,7 +55,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       // Add services to the container.
       builder.Services
           .AddRazorComponents()
-    +     .AddHtmx();
+    +     .AddHtmxor();
 
       var app = builder.Build();
 
@@ -53,10 +71,13 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       app.UseAntiforgery();
       app.MapStaticAssets();
       app.MapRazorComponents<App>()
-    +    .AddHtmxorComponentEndpoints();
+    +    .AddHtmxorEndpoints();
 
       app.Run();
     ```
+
+   These calls register Htmxor's server integration and component endpoints.
+   They do not install, select, or configure the application-owned htmx runtime.
 
    Keep the stock `MapStaticAssets()` call. Htmxor uses ASP.NET Core static web
    assets for its adapter and does not require a separate file provider or

@@ -1,7 +1,7 @@
 # Htmxor v1 guide and htmx 4 map
 
-Status: design draft for the planned Htmxor v1 API, not current beta
-documentation.
+Status: design draft for the planned Htmxor v1 API. The registration names below
+are current; other proposed APIs remain labeled as proposals.
 
 The [v1 goal](roadmap/v1/goal.md) is the authority when this guide and the
 current code differ. The [v1 progress record](roadmap/v1/progress.md) says which
@@ -34,14 +34,17 @@ rate-limit, cache, and other endpoint policies still apply.
 
 ## Configure the application
 
-The current API uses these names and no route-group argument:
+The first bounded slice of
+[#151](https://github.com/egil/Htmxor/issues/151) uses one product name for
+the service and endpoint registrations while retaining #145's no-argument
+shape:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddRazorComponents()
-    .AddHtmx();
+    .AddHtmxor();
 
 var app = builder.Build();
 
@@ -49,21 +52,23 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
-    .AddHtmxorComponentEndpoints();
+    .AddHtmxorEndpoints();
 
 app.Run();
 ```
 
-[#145](https://github.com/egil/Htmxor/issues/145) proved this call at the
-application root and through one standard ASP.NET Core route group using a
-separately packed .NET 10 package. Nested groups, multiple Razor component
-applications, group endpoint filters or rate limits, interactive render modes,
-and the grouped Kestrel/browser path remain unproved.
+[#145](https://github.com/egil/Htmxor/issues/145) proved the no-argument root and
+standard route-group behavior retained by this call using a separately packed
+.NET 10 package. Nested groups, multiple Razor component applications, group
+endpoint filters or rate limits, interactive render modes, and the grouped
+Kestrel/browser path remain unproved.
 
-[#151](https://github.com/egil/Htmxor/issues/151) will decide whether both
-extension methods should use the product name, such as `AddHtmxor()` and
-`AddHtmxorEndpoints()`. Until then, examples use the current names and label
-proposed names.
+`AddHtmxor()` registers Htmxor's server services. `AddHtmxorEndpoints()` adds
+Htmxor's component endpoints to the mapped Razor component application. Neither
+call installs, selects, or configures htmx; the application owns that runtime.
+This naming change is only the first slice of #151. The issue remains open for
+the stable type allow-list, exported-member review, client-helper decision, and
+public-API compatibility baseline.
 
 Supply htmx before the Htmxor adapter in `App.razor`:
 

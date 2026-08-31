@@ -39,14 +39,14 @@ public sealed class Issue83AuthorizationTests : IAsyncLifetime
 		builder.Services.AddAuthorization(options => options.AddPolicy(
 			PolicyName,
 			policy => policy.RequireClaim(RequiredClaimType, RequiredClaimValue)));
-		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddRazorComponents().AddHtmxor();
 
 		app = builder.Build();
 		app.UseAuthentication();
 		app.UseAuthorization();
 		app.UseAntiforgery();
 		app.MapRazorComponents<Issue78App>()
-			.AddHtmxorComponentEndpoints();
+			.AddHtmxorEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();

@@ -32,27 +32,30 @@ representation. It is not an authentication or authorization check.
 
 ## Configure the application
 
-The no-argument registration API is current.
-[#145](https://github.com/egil/Htmxor/issues/145) proved it at the application
-root and through one standard ASP.NET Core route group:
+The first bounded slice of
+[#151](https://github.com/egil/Htmxor/issues/151) makes a consistent,
+no-argument registration pair current.
+[#145](https://github.com/egil/Htmxor/issues/145) proved the no-argument root and
+standard route-group behavior retained by this pair:
 
 ```csharp
 builder.Services
     .AddRazorComponents()
-    .AddHtmx();
+    .AddHtmxor();
 
 app.UseAntiforgery();
 app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
-    .AddHtmxorComponentEndpoints();
+    .AddHtmxorEndpoints();
 ```
 
-The registration behavior is settled for those cases, but the names are not.
-`AddHtmx()` sounds as if it installs the browser library even though the
-application supplies that library.
-[#151](https://github.com/egil/Htmxor/issues/151) will settle the service and
-endpoint names before v1.
+`AddHtmxor()` registers Htmxor's server services, and
+`AddHtmxorEndpoints()` adds its component endpoints. Neither call installs,
+selects, or configures htmx; the application supplies that runtime. The beta
+does not retain forwarding aliases for the old names. This is only the first
+slice of #151, which remains open for the rest of the stable public-surface
+review.
 
 Load the application-owned htmx asset before the Htmxor adapter:
 

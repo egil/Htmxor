@@ -28,11 +28,16 @@ public class HtmxHeadOutletTest : BunitContext
 	[Fact]
 	public void Public_registration_exposes_no_Htmxor_owned_client_configuration()
 	{
-		var addHtmx = typeof(HtmxorApplicationBuilderExtensions)
+		var registrationMethods = typeof(HtmxorApplicationBuilderExtensions)
 			.GetMethods()
-			.Single(method => method.Name == nameof(HtmxorApplicationBuilderExtensions.AddHtmx));
+			.Where(static method => method.IsPublic && method.IsStatic)
+			.ToArray();
 
-		addHtmx.GetParameters().Should().ContainSingle();
+		var addHtmxor = registrationMethods.Should()
+			.ContainSingle(static method => method.Name == nameof(HtmxorApplicationBuilderExtensions.AddHtmxor))
+			.Which;
+		addHtmxor.GetParameters().Should().ContainSingle();
+		registrationMethods.Should().NotContain(static method => method.Name == "AddHtmx");
 		typeof(HtmxHeadOutlet).Assembly.GetType("Htmxor.HtmxConfig").Should().BeNull();
 	}
 
