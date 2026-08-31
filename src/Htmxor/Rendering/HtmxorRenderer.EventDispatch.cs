@@ -116,18 +116,16 @@ internal partial class HtmxorRenderer
 			if (change.ChangeType == NamedEventChangeType.Added
 				&& string.Equals(change.EventType, "onsubmit", StringComparison.Ordinal))
 			{
-				if (TryCreateScopeQualifiedEventName(change.ComponentId, change.AssignedName, out var scopeQualifiedName))
+				var scopeQualifiedName = change.AssignedName;
+				var locationsForName = GetOrAddNewToDictionary(_namedSubmitEventsByScopeQualifiedName, scopeQualifiedName);
+				var location = (change.ComponentId, change.FrameIndex);
+				if (!locationsForName.Add(location))
 				{
-					var locationsForName = GetOrAddNewToDictionary(_namedSubmitEventsByScopeQualifiedName, scopeQualifiedName);
-					var location = (change.ComponentId, change.FrameIndex);
-					if (!locationsForName.Add(location))
-					{
-						// This shouldn't be possible, since each NamedEvent frame innately has a distinct location
-						throw new InvalidOperationException($"A single named submit event is tracked more than once at the same location.");
-					}
-
-					_namedSubmitEventsByLocation.Add(location, scopeQualifiedName);
+					// This shouldn't be possible, since each NamedEvent frame innately has a distinct location
+					throw new InvalidOperationException($"A single named submit event is tracked more than once at the same location.");
 				}
+
+				_namedSubmitEventsByLocation.Add(location, scopeQualifiedName);
 			}
 		}
 	}
