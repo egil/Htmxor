@@ -761,7 +761,7 @@ header validation remain separate decisions.
 Protected behavior for issues #72 and #75:
 
 > When a .NET 10 Blazor static SSR application uses `MapStaticAssets` and
-> `@Assets["app.css"]`, adding `AddHtmx` and `HtmxHeadOutlet` preserves the
+> `@Assets["app.css"]`, adding `AddHtmxor()` and `HtmxHeadOutlet` preserves the
 > stock fingerprinted application URL. A published Production app starts,
 > serves the application asset and Htmxor adapter, retains normal full-page
 > GET, and executes an application-owned htmx 4.0.0 direct component GET.
@@ -782,7 +782,7 @@ sends a direct `HX-Request: true` GET, receives shell-free component output,
 and visibly swaps it into the declared target. Package inspection continues to
 verify that Htmxor contains the adapter but no htmx runtime or legacy extension.
 
-The deletion test requires no production change. The public `AddHtmx` path no
+The deletion test requires no production change. The public `AddHtmxor()` path no
 longer replaces the stock renderer blamed by the historical #75 report, and
 Htmxor no longer owns the htmx files involved in the historical #72 report.
 Supported ASP.NET Core static-web-assets and stock Blazor resource collection
