@@ -1,0 +1,29 @@
+@page "/issue-137/fragment-lifecycle"
+@inject Issue137LifecycleProbe Probe
+@inject IHttpContextAccessor HttpContextAccessor
+
+<HtmxFragment Match="@(_ => false)">
+	<button id="issue-137-select"
+			type="button"
+			hx-get="/issue-137/fragment-lifecycle"
+			hx-target="#issue-137-selected"
+			hx-swap="outerHTML">Select fragment</button>
+</HtmxFragment>
+
+<Issue137LifecycleWrapper>
+	<HtmxFragment Id="issue-137-selected">
+		<Issue137ObservedDescendant Branch="selected" />
+	</HtmxFragment>
+	<HtmxFragment Id="issue-137-excluded">
+		<Issue137ObservedDescendant Branch="excluded" />
+	</HtmxFragment>
+</Issue137LifecycleWrapper>
+
+@code {
+	protected override void OnInitialized() => Record("initialized");
+
+	protected override void OnParametersSet() => Record("parameters-set");
+
+	private void Record(string phase) =>
+		Probe.Record(HttpContextAccessor.HttpContext!.TraceIdentifier, "page", phase);
+}

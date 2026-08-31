@@ -1,0 +1,16 @@
+@inject Issue137LifecycleProbe Probe
+@inject IHttpContextAccessor HttpContextAccessor
+
+@ChildContent
+
+@code {
+	[Parameter, EditorRequired]
+	public required RenderFragment ChildContent { get; set; }
+
+	protected override void OnInitialized() => Record("initialized");
+
+	protected override void OnParametersSet() => Record("parameters-set");
+
+	private void Record(string phase) =>
+		Probe.Record(HttpContextAccessor.HttpContext!.TraceIdentifier, "wrapper", phase);
+}

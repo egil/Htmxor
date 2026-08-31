@@ -1,0 +1,19 @@
+@inject Issue137LifecycleProbe Probe
+@inject IHttpContextAccessor HttpContextAccessor
+
+@{
+	Record("rendered");
+}
+<span data-issue-137-descendant="@Branch">@Branch descendant</span>
+
+@code {
+	[Parameter, EditorRequired]
+	public required string Branch { get; set; }
+
+	protected override void OnInitialized() => Record("initialized");
+
+	protected override void OnParametersSet() => Record("parameters-set");
+
+	private void Record(string phase) =>
+		Probe.Record(HttpContextAccessor.HttpContext!.TraceIdentifier, "descendant", phase, Branch);
+}

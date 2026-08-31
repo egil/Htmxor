@@ -32,6 +32,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue131Path = "/issue-131/delete";
 	private const string Issue133Path = "/issue-133/oob-order";
 	private const string Issue135Path = "/issue-135/partial-order";
+	private const string Issue137Path = "/issue-137/fragment-lifecycle";
 	private const string Issue64Path = "/issue-64";
 	private const string Issue64RedirectPath = "/issue-64/redirect";
 	private const string Issue64DestinationPath = "/issue-64/destination";
@@ -977,6 +978,77 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Selected_fragment_skips_excluded_descendant_lifecycle_and_render_work()
+	{
+		var probe = new Issue137LifecycleProbe();
+		await using var app = CreateApplication(
+			new Issue56RequestProbe(),
+			issue137Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue137Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		var normalBody = await navigation.TextAsync();
+		Assert.Contains("<html", normalBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-137-descendant=\"selected\"", normalBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-137-descendant=\"excluded\"", normalBody, StringComparison.Ordinal);
+		AssertIssue137Lifecycle(probe.Snapshot(), expectedExcludedCount: 1);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var beforeDirectRequest = probe.Snapshot();
+		var responseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue137Path &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+		await page.Locator("#issue-137-select").ClickAsync();
+		var response = await responseTask;
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var requestHeaders = await response.Request.AllHeadersAsync();
+		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("partial", requestHeaders["hx-request-type"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("div#issue-137-selected", requestHeaders["hx-target"]);
+		var directBody = await response.TextAsync();
+		Assert.DoesNotContain("<html", directBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", directBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-137-descendant=\"selected\"", directBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-137-descendant=\"excluded\"", directBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("<button", directBody, StringComparison.OrdinalIgnoreCase);
+		var directShape = await page.EvaluateAsync<JsonElement>(
+			"""
+			body => {
+				const template = document.createElement('template');
+				template.innerHTML = body;
+				return {
+					content: Array.from(template.content.childNodes)
+						.filter(node => node.nodeType !== Node.TEXT_NODE || node.textContent.trim().length > 0)
+						.map(node => node.nodeType === Node.ELEMENT_NODE ? node.outerHTML : node.textContent),
+				};
+			}
+			""",
+			directBody);
+		Assert.Equal(
+			new[]
+			{
+				"<div id=\"issue-137-selected\"><span data-issue-137-descendant=\"selected\">selected descendant</span></div>",
+			},
+			directShape.GetProperty("content").EnumerateArray().Select(element => element.GetString()));
+
+		var directObservations = probe.Snapshot().Skip(beforeDirectRequest.Count).ToArray();
+		AssertIssue137Lifecycle(directObservations, expectedExcludedCount: 0);
+		Assert.Equal("selected descendant", await page.Locator(
+			"#issue-137-selected [data-issue-137-descendant='selected']").TextContentAsync());
+		Assert.Equal(1, await page.Locator("#issue-137-select").CountAsync());
+		Assert.Equal(1, await page.Locator("#issue-137-selected").CountAsync());
+		Assert.Equal(1, await page.Locator("#issue-137-excluded").CountAsync());
+	}
+
+	[Fact]
 	public async Task Progressive_enhancement_preserves_native_post_and_htmx_put_paths()
 	{
 		var probe = new Issue120RequestProbe();
@@ -1400,6 +1472,7 @@ public sealed class Issue56BrowserTests
 		Issue131RequestProbe? issue131Probe = null,
 		Issue133RequestProbe? issue133Probe = null,
 		Issue135RequestProbe? issue135Probe = null,
+		Issue137LifecycleProbe? issue137Probe = null,
 		bool useHtmxor = true)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -1435,6 +1508,7 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(issue131Probe ?? new Issue131RequestProbe());
 		builder.Services.AddSingleton(issue133Probe ?? new Issue133RequestProbe());
 		builder.Services.AddSingleton(issue135Probe ?? new Issue135RequestProbe());
+		builder.Services.AddSingleton(issue137Probe ?? new Issue137LifecycleProbe());
 		builder.Services.AddScoped<Issue120RequestScope>();
 
 		var app = builder.Build();
@@ -1499,6 +1573,40 @@ public sealed class Issue56BrowserTests
 		page.WaitForResponseAsync(response =>
 			new Uri(response.Url).AbsolutePath == Issue135Path &&
 			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
+
+	private static void AssertIssue137Lifecycle(
+		IReadOnlyList<Issue137Observation> observations,
+		int expectedExcludedCount)
+	{
+		Assert.NotEmpty(observations);
+		Assert.Single(observations.Select(observation => observation.RequestId).Distinct());
+		Assert.Equal(1, observations.Count(observation =>
+			observation is { Component: "page", Phase: "initialized" }));
+		Assert.Equal(1, observations.Count(observation =>
+			observation is { Component: "page", Phase: "parameters-set" }));
+		Assert.Equal(1, observations.Count(observation =>
+			observation is { Component: "wrapper", Phase: "initialized" }));
+		Assert.Equal(1, observations.Count(observation =>
+			observation is { Component: "wrapper", Phase: "parameters-set" }));
+		AssertDescendantLifecycle(observations, "selected", expectedCount: 1);
+		AssertDescendantLifecycle(observations, "excluded", expectedExcludedCount);
+	}
+
+	private static void AssertDescendantLifecycle(
+		IReadOnlyList<Issue137Observation> observations,
+		string branch,
+		int expectedCount)
+	{
+		Assert.Equal(expectedCount, observations.Count(observation =>
+			observation is { Component: "descendant", Phase: "initialized" } &&
+			string.Equals(observation.Branch, branch, StringComparison.Ordinal)));
+		Assert.Equal(expectedCount, observations.Count(observation =>
+			observation is { Component: "descendant", Phase: "parameters-set" } &&
+			string.Equals(observation.Branch, branch, StringComparison.Ordinal)));
+		Assert.Equal(expectedCount, observations.Count(observation =>
+			observation is { Component: "descendant", Phase: "rendered" } &&
+			string.Equals(observation.Branch, branch, StringComparison.Ordinal)));
+	}
 
 	private static Dictionary<string, string> AuthenticatedIssue131Headers() =>
 		new()
