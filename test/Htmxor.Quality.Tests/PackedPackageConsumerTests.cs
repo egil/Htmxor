@@ -37,6 +37,23 @@ public sealed class PackedPackageConsumerTests
 	}
 
 	[Fact]
+	public async Task Package_only_grouped_application_preserves_stock_page_behavior()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseLegacyDestinationRegistration();
+
+		var result = await workspace.RunAsync();
+		var testRun = TrxTestRun.Read(workspace.TrxPath);
+
+		Assert.True(
+			result.ExitCode == 0,
+			result.StandardOutput + Environment.NewLine + result.StandardError +
+			Environment.NewLine + $"TRX: {testRun}");
+		Assert.Equal(new TrxTestRun(13, 13, 13, 0, 0, 0, 0), testRun);
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+	}
+
+	[Fact]
 	public async Task Package_only_application_preserves_actionless_unsafe_route_antiforgery()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
@@ -211,6 +228,27 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 		await RestoreAsync();
 
 		return await BuildAsync();
+	}
+
+	public void UseLegacyDestinationRegistration()
+	{
+		var applicationPath = Path.Combine(
+			consumerDirectory,
+			"PackageConsumerTests.cs");
+		var source = File.ReadAllText(applicationPath);
+		const string acceptedRegistration = ".AddHtmxorComponentEndpoints();";
+		const string legacyRegistration = ".AddHtmxorComponentEndpoints(routes);";
+		var rewritten = source.Replace(
+			acceptedRegistration,
+			legacyRegistration,
+			StringComparison.Ordinal);
+		if (string.Equals(source, rewritten, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged package consumer must contain the no-argument registration.");
+		}
+
+		File.WriteAllText(applicationPath, rewritten);
 	}
 
 	public void UseComputedPutHandler()
