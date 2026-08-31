@@ -1,0 +1,21 @@
+@page "/issue-139/async-fragment"
+
+<HtmxFragment Match="@(_ => false)">
+	<section data-issue-139-stock-control>
+		<button id="issue-139-select"
+				type="button"
+				hx-get="/issue-139/async-fragment"
+				hx-target="#issue-139-selected"
+				hx-swap="outerHTML">Select async fragment</button>
+		<div id="issue-139-selected" data-issue-139-placeholder="selected">Selected placeholder</div>
+		<div id="issue-139-excluded" data-issue-139-placeholder="excluded">Excluded placeholder</div>
+	</section>
+</HtmxFragment>
+
+<HtmxFragment Id="issue-139-selected" RenderDuringStandardRequest="false">
+	<Issue139AsyncDescendant Branch="selected" />
+</HtmxFragment>
+
+<HtmxFragment Id="issue-139-excluded" RenderDuringStandardRequest="false">
+	<Issue139AsyncDescendant Branch="excluded" />
+</HtmxFragment>

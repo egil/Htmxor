@@ -1,0 +1,33 @@
+@inject Issue139AsyncLifecycleProbe Probe
+@inject IHttpContextAccessor HttpContextAccessor
+
+@{
+	Record("rendered");
+}
+<span data-issue-139-descendant="@Branch"
+	  data-issue-139-completed="@CompletedMarker">@Branch completed @CompletedMarker</span>
+
+@code {
+	[Parameter, EditorRequired]
+	public required string Branch { get; set; }
+
+	private string? CompletedMarker { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		var requestId = RequestId;
+		Record("initialization-entered");
+		if (string.Equals(Branch, "selected", StringComparison.Ordinal))
+		{
+			Probe.SelectedInitializationEntered(requestId);
+			await Probe.WaitForSelectedReleaseAsync();
+		}
+
+		CompletedMarker = requestId;
+		Record("initialization-completed");
+	}
+
+	private string RequestId => HttpContextAccessor.HttpContext!.TraceIdentifier;
+
+	private void Record(string phase) => Probe.Record(RequestId, Branch, phase);
+}
