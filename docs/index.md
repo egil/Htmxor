@@ -137,7 +137,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
           <base href="/" />
           <link rel="stylesheet" href="@Assets["bootstrap/bootstrap.min.css"]" />
           <link rel="stylesheet" href="@Assets["app.css"]" />
-          <link rel="stylesheet" href="@Assets["MinimalHtmxorApp.styles.css"]" />
+          <link rel="stylesheet" href="@Assets["MyHtmxorApp.styles.css"]" />
           <link rel="icon" type="image/png" href="@Assets["favicon.png"]" />
     +     <script defer src="htmx-4.0.0.min.js"></script>
     +     <HtmxHeadOutlet />
@@ -194,7 +194,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
     + @using Htmxor
     + @using static Htmxor.Constants
 
-    + @* only if adding a custom layout for using during direct requests in step 4 above *@
+    + @* only if adding a custom layout for using during direct requests in step 5 above *@
     + @attribute [HtmxLayout(typeof(HtmxorLayout))]
     ```
 
