@@ -25,6 +25,7 @@ public class TestAppTestBase : IClassFixture<TestAppFixture>
             </head>
             <body>
                 {{{bodyInnerHtml}}}
+                <blazor-focus-on-navigate selector="h1"></blazor-focus-on-navigate>
             </body>
             </html>
             """;

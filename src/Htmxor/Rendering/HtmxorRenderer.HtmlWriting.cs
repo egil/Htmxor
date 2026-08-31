@@ -282,7 +282,7 @@ internal partial class HtmxorRenderer
 		if (supplier is not null)
 		{
 			var getCurrentValueMethod = valueSupplierType.GetMethod("GetCurrentValue", BindingFlags.Instance | BindingFlags.Public)!;
-			return (FormMappingContext?)getCurrentValueMethod.Invoke(supplier, [CascadingParameterInfoInstance]);
+			return (FormMappingContext?)getCurrentValueMethod.Invoke(supplier, [null, CascadingParameterInfoInstance]);
 		}
 
 		return null;
