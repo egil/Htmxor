@@ -1110,6 +1110,12 @@ public sealed class Issue56BrowserTests
 
 		try
 		{
+			// Keep the gate closed across a bounded scheduling opportunity so a premature response becomes observable.
+			// This is not a latency assertion.
+			var negativeObservationWindow = Task.Delay(TimeSpan.FromMilliseconds(500));
+			Assert.Same(
+				negativeObservationWindow,
+				await Task.WhenAny(responseTask, negativeObservationWindow));
 			Assert.False(responseTask.IsCompleted);
 			Assert.Equal(0, await completedMarker.CountAsync());
 			Assert.Equal("Selected placeholder", await page.Locator("#issue-139-selected").TextContentAsync());
