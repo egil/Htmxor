@@ -14,4 +14,16 @@ public sealed class HtmxorRegistrationApiTests
 
 		Assert.Empty(publicRegistrationMethods);
 	}
+
+	[Fact]
+	public void Runtime_package_does_not_retain_an_internal_destination_registration_bridge()
+	{
+		var compatibilityMethods = typeof(HtmxorComponentEndpointRouteBuilderExtensions)
+			.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+			.Where(static method =>
+				method.Name == "AddHtmxorComponentEndpoints" &&
+				method.GetParameters().Length == 2);
+
+		Assert.Empty(compatibilityMethods);
+	}
 }

@@ -20,11 +20,6 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	private static readonly RootComponentMetadata PageRouteDirectRoot = new(typeof(HtmxorDirectRenderHost));
 	private static readonly RootComponentMetadata HtmxOnlyDirectRoot = new(typeof(HtmxorDirectComponentHost));
 
-	internal static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
-		this RazorComponentsEndpointConventionBuilder builder,
-		IEndpointRouteBuilder endpoints)
-		=> AddHtmxorComponentEndpoints(builder, endpoints, []);
-
 	[EditorBrowsable(EditorBrowsableState.Never)]
 	public static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
 		this RazorComponentsEndpointConventionBuilder builder,
