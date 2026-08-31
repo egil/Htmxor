@@ -1,4 +1,7 @@
 using System.IO.Compression;
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Xml.Linq;
 using Htmxor.Quality;
 
@@ -17,6 +20,21 @@ public sealed class PackedPackageConsumerTests
 		"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods";
 	private const string MismatchedCSharpPartialMessage =
 		"a C# HtmxRoute declaration on a Razor component must use the matching .razor.cs partial";
+
+	[Fact]
+	public async Task Packed_package_exposes_only_Htmxor_owned_registration_names()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+
+		var result = await workspace.BuildForDiagnosticAsync();
+
+		Assert.True(
+			result.ExitCode == 0,
+			result.StandardOutput + Environment.NewLine + result.StandardError);
+		PackageConsumerEvidence.AssertRegistrationNames(
+			workspace.PackagePath,
+			workspace.ReadGeneratedRouteRegistration());
+	}
 
 	[Fact]
 	public async Task Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions()
@@ -547,6 +565,53 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 
 internal static class PackageConsumerEvidence
 {
+	public static void AssertRegistrationNames(
+		string packagePath,
+		string generatedRouteRegistration)
+	{
+		using var package = ZipFile.OpenRead(packagePath);
+		var runtimeAssembly = Assert.Single(
+			package.Entries,
+			entry => entry.FullName.Equals("lib/net10.0/Htmxor.dll", StringComparison.Ordinal));
+		using var assemblyImage = new MemoryStream();
+		using (var assemblyStream = runtimeAssembly.Open())
+		{
+			assemblyStream.CopyTo(assemblyImage);
+		}
+
+		assemblyImage.Position = 0;
+		using var peReader = new PEReader(assemblyImage);
+		var metadata = peReader.GetMetadataReader();
+		var extensionTypeHandle = Assert.Single(
+			metadata.TypeDefinitions,
+			handle =>
+			{
+				var type = metadata.GetTypeDefinition(handle);
+				return metadata.GetString(type.Namespace).Equals(
+					"Microsoft.Extensions.DependencyInjection",
+					StringComparison.Ordinal) &&
+					metadata.GetString(type.Name).Equals(
+						"HtmxorApplicationBuilderExtensions",
+						StringComparison.Ordinal);
+			});
+		var extensionType = metadata.GetTypeDefinition(extensionTypeHandle);
+		var publicStaticMethods = extensionType.GetMethods()
+			.Select(metadata.GetMethodDefinition)
+			.Where(method =>
+				(method.Attributes & MethodAttributes.MemberAccessMask) == MethodAttributes.Public &&
+				(method.Attributes & MethodAttributes.Static) != 0)
+			.Select(method => metadata.GetString(method.Name))
+			.ToArray();
+
+		Assert.Contains("AddHtmxor", publicStaticMethods);
+		Assert.DoesNotContain("AddHtmx", publicStaticMethods);
+		Assert.Contains("AddHtmxorEndpoints(", generatedRouteRegistration, StringComparison.Ordinal);
+		Assert.DoesNotContain(
+			"AddHtmxorComponentEndpoints(",
+			generatedRouteRegistration,
+			StringComparison.Ordinal);
+	}
+
 	public static void AssertPackage(string packagePath)
 	{
 		using var package = ZipFile.OpenRead(packagePath);
