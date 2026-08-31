@@ -6,7 +6,7 @@
 
 <p>This is a Htmxor version of the <a href="https://htmx.org/examples/update-other-content/#expand" title="Updating Other Content article">Updating Other Content - Solution 1: Expand the Target</a> example at htmx.org.</p>
 
-<HtmxFragmentElement Id="table-and-form" class="d-flex flex-row gap-3">
+<HtmxFragment Id="table-and-form" class="d-flex flex-row gap-3">
     <table class="table w-50 border">
         <thead>
             <tr>
@@ -30,4 +30,4 @@
         <h5>Create new contact</h5>
         <ContactEditForm hx-post hx-target="#table-and-form" OnContactSave="() => StateHasChanged()" />
     </div>
-</HtmxFragmentElement>
+</HtmxFragment>
