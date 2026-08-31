@@ -5,9 +5,23 @@ namespace Htmxor.Htmx4Browser;
 public sealed class Issue120RequestProbe
 {
 	private readonly ConcurrentQueue<Issue120CallbackObservation> observations = new();
+	private int initializationCount;
 
 	public void RecordCallback(string owner, string method, string path, string requestId) =>
-		observations.Enqueue(new(owner, method, path, requestId));
+		observations.Enqueue(new(owner, method, path, requestId, null, null, null));
+
+	public void RecordEnhancedCallback(
+		string method,
+		string path,
+		string requestId,
+		int itemId,
+		string source,
+		string scope) =>
+		observations.Enqueue(new("enhanced", method, path, requestId, itemId, source, scope));
+
+	public void RecordInitialization() => Interlocked.Increment(ref initializationCount);
+
+	public int InitializationCount => Volatile.Read(ref initializationCount);
 
 	public IReadOnlyList<Issue120CallbackObservation> Snapshot() => observations.ToArray();
 }
@@ -16,4 +30,12 @@ public sealed record Issue120CallbackObservation(
 	string Owner,
 	string Method,
 	string Path,
-	string RequestId);
+	string RequestId,
+	int? ItemId,
+	string? Source,
+	string? Scope);
+
+public sealed class Issue120RequestScope
+{
+	public string Value { get; } = Guid.NewGuid().ToString("N");
+}

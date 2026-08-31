@@ -5,8 +5,14 @@
 @attribute [Authorize("issue-120")]
 @inject IHttpContextAccessor HttpContextAccessor
 @inject Issue120RequestProbe Probe
+@inject Issue120RequestScope RequestScope
 
-<section data-issue-120-enhanced @onput="Put">
+<section @onput="Put"
+	data-issue-120-enhanced
+	data-item-id="@ItemId"
+	data-source="@Source"
+	data-scope="@RequestScope.Value"
+	data-initialized="@initialized.ToString().ToLowerInvariant()">
 	@if (callback is not null)
 	{
 		<p id="issue-120-result"
@@ -17,19 +23,30 @@
 
 @code {
 	[Parameter]
-	// String is deliberate because typed constrained binding on HTMX-only direct routes remains an issue #120 follow-up.
-	public string ItemId { get; set; } = string.Empty;
+	public int ItemId { get; set; }
+
+	[SupplyParameterFromQuery]
+	public string Source { get; set; } = string.Empty;
 
 	private readonly string requestId = Guid.NewGuid().ToString("N");
 	private string? callback;
+	private bool initialized;
+
+	protected override void OnInitialized()
+	{
+		initialized = true;
+		Probe.RecordInitialization();
+	}
 
 	private void Put(HtmxEventArgs _)
 	{
 		callback = "PUT";
-		Probe.RecordCallback(
-			"enhanced",
+		Probe.RecordEnhancedCallback(
 			callback,
 			HttpContextAccessor.HttpContext!.Request.Path.Value ?? string.Empty,
-			requestId);
+			requestId,
+			ItemId,
+			Source,
+			RequestScope.Value);
 	}
 }

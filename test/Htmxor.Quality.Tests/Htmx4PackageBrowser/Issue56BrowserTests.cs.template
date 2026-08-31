@@ -26,6 +26,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue118Path = "/issue-118/request-context";
 	private const string Issue120NativePath = "/issue-120/native/23";
 	private const string Issue120EnhancedPath = "/issue-120/enhanced/23";
+	private const string Issue120EnhancedAction = Issue120EnhancedPath + "?source=from-enhanced-action";
 	private const string Issue122Path = "/issue-122/fragments";
 	private const string Issue64Path = "/issue-64";
 	private const string Issue64RedirectPath = "/issue-64/redirect";
@@ -369,6 +370,35 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Htmx_only_int_route_converts_direct_get_and_rejects_invalid_value()
+	{
+		var probe = new Issue120RequestProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), issue120Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+		using var client = new HttpClient { BaseAddress = baseAddress };
+
+		using var validRequest = CreateIssue120DirectGet("/issue-120/enhanced/23?source=from-direct-get");
+		using var validResponse = await client.SendAsync(validRequest);
+		var validBody = await validResponse.Content.ReadAsStringAsync();
+		Assert.True(
+			validResponse.StatusCode == HttpStatusCode.OK,
+			$"Expected 200, received {(int)validResponse.StatusCode}: {validBody}");
+		Assert.Contains("data-item-id=\"23\"", validBody, StringComparison.Ordinal);
+		Assert.Contains("data-source=\"from-direct-get\"", validBody, StringComparison.Ordinal);
+		Assert.Contains("data-initialized=\"true\"", validBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-stock-shell", validBody, StringComparison.Ordinal);
+		Assert.Equal(1, probe.InitializationCount);
+		Assert.Empty(probe.Snapshot());
+
+		using var invalidRequest = CreateIssue120DirectGet("/issue-120/enhanced/not-an-int?source=rejected");
+		using var invalidResponse = await client.SendAsync(invalidRequest);
+		Assert.Equal(HttpStatusCode.NotFound, invalidResponse.StatusCode);
+		Assert.Equal(1, probe.InitializationCount);
+		Assert.Empty(probe.Snapshot());
+	}
+
+	[Fact]
 	public async Task Progressive_enhancement_preserves_native_post_and_htmx_put_paths()
 	{
 		var probe = new Issue120RequestProbe();
@@ -390,7 +420,7 @@ public sealed class Issue56BrowserTests
 		Assert.Contains("data-stock-shell", await nativeGet.TextAsync(), StringComparison.Ordinal);
 		var nativeForm = noScriptPage.Locator("#issue-120-form");
 		Assert.Equal(Issue120NativePath, await nativeForm.GetAttributeAsync("action"));
-		Assert.Equal(Issue120EnhancedPath, await nativeForm.GetAttributeAsync("hx-action"));
+		Assert.Equal(Issue120EnhancedAction, await nativeForm.GetAttributeAsync("hx-action"));
 
 		var nativeResponseTask = noScriptPage.WaitForResponseAsync(response =>
 			new Uri(response.Url).AbsolutePath == Issue120NativePath &&
@@ -424,7 +454,7 @@ public sealed class Issue56BrowserTests
 		await htmxPage.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
 		var enhancedForm = htmxPage.Locator("#issue-120-form");
 		Assert.Equal(Issue120NativePath, await enhancedForm.GetAttributeAsync("action"));
-		Assert.Equal(Issue120EnhancedPath, await enhancedForm.GetAttributeAsync("hx-action"));
+		Assert.Equal(Issue120EnhancedAction, await enhancedForm.GetAttributeAsync("hx-action"));
 
 		var enhancedResponseTask = htmxPage.WaitForResponseAsync(response =>
 			new Uri(response.Url).AbsolutePath == Issue120EnhancedPath &&
@@ -441,6 +471,9 @@ public sealed class Issue56BrowserTests
 		Assert.DoesNotContain("<html", enhancedBody, StringComparison.OrdinalIgnoreCase);
 		Assert.DoesNotContain("data-stock-shell", enhancedBody, StringComparison.Ordinal);
 		Assert.Contains("data-issue-120-result=\"put\"", enhancedBody, StringComparison.Ordinal);
+		Assert.Contains("data-item-id=\"23\"", enhancedBody, StringComparison.Ordinal);
+		Assert.Contains("data-source=\"from-enhanced-action\"", enhancedBody, StringComparison.Ordinal);
+		Assert.Contains("data-initialized=\"true\"", enhancedBody, StringComparison.Ordinal);
 		await htmxPage.Locator("#issue-120-target [data-issue-120-result='put']").WaitForAsync();
 		Assert.Equal(Issue120NativePath, new Uri(htmxPage.Url).AbsolutePath);
 
@@ -449,6 +482,9 @@ public sealed class Issue56BrowserTests
 		var enhancedCallback = Assert.Single(callbacks, callback => callback.Method == "PUT");
 		Assert.Equal("enhanced", enhancedCallback.Owner);
 		Assert.Equal(Issue120EnhancedPath, enhancedCallback.Path);
+		Assert.Equal(23, enhancedCallback.ItemId);
+		Assert.Equal("from-enhanced-action", enhancedCallback.Source);
+		Assert.NotNull(enhancedCallback.Scope);
 		Assert.NotEqual(nativeCallback.RequestId, enhancedCallback.RequestId);
 	}
 
@@ -766,6 +802,15 @@ public sealed class Issue56BrowserTests
 		return request;
 	}
 
+	private static HttpRequestMessage CreateIssue120DirectGet(string path)
+	{
+		var request = new HttpRequestMessage(HttpMethod.Get, path);
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		request.Headers.Add(Issue111AuthenticationHandler.UserHeaderName, "issue-120-user");
+		return request;
+	}
+
 	private static WebApplication CreateApplication(
 		Issue56RequestProbe probe,
 		Issue111RequestProbe? issue111Probe = null,
@@ -800,6 +845,7 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(cacheProbe ?? new Issue50CacheProbe());
 		builder.Services.AddSingleton(issue18Probe ?? new Issue18HeaderProbe(1));
 		builder.Services.AddSingleton(issue120Probe ?? new Issue120RequestProbe());
+		builder.Services.AddScoped<Issue120RequestScope>();
 
 		var app = builder.Build();
 		Assert.True(app.Environment.IsProduction());
