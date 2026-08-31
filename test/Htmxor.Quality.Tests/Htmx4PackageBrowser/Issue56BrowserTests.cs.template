@@ -26,6 +26,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue118Path = "/issue-118/request-context";
 	private const string Issue120NativePath = "/issue-120/native/23";
 	private const string Issue120EnhancedPath = "/issue-120/enhanced/23";
+	private const string Issue122Path = "/issue-122/fragments";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
 
@@ -526,6 +527,61 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Selected_fragments_deliver_only_partial_envelopes_to_multiple_browser_targets()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue122Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		var fullBody = await navigation.TextAsync();
+		Assert.Contains("<html", fullBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", fullBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-122-page", fullBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("<hx-partial", fullBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Equal(0, await page.Locator("hx-partial").CountAsync());
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var ordinaryMain = page.Locator("#issue-122-main");
+		var ordinaryMainMarkup = await ordinaryMain.EvaluateAsync<string>("element => element.outerHTML");
+		var partialResponseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue122Path &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+		await page.Locator("#issue-122-load").ClickAsync();
+		var partialResponse = await partialResponseTask;
+		Assert.Equal((int)HttpStatusCode.OK, partialResponse.Status);
+		var requestHeaders = await partialResponse.Request.AllHeadersAsync();
+		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("partial", requestHeaders["hx-request-type"], StringComparer.OrdinalIgnoreCase);
+
+		var partialBody = await partialResponse.TextAsync();
+		Assert.DoesNotContain("<html", partialBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", partialBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-122-page", partialBody, StringComparison.Ordinal);
+		var responseDocument = System.Xml.Linq.XDocument.Parse($"<root>{partialBody}</root>");
+		var envelopes = responseDocument.Root!.Elements().ToArray();
+		Assert.Equal(2, envelopes.Length);
+		Assert.All(envelopes, envelope => Assert.Equal("hx-partial", envelope.Name.LocalName));
+		Assert.All(
+			responseDocument.Root.Nodes().OfType<System.Xml.Linq.XText>(),
+			text => Assert.True(string.IsNullOrWhiteSpace(text.Value), partialBody));
+		AssertEnvelope(envelopes[0], "#issue-122-first", "innerHTML", "first-updated");
+		AssertEnvelope(envelopes[1], "#issue-122-second", "outerHTML", "second-updated");
+
+		await page.Locator("#issue-122-first [data-state='first-updated']").WaitForAsync();
+		await page.Locator("#issue-122-second[data-state='second-updated']").WaitForAsync();
+		Assert.Equal(
+			ordinaryMainMarkup,
+			await ordinaryMain.EvaluateAsync<string>("element => element.outerHTML"));
+	}
+
+	[Fact]
 	public async Task Forged_request_headers_do_not_grant_route_method_authorization_or_antiforgery_access()
 	{
 		var probe = new Issue56RequestProbe();
@@ -571,6 +627,19 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(requestType, await locator.GetAttributeAsync("data-request-type"));
 		Assert.Equal(source, await locator.GetAttributeAsync("data-source"));
 		Assert.Equal(target, await locator.GetAttributeAsync("data-target"));
+	}
+
+	private static void AssertEnvelope(
+		System.Xml.Linq.XElement envelope,
+		string target,
+		string swap,
+		string state)
+	{
+		Assert.Equal(target, envelope.Attribute("hx-target")?.Value);
+		Assert.Equal(swap, envelope.Attribute("hx-swap")?.Value);
+		Assert.Contains(
+			envelope.DescendantsAndSelf(),
+			element => string.Equals(element.Attribute("data-state")?.Value, state, StringComparison.Ordinal));
 	}
 
 	private static HttpRequestMessage CreateForgedRequest(

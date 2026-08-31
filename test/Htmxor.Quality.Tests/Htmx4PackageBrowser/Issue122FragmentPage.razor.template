@@ -1,0 +1,32 @@
+@page "/issue-122/fragments"
+
+<HtmxFragment Match="@(_ => false)">
+	<section data-issue-122-page>
+		<h1>Issue 122 fragment delivery</h1>
+		<button id="issue-122-load"
+				type="button"
+				hx-get="/issue-122/fragments"
+				hx-target="#issue-122-main"
+				hx-swap="innerHTML">
+			Load fragment targets
+		</button>
+		<div id="issue-122-main" data-state="ordinary-main">Ordinary main target</div>
+		<div id="issue-122-first" data-state="first-original">First original</div>
+		<div id="issue-122-second" data-state="second-original">Second original</div>
+	</section>
+</HtmxFragment>
+
+<HtmxFragmentElement Match="@(_ => true)"
+		RenderDuringStandardRequest="false"
+		Element="hx-partial"
+		Id="issue-122-first"
+		hx-target="#issue-122-first"
+		hx-swap="innerHTML">
+	<span data-state="first-updated">First updated</span>
+</HtmxFragmentElement>
+
+<HtmxFragment RenderDuringStandardRequest="false">
+	<hx-partial hx-target="#issue-122-second" hx-swap="outerHTML">
+		<div id="issue-122-second" data-state="second-updated">Second updated</div>
+	</hx-partial>
+</HtmxFragment>
