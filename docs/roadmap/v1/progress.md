@@ -1455,8 +1455,10 @@ application-authored out-of-band response composition for one component-owned
 response. It should use the same package, Production Kestrel, and Chromium
 boundary with one generated action, one main target, one application-authored
 out-of-band target, and deterministic final DOM/event observations that prove
-htmx extracts and processes the out-of-band content before applying the remaining
-main-swap content without changing server fragment selection or route, method,
-authorization, and antiforgery ownership. Streaming, caching expansion, broader
-fragment shapes, lifecycle and excluded-work performance, broader typed
-constraints, and positive omitted-`Methods` inference remain separate slices.
+htmx extracts and removes the out-of-band content from the response, applies the
+remaining main-target DOM swap first, then applies the application-authored
+out-of-band DOM swap afterward in response document order, without changing
+server fragment selection or route, method, authorization, and antiforgery
+ownership. Streaming, caching expansion, broader fragment shapes, lifecycle and
+excluded-work performance, broader typed constraints, and positive
+omitted-`Methods` inference remain separate slices.
