@@ -1553,12 +1553,13 @@ Issue #135 establishes the current native mixed main/partial response contract:
 > fragment-selection authority.
 
 The published Production package consumer proves the intact stock page GET,
-anonymous and invalid-token rejection without initialization or callback observations, one valid
-generated PUT, one request component, one callback, a shell-free response with
-ordinary main content followed by the exact partial envelope, envelope extraction,
-exact final targets, and matching main-before-partial event and mutation order
-through Kestrel and Chromium. The response uses raw application markup; no
-Htmxor production or public API change was required.
+anonymous and invalid-token rejection without initialization or callback
+observations, one valid generated PUT, one request component, one callback, a
+shell-free response with ordinary main content followed by the exact partial
+envelope, envelope extraction, exact final targets, and matching
+main-before-partial event and mutation order through Kestrel and Chromium. The
+response uses raw application markup; no Htmxor production or public API change
+was required.
 
 The recommended next slice is a separately scoped fragment-selection lifecycle
 proof at the published package and real framework boundary. It should establish
