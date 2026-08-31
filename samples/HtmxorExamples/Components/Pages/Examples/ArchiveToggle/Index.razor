@@ -1,5 +1,6 @@
 @inherits ConditionalComponentBase
-@page "/examples/archive-toggle/{Id:guid?}"
+@page "/examples/archive-toggle"
+@attribute [HtmxRoute("/examples/archive-toggle/{id:guid}", Methods = [HttpMethods.Patch])]
 @code {
     private IEnumerable<Contact> data = Enumerable.Empty<Contact>();
 

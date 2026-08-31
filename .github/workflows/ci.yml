@@ -54,8 +54,6 @@ jobs:
     steps:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
 
       - uses: actions/download-artifact@v4
         with:
@@ -260,8 +258,6 @@ jobs:
 
       - name: Setup .NET Core
         uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
 
       - name: Publish NuGet package
         shell: pwsh

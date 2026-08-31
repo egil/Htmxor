@@ -1,5 +1,4 @@
-@page "/examples/updating-other-content/contacts"
-@using HtmxorExamples.Components.Pages.Examples.UpdatingOtherContent
+@attribute [HtmxRoute("/examples/updating-other-content/contacts", Methods = [HttpMethods.Post])]
 @inject HtmxContext Context
 <ContactEditForm
     hx-post="/examples/updating-other-content/contacts"
