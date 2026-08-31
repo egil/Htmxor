@@ -140,6 +140,7 @@ Last updated: 2026-08-31
 - Issue #151 registration-name baseline and live `origin/main`: `6b5ad905ed0a49ec90dcbe225fff30f409566f47`.
 - Issue #151 preserved meaningful packed-package API red: `23ac89334355b1a67cd1f018265df84f0eed03c1`.
 - Issue #151 verified executable registration-name proof: `20a6c407f2401619d86c68679ab0008c55d0a3bb`.
+- Issue #151 verified post-Copilot test-scope correction: `7f76732cf828c46fe68627477163cb9b56022f85`.
 - Framework boundary under test: .NET SDK 10.0.400, ASP.NET Core 10.0.11, and Blazor static SSR. The package, repository tooling, tests, test application, and maintained samples now target `net10.0`; the generator remains a `netstandard2.0` compiler component packaged under `analyzers/dotnet/cs`. Current package-only TestServer and Kestrel/Chromium consumers restore a locally packed `net10.0` Htmxor package. Earlier `net8.0` package references below record historical exact-head evidence and are not current compatibility claims.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -1779,6 +1780,17 @@ generator suite passed 16 of 16 tests. The focused packed-package command passed
 profile passed 452 of 452 tests: 117 quality, 45 ASP.NET Core 10, and 290 core
 tests. Its Release build completed with zero warnings and errors, and its
 analyzer and style gates passed.
+
+Copilot's first review of PR #155 found that the updated configuration test
+required `HtmxorApplicationBuilderExtensions` to expose exactly one public
+static method. That was stricter than the test's client-configuration purpose
+and would reject an unrelated future API addition. Commit
+`7f76732cf828c46fe68627477163cb9b56022f85` instead requires exactly one
+`AddHtmxor()` method, rejects the obsolete `AddHtmx()` name, and permits other
+public static methods. At that exact clean commit, the focused suite again
+passed 16 of 16 tests and the fast profile again passed 452 of 452 tests with
+zero build warnings or errors and green analyzer and style gates. Production
+and packed-package behavior are unchanged from the original executable proof.
 
 The package proof used a locally packed unsigned `net10.0` package and
 TestServer. Local verification did not exercise a published or signed package,
