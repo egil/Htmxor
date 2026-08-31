@@ -19,15 +19,10 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	private static readonly RootComponentMetadata PageRouteDirectRoot = new(typeof(HtmxorDirectRenderHost));
 	private static readonly RootComponentMetadata HtmxOnlyDirectRoot = new(typeof(HtmxorDirectComponentHost));
 
-	public static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
-		this RazorComponentsEndpointConventionBuilder builder,
-		IEndpointRouteBuilder endpoints)
-		=> AddHtmxorComponentEndpoints(builder, endpoints, []);
-
 	[EditorBrowsable(EditorBrowsableState.Never)]
 	public static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
 		this RazorComponentsEndpointConventionBuilder builder,
-		RouteGroupBuilder endpoints,
+		IEndpointRouteBuilder endpoints,
 		Assembly applicationAssembly,
 		IReadOnlyList<string> projectRootComponentTypeNames)
 		=> AddHtmxorAttributedComponentEndpoints(
@@ -40,7 +35,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	[EditorBrowsable(EditorBrowsableState.Never)]
 	public static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
 		this RazorComponentsEndpointConventionBuilder builder,
-		RouteGroupBuilder endpoints,
+		IEndpointRouteBuilder endpoints,
 		Assembly applicationAssembly,
 		IReadOnlyList<string> projectRootComponentTypeNames,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
@@ -152,6 +147,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			routeEndpointBuilder,
 			actionDescriptors,
 			generatedActions);
+		endpointBuilder.Metadata.Add(new HtmxorComponentRoutePatternMetadata(routeEndpointBuilder.RoutePattern));
 		AddActionMetadata(endpointBuilder, endpointActions);
 		endpointBuilder.RequestDelegate = context => InvokeEndpoint(context, stockRequestDelegate, endpointActions);
 	}
@@ -166,6 +162,9 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			endpointBuilder.Metadata.Add(metadata);
 		}
 
+		var routeEndpointBuilder = endpointBuilder as RouteEndpointBuilder
+			?? throw new InvalidOperationException("An HTMX-only component endpoint must have a route pattern.");
+		endpointBuilder.Metadata.Add(new HtmxorComponentRoutePatternMetadata(routeEndpointBuilder.RoutePattern));
 		endpointBuilder.Metadata.Add(new SuppressLinkGenerationMetadata());
 		endpointBuilder.Metadata.Add(new ComponentTypeMetadata(generatedRoute.ComponentType));
 		endpointBuilder.Metadata.Add(HtmxOnlyDirectRoot);
@@ -305,7 +304,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			!HttpMethods.IsPost(context.Request.Method)) ||
 			context.GetHtmxContext().Request.RoutingMode is not RoutingMode.Direct)
 		{
-			await stockRequestDelegate(context);
+			await InvokeStockEndpoint(context, stockRequestDelegate);
 			return;
 		}
 
@@ -359,7 +358,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			return;
 		}
 
-		await stockRequestDelegate(context);
+		await InvokeStockEndpoint(context, stockRequestDelegate);
 	}
 
 	private static async Task InvokeGeneratedEndpoint(
@@ -475,9 +474,34 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		}
 	}
 
+	private static async Task InvokeStockEndpoint(HttpContext context, RequestDelegate stockRequestDelegate)
+	{
+		var selectedEndpoint = context.GetEndpoint() as RouteEndpoint
+			?? throw new InvalidOperationException("A routed Razor component endpoint must be selected before invocation.");
+		var stockEndpoint = CreateEndpoint(
+			selectedEndpoint,
+			rootComponent: null,
+			componentType: null);
+		context.SetEndpoint(stockEndpoint);
+		try
+		{
+			await stockRequestDelegate(context);
+		}
+		finally
+		{
+			context.SetEndpoint(selectedEndpoint);
+		}
+	}
+
 	private static RouteEndpoint CreateDirectEndpoint(
 		RouteEndpoint selectedEndpoint,
 		RootComponentMetadata rootComponent,
+		Type? componentType)
+		=> CreateEndpoint(selectedEndpoint, rootComponent, componentType);
+
+	private static RouteEndpoint CreateEndpoint(
+		RouteEndpoint selectedEndpoint,
+		RootComponentMetadata? rootComponent,
 		Type? componentType)
 	{
 		var requestDelegate = selectedEndpoint.RequestDelegate
@@ -485,14 +509,17 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		var metadata = selectedEndpoint.Metadata
 			.Select(item => item switch
 			{
-				RootComponentMetadata => rootComponent,
+				RootComponentMetadata when rootComponent is not null => rootComponent,
 				ComponentTypeMetadata when componentType is not null => new ComponentTypeMetadata(componentType),
 				_ => item,
 			})
 			.ToArray();
+		var routePattern = selectedEndpoint.Metadata
+			.GetRequiredMetadata<HtmxorComponentRoutePatternMetadata>()
+			.RoutePattern;
 		return new RouteEndpoint(
 			requestDelegate,
-			selectedEndpoint.RoutePattern,
+			routePattern,
 			selectedEndpoint.Order,
 			new EndpointMetadataCollection(metadata),
 			selectedEndpoint.DisplayName);
