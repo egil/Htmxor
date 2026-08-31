@@ -37,6 +37,7 @@ else
 
 	private void Put(HtmxEventArgs args)
 	{
+		args.Response.StatusCode(System.Net.HttpStatusCode.UnprocessableEntity);
 		responseState = "unprocessable";
 		Probe.RecordCallback(requestId);
 	}
