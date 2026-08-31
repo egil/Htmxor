@@ -1,0 +1,26 @@
+@page "/issue-144/concurrent-fragment"
+
+<HtmxFragment Match="@(_ => false)">
+	<section data-issue-144-stock-control>
+		<button id="issue-144-select"
+				type="button"
+				hx-get="/issue-144/concurrent-fragment?requestMarker=@RequestMarker"
+				hx-target="#issue-144-selected"
+				hx-swap="outerHTML">Select concurrent fragment</button>
+		<div id="issue-144-selected" data-issue-144-placeholder="selected">Selected placeholder @RequestMarker</div>
+		<div id="issue-144-excluded" data-issue-144-placeholder="excluded">Excluded placeholder @RequestMarker</div>
+	</section>
+</HtmxFragment>
+
+<HtmxFragment Id="issue-144-selected" RenderDuringStandardRequest="false">
+	<Issue144ConcurrentDescendant Branch="selected" RequestMarker="@RequestMarker" />
+</HtmxFragment>
+
+<HtmxFragment Id="issue-144-excluded" RenderDuringStandardRequest="false">
+	<Issue144ConcurrentDescendant Branch="excluded" RequestMarker="@RequestMarker" />
+</HtmxFragment>
+
+@code {
+	[SupplyParameterFromQuery]
+	private string RequestMarker { get; set; } = "stock-control";
+}

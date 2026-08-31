@@ -1,0 +1,50 @@
+@inject Issue144ConcurrentLifecycleProbe Probe
+@inject IHttpContextAccessor HttpContextAccessor
+
+@{
+	Record("rendered");
+}
+<span data-issue-144-descendant="@Branch"
+	  data-issue-144-request-marker="@RequestMarker"
+	  data-issue-144-completed="@CompletedMarker">@Branch completed @CompletedMarker</span>
+
+@code {
+	[Parameter, EditorRequired]
+	public required string Branch { get; set; }
+
+	[Parameter, EditorRequired]
+	public required string RequestMarker { get; set; }
+
+	private string? CompletedMarker { get; set; }
+	private Issue144SelectedGate? SelectedGate { get; set; }
+
+	public override async Task SetParametersAsync(ParameterView parameters)
+	{
+		var requestMarker = parameters.GetValueOrDefault<string>(nameof(RequestMarker))!;
+		SelectedGate = Probe.GetSelectedGate(requestMarker);
+		Probe.Record(RequestId, requestMarker, SelectedGate.Id, BranchFrom(parameters), "parameters-entered");
+		await base.SetParametersAsync(parameters);
+		Record("parameters-completed");
+	}
+
+	protected override async Task OnInitializedAsync()
+	{
+		Record("initialization-entered");
+		if (string.Equals(Branch, "selected", StringComparison.Ordinal))
+		{
+			Probe.SelectedInitializationEntered(RequestMarker, RequestId);
+			await SelectedGate!.Release.Task;
+		}
+
+		CompletedMarker = $"{RequestMarker}:{RequestId}";
+		Record("initialization-completed");
+	}
+
+	private string RequestId => HttpContextAccessor.HttpContext!.TraceIdentifier;
+
+	private void Record(string phase) =>
+		Probe.Record(RequestId, RequestMarker, SelectedGate!.Id, Branch, phase);
+
+	private static string BranchFrom(ParameterView parameters) =>
+		parameters.GetValueOrDefault<string>(nameof(Branch))!;
+}

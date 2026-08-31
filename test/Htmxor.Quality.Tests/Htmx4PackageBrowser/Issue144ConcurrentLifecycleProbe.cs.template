@@ -1,0 +1,58 @@
+using System.Collections.Concurrent;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue144ConcurrentLifecycleProbe
+{
+	private readonly ConcurrentDictionary<string, Issue144SelectedGate> selectedGates =
+		new(StringComparer.Ordinal);
+	private readonly ConcurrentQueue<Issue144ConcurrentObservation> observations = new();
+	private long sequence;
+
+	public Issue144SelectedGate GetSelectedGate(string requestMarker) =>
+		selectedGates.GetOrAdd(requestMarker, static _ => new());
+
+	public void Record(
+		string requestId,
+		string requestMarker,
+		Guid gateId,
+		string component,
+		string phase) =>
+		observations.Enqueue(new(
+			Interlocked.Increment(ref sequence),
+			requestId,
+			requestMarker,
+			gateId,
+			component,
+			phase));
+
+	public void SelectedInitializationEntered(string requestMarker, string requestId) =>
+		GetSelectedGate(requestMarker).Entered.TrySetResult(requestId);
+
+	public Task<string> WaitForSelectedInitializationAsync(string requestMarker) =>
+		GetSelectedGate(requestMarker).Entered.Task;
+
+	public void ReleaseSelected(string requestMarker) =>
+		GetSelectedGate(requestMarker).Release.TrySetResult();
+
+	public IReadOnlyList<Issue144ConcurrentObservation> Snapshot() => observations.ToArray();
+}
+
+public sealed class Issue144SelectedGate
+{
+	public Guid Id { get; } = Guid.NewGuid();
+
+	public TaskCompletionSource<string> Entered { get; } =
+		new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+	public TaskCompletionSource Release { get; } =
+		new(TaskCreationOptions.RunContinuationsAsynchronously);
+}
+
+public sealed record Issue144ConcurrentObservation(
+	long Sequence,
+	string RequestId,
+	string RequestMarker,
+	Guid GateId,
+	string Component,
+	string Phase);

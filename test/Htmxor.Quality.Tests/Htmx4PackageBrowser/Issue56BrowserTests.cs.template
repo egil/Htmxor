@@ -34,6 +34,7 @@ public sealed class Issue56BrowserTests
 	private const string Issue135Path = "/issue-135/partial-order";
 	private const string Issue137Path = "/issue-137/fragment-lifecycle";
 	private const string Issue139Path = "/issue-139/async-fragment";
+	private const string Issue144Path = "/issue-144/concurrent-fragment";
 	private const string Issue64Path = "/issue-64";
 	private const string Issue64RedirectPath = "/issue-64/redirect";
 	private const string Issue64DestinationPath = "/issue-64/destination";
@@ -1059,6 +1060,98 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Concurrent_selected_fragment_requests_keep_lifecycle_and_swaps_request_local()
+	{
+		const string markerA = "request-a";
+		const string markerB = "request-b";
+		var probe = new Issue144ConcurrentLifecycleProbe();
+		await using var app = CreateApplication(
+			new Issue56RequestProbe(),
+			issue144Probe: probe);
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var pageA = await context.NewPageAsync();
+		var pageB = await context.NewPageAsync();
+		await Task.WhenAll(
+			AssertIssue144StockPageAsync(pageA, markerA),
+			AssertIssue144StockPageAsync(pageB, markerB));
+		Assert.Empty(probe.Snapshot());
+		await Task.WhenAll(
+			InitializeIssue144EventsAsync(pageA),
+			InitializeIssue144EventsAsync(pageB));
+
+		var gateA = probe.GetSelectedGate(markerA);
+		var gateB = probe.GetSelectedGate(markerB);
+		try
+		{
+			var responseTaskA = WaitForIssue144ResponseAsync(pageA, markerA);
+			var responseTaskB = WaitForIssue144ResponseAsync(pageB, markerB);
+			await Task.WhenAll(
+				pageA.Locator("#issue-144-select").ClickAsync(),
+				pageB.Locator("#issue-144-select").ClickAsync());
+			var requestIds = await Task.WhenAll(
+				probe.WaitForSelectedInitializationAsync(markerA).WaitAsync(TimeSpan.FromSeconds(30)),
+				probe.WaitForSelectedInitializationAsync(markerB).WaitAsync(TimeSpan.FromSeconds(30)));
+			var requestIdA = requestIds[0];
+			var requestIdB = requestIds[1];
+			Assert.NotEqual(requestIdA, requestIdB);
+			Assert.NotEqual(gateA.Id, gateB.Id);
+			Assert.NotSame(gateA, gateB);
+
+			var bothPendingWindow = Task.Delay(TimeSpan.FromMilliseconds(500));
+			Assert.Same(
+				bothPendingWindow,
+				await Task.WhenAny(Task.WhenAll(responseTaskA, responseTaskB), bothPendingWindow));
+			Assert.False(responseTaskA.IsCompleted);
+			Assert.False(responseTaskB.IsCompleted);
+			await Task.WhenAll(
+				AssertIssue144PendingAsync(pageA, markerA),
+				AssertIssue144PendingAsync(pageB, markerB));
+			Assert.False(gateA.Release.Task.IsCompleted);
+			Assert.False(gateB.Release.Task.IsCompleted);
+			_ = AssertIssue144BlockedObservations(
+				probe.Snapshot(), markerA, requestIdA, gateA.Id);
+			var blockedObservationsB = AssertIssue144BlockedObservations(
+				probe.Snapshot(), markerB, requestIdB, gateB.Id);
+
+			probe.ReleaseSelected(markerA);
+			var responseA = await responseTaskA.WaitAsync(TimeSpan.FromSeconds(30));
+			await AssertIssue144CompletedAsync(
+				pageA, responseA, markerA, requestIdA, markerB, requestIdB);
+			var completedObservationsA = AssertIssue144RequestObservations(
+				probe.Snapshot(), markerA, requestIdA, gateA.Id);
+			var bIsolationWindow = Task.Delay(TimeSpan.FromMilliseconds(500));
+			Assert.Same(bIsolationWindow, await Task.WhenAny(responseTaskB, bIsolationWindow));
+			await AssertIssue144PendingAsync(pageB, markerB);
+			Assert.True(gateA.Release.Task.IsCompleted);
+			Assert.False(gateB.Release.Task.IsCompleted);
+			Assert.Equal(
+				blockedObservationsB,
+				AssertIssue144BlockedObservations(probe.Snapshot(), markerB, requestIdB, gateB.Id));
+
+			probe.ReleaseSelected(markerB);
+			var responseB = await responseTaskB.WaitAsync(TimeSpan.FromSeconds(30));
+			await AssertIssue144CompletedAsync(
+				pageB, responseB, markerB, requestIdB, markerA, requestIdA);
+			await AssertIssue144LiveCompletionAsync(
+				pageA, markerA, requestIdA, markerB, requestIdB);
+			Assert.Equal(
+				completedObservationsA,
+				AssertIssue144RequestObservations(probe.Snapshot(), markerA, requestIdA, gateA.Id));
+			AssertIssue144Observations(probe.Snapshot(), markerA, requestIdA, gateA.Id, markerB, requestIdB, gateB.Id);
+		}
+		finally
+		{
+			probe.ReleaseSelected(markerA);
+			probe.ReleaseSelected(markerB);
+		}
+	}
+
+	[Fact]
 	public async Task Selected_async_fragment_waits_for_quiescence_before_htmx_observes_response()
 	{
 		var probe = new Issue139AsyncLifecycleProbe();
@@ -1568,6 +1661,180 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(state, envelope.GetProperty("state").GetString());
 	}
 
+	private static async Task AssertIssue144StockPageAsync(IPage page, string requestMarker)
+	{
+		var navigation = await page.GotoAsync($"{Issue144Path}?requestMarker={requestMarker}");
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		var body = await navigation.TextAsync();
+		Assert.Contains("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
+		Assert.Contains("data-issue-144-stock-control", body, StringComparison.Ordinal);
+		Assert.Contains($"Selected placeholder {requestMarker}", body, StringComparison.Ordinal);
+		Assert.Contains($"Excluded placeholder {requestMarker}", body, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-144-descendant", body, StringComparison.Ordinal);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+	}
+
+	private static Task InitializeIssue144EventsAsync(IPage page) =>
+		page.EvaluateAsync(
+			"""
+			() => {
+				window.issue144ResponseEvents = 0;
+				window.issue144SwapEvents = 0;
+				document.body.addEventListener('htmx:after:request', event => {
+					if (event.detail.ctx.sourceElement.id === 'issue-144-select') {
+						window.issue144ResponseEvents++;
+					}
+				});
+				document.body.addEventListener('htmx:after:swap', event => {
+					if (event.detail.ctx.sourceElement.id === 'issue-144-select') {
+						window.issue144SwapEvents++;
+					}
+				});
+			}
+			""");
+
+	private static Task<IResponse> WaitForIssue144ResponseAsync(IPage page, string requestMarker) =>
+		page.WaitForResponseAsync(response =>
+		{
+			var uri = new Uri(response.Url);
+			return uri.AbsolutePath == Issue144Path &&
+				uri.Query == $"?requestMarker={requestMarker}" &&
+				string.Equals(response.Request.Method, "GET", StringComparison.Ordinal);
+		});
+
+	private static async Task AssertIssue144PendingAsync(IPage page, string requestMarker)
+	{
+		Assert.Equal(
+			$"Selected placeholder {requestMarker}",
+			await page.Locator("#issue-144-selected").TextContentAsync());
+		Assert.Equal(
+			$"Excluded placeholder {requestMarker}",
+			await page.Locator("#issue-144-excluded").TextContentAsync());
+		Assert.Equal(0, await page.Locator("[data-issue-144-completed]").CountAsync());
+		Assert.Equal(0, await page.EvaluateAsync<int>("() => window.issue144ResponseEvents"));
+		Assert.Equal(0, await page.EvaluateAsync<int>("() => window.issue144SwapEvents"));
+	}
+
+	private static async Task AssertIssue144CompletedAsync(
+		IPage page,
+		IResponse response,
+		string requestMarker,
+		string requestId,
+		string otherRequestMarker,
+		string otherRequestId)
+	{
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var requestHeaders = await response.Request.AllHeadersAsync();
+		Assert.Equal("true", requestHeaders["hx-request"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("partial", requestHeaders["hx-request-type"], StringComparer.OrdinalIgnoreCase);
+		Assert.Equal("div#issue-144-selected", requestHeaders["hx-target"]);
+		var body = await response.TextAsync();
+		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", body, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-144-stock-control", body, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-144-placeholder", body, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-issue-144-descendant=\"excluded\"", body, StringComparison.Ordinal);
+		Assert.DoesNotContain(otherRequestMarker, body, StringComparison.Ordinal);
+		Assert.DoesNotContain(otherRequestId, body, StringComparison.Ordinal);
+		var completedMarker = $"{requestMarker}:{requestId}";
+		Assert.Contains($"data-issue-144-completed=\"{completedMarker}\"", body, StringComparison.Ordinal);
+		await AssertIssue144LiveCompletionAsync(
+			page, requestMarker, requestId, otherRequestMarker, otherRequestId);
+	}
+
+	private static async Task AssertIssue144LiveCompletionAsync(
+		IPage page,
+		string requestMarker,
+		string requestId,
+		string otherRequestMarker,
+		string otherRequestId)
+	{
+		var completedMarker = $"{requestMarker}:{requestId}";
+		var completed = page.Locator($"#issue-144-selected [data-issue-144-completed='{completedMarker}']");
+		await completed.WaitForAsync();
+		Assert.Equal($"selected completed {completedMarker}", await completed.TextContentAsync());
+		var body = await page.ContentAsync();
+		Assert.Contains($"data-issue-144-completed=\"{completedMarker}\"", body, StringComparison.Ordinal);
+		Assert.DoesNotContain(otherRequestMarker, body, StringComparison.Ordinal);
+		Assert.DoesNotContain(otherRequestId, body, StringComparison.Ordinal);
+		Assert.Equal(
+			$"Excluded placeholder {requestMarker}",
+			await page.Locator("#issue-144-excluded").TextContentAsync());
+		Assert.Equal(1, await page.EvaluateAsync<int>("() => window.issue144ResponseEvents"));
+		Assert.Equal(1, await page.EvaluateAsync<int>("() => window.issue144SwapEvents"));
+	}
+
+	private static void AssertIssue144Observations(
+		IReadOnlyList<Issue144ConcurrentObservation> observations,
+		string markerA,
+		string requestIdA,
+		Guid gateIdA,
+		string markerB,
+		string requestIdB,
+		Guid gateIdB)
+	{
+		Assert.DoesNotContain(
+			observations,
+			observation => string.Equals(observation.Component, "excluded", StringComparison.Ordinal));
+		AssertIssue144RequestObservations(observations, markerA, requestIdA, gateIdA);
+		AssertIssue144RequestObservations(observations, markerB, requestIdB, gateIdB);
+		Assert.Equal(
+			observations.Count,
+			observations.Count(observation =>
+				string.Equals(observation.RequestMarker, markerA, StringComparison.Ordinal) ||
+				string.Equals(observation.RequestMarker, markerB, StringComparison.Ordinal)));
+	}
+
+	private static Issue144ConcurrentObservation[] AssertIssue144BlockedObservations(
+		IReadOnlyList<Issue144ConcurrentObservation> observations,
+		string requestMarker,
+		string requestId,
+		Guid gateId)
+	{
+		var requestObservations = observations
+			.Where(observation => string.Equals(observation.RequestMarker, requestMarker, StringComparison.Ordinal))
+			.ToArray();
+		Assert.Single(requestObservations, observation => observation.Phase == "parameters-entered");
+		Assert.Single(requestObservations, observation => observation.Phase == "initialization-entered");
+		Assert.DoesNotContain(
+			requestObservations,
+			observation => observation.Phase is
+				"initialization-completed" or "parameters-completed");
+		Assert.All(requestObservations, observation =>
+		{
+			Assert.Equal(requestId, observation.RequestId);
+			Assert.Equal(gateId, observation.GateId);
+			Assert.Equal("selected", observation.Component);
+		});
+		return requestObservations;
+	}
+
+	private static Issue144ConcurrentObservation[] AssertIssue144RequestObservations(
+		IReadOnlyList<Issue144ConcurrentObservation> observations,
+		string requestMarker,
+		string requestId,
+		Guid gateId)
+	{
+		var requestObservations = observations
+			.Where(observation => string.Equals(observation.RequestMarker, requestMarker, StringComparison.Ordinal))
+			.ToArray();
+		Assert.NotEmpty(requestObservations);
+		Assert.All(requestObservations, observation =>
+		{
+			Assert.Equal(requestId, observation.RequestId);
+			Assert.Equal(gateId, observation.GateId);
+			Assert.Equal("selected", observation.Component);
+		});
+		Assert.Single(requestObservations, observation => observation.Phase == "parameters-entered");
+		Assert.Single(requestObservations, observation => observation.Phase == "initialization-entered");
+		Assert.Single(requestObservations, observation => observation.Phase == "initialization-completed");
+		Assert.Single(requestObservations, observation => observation.Phase == "parameters-completed");
+		Assert.Contains(requestObservations, observation => observation.Phase == "rendered");
+		return requestObservations;
+	}
+
 	private static HttpRequestMessage CreateForgedRequest(
 		HttpMethod method,
 		string path,
@@ -1606,6 +1873,7 @@ public sealed class Issue56BrowserTests
 		Issue135RequestProbe? issue135Probe = null,
 		Issue137LifecycleProbe? issue137Probe = null,
 		Issue139AsyncLifecycleProbe? issue139Probe = null,
+		Issue144ConcurrentLifecycleProbe? issue144Probe = null,
 		bool useHtmxor = true)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -1643,6 +1911,7 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(issue135Probe ?? new Issue135RequestProbe());
 		builder.Services.AddSingleton(issue137Probe ?? new Issue137LifecycleProbe());
 		builder.Services.AddSingleton(issue139Probe ?? new Issue139AsyncLifecycleProbe());
+		builder.Services.AddSingleton(issue144Probe ?? new Issue144ConcurrentLifecycleProbe());
 		builder.Services.AddScoped<Issue120RequestScope>();
 
 		var app = builder.Build();
