@@ -24,7 +24,7 @@
         </div>
     }
 </div>
-<HtmxFragment Id="sidebar" class="bg-dark text-white ms-auto d-flex flex-column fw-lighter" Element="form">
+<HtmxFragment Id="sidebar" class="bg-dark text-white ms-auto d-flex flex-column fw-lighter" Element="form" hx-swap="outerHTML">
     <AntiforgeryToken />
     @if (order.Pizzas.Any())
     {
