@@ -5,6 +5,8 @@
 - Starting discussion: [#143, "WIP: new devex"](https://github.com/egil/Htmxor/discussions/143)
 - Product contract: [Htmxor v1 goal](../roadmap/v1/goal.md)
 - Feature inventory: [Htmxor v1 guide and htmx 4 map](../htmxor-v1-feature-guide.md)
+- Registration update: the first bounded slice of #151 makes
+  `AddHtmxor()` / `AddHtmxorEndpoints()` current; the broader issue remains open
 
 ## Verdict
 
@@ -12,15 +14,14 @@ The component model is good. A developer should be able to add htmx attributes
 to an `@page`, stock form, or element callback without creating another endpoint
 or learning another renderer.
 
-The API is not ready to freeze. Four problems would force the documentation to
-explain around the package:
+The API is not ready to freeze. The registration naming problem identified by
+this review is resolved by the first bounded slice of #151. Three broader
+problems remain:
 
-1. Setup mixes the names `Htmx` and `Htmxor`, so `AddHtmx()` can sound as
-   if it installs the client runtime.
-2. Route and action discovery advertises options that the generator rejects,
+1. Route and action discovery advertises options that the generator rejects,
    then reports failures too broadly.
-3. Fragment selection mixes server work with DOM identity and request headers.
-4. The package exports incomplete client helpers and implementation types beside
+2. Fragment selection mixes server work with DOM identity and request headers.
+3. The package exports incomplete client helpers and implementation types beside
    the small server API developers need.
 
 The best default is native htmx markup plus a small typed server API. Copying
@@ -78,8 +79,8 @@ behavior.
 
 | Area | What a developer sees | Recommended change | Verdict |
 | --- | --- | --- | --- |
-| Services | `AddHtmx()` can sound like a client-library installer | Use one product name and state that the app supplies htmx | Decide before v1 |
-| Endpoint mapping | `AddHtmxorComponentEndpoints()` works at the root and through one standard route group | Keep the no-argument API and extend proof only when a new grouping case matters | Proved by #145 |
+| Services | `AddHtmxor()` names the server integration | State that the app supplies htmx | Current in the first #151 slice |
+| Endpoint mapping | `AddHtmxorEndpoints()` keeps the no-argument root and route-group shape | Extend proof only when a new grouping case matters | #145 behavior proved; #151 name current |
 | Script setup | The app loads htmx, then `HtmxHeadOutlet` | Diagnose a missing or misplaced adapter without choosing the app's package source | Good model |
 | Dual `@page` GET | Blazor routing also answers direct htmx GET | Keep GET as the only implicit method | Keep |
 | Normal-only page | No final opt-out exists | Add one component-local marker | Missing |
@@ -100,25 +101,26 @@ behavior.
 
 ## Findings
 
-### 1. Setup still uses two names for one product
+### 1. Setup uses one product name for server integration
 
-Current setup uses `AddHtmx()` for services and
-`AddHtmxorComponentEndpoints()` for endpoints. The first name can sound as if
-it installs htmx. It does not.
+Current setup uses `AddHtmxor()` for services and `AddHtmxorEndpoints()` for
+endpoints. Both names identify Htmxor's server integration. The application
+still supplies and configures htmx.
 
 [#145](https://github.com/egil/Htmxor/issues/145) removed the old destination
 argument and proved the no-argument call at the application root and through one
-standard ASP.NET Core route group. The remaining problem is naming. Before v1,
-choose one vocabulary for the two extension methods. The clearest pair is:
+standard ASP.NET Core route group. The first bounded slice of
+[#151](https://github.com/egil/Htmxor/issues/151) changes only the names:
 
 ```csharp
 builder.Services.AddRazorComponents().AddHtmxor();
 app.MapRazorComponents<App>().AddHtmxorEndpoints();
 ```
 
-Keeping the old names is possible, but every setup page would need a warning
-that `AddHtmx()` does not add htmx. Renaming before the stable release is the
-cheaper choice. Do not restore the destination argument that #145 removed.
+The beta does not keep forwarding aliases for the old names. This slice does not
+restore the destination argument that #145 removed or change its mapping path.
+#151 remains open for the stable type allow-list, exported-member review,
+client-helper decision, and public-API compatibility baseline.
 
 The #145 proof covers component policy and metadata, hosts, route constraints,
 antiforgery, generated methods, and shared group metadata. It does not cover

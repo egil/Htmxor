@@ -37,7 +37,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       // Add services to the container.
       builder.Services
           .AddRazorComponents()
-    +     .AddHtmx();
+    +     .AddHtmxor();
 
       var app = builder.Build();
 
@@ -53,10 +53,13 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       app.UseAntiforgery();
       app.MapStaticAssets();
       app.MapRazorComponents<App>()
-    +    .AddHtmxorComponentEndpoints();
+    +    .AddHtmxorEndpoints();
 
       app.Run();
     ```
+
+   These calls register Htmxor's server integration and component endpoints.
+   They do not install, select, or configure the application-owned htmx runtime.
 
    Keep the stock `MapStaticAssets()` call. Htmxor uses ASP.NET Core static web
    assets for its adapter and does not require a separate file provider or
