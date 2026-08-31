@@ -1746,7 +1746,7 @@ mutation was not run; ordinary pull-request verification uses the fast and full
 profiles, and this target-framework migration does not require the scheduled
 full production mutation workload.
 
-## Current implementation slice
+## Previous implementation slice
 
 Issue #145 establishes the current registration contract:
 
@@ -1807,3 +1807,50 @@ package/Kestrel/Chromium boundary. It should establish that aborting one gated
 browser request cannot emit or swap a late completed marker, leak observations
 into another request, or poison a later selected request, while its excluded
 sibling still records zero work.
+
+## Current implementation slice
+
+The first bounded issue #151 slice establishes one public registration pair:
+
+> When a .NET 10 Blazor static-SSR application adds Htmxor services and connects
+> them to mapped Razor components, Htmxor exposes `AddHtmxor()` and
+> `AddHtmxorEndpoints()` without implying that it supplies the application-owned
+> htmx runtime.
+
+This is an intentional beta breaking change. The old `AddHtmx()` and
+`AddHtmxorComponentEndpoints()` names are removed rather than retained as
+aliases. The generated endpoint method still returns the Razor-components
+convention builder, keeps the no-route-group contract proved by issue #145, and
+uses the existing generated catalog and runtime registration path. All three
+maintained samples and the current documentation use the new pair. This slice
+does not close issue #151 or decide the remaining exported-type and client-helper
+questions.
+
+Exact package-level red commit
+`2a1514b24e37963398377de9b9fec7812240760a` added the naming assertion before
+the production rename. After a full solution restore, the focused packed
+consumer discovered and executed 16 inner tests: 15 passed and the naming test
+failed because the package exposed only `AddHtmx()`. The outer package test
+failed for that same assertion. The earlier replay attempt stopped at a missing
+assets file and is setup failure, not behavioral evidence.
+
+Implementation commit `4cc7b9fee79a29014f4a6d5d5b84636c1a621fd6` applies the
+registration rename through the runtime, generator, samples, tests, and
+documentation. Package-count correction
+commit `ee1fe470cca9087079b818a59dbdc4d0a0fd2b24` is the exact clean executable
+head. At that head, all 7 packed-package outer tests passed. The two supported
+external consumers passed 18 of 18 and 16 of 16 inner tests; the other package
+cases retained their expected fail-closed compiler diagnostics. The repository
+fast profile passed 452 of 452 tests: 117 quality, 45 ASP.NET Core 10, and 290
+core tests. The Release build completed with zero warnings and errors.
+
+This progress-only commit was not executed. Executable claims remain tied to
+`ee1fe470cca9087079b818a59dbdc4d0a0fd2b24`. The full profile, browser suite,
+full-scope mutation, Windows, macOS, Firefox, WebKit, fresh browser provisioning,
+a published package, and package signing were not exercised for this naming
+slice.
+
+The recommended next slice remains inside issue #151: decide whether the
+incomplete htmx client trigger, swap, and constants helpers leave the stable
+core or move to an optional versioned adapter. That decision must precede the
+final stable public allow-list and package API baseline.
