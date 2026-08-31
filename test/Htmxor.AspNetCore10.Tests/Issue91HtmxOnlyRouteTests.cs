@@ -41,7 +41,7 @@ public sealed class Issue91HtmxOnlyRouteTests : IAsyncLifetime
 		builder.Services.AddAuthorization(options => options.AddPolicy(
 			PolicyName,
 			policy => policy.RequireClaim(Issue91AuthenticationHandler.AccessClaim, "granted")));
-		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddRazorComponents().AddHtmxor();
 		builder.Services.AddScoped(_ => new Issue91RequestProbe("from-scoped-di"));
 
 		app = builder.Build();
@@ -51,7 +51,7 @@ public sealed class Issue91HtmxOnlyRouteTests : IAsyncLifetime
 		var routes = app.MapGroup(RoutePrefix)
 			.WithMetadata(Issue91GroupMetadata.Instance);
 		routes.MapRazorComponents<Issue78App>()
-			.AddHtmxorComponentEndpoints();
+			.AddHtmxorEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();

@@ -27,14 +27,14 @@ public sealed class Issue85FormTests : IAsyncLifetime
 		builder.WebHost.UseTestServer();
 		builder.Logging.ClearProviders();
 		builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
-		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddRazorComponents().AddHtmxor();
 		builder.Services.AddSingleton<Issue85ApplicationProbe>();
 		builder.Services.AddScoped<Issue85RequestProbe>();
 
 		app = builder.Build();
 		app.UseAntiforgery();
 		app.MapRazorComponents<Issue78App>()
-			.AddHtmxorComponentEndpoints();
+			.AddHtmxorEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();

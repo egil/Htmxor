@@ -36,7 +36,7 @@ internal static class Issue87GeneratedActions
 	public static RazorComponentsEndpointConventionBuilder Register(
 		RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints)
-		=> builder.AddHtmxorComponentEndpoints(
+		=> builder.AddHtmxorEndpoints(
 			endpoints,
 			[PutDescriptor, PatchDescriptor, DeleteDescriptor]);
 

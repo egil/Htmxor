@@ -41,7 +41,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddRazorComponents()
-    .AddHtmx();
+    .AddHtmxor();
 
 var app = builder.Build();
 
@@ -49,7 +49,7 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
-    .AddHtmxorComponentEndpoints();
+    .AddHtmxorEndpoints();
 
 app.Run();
 ```
@@ -60,10 +60,10 @@ separately packed .NET 10 package. Nested groups, multiple Razor component
 applications, group endpoint filters or rate limits, interactive render modes,
 and the grouped Kestrel/browser path remain unproved.
 
-[#151](https://github.com/egil/Htmxor/issues/151) will decide whether both
-extension methods should use the product name, such as `AddHtmxor()` and
-`AddHtmxorEndpoints()`. Until then, examples use the current names and label
-proposed names.
+The registration pair uses the product name: `AddHtmxor()` adds Htmxor's server
+services and `AddHtmxorEndpoints()` connects them to mapped Razor components.
+Neither method supplies the htmx browser runtime. Issue
+[#151](https://github.com/egil/Htmxor/issues/151) still owns the broader v1 API review.
 
 Supply htmx before the Htmxor adapter in `App.razor`:
 

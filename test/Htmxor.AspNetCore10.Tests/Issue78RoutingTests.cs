@@ -23,14 +23,14 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 			EnvironmentName = Environments.Development,
 		});
 		builder.WebHost.UseTestServer();
-		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddRazorComponents().AddHtmxor();
 		builder.Services.AddScoped(_ => new Issue81RequestProbe("from-di"));
 
 		app = builder.Build();
 		app.UseAntiforgery();
 		app.MapRazorComponents<Issue78App>()
 			.WithMetadata(RouteSentinelMetadata.Instance)
-			.AddHtmxorComponentEndpoints();
+			.AddHtmxorEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();

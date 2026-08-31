@@ -10,7 +10,7 @@ public sealed class HtmxorRegistrationApiTests
 	{
 		var publicRegistrationMethods = typeof(HtmxorComponentEndpointRouteBuilderExtensions)
 			.GetMethods(BindingFlags.Public | BindingFlags.Static)
-			.Where(static method => method.Name == "AddHtmxorComponentEndpoints");
+			.Where(static method => method.Name == "AddHtmxorEndpoints");
 
 		Assert.Empty(publicRegistrationMethods);
 	}
@@ -21,7 +21,7 @@ public sealed class HtmxorRegistrationApiTests
 		var compatibilityMethods = typeof(HtmxorComponentEndpointRouteBuilderExtensions)
 			.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
 			.Where(static method =>
-				method.Name == "AddHtmxorComponentEndpoints" &&
+				method.Name == "AddHtmxorEndpoints" &&
 				method.GetParameters().Length == 2);
 
 		Assert.Empty(compatibilityMethods);

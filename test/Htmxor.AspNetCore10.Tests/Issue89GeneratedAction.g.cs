@@ -20,5 +20,5 @@ internal static class Issue89GeneratedAction
 	public static RazorComponentsEndpointConventionBuilder Register(
 		RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints)
-		=> builder.AddHtmxorComponentEndpoints(endpoints, [DeleteDescriptor]);
+		=> builder.AddHtmxorEndpoints(endpoints, [DeleteDescriptor]);
 }

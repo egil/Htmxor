@@ -62,7 +62,7 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 			manifest +
 			"\t];\n\n" +
 			"\tinternal static global::Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder " +
-			"AddHtmxorComponentEndpoints(\n" +
+			"AddHtmxorEndpoints(\n" +
 			"\t\tthis global::Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder builder)\n" +
 			"\t{\n" +
 			"\t\tvar endpoints = global::Microsoft.AspNetCore.Components.Endpoints.Infrastructure." +

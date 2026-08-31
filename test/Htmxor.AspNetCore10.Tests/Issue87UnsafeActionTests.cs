@@ -46,7 +46,7 @@ public sealed class Issue87UnsafeActionTests : IAsyncLifetime
 		builder.Services.AddAuthorization(options => options.AddPolicy(
 			PolicyName,
 			policy => policy.RequireClaim(Issue87AuthenticationHandler.AccessClaim, "granted")));
-		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddRazorComponents().AddHtmxor();
 		builder.Services.AddSingleton<Issue87ApplicationProbe>();
 		builder.Services.AddScoped<Issue87RequestProbe>();
 

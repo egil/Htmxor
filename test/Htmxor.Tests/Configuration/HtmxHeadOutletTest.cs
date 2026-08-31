@@ -30,7 +30,7 @@ public class HtmxHeadOutletTest : BunitContext
 	{
 		var addHtmx = typeof(HtmxorApplicationBuilderExtensions)
 			.GetMethods()
-			.Single(method => method.Name == nameof(HtmxorApplicationBuilderExtensions.AddHtmx));
+			.Single(method => method.Name == nameof(HtmxorApplicationBuilderExtensions.AddHtmxor));
 
 		addHtmx.GetParameters().Should().ContainSingle();
 		typeof(HtmxHeadOutlet).Assembly.GetType("Htmxor.HtmxConfig").Should().BeNull();

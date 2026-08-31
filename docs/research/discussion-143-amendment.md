@@ -39,20 +39,19 @@ root and through one standard ASP.NET Core route group:
 ```csharp
 builder.Services
     .AddRazorComponents()
-    .AddHtmx();
+    .AddHtmxor();
 
 app.UseAntiforgery();
 app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
-    .AddHtmxorComponentEndpoints();
+    .AddHtmxorEndpoints();
 ```
 
-The registration behavior is settled for those cases, but the names are not.
-`AddHtmx()` sounds as if it installs the browser library even though the
-application supplies that library.
-[#151](https://github.com/egil/Htmxor/issues/151) will settle the service and
-endpoint names before v1.
+The pair now uses the Htmxor product name consistently. `AddHtmxor()` adds
+server services and `AddHtmxorEndpoints()` connects them to mapped Razor
+components. The application still supplies htmx. Issue
+[#151](https://github.com/egil/Htmxor/issues/151) retains the broader v1 API review.
 
 Load the application-owned htmx asset before the Htmxor adapter:
 

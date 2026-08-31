@@ -5,7 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services
 	.AddRazorComponents()
-	.AddHtmx();
+	.AddHtmxor();
 
 var app = builder.Build();
 
@@ -22,6 +22,6 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 app.MapRazorComponents<App>()
-   .AddHtmxorComponentEndpoints();
+   .AddHtmxorEndpoints();
 
 app.Run();

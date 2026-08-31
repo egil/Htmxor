@@ -166,7 +166,7 @@ public sealed class HtmxorRouteGeneratorTests
 		Assert.Empty(result.Diagnostics);
 		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
 
-		Assert.Contains("AddHtmxorComponentEndpoints(", generatedSource, StringComparison.Ordinal);
+		Assert.Contains("AddHtmxorEndpoints(", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain(
 			"Htmxor.Consumer.AllCSharpComponent",
 			generatedSource,
@@ -330,7 +330,7 @@ public sealed class HtmxorRouteGeneratorTests
 		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
 
 		Assert.Contains(
-			"AddHtmxorComponentEndpoints(",
+			"AddHtmxorEndpoints(",
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.Contains(

@@ -55,7 +55,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			projectRootComponentTypeNames,
 			generatedActions);
 
-		AddHtmxorComponentEndpoints(builder, endpoints, [], generatedActions);
+		AddHtmxorEndpoints(builder, endpoints, [], generatedActions);
 		foreach (var descriptor in descriptors)
 		{
 			endpoints.MapHtmxorComponentEndpoint(descriptor, generatedActions);
@@ -64,7 +64,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		return builder;
 	}
 
-	internal static RazorComponentsEndpointConventionBuilder AddHtmxorComponentEndpoints(
+	internal static RazorComponentsEndpointConventionBuilder AddHtmxorEndpoints(
 		this RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints,
 		IReadOnlyList<HtmxorComponentActionDescriptor> generatedActions)
@@ -72,12 +72,12 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(endpoints);
 		ArgumentNullException.ThrowIfNull(generatedActions);
-		AddHtmxorComponentEndpoints(builder, endpoints, generatedActions, []);
+		AddHtmxorEndpoints(builder, endpoints, generatedActions, []);
 
 		return builder;
 	}
 
-	private static void AddHtmxorComponentEndpoints(
+	private static void AddHtmxorEndpoints(
 		RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints,
 		IReadOnlyList<HtmxorComponentActionDescriptor> actionDescriptors,

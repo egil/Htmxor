@@ -18,8 +18,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 #pragma warning restore IDE0130
 
 /// <summary>
-/// This class has extension methods for <see cref="IHostApplicationBuilder"/> and <see cref="IApplicationBuilder"/> 
-/// that enable configuration of Htmx in the application.
+/// Adds Htmxor server services to Razor components.
 /// </summary>
 public static class HtmxorApplicationBuilderExtensions
 {
@@ -27,7 +26,7 @@ public static class HtmxorApplicationBuilderExtensions
 	/// Adds Htmxor's server integration.
 	/// </summary>
 	/// <param name="razorComponentsBuilder"></param>
-	public static IRazorComponentsBuilder AddHtmx(this IRazorComponentsBuilder razorComponentsBuilder)
+	public static IRazorComponentsBuilder AddHtmxor(this IRazorComponentsBuilder razorComponentsBuilder)
 	{
 		ArgumentNullException.ThrowIfNull(razorComponentsBuilder);
 		var services = razorComponentsBuilder.Services;
@@ -50,7 +49,7 @@ public static class HtmxorApplicationBuilderExtensions
 	// The legacy test application retains the prototype pipeline while its deferred behaviors are characterized.
 	internal static IRazorComponentsBuilder AddLegacyHtmx(this IRazorComponentsBuilder razorComponentsBuilder)
 	{
-		AddHtmx(razorComponentsBuilder);
+		AddHtmxor(razorComponentsBuilder);
 		var services = razorComponentsBuilder.Services;
 
 		// Override routing

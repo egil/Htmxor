@@ -1888,7 +1888,7 @@ public sealed class Issue56BrowserTests
 			options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
 		if (useHtmxor)
 		{
-			components.AddHtmx();
+			components.AddHtmxor();
 		}
 		builder.Services.AddHttpContextAccessor();
 		builder.Services.AddAuthentication("Issue111")
@@ -1924,7 +1924,7 @@ public sealed class Issue56BrowserTests
 		if (useHtmxor)
 		{
 			app.MapRazorComponents<Issue56App>()
-				.AddHtmxorComponentEndpoints();
+				.AddHtmxorEndpoints();
 		}
 		else
 		{
