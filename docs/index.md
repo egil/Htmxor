@@ -14,7 +14,14 @@ remaining API decisions and links the issues that track them.
 The setup below targets the v1 API in the repository revision containing this
 page. It does not compile against the currently published beta package.
 
-To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
+The repository-owned [Minimal Htmxor App](../samples/MinimalHtmxorApp) is an
+integration sample whose project references require the full checkout. For a
+standalone evaluation, start with a stock .NET 10 Blazor Web App outside this
+repository:
+
+```console
+dotnet new blazor --framework net10.0 --interactivity None --output MyHtmxorApp
+```
 
 Htmxor v1 requires .NET 10. It does not support .NET 8, and it does not yet claim .NET 11 compatibility.
 
@@ -27,19 +34,34 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
 1. **Build and add the Htmxor package**
 
-   From the Htmxor repository root, build a local package with a known version:
+   From the Htmxor repository root, record the clean source revision:
 
    ```console
-   dotnet pack src/Htmxor/Htmxor.csproj --configuration Release --output artifacts/packages -p:MinVerVersionOverride=1.0.0-local.1
+   git rev-parse --short HEAD
    ```
 
-   From the application project directory, add that package. Replace the source
-   path with the absolute path to the repository's `artifacts/packages`
-   directory:
+   Replace `REVISION` below with that output, then build a local package. Use a
+   different version for every source revision because NuGet caches packages by
+   package ID and version:
 
    ```console
-   dotnet add package Htmxor --version 1.0.0-local.1 --source /absolute/path/to/Htmxor/artifacts/packages
+   dotnet pack src/Htmxor/Htmxor.csproj --configuration Release --output artifacts/packages -p:MinVerVersionOverride=1.0.0-local.REVISION
    ```
+
+   From the application project directory, create a project-local NuGet
+   configuration, persist the package directory as a source, and add the same
+   revision-specific version. If the project already has a `nuget.config`, keep
+   it and skip the `dotnet new` command. Replace the quoted source path with the
+   absolute path to this checkout's `artifacts/packages` directory:
+
+   ```console
+   dotnet new nugetconfig
+   dotnet nuget add source "/absolute/path/to/Htmxor/artifacts/packages" --name HtmxorLocal --configfile "./nuget.config"
+   dotnet add package Htmxor --version 1.0.0-local.REVISION
+   ```
+
+   Keep that `nuget.config` and local feed available for future clean restores
+   of this evaluation project.
 
    The published packages on [NuGet](https://www.nuget.org/packages/Htmxor)
    expose the previous beta registration API until v1 is published.
