@@ -314,6 +314,29 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	[Fact]
+	public void Application_without_HtmxRoute_declarations_emits_empty_registration_manifest()
+	{
+		var run = RunGenerator();
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"AddHtmxorComponentEndpoints(",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			"ComponentEndpointConventionBuilderHelper.GetEndpointRouteBuilder(builder)",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("Htmxor.Consumer.", generatedSource, StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	[Fact]
 	public void Project_root_paths_emit_one_sorted_runtime_manifest_without_reading_Razor_content()
 	{
 		var forward = RunGenerator(

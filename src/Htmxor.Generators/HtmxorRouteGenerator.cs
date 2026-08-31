@@ -43,11 +43,6 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 		SourceProductionContext context,
 		ImmutableArray<string> projectRootComponentTypeNames)
 	{
-		if (projectRootComponentTypeNames.IsDefaultOrEmpty)
-		{
-			return;
-		}
-
 		context.AddSource(
 			"HtmxorGeneratedRouteRegistration.g.cs",
 			SourceText.From(Render(projectRootComponentTypeNames), Encoding.UTF8));
