@@ -299,8 +299,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			context.Response.StatusCode != StatusCodes.Status302Found ||
 			context.Response.Headers.Location.Count != 1 ||
 			!Uri.TryCreate(location, UriKind.Absolute, out var redirectUri) ||
-			!string.Equals(redirectUri.Scheme, context.Request.Scheme, StringComparison.OrdinalIgnoreCase) ||
-			!HostString.FromUriComponent(redirectUri).Equals(context.Request.Host))
+			!HasSameOrigin(context.Request, redirectUri))
 		{
 			return;
 		}
@@ -308,6 +307,16 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		context.Response.StatusCode = StatusCodes.Status200OK;
 		context.Response.Headers.Remove("Location");
 		context.Response.Headers[HtmxResponseHeaderNames.Redirect] = location;
+	}
+
+	private static bool HasSameOrigin(HttpRequest request, Uri redirectUri)
+	{
+		var redirectHost = HostString.FromUriComponent(redirectUri);
+		return string.Equals(redirectUri.Scheme, request.Scheme, StringComparison.OrdinalIgnoreCase) &&
+			string.Equals(redirectHost.Host, request.Host.Host, StringComparison.OrdinalIgnoreCase) &&
+			(request.Host.Port is { } requestPort
+				? redirectHost.Port == requestPort
+				: redirectUri.IsDefaultPort);
 	}
 
 	private static async Task InvokeActionEndpoint(
