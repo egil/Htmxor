@@ -648,6 +648,7 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(1, Count(applicationSource, "app.MapRazorComponents<Issue97App>()"));
 		Assert.DoesNotContain("AddHtmx()", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("AddHtmxorComponentEndpoints()", applicationSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("AddHtmxorEndpoints(routes)", applicationSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("MapGroup(string.Empty)", applicationSource, StringComparison.Ordinal);
 		Assert.Equal(3, Count(applicationSource, "HtmxRoute("));
 		Assert.Equal(1, Count(razorSource, "HtmxRoute("));
