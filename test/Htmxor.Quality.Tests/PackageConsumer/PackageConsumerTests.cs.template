@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
@@ -102,6 +103,33 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		await app.StartAsync();
 		client = app.GetTestClient();
 		applicationProbe = app.Services.GetRequiredService<Issue100ApplicationProbe>();
+	}
+
+	[Fact]
+	public void Service_registration_names_the_Htmxor_server_integration()
+	{
+		var registrationMethods = typeof(HtmxorApplicationBuilderExtensions)
+			.GetMethods(BindingFlags.Public | BindingFlags.Static)
+			.Select(static method => method.Name)
+			.ToArray();
+
+		Assert.Contains("AddHtmxor", registrationMethods);
+		Assert.DoesNotContain("AddHtmx", registrationMethods);
+	}
+
+	[Fact]
+	public void Endpoint_registration_names_the_Htmxor_server_integration()
+	{
+		var registrationType = typeof(PackageConsumerTests).Assembly.GetType(
+			"Microsoft.AspNetCore.Builder.HtmxorGeneratedRouteRegistrationExtensions",
+			throwOnError: true)!;
+		var registrationMethods = registrationType
+			.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+			.Select(static method => method.Name)
+			.ToArray();
+
+		Assert.Contains("AddHtmxorEndpoints", registrationMethods);
+		Assert.DoesNotContain("AddHtmxorComponentEndpoints", registrationMethods);
 	}
 
 	[Fact]
