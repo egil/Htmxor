@@ -33,9 +33,11 @@ public class HtmxHeadOutletTest : BunitContext
 			.Where(static method => method.IsPublic && method.IsStatic)
 			.ToArray();
 
-		registrationMethods.Should().ContainSingle()
-			.Which.Name.Should().Be(nameof(HtmxorApplicationBuilderExtensions.AddHtmxor));
-		registrationMethods[0].GetParameters().Should().ContainSingle();
+		var addHtmxor = registrationMethods.Should()
+			.ContainSingle(static method => method.Name == nameof(HtmxorApplicationBuilderExtensions.AddHtmxor))
+			.Which;
+		addHtmxor.GetParameters().Should().ContainSingle();
+		registrationMethods.Should().NotContain(static method => method.Name == "AddHtmx");
 		typeof(HtmxHeadOutlet).Assembly.GetType("Htmxor.HtmxConfig").Should().BeNull();
 	}
 
