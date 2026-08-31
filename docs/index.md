@@ -238,7 +238,9 @@ The routing mode is determined by the htmx 4
 `HX-Request-Type` headers together:
 
 ```text
-if ( HX-Request is present && HX-Request-Type is exactly "partial" )
+if ( HX-Request is present
+     && HX-Request-Type has exactly one value
+     && that value is exactly "partial" )
     RoutingMode.Direct
 else
     RoutingMode.Standard
