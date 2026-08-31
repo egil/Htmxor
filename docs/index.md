@@ -105,7 +105,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
         Adding hx-boost:inherited="true" is optional.
         hx-boost returns the "enhanced navigation" and "enhanced forms"
         features that are lost by removing blazor.web.js script below.
-        Learn more here: https://four.htmx.org/attributes/hx-boost/
+        Learn more here: https://four.htmx.org/reference/attributes/hx-boost
       -->
     +<body hx-boost:inherited="true">
           <Routes />
@@ -236,7 +236,7 @@ In Htmxor, there are **two** types of routing:
 - **Direct routing**
 
 The routing mode is determined by the htmx 4
-[`HX-Request`](https://four.htmx.org/reference/#request_headers) and
+[`HX-Request`](https://four.htmx.org/reference/#headers) and
 `HX-Request-Type` headers together:
 
 ```python

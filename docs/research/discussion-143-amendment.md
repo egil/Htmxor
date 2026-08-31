@@ -127,7 +127,7 @@ server declaration, but they cannot create one. If Htmxor cannot resolve a
 callback at build time, the diagnostic should point to that callback and say
 what declaration is needed.
 
-[#111](https://github.com/egil/Htmxor/issues/111) proves one static
+[#111](https://github.com/egil/Htmxor/issues/111) proves one statically discoverable
 `@onquery` binding for each stock and HTMX-only route owner through the
 compiler, a separately packed .NET 10 package, Kestrel, Chromium, and htmx 4.0.0
 with form-encoded content. It also proves that client-only `hx-query` receives

@@ -161,7 +161,7 @@ The v1 method model is small:
 | `QUERY` | Application-authored `@onquery` | Proved for one binding per stock or HTMX-only route owner |
 | Other methods | Narrow explicit declaration and extension API | Not implicit in v1 |
 
-[#111](https://github.com/egil/Htmxor/issues/111) proves one static
+[#111](https://github.com/egil/Htmxor/issues/111) proves one statically discoverable
 `@onquery` method-group binding on an `@page` and on an omitted-`Methods`
 `HtmxRoute`. Its package-only test uses htmx 4.0.0, form-encoded content, real
 Kestrel, and Chromium. It also proves that client-only `hx-query` cannot grant
@@ -723,12 +723,17 @@ The official core event suffixes below use the `htmx:` prefix, for example
 
 | Family | Exact suffixes |
 | --- | --- |
-| Initialization and processing | `before:init`, `after:init`, `before:process`, `before:on:init`, `after:process`, `before:cleanup`, `after:cleanup` |
+| Initialization and processing | `before:init`, `after:init`, `before:process`, `before:on:init`, `after:process`, `process:{type}`, `after:implicitInheritance`, `before:cleanup`, `after:cleanup` |
 | Request | `config:request`, `confirm`, `before:request`, `before:response`, `after:request`, `response:error`, `finally:request`, `error` |
 | Swap and settle | `before:swap`, `after:swap`, `finally:swap`, `before:settle`, `after:settle` |
 | History | `before:history:update`, `after:history:update`, `after:history:push`, `after:history:replace`, `before:history:restore` |
 | View transitions | `before:viewTransition`, `after:viewTransition` |
 | Control and triggers | `abort` is listened for by htmx; `every` and `intersect` are trigger events |
+`process:{type}` is a pattern whose final segment names a registered template
+type. `after:implicitInheritance` is an internal debugging event that fires only
+when `htmx.config.implicitInheritance` is enabled. V1 examples retain explicit
+inheritance.
+
 
 Official extensions add these `htmx:` event suffixes:
 
@@ -865,8 +870,11 @@ methods.
   and every other unsafe method.
 - Escape untrusted output. Isolate intentional raw HTML and consider
   `hx-ignore` where untrusted and trusted markup meet.
-- Keep htmx's same-origin default unless the application defines a CORS policy.
-  An htmx attribute cannot widen the global fetch mode.
+- Keep htmx's same-origin default. If the application deliberately changes the
+  global fetch mode, require both the matching server CORS policy and an
+  explicit browser destination allow-list such as CSP `connect-src`. Review
+  which credentials and application data may leave the origin. An htmx
+  attribute cannot widen the global fetch mode.
 - Choose a CSP profile. Trigger filters, `js:` values, and inline
   `hx-on` require evaluated or inline script capabilities; strict-CSP apps should
   use external listeners and the application-owned `hx-csp` strategy where

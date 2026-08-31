@@ -84,7 +84,7 @@ behavior.
 | Dual `@page` GET | Blazor routing also answers direct htmx GET | Keep GET as the only implicit method | Keep |
 | Normal-only page | No final opt-out exists | Add one component-local marker | Missing |
 | HTMX-only route | `HtmxRoute` is easy to find | Make Razor, code-behind, and C# declarations equivalent | Keep, finish diagnostics |
-| Actions | Instance callbacks sit beside their markup | Infer only static server declarations and diagnose the rest | Keep |
+| Actions | Instance callbacks sit beside their markup | Infer only statically discoverable server declarations and diagnose the rest | Keep |
 | Forms | Stock Blazor forms remain stock | Preserve fallback submit, binding, validation, antiforgery, and lifecycle | Keep |
 | Whole component | No fragment declaration is needed | Keep the convention free of extra ceremony | Keep |
 | One fragment | `HtmxFragment` is clear, but `Id` has two jobs | Give server selection its own stable name | Redesign |
@@ -145,7 +145,7 @@ after routing and authorization.
 
 ### 3. Build failures need specific diagnostics
 
-The rule is simple: GET is implicit; stock forms and static instance callbacks
+The rule is simple: GET is implicit; stock forms and statically discoverable instance callbacks
 add methods; dynamic cases need an explicit declaration. The compiler should
 make every exception to that rule easy to fix.
 
@@ -313,7 +313,7 @@ owns client features it intends to pass through.
 
 The guide accounts for all 49 official htmx 4.0.0 editor attributes, seven core
 request headers, nine core response headers, 22 global configuration entries,
-60 documented events, 12 JavaScript methods, six CSS classes, and 17 official
+62 documented event entries, 12 JavaScript methods, six CSS classes, and 17 official
 extensions. Each entry says what Htmxor or the application must do on the
 server.
 
