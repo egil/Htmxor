@@ -430,6 +430,24 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
+	[Theory]
+	[InlineData("@page \"/reports/{ReportId:int}\"")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]")]
+	public void Static_id_target_without_a_binding_does_not_grant_a_server_action(string routeDeclaration)
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			<button hx-target="#selector">No action</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
 	[Fact]
 	public void Onput_text_outside_a_markup_attribute_does_not_emit_an_action()
 	{
