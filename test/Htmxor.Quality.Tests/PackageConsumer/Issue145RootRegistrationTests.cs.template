@@ -1,0 +1,137 @@
+using System.Net;
+using System.Security.Claims;
+using Htmxor;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components.Endpoints;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+public sealed class Issue145RootRegistrationTests : IAsyncLifetime
+{
+	private const string ReportPolicyName = "issue-97-report-policy";
+	private const string SummaryPolicyName = "issue-97-summary-policy";
+	private const string AuditPolicyName = "issue-141-audit-policy";
+	private WebApplication app = default!;
+	private HttpClient client = default!;
+
+	public async Task InitializeAsync()
+	{
+		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+		{
+			ApplicationName = typeof(Issue145RootRegistrationTests).Assembly.GetName().Name,
+			EnvironmentName = Environments.Development,
+		});
+		builder.WebHost.UseTestServer();
+		builder.Logging.ClearProviders();
+		builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
+		builder.Services.AddAuthentication(PackageConsumerAuthenticationHandler.SchemeName)
+			.AddScheme<AuthenticationSchemeOptions, PackageConsumerAuthenticationHandler>(
+				PackageConsumerAuthenticationHandler.SchemeName,
+				_ => { });
+		builder.Services.AddAuthorization(options =>
+		{
+			AddPolicy(options, ReportPolicyName, PackageConsumerAuthenticationHandler.ReportAccess);
+			AddPolicy(options, SummaryPolicyName, PackageConsumerAuthenticationHandler.SummaryAccess);
+			AddPolicy(options, AuditPolicyName, PackageConsumerAuthenticationHandler.AuditAccess);
+		});
+		builder.Services.AddRazorComponents().AddHtmx();
+		builder.Services.AddSingleton<Issue100ApplicationProbe>();
+		builder.Services.AddScoped<Issue100RequestProbe>();
+
+		app = builder.Build();
+		app.UseAuthentication();
+		app.UseAuthorization();
+		app.UseAntiforgery();
+		app.MapRazorComponents<Issue97App>()
+			.AddHtmxorComponentEndpoints();
+
+		await app.StartAsync();
+		client = app.GetTestClient();
+	}
+
+	[Fact]
+	public async Task Root_registration_preserves_stock_and_generated_component_endpoints()
+	{
+		var componentEndpoints = ((IEndpointRouteBuilder)app).DataSources
+			.SelectMany(static dataSource => dataSource.Endpoints)
+			.OfType<RouteEndpoint>()
+			.Where(static endpoint => endpoint.Metadata.GetMetadata<ComponentTypeMetadata>() is not null)
+			.ToArray();
+
+		AssertEndpoint<Issue100ReportPage>(componentEndpoints, "/reports/{ReportId:int}");
+		AssertEndpoint<Issue97ReportComponent>(componentEndpoints, "/htmx-reports/{ReportId:int}");
+		AssertEndpoint<Issue97SummaryComponent>(componentEndpoints, "/summaries/{SummaryId:int}");
+		AssertEndpoint<Issue141AuditComponent>(componentEndpoints, "/audits/{AuditId:int}");
+
+		using var normalResponse = await SendAsync(
+			"/reports/42",
+			direct: false,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			"reports.internal.example");
+		var normalBody = await normalResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.OK, normalResponse.StatusCode);
+		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-100-report-page", normalBody, StringComparison.Ordinal);
+
+		using var directResponse = await SendAsync(
+			"/htmx-reports/42",
+			direct: true,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			"reports.internal.example");
+		var directBody = await directResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.OK, directResponse.StatusCode);
+		Assert.Contains("data-issue-97-report-component", directBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-stock-shell", directBody, StringComparison.Ordinal);
+	}
+
+	private static void AddPolicy(AuthorizationOptions options, string name, string access)
+		=> options.AddPolicy(
+			name,
+			policy => policy.RequireClaim(PackageConsumerAuthenticationHandler.AccessClaim, access));
+
+	private static void AssertEndpoint<TComponent>(IEnumerable<RouteEndpoint> endpoints, string route)
+	{
+		var endpoint = Assert.Single(endpoints, endpoint =>
+			endpoint.Metadata.GetRequiredMetadata<ComponentTypeMetadata>().Type == typeof(TComponent));
+		Assert.Equal(route, endpoint.RoutePattern.RawText);
+		Assert.Null(endpoint.Metadata.GetMetadata<Issue97GroupMetadata>());
+	}
+
+	private async Task<HttpResponseMessage> SendAsync(
+		string path,
+		bool direct,
+		string userName,
+		string host)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		request.Headers.Host = host;
+		request.Headers.Add(PackageConsumerAuthenticationHandler.UserHeaderName, userName);
+		if (direct)
+		{
+			request.Headers.Add("HX-Request", "true");
+			request.Headers.Add("HX-Request-Type", "partial");
+		}
+
+		return await client.SendAsync(request);
+	}
+
+	public async Task DisposeAsync()
+	{
+		client?.Dispose();
+		if (app is not null)
+		{
+			await app.DisposeAsync();
+		}
+	}
+}

@@ -30,7 +30,7 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 		app.UseAntiforgery();
 		app.MapRazorComponents<Issue78App>()
 			.WithMetadata(RouteSentinelMetadata.Instance)
-			.AddHtmxorComponentEndpoints(app);
+			.AddHtmxorComponentEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();

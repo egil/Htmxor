@@ -46,7 +46,7 @@ public sealed class Issue83AuthorizationTests : IAsyncLifetime
 		app.UseAuthorization();
 		app.UseAntiforgery();
 		app.MapRazorComponents<Issue78App>()
-			.AddHtmxorComponentEndpoints(app);
+			.AddHtmxorComponentEndpoints();
 
 		await app.StartAsync();
 		client = app.GetTestClient();

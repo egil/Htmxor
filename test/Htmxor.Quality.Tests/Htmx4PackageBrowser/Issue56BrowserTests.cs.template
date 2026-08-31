@@ -1923,9 +1923,8 @@ public sealed class Issue56BrowserTests
 		app.MapStaticAssets();
 		if (useHtmxor)
 		{
-			var routes = app.MapGroup(string.Empty);
 			app.MapRazorComponents<Issue56App>()
-				.AddHtmxorComponentEndpoints(routes);
+				.AddHtmxorComponentEndpoints();
 		}
 		else
 		{
