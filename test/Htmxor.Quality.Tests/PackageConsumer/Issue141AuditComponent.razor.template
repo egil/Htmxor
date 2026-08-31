@@ -1,0 +1,22 @@
+@attribute [HtmxRoute("/audits/{AuditId:int}", Methods = ["GET", "POST"])]
+@attribute [Authorize(Policy = "issue-141-audit-policy")]
+@attribute [Host("audits.internal.example")]
+@using Htmxor
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Routing
+
+<section data-issue-141-audit-component>
+    <p data-audit-request-values>@AuditId|@HttpContext.User.Identity?.Name|@GroupMarker</p>
+</section>
+
+@code {
+    [Parameter]
+    public string? AuditId { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private string? GroupMarker
+        => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue97GroupMetadata>()?.Value;
+}

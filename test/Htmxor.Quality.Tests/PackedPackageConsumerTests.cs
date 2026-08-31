@@ -31,7 +31,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(12, 12, 12, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(13, 13, 13, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -49,7 +49,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(14, 14, 14, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(15, 15, 15, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 
@@ -615,6 +615,9 @@ internal static class PackageConsumerEvidence
 		var reportSource = File.ReadAllText(Path.Combine(
 			consumerDirectory,
 			"Issue97ReportComponent.razor"));
+		var auditSource = File.ReadAllText(Path.Combine(
+			consumerDirectory,
+			"Issue141AuditComponent.razor"));
 		var reportPartialPath = Path.Combine(
 			consumerDirectory,
 			"Issue97ReportComponent.razor.cs");
@@ -629,14 +632,16 @@ internal static class PackageConsumerEvidence
 			"[HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = [\"GET\", \"PATCH\"])]";
 		const string summaryRoute =
 			"[HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [\"GET\"])]";
+		const string auditRoute =
+			"@attribute [HtmxRoute(\"/audits/{AuditId:int}\", Methods = [\"GET\", \"POST\"])]";
 		const string pageRoute = "@page \"/reports/{ReportId:int}\"";
 
 		Assert.Equal(1, Count(applicationSource, "AddHtmxorComponentEndpoints(routes)"));
 		Assert.Equal(1, Count(applicationSource, "MapGroup(RoutePrefix)"));
 		Assert.Equal(1, Count(applicationSource, "MapRazorComponents<Issue97App>()"));
-		Assert.Equal(2, Count(applicationSource, "HtmxRoute("));
-		Assert.Equal(0, Count(razorSource, "HtmxRoute("));
-		Assert.Equal(2, Count(razorSource, "@attribute [Authorize"));
+		Assert.Equal(3, Count(applicationSource, "HtmxRoute("));
+		Assert.Equal(1, Count(razorSource, "HtmxRoute("));
+		Assert.Equal(3, Count(razorSource, "@attribute [Authorize"));
 		Assert.Equal(2, Count(razorSource, "hx-put="));
 		Assert.Equal(1, Count(razorSource, "hx-patch="));
 		Assert.Equal(1, Count(razorSource, "hx-delete="));
@@ -652,6 +657,7 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(1, Count(reportPartialSource, reportRoute));
 		Assert.Equal(1, Count(reportPartialSource, "private void PatchReport(HtmxEventArgs _)"));
 		Assert.Equal(1, Count(summarySource, summaryRoute));
+		Assert.Equal(1, Count(auditSource, auditRoute));
 		Assert.Equal(1, Count(summarySource, "[Authorize("));
 		Assert.Contains(
 			"protected override void BuildRenderTree(RenderTreeBuilder builder)",
