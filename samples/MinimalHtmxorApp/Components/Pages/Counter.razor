@@ -8,12 +8,12 @@
     This is a htmx enabled counter.
 </p>
 <p>
-    During a htmx requests, the elements in this component will not be rendered (this paragraph), because the component
-    inherits from <code>ConditionalComponentBase</code>. Child components, like the <code>HtmxFragment</code> component,
-    will render out its markup during htmx requests and during normal requests.
+    During an htmx request, ordinary elements in this component, including this paragraph, are not rendered because the component
+    inherits from <code>ConditionalComponentBase</code>. Child components such as <code>HtmxFragment</code>
+    render their markup during both htmx and standard requests.
 </p>
 <p>
-    This declaratively enable the concept <a href="https://htmx.org/essays/template-fragments/" target="_blank">template fragments</a>.
+    This declaratively enables the concept <a href="https://htmx.org/essays/template-fragments/" target="_blank">template fragments</a>.
 </p>
 
 <div id="counter">
