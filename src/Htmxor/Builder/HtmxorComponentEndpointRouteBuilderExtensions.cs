@@ -286,6 +286,28 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		}
 
 		await InvokeDirectEndpoint(context, stockRequestDelegate);
+		if (HttpMethods.IsGet(context.Request.Method))
+		{
+			AdaptLocalNavigationRedirect(context);
+		}
+	}
+
+	private static void AdaptLocalNavigationRedirect(HttpContext context)
+	{
+		var location = context.Response.Headers.Location.ToString();
+		if (context.Response.HasStarted ||
+			context.Response.StatusCode != StatusCodes.Status302Found ||
+			context.Response.Headers.Location.Count != 1 ||
+			!Uri.TryCreate(location, UriKind.Absolute, out var redirectUri) ||
+			!string.Equals(redirectUri.Scheme, context.Request.Scheme, StringComparison.OrdinalIgnoreCase) ||
+			!HostString.FromUriComponent(redirectUri).Equals(context.Request.Host))
+		{
+			return;
+		}
+
+		context.Response.StatusCode = StatusCodes.Status200OK;
+		context.Response.Headers.Remove("Location");
+		context.Response.Headers[HtmxResponseHeaderNames.Redirect] = location;
 	}
 
 	private static async Task InvokeActionEndpoint(

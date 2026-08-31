@@ -611,9 +611,13 @@ public sealed class Issue56BrowserTests
 
 		using var ordinaryResponse = await client.GetAsync(Issue64RedirectPath);
 		Assert.Equal(HttpStatusCode.Found, ordinaryResponse.StatusCode);
+		var ordinaryLocation = Assert.IsType<Uri>(ordinaryResponse.Headers.Location);
+		Assert.True(ordinaryLocation.IsAbsoluteUri);
+		Assert.Equal(baseAddress.Scheme, ordinaryLocation.Scheme);
+		Assert.Equal(baseAddress.Authority, ordinaryLocation.Authority);
 		Assert.Equal(
 			Issue64DestinationPath,
-			new Uri(baseAddress, Assert.IsType<Uri>(ordinaryResponse.Headers.Location)).AbsolutePath);
+			ordinaryLocation.AbsolutePath);
 		Assert.False(ordinaryResponse.Headers.Contains("HX-Redirect"));
 
 		using var request = new HttpRequestMessage(HttpMethod.Get, Issue64RedirectPath);
@@ -624,7 +628,7 @@ public sealed class Issue56BrowserTests
 		using var htmxResponse = await client.SendAsync(request);
 		Assert.Equal(HttpStatusCode.OK, htmxResponse.StatusCode);
 		Assert.Equal(
-			Issue64DestinationPath,
+			ordinaryLocation.AbsoluteUri,
 			Assert.Single(htmxResponse.Headers.GetValues("HX-Redirect")));
 		Assert.Null(htmxResponse.Headers.Location);
 	}
