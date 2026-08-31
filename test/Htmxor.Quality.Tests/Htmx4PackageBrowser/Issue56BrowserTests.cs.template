@@ -631,6 +631,19 @@ public sealed class Issue56BrowserTests
 			ordinaryLocation.AbsoluteUri,
 			Assert.Single(htmxResponse.Headers.GetValues("HX-Redirect")));
 		Assert.Null(htmxResponse.Headers.Location);
+
+		using var defaultPortRequest = new HttpRequestMessage(HttpMethod.Get, Issue64RedirectPath);
+		defaultPortRequest.Headers.Host = baseAddress.Host;
+		defaultPortRequest.Headers.Add("HX-Request", "true");
+		defaultPortRequest.Headers.Add("HX-Request-Type", "partial");
+		defaultPortRequest.Headers.Add("HX-Source", "button#issue-64-redirect");
+		defaultPortRequest.Headers.Add("HX-Target", "div#issue-64-target");
+		using var defaultPortResponse = await client.SendAsync(defaultPortRequest);
+		Assert.Equal(HttpStatusCode.OK, defaultPortResponse.StatusCode);
+		Assert.Equal(
+			$"{baseAddress.Scheme}://{baseAddress.Host}{Issue64DestinationPath}",
+			Assert.Single(defaultPortResponse.Headers.GetValues("HX-Redirect")));
+		Assert.Null(defaultPortResponse.Headers.Location);
 	}
 
 	[Fact]
