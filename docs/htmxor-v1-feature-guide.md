@@ -1,8 +1,8 @@
 # Htmxor v1 guide and htmx 4 map
 
-Status: design draft for the planned Htmxor v1 API. The registration names and
-client-helper decision below are current; other proposed APIs remain labeled as
-proposals.
+Status: design draft for the planned Htmxor v1 API. The registration names,
+client-helper decision, and first bounded issue #154 marker and response-guard
+result below are current; other proposed APIs remain labeled as proposals.
 
 The [v1 goal](roadmap/v1/goal.md) is the authority when this guide and the
 current code differ. The [v1 progress record](roadmap/v1/progress.md) says which
@@ -339,7 +339,7 @@ injected or cascaded where the final v1 API permits.
 
 | Htmxor value | htmx input | Intended use |
 | --- | --- | --- |
-| `IsHtmxRequest` | `HX-Request` | Choose an HTML representation, never authorization |
+| `IsHtmxRequest` | `HX-Request` | Expose the validated request marker for representation, never authorization |
 | `RequestType` | `HX-Request-Type: full\|partial` | Decide stock page versus direct representation |
 | `IsBoosted` | `HX-Boosted` | Preserve boosted navigation semantics |
 | `IsHistoryRestoreRequest` | `HX-History-Restore-Request` | Return the representation history restoration expects |
@@ -348,10 +348,20 @@ injected or cascaded where the final v1 API permits.
 | `Target` | `HX-Target` | Optional `tag#id` target hint |
 | `Method`, `Path` | HTTP request line | Bind the action to the normalized route and method |
 
-Every header-derived value is untrusted. A missing, repeated, malformed, or
-contradictory value must be represented explicitly and must not broaden
-reachability. The current beta member is `CurrentURL`; issue #154 owns the
-planned `CurrentUrl` rename and a clear API for additional protocol headers.
+Every header-derived value is untrusted. The first bounded issue #154 slice
+recognizes an htmx request only when `HX-Request` contains exactly one value that
+equals `true` case-insensitively after trimming. A missing, blank, `false`,
+malformed, comma-joined, or repeated marker leaves `IsHtmxRequest` false,
+retains standard routing, and ignores
+dependent htmx context such as `HX-Request-Type`, `HX-Source`, and `HX-Target`.
+An HTMX-only route therefore remains unavailable, while a dual route retains its
+stock representation. Other missing, repeated, malformed, or contradictory
+header values must still be represented explicitly and must not broaden
+reachability.
+
+The current beta member is `CurrentURL`. Its planned `CurrentUrl` rename,
+boosted and history value parsing, and the complete request-header matrix remain
+open parts of issue #154.
 
 ### Response operations
 
@@ -374,11 +384,20 @@ body control:
 
 The second bounded #151 slice preserves `HtmxResponse.Trigger(...)` and
 `HtmxResponse.Reswap(string)` because they write server-owned response headers;
-they are not client attribute-authoring helpers. It also preserves `SwapStyle`,
-`HtmxResponse.Reswap(SwapStyle, string?)`, `AjaxContext`, and `LocationTarget`
-unchanged for #154 to decide with the complete response contract. The raw
-overload remains the escape hatch for application-selected or extension-provided
-swap values.
+they are not client attribute-authoring helpers. The first bounded #154 slice
+retains that public surface and applies one conservative request-marker guard to
+the core response-header operations. A missing or invalid marker throws before
+a core htmx response header is mutated, and raw
+`HtmxResponse.Reswap(string)` now uses the same guard. The raw overload remains
+the value escape hatch for application-selected or extension-provided swap
+values during a valid htmx request.
+
+`SwapStyle`, `HtmxResponse.Reswap(SwapStyle, string?)`, `AjaxContext`, and
+`LocationTarget` remain unchanged. Response argument and URL policy, exception
+ordering, body suppression, trigger serialization, status 286, those retained
+types, extension headers, and the complete protocol matrix remain open for later
+issue #154 slices. The final issue #151 public allow-list also remains a separate
+open decision.
 
 Each response method must reject use outside an htmx request, validate its
 argument, return the response object, and state whether it suppresses the body.
@@ -703,8 +722,8 @@ authorization.
 
 | Header | Htmxor handling |
 | --- | --- |
-| `HX-Request` | Recognize an htmx request; reject malformed/repeated values conservatively. |
-| `HX-Request-Type` | Distinguish `full` and `partial` representations. |
+| `HX-Request` | Recognize only exactly one value that equals `true` case-insensitively after trimming; all other shapes retain standard routing and ignore dependent htmx context. |
+| `HX-Request-Type` | Distinguish `full` and `partial` representations only after a valid request marker. |
 | `HX-Boosted` | Preserve boosted navigation semantics. |
 | `HX-Current-URL` | Expose as an optional, untrusted URI. |
 | `HX-Source` | Expose the optional `tag#id` source hint. |
@@ -960,8 +979,10 @@ through.
 
 The current repository contains useful prototypes and evidence. The first two
 bounded #151 slices make the registration names current and remove the
-incomplete client trigger, swap, and constants helpers from the stable core.
-Other parts of the public API do not yet match this guide:
+incomplete client trigger, swap, and constants helpers from the stable core. The
+first bounded #154 slice makes request-marker classification and the common core
+response guard current. Other parts of the public API do not yet match this
+guide:
 
 - `HtmxRoute` exposes target/current-URL properties that the current source
   generator rejects on the v1 path;

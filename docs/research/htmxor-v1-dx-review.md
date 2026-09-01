@@ -10,6 +10,8 @@
 - Client-helper update: the second bounded slice of #151 removes the incomplete
   trigger, swap, and constants helpers from the stable core; the broader issue
   remains open
+- HTTP-context update: the first bounded slice of #154 makes the exact request
+  marker and common core-response guard current; the broader issue remains open
 
 ## Verdict
 
@@ -94,8 +96,8 @@ behavior.
 | One fragment | `HtmxFragment` is clear, but `Id` has two jobs | Give server selection its own stable name | Redesign |
 | Several fragments | Lambdas and render flags hide the result | Select an ordered set of names once per response | Missing |
 | OOB and partial delivery | Native htmx markup already expresses it | Do not add another Htmxor component hierarchy | Keep |
-| Request data | The context shape is easy to learn | Fix .NET naming and represent invalid headers safely | Finish |
-| Response operations | Fluent methods fit the protocol | Use the same guards, validation, return type, and body rules | Finish |
+| Request data | The context shape is easy to learn | Keep the exact marker rule; finish .NET naming and the remaining header parsing | First #154 slice current; finish |
+| Response operations | Fluent methods fit the protocol | Keep the common marker guard; finish validation, return type, and body rules | First #154 slice current; finish |
 | Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
 | Trigger and swap helpers | Native markup and open strings avoid a closed Htmxor profile | Remove the incomplete helpers from core v1 | Removed in the second #151 slice |
 | Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
@@ -225,9 +227,12 @@ Adding the missing 4.0.0 constants by hand would only postpone the next drift.
 Typed response helpers are different: they serialize response headers and
 coordinate status and body behavior that Razor markup cannot express. The slice
 therefore preserves `HtmxResponse.Trigger(...)` and raw
-`HtmxResponse.Reswap(string)`. It also preserves `SwapStyle`,
+`HtmxResponse.Reswap(string)`. The first bounded #154 slice retains those
+operations and gives the raw overload the same conservative request-marker
+guard as the other core response-header operations. It does not change the
+native Razor and open-string client-authoring decision. `SwapStyle`,
 `HtmxResponse.Reswap(SwapStyle, string?)`, `AjaxContext`, and `LocationTarget`
-unchanged for #154. These are server-protocol and serialization decisions, not
+remain unchanged. These are server-protocol and serialization decisions, not
 browser-conformance evidence.
 
 ### 6. The HTTP context needs one set of rules
@@ -244,6 +249,21 @@ final pass:
 - give every response method the same request guard, argument checks, fluent
   return, URL overload policy, and documented body effect; and
 - remove or prove protocol behavior carried forward from older htmx versions.
+
+The first bounded #154 slice resolves only the shared prerequisite for these
+rules. `HX-Request` denotes an htmx request only when it contains exactly one
+value that equals `true` case-insensitively after trimming. Missing, blank,
+`false`, malformed, comma-joined, or repeated markers retain the standard or
+not-found path, ignore dependent htmx context, and cannot mutate a core htmx
+response header. The raw
+`HtmxResponse.Reswap(string)` overload now uses the same guard and fails before
+mutation.
+
+Boosted and history value parsing, the `CurrentURL` to `CurrentUrl` rename,
+response argument and URL policy, exception ordering, body suppression, trigger
+serialization, status 286, `AjaxContext`, `LocationTarget`, `SwapStyle`,
+extension headers, and the complete protocol matrix remain open for later #154
+slices. The final #151 public allow-list remains open independently.
 
 General HTTP belongs on `HttpContext`. Htmxor does not need wrappers for cookies,
 ETags, content language, or ASP.NET Core output-cache policy.
@@ -269,7 +289,9 @@ This table is a review result, not permission to delete types without checking
 consumers. An API compatibility baseline should catch unreviewed changes and
 prevent generator assembly needs from becoming accidental user promises.
 The second bounded #151 slice acts only on the separately reviewed client-helper
-decision; the rest of this allow-list and exported-member review remains open.
+decision. The first bounded #154 slice aligns marker classification and response
+guards without deciding the retained types. The rest of this allow-list and
+exported-member review remains open.
 
 ### 8. Examples need honest status labels
 
@@ -306,7 +328,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 | [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Retain the selected registration names and the decision to remove client helpers; still approve the complete public allow-list, review exported members, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
-| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Normalize names and validation, cover core headers, add extension headers, and test exact HTTP input and output |
+| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Keep the first bounded exact-marker and common-response-guard result; still normalize remaining names and validation, cover core headers, add extension headers, and test the complete HTTP contract |
 
 Existing issues keep their current scope:
 

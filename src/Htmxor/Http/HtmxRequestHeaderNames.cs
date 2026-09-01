@@ -27,7 +27,8 @@ public static class HtmxRequestHeaderNames
 	public const string RequestType = "HX-Request-Type";
 
 	/// <summary>
-	/// Always <see langword="true" />.
+	/// Marks an htmx request when exactly one value equals <see langword="true"/>
+	/// case-insensitively after trimming.
 	/// </summary>
 	public const string HtmxRequest = "HX-Request";
 

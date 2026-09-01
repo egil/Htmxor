@@ -208,14 +208,26 @@ headers. Those headers cover the request marker, full or partial request type,
 boost, current URL, source, target, and history restoration. Every value derived
 from a header is untrusted.
 
+The first bounded [#154](https://github.com/egil/Htmxor/issues/154) slice makes
+the request marker conservative. Only exactly one `HX-Request` value that equals
+`true` case-insensitively after trimming denotes an htmx request. Missing,
+blank, `false`, malformed, comma-joined, or repeated markers retain the stock or
+not-found path and ignore dependent htmx context, including `HX-Request-Type`.
+
 `HtmxContext.Response` writes the nine core response headers for location,
 redirect, refresh, history updates, swap overrides, target overrides, response
 selection, and client events. It also controls status and an empty body.
 
+Those nine core response-header operations use the same validated marker. An
+invalid marker causes them to throw before mutating a core htmx response header;
+raw `HtmxResponse.Reswap(string)` now shares that guard.
+
 Use the stock `HttpContext` for cookies, cache policy, general response headers,
-and other ASP.NET Core behavior. [#154](https://github.com/egil/Htmxor/issues/154)
-will settle naming, malformed headers, response validation, body effects, and
-extension headers.
+and other ASP.NET Core behavior. Later #154 slices still own boosted and history
+value parsing, the `CurrentURL` rename, response argument and URL policy,
+exception ordering, body suppression, trigger serialization, status 286,
+`AjaxContext`, `LocationTarget`, `SwapStyle`, extension headers, and the complete
+protocol matrix. The final #151 public allow-list remains separately open.
 
 ## Write htmx as htmx
 
@@ -243,8 +255,10 @@ slice does not add an optional adapter package.
 Server-protocol operations remain distinct. `HtmxResponse.Trigger(...)` still
 writes `HX-Trigger`, and raw `HtmxResponse.Reswap(string)` still writes
 `HX-Reswap`. `SwapStyle`, `HtmxResponse.Reswap(SwapStyle, string?)`,
-`AjaxContext`, and `LocationTarget` remain unchanged for #154. These package
-decisions do not claim that browser or extension behavior was executed.
+`AjaxContext`, and `LocationTarget` remain unchanged. The first bounded #154
+slice changes only the shared request-marker guard, including the missing raw
+`Reswap` guard. These package decisions do not claim that browser or extension
+behavior was executed.
 
 ## V1 decisions still open
 

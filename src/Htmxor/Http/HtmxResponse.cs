@@ -8,11 +8,15 @@ using Microsoft.Extensions.Options;
 
 namespace Htmxor.Http;
 
+/// <summary>
+/// Controls htmx response state for a request with exactly one normalized
+/// <c>HX-Request: true</c> marker.
+/// </summary>
 public sealed class HtmxResponse(HttpContext context)
 {
 	private const string ItemsKeyPrefix = "02E0A668-6E6B-4C53-83A6-17E576073E96";
 	private readonly IHeaderDictionary headers = context.Response.Headers;
-	private readonly bool isHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
+	private readonly bool isHtmxRequest = HtmxRequestMarker.IsValid(context.Request.Headers);
 
 	internal bool EmptyResponseBodyRequested { get; private set; }
 
@@ -175,9 +179,11 @@ public sealed class HtmxResponse(HttpContext context)
 	/// </summary>
 	/// <param name="modifier">The swap style and any modifiers, including extension-defined values.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+	/// <exception cref="InvalidOperationException">The active request does not have a valid htmx request marker.</exception>
 	public HtmxResponse Reswap(string modifier)
 	{
 		ArgumentNullException.ThrowIfNullOrWhiteSpace(modifier);
+		AssertIsHtmxRequest();
 		headers[HtmxResponseHeaderNames.Reswap] = modifier;
 		return this;
 	}

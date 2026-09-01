@@ -2,6 +2,10 @@ using Microsoft.AspNetCore.Http;
 
 namespace Htmxor.Http;
 
+/// <summary>
+/// Represents normalized, untrusted htmx request protocol data.
+/// Dependent htmx headers are ignored unless the request marker is valid.
+/// </summary>
 public sealed class HtmxRequest
 {
 	/// <summary>
@@ -20,13 +24,15 @@ public sealed class HtmxRequest
 	public PathString Path { get; }
 
 	/// <summary>
-	/// Gets whether or not the current request is an Htmx triggered request.
+	/// Gets whether the request contains exactly one <c>HX-Request</c> value that,
+	/// after trimming, equals <see langword="true"/> case-insensitively.
 	/// </summary>
 	public bool IsHtmxRequest { get; }
 
 	/// <summary>
 	/// Gets whether htmx requested a full-page or partial representation.
 	/// Invalid, missing, or contradictory values are exposed as <see langword="null"/>.
+	/// The value is also <see langword="null"/> when the request marker is invalid.
 	/// </summary>
 	public HtmxRequestType? RequestType { get; }
 
@@ -68,7 +74,7 @@ public sealed class HtmxRequest
 		ArgumentNullException.ThrowIfNull(context);
 		Method = context.Request.Method;
 		Path = context.Request.Path;
-		var isHtmx = IsHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
+		var isHtmx = IsHtmxRequest = HtmxRequestMarker.IsValid(context.Request.Headers);
 
 		if (!isHtmx)
 		{

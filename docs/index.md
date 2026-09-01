@@ -214,11 +214,12 @@ case.
 ## Output caching
 
 For the bounded case where one component URL returns the stock full page when
-`HX-Request` is absent, the stock htmx full representation when the request type
-is `full`, and the direct component representation when the request type is
-`partial`, include both `HX-Request` and `HX-Request-Type` in the ASP.NET Core
-OutputCache key. Configure the standard component attribute together with the
-OutputCache services and middleware:
+`HX-Request` is absent or invalid, the stock htmx full representation when the
+marker is valid and the request type is `full`, and the direct component
+representation when the marker is valid and the request type is `partial`,
+include both `HX-Request` and `HX-Request-Type` in the ASP.NET Core OutputCache
+key. Configure the standard component attribute together with the OutputCache
+services and middleware:
 
 ```csharp
 builder.Services.AddOutputCache();
@@ -259,7 +260,8 @@ The routing mode is determined by the htmx 4
 `HX-Request-Type` headers together:
 
 ```text
-if ( HX-Request is present
+if ( HX-Request has exactly one value
+     && that value equals "true" case-insensitively after trimming
      && HX-Request-Type has exactly one value
      && that value is exactly "partial" )
     RoutingMode.Direct
@@ -271,8 +273,11 @@ Here's a detailed look at each mode:
 
 ### Standard Routing
 
-Standard routing is used for a normal browser request and for an htmx request
-whose `HX-Request-Type` is missing, invalid, repeated, or exactly `full`.
+Standard routing is used for a normal browser request, for a request whose
+`HX-Request` marker is missing, blank, `false`, malformed, comma-joined, or
+repeated, and for a valid htmx request whose `HX-Request-Type` is missing,
+invalid, repeated, or exactly `full`. An invalid marker also causes Htmxor to
+ignore dependent htmx request context, including `HX-Request-Type`.
 
 In this mode, routing behaves like conventional Blazor Static Web Apps routing. The root component (typically App.razor or the component passed to `MapRazorComponents<TRootComponent>()` in `Program.cs`) is rendered.
 
@@ -287,10 +292,17 @@ App --> Routes --> MainLayout --> MyPage
 
 ### Direct Routing
 
-Direct routing is selected only when `HX-Request` is present and the single
+Direct routing is selected only when `HX-Request` contains exactly one value
+that equals `true` case-insensitively after trimming and the single
 `HX-Request-Type` value is exactly `partial`. It bypasses the root component
-(`App.razor`) and the standard layout (`MainLayout`). Instead, it routes
-directly to the component that matches the request.
+(`App.razor`) and the standard layout (`MainLayout`). Instead, it routes directly
+to the component that matches the request.
+
+The same validated marker guards core htmx response-header operations. Missing
+or invalid markers cause those operations, including raw
+`HtmxResponse.Reswap(string)`, to throw before mutating a core response header.
+This is the first bounded issue #154 result; the remaining request and response
+API decisions stay open in the [v1 guide](htmxor-v1-feature-guide.md).
 
 If the target component has a `HtmxLayout` attribute, that layout is rendered first.
 
