@@ -1,0 +1,115 @@
+@page "/issue-154/navigation"
+@using Htmxor.Http
+@inject HtmxContext Htmx
+
+@if (Operation is not null)
+{
+	<section data-issue-154-response="@Operation">component response @Operation</section>
+}
+else if (State is not null)
+{
+	<main data-issue-154-destination="@State">
+		<h1>Navigation destination @State</h1>
+	</main>
+}
+else
+{
+	<main data-issue-154-navigation>
+		<h1>Issue 154 navigation responses</h1>
+		<button id="issue-154-location"
+				type="button"
+				hx-get="/issue-154/navigation?operation=location"
+				hx-target="#issue-154-target"
+				hx-swap="innerHTML">Location</button>
+		<button id="issue-154-redirect"
+				type="button"
+				hx-get="/issue-154/navigation?operation=redirect"
+				hx-target="#issue-154-target"
+				hx-swap="innerHTML">Redirect</button>
+		<button id="issue-154-refresh"
+				type="button"
+				hx-get="/issue-154/navigation?operation=refresh"
+				hx-target="#issue-154-target"
+				hx-swap="innerHTML">Refresh</button>
+		<button id="issue-154-push"
+				type="button"
+				hx-get="/issue-154/navigation?operation=push"
+				hx-target="#issue-154-target"
+				hx-swap="innerHTML">Push URL</button>
+		<button id="issue-154-replace"
+				type="button"
+				hx-get="/issue-154/navigation?operation=replace"
+				hx-target="#issue-154-target"
+				hx-swap="innerHTML">Replace URL</button>
+		<button id="issue-154-prevent-push"
+				type="button"
+				hx-get="/issue-154/navigation?operation=prevent-push"
+				hx-target="#issue-154-target"
+				hx-swap="innerHTML"
+				hx-push-url="true">Prevent push</button>
+		<button id="issue-154-prevent-replace"
+				type="button"
+				hx-get="/issue-154/navigation?operation=prevent-replace"
+				hx-target="#issue-154-target"
+				hx-swap="innerHTML"
+				hx-replace-url="true">Prevent replace</button>
+		<section id="issue-154-target" data-state="initial">initial navigation target</section>
+	</main>
+}
+
+@code {
+	private const string NavigationPath = "/issue-154/navigation";
+
+	[SupplyParameterFromQuery]
+	public string? Operation { get; set; }
+
+	[SupplyParameterFromQuery]
+	public string? State { get; set; }
+
+	protected override void OnParametersSet()
+	{
+		if (Operation is null || !Htmx.Request.IsHtmxRequest)
+		{
+			return;
+		}
+
+		switch (Operation)
+		{
+			case "location":
+				Htmx.Response.Location(StatePath("located"));
+				break;
+			case "push":
+				Htmx.Response.PushUrl(StatePath("pushed"));
+				break;
+			case "prevent-push":
+				Htmx.Response.PreventBrowserHistoryUpdate();
+				break;
+			case "redirect":
+				Htmx.Response.Redirect(StatePath("redirected"));
+				break;
+			case "refresh":
+				Htmx.Response.Refresh();
+				break;
+			case "replace":
+				Htmx.Response.ReplaceUrl(StatePath("replaced"));
+				break;
+			case "prevent-replace":
+				Htmx.Response.PreventBrowserCurrentUrlUpdate();
+				break;
+			case "chain":
+				Htmx.Response.Location(StatePath("discarded-location"));
+				Htmx.Response.Redirect(StatePath("discarded-redirect"));
+				Htmx.Response.Refresh();
+				Htmx.Response.ReplaceUrl(StatePath("discarded-replace"));
+				Htmx.Response.PushUrl(StatePath("chained"));
+				break;
+			case "explicit-empty-push":
+				Htmx.Response.EmptyBody();
+				Htmx.Response.Location(StatePath("discarded-explicit-location"));
+				Htmx.Response.PushUrl(StatePath("explicit-empty"));
+				break;
+		}
+	}
+
+	private static string StatePath(string state) => $"{NavigationPath}?state={state}";
+}

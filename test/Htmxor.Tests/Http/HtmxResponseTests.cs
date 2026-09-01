@@ -20,9 +20,20 @@ public class HtmxResponseTests : BunitContext
 		{
 			RequestServices = services.BuildServiceProvider()
 		};
+		result.Request.Scheme = "https";
+		result.Request.Host = new HostString("app.example");
 		result.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
 		return result;
 	}
+
+	private static readonly string[] NavigationHeaderNames =
+	[
+		HtmxResponseHeaderNames.Location,
+		HtmxResponseHeaderNames.PushUrl,
+		HtmxResponseHeaderNames.Redirect,
+		HtmxResponseHeaderNames.Refresh,
+		HtmxResponseHeaderNames.ReplaceUrl,
+	];
 
 	[Fact]
 	public void Invalid_request_markers_reject_response_operations_without_mutation()
@@ -70,7 +81,7 @@ public class HtmxResponseTests : BunitContext
 		yield return response => response.StatusCode(System.Net.HttpStatusCode.Created);
 		yield return response => response.EmptyBody();
 		yield return response => response.Location("/forbidden-location");
-		yield return response => response.Location(new LocationTarget { Path = "/forbidden-location" });
+		yield return response => InvokeLocation(response, new Uri("/forbidden-location", UriKind.Relative));
 		yield return response => response.PushUrl("/forbidden-push");
 		yield return response => response.PushUrl(new Uri("/forbidden-push", UriKind.Relative));
 		yield return response => response.PreventBrowserHistoryUpdate();
@@ -89,6 +100,374 @@ public class HtmxResponseTests : BunitContext
 	}
 
 	[Fact]
+	public void Navigation_surface_uses_string_and_Uri_destinations_without_prototype_types()
+	{
+		var assembly = typeof(HtmxResponse).Assembly;
+
+		Assert.Null(assembly.GetType("Htmxor.Http.AjaxContext"));
+		Assert.Null(assembly.GetType("Htmxor.Http.LocationTarget"));
+		AssertNavigationOverloads(nameof(HtmxResponse.Location));
+		AssertNavigationOverloads(nameof(HtmxResponse.PushUrl));
+		AssertNavigationOverloads(nameof(HtmxResponse.Redirect));
+		AssertNavigationOverloads(nameof(HtmxResponse.ReplaceUrl));
+	}
+
+	[Theory]
+	[InlineData(null)]
+	[InlineData("")]
+	[InlineData(" ")]
+	[InlineData(" /orders/42")]
+	[InlineData("/orders/42 ")]
+	[InlineData("/orders/\n42")]
+	[InlineData("http://[::1")]
+	public void Invalid_navigation_destinations_are_rejected_before_the_marker_guard_without_mutation(
+		string? destination)
+	{
+		foreach (var operation in GetStringNavigationOperations(destination!))
+		{
+			var context = CreateHttpContext();
+			context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "false";
+			var response = context.GetHtmxContext().Response;
+
+			Assert.ThrowsAny<ArgumentException>(() => operation(response));
+			AssertNavigationStateUnchanged(context, response);
+		}
+	}
+
+	[Fact]
+	public void Navigation_policy_is_validated_before_the_marker_guard_without_mutation()
+	{
+		var invalidOperations = new Func<HtmxResponse, HtmxResponse>[]
+		{
+			response => response.PushUrl("true"),
+			response => response.ReplaceUrl("false"),
+			response => response.Location("http://app.example/orders/42"),
+			response => response.PushUrl("https://app.example:444/orders/42"),
+			response => response.ReplaceUrl("//other.example/orders/42"),
+			response => response.Redirect("mailto:user@example.com"),
+			response => InvokeLocation(response, null!),
+			response => response.PushUrl((Uri)null!),
+			response => response.Redirect((Uri)null!),
+			response => response.ReplaceUrl((Uri)null!),
+			response => InvokeLocation(response, new Uri("https://other.example/orders/42")),
+			response => response.PushUrl(new Uri("ftp://app.example/orders/42")),
+			response => response.Redirect(new Uri("mailto:user@example.com")),
+			response => response.ReplaceUrl(new Uri("false", UriKind.Relative)),
+		};
+
+		foreach (var operation in invalidOperations)
+		{
+			var context = CreateHttpContext();
+			context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "false";
+			var response = context.GetHtmxContext().Response;
+
+			Assert.ThrowsAny<ArgumentException>(() => operation(response));
+			AssertNavigationStateUnchanged(context, response);
+		}
+	}
+
+	[Fact]
+	public void Invalid_navigation_call_preserves_existing_response_state()
+	{
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+		response.StatusCode(System.Net.HttpStatusCode.Accepted)
+			.EmptyBody()
+			.PushUrl("/existing");
+		context.Response.Headers["X-Application"] = "retained";
+		var headers = context.Response.Headers.ToDictionary(
+			static header => header.Key,
+			static header => header.Value,
+			StringComparer.OrdinalIgnoreCase);
+
+		Assert.Throws<ArgumentException>(() => response.Location(" /invalid"));
+
+		Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+		Assert.True(response.EmptyResponseBodyRequested);
+		Assert.Equal(headers.Count, context.Response.Headers.Count);
+		foreach (var header in headers)
+		{
+			Assert.Equal(header.Value, context.Response.Headers[header.Key]);
+		}
+	}
+
+	[Theory]
+	[InlineData("true")]
+	[InlineData("false")]
+	public void History_destinations_reject_reserved_literals_without_mutation(string destination)
+	{
+		foreach (var operation in new Func<HtmxResponse, HtmxResponse>[]
+		{
+			response => response.PushUrl(destination),
+			response => response.ReplaceUrl(destination),
+		})
+		{
+			var context = CreateHttpContext();
+			var response = context.GetHtmxContext().Response;
+
+			Assert.Throws<ArgumentException>(() => operation(response));
+			AssertNavigationStateUnchanged(context, response);
+		}
+	}
+
+	[Fact]
+	public void Relative_and_same_origin_destinations_are_allowed_but_local_operations_reject_other_origins()
+	{
+		foreach (var operation in GetLocalNavigationOperations())
+		{
+			var relativeContext = CreateHttpContext();
+			var relativeResponse = relativeContext.GetHtmxContext().Response;
+			Assert.Same(relativeResponse, operation(relativeResponse, "?page=2"));
+
+			var sameOriginContext = CreateHttpContext();
+			var sameOriginResponse = sameOriginContext.GetHtmxContext().Response;
+			Assert.Same(
+				sameOriginResponse,
+				operation(sameOriginResponse, "https://APP.example:443/orders/42"));
+
+			foreach (var rejected in new[]
+			{
+				"https://other.example/orders/42",
+				"http://app.example/orders/42",
+				"https://app.example:444/orders/42",
+				"//other.example/orders/42",
+				"ftp://app.example/orders/42",
+			})
+			{
+				var rejectedContext = CreateHttpContext();
+				var rejectedResponse = rejectedContext.GetHtmxContext().Response;
+
+				Assert.Throws<ArgumentException>(() => operation(rejectedResponse, rejected));
+				AssertNavigationStateUnchanged(rejectedContext, rejectedResponse);
+			}
+		}
+	}
+
+	[Fact]
+	public void Http_same_origin_destinations_and_cross_origin_http_redirect_are_allowed()
+	{
+		foreach (var operation in GetLocalNavigationOperations())
+		{
+			var context = CreateHttpContext();
+			context.Request.Scheme = "http";
+			context.Request.Host = new HostString("app.example");
+			var response = context.GetHtmxContext().Response;
+
+			Assert.Same(response, operation(response, "http://APP.example/orders/42"));
+		}
+
+		var redirectContext = CreateHttpContext();
+		redirectContext.Request.Scheme = "http";
+		var redirectResponse = redirectContext.GetHtmxContext().Response;
+		Assert.Same(
+			redirectResponse,
+			redirectResponse.Redirect("http://idp.example/login"));
+	}
+
+	[Fact]
+	public void Redirect_allows_relative_and_cross_origin_http_destinations_but_rejects_other_schemes()
+	{
+		foreach (var allowed in new[] { "/orders/42", "https://idp.example/login" })
+		{
+			var context = CreateHttpContext();
+			var response = context.GetHtmxContext().Response;
+
+			Assert.Same(response, response.Redirect(allowed));
+			Assert.Equal(allowed, context.Response.Headers[HtmxResponseHeaderNames.Redirect]);
+		}
+
+		var rejectedContext = CreateHttpContext();
+		var rejectedResponse = rejectedContext.GetHtmxContext().Response;
+		Assert.Throws<ArgumentException>(() => rejectedResponse.Redirect("mailto:user@example.com"));
+		AssertNavigationStateUnchanged(rejectedContext, rejectedResponse);
+	}
+
+	[Fact]
+	public void Uri_overloads_emit_OriginalString_without_normalizing_the_destination()
+	{
+		var destination = new Uri("https://APP.example:443/a/../orders%20archive", UriKind.Absolute);
+		Assert.NotEqual(destination.OriginalString, destination.ToString());
+
+		foreach (var operation in new Func<HtmxResponse, Uri, HtmxResponse>[]
+		{
+			InvokeLocation,
+			(response, uri) => response.PushUrl(uri),
+			(response, uri) => response.Redirect(uri),
+			(response, uri) => response.ReplaceUrl(uri),
+		})
+		{
+			var context = CreateHttpContext();
+			var response = context.GetHtmxContext().Response;
+
+			Assert.Same(response, operation(response, destination));
+			Assert.Equal(destination.OriginalString, Assert.Single(GetNavigationHeaders(context)).Value.ToString());
+		}
+	}
+
+	[Fact]
+	public void String_overloads_emit_relative_reference_text_without_normalizing_it()
+	{
+		const string destination = "../orders/%7E42?next=/a/../b";
+		foreach (var operation in new Func<HtmxResponse, string, HtmxResponse>[]
+		{
+			(response, value) => response.Location(value),
+			(response, value) => response.PushUrl(value),
+			(response, value) => response.Redirect(value),
+			(response, value) => response.ReplaceUrl(value),
+		})
+		{
+			var context = CreateHttpContext();
+			var response = context.GetHtmxContext().Response;
+
+			Assert.Same(response, operation(response, destination));
+			Assert.Equal(destination, Assert.Single(GetNavigationHeaders(context)).Value.ToString());
+		}
+	}
+
+	[Fact]
+	public void Last_navigation_call_wins_and_replaces_automatic_body_behavior()
+	{
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+
+		var result = response
+			.Location("/location")
+			.Redirect("/redirect")
+			.Refresh()
+			.PushUrl("/push")
+			.ReplaceUrl("/replace")
+			.PreventBrowserHistoryUpdate()
+			.PreventBrowserCurrentUrlUpdate();
+
+		Assert.Same(response, result);
+		var header = Assert.Single(GetNavigationHeaders(context));
+		Assert.Equal(HtmxResponseHeaderNames.ReplaceUrl, header.Key);
+		Assert.Equal("false", header.Value);
+		Assert.False(response.EmptyResponseBodyRequested);
+		Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+	}
+
+	[Fact]
+	public void Explicit_empty_body_remains_suppressing_after_a_body_retaining_navigation_call()
+	{
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+
+		var result = response.EmptyBody().Redirect("/redirect").PushUrl("/push");
+
+		Assert.Same(response, result);
+		var header = Assert.Single(GetNavigationHeaders(context));
+		Assert.Equal(HtmxResponseHeaderNames.PushUrl, header.Key);
+		Assert.Equal("/push", header.Value);
+		Assert.True(response.EmptyResponseBodyRequested);
+	}
+
+	[Fact]
+	public void Navigation_operations_apply_their_documented_automatic_body_effect()
+	{
+		var operations = new (Func<HtmxResponse, HtmxResponse> Operation, bool SuppressesBody)[]
+		{
+			(response => response.Location("/location"), true),
+			(response => response.Redirect("/redirect"), true),
+			(response => response.Refresh(), true),
+			(response => response.PushUrl("/push"), false),
+			(response => response.ReplaceUrl("/replace"), false),
+			(response => response.PreventBrowserHistoryUpdate(), false),
+			(response => response.PreventBrowserCurrentUrlUpdate(), false),
+		};
+
+		foreach (var (operation, suppressesBody) in operations)
+		{
+			var context = CreateHttpContext();
+			context.Response.StatusCode = StatusCodes.Status202Accepted;
+			var response = context.GetHtmxContext().Response;
+
+			Assert.Same(response, operation(response));
+			Assert.Equal(suppressesBody, response.EmptyResponseBodyRequested);
+			Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+		}
+	}
+
+	[Fact]
+	public void Every_navigation_operation_replaces_multiple_values_and_other_navigation_headers()
+	{
+		var operations = new (Func<HtmxResponse, HtmxResponse> Operation, string Header, string Value)[]
+		{
+			(response => response.Location("/location"), HtmxResponseHeaderNames.Location, "/location"),
+			(response => response.PushUrl("/push"), HtmxResponseHeaderNames.PushUrl, "/push"),
+			(response => response.PreventBrowserHistoryUpdate(), HtmxResponseHeaderNames.PushUrl, "false"),
+			(response => response.Redirect("/redirect"), HtmxResponseHeaderNames.Redirect, "/redirect"),
+			(response => response.Refresh(), HtmxResponseHeaderNames.Refresh, "true"),
+			(response => response.ReplaceUrl("/replace"), HtmxResponseHeaderNames.ReplaceUrl, "/replace"),
+			(response => response.PreventBrowserCurrentUrlUpdate(), HtmxResponseHeaderNames.ReplaceUrl, "false"),
+		};
+
+		foreach (var (operation, expectedHeader, expectedValue) in operations)
+		{
+			var context = CreateHttpContext();
+			foreach (var headerName in NavigationHeaderNames)
+			{
+				context.Response.Headers.Append(headerName, "first");
+				context.Response.Headers.Append(headerName, "second");
+			}
+
+			var response = context.GetHtmxContext().Response;
+			Assert.Same(response, operation(response));
+
+			var header = Assert.Single(GetNavigationHeaders(context));
+			Assert.Equal(expectedHeader, header.Key);
+			Assert.Equal(expectedValue, Assert.Single(header.Value));
+		}
+	}
+
+	private static IEnumerable<Func<HtmxResponse, HtmxResponse>> GetStringNavigationOperations(string destination)
+	{
+		yield return response => response.Location(destination);
+		yield return response => response.PushUrl(destination);
+		yield return response => response.Redirect(destination);
+		yield return response => response.ReplaceUrl(destination);
+	}
+
+	private static IEnumerable<Func<HtmxResponse, string, HtmxResponse>> GetLocalNavigationOperations()
+	{
+		yield return (response, destination) => response.Location(destination);
+		yield return (response, destination) => response.PushUrl(destination);
+		yield return (response, destination) => response.ReplaceUrl(destination);
+	}
+
+	private static IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> GetNavigationHeaders(
+		HttpContext context)
+		=> context.Response.Headers.Where(header => NavigationHeaderNames.Contains(header.Key, StringComparer.OrdinalIgnoreCase));
+
+	private static void AssertNavigationStateUnchanged(HttpContext context, HtmxResponse response)
+	{
+		Assert.Empty(GetNavigationHeaders(context));
+		Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+		Assert.False(response.EmptyResponseBodyRequested);
+	}
+
+	private static void AssertNavigationOverloads(string methodName)
+	{
+		var parameterTypes = typeof(HtmxResponse).GetMethods()
+			.Where(method => method.Name == methodName)
+			.Select(method => Assert.Single(method.GetParameters()).ParameterType)
+			.ToArray();
+
+		Assert.Equal([typeof(string), typeof(Uri)], parameterTypes.OrderBy(type => type.Name));
+	}
+
+	private static HtmxResponse InvokeLocation(HtmxResponse response, Uri destination)
+	{
+		var method = Assert.Single(
+			typeof(HtmxResponse).GetMethods(),
+			method => method.Name == nameof(HtmxResponse.Location) &&
+				method.GetParameters() is [{ ParameterType: var parameterType }] &&
+				parameterType == typeof(Uri));
+		var operation = method.CreateDelegate<Func<HtmxResponse, Uri, HtmxResponse>>();
+		return operation(response, destination);
+	}
+
+	[Fact]
 	public void Location_AddsLocationHeader()
 	{
 		// Arrange
@@ -102,32 +481,6 @@ public class HtmxResponseTests : BunitContext
 		context.Response.Headers[HtmxResponseHeaderNames.Location]
 			.Should()
 			.Equal(["/new-location"]);
-	}
-
-	[Fact]
-	public void Location_AddsLocationWIthAjaxContextHeader()
-	{
-		// Arrange
-		var context = CreateHttpContext();
-		var response = context.GetHtmxContext().Response;
-		var locationTarget = new LocationTarget
-		{
-			Path = "/new-location",
-			Target = "#testdiv"
-		};
-
-		// Act
-		response.Location(locationTarget);
-
-		// Assert
-		context.Response.Headers[HtmxResponseHeaderNames.Location]
-			.Should()
-			.ContainSingle()
-			.Which
-			.Should()
-			.BeJsonSemanticallyEqualTo("""
-                { "path": "/new-location", "target": "#testdiv" }
-                """);
 	}
 
 	[Fact]
