@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Bunit;
 using Htmxor.TestAssets.FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -857,6 +859,68 @@ public class HtmxResponseTests : BunitContext
 		Assert.DoesNotContain('\r', header);
 	}
 
+	[Fact]
+	public void Trigger_normalizes_every_serialized_json_null_to_an_empty_detail_object()
+	{
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+		using var nullDocument = JsonDocument.Parse("null");
+		var converterOptions = new JsonSerializerOptions();
+		converterOptions.Converters.Add(new NullTriggerDetailConverter());
+
+		response.Trigger("element:null", nullDocument.RootElement);
+		response.Trigger("converter:null", new NullTriggerDetail(), converterOptions);
+
+		Assert.Equal(
+			"{\"element:null\":{},\"converter:null\":{}}",
+			GetTriggerHeader(context));
+	}
+
+	[Fact]
+	public void Trigger_uses_header_safe_encoding_and_selected_max_depth_for_details()
+	{
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+		var options = new JsonSerializerOptions
+		{
+			Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+			MaxDepth = 1101,
+		};
+
+		response.Trigger("encoded", new { Value = "<café>&" }, options);
+
+		var encodedHeader = GetTriggerHeader(context);
+		Assert.DoesNotContain('<', encodedHeader);
+		Assert.DoesNotContain('>', encodedHeader);
+		Assert.DoesNotContain('&', encodedHeader);
+		Assert.DoesNotContain('é', encodedHeader);
+		using (var encodedDocument = JsonDocument.Parse(encodedHeader))
+		{
+			Assert.Equal(
+				"<café>&",
+				encodedDocument.RootElement.GetProperty("encoded").GetProperty("Value").GetString());
+		}
+
+		var deepDetail = new DeepTriggerDetail { Value = "end" };
+		for (var depth = 0; depth < 1001; depth++)
+		{
+			deepDetail = new DeepTriggerDetail { Child = deepDetail };
+		}
+
+		response.Trigger("deep", deepDetail, options);
+
+		using var deepDocument = JsonDocument.Parse(
+			GetTriggerHeader(context),
+			new JsonDocumentOptions { MaxDepth = 1105 });
+		var current = deepDocument.RootElement.GetProperty("deep");
+		for (var depth = 0; depth < 1001; depth++)
+		{
+			current = current.GetProperty("Child");
+		}
+
+		Assert.Equal("end", current.GetProperty("Value").GetString());
+	}
+
 	[Theory]
 	[InlineData(null)]
 	[InlineData("")]
@@ -869,6 +933,20 @@ public class HtmxResponseTests : BunitContext
 	{
 		AssertInvalidTriggerNameDoesNotMutate(eventName, withDetail: false);
 		AssertInvalidTriggerNameDoesNotMutate(eventName, withDetail: true);
+	}
+
+	[Fact]
+	public void Isolated_high_surrogate_trigger_name_is_rejected_before_the_marker_without_mutation()
+	{
+		AssertInvalidTriggerNameDoesNotMutate("event\uD800inside", withDetail: false);
+		AssertInvalidTriggerNameDoesNotMutate("event\uD800inside", withDetail: true);
+	}
+
+	[Fact]
+	public void Isolated_low_surrogate_trigger_name_is_rejected_before_the_marker_without_mutation()
+	{
+		AssertInvalidTriggerNameDoesNotMutate("event\uDC00inside", withDetail: false);
+		AssertInvalidTriggerNameDoesNotMutate("event\uDC00inside", withDetail: true);
 	}
 
 	[Theory]
@@ -1047,4 +1125,30 @@ public class HtmxResponseTests : BunitContext
 		long? ContentLength,
 		bool EmptyResponseBodyRequested,
 		IReadOnlyDictionary<string, StringValues> Headers);
+
+	private sealed class NullTriggerDetail
+	{
+	}
+
+	private sealed class DeepTriggerDetail
+	{
+		public DeepTriggerDetail? Child { get; init; }
+
+		public string? Value { get; init; }
+	}
+
+	private sealed class NullTriggerDetailConverter : JsonConverter<NullTriggerDetail>
+	{
+		public override NullTriggerDetail Read(
+			ref Utf8JsonReader reader,
+			Type typeToConvert,
+			JsonSerializerOptions options)
+			=> throw new NotSupportedException();
+
+		public override void Write(
+			Utf8JsonWriter writer,
+			NullTriggerDetail value,
+			JsonSerializerOptions options)
+			=> writer.WriteNullValue();
+	}
 }
