@@ -196,7 +196,8 @@ Last updated: 2026-09-01
   operations; the second consolidates navigation response validation, header
   replacement, and render-local body effects; the third finalizes open swap and
   selection response values; the fourth finalizes trigger merging and
-  serialization. Issues #151 and #154 remain open.
+  serialization; the fifth removes the obsolete status-286 polling API and
+  proves native htmx 4 terminal replacement. Issues #151 and #154 remain open.
 
 ## Proven v1 behavior
 
@@ -2602,7 +2603,7 @@ required for this ordinary pull-request slice.
 This final progress-only change does not alter executable behavior. Claims
 remain tied to `b42641b600ad7145a001d4ff35ca8cc1e59cbb4b`.
 
-Issue #154 remains open. Status 286/`StopPolling`, remaining request parsing and
+Issue #154 remained open after this trigger slice. Remaining request parsing and
 naming, extension-header access, and the complete protocol matrix remain
 separate work for later bounded selection. No merge, issue closure, package
-publication, or release is part of this slice.
+publication, or release was part of that slice.
