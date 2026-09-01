@@ -1,8 +1,8 @@
 # Htmxor v1 guide and htmx 4 map
 
 Status: design draft for the planned Htmxor v1 API. The registration names,
-client-helper decision, and navigation-response contract below are current;
-other proposed APIs remain labeled as proposals.
+client-helper decision, navigation-response contract, and trigger-response
+contract below are current; other proposed APIs remain labeled as proposals.
 
 The [v1 goal](roadmap/v1/goal.md) is the authority when this guide and the
 current code differ. The [v1 progress record](roadmap/v1/progress.md) says which
@@ -360,10 +360,10 @@ headers.
 ### Response operations
 
 The response API covers the core htmx 4 response headers plus HTTP status and
-body control. The first three bounded
+body control. The first four bounded
 [#154](https://github.com/egil/Htmxor/issues/154) slices make strict request
-classification, navigation, and swap/selection overrides current contracts.
-The navigation operations are:
+classification, navigation, swap/selection overrides, and trigger
+serialization current contracts. The navigation operations are:
 
 | Operation | Wire result | Component output | Use |
 | --- | --- | --- | --- |
@@ -424,9 +424,62 @@ The other currently exposed server response operations are:
 | `Reswap(string)` | `HX-Reswap` | Override the complete swap style and modifiers value |
 | `Retarget(string)` | `HX-Retarget` | Override the complete target selector value |
 | `Reselect(string)` | `HX-Reselect` | Override the complete response-selection value |
-| `Trigger(...)` | `HX-Trigger` | Dispatch one or more client events with optional JSON details |
+| `Trigger(...)` | `HX-Trigger` | Dispatch one or more client events through one compact JSON object |
 | `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics |
 | `EmptyBody()` | Empty HTTP body | Return only status, headers, cookies, and other metadata |
+
+### Trigger response events
+
+Every successful `Trigger(...)` call participates in one compact
+`HX-Trigger` JSON object. Htmxor validates the event name, then writes it as a
+JSON property name so quotes, backslashes, and other characters are safely
+encoded. Names remain exact and case-sensitive after decoding. Distinct names
+append in call and wire-member order. A later call with the same name replaces
+its detail at the name's first position:
+
+```csharp
+args.Response
+    .Trigger("cart:changed", new { Version = "first" })
+    .Trigger("cart:count", new { ItemCount = 3 })
+    .Trigger("cart:changed", new { Version = "last" });
+```
+
+With the default web JSON naming policy, the response contains:
+
+```http
+HX-Trigger: {"cart:changed":{"version":"last"},"cart:count":{"itemCount":3}}
+```
+
+The JSON object's member order is deterministic Htmxor wire text, not a
+semantic ordering promise from JSON. Htmx 4 iterates the parsed object's
+properties using JavaScript enumeration rules, so applications must not infer
+universal browser dispatch order for integer-like event names.
+
+A call without detail, or with a null detail, emits an empty object, for example
+`{"cart:changed":{}}`. It does not emit JSON `null`: the exact htmx 4.0.0
+[header handler](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js#L859-L873)
+passes the parsed detail to code that
+[dereferences it before dispatch](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js#L1565-L1575),
+so a null detail prevents that event from firing. Within a detail object, the
+member named `target` is htmx protocol data; use it only when deliberately
+selecting the event dispatch target.
+
+Detail values use the application's ASP.NET Core `JsonOptions` by default. A
+call can supply `JsonSerializerOptions` to override them for that detail. The
+outer `HX-Trigger` object remains compact even when the selected detail options
+enable `WriteIndented`, and dictionary-key policy does not rewrite event names.
+
+Null, empty, whitespace-only, surrounding-whitespace, and control-containing
+event names are rejected without trimming or repair. Name validation, detail
+serialization, and the strict htmx request-marker guard are transactional: a
+failure leaves the response header, status, body behavior, and accumulated
+Htmxor events unchanged. The first successful Htmxor call replaces a
+preexisting manually written `HX-Trigger`; subsequent Htmxor calls merge only
+the events owned by this response API. A successful call returns the same
+response instance and changes neither status nor body behavior.
+
+The htmx 2 timing overload and timed response-header constants remain removed.
+Htmxor writes only `HX-Trigger`; htmx 4 handles it after the swap completes.
 
 `Reswap`, `Retarget`, and `Reselect` accept one complete application-authored
 htmx or extension value. They preserve valid input exactly and do not parse it
@@ -442,9 +495,10 @@ The third bounded #154 slice removes the incomplete public `SwapStyle`, its
 typed `Reswap` overload, and the converter. Use `Reswap(string)` for core or
 extension-defined values; no replacement closed DSL is added. The second slice
 already removed `Location(LocationTarget)`, `LocationTarget`, and `AjaxContext`
-without adding a replacement structured `HX-Location` model. Trigger
-serialization, status 286/`StopPolling`, remaining request parsing and naming,
-extension headers, and the complete protocol matrix remain later #154 work.
+without adding a replacement structured `HX-Location` model. The fourth slice
+defines the trigger serialization and merge contract above. Status
+286/`StopPolling`, remaining request parsing and naming, extension headers, and
+the complete protocol matrix remain later #154 work.
 
 ## Htmx 4 attribute reference
 
@@ -852,9 +906,10 @@ Official extensions add these `htmx:` event suffixes:
 Use `hx-on:<event>` or standard `addEventListener`. In Razor, colon event names
 remain ordinary attributes. Server-triggered application events use
 `HX-Trigger`; choose namespaced names such as `product:saved` and version the
-event detail like any other client contract. Event context and cancellation are
-defined by the selected htmx profile, not a Htmxor enum. Extension events are
-client composition until an exact extension/browser profile is exercised.
+event detail like any other client contract. A detail member named `target` is
+reserved for htmx's dispatch-target behavior. Event context and cancellation
+are defined by the selected htmx profile, not a Htmxor enum. Extension events
+are client composition until an exact extension/browser profile is exercised.
 
 ### JavaScript API
 
@@ -1043,11 +1098,11 @@ through.
 The current repository contains useful prototypes and evidence. The first two
 bounded #151 slices make the registration names current and remove the
 incomplete client trigger, swap, and constants helpers from the stable core. The
-first three bounded #154 slices add the strict request classifier, the
-navigation-response contract, and the open swap/selection response contract
-above, including removal of the inaccurate structured location prototype and
-incomplete closed swap model. Other parts of the public API do not yet match
-this guide:
+first four bounded #154 slices add the strict request classifier, the
+navigation-response contract, the open swap/selection response contract, and
+the trigger-response contract above, including removal of the inaccurate
+structured location prototype and incomplete closed swap model. Other parts of
+the public API do not yet match this guide:
 
 - `HtmxRoute` exposes target/current-URL properties that the current source
   generator rejects on the v1 path;
