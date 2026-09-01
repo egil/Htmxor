@@ -297,18 +297,6 @@ public sealed class HtmxResponse(HttpContext context)
 	}
 
 	/// <summary>
-	/// Sets response code to stop polling
-	/// </summary>
-	/// <returns></returns>
-	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
-	public HtmxResponse StopPolling()
-	{
-		context.Response.StatusCode = HtmxStatusCodes.StopPolling;
-
-		return this;
-	}
-
-	/// <summary>
 	/// Adds a client-side event with an empty detail object to the response's compact
 	/// <c>HX-Trigger</c> JSON object.
 	/// </summary>
