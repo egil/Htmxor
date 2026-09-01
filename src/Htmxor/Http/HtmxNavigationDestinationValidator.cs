@@ -93,6 +93,6 @@ internal static class HtmxNavigationDestinationValidator
 		=> destination.Scheme is "http" or "https";
 
 	private static bool IsReservedHistoryLiteral(string destination)
-		=> destination.Equals("true", StringComparison.OrdinalIgnoreCase)
-		|| destination.Equals("false", StringComparison.OrdinalIgnoreCase);
+		=> destination.Equals("true", StringComparison.Ordinal)
+		|| destination.Equals("false", StringComparison.Ordinal);
 }
