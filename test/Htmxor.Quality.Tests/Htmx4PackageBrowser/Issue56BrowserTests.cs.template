@@ -2500,9 +2500,10 @@ public sealed class Issue56BrowserTests
 		await page.WaitForFunctionAsync(
 			$"() => location.pathname + location.search === '{Issue154StatePath(state)}'");
 
+		var expectedBackUrl = new Uri(baseAddress, expectedBackPath).AbsoluteUri;
+		var backUrlTask = page.WaitForURLAsync(expectedBackUrl);
 		await page.EvaluateAsync("() => history.back()");
-		await page.WaitForFunctionAsync(
-			$"() => location.pathname + location.search === '{expectedBackPath}'");
+		await backUrlTask;
 		if (string.Equals(expectedBackPath, Issue154Path, StringComparison.Ordinal))
 		{
 			await page.Locator("#issue-154-target[data-state='initial']").WaitForAsync();

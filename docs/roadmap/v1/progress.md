@@ -2724,3 +2724,50 @@ ordinary pull-request slice.
 Issue #154 remains open. Remaining request parsing and naming, extension-header
 access, and the complete protocol matrix remain separate later work. No merge,
 issue closure, package publication, or release is part of this slice.
+
+### Post-merge CI repair: htmx 4 history synchronization
+
+Pull request #162 was merged at `31f469fb5edc5a43d938efcfe17b54ae67febc3b`.
+Its CI run `33545005793` passed the build, analyzer/style, CodeQL, packaging,
+and dependency checks but failed the `run-test` job. The only test failure was
+the existing package-browser path
+`Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions`;
+its application-owned htmx 4 inner suite passed 34 of 35 tests, with
+`Issue56BrowserTests.Application_owned_htmx4_applies_history_operations_with_normal_swaps`
+raising `PlaywrightException: Execution context was destroyed, most likely
+because of a navigation` while asserting the document after `history.back()`.
+
+This repair protects the test boundary as follows:
+
+> When the htmx 4 package-browser test restores a prior history entry, Htmxor
+> waits for the expected URL transition before querying the restored document.
+
+The test helper now arms Playwright's `WaitForURLAsync` with the absolute
+expected URL before invoking `history.back()`, then retains its existing
+restored-document assertions. This is a browser-test synchronization fix only;
+it does not change Htmxor or htmx behavior.
+
+At dirty HEAD `31f469fb5edc5a43d938efcfe17b54ae67febc3b`, the focused Release
+package-browser command passed 1 of 1 outer tests and 35 of 35 inner browser
+tests. The repository-owned full profile also passed: 118 of 118 quality
+tests, 45 of 45 ASP.NET Core 10 tests, and 317 of 317 core tests. Analyzer and
+style error gates passed, the Release build completed with 0 warnings and 0
+errors, and the full run retained two fresh matching nonempty Cobertura copies.
+
+The focused command was:
+
+```text
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --no-restore --filter "FullyQualifiedName~Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions" --blame-hang --blame-hang-timeout 5min --logger "console;verbosity=normal"
+```
+
+The full command was:
+
+```text
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
+```
+
+The focused and full runs used the local .NET 10 SDK, real Kestrel, and
+Chromium through the generated package-consumer/browser boundary. They did not
+exercise fresh browser provisioning, other browsers or operating systems,
+external services, or full-scope mutation. Issue #154 remains open; no issue
+closure, package publication, release, or merge is part of this repair.
