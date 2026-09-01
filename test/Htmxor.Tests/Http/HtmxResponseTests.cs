@@ -192,14 +192,16 @@ public class HtmxResponseTests : BunitContext
 	}
 
 	[Theory]
-	[InlineData("true")]
-	[InlineData("false")]
-	public void History_destinations_reject_reserved_literals_without_mutation(string destination)
+	[InlineData("true", "TRUE")]
+	[InlineData("false", "False")]
+	public void History_destinations_reject_exact_reserved_literals_and_accept_case_variants(
+		string reservedLiteral,
+		string relativeReference)
 	{
 		foreach (var operation in new Func<HtmxResponse, HtmxResponse>[]
 		{
-			response => response.PushUrl(destination),
-			response => response.ReplaceUrl(destination),
+			response => response.PushUrl(reservedLiteral),
+			response => response.ReplaceUrl(reservedLiteral),
 		})
 		{
 			var context = CreateHttpContext();
@@ -207,6 +209,19 @@ public class HtmxResponseTests : BunitContext
 
 			Assert.Throws<ArgumentException>(() => operation(response));
 			AssertNavigationStateUnchanged(context, response);
+		}
+
+		foreach (var operation in new Func<HtmxResponse, HtmxResponse>[]
+		{
+			response => response.PushUrl(relativeReference),
+			response => response.ReplaceUrl(relativeReference),
+		})
+		{
+			var context = CreateHttpContext();
+			var response = context.GetHtmxContext().Response;
+
+			Assert.Same(response, operation(response));
+			Assert.Equal(relativeReference, Assert.Single(GetNavigationHeaders(context)).Value.ToString());
 		}
 	}
 
