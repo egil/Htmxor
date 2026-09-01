@@ -1653,13 +1653,20 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(string.Empty, body);
 	}
 
+	[Fact]
+	public Task Exception_handler_reexecution_renders_its_error_page_without_body_suppression()
+		=> AssertIssue154ErrorResponseAsync("throw-without-suppression");
+
 	[Theory]
 	[InlineData("throw-after-empty")]
 	[InlineData("throw-after-location")]
 	[InlineData("throw-after-redirect")]
 	[InlineData("throw-after-refresh")]
-	public async Task Exception_handler_reexecution_renders_its_error_page_after_body_suppression(
+	public Task Exception_handler_reexecution_renders_its_error_page_after_body_suppression(
 		string operation)
+		=> AssertIssue154ErrorResponseAsync(operation);
+
+	private static async Task AssertIssue154ErrorResponseAsync(string operation)
 	{
 		await using var app = CreateApplication(new Issue56RequestProbe());
 		await app.StartAsync();
@@ -2430,7 +2437,7 @@ public sealed class Issue56BrowserTests
 
 		var app = builder.Build();
 		Assert.True(app.Environment.IsProduction());
-		app.UseExceptionHandler("/issue-154/error");
+		app.UseExceptionHandler("/issue-154/error", createScopeForErrors: true);
 		app.UseAuthentication();
 		app.UseAuthorization();
 		app.UseAntiforgery();

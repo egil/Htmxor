@@ -115,6 +115,8 @@ else
 				HttpContext.Response.ContentLength = 37;
 				Htmx.Response.EmptyBody();
 				break;
+			case "throw-without-suppression":
+				throw CreateRenderFailure(Operation);
 			case "throw-after-empty":
 				Htmx.Response.EmptyBody();
 				throw CreateRenderFailure(Operation);
