@@ -270,9 +270,11 @@ one `HX-Request` value whose surrounding HTTP spaces or tabs trim to lowercase
 `true`. Missing, blank, `false`, malformed, comma-joined, and repeated markers
 retain stock or not-found routing, ignore dependent htmx context, and cannot
 mutate response headers, status, or body-control state through the covered
-Htmxor operations. Later #154 slices still own status 286/`StopPolling`, request
-naming and remaining value policies, extension headers, and the complete
-protocol matrix.
+Htmxor operations. The fifth bounded #154 slice resolves the status question
+through native htmx 4 polling: terminal replacement markup omits polling
+attributes, and status 286 is not a stop signal. Request naming and remaining
+value policies, extension headers, and the complete protocol matrix remain
+later #154 work.
 
 The third bounded #154 slice makes the three swap and selection response
 operations current:
@@ -333,6 +335,16 @@ unchanged. The first successful Htmxor call replaces a manual `HX-Trigger`;
 subsequent calls merge only Htmxor-owned events. Success preserves fluent
 identity, status, and body behavior. The removed htmx 2 timing overload and
 timed headers stay removed.
+
+The fifth bounded #154 slice removes the obsolete `StopPolling` and
+`HtmxStatusCodes` surface. htmx 4 polling stops through terminal replacement
+markup that omits `hx-get` and `hx-trigger`, as described by the [official
+polling guide](https://four.htmx.org/patterns/polling). The exact [htmx 4.0.0
+source](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js) has no
+status-286 stop rule. `StatusCode(HttpStatusCode)` remains general application
+HTTP status control, including a deliberate numeric 286. Focused and packed
+public-surface checks plus the Production Kestrel/Chromium proof cover the API
+and browser boundary.
 
 The third #154 slice retains raw
 `HtmxResponse.Reswap(string)` beside `Retarget(string)` and `Reselect(string)`,

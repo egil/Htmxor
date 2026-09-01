@@ -360,10 +360,10 @@ headers.
 ### Response operations
 
 The response API covers the core htmx 4 response headers plus HTTP status and
-body control. The first four bounded
+body control. The first five bounded
 [#154](https://github.com/egil/Htmxor/issues/154) slices make strict request
-classification, navigation, swap/selection overrides, and trigger
-serialization current contracts. The navigation operations are:
+classification, navigation, swap/selection overrides, trigger serialization,
+and native polling replacement current contracts. The navigation operations are:
 
 | Operation | Wire result | Component output | Use |
 | --- | --- | --- | --- |
@@ -427,6 +427,16 @@ The other currently exposed server response operations are:
 | `Trigger(...)` | `HX-Trigger` | Dispatch one or more client events through one compact JSON object |
 | `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics |
 | `EmptyBody()` | Empty HTTP body | Return only status, headers, cookies, and other metadata |
+
+On a valid htmx request, `StatusCode(HttpStatusCode)` remains the general
+explicit HTTP status operation. It still requires Htmxor's strict normalized
+`HX-Request: true` marker; for a normal request, use
+`HttpContext.Response.StatusCode`. Neither path assigns polling meaning to a
+number, so an application may deliberately use numeric 286. Htmxor exposes
+neither a polling status constant nor a `StopPolling()` helper. The fifth
+bounded #154 slice proves this public surface through focused and packed tests
+and proves the native replacement pattern at the Production Kestrel/Chromium
+boundary.
 
 ### Trigger response events
 
@@ -503,9 +513,13 @@ typed `Reswap` overload, and the converter. Use `Reswap(string)` for core or
 extension-defined values; no replacement closed DSL is added. The second slice
 already removed `Location(LocationTarget)`, `LocationTarget`, and `AjaxContext`
 without adding a replacement structured `HX-Location` model. The fourth slice
-defines the trigger serialization and merge contract above. Status
-286/`StopPolling`, remaining request parsing and naming, extension headers, and
-the complete protocol matrix remain later #154 work.
+defines the trigger serialization and merge contract above. The fifth bounded
+#154 slice removes the obsolete `StopPolling` and `HtmxStatusCodes` surface.
+For htmx 4 polling, return replacement markup without polling attributes; the
+general `StatusCode(HttpStatusCode)` operation remains available and does not
+give numeric 286 special polling meaning. Remaining request parsing and
+naming, extension headers, and the complete protocol matrix remain later #154
+work.
 
 ## Htmx 4 attribute reference
 
@@ -691,6 +705,8 @@ requirement; raw markup is the baseline to beat.
 
 ### Polling
 
+Regular polling is native htmx markup:
+
 ```razor
 <output hx-get="/jobs/@JobId/status"
         hx-trigger="every 2s"
@@ -699,10 +715,32 @@ requirement; raw markup is the baseline to beat.
 </output>
 ```
 
-Regular polling repeats a safe GET. Load polling returns another element with a
-`load delay:...` trigger and ends by omitting that trigger from the terminal
-response. Htmxor should not expose a special polling status inherited from an
-earlier htmx version unless exact htmx 4 evidence establishes it.
+For load polling, keep the polling trigger while work remains:
+
+```razor
+<div id="job-status"
+     hx-get="/jobs/@JobId/status"
+     hx-trigger="load delay:2s"
+     hx-swap="outerHTML">
+    Checking...
+</div>
+```
+
+When work completes, return replacement markup for the same element without
+`hx-get` or `hx-trigger`:
+
+```razor
+<div id="job-status">Complete</div>
+```
+
+This is the htmx 4 polling contract: the [official polling guide](https://four.htmx.org/patterns/polling)
+says the terminal replacement stops polling by omitting the trigger
+attributes. The exact [htmx 4.0.0 source](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js)
+schedules `every` intervals while the element is connected; it does not make
+HTTP status 286 a stop signal. Htmxor therefore does not expose `StopPolling()`
+or `HtmxStatusCodes`. Use `HtmxResponse.StatusCode(HttpStatusCode)` only for
+the application's ordinary HTTP status decision, including a deliberate
+numeric 286 if needed.
 
 ### Inline validation and handled errors
 
@@ -1105,10 +1143,11 @@ through.
 The current repository contains useful prototypes and evidence. The first two
 bounded #151 slices make the registration names current and remove the
 incomplete client trigger, swap, and constants helpers from the stable core. The
-first four bounded #154 slices add the strict request classifier, the
-navigation-response contract, the open swap/selection response contract, and
-the trigger-response contract above, including removal of the inaccurate
-structured location prototype and incomplete closed swap model. Other parts of
+first five bounded #154 slices add the strict request classifier, the
+navigation-response contract, the open swap/selection response contract, the
+trigger-response contract, and the native htmx 4 polling replacement proof
+above, including removal of the inaccurate structured location prototype and
+incomplete closed swap model. Other parts of
 the public API do not yet match this guide:
 
 - `HtmxRoute` exposes target/current-URL properties that the current source

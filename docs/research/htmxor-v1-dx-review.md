@@ -104,7 +104,7 @@ behavior.
 | Several fragments | Lambdas and render flags hide the result | Select an ordered set of names once per response | Missing |
 | OOB and partial delivery | Native htmx markup already expresses it | Do not add another Htmxor component hierarchy | Keep |
 | Request data | Strict `HX-Request` marker handling is current | Finish parsing and naming for the remaining request data | Finish |
-| Response operations | The strict marker guard, navigation family, open swap/selection family, and trigger serialization are current | Finish status 286 and the extension contract | First four #154 slices current; broader issue open |
+| Response operations | The strict marker guard, navigation family, open swap/selection family, trigger serialization, and native polling boundary are current | Finish remaining request values/naming and the extension contract | First five #154 slices current; broader issue open |
 | Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
 | Trigger and swap helpers | Native markup and open strings avoid a closed Htmxor profile | Remove the incomplete helpers from core v1 | Removed in the second #151 slice |
 | Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
@@ -248,7 +248,7 @@ invent a replacement structured `HX-Location` model.
 ### 6. The HTTP context needs one set of rules
 
 `HtmxContext` with `Request` and `Response` is easy to learn. Its details need a
-final pass. Four bounded parts are current:
+final pass. Five bounded parts are current:
 
 - the first bounded #154 slice now recognizes only exactly one normalized
   `HX-Request: true`, ignores dependent context for every invalid marker shape,
@@ -260,6 +260,8 @@ final pass. Four bounded parts are current:
   `Reselect(string)` one open-value swap and selection contract; and
 - the fourth bounded #154 slice gives `Trigger(...)` one htmx 4 response-event
   serialization and merge contract while keeping the htmx 2 timing API removed.
+- the fifth bounded #154 slice removes the obsolete status-286 polling contract
+  and proves native terminal replacement markup with application-owned htmx 4.0.0.
 
 The navigation family validates destination arguments before the strict marker
 guard and mutates nothing on failure. It rejects null, blank, surrounding
@@ -316,13 +318,22 @@ response state unchanged on failure. The first successful Htmxor call replaces
 any manual `HX-Trigger`; later successful calls merge Htmxor-owned events. Each
 success returns the same response and leaves status and body behavior alone.
 
+The fifth bounded #154 slice resolves the polling decision as native client
+composition. The [official htmx 4 polling guide](https://four.htmx.org/patterns/polling)
+says that a terminal replacement stops polling when it omits the polling
+trigger attributes. The [exact htmx 4.0.0 source](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js)
+schedules polling intervals from the trigger while the element is connected; it
+does not define status 286 as a stop signal. Htmxor removes the helper and
+constant while retaining `StatusCode(HttpStatusCode)` as ordinary application
+HTTP status control. The packed consumer and Production Kestrel/Chromium proof
+exercise both sides of this boundary.
+
 The remaining pass must:
 
 - use .NET acronym casing such as `CurrentUrl` for the remaining request API;
 - finish the value policy for the other boolean and structured request headers;
 - keep every header-derived value documented as untrusted;
 - provide validated APIs for extension request and response headers;
-- decide status 286 and `StopPolling`; and
 - remove or prove other protocol behavior carried forward from older htmx
   versions.
 
@@ -390,7 +401,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 | [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Retain the selected registration names and the decision to remove client helpers; still approve the complete public allow-list, review exported members, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
-| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, navigation responses, open swap/selection responses, and trigger serialization are current; remaining names and request values, status 286, and extension headers stay open |
+| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, navigation responses, open swap/selection responses, trigger serialization, and native polling are current; remaining names and request values plus extension headers stay open |
 
 Existing issues keep their current scope:
 

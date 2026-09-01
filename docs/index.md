@@ -5,8 +5,9 @@
 ## V1 design
 
 The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) documents the current
-registration pair, navigation-response contract, and `HX-Trigger`
-serialization contract, and labels the remaining v1 APIs by status. The
+registration pair, navigation-response contract, `HX-Trigger` serialization
+contract, and native htmx 4 polling replacement pattern, and labels the
+remaining v1 APIs by status. The
 [developer experience review](research/htmxor-v1-dx-review.md) explains the
 remaining API decisions and links the issues that track them.
 
@@ -21,7 +22,7 @@ Htmxor v1 requires .NET 10. It does not support .NET 8, and it does not yet clai
 
 The application supplies and configures the htmx runtime; Htmxor does not
 distribute one. The [v1 progress record](roadmap/v1/progress.md) identifies the
-exact application-owned htmx 4.0.0 request and navigation operations exercised
+exact application-owned htmx 4.0.0 request, navigation, and polling operations exercised
 by current browser evidence and the dimensions that remain unproved.
 
 To start fresh from a (new) Blazor Web App project, follow these steps:

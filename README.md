@@ -27,6 +27,14 @@ override; Htmxor owns final header-safe encoding. See the
 [v1 guide](docs/htmxor-v1-feature-guide.md#trigger-response-events) for merge,
 validation, encoding, and no-detail behavior.
 
+For htmx 4 polling, return replacement markup without `hx-get` and
+`hx-trigger` when the work is complete. Htmxor deliberately has no
+`StopPolling` or status-286 helper; `HtmxResponse.StatusCode(HttpStatusCode)`
+remains general HTTP status control for valid htmx requests and still requires
+the strict `HX-Request: true` marker. For a normal request, use
+`HttpContext.Response.StatusCode`; either path may deliberately use numeric 286.
+See the [native polling guidance](docs/htmxor-v1-feature-guide.md#polling).
+
 Blazor Static SSR comes with basic interactivity via enhanced navigation and enhanced form handling.
 Adding Htmx (htmx.org) to the mix gives you access to another level of interactivity while still
 retaining all the advantages of Blazor SSR stateless nature.
