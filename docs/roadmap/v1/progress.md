@@ -152,6 +152,9 @@ Last updated: 2026-09-01
 - Issue #154 preserved initial navigation-response correction red: `662ffbc41375ad313f7ca10041f1e41a2e80265d`.
 - Issue #154 preserved corrected same-context error re-execution red: `5937a16a1dc75116596fec6744ff0eb9968ca67b`.
 - Issue #154 verified post-review navigation-response corrections: `e4afa3a29e1acafd1e45d3cf84ba5348532acd3f`.
+- Issue #154 swap-and-selection response base and freshly fetched `origin/main`: `0700bdca8c0d47b1c596e3f634478c117b1d2931`, the merge commit of PR #159.
+- Issue #154 preserved meaningful swap-and-selection response red: `db0315b28cfed57d21cf1828fe3006706a83cc69`.
+- Issue #154 verified executable swap-and-selection response proof: `85381f8e3ee97959fbd032e6632d1f3efe52e138`.
 - Framework boundary under test: .NET SDK 10.0.400, ASP.NET Core 10.0.11, and Blazor static SSR. The package, repository tooling, tests, test application, and maintained samples now target `net10.0`; the generator remains a `netstandard2.0` compiler component packaged under `analyzers/dotnet/cs`. Current package-only TestServer and Kestrel/Chromium consumers restore a locally packed `net10.0` Htmxor package. Earlier `net8.0` package references below record historical exact-head evidence and are not current compatibility claims.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -168,11 +171,17 @@ Last updated: 2026-09-01
   validation-before-adaptation for stock redirects, same-`HttpContext`
   error-page re-execution, exact packed `Location(Uri)` text, and an actionless
   generated-route header-plus-empty-body response.
+- Issue #154 additionally proves open swap and selection response values with
+  validation-before-marker ordering, exact same-header overwrite, cross-header
+  coexistence, fluent identity, and unchanged status and body decisions through
+  focused, packed TestServer, Kestrel, and Chromium boundaries. The incomplete
+  public `SwapStyle` enum, typed overload, and converter are removed.
 - Issue #145 additionally proves generated no-argument registration for root and one standard route-group mapping, with all maintained samples consuming the generator as an analyzer and no destination-registration compatibility overload.
 - Current implementation slices: the first bounded part of issue #154 classifies
   `HX-Request` once by value for request routing and the covered response
   operations; the second consolidates navigation response validation, header
-  replacement, and render-local body effects. Issues #151 and #154 remain open.
+  replacement, and render-local body effects; the third finalizes open swap and
+  selection response values. Issues #151 and #154 remain open.
 
 ## Proven v1 behavior
 
@@ -2247,10 +2256,106 @@ execution of the new packed URI and actionless cases, or replacement-history
 parity. Full-scope mutation was not run and is not required for this ordinary
 pull-request slice.
 
-Issue #154 remains open. The recommended next bounded slice is the remaining
-swap-and-selection response family: define argument validation, strict guard
-ordering, fluent identity, exact overwrite rules, status/body behavior, and a
-packed-consumer boundary for `Reswap`, `Retarget`, and `Reselect`. Trigger
-merging and serialization, status 286/`StopPolling`, remaining request parsing
-and naming, extension headers, and the complete protocol matrix remain separate
-work. No human decision is required before reviewing this completed slice.
+### Open swap and selection response contract
+
+The third bounded slice of issue #154 protects this behavior:
+
+> When one htmx component response overrides swap or selection behavior, Htmxor
+> validates the complete application-authored value before checking the strict
+> htmx marker, emits the exact value through the matching response header,
+> overwrites only an earlier value for that same header, and leaves status and
+> body behavior unchanged.
+
+The exact freshly fetched base was
+`0700bdca8c0d47b1c596e3f634478c117b1d2931`, the merge commit of PR #159. No
+open pull request overlapped this slice.
+
+Test-only commit `db0315b28cfed57d21cf1828fe3006706a83cc69`
+preserves meaningful focused and separately packed red without depending on a
+missing-type compilation failure. The focused response suite compiled and
+executed 53 tests: 44 passed and 9 failed because surrounding whitespace and
+control characters were accepted, `Retarget` and `Reselect` checked the marker
+before validating, invalid calls could change state, and `SwapStyle` plus its
+converter and typed overload remained. The locally packed `net10.0` consumer
+compiled, started TestServer, and executed 59 inner tests: 51 passed and 8
+failed on the corresponding public-package validation, ordering, and reflected
+API surface. Existing valid-marker and malformed-marker routing and
+no-mutation controls remained in that consumer.
+
+The isolated worktree's first focused `--no-restore` attempt failed with
+`NETSDK1004` because it had no `project.assets.json`; zero tests were discovered
+or executed, so that setup failure is not red evidence. After
+`dotnet restore Htmxor.sln --verbosity minimal`, the exact red commands were:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-swap-selection-red-focused.trx" --results-directory artifacts/results/issue-154-swap-selection-red-focused --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-swap-selection-red-packed.trx" --results-directory artifacts/results/issue-154-swap-selection-red-packed --verbosity minimal
+```
+
+Implementation and documentation commit
+`85381f8e3ee97959fbd032e6632d1f3efe52e138` gives `Reswap(string)`,
+`Retarget(string)`, and `Reselect(string)` one shared open-value policy. Each
+validates before the cached strict marker guard and rejects null, empty,
+whitespace-only, surrounding whitespace, and control characters without
+trimming or repair. Successful calls emit the exact complete core or
+extension-defined value, return the same response, and use response-header
+replacement semantics only for their matching header. The three headers
+coexist, unrelated and navigation headers remain, status is unchanged, and the
+calls neither suppress component output nor reset an earlier explicit or
+navigation body-suppression choice.
+
+The incomplete public `SwapStyle` enum, `Reswap(SwapStyle, string?)`, and their
+converter are removed without adding another closed DSL. XML documentation,
+the changelog, README, documentation index, feature guide, DX review, discussion
+amendment, and this progress record describe the open-string migration.
+
+At exact clean executable head
+`85381f8e3ee97959fbd032e6632d1f3efe52e138`:
+
+- the focused response command passed 53 of 53 tests;
+- the separately packed command passed 1 of 1 outer tests while asserting 59
+  of 59 inner TestServer tests;
+- the package-only Production Kestrel/Chromium command passed 1 of 1 outer tests
+  while asserting 34 of 34 inner tests. One application-owned htmx 4 interaction
+  consumed `HX-Reswap: outerHTML`, `HX-Retarget: #issue-154-final-target`, and
+  `HX-Reselect: [data-issue-154-selected]` together. The original target stayed
+  unchanged, the retargeted element was replaced by only the selected response
+  subtree, and the old and unselected markup were absent;
+- the fast profile passed 464 of 464 tests: 117 quality, 45 ASP.NET Core 10, and
+  302 core tests; and
+- the full profile passed 467 of 467 tests: 118 quality, 45 ASP.NET Core 10, and
+  304 core/browser tests. Analyzer and style gates passed, the authoritative
+  Release build completed with zero warnings and errors, and two fresh matching
+  nonempty Cobertura reports have SHA-256
+  `8D6424E0C9F35125D00B352B764EA3A205E79950CB9EE0E1BC51BA142716A933`.
+
+The exact clean-head commands were:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-swap-selection-final-focused.trx" --results-directory artifacts/results/issue-154-swap-selection-final-focused --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-swap-selection-final-packed.trx" --results-directory artifacts/results/issue-154-swap-selection-final-packed --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-swap-selection-final-htmx4.trx" --results-directory artifacts/results/issue-154-swap-selection-final-htmx4 --verbosity minimal
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
+```
+
+This proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Ubuntu 26.04.1 LTS
+under WSL2, local unsigned `net10.0` packages, TestServer, framework-dependent
+Production publish, loopback HTTP with real Kestrel, Microsoft Playwright 1.62.0,
+cached Chromium revision 1234 / Chrome for Testing 151.0.7922.34, and the exact
+application-owned htmx 4.0.0 asset with SHA-256
+`E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
+
+It did not exercise fresh browser or SDK provisioning, TLS, Windows, macOS,
+Firefox, WebKit, a NuGet-published or signed package, self-contained or trimmed
+publish, .NET 11, another framework or htmx version, an extension-defined
+browser swap implementation, proxies, containers, external services,
+performance, streaming response output, or response mutation after start.
+Full-scope mutation was not run and is not required for this ordinary
+pull-request slice.
+
+Issue #154 remains open. The recommended next bounded slice is trigger merging
+and serialization. Status 286/`StopPolling`, remaining request parsing and
+naming, extension-header access, and the complete protocol matrix remain
+separate work. No human decision is required before reviewing this completed
+slice.

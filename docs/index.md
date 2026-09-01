@@ -265,8 +265,8 @@ exactly as supplied. The public `SwapStyle` enum, its typed `Reswap` overload,
 and the converter have been removed because they represented only part of htmx
 4 and could not represent extension-defined values.
 
-Each call rejects null, empty, whitespace-only, surrounding-whitespace, and
-control-character input before checking for exactly one normalized
+Each call rejects null, empty, whitespace-only, surrounding whitespace, and
+input containing control characters before checking for exactly one normalized
 `HX-Request: true` marker. A failed validation or marker check changes no
 response state. A successful call returns the same `HtmxResponse`, replaces any
 earlier value for its own header, and leaves the other two headers, all unrelated
