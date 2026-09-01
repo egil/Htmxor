@@ -26,6 +26,9 @@
         _ = Operation switch
         {
             "location" => response.Location("/orders/42"),
+            "location-uri" => response.Location(new Uri(
+                "http://REPORTS.internal.example:80/a/../orders%20archive",
+                UriKind.Absolute)),
             "push" => response.PushUrl("/orders?page=2"),
             "prevent-push" => response.PreventBrowserHistoryUpdate(),
             "redirect" => response.Redirect("/login"),

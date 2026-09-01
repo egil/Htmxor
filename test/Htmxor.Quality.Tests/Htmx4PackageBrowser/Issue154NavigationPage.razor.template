@@ -66,6 +66,9 @@ else
 	[SupplyParameterFromQuery]
 	public string? State { get; set; }
 
+	[CascadingParameter]
+	private HttpContext HttpContext { get; set; } = default!;
+
 	protected override void OnParametersSet()
 	{
 		if (Operation is null || !Htmx.Request.IsHtmxRequest)
@@ -108,8 +111,27 @@ else
 				Htmx.Response.Location(StatePath("discarded-explicit-location"));
 				Htmx.Response.PushUrl(StatePath("explicit-empty"));
 				break;
+			case "content-length-empty":
+				HttpContext.Response.ContentLength = 37;
+				Htmx.Response.EmptyBody();
+				break;
+			case "throw-after-empty":
+				Htmx.Response.EmptyBody();
+				throw CreateRenderFailure(Operation);
+			case "throw-after-location":
+				Htmx.Response.Location(StatePath("discarded-error-location"));
+				throw CreateRenderFailure(Operation);
+			case "throw-after-redirect":
+				Htmx.Response.Redirect(StatePath("discarded-error-redirect"));
+				throw CreateRenderFailure(Operation);
+			case "throw-after-refresh":
+				Htmx.Response.Refresh();
+				throw CreateRenderFailure(Operation);
 		}
 	}
+
+	private static InvalidOperationException CreateRenderFailure(string operation) =>
+		new($"Issue 154 render failure after '{operation}'.");
 
 	private static string StatePath(string state) => $"{NavigationPath}?state={state}";
 }

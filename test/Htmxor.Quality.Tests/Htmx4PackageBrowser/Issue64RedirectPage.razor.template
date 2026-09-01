@@ -2,6 +2,12 @@
 @inject NavigationManager Navigation
 
 @code {
+	[CascadingParameter]
+	private HttpContext HttpContext { get; set; } = default!;
+
+	[SupplyParameterFromQuery(Name = "invalid-location")]
+	public bool InvalidLocation { get; set; }
+
 	[SupplyParameterFromQuery(Name = "force-load")]
 	public bool ForceLoad { get; set; }
 
@@ -10,6 +16,14 @@
 
 	protected override void OnInitialized()
 	{
+		if (InvalidLocation)
+		{
+			HttpContext.Response.StatusCode = StatusCodes.Status302Found;
+			HttpContext.Response.Headers.Location =
+				$"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/issue-64/%";
+			return;
+		}
+
 		Navigation.NavigateTo("/issue-64/destination", new NavigationOptions
 		{
 			ForceLoad = ForceLoad,

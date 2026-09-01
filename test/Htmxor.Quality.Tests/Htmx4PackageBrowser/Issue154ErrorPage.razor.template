@@ -1,0 +1,5 @@
+@page "/issue-154/error"
+
+<main data-issue-154-error>
+	<h1>Issue 154 error response</h1>
+</main>

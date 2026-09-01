@@ -1638,6 +1638,45 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Suppressed_navigation_response_does_not_retain_a_nonzero_declared_content_length()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
+		using var request = CreateIssue154Request("content-length-empty");
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.True(response.Content.Headers.ContentLength is null or 0);
+		Assert.Equal(string.Empty, body);
+	}
+
+	[Theory]
+	[InlineData("throw-after-empty")]
+	[InlineData("throw-after-location")]
+	[InlineData("throw-after-redirect")]
+	[InlineData("throw-after-refresh")]
+	public async Task Exception_handler_reexecution_renders_its_error_page_after_body_suppression(
+		string operation)
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
+		using var request = CreateIssue154Request(operation);
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+		Assert.Contains("data-issue-154-error", body, StringComparison.Ordinal);
+		Assert.DoesNotContain(
+			NavigationResponseHeaderNames,
+			header => response.Headers.Contains(header));
+	}
+
+	[Fact]
 	public async Task Application_owned_htmx4_applies_location_redirect_and_refresh_navigation()
 	{
 		await using var app = CreateApplication(new Issue56RequestProbe());
@@ -1748,6 +1787,28 @@ public sealed class Issue56BrowserTests
 			NavigationResponseHeaderNames,
 			header => forcedResponse.Headers.Contains(header));
 		Assert.Equal(string.Empty, await forcedResponse.Content.ReadAsStringAsync());
+
+		using var ordinaryInvalidResponse = await client.GetAsync(
+			Issue64RedirectPath + "?invalid-location=true");
+		Assert.Equal(HttpStatusCode.Found, ordinaryInvalidResponse.StatusCode);
+		var ordinaryInvalidLocation = Assert.Single(
+			ordinaryInvalidResponse.Headers.GetValues("Location"));
+		Assert.Equal(
+			$"{baseAddress.Scheme}://{baseAddress.Authority}/issue-64/%25",
+			ordinaryInvalidLocation);
+		Assert.False(ordinaryInvalidResponse.Headers.Contains("HX-Redirect"));
+
+		using var invalidRequest = new HttpRequestMessage(
+			HttpMethod.Get,
+			Issue64RedirectPath + "?invalid-location=true");
+		invalidRequest.Headers.Add("HX-Request", "true");
+		invalidRequest.Headers.Add("HX-Request-Type", "partial");
+		using var invalidResponse = await client.SendAsync(invalidRequest);
+		Assert.Equal(HttpStatusCode.Found, invalidResponse.StatusCode);
+		Assert.Equal(
+			ordinaryInvalidLocation,
+			Assert.Single(invalidResponse.Headers.GetValues("Location")));
+		Assert.False(invalidResponse.Headers.Contains("HX-Redirect"));
 	}
 
 	[Fact]
@@ -2369,6 +2430,7 @@ public sealed class Issue56BrowserTests
 
 		var app = builder.Build();
 		Assert.True(app.Environment.IsProduction());
+		app.UseExceptionHandler("/issue-154/error");
 		app.UseAuthentication();
 		app.UseAuthorization();
 		app.UseAntiforgery();

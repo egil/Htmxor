@@ -17,6 +17,12 @@ public sealed class Issue97SummaryComponent : ComponentBase
 	[Parameter]
 	public string? SummaryId { get; set; }
 
+#if ISSUE103_ACTIONLESS_UNSAFE
+	[Parameter]
+	[SupplyParameterFromQuery]
+	public bool SuppressNavigationResponse { get; set; }
+#endif
+
 	[CascadingParameter]
 	private HttpContext HttpContext { get; set; } = default!;
 
@@ -35,6 +41,12 @@ public sealed class Issue97SummaryComponent : ComponentBase
 	{
 		lifecycleReady = true;
 		RequestProbe.RecordBinding();
+#if ISSUE103_ACTIONLESS_UNSAFE
+		if (SuppressNavigationResponse)
+		{
+			HttpContext.GetHtmxContext().Response.Location("/actionless-navigation-destination");
+		}
+#endif
 	}
 
 	protected override void BuildRenderTree(RenderTreeBuilder builder)

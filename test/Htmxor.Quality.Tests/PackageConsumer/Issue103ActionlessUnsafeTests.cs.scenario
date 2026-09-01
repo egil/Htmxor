@@ -1,4 +1,5 @@
 using System.Net;
+using Htmxor.Http;
 using Xunit;
 
 namespace Htmxor.PackageConsumer;
@@ -24,6 +25,33 @@ public sealed partial class PackageConsumerTests
 
 		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		Assert.Contains("data-issue-97-summary-component", body, StringComparison.Ordinal);
+		Assert.Equal(1, applicationProbe.BindingCount);
+		Assert.Equal(1, applicationProbe.InitializationCount);
+		Assert.Equal(0, applicationProbe.CallbackCount);
+	}
+
+	[Fact]
+	public async Task Explicit_delete_without_an_action_can_suppress_its_rendered_body_for_navigation()
+	{
+		var (token, cookie, _) = await GetAntiforgeryCredentialsAsync(
+			PackageConsumerAuthenticationHandler.AllAccessUserName);
+		applicationProbe.Reset();
+
+		using var request = CreateActionRequest(
+			HttpMethod.Delete,
+			SummaryRequestPath + "?suppressNavigationResponse=true",
+			SummaryHost,
+			PackageConsumerAuthenticationHandler.AllAccessUserName,
+			cookie,
+			token);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Equal(
+			"/actionless-navigation-destination",
+			Assert.Single(response.Headers.GetValues(HtmxResponseHeaderNames.Location)));
+		Assert.Equal(string.Empty, body);
 		Assert.Equal(1, applicationProbe.BindingCount);
 		Assert.Equal(1, applicationProbe.InitializationCount);
 		Assert.Equal(0, applicationProbe.CallbackCount);
