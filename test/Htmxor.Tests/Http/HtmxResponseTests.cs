@@ -1,8 +1,10 @@
-﻿using Bunit;
+﻿using System.Text.Json;
+using Bunit;
 using Htmxor.TestAssets.FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Primitives;
 
 namespace Htmxor.Http;
 
@@ -765,158 +767,210 @@ public class HtmxResponseTests : BunitContext
 	}
 
 	[Fact]
-	public void Trigger_without_details_adds_trigger_header()
+	public void Trigger_without_details_adds_one_json_object_header()
 	{
-		// Arrange
 		var context = CreateHttpContext();
 		var response = context.GetHtmxContext().Response;
 
-		// Act
 		response.Trigger("event1");
 
-		// Assert
-		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
-			.Should()
-			.ContainSingle()
-			.Which
-			.Should()
-			.Be("event1");
+		Assert.Equal("{\"event1\":{}}", GetTriggerHeader(context));
 	}
 
 	[Fact]
-	public void Multiple_trigger_events_without_details_share_trigger_header()
+	public void Trigger_safely_encodes_an_exact_event_name_as_a_json_property()
 	{
-		// Arrange
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+		const string eventName = "order,\"quoted\"\\path";
+
+		response.Trigger(eventName);
+
+		var header = GetTriggerHeader(context);
+		using var document = JsonDocument.Parse(header);
+		var property = Assert.Single(document.RootElement.EnumerateObject().ToArray());
+		Assert.Equal(eventName, property.Name);
+		Assert.Equal(JsonValueKind.Object, property.Value.ValueKind);
+		Assert.Empty(property.Value.EnumerateObject().ToArray());
+		Assert.DoesNotContain('\n', header);
+		Assert.DoesNotContain('\r', header);
+	}
+
+	[Fact]
+	public void Trigger_merges_case_sensitive_event_names_in_call_order()
+	{
 		var context = CreateHttpContext();
 		var response = context.GetHtmxContext().Response;
 
-		// Act
-		response.Trigger("event1");
-		response.Trigger("event2");
+		response.Trigger("event");
+		response.Trigger("Event");
+		response.Trigger("another:event");
 
-		// Assert
-		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
-			.Should()
-			.ContainSingle()
-			.Which
-			.Should()
-			.Be("event1,event2");
+		Assert.Equal(
+			"{\"event\":{},\"Event\":{},\"another:event\":{}}",
+			GetTriggerHeader(context));
 	}
 
 	[Fact]
-	public void Duplicate_trigger_event_is_emitted_once()
+	public void Trigger_replaces_duplicate_details_in_place_in_both_directions()
 	{
-		// Arrange
 		var context = CreateHttpContext();
 		var response = context.GetHtmxContext().Response;
 
-		// Act
-		response.Trigger("event1");
-		response.Trigger("event1");
+		response.Trigger("detail-added");
+		response.Trigger("middle", new { value = 0 });
+		response.Trigger("detail-removed", new { value = 1 });
+		response.Trigger("detail-added", new { value = 2 });
+		response.Trigger("detail-removed");
 
-		// Assert
-		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
-			.Should()
-			.ContainSingle()
-			.Which
-			.Should()
-			.Be("event1");
+		Assert.Equal(
+			"{\"detail-added\":{\"value\":2},\"middle\":{\"value\":0},\"detail-removed\":{}}",
+			GetTriggerHeader(context));
 	}
 
 	[Fact]
-	public void Trigger_with_detail_adds_json_trigger_header()
-	{
-		// Arrange
-		var context = CreateHttpContext();
-		var response = context.GetHtmxContext().Response;
-		var triggerObject = new { level = "info", message = "Here Is A Message" };
-
-		// Act
-		response.Trigger("showMessage", triggerObject);
-
-		// Assert
-		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
-			.Should()
-			.ContainSingle()
-			.Which
-			.Should()
-			.BeJsonSemanticallyEqualTo("""
-                { "showMessage": { "level": "info", "message": "Here Is A Message" } }
-                """);
-	}
-
-	[Fact]
-	public void Trigger_combines_events_with_and_without_details()
-	{
-		// Arrange
-		var context = CreateHttpContext();
-		var response = context.GetHtmxContext().Response;
-
-		// Act
-		response.Trigger("event1");
-		response.Trigger("event2", new { magic = "something" });
-		response.Trigger("event3", new { moremagic = false });
-
-		// Assert
-		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
-			.Should()
-			.ContainSingle()
-			.Which
-			.Should()
-			.BeJsonSemanticallyEqualTo("""
-                { "event1": null, "event2": { "magic": "something" }, "event3": { "moremagic": false } }
-                """);
-	}
-
-	[Fact]
-	public void Trigger_uses_application_json_options_for_event_details()
+	public void Trigger_uses_application_json_options_by_default_and_explicit_options_per_call()
 	{
 		var context = CreateHttpContext(options =>
-			options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower);
+		{
+			options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+			options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
+			options.SerializerOptions.WriteIndented = true;
+		});
 		var response = context.GetHtmxContext().Response;
+		var explicitOptions = new JsonSerializerOptions
+		{
+			PropertyNamingPolicy = JsonNamingPolicy.KebabCaseLower,
+			DictionaryKeyPolicy = JsonNamingPolicy.KebabCaseLower,
+			WriteIndented = true,
+		};
 
-		response.Trigger("showMessage", new { MessageLevel = "info" });
+		response.Trigger("ApplicationEvent", new { MessageLevel = "info" });
+		response.Trigger("OverrideEvent", new { MessageLevel = "warning" }, explicitOptions);
 
-		context.Response.Headers[HtmxResponseHeaderNames.Trigger]
-			.Should()
-			.ContainSingle()
-			.Which
-			.Should()
-			.BeJsonSemanticallyEqualTo("""
-                { "showMessage": { "message_level": "info" } }
-                """);
-	}
-
-	[Fact]
-	public void Trigger_overloads_reject_null_event_names()
-	{
-		var withoutDetail = CreateHttpContext().GetHtmxContext().Response;
-		var withDetail = CreateHttpContext().GetHtmxContext().Response;
-
-		var withoutDetailException = Assert.Throws<ArgumentNullException>(
-			() => withoutDetail.Trigger(null!));
-		var withDetailException = Assert.Throws<ArgumentNullException>(
-			() => withDetail.Trigger(null!, new { Message = "detail" }));
-
-		Assert.Equal("eventName", withoutDetailException.ParamName);
-		Assert.Equal("eventName", withDetailException.ParamName);
+		var header = GetTriggerHeader(context);
+		Assert.Equal(
+			"{\"ApplicationEvent\":{\"message_level\":\"info\"}," +
+			"\"OverrideEvent\":{\"message-level\":\"warning\"}}",
+			header);
+		Assert.DoesNotContain('\n', header);
+		Assert.DoesNotContain('\r', header);
 	}
 
 	[Theory]
+	[InlineData(null)]
 	[InlineData("")]
 	[InlineData(" ")]
-	public void Trigger_overloads_reject_whitespace_event_names(string eventName)
+	[InlineData(" event")]
+	[InlineData("event ")]
+	[InlineData("event\ninside")]
+	[InlineData("event\u007Finside")]
+	public void Invalid_trigger_names_are_rejected_before_the_marker_without_mutation(string? eventName)
 	{
-		var withoutDetail = CreateHttpContext().GetHtmxContext().Response;
-		var withDetail = CreateHttpContext().GetHtmxContext().Response;
+		AssertInvalidTriggerNameDoesNotMutate(eventName, withDetail: false);
+		AssertInvalidTriggerNameDoesNotMutate(eventName, withDetail: true);
+	}
 
-		var withoutDetailException = Assert.Throws<ArgumentException>(
-			() => withoutDetail.Trigger(eventName));
-		var withDetailException = Assert.Throws<ArgumentException>(
-			() => withDetail.Trigger(eventName, new { Message = "detail" }));
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public void Trigger_serializes_before_the_marker_and_serialization_failure_does_not_mutate(
+		bool validMarker)
+	{
+		var context = CreateHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = validMarker ? "true" : "false";
+		SetExistingResponseState(context);
+		var response = context.GetHtmxContext().Response;
+		if (validMarker)
+		{
+			response.EmptyBody();
+		}
+		var expected = CaptureResponseState(context, response);
 
-		Assert.Equal("eventName", withoutDetailException.ParamName);
-		Assert.Equal("eventName", withDetailException.ParamName);
+		Assert.Throws<NotSupportedException>(
+			() => response.Trigger("unsupported:detail", typeof(string)));
+
+		AssertResponseStateUnchanged(context, response, expected);
+	}
+
+	[Fact]
+	public void Trigger_marker_failure_preserves_existing_and_internal_response_state()
+	{
+		var context = CreateHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "false";
+		SetExistingResponseState(context);
+		var response = context.GetHtmxContext().Response;
+		var expected = CaptureResponseState(context, response);
+
+		Assert.Throws<InvalidOperationException>(() => response.Trigger("rejected:without-detail"));
+		AssertResponseStateUnchanged(context, response, expected);
+		Assert.Throws<InvalidOperationException>(
+			() => response.Trigger("rejected:with-detail", new { value = "rejected" }));
+		AssertResponseStateUnchanged(context, response, expected);
+
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
+		var validResponse = new HtmxResponse(context);
+		validResponse.Trigger("accepted:event");
+		Assert.Equal("{\"accepted:event\":{}}", GetTriggerHeader(context));
+	}
+
+	[Fact]
+	public void First_successful_trigger_replaces_manual_header_then_merges_only_owned_events()
+	{
+		var context = CreateHttpContext();
+		SetExistingResponseState(context);
+		var response = context.GetHtmxContext().Response;
+		response.EmptyBody();
+
+		var result = response.Trigger("owned:first");
+
+		Assert.Same(response, result);
+		Assert.Equal("{\"owned:first\":{}}", GetTriggerHeader(context));
+		Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+		Assert.Equal(47, context.Response.ContentLength);
+		Assert.Equal("retained", context.Response.Headers["X-Application"]);
+		Assert.True(response.EmptyResponseBodyRequested);
+
+		context.Response.Headers[HtmxResponseHeaderNames.Trigger] = "{\"manual:rewrite\":true}";
+		response.Trigger("owned:second", new { value = 2 });
+
+		Assert.Equal(
+			"{\"owned:first\":{},\"owned:second\":{\"value\":2}}",
+			GetTriggerHeader(context));
+	}
+
+	[Fact]
+	public void Trigger_returns_same_response_and_preserves_status_and_body_decisions()
+	{
+		var retainedContext = CreateHttpContext();
+		retainedContext.Response.StatusCode = StatusCodes.Status202Accepted;
+		var retainedResponse = retainedContext.GetHtmxContext().Response;
+		var retainedResult = retainedResponse.Trigger("retained:body");
+
+		Assert.Same(retainedResponse, retainedResult);
+		Assert.Equal(StatusCodes.Status202Accepted, retainedContext.Response.StatusCode);
+		Assert.False(retainedResponse.EmptyResponseBodyRequested);
+
+		var emptyContext = CreateHttpContext();
+		var emptyResponse = emptyContext.GetHtmxContext().Response;
+		emptyResponse.StatusCode(System.Net.HttpStatusCode.Accepted).EmptyBody();
+		var emptyResult = emptyResponse.Trigger("empty:body");
+
+		Assert.Same(emptyResponse, emptyResult);
+		Assert.Equal(StatusCodes.Status202Accepted, emptyContext.Response.StatusCode);
+		Assert.True(emptyResponse.EmptyResponseBodyRequested);
+
+		var navigationContext = CreateHttpContext();
+		var navigationResponse = navigationContext.GetHtmxContext().Response;
+		navigationResponse.StatusCode(System.Net.HttpStatusCode.Accepted).Location("/preserved-location");
+		var navigationResult = navigationResponse.Trigger("navigation:body");
+
+		Assert.Same(navigationResponse, navigationResult);
+		Assert.Equal(StatusCodes.Status202Accepted, navigationContext.Response.StatusCode);
+		Assert.True(navigationResponse.EmptyResponseBodyRequested);
+		Assert.Equal(
+			"/preserved-location",
+			navigationContext.Response.Headers[HtmxResponseHeaderNames.Location]);
 	}
 
 	[Fact]
@@ -933,4 +987,64 @@ public class HtmxResponseTests : BunitContext
 				method.GetParameters(),
 				parameter => parameter.ParameterType.FullName == "Htmxor.TriggerTiming"));
 	}
+
+	private static string GetTriggerHeader(HttpContext context)
+		=> Assert.Single(context.Response.Headers[HtmxResponseHeaderNames.Trigger])!;
+
+	private static void AssertInvalidTriggerNameDoesNotMutate(string? eventName, bool withDetail)
+	{
+		var context = CreateHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "false";
+		SetExistingResponseState(context);
+		var response = context.GetHtmxContext().Response;
+		var expected = CaptureResponseState(context, response);
+
+		var exception = withDetail
+			? Assert.ThrowsAny<ArgumentException>(
+				() => response.Trigger(eventName!, new { value = "detail" }))
+			: Assert.ThrowsAny<ArgumentException>(() => response.Trigger(eventName!));
+
+		Assert.Equal("eventName", exception.ParamName);
+		AssertResponseStateUnchanged(context, response, expected);
+	}
+
+	private static void SetExistingResponseState(HttpContext context)
+	{
+		context.Response.StatusCode = StatusCodes.Status202Accepted;
+		context.Response.ContentLength = 47;
+		context.Response.Headers["X-Application"] = "retained";
+		context.Response.Headers.Append(HtmxResponseHeaderNames.Trigger, "manual:first");
+		context.Response.Headers.Append(HtmxResponseHeaderNames.Trigger, "manual:second");
+	}
+
+	private static ResponseState CaptureResponseState(HttpContext context, HtmxResponse response)
+		=> new(
+			context.Response.StatusCode,
+			context.Response.ContentLength,
+			response.EmptyResponseBodyRequested,
+			context.Response.Headers.ToDictionary(
+				static header => header.Key,
+				static header => header.Value,
+				StringComparer.OrdinalIgnoreCase));
+
+	private static void AssertResponseStateUnchanged(
+		HttpContext context,
+		HtmxResponse response,
+		ResponseState expected)
+	{
+		Assert.Equal(expected.StatusCode, context.Response.StatusCode);
+		Assert.Equal(expected.ContentLength, context.Response.ContentLength);
+		Assert.Equal(expected.EmptyResponseBodyRequested, response.EmptyResponseBodyRequested);
+		Assert.Equal(expected.Headers.Count, context.Response.Headers.Count);
+		foreach (var header in expected.Headers)
+		{
+			Assert.Equal(header.Value, context.Response.Headers[header.Key]);
+		}
+	}
+
+	private readonly record struct ResponseState(
+		int StatusCode,
+		long? ContentLength,
+		bool EmptyResponseBodyRequested,
+		IReadOnlyDictionary<string, StringValues> Headers);
 }

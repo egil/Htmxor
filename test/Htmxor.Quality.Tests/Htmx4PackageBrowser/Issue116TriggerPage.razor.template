@@ -1,5 +1,7 @@
 @page "/issue-116/trigger"
+@using System.Text.Json
 @using Htmxor.Http
+@inject IHttpContextAccessor HttpContextAccessor
 @inject HtmxContext Htmx
 
 <main data-issue-116-trigger>
@@ -20,7 +22,22 @@
 	{
 		if (Updated && Htmx.Request.IsHtmxRequest)
 		{
-			Htmx.Response.Trigger("issue116Updated", new { Message = "ready" });
+			var response = Htmx.Response;
+			HttpContextAccessor.HttpContext!.Response.Headers[HtmxResponseHeaderNames.Trigger] =
+				"manual:event";
+			response.StatusCode(System.Net.HttpStatusCode.Accepted);
+			response.Trigger("issue116Duplicate", new { Version = "first" });
+			response.Trigger("issue116NoDetail");
+			response.Trigger("issue116Configured", new { Message = "ready", Sequence = 2 });
+			response.Trigger(
+				"issue116\"quoted\\path",
+				new { OverrideName = "explicit" },
+				new JsonSerializerOptions
+				{
+					PropertyNamingPolicy = null,
+					WriteIndented = true,
+				});
+			response.Trigger("issue116Duplicate", new { Version = "last" });
 		}
 	}
 }

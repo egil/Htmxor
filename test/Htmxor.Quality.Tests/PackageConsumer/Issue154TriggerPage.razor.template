@@ -1,0 +1,49 @@
+@page "/issue-154-trigger"
+@using System.Net
+@using Htmxor.Http
+
+<section data-issue-154-trigger="@Operation">
+	trigger component body
+</section>
+
+@code {
+	[CascadingParameter]
+	private HttpContext HttpContext { get; set; } = default!;
+
+	[SupplyParameterFromQuery]
+	public string Operation { get; set; } = "retain";
+
+	protected override void OnParametersSet()
+	{
+		var htmx = HttpContext.GetHtmxContext();
+		if (!htmx.Request.IsHtmxRequest)
+		{
+			return;
+		}
+
+		var response = htmx.Response;
+		response.StatusCode(HttpStatusCode.Accepted);
+		HttpContext.Response.Headers["X-Application"] = "retained";
+		HttpContext.Response.Headers[HtmxResponseHeaderNames.Trigger] = "manual";
+		switch (Operation)
+		{
+			case "retain":
+				break;
+			case "empty":
+				response.EmptyBody();
+				break;
+			case "navigation":
+				response.Location("/retained-navigation");
+				break;
+			default:
+				throw new InvalidOperationException($"Unknown trigger operation '{Operation}'.");
+		}
+
+		if (!ReferenceEquals(response, response.Trigger("componentEvent")))
+		{
+			throw new InvalidOperationException("Trigger did not return the active response instance.");
+		}
+
+		HttpContext.Response.Headers["X-Fluent"] = "same";
+	}
+}

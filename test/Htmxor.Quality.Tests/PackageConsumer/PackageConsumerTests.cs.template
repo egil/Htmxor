@@ -2,6 +2,8 @@ using System.Net;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Htmxor;
 using Htmxor.Http;
@@ -38,6 +40,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	private const string MarkerPageRequestPath = RoutePrefix + "/issue-154-marker";
 	private const string NavigationPageRequestPath = RoutePrefix + "/issue-154-navigation";
 	private const string SwapSelectionPageRequestPath = RoutePrefix + "/issue-154-swap-selection";
+	private const string TriggerPageRequestPath = RoutePrefix + "/issue-154-trigger";
 	private const string ReportRequestPath = "/issue-97-group/htmx-reports/42";
 	private const string SummaryRequestPath = "/issue-97-group/summaries/84";
 	private const string AuditRequestPath = "/issue-97-group/audits/126";
@@ -102,6 +105,8 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 				GroupPolicyName,
 				policy => policy.RequireClaim(PackageConsumerAuthenticationHandler.GroupAccessClaim));
 		});
+		builder.Services.ConfigureHttpJsonOptions(options =>
+			options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
 		builder.Services.AddRazorComponents().AddHtmxor();
 		builder.Services.AddSingleton<Issue100ApplicationProbe>();
 		builder.Services.AddScoped<Issue100RequestProbe>();
@@ -466,6 +471,130 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	}
 
 	[Fact]
+	public void Trigger_merges_one_deterministic_object_with_selected_serializer_options()
+	{
+		const string unsafeEventName = "quote\"slash\\event";
+		var context = CreateTriggerContext(validMarker: true);
+		var originalBody = context.Response.Body;
+		var response = new HtmxResponse(context);
+		var explicitOptions = new JsonSerializerOptions
+		{
+			PropertyNamingPolicy = JsonNamingPolicy.KebabCaseLower,
+			WriteIndented = true,
+		};
+
+		var result = response
+			.Trigger("plain,event")
+			.Trigger(unsafeEventName, new { MessageLevel = "application" })
+			.Trigger("CaseEvent")
+			.Trigger("caseEvent", new { MessageLevel = "lower-case-distinct" })
+			.Trigger("replaceEvent", new { MessageLevel = "discarded" })
+			.Trigger("tailEvent")
+			.Trigger("replaceEvent", new { MessageLevel = "final" })
+			.Trigger("overrideEvent", new { MessageLevel = "per-call" }, explicitOptions);
+
+		var expected =
+			"{\"plain,event\":{}," +
+			JsonSerializer.Serialize(unsafeEventName) +
+			":{\"message_level\":\"application\"}," +
+			"\"CaseEvent\":{}," +
+			"\"caseEvent\":{\"message_level\":\"lower-case-distinct\"}," +
+			"\"replaceEvent\":{\"message_level\":\"final\"}," +
+			"\"tailEvent\":{}," +
+			"\"overrideEvent\":{\"message-level\":\"per-call\"}}";
+		Assert.Same(response, result);
+		Assert.Equal(
+			expected,
+			Assert.Single(context.Response.Headers[HtmxResponseHeaderNames.Trigger]));
+		Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+		Assert.Equal("retained", context.Response.Headers["X-Application"]);
+		Assert.Equal(3, context.Response.ContentLength);
+		Assert.Same(originalBody, context.Response.Body);
+		Assert.Equal(3, context.Response.Body.Length);
+		Assert.Equal(0, context.Response.Body.Position);
+	}
+
+	[Fact]
+	public void Trigger_failures_leave_manual_response_state_unchanged()
+	{
+		string?[] invalidEventNames =
+		[
+			null,
+			string.Empty,
+			" ",
+			" event",
+			"event ",
+			"event\ninside",
+			"event\u007Finside",
+		];
+		foreach (var eventName in invalidEventNames)
+		{
+			var context = CreateTriggerContext(validMarker: false);
+			var response = new HtmxResponse(context);
+
+			Assert.ThrowsAny<ArgumentException>(() => response.Trigger(eventName!));
+			AssertTriggerContextUnchanged(context);
+		}
+
+		var serializerOptions = new JsonSerializerOptions();
+		serializerOptions.Converters.Add(new ThrowingTriggerDetailConverter());
+		foreach (var validMarker in new[] { true, false })
+		{
+			var context = CreateTriggerContext(validMarker);
+			var response = new HtmxResponse(context);
+
+			Assert.Throws<JsonException>(() => response.Trigger(
+				"serializationFailure",
+				new ThrowingTriggerDetail(),
+				serializerOptions));
+			AssertTriggerContextUnchanged(context);
+		}
+
+		var markerContext = CreateTriggerContext(validMarker: false);
+		var markerResponse = new HtmxResponse(markerContext);
+
+		Assert.Throws<InvalidOperationException>(() => markerResponse.Trigger("validEvent"));
+		AssertTriggerContextUnchanged(markerContext);
+	}
+
+	[Fact]
+	public async Task Trigger_preserves_status_and_body_decisions_through_TestServer()
+	{
+		var cases = new (string Operation, bool ExpectsBody, bool ExpectsNavigation)[]
+		{
+			("retain", true, false),
+			("empty", false, false),
+			("navigation", false, true),
+		};
+
+		foreach (var testCase in cases)
+		{
+			using var request = CreateMarkerRequest(
+				$"{TriggerPageRequestPath}?operation={testCase.Operation}",
+				["true"]);
+			using var response = await client.SendAsync(request);
+			var body = await response.Content.ReadAsStringAsync();
+
+			Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+			Assert.Equal(
+				"{\"componentEvent\":{}}",
+				Assert.Single(response.Headers.GetValues(HtmxResponseHeaderNames.Trigger)));
+			Assert.Equal("retained", Assert.Single(response.Headers.GetValues("X-Application")));
+			Assert.Equal("same", Assert.Single(response.Headers.GetValues("X-Fluent")));
+			Assert.Equal(
+				testCase.ExpectsNavigation,
+				response.Headers.Contains(HtmxResponseHeaderNames.Location));
+			Assert.Equal(
+				testCase.ExpectsBody,
+				body.Contains("data-issue-154-trigger", StringComparison.Ordinal));
+			if (!testCase.ExpectsBody)
+			{
+				Assert.Equal(string.Empty, body);
+			}
+		}
+	}
+
+	[Fact]
 	public async Task Package_renders_native_htmx4_markup_and_keeps_server_response_operations()
 	{
 		await using var scope = app.Services.CreateAsyncScope();
@@ -514,7 +643,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			context.Response.Headers[HtmxResponseHeaderNames.Reselect].ToString());
 		response.Trigger("client:event");
 		Assert.Equal(
-			"client:event",
+			"{\"client:event\":{}}",
 			context.Response.Headers[HtmxResponseHeaderNames.Trigger].ToString());
 	}
 
@@ -1112,6 +1241,48 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		HtmxResponseHeaderNames.Refresh,
 		HtmxResponseHeaderNames.ReplaceUrl,
 	];
+
+	private DefaultHttpContext CreateTriggerContext(bool validMarker)
+	{
+		var context = new DefaultHttpContext
+		{
+			RequestServices = app.Services,
+		};
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = validMarker ? "true" : "false";
+		context.Response.StatusCode = StatusCodes.Status202Accepted;
+		context.Response.Headers["X-Application"] = "retained";
+		context.Response.Headers[HtmxResponseHeaderNames.Trigger] = "manual";
+		context.Response.Body = new MemoryStream([1, 2, 3]);
+		context.Response.ContentLength = 3;
+		return context;
+	}
+
+	private static void AssertTriggerContextUnchanged(DefaultHttpContext context)
+	{
+		Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+		Assert.Equal("retained", context.Response.Headers["X-Application"]);
+		Assert.Equal("manual", context.Response.Headers[HtmxResponseHeaderNames.Trigger]);
+		Assert.Equal(3, context.Response.ContentLength);
+		Assert.Equal(3, context.Response.Body.Length);
+		Assert.Equal(0, context.Response.Body.Position);
+	}
+
+	private sealed class ThrowingTriggerDetail
+	{
+	}
+
+	private sealed class ThrowingTriggerDetailConverter : JsonConverter<ThrowingTriggerDetail>
+	{
+		public override ThrowingTriggerDetail Read(
+			ref Utf8JsonReader reader,
+			Type typeToConvert,
+			JsonSerializerOptions options) => throw new NotSupportedException();
+
+		public override void Write(
+			Utf8JsonWriter writer,
+			ThrowingTriggerDetail value,
+			JsonSerializerOptions options) => throw new JsonException("Deliberate trigger detail serialization failure.");
+	}
 
 	private static DefaultHttpContext CreateNavigationContext(bool validMarker)
 	{

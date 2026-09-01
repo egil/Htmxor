@@ -286,8 +286,11 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
-	public async Task Application_owned_htmx4_dispatches_response_event_after_visible_swap()
+	public async Task Application_owned_htmx4_dispatches_merged_response_events_after_visible_swap()
 	{
+		const string encodedEventName = "issue116\"quoted\\path";
+		const string expectedTriggerHeader =
+			"""{"issue116Duplicate":{"version":"last"},"issue116NoDetail":{},"issue116Configured":{"message":"ready","sequence":2},"issue116\u0022quoted\\path":{"OverrideName":"explicit"}}""";
 		await using var app = CreateApplication(new Issue56RequestProbe());
 		await app.StartAsync();
 		var baseAddress = new Uri(Assert.Single(app.Urls));
@@ -296,6 +299,10 @@ public sealed class Issue56BrowserTests
 		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
 		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
 		var page = await context.NewPageAsync();
+		var pageErrors = new ConcurrentQueue<string>();
+		var consoleErrors = new ConcurrentQueue<string>();
+		page.PageError += (_, error) => pageErrors.Enqueue(error);
+		page.Console += (_, message) => RecordConsoleError(message, consoleErrors);
 		var navigation = await page.GotoAsync(Issue116Path);
 		Assert.NotNull(navigation);
 		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
@@ -306,12 +313,20 @@ public sealed class Issue56BrowserTests
 			"""
 			() => {
 				window.issue116Events = [];
-				document.body.addEventListener('issue116Updated', event => {
-					window.issue116Events.push({
-						swapVisible: document.querySelector(".issue-116-result[data-state='swapped']") !== null,
-						message: event.detail.message
-					});
+				const record = name => event => window.issue116Events.push({
+					name,
+					swapVisible: document.querySelector(".issue-116-result[data-state='swapped']") !== null,
+					detail: event.detail
 				});
+				for (const name of [
+					'issue116Duplicate',
+					'issue116NoDetail',
+					'issue116Configured',
+					'issue116"quoted\\path',
+					'manual:event'
+				]) {
+					document.body.addEventListener(name, record(name));
+				}
 			}
 			""");
 
@@ -320,18 +335,49 @@ public sealed class Issue56BrowserTests
 			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
 		await page.Locator("#issue-116-get").ClickAsync();
 		var response = await responseTask;
-		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		Assert.Equal((int)HttpStatusCode.Accepted, response.Status);
 		var responseHeaders = await response.AllHeadersAsync();
-		Assert.Contains("hx-trigger", responseHeaders.Keys, StringComparer.OrdinalIgnoreCase);
+		var triggerHeader = Assert.Single(
+			responseHeaders,
+			header => string.Equals(header.Key, "hx-trigger", StringComparison.OrdinalIgnoreCase));
+		Assert.Equal(expectedTriggerHeader, triggerHeader.Value);
 		Assert.DoesNotContain("hx-trigger-after-swap", responseHeaders.Keys, StringComparer.OrdinalIgnoreCase);
 		Assert.DoesNotContain("hx-trigger-after-settle", responseHeaders.Keys, StringComparer.OrdinalIgnoreCase);
 		Assert.DoesNotContain("<html", await response.TextAsync(), StringComparison.OrdinalIgnoreCase);
 		await page.Locator(".issue-116-result[data-state='swapped']").WaitForAsync();
-		await page.WaitForFunctionAsync("() => window.issue116Events.length === 1");
-		Assert.True(await page.EvaluateAsync<bool>("() => window.issue116Events[0].swapVisible"));
+		await page.WaitForFunctionAsync("() => window.issue116Events.length === 4");
+		var eventNames =
+			await page.EvaluateAsync<string[]>("() => window.issue116Events.map(event => event.name)");
+		Assert.Collection(
+			eventNames,
+			name => Assert.Equal("issue116Duplicate", name),
+			name => Assert.Equal("issue116NoDetail", name),
+			name => Assert.Equal("issue116Configured", name),
+			name => Assert.Equal(encodedEventName, name));
+		Assert.True(await page.EvaluateAsync<bool>("() => window.issue116Events.every(event => event.swapVisible)"));
+		Assert.True(await page.EvaluateAsync<bool>(
+			"() => Object.keys(window.issue116Events[1].detail).length === 0"));
 		Assert.Equal(
 			"ready",
-			await page.EvaluateAsync<string>("() => window.issue116Events[0].message"));
+			await page.EvaluateAsync<string>("() => window.issue116Events[2].detail.message"));
+		Assert.Equal(
+			2,
+			await page.EvaluateAsync<int>("() => window.issue116Events[2].detail.sequence"));
+		Assert.Equal(
+			"explicit",
+			await page.EvaluateAsync<string>("() => window.issue116Events[3].detail.OverrideName"));
+		Assert.Equal(
+			"last",
+			await page.EvaluateAsync<string>("() => window.issue116Events[0].detail.version"));
+		Assert.Equal(
+			1,
+			await page.EvaluateAsync<int>(
+				"() => window.issue116Events.filter(event => event.name === 'issue116Duplicate').length"));
+		Assert.DoesNotContain(
+			eventNames,
+			name => string.Equals(name, "manual:event", StringComparison.Ordinal));
+		Assert.Empty(pageErrors);
+		Assert.Empty(consoleErrors);
 	}
 
 	[Fact]
