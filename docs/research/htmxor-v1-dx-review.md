@@ -298,17 +298,18 @@ coexist. A package-only Kestrel/Chromium interaction with application-owned
 htmx 4.0.0 consumes all three together and proves the server-retargeted element
 receives only the response-selected subtree through the response-selected swap.
 
-The trigger family validates and safely JSON-encodes exact, case-sensitive
-event names. Successful calls form one compact `HX-Trigger` JSON object:
+The trigger family validates and safely JSON-encodes exact, case-sensitive,
+well-formed UTF-16 event names. Successful calls form one compact `HX-Trigger` JSON object:
 distinct names append in call and wire-member order, while a later duplicate
 replaces its detail at the first position. That deterministic JSON text is not
 a JSON semantic-order promise, and JavaScript enumeration can reorder
-integer-like property names. A no-detail event uses `{}` because exact htmx
-4.0.0 dereferences a parsed JSON-null detail and fails to dispatch it. Detail
-serialization uses application `JsonOptions` unless a call supplies
-`JsonSerializerOptions`; outer framing stays compact even when detail options
-enable indentation. The htmx-significant detail member `target` is not an
-ordinary application payload name.
+integer-like property names. A missing detail or any detail that serializes to
+JSON null uses `{}` because exact htmx 4.0.0 dereferences a parsed JSON-null
+detail and fails to dispatch it. Application `JsonOptions` or a per-call
+`JsonSerializerOptions` control the detail data contract and accepted depth;
+Htmxor owns final compact, header-safe encoding rather than applying the
+selected `Encoder` or indentation. The htmx-significant detail member `target`
+is not an ordinary application payload name.
 
 Name validation, detail serialization, and the strict marker check leave all
 response state unchanged on failure. The first successful Htmxor call replaces

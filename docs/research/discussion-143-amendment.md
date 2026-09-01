@@ -317,15 +317,16 @@ strings are the client surface; this slice does not add an optional adapter
 package.
 
 Server-protocol operations remain distinct. The fourth #154 slice writes one
-compact `HX-Trigger` JSON object. It safely encodes exact, case-sensitive event
-names, appends distinct calls in call and wire-member order, and replaces a
-later duplicate's detail at its first position. That deterministic wire text is
-not a JSON semantic-order promise; JavaScript enumeration can reorder
-integer-like property names. No-detail events use `{}` because exact htmx 4.0.0
-dereferences JSON-null detail and does not dispatch it. Details use application
-`JsonOptions` unless a call supplies `JsonSerializerOptions`, while the outer
-object remains compact. A detail member named `target` retains its htmx
-dispatch-target meaning.
+compact `HX-Trigger` JSON object. It safely encodes exact, case-sensitive,
+well-formed UTF-16 event names, appends distinct calls in call and wire-member
+order, and replaces a later duplicate's detail at its first position. That
+deterministic wire text is not a JSON semantic-order promise; JavaScript
+enumeration can reorder integer-like property names. Missing details and
+details that serialize to JSON null use `{}` because exact htmx 4.0.0
+dereferences JSON-null detail and does not dispatch it. Application
+`JsonOptions` or a per-call `JsonSerializerOptions` control the detail data
+contract; Htmxor owns final compact, header-safe encoding. A detail member named
+`target` retains its htmx dispatch-target meaning.
 
 Invalid input, serialization failure, or marker failure leaves response state
 unchanged. The first successful Htmxor call replaces a manual `HX-Trigger`;
