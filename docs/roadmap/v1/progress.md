@@ -1,6 +1,6 @@
 # Htmxor v1 progress
 
-Last updated: 2026-08-31
+Last updated: 2026-09-01
 
 ## Repository state
 
@@ -143,7 +143,7 @@ Last updated: 2026-08-31
 - Issue #151 verified post-Copilot test-scope correction: `7f76732cf828c46fe68627477163cb9b56022f85`.
 - Issue #154 baseline and freshly fetched `origin/main`: `c6eac31919a96ac58e2f5fd28c1ea8e466a51a5e`.
 - Issue #154 preserved meaningful packed-consumer red: `8ad87a972520d5d407b9fccd372532cb0412ec41`.
-- Issue #154 verified executable marker-classification proof: `cc67dbf21a6da8a27e3175fb9d17fcd4d59dddd3`.
+- Issue #154 verified executable marker-classification proof: `3b72888a4f09e5350b9d90323f1b94de3d874247`.
 - Framework boundary under test: .NET SDK 10.0.400, ASP.NET Core 10.0.11, and Blazor static SSR. The package, repository tooling, tests, test application, and maintained samples now target `net10.0`; the generator remains a `netstandard2.0` compiler component packaged under `analyzers/dotnet/cs`. Current package-only TestServer and Kestrel/Chromium consumers restore a locally packed `net10.0` Htmxor package. Earlier `net8.0` package references below record historical exact-head evidence and are not current compatibility claims.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -1955,7 +1955,7 @@ exposed the missing raw `Reswap(string)` guard. These were behavioral failures
 after successful restore, Release compilation, discovery, and execution.
 
 At exact clean executable commit
-`cc67dbf21a6da8a27e3175fb9d17fcd4d59dddd3`, one internal classifier accepts
+`3b72888a4f09e5350b9d90323f1b94de3d874247`, one internal classifier accepts
 exactly one lowercase `true` after trimming only HTTP optional whitespace
 (space or tab). `HtmxRequest` and `HtmxResponse` both use it. Invalid markers
 leave `RoutingMode.Standard`, suppress dependent `HX-*` context, and cause the
@@ -1964,7 +1964,7 @@ mutating headers, status, or body-control state. Exactly one normalized `true`
 retains the existing full and partial behavior.
 
 This later progress-only head changes documentation only; executable claims
-remain tied to `cc67dbf21a6da8a27e3175fb9d17fcd4d59dddd3`.
+remain tied to `3b72888a4f09e5350b9d90323f1b94de3d874247`.
 
 The recorded exact-head evidence is:
 
@@ -1981,7 +1981,7 @@ The recorded exact-head evidence is:
 - full profile: 434 of 434 passed (118 quality, 45 ASP.NET Core 10, and 271
   core/browser tests), with a zero-warning, zero-error Release build and two
   fresh matching nonempty Cobertura reports at SHA-256
-  `4AF958B7C90E386DF669355EE8F41643A8A32319229041E59BFE3FEDD1FB8FEE`.
+  `5F6C4FF74511E83046DECB081A08A454631D0F9B67DE6886F658E93168ABD5DD`.
 
 The exact commands were:
 
