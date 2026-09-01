@@ -312,6 +312,11 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 
 	[Theory]
 	[InlineData("location", HtmxResponseHeaderNames.Location, "/orders/42", false)]
+	[InlineData(
+		"location-uri",
+		HtmxResponseHeaderNames.Location,
+		"http://REPORTS.internal.example:80/a/../orders%20archive",
+		false)]
 	[InlineData("push", HtmxResponseHeaderNames.PushUrl, "/orders?page=2", true)]
 	[InlineData("prevent-push", HtmxResponseHeaderNames.PushUrl, "false", true)]
 	[InlineData("redirect", HtmxResponseHeaderNames.Redirect, "/login", false)]
