@@ -155,6 +155,9 @@ Last updated: 2026-09-01
 - Issue #154 swap-and-selection response base and freshly fetched `origin/main`: `0700bdca8c0d47b1c596e3f634478c117b1d2931`, the merge commit of PR #159.
 - Issue #154 preserved meaningful swap-and-selection response red: `db0315b28cfed57d21cf1828fe3006706a83cc69`.
 - Issue #154 verified executable swap-and-selection response proof: `85381f8e3ee97959fbd032e6632d1f3efe52e138`.
+- Issue #154 trigger-response base and freshly fetched `origin/main`: `5ece9bb1d749cbd5d00ac20ddc1e869c49dc605a`.
+- Issue #154 preserved meaningful trigger merging and serialization red: `a4fcb310555bf67e12e00315c32019c94a90eb6b`.
+- Issue #154 verified executable trigger-response proof: `f0426fca0e0abc8a5ad2ea98e9ae5043fa5a0704`.
 - Framework boundary under test: .NET SDK 10.0.400, ASP.NET Core 10.0.11, and Blazor static SSR. The package, repository tooling, tests, test application, and maintained samples now target `net10.0`; the generator remains a `netstandard2.0` compiler component packaged under `analyzers/dotnet/cs`. Current package-only TestServer and Kestrel/Chromium consumers restore a locally packed `net10.0` Htmxor package. Earlier `net8.0` package references below record historical exact-head evidence and are not current compatibility claims.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -176,12 +179,20 @@ Last updated: 2026-09-01
   coexistence, fluent identity, and unchanged status and body decisions through
   focused, packed TestServer, Kestrel, and Chromium boundaries. The incomplete
   public `SwapStyle` enum, typed overload, and converter are removed.
+- Issue #154 additionally proves one compact `HX-Trigger` JSON object with safe
+  exact event-name encoding, case-sensitive call-order wire members,
+  duplicate-detail replacement in first position, application and per-call JSON
+  options, failure atomicity, manual-header ownership, and unchanged fluent,
+  status, and body decisions through focused, packed TestServer, Production
+  Kestrel, and Chromium boundaries. No-detail events use `{}` so exact htmx
+  4.0.0 dispatches them; the removed htmx 2 timing surface stays removed.
 - Issue #145 additionally proves generated no-argument registration for root and one standard route-group mapping, with all maintained samples consuming the generator as an analyzer and no destination-registration compatibility overload.
 - Current implementation slices: the first bounded part of issue #154 classifies
   `HX-Request` once by value for request routing and the covered response
   operations; the second consolidates navigation response validation, header
   replacement, and render-local body effects; the third finalizes open swap and
-  selection response values. Issues #151 and #154 remain open.
+  selection response values; the fourth finalizes trigger merging and
+  serialization. Issues #151 and #154 remain open.
 
 ## Proven v1 behavior
 
@@ -828,15 +839,14 @@ Protected behavior for issue #116:
 > the visible response swap. Htmxor exposes neither of the removed timed trigger
 > headers.
 
-The beta public API now has one `HtmxResponse.Trigger` behavior. It removes
-`TriggerTiming`, `TriggerAfterSwap`, and `TriggerAfterSettle`; every convenience
-call merges into `HX-Trigger`. Focused tests retain single events, multiple
-events, case-insensitive duplicate suppression, mixed events with and without
-JSON details, and event-detail serialization through the application's normal
-`IOptions<JsonOptions>` registration. The changelog tells beta callers to
-remove the timing argument and rely on htmx 4's post-swap dispatch.
-Both overloads reject null, empty, or whitespace event names before attempting
-to merge a response header.
+That earlier beta slice established one `HtmxResponse.Trigger` family and
+removed `TriggerTiming`, `TriggerAfterSwap`, and `TriggerAfterSettle`; every
+convenience call merged into `HX-Trigger`. Its focused characterization covered
+single and multiple events, the then-current case-insensitive duplicate
+suppression, mixed details, and application `IOptions<JsonOptions>`. The fourth
+#154 slice below supersedes that provisional merge and wire policy with exact,
+case-sensitive names, replacement-in-place, and one safe JSON object while
+retaining the timing-surface removal and htmx 4 post-swap dispatch.
 
 The package-only `net10.0` consumer restores a locally packed Htmxor package,
 publishes the application, and runs seven tests from Production publish output.
@@ -2359,3 +2369,137 @@ and serialization. Status 286/`StopPolling`, remaining request parsing and
 naming, extension-header access, and the complete protocol matrix remain
 separate work. No human decision is required before reviewing this completed
 slice.
+
+### Deterministic trigger response contract
+
+The fourth bounded slice of issue #154 protects this behavior:
+
+> When a valid htmx 4 component response triggers events across one or more
+> fluent calls, Htmxor emits one deterministic `HX-Trigger` JSON object whose
+> exact, case-sensitive event entries retain first wire position while later
+> duplicates replace their details, without changing status or body; invalid,
+> unserializable, or invalid-marker calls leave the response untouched.
+
+The exact freshly fetched base and merge base were
+`5ece9bb1d749cbd5d00ac20ddc1e869c49dc605a`. Live issue #154 was open and
+assigned to `egil`, and no open pull request overlapped this bounded trigger
+slice.
+
+Test-only commit `a4fcb310555bf67e12e00315c32019c94a90eb6b`
+preserves meaningful behavioral red. The focused Trigger selection compiled,
+discovered, and executed 18 tests: 6 passed and 12 failed on the old comma/null
+wire forms, unsafe property-name interpolation, case-insensitive duplicate
+suppression, first-call-wins details, marker-before-serialization ordering, and
+manual-header ownership. The separately packed `net10.0` application compiled,
+started TestServer, and executed all 62 inner tests: 58 passed and 4 failed on
+the corresponding package API, validation-order, status/body, and component
+response behavior. Its outer test failed only because those four inner
+behavioral assertions failed.
+
+The first focused red attempt was a setup failure: the restricted environment
+denied MSBuild's named-pipe socket, so it is not red evidence. Repeating the
+same command with the required process permissions produced the 18-test result
+above. The exact red commands were:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Trigger" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-trigger-red-focused.trx" --results-directory artifacts/results/issue-154-trigger-red-focused --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-trigger-red-packed.trx" --results-directory artifacts/results/issue-154-trigger-red-packed --verbosity minimal
+```
+
+Implementation and public-documentation commit
+`f0426fca0e0abc8a5ad2ea98e9ae5043fa5a0704` validates event names before the
+strict marker guard and serializes a supplied detail before that guard. It
+selects application `JsonOptions` unless the call supplies
+`JsonSerializerOptions`, snapshots the detail as JSON, and writes every event
+through a compact `Utf8JsonWriter`. The writer safely encodes the exact event
+name as a JSON property without applying dictionary-key policy. Distinct names
+use ordinal case-sensitive comparison and append in call and wire-member order;
+a later duplicate replaces its detail at the original position. A candidate
+copy and complete header are constructed before the response header or
+request-scoped owned-event state changes.
+
+The first successful Htmxor Trigger call replaces any manually written
+`HX-Trigger`; later calls rebuild the header from Htmxor-owned events only.
+Success returns the same `HtmxResponse` and preserves status, declared body
+state, explicit `EmptyBody()`, and navigation suppression. The htmx 2 timing
+type, overload, and timed header constants remain absent. The packed routes are
+still component-owned Razor routes and callbacks; this slice adds no controller,
+Minimal API endpoint, static handler, renderer copy, private reflection, or
+embedded htmx runtime.
+
+The [live issue clarification](https://github.com/egil/Htmxor/issues/154#issuecomment-5493907919)
+requested JSON null for an event without detail, but exact htmx 4.0.0 does not
+dispatch that representation. Its
+[header handler](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js#L859-L873)
+passes parsed null as an object detail, and the
+[event path](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js#L1565-L1575)
+dereferences `detail.cancelled` before dispatch. This slice therefore emits
+`{}` for no detail, matching the empty detail shape of htmx's comma form and
+preserving the observable dispatch requirement. JSON objects remain
+semantically unordered, and htmx's JavaScript enumeration can reorder
+integer-like names; the deterministic promise is Htmxor's wire-member order,
+while the browser fixture deliberately uses non-index names.
+
+At exact clean executable head
+`f0426fca0e0abc8a5ad2ea98e9ae5043fa5a0704`:
+
+- the focused Trigger command passed 18 of 18 tests;
+- the standard separately packed command passed 1 of 1 outer tests while
+  asserting 62 of 62 inner TestServer tests;
+- the actionless separately packed command passed 1 of 1 outer tests while
+  asserting 65 of 65 inner TestServer tests;
+- the package-only Production Kestrel/Chromium command passed 1 of 1 outer
+  tests while asserting 34 of 34 inner tests. The Trigger interaction retained
+  `202 Accepted`, replaced a manually seeded header with one exact compact
+  object, safely encoded a quote/backslash event name, and dispatched four
+  non-index events after the visible swap. The duplicate fired once with its
+  last detail at its first position; no timed header, manual event, page error,
+  or console error appeared;
+- the fast profile passed 472 of 472 tests: 117 quality, 45 ASP.NET Core 10,
+  and 310 core tests; and
+- the full profile passed 475 of 475 tests: 118 quality, 45 ASP.NET Core 10,
+  and 312 core/browser tests. Analyzer and style error gates passed, the Release
+  build completed with zero errors, and two fresh matching nonempty Cobertura
+  copies have SHA-256
+  `7B1F149D88ABC6403A79B2CF0D5724F7718A64FB12E81BCED7CAF22732CBAF75`.
+
+The exact clean-head commands were:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Trigger" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-trigger-final-focused.trx" --results-directory artifacts/results/issue-154-trigger-final-focused --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-trigger-final-packed.trx" --results-directory artifacts/results/issue-154-trigger-final-packed --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_preserves_actionless_unsafe_route_antiforgery --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-trigger-final-packed-actionless.trx" --results-directory artifacts/results/issue-154-trigger-final-packed-actionless --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions --blame-hang --blame-hang-timeout 10min --logger "trx;LogFileName=issue-154-trigger-final-htmx4.trx" --results-directory artifacts/results/issue-154-trigger-final-htmx4 --verbosity minimal
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
+```
+
+One mistyped exploratory actionless filter discovered zero tests and is not
+evidence; the correctly named command above discovered and passed its outer
+test and asserted all 65 inner tests. The fast and full restores and Release
+builds reported four `NU1900` warnings because the environment could not reach
+NuGet's vulnerability feed. The quality profiles still completed, but package
+vulnerability audit data is unavailable rather than clean or zero.
+
+This proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Ubuntu 26.04.1 LTS
+under WSL2, locally packed unsigned `net10.0` packages, TestServer,
+framework-dependent Production publish, loopback HTTP with real Kestrel,
+Microsoft Playwright 1.62.0, cached Chromium revision 1234 / Chrome for Testing
+151.0.7922.34, and the exact application-owned htmx 4.0.0 asset with SHA-256
+`E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
+
+It does not exercise fresh browser, SDK, or NuGet-audit provisioning, TLS,
+Windows, macOS, Firefox, WebKit, a NuGet-published or signed package,
+self-contained or trimmed publish, .NET 11, another framework or htmx version,
+integer-like event dispatch order, the protocol-significant detail `target`,
+concurrent Trigger calls, response mutation after start, 3xx header processing,
+proxies, containers, external services, or performance. Full-scope mutation was
+not run and is not required for this ordinary pull-request slice.
+
+This later progress-only change does not alter executable behavior. Claims
+remain tied to `f0426fca0e0abc8a5ad2ea98e9ae5043fa5a0704`.
+
+Issue #154 remains open. Status 286/`StopPolling`, remaining request parsing and
+naming, extension-header access, and the complete protocol matrix remain
+separate work for later bounded selection. No merge, issue closure, package
+publication, or release is part of this slice.
