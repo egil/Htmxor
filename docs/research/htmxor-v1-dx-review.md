@@ -15,6 +15,10 @@
   seven navigation choices, removes the inaccurate structured location
   prototype, scopes body suppression to one render, validates stock redirects
   before adaptation, and leaves the broader request/response issue open
+- Swap/selection-response update: the third bounded slice of #154 keeps
+  `Reswap(string)`, `Retarget(string)`, and `Reselect(string)` as exact open
+  values, removes the incomplete closed swap model, and leaves the broader
+  request/response issue open
 
 ## Verdict
 
@@ -100,7 +104,7 @@ behavior.
 | Several fragments | Lambdas and render flags hide the result | Select an ordered set of names once per response | Missing |
 | OOB and partial delivery | Native htmx markup already expresses it | Do not add another Htmxor component hierarchy | Keep |
 | Request data | Strict `HX-Request` marker handling is current | Finish parsing and naming for the remaining request data | Finish |
-| Response operations | The strict marker guard and navigation-response subset are current | Finish the remaining request/response operations, status 286, and extension contract | Navigation current; broader issue open |
+| Response operations | The strict marker guard, navigation family, and open swap/selection family are current | Finish trigger serialization, status 286, and the extension contract | First three #154 slices current; broader issue open |
 | Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
 | Trigger and swap helpers | Native markup and open strings avoid a closed Htmxor profile | Remove the incomplete helpers from core v1 | Removed in the second #151 slice |
 | Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
@@ -353,7 +357,7 @@ does not prove browser or extension compatibility.
 | --- | --- |
 | Request verbs, forms, values, validation | Htmxor owns server access, callback execution, binding compatibility, and antiforgery. Native htmx starts the request. |
 | Triggers, synchronization, confirmation, indicators | These stay in client markup. Server code must tolerate duplicates, cancellation, and overlap. |
-| Targets, selectors, swaps, OOB, partials | Htmxor selects server output. Htmx chooses DOM delivery. |
+| Targets, selectors, swaps, OOB, partials | Htmxor selects server output. Open response values may override the target, selected subtree, and swap behavior; htmx performs DOM delivery. |
 | History, boost, redirects, statuses, caching | Htmxor enforces the typed navigation wire, baseline URI policy, one-header rule, and render-scoped body effect. The application authorizes destinations and chooses broader navigation and cache policy. |
 | Events, JavaScript, configuration, CSS, extensions | The application owns the client code. Htmxor only needs protocol APIs for data the server must read or write. |
 
@@ -367,7 +371,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 | [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Retain the selected registration names and the decision to remove client helpers; still approve the complete public allow-list, review exported members, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
-| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification and the navigation-response subset are current; remaining names, request values, response operations, status 286, and extension headers stay open |
+| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, navigation responses, and open swap/selection responses are current; remaining names and request values, trigger serialization, status 286, and extension headers stay open |
 
 Existing issues keep their current scope:
 

@@ -1043,9 +1043,10 @@ through.
 The current repository contains useful prototypes and evidence. The first two
 bounded #151 slices make the registration names current and remove the
 incomplete client trigger, swap, and constants helpers from the stable core. The
-first two bounded #154 slices add the strict request classifier and the
-navigation-response contract above, including removal of the inaccurate
-structured location prototype. Other parts of the public API do not yet match
+first three bounded #154 slices add the strict request classifier, the
+navigation-response contract, and the open swap/selection response contract
+above, including removal of the inaccurate structured location prototype and
+incomplete closed swap model. Other parts of the public API do not yet match
 this guide:
 
 - `HtmxRoute` exposes target/current-URL properties that the current source
