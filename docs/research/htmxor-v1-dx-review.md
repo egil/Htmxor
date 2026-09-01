@@ -104,7 +104,7 @@ behavior.
 | Several fragments | Lambdas and render flags hide the result | Select an ordered set of names once per response | Missing |
 | OOB and partial delivery | Native htmx markup already expresses it | Do not add another Htmxor component hierarchy | Keep |
 | Request data | Strict `HX-Request` marker handling is current | Finish parsing and naming for the remaining request data | Finish |
-| Response operations | The strict marker guard, navigation family, and open swap/selection family are current | Finish trigger serialization, status 286, and the extension contract | First three #154 slices current; broader issue open |
+| Response operations | The strict marker guard, navigation family, open swap/selection family, and trigger serialization are current | Finish status 286 and the extension contract | First four #154 slices current; broader issue open |
 | Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
 | Trigger and swap helpers | Native markup and open strings avoid a closed Htmxor profile | Remove the incomplete helpers from core v1 | Removed in the second #151 slice |
 | Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
@@ -248,16 +248,18 @@ invent a replacement structured `HX-Location` model.
 ### 6. The HTTP context needs one set of rules
 
 `HtmxContext` with `Request` and `Response` is easy to learn. Its details need a
-final pass. Three bounded parts are current:
+final pass. Four bounded parts are current:
 
 - the first bounded #154 slice now recognizes only exactly one normalized
   `HX-Request: true`, ignores dependent context for every invalid marker shape,
   and applies that classifier to the covered core response operations,
   including raw `Reswap(string)`; and
 - the second bounded #154 slice gives `Location`, `PushUrl`, both prevent
-  methods, `Redirect`, `Refresh`, and `ReplaceUrl` one navigation contract.
+  methods, `Redirect`, `Refresh`, and `ReplaceUrl` one navigation contract;
 - the third bounded #154 slice gives `Reswap(string)`, `Retarget(string)`, and
-  `Reselect(string)` one open-value swap and selection contract.
+  `Reselect(string)` one open-value swap and selection contract; and
+- the fourth bounded #154 slice gives `Trigger(...)` one htmx 4 response-event
+  serialization and merge contract while keeping the htmx 2 timing API removed.
 
 The navigation family validates destination arguments before the strict marker
 guard and mutates nothing on failure. It rejects null, blank, surrounding
@@ -296,12 +298,28 @@ coexist. A package-only Kestrel/Chromium interaction with application-owned
 htmx 4.0.0 consumes all three together and proves the server-retargeted element
 receives only the response-selected subtree through the response-selected swap.
 
+The trigger family validates and safely JSON-encodes exact, case-sensitive
+event names. Successful calls form one compact `HX-Trigger` JSON object:
+distinct names append in call and wire-member order, while a later duplicate
+replaces its detail at the first position. That deterministic JSON text is not
+a JSON semantic-order promise, and JavaScript enumeration can reorder
+integer-like property names. A no-detail event uses `{}` because exact htmx
+4.0.0 dereferences a parsed JSON-null detail and fails to dispatch it. Detail
+serialization uses application `JsonOptions` unless a call supplies
+`JsonSerializerOptions`; outer framing stays compact even when detail options
+enable indentation. The htmx-significant detail member `target` is not an
+ordinary application payload name.
+
+Name validation, detail serialization, and the strict marker check leave all
+response state unchanged on failure. The first successful Htmxor call replaces
+any manual `HX-Trigger`; later successful calls merge Htmxor-owned events. Each
+success returns the same response and leaves status and body behavior alone.
+
 The remaining pass must:
 
 - use .NET acronym casing such as `CurrentUrl` for the remaining request API;
 - finish the value policy for the other boolean and structured request headers;
 - keep every header-derived value documented as untrusted;
-- finish trigger argument, merge, serialization, overwrite, and body rules;
 - provide validated APIs for extension request and response headers;
 - decide status 286 and `StopPolling`; and
 - remove or prove other protocol behavior carried forward from older htmx
@@ -339,11 +357,11 @@ Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
 ideas that still need API decisions. Registration and QUERY now have bounded
 proof through #145 and #111, while the first two #151 slices make the consistent
 registration names and native-markup client-helper decision current. The first
-three #154 slices make strict request classification, navigation responses, and
-open swap/selection response values current. Navigation examples must show
-separate choices or branches, while the three independent swap and selection
-headers may be chained. Multi-fragment selection and optional extension use
-still need explicit status labels.
+four #154 slices make strict request classification, navigation responses, open
+swap/selection response values, and trigger serialization current. Navigation
+examples must show separate choices or branches, while the three independent
+swap and selection headers may be chained. Multi-fragment selection and
+optional extension use still need explicit status labels.
 
 The discussion should stay short and link to the repository guide for the full
 inventory. Examples should identify whether they show an accepted v1 contract,
@@ -371,7 +389,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 | [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Retain the selected registration names and the decision to remove client helpers; still approve the complete public allow-list, review exported members, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
-| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, navigation responses, and open swap/selection responses are current; remaining names and request values, trigger serialization, status 286, and extension headers stay open |
+| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, navigation responses, open swap/selection responses, and trigger serialization are current; remaining names and request values, status 286, and extension headers stay open |
 
 Existing issues keep their current scope:
 

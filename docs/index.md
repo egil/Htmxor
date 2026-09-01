@@ -5,8 +5,8 @@
 ## V1 design
 
 The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) documents the current
-registration pair and navigation-response contract and labels the remaining v1
-APIs by status. The
+registration pair, navigation-response contract, and `HX-Trigger`
+serialization contract, and labels the remaining v1 APIs by status. The
 [developer experience review](research/htmxor-v1-dx-review.md) explains the
 remaining API decisions and links the issues that track them.
 

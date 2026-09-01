@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
@@ -16,11 +18,13 @@ namespace Htmxor.Http;
 /// replace any earlier core htmx navigation operation, and do not change the HTTP status code.
 /// Swap and selection operations also validate before the marker guard, preserve the exact
 /// application-authored value, and replace only an earlier value for the same response header.
+/// Trigger operations merge exact, case-sensitive event names into one compact JSON object;
+/// a later duplicate replaces its detail without moving the event from its first position.
 /// Htmx does not process response headers on HTTP 3xx responses.
 /// </remarks>
 public sealed class HtmxResponse(HttpContext context)
 {
-	private const string ItemsKeyPrefix = "02E0A668-6E6B-4C53-83A6-17E576073E96";
+	private static readonly object TriggerEventsItemsKey = new();
 	private static readonly string[] NavigationHeaderNames =
 	[
 		HtmxResponseHeaderNames.Location,
@@ -305,36 +309,47 @@ public sealed class HtmxResponse(HttpContext context)
 	}
 
 	/// <summary>
-	/// Allows you to trigger client-side events.
+	/// Adds a client-side event with an empty detail object to the response's compact
+	/// <c>HX-Trigger</c> JSON object.
 	/// </summary>
-	/// <param name="eventName">The name of client side event to trigger.</param>
+	/// <param name="eventName">
+	/// The exact, case-sensitive event name. It must not be empty or whitespace-only, have
+	/// surrounding whitespace, or contain control characters.
+	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Trigger(string eventName)
 	{
-		ArgumentNullException.ThrowIfNullOrWhiteSpace(eventName);
+		ValidateOpenResponseValue(eventName, nameof(eventName));
 		AssertIsHtmxRequest();
-
-		MergeTrigger(eventName, default(object), null);
-
-		return this;
+		return MergeTrigger(eventName, detail: null);
 	}
 
 	/// <summary>
-	/// Allows you to trigger client-side events.
+	/// Adds a client-side event and detail to the response's compact <c>HX-Trigger</c> JSON object.
 	/// </summary>
-	/// <param name="eventName">The name of client side event to trigger.</param>
-	/// <param name="detail">The details to pass the client side event.</param>
-	/// <param name="jsonSerializerOptions">The <see cref="JsonSerializerOptions"/> to use to convert the <paramref name="detail"/> into JSON. 
-	/// If not specified, the application's configured <see cref="JsonOptions.SerializerOptions"/> are used if available.</param>
+	/// <param name="eventName">
+	/// The exact, case-sensitive event name. It must not be empty or whitespace-only, have
+	/// surrounding whitespace, or contain control characters.
+	/// </param>
+	/// <param name="detail">
+	/// The detail to pass to the client-side event. A <see langword="null"/> detail is emitted
+	/// as an empty JSON object.
+	/// </param>
+	/// <param name="jsonSerializerOptions">
+	/// The <see cref="JsonSerializerOptions"/> used to serialize <paramref name="detail"/>.
+	/// If omitted, the application's configured <see cref="JsonOptions.SerializerOptions"/>
+	/// are used when available.
+	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Trigger<TEventDetail>(string eventName, TEventDetail detail, JsonSerializerOptions? jsonSerializerOptions = null)
 	{
-		ArgumentNullException.ThrowIfNullOrWhiteSpace(eventName);
+		ValidateOpenResponseValue(eventName, nameof(eventName));
+		jsonSerializerOptions ??= context.RequestServices.GetService<IOptions<JsonOptions>>()?.Value.SerializerOptions;
+		JsonElement? serializedDetail = detail is null
+			? null
+			: JsonSerializer.SerializeToElement(detail, jsonSerializerOptions);
 		AssertIsHtmxRequest();
-
-		MergeTrigger(eventName, detail, jsonSerializerOptions);
-
-		return this;
+		return MergeTrigger(eventName, serializedDetail);
 	}
 
 	private HtmxResponse SetNavigation(string headerName, string value, bool suppressBody)
@@ -349,39 +364,60 @@ public sealed class HtmxResponse(HttpContext context)
 		return this;
 	}
 
-	private void MergeTrigger<TEventDetail>(string eventName, TEventDetail? detail, JsonSerializerOptions? jsonSerializerOptions)
+	private HtmxResponse MergeTrigger(string eventName, JsonElement? detail)
 	{
-		jsonSerializerOptions ??= context.RequestServices.GetService<IOptions<JsonOptions>>()?.Value.SerializerOptions;
-		var itemsKey = ItemsKeyPrefix + HtmxResponseHeaderNames.Trigger;
-		if (!context.Items.TryGetValue(itemsKey, out var current) || current is not List<TriggerHeaderEventSet> headerValueSet)
+		var events = context.Items.TryGetValue(TriggerEventsItemsKey, out var current) &&
+			current is List<TriggerHeaderEvent> ownedEvents
+			? new List<TriggerHeaderEvent>(ownedEvents)
+			: [];
+		var eventIndex = events.FindIndex(other =>
+			string.Equals(other.EventName, eventName, StringComparison.Ordinal));
+		var triggerEvent = new TriggerHeaderEvent(eventName, detail);
+		if (eventIndex >= 0)
 		{
-			headerValueSet = [];
-		}
-
-		if (headerValueSet.Count == 0 || !headerValueSet.Exists(other => other.EventName.Equals(eventName, StringComparison.OrdinalIgnoreCase)))
-		{
-			headerValueSet.Add(new(eventName, detail is not null ? JsonSerializer.Serialize(detail, jsonSerializerOptions) : null));
-		}
-
-		context.Items[itemsKey] = headerValueSet;
-
-		if (headerValueSet.TrueForAll(x => x.Detail is null))
-		{
-			headers[HtmxResponseHeaderNames.Trigger] = string.Join(',', headerValueSet.Select(x => x.EventName));
+			events[eventIndex] = triggerEvent;
 		}
 		else
 		{
-			headers[HtmxResponseHeaderNames.Trigger] = $"{{{string.Join(',', headerValueSet)}}}";
+			events.Add(triggerEvent);
 		}
+
+		var headerValue = SerializeTriggerHeader(events);
+		headers[HtmxResponseHeaderNames.Trigger] = headerValue;
+		context.Items[TriggerEventsItemsKey] = events;
+		return this;
 	}
 
-	private readonly record struct TriggerHeaderEventSet(string EventName, string? Detail)
+	private static string SerializeTriggerHeader(List<TriggerHeaderEvent> events)
 	{
-		public override string ToString()
-			=> Detail is null
-			? $"\"{EventName}\":null"
-			: $"\"{EventName}\":{Detail}";
+		var buffer = new ArrayBufferWriter<byte>();
+		using (var writer = new Utf8JsonWriter(buffer))
+		{
+			writer.WriteStartObject();
+			foreach (var triggerEvent in events)
+			{
+				writer.WritePropertyName(triggerEvent.EventName);
+				if (triggerEvent.Detail is { } detail)
+				{
+					detail.WriteTo(writer);
+				}
+				else
+				{
+					// htmx 4 reads fields from a JSON detail value before dispatch, so null cannot
+					// represent the protocol's no-detail form. An empty object preserves that form.
+					writer.WriteStartObject();
+					writer.WriteEndObject();
+				}
+			}
+
+			writer.WriteEndObject();
+			writer.Flush();
+		}
+
+		return Encoding.UTF8.GetString(buffer.WrittenSpan);
 	}
+
+	private readonly record struct TriggerHeaderEvent(string EventName, JsonElement? Detail);
 
 	private static void ValidateOpenResponseValue(string value, string parameterName)
 	{

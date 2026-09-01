@@ -271,8 +271,8 @@ one `HX-Request` value whose surrounding HTTP spaces or tabs trim to lowercase
 retain stock or not-found routing, ignore dependent htmx context, and cannot
 mutate response headers, status, or body-control state through the covered
 Htmxor operations. Later #154 slices still own status 286/`StopPolling`, request
-naming and remaining value policies, trigger argument and serialization rules,
-extension headers, and the complete protocol matrix.
+naming and remaining value policies, extension headers, and the complete
+protocol matrix.
 
 The third bounded #154 slice makes the three swap and selection response
 operations current:
@@ -316,8 +316,24 @@ facade, builders, and supporting types, `SwapStyleBuilder`,
 strings are the client surface; this slice does not add an optional adapter
 package.
 
-Server-protocol operations remain distinct. `HtmxResponse.Trigger(...)` still
-writes `HX-Trigger`. The third #154 slice retains raw
+Server-protocol operations remain distinct. The fourth #154 slice writes one
+compact `HX-Trigger` JSON object. It safely encodes exact, case-sensitive event
+names, appends distinct calls in call and wire-member order, and replaces a
+later duplicate's detail at its first position. That deterministic wire text is
+not a JSON semantic-order promise; JavaScript enumeration can reorder
+integer-like property names. No-detail events use `{}` because exact htmx 4.0.0
+dereferences JSON-null detail and does not dispatch it. Details use application
+`JsonOptions` unless a call supplies `JsonSerializerOptions`, while the outer
+object remains compact. A detail member named `target` retains its htmx
+dispatch-target meaning.
+
+Invalid input, serialization failure, or marker failure leaves response state
+unchanged. The first successful Htmxor call replaces a manual `HX-Trigger`;
+subsequent calls merge only Htmxor-owned events. Success preserves fluent
+identity, status, and body behavior. The removed htmx 2 timing overload and
+timed headers stay removed.
+
+The third #154 slice retains raw
 `HtmxResponse.Reswap(string)` beside `Retarget(string)` and `Reselect(string)`,
 but removes `SwapStyle`, its typed overload, and its converter rather than
 turning an incomplete htmx 4 profile into a stable promise. The second #154
