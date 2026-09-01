@@ -212,6 +212,51 @@ from a header is untrusted.
 redirect, refresh, history updates, swap overrides, target overrides, response
 selection, and client events. It also controls status and an empty body.
 
+The second bounded
+[#154](https://github.com/egil/Htmxor/issues/154) slice makes the navigation
+choices current:
+
+| Operation | Wire result | Component output |
+| --- | --- | --- |
+| `Location(string/Uri)` | `HX-Location` | Suppressed |
+| `PushUrl(string/Uri)` | `HX-Push-Url` | Kept |
+| `PreventBrowserHistoryUpdate()` | `HX-Push-Url: false` | Kept |
+| `Redirect(string/Uri)` | `HX-Redirect` | Suppressed |
+| `Refresh()` | `HX-Refresh: true` | Suppressed |
+| `ReplaceUrl(string/Uri)` | `HX-Replace-Url` | Kept |
+| `PreventBrowserCurrentUrlUpdate()` | `HX-Replace-Url: false` | Kept |
+
+These examples are separate choices, not a chain. Each line belongs in a
+different callback or branch:
+
+```csharp
+args.Response.Location("/orders/42");
+args.Response.Redirect(new Uri("https://idp.example/login"));
+args.Response.ReplaceUrl("?page=2");
+```
+
+Destination overloads reject null, blank, surrounding whitespace, controls,
+and malformed URI references without trimming or repairing the value. `PushUrl`
+and `ReplaceUrl` also reject the reserved `true` and `false` history literals.
+Strings are emitted exactly as supplied; `Uri` overloads use
+`Uri.OriginalString`. Relative references are accepted. After resolution against
+the request, location, push, and replace destinations must be same-origin
+HTTP(S); `Redirect` also permits deliberate cross-origin HTTP(S). Destinations
+that resolve to non-HTTP(S) schemes are rejected.
+
+Arguments are validated before the strict htmx marker guard, and response state
+changes only after both checks succeed. Successful calls return the same
+`HtmxResponse` instance. The last navigation call clears the other navigation
+headers, writes one exact value, and replaces the previous automatic navigation
+body effect with its own. An explicit `EmptyBody()` remains independent from
+that automatic effect. Navigation calls do not change status, and htmx does not
+process these response headers on 3xx responses.
+
+For direct htmx rendering, `ForceLoad` plus `ReplaceHistoryEntry` emits one
+`HX-Redirect` to preserve the required full load and no conflicting
+`HX-Replace-Url`. This does not establish `ReplaceHistoryEntry` parity in browser
+history.
+
 Use the stock `HttpContext` for cookies, cache policy, general response headers,
 and other ASP.NET Core behavior. The first bounded
 [#154](https://github.com/egil/Htmxor/issues/154) slice recognizes only exactly
@@ -219,9 +264,10 @@ one `HX-Request` value whose surrounding HTTP spaces or tabs trim to lowercase
 `true`. Missing, blank, `false`, malformed, comma-joined, and repeated markers
 retain stock or not-found routing, ignore dependent htmx context, and cannot
 mutate response headers, status, or body-control state through the covered
-Htmxor operations. Later #154 slices still own status 286/`StopPolling`, naming,
-the other header value policies, response argument and body-effect rules,
-serialization, and extension headers.
+Htmxor operations. Later #154 slices still own status 286/`StopPolling`, request
+naming and remaining value policies, `Reswap`, `Retarget`, `Reselect`, trigger
+argument and serialization rules, extension headers, and the complete protocol
+matrix.
 
 ## Write htmx as htmx
 
@@ -232,8 +278,9 @@ without waiting for a Htmxor package release.
 Htmxor owns component routes, methods, callbacks, binding compatibility,
 antiforgery, fragment execution, and typed response headers. Htmx owns triggers,
 targets, selectors, swaps, indicators, confirmation, client events, and its
-extensions. General navigation, cache, and error policy remain application HTTP
-decisions.
+extensions. Htmxor enforces the navigation response's baseline URI, header, and
+body rules. Destination authorization and broader navigation, cache, and error
+policy remain application HTTP decisions.
 
 SSE, WebSocket, and multipart streaming use application endpoints. Streaming
 component responses remain outside v1. Other extensions pass through as markup
@@ -249,17 +296,20 @@ slice does not add an optional adapter package.
 Server-protocol operations remain distinct. `HtmxResponse.Trigger(...)` still
 writes `HX-Trigger`, and raw `HtmxResponse.Reswap(string)` still writes
 `HX-Reswap`. `SwapStyle`, `HtmxResponse.Reswap(SwapStyle, string?)`,
-`AjaxContext`, and `LocationTarget` remain. The first bounded #154 slice adds
-the missing request guard to raw `Reswap(string)` without redesigning those
-types. These package decisions do not claim that malformed-marker browser or
-extension behavior was executed.
+and the first #154 slice's missing request guard on raw `Reswap(string)` remain.
+The second #154 slice removes `Location(LocationTarget)`, `LocationTarget`, and
+`AjaxContext` because they did not accurately model htmx 4 and had no maintained
+consumer proving their value. `Location(Uri)` joins `Location(string)`; no
+replacement structured `HX-Location` model is introduced. These package
+decisions do not claim that malformed-marker browser or extension behavior was
+executed.
 
 ## V1 decisions still open
 
 - [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151)
 - [#152: make routes and actions explain themselves](https://github.com/egil/Htmxor/issues/152)
 - [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153)
-- [#154: finish the htmx 4 request and response API](https://github.com/egil/Htmxor/issues/154)
+- [#154: finish the remaining htmx 4 request and response API](https://github.com/egil/Htmxor/issues/154)
 
 Existing issues retain their scope. #145 is closed after proving no-argument
 registration at the root and through one standard route group. #148 owns the

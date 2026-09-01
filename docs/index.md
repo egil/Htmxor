@@ -5,7 +5,8 @@
 ## V1 design
 
 The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) documents the current
-registration pair and labels the remaining v1 APIs by status. The
+registration pair and navigation-response contract and labels the remaining v1
+APIs by status. The
 [developer experience review](research/htmxor-v1-dx-review.md) explains the
 remaining API decisions and links the issues that track them.
 
@@ -19,9 +20,9 @@ To create a minimal Blazor + htmx app with various examples, download the [Minim
 Htmxor v1 requires .NET 10. It does not support .NET 8, and it does not yet claim .NET 11 compatibility.
 
 The application supplies and configures the htmx runtime; Htmxor does not
-distribute one. Current browser evidence covers application-owned htmx 4.0.0
-GET, POST, PUT, PATCH, and DELETE paths described in the
-[v1 progress record](roadmap/v1/progress.md).
+distribute one. The [v1 progress record](roadmap/v1/progress.md) identifies the
+exact application-owned htmx 4.0.0 request and navigation operations exercised
+by current browser evidence and the dimensions that remain unproved.
 
 To start fresh from a (new) Blazor Web App project, follow these steps:
 
@@ -177,7 +178,68 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
     Note that we set up the custom layout for all components by defining the `[HtmxLayout(typeof(HtmxorLayout))]` attribute in the `_Imports.razor` file.
 
-## Response headers
+## Htmx navigation responses
+
+Inside a component callback, select one navigation response according to the
+browser behavior the application needs. These examples are separate choices,
+not a fluent chain; each line belongs in a different callback or branch:
+
+```csharp
+args.Response.Location("/orders/42");
+args.Response.Redirect(new Uri("https://idp.example/login"));
+args.Response.ReplaceUrl("?page=2");
+```
+
+The current navigation operations are:
+
+| Operation | Response header | Component output |
+| --- | --- | --- |
+| `Location(string/Uri)` | `HX-Location` | Suppressed |
+| `PushUrl(string/Uri)` | `HX-Push-Url` | Kept |
+| `PreventBrowserHistoryUpdate()` | `HX-Push-Url: false` | Kept |
+| `Redirect(string/Uri)` | `HX-Redirect` | Suppressed |
+| `Refresh()` | `HX-Refresh: true` | Suppressed |
+| `ReplaceUrl(string/Uri)` | `HX-Replace-Url` | Kept |
+| `PreventBrowserCurrentUrlUpdate()` | `HX-Replace-Url: false` | Kept |
+
+Destination overloads reject null, blank, surrounding whitespace, control
+characters, and malformed URI references without trimming or repairing them.
+`PushUrl` and `ReplaceUrl` also reject the reserved history literals `true` and
+`false`. String overloads preserve their exact text. `Uri` overloads emit
+`Uri.OriginalString` rather than a normalized `ToString()` value.
+
+Relative URI references are accepted. After resolution against the active
+request, destinations for `Location`, `PushUrl`, and `ReplaceUrl` must be
+same-origin HTTP(S), using that request's scheme, host, and effective port.
+`Redirect` also permits a deliberate destination that resolves to cross-origin
+HTTP(S). Destinations that resolve to non-HTTP(S) schemes are rejected. Htmxor
+enforces these baseline rules; the application still decides and authorizes
+which destinations its behavior may select.
+
+Destination arguments are validated first. Htmxor then requires exactly one
+lowercase `HX-Request: true` value after trimming surrounding HTTP spaces or
+tabs, and only then changes the response. A failed argument or marker check
+changes no response state. Every successful call returns the same
+`HtmxResponse` instance.
+
+Navigation operations are last-call-wins: a successful call clears the other
+navigation headers, writes one exact value, and replaces any earlier automatic
+navigation body effect with its own. `EmptyBody()` is independent, so an
+explicit empty-body choice remains in effect after a later push, replace, or
+prevent operation. Navigation operations do not change the status code. Htmx
+does not process these response headers on 3xx responses.
+
+For direct htmx rendering, a `NavigationManager` command that combines
+`ForceLoad` with `ReplaceHistoryEntry` produces one `HX-Redirect` to preserve the
+required full load. It does not also emit `HX-Replace-Url`, and Htmxor does not
+claim replace-history parity for that combination.
+
+The earlier `Location(LocationTarget)` overload and its `LocationTarget` and
+`AjaxContext` types have been removed because they did not model htmx 4
+accurately. No replacement structured `HX-Location` model is included in this
+slice.
+
+## Application response headers
 
 A static SSR component can set an application response header through the
 standard cascading `HttpContext`. Do so during parameter or initialization

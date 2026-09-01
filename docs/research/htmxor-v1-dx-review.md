@@ -1,7 +1,8 @@
 # Htmxor v1 developer experience review
 
 - Review date: 2026-08-31
-- Repository baseline: `4415863e225636d489cca2b375fb83fad583b4f5`
+- Living-document update: 2026-09-01
+- Original repository baseline: `4415863e225636d489cca2b375fb83fad583b4f5`
 - Starting discussion: [#143, "WIP: new devex"](https://github.com/egil/Htmxor/discussions/143)
 - Product contract: [Htmxor v1 goal](../roadmap/v1/goal.md)
 - Feature inventory: [Htmxor v1 guide and htmx 4 map](../htmxor-v1-feature-guide.md)
@@ -10,6 +11,9 @@
 - Client-helper update: the second bounded slice of #151 removes the incomplete
   trigger, swap, and constants helpers from the stable core; the broader issue
   remains open
+- Navigation-response update: the second bounded slice of #154 consolidates the
+  seven navigation choices, removes the inaccurate structured location
+  prototype, and leaves the broader request/response issue open
 
 ## Verdict
 
@@ -95,7 +99,7 @@ behavior.
 | Several fragments | Lambdas and render flags hide the result | Select an ordered set of names once per response | Missing |
 | OOB and partial delivery | Native htmx markup already expresses it | Do not add another Htmxor component hierarchy | Keep |
 | Request data | Strict `HX-Request` marker handling is current | Finish parsing and naming for the remaining request data | Finish |
-| Response operations | The covered core marker guard is current | Finish validation, status 286, and body rules | Finish |
+| Response operations | The strict marker guard and navigation-response subset are current | Finish the remaining request/response operations, status 286, and extension contract | Navigation current; broader issue open |
 | Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
 | Trigger and swap helpers | Native markup and open strings avoid a closed Htmxor profile | Remove the incomplete helpers from core v1 | Removed in the second #151 slice |
 | Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
@@ -223,31 +227,60 @@ hatch for application-selected and extension-provided syntax.
 
 Adding the missing 4.0.0 constants by hand would only postpone the next drift.
 Typed response helpers are different: they serialize response headers and
-coordinate status and body behavior that Razor markup cannot express. The slice
-therefore preserves `HtmxResponse.Trigger(...)` and raw
-`HtmxResponse.Reswap(string)`. It also preserves `SwapStyle`,
-`HtmxResponse.Reswap(SwapStyle, string?)`, `AjaxContext`, and `LocationTarget`
-unchanged for #154. These are server-protocol and serialization decisions, not
-browser-conformance evidence.
+coordinate status and body behavior that Razor markup cannot express. The
+second #151 slice therefore preserves `HtmxResponse.Trigger(...)`, raw
+`HtmxResponse.Reswap(string)`, `SwapStyle`, and
+`HtmxResponse.Reswap(SwapStyle, string?)`. These remain server-protocol and
+serialization decisions, not browser-conformance evidence.
+
+The second #154 slice separately removes `Location(LocationTarget)`,
+`LocationTarget`, and `AjaxContext`. Their structured shape did not model htmx 4
+accurately, and no maintained consumer demonstrated a reason to keep it. The
+slice adds `Location(Uri)` beside `Location(string)` and deliberately does not
+invent a replacement structured `HX-Location` model.
 
 ### 6. The HTTP context needs one set of rules
 
 `HtmxContext` with `Request` and `Response` is easy to learn. Its details need a
-final pass:
+final pass. Two bounded parts are current:
 
 - the first bounded #154 slice now recognizes only exactly one normalized
   `HX-Request: true`, ignores dependent context for every invalid marker shape,
   and applies that classifier to the covered core response operations,
-  including raw `Reswap(string)`;
-- use .NET acronym casing such as `CurrentUrl`, `PushUrl`, and `ReplaceUrl`;
-- finish the value policy for the other boolean and structured headers;
-- mark every header-derived value as untrusted;
-- type all seven core request headers and all nine core response headers;
+  including raw `Reswap(string)`; and
+- the second bounded #154 slice gives `Location`, `PushUrl`, both prevent
+  methods, `Redirect`, `Refresh`, and `ReplaceUrl` one navigation contract.
+
+The navigation family validates destination arguments before the strict marker
+guard and mutates nothing on failure. It rejects null, blank, surrounding
+whitespace, controls, and malformed URI references without trimming or
+repairing them. Push and replace also reject the reserved history literals
+`true` and `false`. The family preserves exact string text and
+`Uri.OriginalString` and accepts relative references. After resolution against
+the request, location and history destinations must be same-origin HTTP(S),
+non-HTTP(S) schemes are rejected, and only `Redirect` permits deliberate
+cross-origin HTTP(S). A successful call returns the same response, clears the
+other navigation headers, emits one exact value, and applies the operation's
+body effect. `Location`, `Redirect`, and `Refresh` suppress component output;
+push, replace, and both prevent methods keep it. Explicit `EmptyBody()` remains
+independent. Navigation calls do not change the status, and htmx does not
+process their headers on 3xx responses.
+
+The renderer's `ForceLoad` plus `ReplaceHistoryEntry` case now emits one
+`HX-Redirect` to retain the full load and no conflicting `HX-Replace-Url`. This
+does not establish `ReplaceHistoryEntry` browser-history parity.
+
+The remaining pass must:
+
+- use .NET acronym casing such as `CurrentUrl` for the remaining request API;
+- finish the value policy for the other boolean and structured request headers;
+- keep every header-derived value documented as untrusted;
+- finish `Reswap`, `Retarget`, `Reselect`, and trigger argument, merge,
+  serialization, overwrite, and body rules;
 - provide validated APIs for extension request and response headers;
-- give every response method the same request guard, argument checks, fluent
-  return, URL overload policy, and documented body effect;
-- decide status 286 and `StopPolling` under the remaining response contract; and
-- remove or prove protocol behavior carried forward from older htmx versions.
+- decide status 286 and `StopPolling`; and
+- remove or prove other protocol behavior carried forward from older htmx
+  versions.
 
 General HTTP belongs on `HttpContext`. Htmxor does not need wrappers for cookies,
 ETags, content language, or ASP.NET Core output-cache policy.
@@ -257,8 +290,8 @@ ETags, content language, or ASP.NET Core output-cache policy.
 The current package mixes authoring types with renderer, generator, and
 prototype types. Examples include `IHtmxorComponentEndpointInvoker`, generated
 action request types, `ConditionalComponentBase`, `IConditionalRender`,
-`HtmxorNavigationException`, `AjaxContext`, the client helper internals, and
-prototype layout and async components.
+`HtmxorNavigationException`, the client helper internals, and prototype layout
+and async components.
 
 V1 needs a reviewed public allow-list:
 
@@ -280,7 +313,10 @@ decision; the rest of this allow-list and exported-member review remains open.
 Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
 ideas that still need API decisions. Registration and QUERY now have bounded
 proof through #145 and #111, while the first two #151 slices make the consistent
-registration names and native-markup client-helper decision current.
+registration names and native-markup client-helper decision current. The first
+two #154 slices make strict request classification and the navigation-response
+subset current. Navigation examples must show separate choices or branches, not
+a chain that suggests several navigation headers are emitted together.
 Multi-fragment selection and optional extension use still need explicit status
 labels.
 
@@ -297,7 +333,7 @@ does not prove browser or extension compatibility.
 | Request verbs, forms, values, validation | Htmxor owns server access, callback execution, binding compatibility, and antiforgery. Native htmx starts the request. |
 | Triggers, synchronization, confirmation, indicators | These stay in client markup. Server code must tolerate duplicates, cancellation, and overlap. |
 | Targets, selectors, swaps, OOB, partials | Htmxor selects server output. Htmx chooses DOM delivery. |
-| History, boost, redirects, statuses, caching | Preserve HTTP and representation rules. The application chooses navigation and cache policy. |
+| History, boost, redirects, statuses, caching | Htmxor enforces the typed navigation wire, baseline URI policy, one-header rule, and body effect. The application authorizes destinations and chooses broader navigation and cache policy. |
 | Events, JavaScript, configuration, CSS, extensions | The application owns the client code. Htmxor only needs protocol APIs for data the server must read or write. |
 
 This split lets an application adopt a new htmx client feature without waiting
@@ -310,7 +346,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 | [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Retain the selected registration names and the decision to remove client helpers; still approve the complete public allow-list, review exported members, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
-| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Normalize names and validation, cover core headers, add extension headers, and test exact HTTP input and output |
+| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification and the navigation-response subset are current; remaining names, request values, response operations, status 286, and extension headers stay open |
 
 Existing issues keep their current scope:
 

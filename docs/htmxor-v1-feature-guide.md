@@ -1,8 +1,8 @@
 # Htmxor v1 guide and htmx 4 map
 
-Status: design draft for the planned Htmxor v1 API. The registration names and
-client-helper decision below are current; other proposed APIs remain labeled as
-proposals.
+Status: design draft for the planned Htmxor v1 API. The registration names,
+client-helper decision, and navigation-response contract below are current;
+other proposed APIs remain labeled as proposals.
 
 The [v1 goal](roadmap/v1/goal.md) is the authority when this guide and the
 current code differ. The [v1 progress record](roadmap/v1/progress.md) says which
@@ -359,16 +359,62 @@ headers.
 
 ### Response operations
 
-The response API covers all core htmx 4 response headers plus HTTP status and
-body control:
+The response API covers the core htmx 4 response headers plus HTTP status and
+body control. The second bounded
+[#154](https://github.com/egil/Htmxor/issues/154) slice makes these navigation
+operations one current contract:
+
+| Operation | Wire result | Component output | Use |
+| --- | --- | --- | --- |
+| `Location(string/Uri)` | `HX-Location: <uri-reference>` | Suppressed | Make a new htmx request without a full page reload |
+| `PushUrl(string/Uri)` | `HX-Push-Url: <uri-reference>` | Kept | Push a history entry and process the returned component output normally |
+| `PreventBrowserHistoryUpdate()` | `HX-Push-Url: false` | Kept | Prevent a history push while processing the returned component output |
+| `Redirect(string/Uri)` | `HX-Redirect: <uri-reference>` | Suppressed | Perform a full browser navigation |
+| `Refresh()` | `HX-Refresh: true` | Suppressed | Refresh the current page |
+| `ReplaceUrl(string/Uri)` | `HX-Replace-Url: <uri-reference>` | Kept | Replace the current history entry and process the returned component output normally |
+| `PreventBrowserCurrentUrlUpdate()` | `HX-Replace-Url: false` | Kept | Prevent current-URL replacement while processing the returned component output |
+
+Each destination overload rejects null, blank, surrounding whitespace, control
+characters, and malformed URI references; it does not trim or repair the input.
+`PushUrl` and `ReplaceUrl` also reject the reserved history literals `true` and
+`false`. A string is emitted exactly as supplied. A `Uri` is emitted through
+`Uri.OriginalString`, preserving the caller's URI text rather than a normalized
+`ToString()` value.
+
+Every destination permits relative URI references. After resolution against the
+active request, `Location`, `PushUrl`, and `ReplaceUrl` must use HTTP or HTTPS
+with the same scheme, host, and effective port as that request. `Redirect`
+deliberately permits a destination that resolves to cross-origin HTTP or HTTPS.
+Every destination overload rejects a destination that resolves to a non-HTTP(S)
+scheme.
+
+Destination arguments are validated before Htmxor checks the request marker.
+All seven operations then require exactly one lowercase `HX-Request: true` after
+trimming surrounding HTTP spaces or tabs, and mutate no response state when
+either check fails. A successful call returns the same `HtmxResponse` instance.
+
+The last successful navigation call wins: it clears the other core navigation
+headers before writing one exact value, and its automatic component-body effect
+replaces the previous navigation operation's effect. `EmptyBody()` is
+independent; once explicitly selected it continues to suppress component output
+even if a later push, replace, or prevent operation would otherwise keep it.
+Navigation operations do not change the response status code. Htmx does not
+process these response headers on a 3xx response, so a response that expects htmx
+to act on one must use an appropriate non-3xx status.
+
+These are separate choices, not a chain; each line belongs in a different
+callback or branch:
+
+```csharp
+args.Response.Location("/orders/42");
+args.Response.Redirect(new Uri("https://idp.example/login"));
+args.Response.ReplaceUrl("?page=2");
+```
+
+The other currently exposed server response operations are:
 
 | Operation | Wire result | Use |
 | --- | --- | --- |
-| `Location(...)` | `HX-Location` | Client-side navigation without a full reload |
-| `PushUrl(...)` / prevent history update | `HX-Push-Url` | Push a URL or send `false` |
-| `Redirect(...)` | `HX-Redirect` | Full browser navigation |
-| `Refresh()` | `HX-Refresh: true` | Full page refresh |
-| `ReplaceUrl(...)` / prevent current-URL update | `HX-Replace-Url` | Replace a URL or send `false` |
 | `Reswap(...)` | `HX-Reswap` | Override the swap style and modifiers |
 | `Retarget(...)` | `HX-Retarget` | Override the target selector |
 | `Reselect(...)` | `HX-Reselect` | Override response selection |
@@ -376,22 +422,20 @@ body control:
 | `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics |
 | `EmptyBody()` | Empty HTTP body | Return only status, headers, cookies, and other metadata |
 
-The second bounded #151 slice preserves `HtmxResponse.Trigger(...)` and
-`HtmxResponse.Reswap(string)` because they write server-owned response headers;
-they are not client attribute-authoring helpers. It also preserves `SwapStyle`,
-`HtmxResponse.Reswap(SwapStyle, string?)`, `AjaxContext`, and `LocationTarget`
-unchanged for #154 to decide with the complete response contract. The raw
-overload remains the escape hatch for application-selected or extension-provided
-swap values. The first bounded #154 slice makes the raw overload use the same
-request guard as the other covered operations.
+The second bounded #151 slice preserves `HtmxResponse.Trigger(...)`, raw
+`HtmxResponse.Reswap(string)`, `SwapStyle`, and
+`HtmxResponse.Reswap(SwapStyle, string?)` because they remain server-protocol
+operations rather than client attribute-authoring helpers. The raw overload is
+the escape hatch for application-selected or extension-provided swap values. The
+first bounded #154 slice makes it use the same strict request guard as the other
+covered operations.
 
-The covered core response operations reject use unless the request contains
-exactly one lowercase `HX-Request: true` after trimming HTTP spaces or tabs;
-rejection occurs before response headers, status, or body-control state changes.
-Status 286/`StopPolling`, argument policy, exception ordering, URL validation,
-body-effect documentation, trigger merging, and
-extension response headers remain later #154 work. The application must still
-validate navigation URLs where local-only navigation is required.
+The second bounded #154 slice removes `Location(LocationTarget)`,
+`LocationTarget`, and `AjaxContext`; they did not model htmx 4 accurately, and no
+replacement structured `HX-Location` model is added. `Reswap`, `Retarget`,
+`Reselect`, trigger serialization, status 286/`StopPolling`, remaining request
+parsing and naming, extension headers, and the complete protocol matrix remain
+later #154 work.
 
 ## Htmx 4 attribute reference
 
@@ -500,8 +544,8 @@ be used where another tool cannot.
 
 | Attribute | htmx behavior | Server work |
 | --- | --- | --- |
-| `hx-push-url` | Push `true`, `false`, or a URL | Return a restorable full-page URL. `HX-Push-Url` may override it. |
-| `hx-replace-url` | Replace `true`, `false`, or a URL | Return a restorable full-page URL. `HX-Replace-Url` may override it. |
+| `hx-push-url` | Push `true`, `false`, or a URL | Return a restorable full-page URL. `PushUrl(...)` may override it with a validated URL; `PreventBrowserHistoryUpdate()` sends `false`. |
+| `hx-replace-url` | Replace `true`, `false`, or a URL | Return a restorable full-page URL. `ReplaceUrl(...)` may override it with a validated URL; `PreventBrowserCurrentUrlUpdate()` sends `false`. |
 | `hx-history-elt` | Select the element restored during history navigation | The server still returns the representation indicated by the request type. Keep its identity stable. |
 | `hx-history` | Opt out of the history-cache extension with `false` | This belongs to the optional history-cache extension, not Htmxor authorization or caching. |
 
@@ -700,9 +744,21 @@ cookies, and status semantics still matter.
 
 Choose among `HX-Location`, `HX-Redirect`, `HX-Refresh`, `HX-Push-Url`, and
 `HX-Replace-Url` according to whether the browser should make an htmx request,
-perform a full navigation, refresh, or only mutate history. Test authentication
-challenges and return URLs; a response header is not a substitute for endpoint
-authorization.
+perform a full navigation, refresh, or mutate history while processing the
+current response. `Location`, `Redirect`, and `Refresh` suppress component
+output. Push, replace, and both prevent operations keep it. The last navigation
+operation controls this automatic choice, while an explicit `EmptyBody()` stays
+in effect independently.
+
+These operations leave the response status unchanged, and htmx does not process
+their headers on a 3xx response. Test authentication challenges and return URLs;
+URI validation and a response header are not substitutes for endpoint
+authorization or an application decision that the destination is allowed.
+
+When the renderer handles `NavigationManager` with both `ForceLoad` and
+`ReplaceHistoryEntry`, it preserves the required full load with one
+`HX-Redirect`. It does not also emit `HX-Replace-Url`, and this bounded decision
+does not claim `ReplaceHistoryEntry` parity in browser history.
 
 ## Htmx HTTP headers
 
@@ -726,11 +782,11 @@ must not elevate any of them to authentication or authorization evidence.
 
 | Header | Htmxor operation |
 | --- | --- |
-| `HX-Location` | `HtmxResponse.Location(...)` |
-| `HX-Push-Url` | `PushUrl(...)` or prevent history update |
-| `HX-Redirect` | `Redirect(...)` |
+| `HX-Location` | `HtmxResponse.Location(string/Uri)` |
+| `HX-Push-Url` | `PushUrl(string/Uri)` or `PreventBrowserHistoryUpdate()` |
+| `HX-Redirect` | `Redirect(string/Uri)` |
 | `HX-Refresh` | `Refresh()` |
-| `HX-Replace-Url` | `ReplaceUrl(...)` or prevent current-URL update |
+| `HX-Replace-Url` | `ReplaceUrl(string/Uri)` or `PreventBrowserCurrentUrlUpdate()` |
 | `HX-Reswap` | `Reswap(...)` |
 | `HX-Retarget` | `Retarget(...)` |
 | `HX-Reselect` | `Reselect(...)` |
@@ -739,6 +795,8 @@ must not elevate any of them to authentication or authorization evidence.
 Use the static-SSR `HttpContext` for application headers, cookies, status codes,
 and cache headers before the response starts. Htmxor does not need wrappers for
 `Content-Language`, ETag, `Cache-Control`, or other general HTTP features.
+The five navigation headers above are mutually exclusive: the last successful
+navigation operation leaves exactly one of them on the response.
 
 ## Events, JavaScript, CSS, and configuration
 
@@ -909,7 +967,10 @@ methods.
   `hx-on` require evaluated or inline script capabilities; strict-CSP apps should
   use external listeners and the application-owned `hx-csp` strategy where
   appropriate.
-- Validate redirect/history URLs against the application's open-redirect policy.
+- Htmxor rejects malformed or non-HTTP(S) navigation destinations and restricts
+  location and history operations to the active request origin. The application
+  must still authorize which same-origin paths and deliberate cross-origin
+  redirect destinations its own behavior may select.
 
 ### Concurrency and cancellation
 
@@ -967,8 +1028,11 @@ through.
 
 The current repository contains useful prototypes and evidence. The first two
 bounded #151 slices make the registration names current and remove the
-incomplete client trigger, swap, and constants helpers from the stable core.
-Other parts of the public API do not yet match this guide:
+incomplete client trigger, swap, and constants helpers from the stable core. The
+first two bounded #154 slices add the strict request classifier and the
+navigation-response contract above, including removal of the inaccurate
+structured location prototype. Other parts of the public API do not yet match
+this guide:
 
 - `HtmxRoute` exposes target/current-URL properties that the current source
   generator rejects on the v1 path;

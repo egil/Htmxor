@@ -2005,9 +2005,114 @@ and is not required for this bounded slice.
 Status 286/`StopPolling`, `IsBoosted` and history-restore value parsing,
 `CurrentURL` naming, URI/source/target/request-type redesign, response argument
 and URL validation, exception ordering, trigger merging and serialization,
-extension headers, and the complete protocol matrix remain deferred. Issue #154
-stays open. The recommended next bounded slice is the navigation-response
-contract: on one valid marker, prove argument validation, fluent return, exact
-headers, and documented body effects for location, redirect, refresh, push URL,
-and replace URL through a packed consumer and the necessary htmx 4 browser
-paths. No human decision is required before reviewing this completed slice.
+extension headers, and the complete protocol matrix remained deferred at that
+head. Issue #154 stayed open, and the recommended next bounded slice was the
+navigation-response contract recorded below.
+
+### Consolidated navigation-response contract
+
+The second bounded slice of issue #154 protects this behavior:
+
+> When a valid htmx request asks component code for navigation, Htmxor emits one
+> validated navigation response with exact URI text and the documented body
+> effect; competing calls resolve last-call-wins without leaking conflicting
+> headers.
+
+The exact freshly fetched base was
+`e1696a4674d766ba6889d4ef94c005a93ee588a7`, the squash merge of PR #158.
+The test-only tree is preserved at
+`96a8c30b99ab28d1e3bcd594535e9f0d53f239b9`. Its focused core and renderer
+selection compiled and executed 44 tests: 23 passed and 21 failed. The failures
+observed missing validation and `Location(Uri)`, retained prototype types,
+normalized `Uri` output, conflicting navigation headers, sticky automatic body
+state, and the renderer's extra replacement header. The separately packed
+`net10.0` consumer compiled and executed 47 tests: 37 passed and 10 failed on
+the corresponding public API, TestServer body, header, and validation behavior.
+The exact red commit's package-only Kestrel/Chromium run compiled, published,
+and executed 27 inner tests: 24 passed and 3 failed because location and redirect
+responses retained component output and a navigation chain retained all five
+headers. These were behavioral failures after successful build, host startup,
+browser launch, discovery, and execution.
+
+Exact clean executable commit
+`ae994a3d4335a736b45454603a23ba26fd594448` consolidates
+`Location`, `PushUrl`, both history-prevention methods, `Redirect`, `Refresh`,
+and `ReplaceUrl`. Destination overloads validate before the strict marker guard,
+preserve exact strings or `Uri.OriginalString`, resolve relative references
+against the request, enforce the documented HTTP(S) origin rules, and mutate
+only after both checks pass. Each successful call returns the same response,
+clears all five core navigation headers, writes one value, and replaces the
+prior automatic body effect. Explicit `EmptyBody()` remains independently
+suppressing, and navigation calls leave status unchanged.
+
+The stock Razor component renderer receives a request-scoped, non-owning
+conditional response stream before it caches its writer. It therefore honors
+the response body's final navigation state without replacing the framework
+renderer or changing the legacy invoker. `ForceLoad` plus
+`ReplaceHistoryEntry` emits one `HX-Redirect` for the required full load and no
+conflicting `HX-Replace-Url`; this slice does not claim replacement-history
+parity. `Location(LocationTarget)`, `LocationTarget`, `AjaxContext`, and their
+now-unused serialization helpers are removed without inventing a replacement
+structured location model.
+
+At that exact clean executable head:
+
+- the focused core and renderer command passed 44 of 44 tests;
+- the separately packed public consumer command passed 1 of 1 outer tests and
+  asserted 47 of 47 inner TestServer tests;
+- the adjacent actionless packed consumer passed 1 of 1 outer tests and asserted
+  49 of 49 inner tests, retaining generated-route antiforgery behavior;
+- the package-only Kestrel/Chromium command passed 1 of 1 outer tests and
+  asserted 27 of 27 inner tests against application-owned htmx 4.0.0;
+- the fast profile passed 452 of 452 tests: 117 quality, 45 ASP.NET Core 10, and
+  290 core tests; and
+- the full profile passed 455 of 455 tests: 118 quality, 45 ASP.NET Core 10, and
+  292 core/browser tests. Its analyzer and style gates passed, the Release build
+  completed with zero warnings and errors, and two fresh matching nonempty
+  Cobertura reports have SHA-256
+  `757D25A21D8E6A5D4A587E8D80394B227FB4C9E9A712968AA9B7C3BB572DE84D`.
+
+The exact executable commands were:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxorRendererNavigationTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-navigation-unit-executable.trx" --results-directory artifacts/results/issue-154-navigation-unit-executable --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-navigation-packed-executable.trx" --results-directory artifacts/results/issue-154-navigation-packed-executable --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_preserves_actionless_unsafe_route_antiforgery --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-navigation-packed-actionless-executable.trx" --results-directory artifacts/results/issue-154-navigation-packed-actionless-executable --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-navigation-htmx4-executable.trx" --results-directory artifacts/results/issue-154-navigation-htmx4-executable --verbosity minimal
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
+```
+
+The first full-profile attempt was setup failure rather than product evidence:
+six stale harness workspaces filled `/tmp` while Playwright was copied into a
+temporary publish. Removing only those disposable generated workspaces restored
+6.5 GB. A subsequent full run passed the quality and ASP.NET Core 10 projects
+but one legacy event-handler E2E assertion timed out with stale text; the exact
+isolated test immediately passed 1 of 1 with the same binaries. The final
+complete full-profile run above is the acceptance result.
+
+This proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Linux under WSL2, local
+unsigned `net10.0` packages, TestServer, real Kestrel, Microsoft Playwright
+1.62.0, cached Chrome for Testing 151.0.7922.34, and the application-owned htmx
+4.0.0 asset with SHA-256
+`E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
+It proves exact response serialization and state through the packed public
+boundary, stock-renderer body suppression, normal htmx swaps, location,
+redirect, refresh, push, replace, both prevention operations, and forced full
+load behavior. Cross-origin redirect is covered at validation and packed API
+boundaries, not through an external browser destination.
+
+It does not exercise fresh browser or SDK provisioning, TLS, Windows, macOS,
+Firefox, WebKit, a NuGet-published or signed package, .NET 11, another framework
+or htmx version, proxies, containers, external services, performance, streaming
+fragment output, boosted-navigation rewriting, arbitrary user-authored
+`Content-Length`, or replacement-history parity. Full-scope mutation was not
+run and is not required for this ordinary pull-request slice.
+
+Issue #154 remains open. The recommended next bounded slice is the remaining
+swap-and-selection response family: define argument validation, strict guard
+ordering, fluent identity, exact overwrite rules, status/body behavior, and a
+packed-consumer boundary for `Reswap`, `Retarget`, and `Reselect`. Trigger
+merging and serialization, status 286/`StopPolling`, remaining request parsing
+and naming, extension headers, and the complete protocol matrix remain separate
+work. No human decision is required before reviewing this completed slice.
