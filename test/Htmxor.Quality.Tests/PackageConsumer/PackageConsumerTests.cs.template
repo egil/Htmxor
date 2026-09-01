@@ -479,29 +479,38 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		var response = new HtmxResponse(context);
 		var explicitOptions = new JsonSerializerOptions
 		{
+			Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
 			PropertyNamingPolicy = JsonNamingPolicy.KebabCaseLower,
 			WriteIndented = true,
 		};
+		var nullOptions = new JsonSerializerOptions();
+		nullOptions.Converters.Add(new NullTriggerDetailConverter());
 
 		var result = response
 			.Trigger("plain,event")
 			.Trigger(unsafeEventName, new { MessageLevel = "application" })
+			.Trigger("serializedNull", new NullTriggerDetail(), nullOptions)
 			.Trigger("CaseEvent")
 			.Trigger("caseEvent", new { MessageLevel = "lower-case-distinct" })
 			.Trigger("replaceEvent", new { MessageLevel = "discarded" })
 			.Trigger("tailEvent")
 			.Trigger("replaceEvent", new { MessageLevel = "final" })
-			.Trigger("overrideEvent", new { MessageLevel = "per-call" }, explicitOptions);
+			.Trigger(
+				"overrideEvent",
+				new { MessageLevel = "per-call", UnsafeValue = "<café>&" },
+				explicitOptions);
 
 		var expected =
 			"{\"plain,event\":{}," +
 			JsonSerializer.Serialize(unsafeEventName) +
 			":{\"message_level\":\"application\"}," +
+			"\"serializedNull\":{}," +
 			"\"CaseEvent\":{}," +
 			"\"caseEvent\":{\"message_level\":\"lower-case-distinct\"}," +
 			"\"replaceEvent\":{\"message_level\":\"final\"}," +
 			"\"tailEvent\":{}," +
-			"\"overrideEvent\":{\"message-level\":\"per-call\"}}";
+			"\"overrideEvent\":{\"message-level\":\"per-call\"," +
+			"\"unsafe-value\":\"\\u003Ccaf\\u00E9\\u003E\\u0026\"}}";
 		Assert.Same(response, result);
 		Assert.Equal(
 			expected,
@@ -1269,6 +1278,25 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 
 	private sealed class ThrowingTriggerDetail
 	{
+	}
+
+	private sealed class NullTriggerDetail
+	{
+	}
+
+	private sealed class NullTriggerDetailConverter : JsonConverter<NullTriggerDetail>
+	{
+		public override NullTriggerDetail Read(
+			ref Utf8JsonReader reader,
+			Type typeToConvert,
+			JsonSerializerOptions options)
+			=> throw new NotSupportedException();
+
+		public override void Write(
+			Utf8JsonWriter writer,
+			NullTriggerDetail value,
+			JsonSerializerOptions options)
+			=> writer.WriteNullValue();
 	}
 
 	private sealed class ThrowingTriggerDetailConverter : JsonConverter<ThrowingTriggerDetail>
