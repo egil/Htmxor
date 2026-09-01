@@ -11,6 +11,6 @@ internal static class HtmxRequestMarkerClassifier
 		return headers.TryGetValue(HtmxRequestHeaderNames.HtmxRequest, out var values)
 			&& values.Count == 1
 			&& values[0] is string value
-			&& string.Equals(value.Trim(' ', '\t'), "true", StringComparison.Ordinal);
+			&& value.AsSpan().Trim([' ', '\t']).SequenceEqual("true");
 	}
 }

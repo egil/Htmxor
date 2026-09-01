@@ -21,7 +21,6 @@ public class HtmxResponseTests : BunitContext
 			RequestServices = services.BuildServiceProvider()
 		};
 		result.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
-		result.GetHtmxContext();
 		return result;
 	}
 
@@ -56,7 +55,7 @@ public class HtmxResponseTests : BunitContext
 						new Microsoft.Extensions.Primitives.StringValues(markerValues);
 				}
 
-				var response = new HtmxResponse(context);
+				var response = context.GetHtmxContext().Response;
 
 				Assert.Throws<InvalidOperationException>(() => operation(response));
 				Assert.Empty(context.Response.Headers);
