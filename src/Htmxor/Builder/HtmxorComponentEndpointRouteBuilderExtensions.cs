@@ -180,15 +180,12 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			generatedActions);
 		AddRouteProcessorMetadata(endpointBuilder, generatedRoute, endpointActions);
 		AddActionMetadata(endpointBuilder, endpointActions.ToArray());
-		if (endpointActions.Count > 0 || generatedRoute.HttpMethods.Any(IsUnsafeMethod))
-		{
-			var renderDelegate = endpointBuilder.RequestDelegate
-				?? throw new InvalidOperationException("An HTMX-only component endpoint must have a request delegate.");
-			endpointBuilder.RequestDelegate = context => InvokeGeneratedEndpoint(
-				context,
-				renderDelegate,
-				endpointActions);
-		}
+		var renderDelegate = endpointBuilder.RequestDelegate
+			?? throw new InvalidOperationException("An HTMX-only component endpoint must have a request delegate.");
+		endpointBuilder.RequestDelegate = context => InvokeGeneratedEndpoint(
+			context,
+			renderDelegate,
+			endpointActions);
 
 		endpointBuilder.DisplayName =
 			$"{generatedRoute.NormalizedRoute} ({generatedRoute.ComponentType.Name}) (HTMX-only component)";
@@ -330,7 +327,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 		context.Response.StatusCode = StatusCodes.Status200OK;
 		context.Response.Headers.Remove("Location");
-		context.Response.Headers[HtmxResponseHeaderNames.Redirect] = location;
+		context.GetHtmxContext().Response.Redirect(redirectUri);
 	}
 
 	private static bool HasSameOrigin(HttpRequest request, Uri redirectUri)
@@ -394,7 +391,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		var routeProcessor = selectedEndpoint.Metadata.GetMetadata<HtmxorRouteProcessorMetadata>();
 		if (routeProcessor is null)
 		{
-			await renderDelegate(context);
+			await InvokeRenderEndpoint(context, renderDelegate);
 			return;
 		}
 
@@ -405,7 +402,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			routeProcessor.ProcessorType));
 		try
 		{
-			await renderDelegate(context);
+			await InvokeRenderEndpoint(context, renderDelegate);
 		}
 		finally
 		{
@@ -467,7 +464,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			componentType: null));
 		try
 		{
-			await stockRequestDelegate(context);
+			await InvokeRenderEndpoint(context, stockRequestDelegate);
 		}
 		finally
 		{
@@ -484,7 +481,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			.RoutePattern;
 		if (ReferenceEquals(authoredRoutePattern, selectedEndpoint.RoutePattern))
 		{
-			await stockRequestDelegate(context);
+			await InvokeRenderEndpoint(context, stockRequestDelegate);
 			return;
 		}
 		var stockEndpoint = CreateEndpoint(
@@ -494,11 +491,33 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		context.SetEndpoint(stockEndpoint);
 		try
 		{
-			await stockRequestDelegate(context);
+			await InvokeRenderEndpoint(context, stockRequestDelegate);
 		}
 		finally
 		{
 			context.SetEndpoint(selectedEndpoint);
+		}
+	}
+
+	private static async Task InvokeRenderEndpoint(HttpContext context, RequestDelegate renderDelegate)
+	{
+		var htmxContext = context.GetHtmxContext();
+		if (!htmxContext.Request.IsHtmxRequest)
+		{
+			await renderDelegate(context);
+			return;
+		}
+
+		var response = context.Response;
+		var originalBody = response.Body;
+		response.Body = new ConditionalResponseBodyStream(originalBody, htmxContext.Response);
+		try
+		{
+			await renderDelegate(context);
+		}
+		finally
+		{
+			response.Body = originalBody;
 		}
 	}
 
