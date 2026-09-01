@@ -12,6 +12,7 @@ public sealed class HtmxRequestTests
 	[InlineData("TRUE")]
 	[InlineData("invalid")]
 	[InlineData("true,false")]
+	[InlineData("\rtrue\r")]
 	public void Invalid_request_marker_ignores_dependent_context(string? marker)
 	{
 		var context = new DefaultHttpContext();
@@ -55,6 +56,7 @@ public sealed class HtmxRequestTests
 	}
 
 	[Theory]
+	[InlineData("\ttrue\t")]
 	[InlineData("true")]
 	[InlineData(" true ")]
 	public void One_normalized_true_marker_enables_dependent_context(string marker)

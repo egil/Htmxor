@@ -27,7 +27,9 @@ public static class HtmxRequestHeaderNames
 	public const string RequestType = "HX-Request-Type";
 
 	/// <summary>
-	/// Always <see langword="true" />.
+	/// An untrusted request marker. Htmxor recognizes exactly one lowercase
+	/// <see langword="true" /> value after trimming surrounding HTTP optional whitespace;
+	/// other shapes do not select htmx behavior.
 	/// </summary>
 	public const string HtmxRequest = "HX-Request";
 

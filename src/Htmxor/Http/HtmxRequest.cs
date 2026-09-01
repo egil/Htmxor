@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Http;
 
 namespace Htmxor.Http;
 
+/// <summary>
+/// Provides request data derived from untrusted htmx request headers.
+/// </summary>
 public sealed class HtmxRequest
 {
 	/// <summary>
@@ -20,7 +23,10 @@ public sealed class HtmxRequest
 	public PathString Path { get; }
 
 	/// <summary>
-	/// Gets whether or not the current request is an Htmx triggered request.
+	/// Gets whether the request has exactly one <c>HX-Request</c> value that equals lowercase
+	/// <c>true</c> after trimming surrounding HTTP optional whitespace (space or tab). Missing,
+	/// blank, false, malformed, comma-joined, and repeated values return <see langword="false"/>
+	/// and do not expose dependent htmx context.
 	/// </summary>
 	public bool IsHtmxRequest { get; }
 
@@ -68,7 +74,7 @@ public sealed class HtmxRequest
 		ArgumentNullException.ThrowIfNull(context);
 		Method = context.Request.Method;
 		Path = context.Request.Path;
-		var isHtmx = IsHtmxRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HtmxRequest);
+		var isHtmx = IsHtmxRequest = HtmxRequestMarkerClassifier.IsHtmxRequest(context.Request.Headers);
 
 		if (!isHtmx)
 		{

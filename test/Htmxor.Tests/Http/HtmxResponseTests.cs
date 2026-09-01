@@ -38,6 +38,7 @@ public class HtmxResponseTests : BunitContext
 			["invalid"],
 			["true,false"],
 			["true", "true"],
+			["\rtrue\r"],
 		];
 
 		foreach (var markerValues in invalidMarkers)
