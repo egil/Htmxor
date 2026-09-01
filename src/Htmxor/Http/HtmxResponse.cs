@@ -35,6 +35,40 @@ public sealed class HtmxResponse(HttpContext context)
 	internal bool EmptyResponseBodyRequested
 		=> explicitEmptyResponseBodyRequested || navigationSuppressesResponseBody;
 
+	internal bool SuppressResponseBodyWrite()
+	{
+		if (!EmptyResponseBodyRequested)
+		{
+			return false;
+		}
+
+		if (!context.Response.HasStarted && context.Response.ContentLength is > 0)
+		{
+			context.Response.ContentLength = 0;
+		}
+
+		return true;
+	}
+
+	internal void BeginRenderExecution()
+	{
+		explicitEmptyResponseBodyRequested = false;
+		navigationSuppressesResponseBody = false;
+	}
+
+	internal void CompleteRenderExecution()
+	{
+		try
+		{
+			_ = SuppressResponseBodyWrite();
+		}
+		finally
+		{
+			explicitEmptyResponseBodyRequested = false;
+			navigationSuppressesResponseBody = false;
+		}
+	}
+
 	/// <summary>
 	/// Sets the response status code to <paramref name="statusCode"/>.
 	/// </summary>

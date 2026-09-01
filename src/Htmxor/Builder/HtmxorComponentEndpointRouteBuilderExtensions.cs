@@ -325,9 +325,17 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			return;
 		}
 
+		try
+		{
+			context.GetHtmxContext().Response.Redirect(redirectUri);
+		}
+		catch (ArgumentException)
+		{
+			return;
+		}
+
 		context.Response.StatusCode = StatusCodes.Status200OK;
 		context.Response.Headers.Remove("Location");
-		context.GetHtmxContext().Response.Redirect(redirectUri);
 	}
 
 	private static bool HasSameOrigin(HttpRequest request, Uri redirectUri)
@@ -510,6 +518,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 		var response = context.Response;
 		var originalBody = response.Body;
+		htmxContext.Response.BeginRenderExecution();
 		response.Body = new ConditionalResponseBodyStream(originalBody, htmxContext.Response);
 		try
 		{
@@ -517,7 +526,14 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		}
 		finally
 		{
-			response.Body = originalBody;
+			try
+			{
+				htmxContext.Response.CompleteRenderExecution();
+			}
+			finally
+			{
+				response.Body = originalBody;
+			}
 		}
 	}
 
