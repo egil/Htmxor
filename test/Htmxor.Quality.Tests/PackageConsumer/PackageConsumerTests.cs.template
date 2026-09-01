@@ -37,6 +37,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	private const string PageDeclaredRoute = "/reports/{ReportId:int}";
 	private const string MarkerPageRequestPath = RoutePrefix + "/issue-154-marker";
 	private const string NavigationPageRequestPath = RoutePrefix + "/issue-154-navigation";
+	private const string SwapSelectionPageRequestPath = RoutePrefix + "/issue-154-swap-selection";
 	private const string ReportRequestPath = "/issue-97-group/htmx-reports/42";
 	private const string SummaryRequestPath = "/issue-97-group/summaries/84";
 	private const string AuditRequestPath = "/issue-97-group/audits/126";
@@ -148,7 +149,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	}
 
 	[Fact]
-	public void Package_removes_the_targeted_client_DSL_and_keeps_the_server_swap_contract()
+	public void Package_removes_the_targeted_client_DSL_and_keeps_only_open_server_swap_values()
 	{
 		string[] removedClientAuthoringTypes =
 		[
@@ -176,7 +177,8 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			.ToArray();
 
 		Assert.Empty(unexpectedSurface);
-		Assert.Contains("Htmxor.SwapStyle", exportedTypeNames);
+		Assert.DoesNotContain("Htmxor.SwapStyle", exportedTypeNames);
+		Assert.Null(packageAssembly.GetType("Htmxor.SwapStyleExtensions"));
 		Assert.DoesNotContain("Htmxor.Http.AjaxContext", exportedTypeNames);
 		Assert.DoesNotContain("Htmxor.Http.LocationTarget", exportedTypeNames);
 		Assert.Equal(
@@ -185,13 +187,87 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 				.Where(static method => method.Name == nameof(HtmxResponse.Location))
 				.Select(static method => Assert.Single(method.GetParameters()).ParameterType)
 				.OrderBy(static type => type.Name));
-		Assert.Contains(
-			reswapOverloads,
-			static method => method.GetParameters() is [{ ParameterType: var parameterType }, ..]
-				&& parameterType == typeof(SwapStyle));
+		var reswap = Assert.Single(reswapOverloads);
+		Assert.Equal(typeof(string), Assert.Single(reswap.GetParameters()).ParameterType);
 		Assert.DoesNotContain(
 			reswapOverloads.SelectMany(static method => method.GetParameters()),
 			static parameter => parameter.ParameterType.FullName == "Htmxor.SwapStyleBuilder");
+	}
+
+	[Theory]
+	[InlineData(null)]
+	[InlineData("")]
+	[InlineData(" ")]
+	[InlineData(" value")]
+	[InlineData("value ")]
+	[InlineData("value\ninside")]
+	[InlineData("value\u007Finside")]
+	public void Swap_and_selection_values_are_validated_before_the_marker_without_response_mutation(
+		string? value)
+	{
+		var operations = new Func<HtmxResponse, string, HtmxResponse>[]
+		{
+			static (response, candidate) => response.Reswap(candidate),
+			static (response, candidate) => response.Retarget(candidate),
+			static (response, candidate) => response.Reselect(candidate),
+		};
+
+		foreach (var operation in operations)
+		{
+			var context = CreateNavigationContext(validMarker: false);
+			context.Response.StatusCode = StatusCodes.Status202Accepted;
+			context.Response.Headers["X-Application"] = "retained";
+			context.Response.Headers.Append(HtmxResponseHeaderNames.Reswap, "existing-reswap");
+			context.Response.Headers.Append(HtmxResponseHeaderNames.Retarget, "existing-retarget");
+			context.Response.Headers.Append(HtmxResponseHeaderNames.Reselect, "existing-reselect");
+			var expectedHeaders = context.Response.Headers.ToDictionary(
+				static header => header.Key,
+				static header => header.Value,
+				StringComparer.OrdinalIgnoreCase);
+			var response = new HtmxResponse(context);
+
+			Assert.ThrowsAny<ArgumentException>(() => operation(response, value!));
+
+			Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+			Assert.Equal(expectedHeaders.Count, context.Response.Headers.Count);
+			foreach (var expectedHeader in expectedHeaders)
+			{
+				Assert.Equal(expectedHeader.Value, context.Response.Headers[expectedHeader.Key]);
+			}
+		}
+	}
+
+	[Fact]
+	public void Swap_and_selection_operations_preserve_exact_open_values_and_coexist()
+	{
+		var context = CreateNavigationContext(validMarker: true);
+		context.Response.StatusCode = StatusCodes.Status202Accepted;
+		context.Response.Headers["X-Application"] = "retained";
+		context.Response.Headers.Append(HtmxResponseHeaderNames.Reswap, "discarded-reswap");
+		context.Response.Headers.Append(HtmxResponseHeaderNames.Retarget, "discarded-retarget");
+		context.Response.Headers.Append(HtmxResponseHeaderNames.Reselect, "discarded-reselect");
+		var response = new HtmxResponse(context);
+
+		var result = response
+			.Reswap("innerHTML")
+			.Reswap("acmeMorph settle:25ms")
+			.Retarget("#discarded-target")
+			.Retarget("closest [data-acme-target]")
+			.Reselect("#discarded-selection")
+			.Reselect(":scope > [data-acme-selection]");
+
+		Assert.Same(response, result);
+		Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+		Assert.Equal("retained", context.Response.Headers["X-Application"]);
+		Assert.Equal(
+			"acmeMorph settle:25ms",
+			Assert.Single(context.Response.Headers[HtmxResponseHeaderNames.Reswap]));
+		Assert.Equal(
+			"closest [data-acme-target]",
+			Assert.Single(context.Response.Headers[HtmxResponseHeaderNames.Retarget]));
+		Assert.Equal(
+			":scope > [data-acme-selection]",
+			Assert.Single(context.Response.Headers[HtmxResponseHeaderNames.Reselect]));
 	}
 
 	[Fact]
@@ -352,6 +428,43 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		}
 	}
 
+	[Theory]
+	[InlineData("retain", true, false)]
+	[InlineData("empty", false, false)]
+	[InlineData("navigation", false, true)]
+	public async Task Swap_and_selection_component_preserves_status_body_and_other_headers(
+		string operation,
+		bool expectsBody,
+		bool expectsNavigation)
+	{
+		using var request = CreateMarkerRequest(
+			$"{SwapSelectionPageRequestPath}?operation={operation}",
+			["true"]);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+		Assert.Equal(
+			"acmeMorph settle:25ms",
+			Assert.Single(response.Headers.GetValues(HtmxResponseHeaderNames.Reswap)));
+		Assert.Equal(
+			"closest [data-issue-154-target]",
+			Assert.Single(response.Headers.GetValues(HtmxResponseHeaderNames.Retarget)));
+		Assert.Equal(
+			":scope > [data-issue-154-selection]",
+			Assert.Single(response.Headers.GetValues(HtmxResponseHeaderNames.Reselect)));
+		Assert.Equal(
+			expectsNavigation,
+			response.Headers.Contains(HtmxResponseHeaderNames.Location));
+		Assert.Equal(
+			expectsBody,
+			body.Contains("data-issue-154-swap-selection", StringComparison.Ordinal));
+		if (!expectsBody)
+		{
+			Assert.Equal(string.Empty, body);
+		}
+	}
+
 	[Fact]
 	public async Task Package_renders_native_htmx4_markup_and_keeps_server_response_operations()
 	{
@@ -391,10 +504,14 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		Assert.Equal(
 			"acmeMorph settle:25ms",
 			context.Response.Headers[HtmxResponseHeaderNames.Reswap].ToString());
-		response.Reswap(SwapStyle.outerHTML, "settle:25ms");
+		response.Retarget("closest [data-acme-target]");
+		response.Reselect(":scope > [data-acme-selection]");
 		Assert.Equal(
-			"outerHTML settle:25ms",
-			context.Response.Headers[HtmxResponseHeaderNames.Reswap].ToString());
+			"closest [data-acme-target]",
+			context.Response.Headers[HtmxResponseHeaderNames.Retarget].ToString());
+		Assert.Equal(
+			":scope > [data-acme-selection]",
+			context.Response.Headers[HtmxResponseHeaderNames.Reselect].ToString());
 		response.Trigger("client:event");
 		Assert.Equal(
 			"client:event",
@@ -431,8 +548,8 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		Assert.Contains("<html", body, StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
 		Assert.Contains("data-issue-154-marker", body, StringComparison.Ordinal);
-		Assert.Contains("data-rejected-operation-count=\"18\"", body, StringComparison.Ordinal);
-		Assert.Contains("data-operation-count=\"18\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-rejected-operation-count=\"17\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-operation-count=\"17\"", body, StringComparison.Ordinal);
 		Assert.All(
 			typeof(HtmxResponseHeaderNames).GetFields(BindingFlags.Public | BindingFlags.Static),
 			field => Assert.False(response.Headers.Contains(

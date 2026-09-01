@@ -2,7 +2,16 @@
 @using Htmxor.Http
 @inject HtmxContext Htmx
 
-@if (Operation is not null)
+@if (Operation == "swap-selection")
+{
+	<section data-issue-154-swap-selection-response>
+		<article id="issue-154-selected-root" data-issue-154-selected>
+			<strong data-issue-154-selected-child>selected response</strong>
+		</article>
+		<div data-issue-154-unselected>unselected response</div>
+	</section>
+}
+else if (Operation is not null)
 {
 	<section data-issue-154-response="@Operation">component response @Operation</section>
 }
@@ -53,7 +62,16 @@ else
 				hx-target="#issue-154-target"
 				hx-swap="innerHTML"
 				hx-replace-url="true">Prevent replace</button>
+		<button id="issue-154-swap-selection"
+				type="button"
+				hx-get="/issue-154/navigation?operation=swap-selection"
+				hx-target="#issue-154-target"
+				hx-select="[data-client-selection]"
+				hx-swap="innerHTML">Override swap and selection</button>
 		<section id="issue-154-target" data-state="initial">initial navigation target</section>
+		<aside id="issue-154-final-target">
+			<span data-issue-154-old-final>old final target</span>
+		</aside>
 	</main>
 }
 
@@ -98,6 +116,11 @@ else
 				break;
 			case "prevent-replace":
 				Htmx.Response.PreventBrowserCurrentUrlUpdate();
+				break;
+			case "swap-selection":
+				Htmx.Response.Reswap("outerHTML");
+				Htmx.Response.Retarget("#issue-154-final-target");
+				Htmx.Response.Reselect("[data-issue-154-selected]");
 				break;
 			case "chain":
 				Htmx.Response.Location(StatePath("discarded-location"));
