@@ -246,6 +246,34 @@ The earlier `Location(LocationTarget)` overload and its `LocationTarget` and
 accurately. No replacement structured `HX-Location` model is included in this
 slice.
 
+## Htmx swap and selection responses
+
+One component response may override all three parts of a swap. Unlike navigation
+operations, these calls may be chained because their headers coexist:
+
+```csharp
+args.Response
+    .Reswap("outerHTML settle:25ms")
+    .Retarget("#orders")
+    .Reselect("[data-order]");
+```
+
+`Reswap(string)`, `Retarget(string)`, and `Reselect(string)` each accept one
+complete open htmx or extension-defined value. Htmxor does not parse the value
+through a closed swap-style or selector grammar, and it emits valid input
+exactly as supplied. The public `SwapStyle` enum, its typed `Reswap` overload,
+and the converter have been removed because they represented only part of htmx
+4 and could not represent extension-defined values.
+
+Each call rejects null, empty, whitespace-only, surrounding-whitespace, and
+control-character input before checking for exactly one normalized
+`HX-Request: true` marker. A failed validation or marker check changes no
+response state. A successful call returns the same `HtmxResponse`, replaces any
+earlier value for its own header, and leaves the other two headers, all unrelated
+headers, status, and the current body-control choice unchanged. The three calls
+retain component output unless `EmptyBody()` or a suppressing navigation
+operation already selected an empty body.
+
 ## Application response headers
 
 A static SSR component can set an application response header through the

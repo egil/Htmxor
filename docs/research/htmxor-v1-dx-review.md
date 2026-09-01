@@ -227,12 +227,13 @@ adapter package. Native Razor and open string values remain the client escape
 hatch for application-selected and extension-provided syntax.
 
 Adding the missing 4.0.0 constants by hand would only postpone the next drift.
-Typed response helpers are different: they serialize response headers and
-coordinate status and body behavior that Razor markup cannot express. The
-second #151 slice therefore preserves `HtmxResponse.Trigger(...)`, raw
-`HtmxResponse.Reswap(string)`, `SwapStyle`, and
-`HtmxResponse.Reswap(SwapStyle, string?)`. These remain server-protocol and
-serialization decisions, not browser-conformance evidence.
+Response helpers are different when they serialize headers or coordinate status
+and body behavior that Razor markup cannot express, but that does not make an
+incomplete closed value model stable. The third #154 slice therefore retains
+open `HtmxResponse.Reswap(string)`, `Retarget(string)`, and `Reselect(string)`
+operations while removing `SwapStyle`, its typed `Reswap` overload, and the
+converter. `HtmxResponse.Trigger(...)` remains a separate server serialization
+decision. None of those public shapes alone is browser-conformance evidence.
 
 The second #154 slice separately removes `Location(LocationTarget)`,
 `LocationTarget`, and `AjaxContext`. Their structured shape did not model htmx 4
@@ -243,7 +244,7 @@ invent a replacement structured `HX-Location` model.
 ### 6. The HTTP context needs one set of rules
 
 `HtmxContext` with `Request` and `Response` is easy to learn. Its details need a
-final pass. Two bounded parts are current:
+final pass. Three bounded parts are current:
 
 - the first bounded #154 slice now recognizes only exactly one normalized
   `HX-Request: true`, ignores dependent context for every invalid marker shape,
@@ -251,6 +252,8 @@ final pass. Two bounded parts are current:
   including raw `Reswap(string)`; and
 - the second bounded #154 slice gives `Location`, `PushUrl`, both prevent
   methods, `Redirect`, `Refresh`, and `ReplaceUrl` one navigation contract.
+- the third bounded #154 slice gives `Reswap(string)`, `Retarget(string)`, and
+  `Reselect(string)` one open-value swap and selection contract.
 
 The navigation family validates destination arguments before the strict marker
 guard and mutates nothing on failure. It rejects null, blank, surrounding
@@ -279,13 +282,22 @@ establish `ReplaceHistoryEntry` browser-history parity. Separately packed
 consumers prove exact `Location(Uri)` wire text and actionless generated-route
 header-plus-empty-body behavior without claiming browser execution for either.
 
+The swap and selection family validates each complete value before the strict
+marker guard and mutates nothing on failure. It rejects null, empty,
+whitespace-only, surrounding-whitespace, and control-character values without
+trimming or repairing them. Successful calls preserve the exact string, return
+the same response, overwrite only their matching header, and leave status and
+body-control state unchanged. The three headers may coexist. A package-only
+Kestrel/Chromium interaction with application-owned htmx 4.0.0 consumes all
+three together and proves the server-retargeted element receives only the
+response-selected subtree through the response-selected swap.
+
 The remaining pass must:
 
 - use .NET acronym casing such as `CurrentUrl` for the remaining request API;
 - finish the value policy for the other boolean and structured request headers;
 - keep every header-derived value documented as untrusted;
-- finish `Reswap`, `Retarget`, `Reselect`, and trigger argument, merge,
-  serialization, overwrite, and body rules;
+- finish trigger argument, merge, serialization, overwrite, and body rules;
 - provide validated APIs for extension request and response headers;
 - decide status 286 and `StopPolling`; and
 - remove or prove other protocol behavior carried forward from older htmx
@@ -323,11 +335,11 @@ Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
 ideas that still need API decisions. Registration and QUERY now have bounded
 proof through #145 and #111, while the first two #151 slices make the consistent
 registration names and native-markup client-helper decision current. The first
-two #154 slices make strict request classification and the navigation-response
-subset current. Navigation examples must show separate choices or branches, not
-a chain that suggests several navigation headers are emitted together.
-Multi-fragment selection and optional extension use still need explicit status
-labels.
+three #154 slices make strict request classification, navigation responses, and
+open swap/selection response values current. Navigation examples must show
+separate choices or branches, while the three independent swap and selection
+headers may be chained. Multi-fragment selection and optional extension use
+still need explicit status labels.
 
 The discussion should stay short and link to the repository guide for the full
 inventory. Examples should identify whether they show an accepted v1 contract,

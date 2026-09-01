@@ -14,6 +14,8 @@ namespace Htmxor.Http;
 /// <remarks>
 /// Navigation operations validate their arguments before checking the htmx request marker,
 /// replace any earlier core htmx navigation operation, and do not change the HTTP status code.
+/// Swap and selection operations also validate before the marker guard, preserve the exact
+/// application-authored value, and replace only an earlier value for the same response header.
 /// Htmx does not process response headers on HTTP 3xx responses.
 /// </remarks>
 public sealed class HtmxResponse(HttpContext context)
@@ -240,69 +242,53 @@ public sealed class HtmxResponse(HttpContext context)
 	}
 
 	/// <summary>
-	/// Allows you to specify the complete hx-swap value for the response.
+	/// Sets <c>HX-Reswap</c> to the exact complete htmx or extension-defined value in
+	/// <paramref name="modifier"/> without parsing, trimming, or normalizing it.
 	/// </summary>
-	/// <param name="modifier">The swap style and any modifiers, including extension-defined values.</param>
+	/// <param name="modifier">
+	/// The swap style and any modifiers. It must not be empty or whitespace-only, have
+	/// surrounding whitespace, or contain control characters.
+	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Reswap(string modifier)
 	{
-		ArgumentNullException.ThrowIfNullOrWhiteSpace(modifier);
+		ValidateOpenResponseValue(modifier, nameof(modifier));
 		AssertIsHtmxRequest();
 		headers[HtmxResponseHeaderNames.Reswap] = modifier;
 		return this;
 	}
 
 	/// <summary>
-	/// Allows you to specify how the response will be swapped.
+	/// Sets <c>HX-Retarget</c> to the exact complete htmx or extension-defined value in
+	/// <paramref name="selector"/> without parsing, trimming, or normalizing it.
 	/// </summary>
-	/// <param name="swapStyle"></param>
-	/// <param name="modifier">The hx-swap attributes supports modifiers for changing the behavior of the swap.</param>
-	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
-	public HtmxResponse Reswap(SwapStyle swapStyle, string? modifier = null)
-	{
-		AssertIsHtmxRequest();
-
-		if (swapStyle is SwapStyle.Default)
-		{
-			Reswap(modifier!);
-			return this;
-		}
-
-		var style = swapStyle.ToHtmxString();
-		var value = !string.IsNullOrWhiteSpace(modifier)
-			? $"{style} {modifier}"
-			: style;
-
-		headers[HtmxResponseHeaderNames.Reswap] = value;
-
-		return this;
-	}
-
-	/// <summary>
-	/// A CSS selector that updates the target of the content update to a different element on the page.
-	/// </summary>
-	/// <param name="selector"></param>
+	/// <param name="selector">
+	/// The target selector. It must not be empty or whitespace-only, have surrounding
+	/// whitespace, or contain control characters.
+	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Retarget(string selector)
 	{
+		ValidateOpenResponseValue(selector, nameof(selector));
 		AssertIsHtmxRequest();
-
 		headers[HtmxResponseHeaderNames.Retarget] = selector;
-
 		return this;
 	}
 
 	/// <summary>
-	/// A CSS selector that allows you to choose which part of the response is used to be swapped in.
+	/// Sets <c>HX-Reselect</c> to the exact complete htmx or extension-defined value in
+	/// <paramref name="selector"/> without parsing, trimming, or normalizing it.
 	/// </summary>
-	/// <param name="selector"></param>
+	/// <param name="selector">
+	/// The response selector. It must not be empty or whitespace-only, have surrounding
+	/// whitespace, or contain control characters.
+	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Reselect(string selector)
 	{
+		ValidateOpenResponseValue(selector, nameof(selector));
 		AssertIsHtmxRequest();
-
 		headers[HtmxResponseHeaderNames.Reselect] = selector;
-
 		return this;
 	}
 
@@ -395,6 +381,21 @@ public sealed class HtmxResponse(HttpContext context)
 			=> Detail is null
 			? $"\"{EventName}\":null"
 			: $"\"{EventName}\":{Detail}";
+	}
+
+	private static void ValidateOpenResponseValue(string value, string parameterName)
+	{
+		ArgumentNullException.ThrowIfNull(value, parameterName);
+		if (value.Length == 0 ||
+			char.IsWhiteSpace(value[0]) ||
+			char.IsWhiteSpace(value[^1]) ||
+			value.Any(char.IsControl))
+		{
+			throw new ArgumentException(
+				"The value must not be empty or whitespace-only, have surrounding whitespace, " +
+				"or contain control characters.",
+				parameterName);
+		}
 	}
 
 	private void AssertIsHtmxRequest()
