@@ -339,7 +339,7 @@ injected or cascaded where the final v1 API permits.
 
 | Htmxor value | htmx input | Intended use |
 | --- | --- | --- |
-| `IsHtmxRequest` | `HX-Request` | Choose an HTML representation, never authorization |
+| `IsHtmxRequest` | Exactly one lowercase `HX-Request: true` after trimming HTTP spaces or tabs | Choose an HTML representation, never authorization |
 | `RequestType` | `HX-Request-Type: full\|partial` | Decide stock page versus direct representation |
 | `IsBoosted` | `HX-Boosted` | Preserve boosted navigation semantics |
 | `IsHistoryRestoreRequest` | `HX-History-Restore-Request` | Return the representation history restoration expects |
@@ -348,10 +348,14 @@ injected or cascaded where the final v1 API permits.
 | `Target` | `HX-Target` | Optional `tag#id` target hint |
 | `Method`, `Path` | HTTP request line | Bind the action to the normalized route and method |
 
-Every header-derived value is untrusted. A missing, repeated, malformed, or
-contradictory value must be represented explicitly and must not broaden
-reachability. The current beta member is `CurrentURL`; issue #154 owns the
-planned `CurrentUrl` rename and a clear API for additional protocol headers.
+Every header-derived value is untrusted. Htmxor recognizes a request only when
+`HX-Request` contains exactly one value whose surrounding HTTP spaces or tabs
+trim to lowercase `true`. Missing, blank, `false`, malformed, comma-joined, and
+repeated markers make
+`IsHtmxRequest` false, retain standard routing, and suppress all dependent
+`HX-*` context. The current beta member is `CurrentURL`; later issue #154 slices
+own its planned `CurrentUrl` rename and a clear API for additional protocol
+headers.
 
 ### Response operations
 
@@ -378,13 +382,16 @@ they are not client attribute-authoring helpers. It also preserves `SwapStyle`,
 `HtmxResponse.Reswap(SwapStyle, string?)`, `AjaxContext`, and `LocationTarget`
 unchanged for #154 to decide with the complete response contract. The raw
 overload remains the escape hatch for application-selected or extension-provided
-swap values.
+swap values. The first bounded #154 slice makes the raw overload use the same
+request guard as the other covered operations.
 
-Each response method must reject use outside an htmx request, validate its
-argument, return the response object, and state whether it suppresses the body.
-The application must validate navigation URLs where local-only navigation is
-required. Htmxor also needs a validated way to write extension response headers
-without a package release for every extension.
+The covered core response operations reject use unless the request contains
+exactly one lowercase `HX-Request: true` after trimming HTTP spaces or tabs;
+rejection occurs before response headers, status, or body-control state changes.
+Status 286/`StopPolling`, argument policy, exception ordering, URL validation,
+body-effect documentation, trigger merging, and
+extension response headers remain later #154 work. The application must still
+validate navigation URLs where local-only navigation is required.
 
 ## Htmx 4 attribute reference
 
@@ -703,7 +710,7 @@ authorization.
 
 | Header | Htmxor handling |
 | --- | --- |
-| `HX-Request` | Recognize an htmx request; reject malformed/repeated values conservatively. |
+| `HX-Request` | Recognize exactly one value that equals lowercase `true` after trimming surrounding HTTP spaces or tabs; otherwise ignore dependent htmx context. |
 | `HX-Request-Type` | Distinguish `full` and `partial` representations. |
 | `HX-Boosted` | Preserve boosted navigation semantics. |
 | `HX-Current-URL` | Expose as an optional, untrusted URI. |

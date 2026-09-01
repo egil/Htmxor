@@ -213,9 +213,15 @@ redirect, refresh, history updates, swap overrides, target overrides, response
 selection, and client events. It also controls status and an empty body.
 
 Use the stock `HttpContext` for cookies, cache policy, general response headers,
-and other ASP.NET Core behavior. [#154](https://github.com/egil/Htmxor/issues/154)
-will settle naming, malformed headers, response validation, body effects, and
-extension headers.
+and other ASP.NET Core behavior. The first bounded
+[#154](https://github.com/egil/Htmxor/issues/154) slice recognizes only exactly
+one `HX-Request` value whose surrounding HTTP spaces or tabs trim to lowercase
+`true`. Missing, blank, `false`, malformed, comma-joined, and repeated markers
+retain stock or not-found routing, ignore dependent htmx context, and cannot
+mutate response headers, status, or body-control state through the covered
+Htmxor operations. Later #154 slices still own status 286/`StopPolling`, naming,
+the other header value policies, response argument and body-effect rules,
+serialization, and extension headers.
 
 ## Write htmx as htmx
 
@@ -243,8 +249,10 @@ slice does not add an optional adapter package.
 Server-protocol operations remain distinct. `HtmxResponse.Trigger(...)` still
 writes `HX-Trigger`, and raw `HtmxResponse.Reswap(string)` still writes
 `HX-Reswap`. `SwapStyle`, `HtmxResponse.Reswap(SwapStyle, string?)`,
-`AjaxContext`, and `LocationTarget` remain unchanged for #154. These package
-decisions do not claim that browser or extension behavior was executed.
+`AjaxContext`, and `LocationTarget` remain. The first bounded #154 slice adds
+the missing request guard to raw `Reswap(string)` without redesigning those
+types. These package decisions do not claim that malformed-marker browser or
+extension behavior was executed.
 
 ## V1 decisions still open
 

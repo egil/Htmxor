@@ -20,9 +20,72 @@ public class HtmxResponseTests : BunitContext
 		{
 			RequestServices = services.BuildServiceProvider()
 		};
-		result.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "";
-		result.GetHtmxContext();
+		result.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
 		return result;
+	}
+
+	[Fact]
+	public void Invalid_request_markers_reject_response_operations_without_mutation()
+	{
+		string[]?[] invalidMarkers =
+		[
+			null,
+			[""],
+			[" "],
+			["false"],
+			["TRUE"],
+			["invalid"],
+			["true,false"],
+			["true", "true"],
+			["\rtrue\r"],
+		];
+
+		foreach (var markerValues in invalidMarkers)
+		{
+			foreach (var operation in GetGuardedResponseOperations())
+			{
+				var context = CreateHttpContext();
+				if (markerValues is null)
+				{
+					context.Request.Headers.Remove(HtmxRequestHeaderNames.HtmxRequest);
+				}
+				else
+				{
+					context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] =
+						new Microsoft.Extensions.Primitives.StringValues(markerValues);
+				}
+
+				var response = context.GetHtmxContext().Response;
+
+				Assert.Throws<InvalidOperationException>(() => operation(response));
+				Assert.Empty(context.Response.Headers);
+				Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+				Assert.False(response.EmptyResponseBodyRequested);
+			}
+		}
+	}
+
+	private static IEnumerable<Action<HtmxResponse>> GetGuardedResponseOperations()
+	{
+		yield return response => response.StatusCode(System.Net.HttpStatusCode.Created);
+		yield return response => response.EmptyBody();
+		yield return response => response.Location("/forbidden-location");
+		yield return response => response.Location(new LocationTarget { Path = "/forbidden-location" });
+		yield return response => response.PushUrl("/forbidden-push");
+		yield return response => response.PushUrl(new Uri("/forbidden-push", UriKind.Relative));
+		yield return response => response.PreventBrowserHistoryUpdate();
+		yield return response => response.PreventBrowserCurrentUrlUpdate();
+		yield return response => response.Redirect("/forbidden-redirect");
+		yield return response => response.Redirect(new Uri("/forbidden-redirect", UriKind.Relative));
+		yield return response => response.Refresh();
+		yield return response => response.ReplaceUrl("/forbidden-replace");
+		yield return response => response.ReplaceUrl(new Uri("/forbidden-replace", UriKind.Relative));
+		yield return response => response.Reswap("acmeMorph settle:25ms");
+		yield return response => response.Reswap(SwapStyle.outerHTML, "settle:25ms");
+		yield return response => response.Retarget("#forbidden-target");
+		yield return response => response.Reselect("#forbidden-selection");
+		yield return response => response.Trigger("forbidden:event");
+		yield return response => response.Trigger("forbidden:event", new { Detail = "forbidden" });
 	}
 
 	[Fact]

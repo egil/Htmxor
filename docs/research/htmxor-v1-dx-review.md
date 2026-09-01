@@ -94,8 +94,8 @@ behavior.
 | One fragment | `HtmxFragment` is clear, but `Id` has two jobs | Give server selection its own stable name | Redesign |
 | Several fragments | Lambdas and render flags hide the result | Select an ordered set of names once per response | Missing |
 | OOB and partial delivery | Native htmx markup already expresses it | Do not add another Htmxor component hierarchy | Keep |
-| Request data | The context shape is easy to learn | Fix .NET naming and represent invalid headers safely | Finish |
-| Response operations | Fluent methods fit the protocol | Use the same guards, validation, return type, and body rules | Finish |
+| Request data | Strict `HX-Request` marker handling is current | Finish parsing and naming for the remaining request data | Finish |
+| Response operations | The covered core marker guard is current | Finish validation, status 286, and body rules | Finish |
 | Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
 | Trigger and swap helpers | Native markup and open strings avoid a closed Htmxor profile | Remove the incomplete helpers from core v1 | Removed in the second #151 slice |
 | Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
@@ -235,14 +235,18 @@ browser-conformance evidence.
 `HtmxContext` with `Request` and `Response` is easy to learn. Its details need a
 final pass:
 
+- the first bounded #154 slice now recognizes only exactly one normalized
+  `HX-Request: true`, ignores dependent context for every invalid marker shape,
+  and applies that classifier to the covered core response operations,
+  including raw `Reswap(string)`;
 - use .NET acronym casing such as `CurrentUrl`, `PushUrl`, and `ReplaceUrl`;
-- distinguish missing, malformed, repeated, and contradictory header values;
-- parse booleans by allowed values rather than header presence;
+- finish the value policy for the other boolean and structured headers;
 - mark every header-derived value as untrusted;
 - type all seven core request headers and all nine core response headers;
 - provide validated APIs for extension request and response headers;
 - give every response method the same request guard, argument checks, fluent
-  return, URL overload policy, and documented body effect; and
+  return, URL overload policy, and documented body effect;
+- decide status 286 and `StopPolling` under the remaining response contract; and
 - remove or prove protocol behavior carried forward from older htmx versions.
 
 General HTTP belongs on `HttpContext`. Htmxor does not need wrappers for cookies,

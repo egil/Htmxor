@@ -35,6 +35,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	private const string SummaryDeclaredRoute = "/summaries/{SummaryId:int}";
 	private const string AuditDeclaredRoute = "/audits/{AuditId:int}";
 	private const string PageDeclaredRoute = "/reports/{ReportId:int}";
+	private const string MarkerPageRequestPath = RoutePrefix + "/issue-154-marker";
 	private const string ReportRequestPath = "/issue-97-group/htmx-reports/42";
 	private const string SummaryRequestPath = "/issue-97-group/summaries/84";
 	private const string AuditRequestPath = "/issue-97-group/audits/126";
@@ -52,6 +53,17 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	private WebApplication app = default!;
 	private HttpClient client = default!;
 	private Issue100ApplicationProbe applicationProbe = default!;
+
+	public static TheoryData<string, string[]?> InvalidHtmxRequestMarkers => new()
+	{
+		{ "missing", null },
+		{ "blank", [""] },
+		{ "whitespace", [" "] },
+		{ "false", ["false"] },
+		{ "malformed", ["TRUE"] },
+		{ "comma-joined", ["true,false"] },
+		{ "repeated", ["true", "true"] },
+	};
 
 	public async Task InitializeAsync()
 	{
@@ -223,6 +235,57 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		Assert.Equal(
 			"client:event",
 			context.Response.Headers[HtmxResponseHeaderNames.Trigger].ToString());
+	}
+
+	[Theory]
+	[MemberData(nameof(InvalidHtmxRequestMarkers))]
+	public async Task Invalid_marker_cannot_reach_an_htmx_only_route(
+		string _,
+		string[]? markerValues)
+	{
+		using var request = CreateMarkerRequest(ReportRequestPath, markerValues);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+		Assert.DoesNotContain("data-issue-97-report-component", body, StringComparison.Ordinal);
+	}
+
+	[Theory]
+	[MemberData(nameof(InvalidHtmxRequestMarkers))]
+	public async Task Invalid_marker_keeps_the_stock_page_and_rejects_response_operations_without_mutation(
+		string _,
+		string[]? markerValues)
+	{
+		using var request = CreateMarkerRequest(
+			MarkerPageRequestPath + "?guard-response=true",
+			markerValues);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Contains("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
+		Assert.Contains("data-issue-154-marker", body, StringComparison.Ordinal);
+		Assert.Contains("data-rejected-operation-count=\"19\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-operation-count=\"19\"", body, StringComparison.Ordinal);
+		Assert.All(
+			typeof(HtmxResponseHeaderNames).GetFields(BindingFlags.Public | BindingFlags.Static),
+			field => Assert.False(response.Headers.Contains(
+				Assert.IsType<string>(field.GetRawConstantValue()))));
+	}
+
+	[Fact]
+	public async Task One_normalized_true_marker_retains_direct_representation()
+	{
+		using var request = CreateMarkerRequest(MarkerPageRequestPath, [" true "]);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Contains("data-issue-154-marker", body, StringComparison.Ordinal);
+		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", body, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -739,6 +802,22 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		if (clientHandlerIdentity is not null)
 		{
 			request.Headers.Add("HXOR-Event-Handler-Id", clientHandlerIdentity);
+		}
+
+		return request;
+	}
+
+	private static HttpRequestMessage CreateMarkerRequest(string path, string[]? markerValues)
+	{
+		var request = new HttpRequestMessage(HttpMethod.Get, path);
+		request.Headers.Host = ReportHost;
+		request.Headers.Add("HX-Request-Type", "partial");
+		request.Headers.Add(
+			PackageConsumerAuthenticationHandler.UserHeaderName,
+			PackageConsumerAuthenticationHandler.ReportUserName);
+		if (markerValues is not null)
+		{
+			request.Headers.TryAddWithoutValidation("HX-Request", markerValues);
 		}
 
 		return request;
