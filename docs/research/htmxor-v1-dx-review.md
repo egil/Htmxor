@@ -284,13 +284,13 @@ header-plus-empty-body behavior without claiming browser execution for either.
 
 The swap and selection family validates each complete value before the strict
 marker guard and mutates nothing on failure. It rejects null, empty,
-whitespace-only, surrounding-whitespace, and control-character values without
-trimming or repairing them. Successful calls preserve the exact string, return
-the same response, overwrite only their matching header, and leave status and
-body-control state unchanged. The three headers may coexist. A package-only
-Kestrel/Chromium interaction with application-owned htmx 4.0.0 consumes all
-three together and proves the server-retargeted element receives only the
-response-selected subtree through the response-selected swap.
+whitespace-only, surrounding whitespace, and values containing control
+characters without trimming or repairing them. Successful calls preserve the
+exact string, return the same response, overwrite only their matching header,
+and leave status and body-control state unchanged. The three headers may
+coexist. A package-only Kestrel/Chromium interaction with application-owned
+htmx 4.0.0 consumes all three together and proves the server-retargeted element
+receives only the response-selected subtree through the response-selected swap.
 
 The remaining pass must:
 

@@ -284,13 +284,13 @@ operations current:
 | `Reselect(string)` | `HX-Reselect` | Unchanged |
 
 Each argument is one complete open htmx or extension value. Htmxor rejects null,
-empty, whitespace-only, surrounding-whitespace, and control-character values
-before the strict htmx marker guard. It does not trim, repair, or parse accepted
-values through a closed grammar. Failure mutates nothing. Success returns the
-same response, preserves the exact value, and overwrites only the matching
-header, so the three different headers may coexist. These calls do not change
-status, suppress component output, or reset suppression previously selected by
-`EmptyBody()` or navigation.
+empty, whitespace-only, surrounding whitespace, and values containing control
+characters before the strict htmx marker guard. It does not trim, repair, or
+parse accepted values through a closed grammar. Failure mutates nothing.
+Success returns the same response, preserves the exact value, and overwrites
+only the matching header, so the three different headers may coexist. These
+calls do not change status, suppress component output, or reset suppression
+previously selected by `EmptyBody()` or navigation.
 
 ## Write htmx as htmx
 

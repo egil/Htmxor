@@ -431,12 +431,12 @@ The other currently exposed server response operations are:
 `Reswap`, `Retarget`, and `Reselect` accept one complete application-authored
 htmx or extension value. They preserve valid input exactly and do not parse it
 through a closed Htmxor grammar. Each rejects null, empty, whitespace-only,
-surrounding-whitespace, and control-character input before the strict request
-marker guard. A failed check changes no response header, status, or body-control
-state. A successful call returns the same response, overwrites only its matching
-header, and leaves status and body behavior unchanged. All three headers may
-coexist. These operations retain component output and do not reset an earlier
-`EmptyBody()` or suppressing navigation decision.
+surrounding whitespace, and input containing control characters before the
+strict request marker guard. A failed check changes no response header, status,
+or body-control state. A successful call returns the same response, overwrites
+only its matching header, and leaves status and body behavior unchanged. All
+three headers may coexist. These operations retain component output and do not
+reset an earlier `EmptyBody()` or suppressing navigation decision.
 
 The third bounded #154 slice removes the incomplete public `SwapStyle`, its
 typed `Reswap` overload, and the converter. Use `Reswap(string)` for core or
