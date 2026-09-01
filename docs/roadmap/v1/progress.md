@@ -2607,3 +2607,120 @@ Issue #154 remained open after this trigger slice. Remaining request parsing and
 naming, extension-header access, and the complete protocol matrix remain
 separate work for later bounded selection. No merge, issue closure, package
 publication, or release was part of that slice.
+
+### Native htmx 4 polling and status-286 removal
+
+The fifth bounded slice of issue #154 protects this behavior:
+
+> When a packaged .NET 10 Blazor static SSR component returns status 286 for an
+> htmx polling request and retains its load trigger, Htmxor serves that response
+> through application-owned htmx 4.0.0; when the next response replaces the
+> element without `hx-get` or `hx-trigger`, no further polling requests are
+> observed during the bounded 350 ms window.
+
+The exact fetched base was `origin/main` at
+`458b7d6543d21469e00a0ebe90eb75fb05daf771`. The preserved feature history is
+`bef2b9cf409ac4e7915d498877036bcd0d7ada70` for test-first red,
+`c87840e2bcc7e991f98bd20bf22f4bac9b4c214e` for implementation and public
+documentation, `f9f1602867175f333e67832acdf2f059bc745701` for the browser
+capture correction, and `6c040343b4cf14714b2a0edb1c3abda32e7de17c` for the
+preserved progress-only WIP record. The live [issue #154
+clarification](https://github.com/egil/Htmxor/issues/154#issuecomment-5495688186)
+selects htmx 4 only: status 286 is not a polling stop contract, and terminal
+replacement markup stops polling by omitting the polling attributes. The
+[official polling guide](https://four.htmx.org/patterns/polling) and exact
+[htmx 4.0.0 source](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js)
+were used as the client references.
+
+Test-only commit `bef2b9cf409ac4e7915d498877036bcd0d7ada70` preserves
+meaningful behavioral red. The focused Release test discovered and executed
+one test, with 0 passed and 1 failed because the obsolete `HtmxStatusCodes`
+type still existed. The separately packed Release consumer failed its outer test
+after its package-only application executed 63 inner tests: 62 passed and the
+same public-surface assertion failed. The setup-only attempt that lacked
+generated restore assets is not red evidence.
+
+The exact red commands were:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests.Htmx4_response_surface_removes_legacy_status_286_contract_but_keeps_general_status" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-polling-red-verify.trx" --results-directory results --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-polling-red-packed-verify.trx" --results-directory results-packed --verbosity minimal
+```
+
+Implementation commit `c87840e2bcc7e991f98bd20bf22f4bac9b4c214e` removes
+`HtmxResponse.StopPolling()` and the `HtmxStatusCodes` type. It retains
+`HtmxResponse.StatusCode(HttpStatusCode)` for valid htmx requests with the
+strict normalized marker guard; normal requests continue to use
+`HttpContext.Response.StatusCode`. No replacement polling helper or status
+policy was added. Correction commit
+`f9f1602867175f333e67832acdf2f059bc745701` records every request to the
+polling route, including the initial navigation and unexpected query strings,
+before asserting the exact request sequence and terminal observation window.
+
+The green commands ran at clean HEAD
+`6c040343b4cf14714b2a0edb1c3abda32e7de17c`, after verifying that every
+executable file matched `f9f1602867175f333e67832acdf2f059bc745701` and only
+the roadmap WIP record differed. Thus the exact executable head for this proof
+is `f9f1602867175f333e67832acdf2f059bc745701`; the command-run checkout was
+the clean progress-only preservation commit above.
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests.Htmx4_response_surface_removes_legacy_status_286_contract_but_keeps_general_status" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-polling-final-focused.trx" --results-directory artifacts/results/issue-154-polling-final-focused --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-polling-final-packed.trx" --results-directory artifacts/results/issue-154-polling-final-packed --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_preserves_actionless_unsafe_route_antiforgery --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-polling-final-packed-actionless.trx" --results-directory artifacts/results/issue-154-polling-final-packed-actionless --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-polling-final-htmx4.trx" --results-directory artifacts/results/issue-154-polling-final-htmx4 --verbosity minimal
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
+```
+
+The focused public-surface command passed 1 of 1 tests. The standard packed
+command passed 1 of 1 outer tests while its package-only application passed
+63 of 63 inner tests; the actionless antiforgery variant passed 1 of 1 outer
+and 66 of 66 inner tests. The package-only Production Kestrel/Chromium command
+passed 1 of 1 outer tests and 35 of 35 inner browser tests. Its polling
+interaction returned status 286 for iteration 1 while preserving
+`hx-trigger="load delay:100ms"`, then issued iteration 2 and received a 200
+terminal replacement with neither `hx-get` nor `hx-trigger`. The captured route
+sequence was the initial page request followed by exactly those two poll
+requests, and the count stayed unchanged for 350 ms after the terminal
+replacement.
+
+The fast profile passed 477 of 477 tests: 117 quality, 45 ASP.NET Core 10,
+and 315 core tests. The full profile passed 480 of 480 tests: 118 quality, 45
+ASP.NET Core 10, and 317 core/browser tests. Both profiles passed analyzer and
+style error gates; the Release build completed with 0 warnings and 0 errors.
+The full profile retained two fresh, matching nonempty Cobertura copies at
+`artifacts/results/full/htmxor/9bc81690-dc8e-4b9b-abb6-dbbb99dcb924/coverage.cobertura.xml`
+and its test-run attachment, each with SHA-256
+`D600745F6616384401D93C5D675DDDB0AE91DEFEDE15D15DBDD6B4FAEE31487E`.
+
+The browser package proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Ubuntu
+26.04.1 LTS under WSL2, a locally packed unsigned `net10.0` package, Production
+framework-dependent publish, loopback HTTP with real Kestrel, Microsoft
+Playwright 1.62.0, cached Chromium revision 1234 / Chrome for Testing
+151.0.7922.34, and the application-owned htmx 4.0.0 asset with SHA-256
+`E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
+
+The separate initial Standards review found stale progress provenance and an
+incomplete request queue. The separate initial Spec/DX review found the same
+stale provenance plus missing strict-marker wording and an incomplete
+first-five summary. The browser capture and public wording corrections were
+committed, and the invalidated browser proof was rerun at the exact executable
+head above. Final independent Standards review of the complete change set
+found 0 actionable findings; final independent Spec/DX review found 0
+actionable findings. Neither review ran repository tests or quality profiles.
+
+This proof does not exercise fresh browser, SDK, or NuGet-audit provisioning,
+TLS, Windows, macOS, Firefox, WebKit, a NuGet-published or signed package,
+self-contained or trimmed publish, .NET 11, another framework or htmx version,
+non-HTMX assignment of deliberate status 286 through the general
+`HttpContext.Response.StatusCode` path, concurrent polling clients, proxies,
+containers, external services, or
+performance. It also does not establish general HTTP semantics for status 286
+or polling behavior outside this exact application-owned htmx 4.0.0
+interaction. Full-scope mutation was not run and is not required for this
+ordinary pull-request slice.
+
+Issue #154 remains open. Remaining request parsing and naming, extension-header
+access, and the complete protocol matrix remain separate later work. No merge,
+issue closure, package publication, or release is part of this slice.
