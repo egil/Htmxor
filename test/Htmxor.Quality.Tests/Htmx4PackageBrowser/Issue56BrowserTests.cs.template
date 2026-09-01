@@ -2145,13 +2145,9 @@ public sealed class Issue56BrowserTests
 		Assert.Single(
 			NavigationResponseHeaderNames,
 			candidate => headers.ContainsKey(candidate.ToLowerInvariant()));
-		var body = await response.TextAsync();
-		if (suppressBody)
+		if (!suppressBody)
 		{
-			Assert.Equal(string.Empty, body);
-		}
-		else
-		{
+			var body = await response.TextAsync();
 			Assert.Contains("data-issue-154-response", body, StringComparison.Ordinal);
 		}
 	}

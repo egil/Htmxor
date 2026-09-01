@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using Htmxor.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,13 +11,29 @@ namespace Htmxor.Http;
 /// Provides htmx response operations. Core response-header operations require a request
 /// with exactly one normalized <c>HX-Request: true</c> marker.
 /// </summary>
+/// <remarks>
+/// Navigation operations validate their arguments before checking the htmx request marker,
+/// replace any earlier core htmx navigation operation, and do not change the HTTP status code.
+/// Htmx does not process response headers on HTTP 3xx responses.
+/// </remarks>
 public sealed class HtmxResponse(HttpContext context)
 {
 	private const string ItemsKeyPrefix = "02E0A668-6E6B-4C53-83A6-17E576073E96";
+	private static readonly string[] NavigationHeaderNames =
+	[
+		HtmxResponseHeaderNames.Location,
+		HtmxResponseHeaderNames.PushUrl,
+		HtmxResponseHeaderNames.Redirect,
+		HtmxResponseHeaderNames.Refresh,
+		HtmxResponseHeaderNames.ReplaceUrl,
+	];
 	private readonly IHeaderDictionary headers = context.Response.Headers;
 	private readonly bool isHtmxRequest = HtmxRequestMarkerClassifier.IsHtmxRequest(context.Request.Headers);
+	private bool explicitEmptyResponseBodyRequested;
+	private bool navigationSuppressesResponseBody;
 
-	internal bool EmptyResponseBodyRequested { get; private set; }
+	internal bool EmptyResponseBodyRequested
+		=> explicitEmptyResponseBodyRequested || navigationSuppressesResponseBody;
 
 	/// <summary>
 	/// Sets the response status code to <paramref name="statusCode"/>.
@@ -39,139 +54,155 @@ public sealed class HtmxResponse(HttpContext context)
 	public HtmxResponse EmptyBody()
 	{
 		AssertIsHtmxRequest();
-		EmptyResponseBodyRequested = true;
+		explicitEmptyResponseBodyRequested = true;
 		return this;
 	}
 
 	/// <summary>
-	/// Allows you to do a client-side redirect that does not do a full page reload.
+	/// Sets <c>HX-Location</c> to the exact relative or same-origin HTTP(S) URI reference
+	/// in <paramref name="path"/> and suppresses component output.
 	/// </summary>
-	/// <param name="path"></param>
+	/// <param name="path">
+	/// The destination. It must be a well-formed relative reference or resolve to the active
+	/// request origin over HTTP(S). The value is not trimmed or normalized.
+	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Location(string path)
 	{
+		HtmxNavigationDestinationValidator.ValidateLocal(path, context.Request, nameof(path));
 		AssertIsHtmxRequest();
-		headers[HtmxResponseHeaderNames.Location] = path;
-		return this;
+		return SetNavigation(HtmxResponseHeaderNames.Location, path, suppressBody: true);
 	}
 
 	/// <summary>
-	/// Allows you to do a client-side redirect that does not do a full page reload.
+	/// Sets <c>HX-Location</c> to <see cref="Uri.OriginalString"/> from the relative or
+	/// same-origin HTTP(S) <paramref name="path"/> and suppresses component output.
 	/// </summary>
-	/// <param name="locationTarget"></param>
+	/// <param name="path">
+	/// The destination. It must be a well-formed relative reference or resolve to the active
+	/// request origin over HTTP(S).
+	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
-	public HtmxResponse Location(LocationTarget locationTarget)
+	public HtmxResponse Location(Uri path)
 	{
-		AssertIsHtmxRequest();
-		var json = JsonSerializer.Serialize(locationTarget, HtmxorJsonSerializerContext.Default.LocationTarget);
-		headers[HtmxResponseHeaderNames.Location] = json;
-		return this;
+		ArgumentNullException.ThrowIfNull(path);
+		return Location(path.OriginalString);
 	}
 
 	/// <summary>
-	/// Pushes a new url onto the history stack.
+	/// Sets <c>HX-Push-Url</c> to the exact relative or same-origin HTTP(S) URI reference
+	/// in <paramref name="url"/> and retains component output.
 	/// </summary>
-	/// <param name="url"></param>
+	/// <param name="url">
+	/// The destination. It must not be the reserved <c>true</c> or <c>false</c> history
+	/// literal, and it is not trimmed or normalized.
+	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse PushUrl(string url)
 	{
+		HtmxNavigationDestinationValidator.ValidateLocalHistory(url, context.Request, nameof(url));
 		AssertIsHtmxRequest();
-		headers[HtmxResponseHeaderNames.PushUrl] = url;
-		return this;
+		return SetNavigation(HtmxResponseHeaderNames.PushUrl, url, suppressBody: false);
 	}
 
 	/// <summary>
-	/// Pushes a new url onto the history stack.
+	/// Sets <c>HX-Push-Url</c> to <see cref="Uri.OriginalString"/> from the relative or
+	/// same-origin HTTP(S) <paramref name="url"/> and retains component output.
 	/// </summary>
-	/// <param name="url"></param>
+	/// <param name="url">The destination, which must not represent <c>true</c> or <c>false</c>.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse PushUrl(Uri url)
 	{
 		ArgumentNullException.ThrowIfNull(url);
-		return PushUrl(url.ToString());
+		return PushUrl(url.OriginalString);
 	}
 
 	/// <summary>
-	/// Prevents the browser’s history from being updated.
-	/// Overwrites PushUrl response if already present.
+	/// Sets <c>HX-Push-Url: false</c>, replacing any earlier core htmx navigation operation,
+	/// and retains component output.
 	/// </summary>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse PreventBrowserHistoryUpdate()
 	{
 		AssertIsHtmxRequest();
-		headers[HtmxResponseHeaderNames.PushUrl] = "false";
-		return this;
+		return SetNavigation(HtmxResponseHeaderNames.PushUrl, "false", suppressBody: false);
 	}
 
 	/// <summary>
-	/// Prevents the browser’s current url from being updated
-	/// Overwrites ReplaceUrl response if already present.
+	/// Sets <c>HX-Replace-Url: false</c>, replacing any earlier core htmx navigation operation,
+	/// and retains component output.
 	/// </summary>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse PreventBrowserCurrentUrlUpdate()
 	{
 		AssertIsHtmxRequest();
-		headers[HtmxResponseHeaderNames.ReplaceUrl] = "false";
-		return this;
+		return SetNavigation(HtmxResponseHeaderNames.ReplaceUrl, "false", suppressBody: false);
 	}
 
 	/// <summary>
-	/// Can be used to do a client-side redirect to a new location.
+	/// Sets <c>HX-Redirect</c> to the exact relative or HTTP(S) URI reference in
+	/// <paramref name="url"/> and suppresses component output. Absolute cross-origin
+	/// HTTP(S) destinations are allowed for deliberate full-page navigation.
 	/// </summary>
-	/// <param name="url">The url to redirect to.</param>
+	/// <param name="url">The destination. The value is not trimmed or normalized.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Redirect(string url)
 	{
+		HtmxNavigationDestinationValidator.ValidateRedirect(url, context.Request, nameof(url));
 		AssertIsHtmxRequest();
-		headers[HtmxResponseHeaderNames.Redirect] = url;
-		EmptyResponseBodyRequested = true;
-		return this;
+		return SetNavigation(HtmxResponseHeaderNames.Redirect, url, suppressBody: true);
 	}
 
 	/// <summary>
-	/// Can be used to do a client-side redirect to a new location.
+	/// Sets <c>HX-Redirect</c> to <see cref="Uri.OriginalString"/> from the relative or
+	/// HTTP(S) <paramref name="url"/> and suppresses component output. Absolute cross-origin
+	/// HTTP(S) destinations are allowed for deliberate full-page navigation.
 	/// </summary>
-	/// <param name="url">The url to redirect to.</param>
+	/// <param name="url">The destination.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Redirect(Uri url)
 	{
 		ArgumentNullException.ThrowIfNull(url);
-		return Redirect(url.ToString());
+		return Redirect(url.OriginalString);
 	}
 
 	/// <summary>
-	/// Enables a client-side full refresh of the page.
+	/// Sets <c>HX-Refresh: true</c>, replacing any earlier core htmx navigation operation,
+	/// and suppresses component output.
 	/// </summary>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Refresh()
 	{
 		AssertIsHtmxRequest();
-		headers[HtmxResponseHeaderNames.Refresh] = "true";
-		EmptyResponseBodyRequested = true;
-		return this;
+		return SetNavigation(HtmxResponseHeaderNames.Refresh, "true", suppressBody: true);
 	}
 
 	/// <summary>
-	/// Replaces the current URL in the location bar.
+	/// Sets <c>HX-Replace-Url</c> to the exact relative or same-origin HTTP(S) URI reference
+	/// in <paramref name="url"/> and retains component output.
 	/// </summary>
-	/// <param name="url"></param>
+	/// <param name="url">
+	/// The destination. It must not be the reserved <c>true</c> or <c>false</c> history
+	/// literal, and it is not trimmed or normalized.
+	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse ReplaceUrl(string url)
 	{
+		HtmxNavigationDestinationValidator.ValidateLocalHistory(url, context.Request, nameof(url));
 		AssertIsHtmxRequest();
-		headers[HtmxResponseHeaderNames.ReplaceUrl] = url;
-		return this;
+		return SetNavigation(HtmxResponseHeaderNames.ReplaceUrl, url, suppressBody: false);
 	}
 
 	/// <summary>
-	/// Replaces the current URL in the location bar.
+	/// Sets <c>HX-Replace-Url</c> to <see cref="Uri.OriginalString"/> from the relative or
+	/// same-origin HTTP(S) <paramref name="url"/> and retains component output.
 	/// </summary>
-	/// <param name="url"></param>
+	/// <param name="url">The destination, which must not represent <c>true</c> or <c>false</c>.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse ReplaceUrl(Uri url)
 	{
 		ArgumentNullException.ThrowIfNull(url);
-		return ReplaceUrl(url.ToString());
+		return ReplaceUrl(url.OriginalString);
 	}
 
 	/// <summary>
@@ -283,6 +314,18 @@ public sealed class HtmxResponse(HttpContext context)
 
 		MergeTrigger(eventName, detail, jsonSerializerOptions);
 
+		return this;
+	}
+
+	private HtmxResponse SetNavigation(string headerName, string value, bool suppressBody)
+	{
+		foreach (var navigationHeaderName in NavigationHeaderNames)
+		{
+			headers.Remove(navigationHeaderName);
+		}
+
+		headers[headerName] = value;
+		navigationSuppressesResponseBody = suppressBody;
 		return this;
 	}
 

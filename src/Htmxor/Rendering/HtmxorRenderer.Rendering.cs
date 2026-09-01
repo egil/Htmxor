@@ -74,11 +74,6 @@ internal partial class HtmxorRenderer
 			if (navOptions.ForceLoad)
 			{
 				htmxContext.Response.Redirect(navigationException.RequestedLocation);
-
-				if (navOptions.ReplaceHistoryEntry)
-				{
-					htmxContext.Response.ReplaceUrl(navigationException.RequestedLocation);
-				}
 			}
 			else
 			{
