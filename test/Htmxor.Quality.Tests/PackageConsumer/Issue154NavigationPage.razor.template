@@ -1,0 +1,41 @@
+@page "/issue-154-navigation"
+@using Htmxor.Http
+
+<section data-issue-154-navigation
+         data-operation="@Operation">
+    navigation component body
+</section>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Operation { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Operation is null)
+        {
+            return;
+        }
+
+        var response = HttpContext.GetHtmxContext().Response;
+        response.StatusCode(System.Net.HttpStatusCode.Accepted);
+        _ = Operation switch
+        {
+            "location" => response.Location("/orders/42"),
+            "push" => response.PushUrl("/orders?page=2"),
+            "prevent-push" => response.PreventBrowserHistoryUpdate(),
+            "redirect" => response.Redirect("/login"),
+            "refresh" => response.Refresh(),
+            "replace" => response.ReplaceUrl("?page=2"),
+            "prevent-replace" => response.PreventBrowserCurrentUrlUpdate(),
+            "redirect-then-replace" => response.Redirect("/login").ReplaceUrl("?page=2"),
+            "replace-then-redirect" => response.ReplaceUrl("?page=2").Redirect("/login"),
+            "empty-then-replace" => response.EmptyBody().ReplaceUrl("?page=2"),
+            _ => throw new InvalidOperationException($"Unknown navigation operation '{Operation}'."),
+        };
+    }
+}

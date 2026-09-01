@@ -9,5 +9,12 @@
 			hx-swap="innerHTML">
 		Navigate
 	</button>
+	<button id="issue-64-force-replace"
+			type="button"
+			hx-get="/issue-64/redirect?force-load=true&amp;replace-history-entry=true"
+			hx-target="#issue-64-target"
+			hx-swap="innerHTML">
+		Force replacement navigation
+	</button>
 	<div id="issue-64-target" data-state="initiating-target">Initiating target</div>
 </section>

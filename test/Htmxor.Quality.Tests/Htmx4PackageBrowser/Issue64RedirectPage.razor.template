@@ -2,8 +2,18 @@
 @inject NavigationManager Navigation
 
 @code {
+	[SupplyParameterFromQuery(Name = "force-load")]
+	public bool ForceLoad { get; set; }
+
+	[SupplyParameterFromQuery(Name = "replace-history-entry")]
+	public bool ReplaceHistoryEntry { get; set; }
+
 	protected override void OnInitialized()
 	{
-		Navigation.NavigateTo("/issue-64/destination");
+		Navigation.NavigateTo("/issue-64/destination", new NavigationOptions
+		{
+			ForceLoad = ForceLoad,
+			ReplaceHistoryEntry = ReplaceHistoryEntry,
+		});
 	}
 }

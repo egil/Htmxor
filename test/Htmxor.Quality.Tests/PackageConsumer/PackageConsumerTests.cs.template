@@ -36,6 +36,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	private const string AuditDeclaredRoute = "/audits/{AuditId:int}";
 	private const string PageDeclaredRoute = "/reports/{ReportId:int}";
 	private const string MarkerPageRequestPath = RoutePrefix + "/issue-154-marker";
+	private const string NavigationPageRequestPath = RoutePrefix + "/issue-154-navigation";
 	private const string ReportRequestPath = "/issue-97-group/htmx-reports/42";
 	private const string SummaryRequestPath = "/issue-97-group/summaries/84";
 	private const string AuditRequestPath = "/issue-97-group/audits/126";
@@ -176,9 +177,14 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 
 		Assert.Empty(unexpectedSurface);
 		Assert.Contains("Htmxor.SwapStyle", exportedTypeNames);
+		Assert.DoesNotContain("Htmxor.Http.AjaxContext", exportedTypeNames);
+		Assert.DoesNotContain("Htmxor.Http.LocationTarget", exportedTypeNames);
 		Assert.Equal(
-			typeof(SwapStyle?),
-			typeof(AjaxContext).GetProperty(nameof(AjaxContext.Swap))?.PropertyType);
+			[typeof(string), typeof(Uri)],
+			typeof(HtmxResponse).GetMethods()
+				.Where(static method => method.Name == nameof(HtmxResponse.Location))
+				.Select(static method => Assert.Single(method.GetParameters()).ParameterType)
+				.OrderBy(static type => type.Name));
 		Assert.Contains(
 			reswapOverloads,
 			static method => method.GetParameters() is [{ ParameterType: var parameterType }, ..]
@@ -186,6 +192,141 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		Assert.DoesNotContain(
 			reswapOverloads.SelectMany(static method => method.GetParameters()),
 			static parameter => parameter.ParameterType.FullName == "Htmxor.SwapStyleBuilder");
+	}
+
+	[Fact]
+	public void Navigation_destinations_are_validated_before_the_marker_guard_without_mutation()
+	{
+		string?[] invalidDestinations =
+		[
+			null,
+			"",
+			" ",
+			" /orders/42",
+			"/orders/42 ",
+			"/orders/\n42",
+			"http://[::1",
+		];
+
+		foreach (var destination in invalidDestinations)
+		{
+			foreach (var operation in GetNavigationOperations(destination!))
+			{
+				var context = CreateNavigationContext(validMarker: false);
+				var response = new HtmxResponse(context);
+
+				Assert.ThrowsAny<ArgumentException>(() => operation(response));
+				AssertNavigationStateUnchanged(context);
+			}
+		}
+	}
+
+	[Fact]
+	public void Navigation_destinations_enforce_history_scheme_and_origin_rules()
+	{
+		foreach (var literal in new[] { "true", "false" })
+		{
+			AssertRejectedNavigation(response => response.PushUrl(literal));
+			AssertRejectedNavigation(response => response.ReplaceUrl(literal));
+		}
+
+		foreach (var destination in new[]
+		{
+			"https://other.example/orders/42",
+			"//other.example/orders/42",
+			"ftp://reports.internal.example/orders/42",
+		})
+		{
+			AssertRejectedNavigation(response => response.Location(destination));
+			AssertRejectedNavigation(response => response.PushUrl(destination));
+			AssertRejectedNavigation(response => response.ReplaceUrl(destination));
+		}
+
+		var redirectContext = CreateNavigationContext(validMarker: true);
+		var redirectResponse = new HtmxResponse(redirectContext);
+		Assert.Same(redirectResponse, redirectResponse.Redirect("https://idp.example/login"));
+		Assert.Equal(
+			"https://idp.example/login",
+			redirectContext.Response.Headers[HtmxResponseHeaderNames.Redirect]);
+
+		AssertRejectedNavigation(response => response.Redirect("mailto:user@example.com"));
+	}
+
+	[Fact]
+	public void Navigation_operations_preserve_Uri_text_and_use_one_last_call_wins_header()
+	{
+		var destination = new Uri(
+			"https://REPORTS.internal.example:443/a/../orders%20archive",
+			UriKind.Absolute);
+		Assert.NotEqual(destination.OriginalString, destination.ToString());
+
+		foreach (var operation in new Func<HtmxResponse, Uri, HtmxResponse>[]
+		{
+			(response, uri) => response.PushUrl(uri),
+			(response, uri) => response.Redirect(uri),
+			(response, uri) => response.ReplaceUrl(uri),
+		})
+		{
+			var context = CreateNavigationContext(validMarker: true);
+			var response = new HtmxResponse(context);
+
+			Assert.Same(response, operation(response, destination));
+			Assert.Equal(destination.OriginalString, Assert.Single(GetNavigationHeaders(context)).Value.ToString());
+		}
+
+		var overwriteContext = CreateNavigationContext(validMarker: true);
+		var overwriteResponse = new HtmxResponse(overwriteContext);
+		var result = overwriteResponse
+			.Location("/location")
+			.Redirect("/redirect")
+			.Refresh()
+			.PushUrl("/push")
+			.ReplaceUrl("/replace")
+			.PreventBrowserHistoryUpdate()
+			.PreventBrowserCurrentUrlUpdate();
+
+		Assert.Same(overwriteResponse, result);
+		var header = Assert.Single(GetNavigationHeaders(overwriteContext));
+		Assert.Equal(HtmxResponseHeaderNames.ReplaceUrl, header.Key);
+		Assert.Equal("false", header.Value);
+		Assert.Equal(StatusCodes.Status200OK, overwriteContext.Response.StatusCode);
+	}
+
+	[Theory]
+	[InlineData("location", HtmxResponseHeaderNames.Location, "/orders/42", false)]
+	[InlineData("push", HtmxResponseHeaderNames.PushUrl, "/orders?page=2", true)]
+	[InlineData("prevent-push", HtmxResponseHeaderNames.PushUrl, "false", true)]
+	[InlineData("redirect", HtmxResponseHeaderNames.Redirect, "/login", false)]
+	[InlineData("refresh", HtmxResponseHeaderNames.Refresh, "true", false)]
+	[InlineData("replace", HtmxResponseHeaderNames.ReplaceUrl, "?page=2", true)]
+	[InlineData("prevent-replace", HtmxResponseHeaderNames.ReplaceUrl, "false", true)]
+	[InlineData("redirect-then-replace", HtmxResponseHeaderNames.ReplaceUrl, "?page=2", true)]
+	[InlineData("replace-then-redirect", HtmxResponseHeaderNames.Redirect, "/login", false)]
+	[InlineData("empty-then-replace", HtmxResponseHeaderNames.ReplaceUrl, "?page=2", false)]
+	public async Task Navigation_component_applies_one_header_and_the_documented_body_effect(
+		string operation,
+		string expectedHeader,
+		string expectedValue,
+		bool expectsBody)
+	{
+		using var request = CreateMarkerRequest(
+			$"{NavigationPageRequestPath}?operation={operation}",
+			["true"]);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+		var header = Assert.Single(response.Headers, header =>
+			NavigationHeaderNames.Contains(header.Key, StringComparer.OrdinalIgnoreCase));
+		Assert.Equal(expectedHeader, header.Key, StringComparer.OrdinalIgnoreCase);
+		Assert.Equal(expectedValue, Assert.Single(header.Value));
+		Assert.Equal(
+			expectsBody,
+			body.Contains("data-issue-154-navigation", StringComparison.Ordinal));
+		if (!expectsBody)
+		{
+			Assert.Equal(string.Empty, body);
+		}
 	}
 
 	[Fact]
@@ -267,8 +408,8 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		Assert.Contains("<html", body, StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
 		Assert.Contains("data-issue-154-marker", body, StringComparison.Ordinal);
-		Assert.Contains("data-rejected-operation-count=\"19\"", body, StringComparison.Ordinal);
-		Assert.Contains("data-operation-count=\"19\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-rejected-operation-count=\"18\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-operation-count=\"18\"", body, StringComparison.Ordinal);
 		Assert.All(
 			typeof(HtmxResponseHeaderNames).GetFields(BindingFlags.Public | BindingFlags.Static),
 			field => Assert.False(response.Headers.Contains(
@@ -821,6 +962,55 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		}
 
 		return request;
+	}
+
+	private static readonly string[] NavigationHeaderNames =
+	[
+		HtmxResponseHeaderNames.Location,
+		HtmxResponseHeaderNames.PushUrl,
+		HtmxResponseHeaderNames.Redirect,
+		HtmxResponseHeaderNames.Refresh,
+		HtmxResponseHeaderNames.ReplaceUrl,
+	];
+
+	private static DefaultHttpContext CreateNavigationContext(bool validMarker)
+	{
+		var context = new DefaultHttpContext
+		{
+			RequestServices = new ServiceCollection().BuildServiceProvider(),
+		};
+		context.Request.Scheme = "https";
+		context.Request.Host = new HostString(ReportHost);
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = validMarker ? "true" : "false";
+		return context;
+	}
+
+	private static IEnumerable<Func<HtmxResponse, HtmxResponse>> GetNavigationOperations(string destination)
+	{
+		yield return response => response.Location(destination);
+		yield return response => response.PushUrl(destination);
+		yield return response => response.Redirect(destination);
+		yield return response => response.ReplaceUrl(destination);
+	}
+
+	private static IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> GetNavigationHeaders(
+		HttpContext context)
+		=> context.Response.Headers.Where(header =>
+			NavigationHeaderNames.Contains(header.Key, StringComparer.OrdinalIgnoreCase));
+
+	private static void AssertRejectedNavigation(Func<HtmxResponse, HtmxResponse> operation)
+	{
+		var context = CreateNavigationContext(validMarker: true);
+		var response = new HtmxResponse(context);
+
+		Assert.Throws<ArgumentException>(() => operation(response));
+		AssertNavigationStateUnchanged(context);
+	}
+
+	private static void AssertNavigationStateUnchanged(HttpContext context)
+	{
+		Assert.Empty(GetNavigationHeaders(context));
+		Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
 	}
 
 	private void AssertNoApplicationCodeRan()

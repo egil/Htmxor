@@ -33,7 +33,6 @@
             candidate => candidate.StatusCode(HttpStatusCode.Created),
             candidate => candidate.EmptyBody(),
             candidate => candidate.Location("/forbidden-location"),
-            candidate => candidate.Location(new LocationTarget { Path = "/forbidden-location" }),
             candidate => candidate.PushUrl("/forbidden-push"),
             candidate => candidate.PushUrl(new Uri("/forbidden-push", UriKind.Relative)),
             candidate => candidate.PreventBrowserHistoryUpdate(),

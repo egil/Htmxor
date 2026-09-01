@@ -37,9 +37,20 @@ public sealed class Issue56BrowserTests
 	private const string Issue144Path = "/issue-144/concurrent-fragment";
 	private const string Issue64Path = "/issue-64";
 	private const string Issue64RedirectPath = "/issue-64/redirect";
+	private const string Issue64ForcedReplacementPath =
+		"/issue-64/redirect?force-load=true&replace-history-entry=true";
 	private const string Issue64DestinationPath = "/issue-64/destination";
+	private const string Issue154Path = "/issue-154/navigation";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
+	private static readonly string[] NavigationResponseHeaderNames =
+	[
+		"HX-Location",
+		"HX-Push-Url",
+		"HX-Redirect",
+		"HX-Refresh",
+		"HX-Replace-Url",
+	];
 
 	[Fact]
 	public async Task Production_publish_preserves_stock_fingerprinted_assets_and_direct_component_get()
@@ -1513,6 +1524,171 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Navigation_response_operations_emit_one_header_and_apply_their_body_effect()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
+		var cases = new[]
+		{
+			new
+			{
+				Operation = "push",
+				Header = "HX-Push-Url",
+				Value = Issue154StatePath("pushed"),
+				SuppressBody = false,
+			},
+			new
+			{
+				Operation = "prevent-push",
+				Header = "HX-Push-Url",
+				Value = "false",
+				SuppressBody = false,
+			},
+			new
+			{
+				Operation = "redirect",
+				Header = "HX-Redirect",
+				Value = Issue154StatePath("redirected"),
+				SuppressBody = true,
+			},
+			new
+			{
+				Operation = "refresh",
+				Header = "HX-Refresh",
+				Value = "true",
+				SuppressBody = true,
+			},
+			new
+			{
+				Operation = "replace",
+				Header = "HX-Replace-Url",
+				Value = Issue154StatePath("replaced"),
+				SuppressBody = false,
+			},
+			new
+			{
+				Operation = "prevent-replace",
+				Header = "HX-Replace-Url",
+				Value = "false",
+				SuppressBody = false,
+			},
+			new
+			{
+				Operation = "explicit-empty-push",
+				Header = "HX-Push-Url",
+				Value = Issue154StatePath("explicit-empty"),
+				SuppressBody = true,
+			},
+			new
+			{
+				Operation = "location",
+				Header = "HX-Location",
+				Value = Issue154StatePath("located"),
+				SuppressBody = true,
+			},
+		};
+
+		foreach (var testCase in cases)
+		{
+			using var request = CreateIssue154Request(testCase.Operation);
+			using var response = await client.SendAsync(request);
+			var body = await response.Content.ReadAsStringAsync();
+
+			Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+			Assert.Equal(
+				testCase.Value,
+				Assert.Single(response.Headers.GetValues(testCase.Header)));
+			Assert.Single(
+				NavigationResponseHeaderNames,
+				header => response.Headers.Contains(header));
+			if (testCase.SuppressBody)
+			{
+				Assert.Equal(string.Empty, body);
+			}
+			else
+			{
+				Assert.Contains(
+					$"data-issue-154-response=\"{testCase.Operation}\"",
+					body,
+					StringComparison.Ordinal);
+			}
+		}
+	}
+
+	[Fact]
+	public async Task Navigation_response_operations_are_last_call_wins_without_sticky_automatic_body_suppression()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
+		using var request = CreateIssue154Request("chain");
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Equal(
+			Issue154StatePath("chained"),
+			Assert.Single(response.Headers.GetValues("HX-Push-Url")));
+		Assert.Single(
+			NavigationResponseHeaderNames,
+			header => response.Headers.Contains(header));
+		Assert.Contains("data-issue-154-response=\"chain\"", body, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task Application_owned_htmx4_applies_location_redirect_and_refresh_navigation()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+
+		await AssertIssue154LocationAsync(browser, baseAddress);
+		await AssertIssue154RedirectAsync(browser, baseAddress);
+		await AssertIssue154RefreshAsync(browser, baseAddress);
+	}
+
+	[Fact]
+	public async Task Application_owned_htmx4_applies_history_operations_with_normal_swaps()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+
+		await AssertIssue154HistoryUpdateAsync(
+			browser,
+			baseAddress,
+			operation: "push",
+			header: "HX-Push-Url",
+			state: "pushed",
+			expectedBackPath: Issue154Path);
+		await AssertIssue154HistoryUpdateAsync(
+			browser,
+			baseAddress,
+			operation: "replace",
+			header: "HX-Replace-Url",
+			state: "replaced",
+			expectedBackPath: Issue64Path);
+		await AssertIssue154PreventedHistoryUpdateAsync(
+			browser,
+			baseAddress,
+			operation: "prevent-push",
+			header: "HX-Push-Url");
+		await AssertIssue154PreventedHistoryUpdateAsync(
+			browser,
+			baseAddress,
+			operation: "prevent-replace",
+			header: "HX-Replace-Url");
+	}
+
+	[Fact]
 	public async Task NavigateTo_preserves_the_stock_redirect_and_adapts_the_direct_htmx_response()
 	{
 		await using var app = CreateApplication(new Issue56RequestProbe());
@@ -1556,6 +1732,22 @@ public sealed class Issue56BrowserTests
 			$"{baseAddress.Scheme}://{baseAddress.Host}{Issue64DestinationPath}",
 			Assert.Single(defaultPortResponse.Headers.GetValues("HX-Redirect")));
 		Assert.Null(defaultPortResponse.Headers.Location);
+
+		using var forcedRequest = new HttpRequestMessage(HttpMethod.Get, Issue64ForcedReplacementPath);
+		forcedRequest.Headers.Add("HX-Request", "true");
+		forcedRequest.Headers.Add("HX-Request-Type", "partial");
+		forcedRequest.Headers.Add("HX-Source", "button#issue-64-force-replace");
+		forcedRequest.Headers.Add("HX-Target", "div#issue-64-target");
+		using var forcedResponse = await client.SendAsync(forcedRequest);
+		Assert.Equal(HttpStatusCode.OK, forcedResponse.StatusCode);
+		Assert.Equal(
+			ordinaryLocation.AbsoluteUri,
+			Assert.Single(forcedResponse.Headers.GetValues("HX-Redirect")));
+		Assert.False(forcedResponse.Headers.Contains("HX-Replace-Url"));
+		Assert.Single(
+			NavigationResponseHeaderNames,
+			header => forcedResponse.Headers.Contains(header));
+		Assert.Equal(string.Empty, await forcedResponse.Content.ReadAsStringAsync());
 	}
 
 	[Fact]
@@ -1599,6 +1791,49 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(1, await page.Locator("[data-issue-64-destination]").CountAsync());
 		Assert.Null(await page.EvaluateAsync<string?>("() => sessionStorage.getItem('issue64-target-swapped')"));
 		Assert.Equal(0, await page.Locator("#issue-64-target").CountAsync());
+	}
+
+	[Fact]
+	public async Task Forced_replacement_navigation_keeps_one_full_load_redirect()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue64Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await page.EvaluateAsync("() => { window.issue64ForcedReplacementSentinel = true; }");
+		var responseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).PathAndQuery == Issue64ForcedReplacementPath &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+		var destinationTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == Issue64DestinationPath &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+
+		await page.Locator("#issue-64-force-replace").ClickAsync();
+		var response = await responseTask;
+		var destination = await destinationTask;
+		var headers = await response.AllHeadersAsync();
+
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		Assert.Contains("hx-redirect", headers.Keys, StringComparer.OrdinalIgnoreCase);
+		Assert.DoesNotContain("hx-replace-url", headers.Keys, StringComparer.OrdinalIgnoreCase);
+		Assert.Single(
+			NavigationResponseHeaderNames,
+			header => headers.ContainsKey(header.ToLowerInvariant()));
+		Assert.Equal((int)HttpStatusCode.OK, destination.Status);
+		await page.Locator("[data-issue-64-destination]").WaitForAsync();
+		Assert.Equal(Issue64DestinationPath, new Uri(page.Url).AbsolutePath);
+		Assert.Equal(1, await page.Locator("body[data-stock-shell]").CountAsync());
+		Assert.Equal(0, await page.Locator("#issue-64-target").CountAsync());
+		Assert.True(await page.EvaluateAsync<bool>(
+			"() => typeof window.issue64ForcedReplacementSentinel === 'undefined'"));
 	}
 
 	[Fact]
@@ -1859,6 +2094,228 @@ public sealed class Issue56BrowserTests
 		request.Headers.Add("HX-Request-Type", "partial");
 		request.Headers.Add(Issue111AuthenticationHandler.UserHeaderName, "issue-120-user");
 		return request;
+	}
+
+	private static HttpRequestMessage CreateIssue154Request(string operation)
+	{
+		var request = new HttpRequestMessage(HttpMethod.Get, Issue154OperationPath(operation));
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		request.Headers.Add("HX-Source", $"button#issue-154-{operation}");
+		request.Headers.Add("HX-Target", "section#issue-154-target");
+		return request;
+	}
+
+	private static string Issue154OperationPath(string operation) =>
+		$"{Issue154Path}?operation={operation}";
+
+	private static string Issue154StatePath(string state) =>
+		$"{Issue154Path}?state={state}";
+
+	private static async Task<IPage> OpenIssue154PageAsync(IBrowserContext context)
+	{
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue154Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		Assert.Contains("data-stock-shell", await navigation.TextAsync(), StringComparison.Ordinal);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		return page;
+	}
+
+	private static Task<IResponse> WaitForIssue154ResponseAsync(IPage page, string operation) =>
+		page.WaitForResponseAsync(response =>
+			new Uri(response.Url).PathAndQuery == Issue154OperationPath(operation) &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+
+	private static Task<IResponse> WaitForIssue154DestinationAsync(IPage page, string state) =>
+		page.WaitForResponseAsync(response =>
+			new Uri(response.Url).PathAndQuery == Issue154StatePath(state) &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+
+	private static async Task AssertIssue154NavigationResponseAsync(
+		IResponse response,
+		string header,
+		string value,
+		bool suppressBody)
+	{
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var headers = await response.AllHeadersAsync();
+		Assert.Equal(value, headers[header.ToLowerInvariant()]);
+		Assert.Single(
+			NavigationResponseHeaderNames,
+			candidate => headers.ContainsKey(candidate.ToLowerInvariant()));
+		var body = await response.TextAsync();
+		if (suppressBody)
+		{
+			Assert.Equal(string.Empty, body);
+		}
+		else
+		{
+			Assert.Contains("data-issue-154-response", body, StringComparison.Ordinal);
+		}
+	}
+
+	private static async Task AssertIssue154LocationAsync(IBrowser browser, Uri baseAddress)
+	{
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await OpenIssue154PageAsync(context);
+		await page.EvaluateAsync(
+			"""
+			() => {
+				window.issue154LocationSentinel = true;
+				sessionStorage.removeItem('issue154-location-swapped');
+				document.addEventListener('htmx:after:swap', () => {
+					if (document.querySelector("[data-issue-154-destination='located']")) {
+						sessionStorage.setItem('issue154-location-swapped', 'true');
+					}
+				});
+			}
+			""");
+		var responseTask = WaitForIssue154ResponseAsync(page, "location");
+		var destinationTask = WaitForIssue154DestinationAsync(page, "located");
+
+		await page.Locator("#issue-154-location").ClickAsync();
+		var response = await responseTask;
+		var destination = await destinationTask;
+
+		await AssertIssue154NavigationResponseAsync(
+			response,
+			"HX-Location",
+			Issue154StatePath("located"),
+			suppressBody: true);
+		Assert.Equal((int)HttpStatusCode.OK, destination.Status);
+		await page.Locator("[data-issue-154-destination='located']").WaitForAsync();
+		await page.WaitForFunctionAsync(
+			$"() => location.pathname + location.search === '{Issue154StatePath("located")}'");
+		Assert.True(await page.EvaluateAsync<bool>("() => window.issue154LocationSentinel === true"));
+		Assert.Equal(
+			"true",
+			await page.EvaluateAsync<string?>(
+				"() => sessionStorage.getItem('issue154-location-swapped')"));
+		Assert.Equal(1, await page.Locator("body[data-stock-shell]").CountAsync());
+		Assert.Equal(0, await page.Locator("#issue-154-target").CountAsync());
+	}
+
+	private static async Task AssertIssue154RedirectAsync(IBrowser browser, Uri baseAddress)
+	{
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await OpenIssue154PageAsync(context);
+		await page.EvaluateAsync("() => { window.issue154RedirectSentinel = true; }");
+		var responseTask = WaitForIssue154ResponseAsync(page, "redirect");
+		var destinationTask = WaitForIssue154DestinationAsync(page, "redirected");
+
+		await page.Locator("#issue-154-redirect").ClickAsync();
+		var response = await responseTask;
+		var destination = await destinationTask;
+
+		await AssertIssue154NavigationResponseAsync(
+			response,
+			"HX-Redirect",
+			Issue154StatePath("redirected"),
+			suppressBody: true);
+		Assert.Equal((int)HttpStatusCode.OK, destination.Status);
+		await page.Locator("[data-issue-154-destination='redirected']").WaitForAsync();
+		Assert.Equal(Issue154StatePath("redirected"), new Uri(page.Url).PathAndQuery);
+		Assert.True(await page.EvaluateAsync<bool>(
+			"() => typeof window.issue154RedirectSentinel === 'undefined'"));
+		Assert.Equal(1, await page.Locator("body[data-stock-shell]").CountAsync());
+		Assert.Equal(0, await page.Locator("#issue-154-target").CountAsync());
+	}
+
+	private static async Task AssertIssue154RefreshAsync(IBrowser browser, Uri baseAddress)
+	{
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await OpenIssue154PageAsync(context);
+		await page.EvaluateAsync("() => { window.issue154RefreshSentinel = true; }");
+		var responseTask = WaitForIssue154ResponseAsync(page, "refresh");
+		var reloadTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).PathAndQuery == Issue154Path &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+
+		await page.Locator("#issue-154-refresh").ClickAsync();
+		var response = await responseTask;
+		var reload = await reloadTask;
+
+		await AssertIssue154NavigationResponseAsync(
+			response,
+			"HX-Refresh",
+			"true",
+			suppressBody: true);
+		Assert.Equal((int)HttpStatusCode.OK, reload.Status);
+		await page.Locator("[data-issue-154-navigation]").WaitForAsync();
+		Assert.Equal(Issue154Path, new Uri(page.Url).PathAndQuery);
+		Assert.True(await page.EvaluateAsync<bool>(
+			"() => typeof window.issue154RefreshSentinel === 'undefined'"));
+		Assert.Equal(1, await page.Locator("body[data-stock-shell]").CountAsync());
+		Assert.Equal(1, await page.Locator("#issue-154-target[data-state='initial']").CountAsync());
+	}
+
+	private static async Task AssertIssue154HistoryUpdateAsync(
+		IBrowser browser,
+		Uri baseAddress,
+		string operation,
+		string header,
+		string state,
+		string expectedBackPath)
+	{
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		await page.GotoAsync(Issue64Path);
+		var navigation = await page.GotoAsync(Issue154Path);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		var responseTask = WaitForIssue154ResponseAsync(page, operation);
+
+		await page.Locator($"#issue-154-{operation}").ClickAsync();
+		var response = await responseTask;
+
+		await AssertIssue154NavigationResponseAsync(
+			response,
+			header,
+			Issue154StatePath(state),
+			suppressBody: false);
+		await page.Locator($"#issue-154-target [data-issue-154-response='{operation}']").WaitForAsync();
+		await page.WaitForFunctionAsync(
+			$"() => location.pathname + location.search === '{Issue154StatePath(state)}'");
+
+		await page.EvaluateAsync("() => history.back()");
+		await page.WaitForFunctionAsync(
+			$"() => location.pathname + location.search === '{expectedBackPath}'");
+		if (string.Equals(expectedBackPath, Issue154Path, StringComparison.Ordinal))
+		{
+			await page.Locator("#issue-154-target[data-state='initial']").WaitForAsync();
+		}
+		else
+		{
+			await page.Locator("[data-issue-64-page]").WaitForAsync();
+		}
+	}
+
+	private static async Task AssertIssue154PreventedHistoryUpdateAsync(
+		IBrowser browser,
+		Uri baseAddress,
+		string operation,
+		string header)
+	{
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await OpenIssue154PageAsync(context);
+		var initialUrl = page.Url;
+		var initialHistoryLength = await page.EvaluateAsync<int>("() => history.length");
+		var responseTask = WaitForIssue154ResponseAsync(page, operation);
+
+		await page.Locator($"#issue-154-{operation}").ClickAsync();
+		var response = await responseTask;
+
+		await AssertIssue154NavigationResponseAsync(
+			response,
+			header,
+			"false",
+			suppressBody: false);
+		await page.Locator($"#issue-154-target [data-issue-154-response='{operation}']").WaitForAsync();
+		Assert.Equal(initialUrl, page.Url);
+		Assert.Equal(initialHistoryLength, await page.EvaluateAsync<int>("() => history.length"));
 	}
 
 	private static WebApplication CreateApplication(
