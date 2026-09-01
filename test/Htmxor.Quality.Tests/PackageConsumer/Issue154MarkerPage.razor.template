@@ -43,7 +43,6 @@
             candidate => candidate.ReplaceUrl("/forbidden-replace"),
             candidate => candidate.ReplaceUrl(new Uri("/forbidden-replace", UriKind.Relative)),
             candidate => candidate.Reswap("acmeMorph settle:25ms"),
-            candidate => candidate.Reswap(SwapStyle.outerHTML, "settle:25ms"),
             candidate => candidate.Retarget("#forbidden-target"),
             candidate => candidate.Reselect("#forbidden-selection"),
             candidate => candidate.Trigger("forbidden:event"),

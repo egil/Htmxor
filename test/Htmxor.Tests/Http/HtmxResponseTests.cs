@@ -35,6 +35,14 @@ public class HtmxResponseTests : BunitContext
 		HtmxResponseHeaderNames.ReplaceUrl,
 	];
 
+	private static readonly (string HeaderName, Func<HtmxResponse, string, HtmxResponse> Apply)[]
+		SwapAndSelectionOperations =
+	[
+		(HtmxResponseHeaderNames.Reswap, static (response, value) => response.Reswap(value)),
+		(HtmxResponseHeaderNames.Retarget, static (response, value) => response.Retarget(value)),
+		(HtmxResponseHeaderNames.Reselect, static (response, value) => response.Reselect(value)),
+	];
+
 	[Fact]
 	public void Invalid_request_markers_reject_response_operations_without_mutation()
 	{
@@ -92,11 +100,144 @@ public class HtmxResponseTests : BunitContext
 		yield return response => response.ReplaceUrl("/forbidden-replace");
 		yield return response => response.ReplaceUrl(new Uri("/forbidden-replace", UriKind.Relative));
 		yield return response => response.Reswap("acmeMorph settle:25ms");
-		yield return response => response.Reswap(SwapStyle.outerHTML, "settle:25ms");
 		yield return response => response.Retarget("#forbidden-target");
 		yield return response => response.Reselect("#forbidden-selection");
 		yield return response => response.Trigger("forbidden:event");
 		yield return response => response.Trigger("forbidden:event", new { Detail = "forbidden" });
+	}
+
+	[Fact]
+	public void Swap_and_selection_surface_uses_only_open_string_values()
+	{
+		var assembly = typeof(HtmxResponse).Assembly;
+
+		Assert.Null(assembly.GetType("Htmxor.SwapStyle"));
+		Assert.Null(assembly.GetType("Htmxor.SwapStyleExtensions"));
+		var reswap = Assert.Single(
+			typeof(HtmxResponse).GetMethods(),
+			static method => method.Name == nameof(HtmxResponse.Reswap));
+		Assert.Equal(typeof(string), Assert.Single(reswap.GetParameters()).ParameterType);
+	}
+
+	[Theory]
+	[InlineData(null)]
+	[InlineData("")]
+	[InlineData(" ")]
+	[InlineData(" value")]
+	[InlineData("value ")]
+	[InlineData("value\ninside")]
+	[InlineData("value\u007Finside")]
+	public void Invalid_swap_and_selection_values_are_rejected_before_the_marker_guard_without_mutation(
+		string? value)
+	{
+		foreach (var (_, apply) in SwapAndSelectionOperations)
+		{
+			var context = CreateHttpContext();
+			context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "false";
+			context.Response.StatusCode = StatusCodes.Status202Accepted;
+			context.Response.Headers["X-Application"] = "retained";
+			context.Response.Headers.Append(HtmxResponseHeaderNames.Reswap, "existing-reswap");
+			context.Response.Headers.Append(HtmxResponseHeaderNames.Retarget, "existing-retarget");
+			context.Response.Headers.Append(HtmxResponseHeaderNames.Reselect, "existing-reselect");
+			var expectedHeaders = context.Response.Headers.ToDictionary(
+				static header => header.Key,
+				static header => header.Value,
+				StringComparer.OrdinalIgnoreCase);
+			var response = context.GetHtmxContext().Response;
+
+			Assert.ThrowsAny<ArgumentException>(() => apply(response, value!));
+
+			Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+			Assert.False(response.EmptyResponseBodyRequested);
+			Assert.Equal(expectedHeaders.Count, context.Response.Headers.Count);
+			foreach (var expectedHeader in expectedHeaders)
+			{
+				Assert.Equal(expectedHeader.Value, context.Response.Headers[expectedHeader.Key]);
+			}
+		}
+	}
+
+	[Fact]
+	public void Invalid_swap_and_selection_values_preserve_existing_body_and_header_decisions()
+	{
+		foreach (var (_, apply) in SwapAndSelectionOperations)
+		{
+			var context = CreateHttpContext();
+			var response = context.GetHtmxContext().Response;
+			response.StatusCode(System.Net.HttpStatusCode.Accepted)
+				.EmptyBody()
+				.Location("/existing-location");
+			context.Response.Headers["X-Application"] = "retained";
+			var expectedHeaders = context.Response.Headers.ToDictionary(
+				static header => header.Key,
+				static header => header.Value,
+				StringComparer.OrdinalIgnoreCase);
+
+			Assert.Throws<ArgumentException>(() => apply(response, " value"));
+
+			Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+			Assert.True(response.EmptyResponseBodyRequested);
+			Assert.Equal(expectedHeaders.Count, context.Response.Headers.Count);
+			foreach (var expectedHeader in expectedHeaders)
+			{
+				Assert.Equal(expectedHeader.Value, context.Response.Headers[expectedHeader.Key]);
+			}
+		}
+	}
+
+	[Fact]
+	public void Swap_and_selection_operations_preserve_open_values_and_overwrite_only_the_matching_header()
+	{
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+		response.StatusCode(System.Net.HttpStatusCode.Accepted)
+			.Location("/retained-location");
+		context.Response.Headers["X-Application"] = "retained";
+		foreach (var (headerName, _) in SwapAndSelectionOperations)
+		{
+			context.Response.Headers.Append(headerName, "discarded-first");
+			context.Response.Headers.Append(headerName, "discarded-second");
+		}
+
+		var result = response
+			.Reswap("innerHTML")
+			.Reswap("acmeMorph settle:25ms")
+			.Retarget("#discarded-target")
+			.Retarget("closest [data-acme-target]")
+			.Reselect("#discarded-selection")
+			.Reselect(":scope > [data-acme-selection]");
+
+		Assert.Same(response, result);
+		Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+		Assert.True(response.EmptyResponseBodyRequested);
+		Assert.Equal("/retained-location", context.Response.Headers[HtmxResponseHeaderNames.Location]);
+		Assert.Equal("retained", context.Response.Headers["X-Application"]);
+		Assert.Equal(
+			"acmeMorph settle:25ms",
+			Assert.Single(context.Response.Headers[HtmxResponseHeaderNames.Reswap]));
+		Assert.Equal(
+			"closest [data-acme-target]",
+			Assert.Single(context.Response.Headers[HtmxResponseHeaderNames.Retarget]));
+		Assert.Equal(
+			":scope > [data-acme-selection]",
+			Assert.Single(context.Response.Headers[HtmxResponseHeaderNames.Reselect]));
+	}
+
+	[Fact]
+	public void Swap_and_selection_operations_retain_component_output_when_it_was_not_suppressed()
+	{
+		var context = CreateHttpContext();
+		context.Response.StatusCode = StatusCodes.Status202Accepted;
+		var response = context.GetHtmxContext().Response;
+
+		var result = response
+			.Reswap("outerHTML")
+			.Retarget("#target")
+			.Reselect("[data-selection]");
+
+		Assert.Same(response, result);
+		Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+		Assert.False(response.EmptyResponseBodyRequested);
 	}
 
 	[Fact]
@@ -580,20 +721,6 @@ public class HtmxResponseTests : BunitContext
 
 		// Assert
 		context.Response.Headers[HtmxResponseHeaderNames.ReplaceUrl].Should().Equal(["false"]);
-	}
-
-	[Fact]
-	public void Reswap_AddsReswapHeader()
-	{
-		// Arrange
-		var context = CreateHttpContext();
-		var response = context.GetHtmxContext().Response;
-
-		// Act
-		response.Reswap(SwapStyle.innerHTML);
-
-		// Assert
-		context.Response.Headers[HtmxResponseHeaderNames.Reswap].Should().Equal(["innerHTML"]);
 	}
 
 	[Fact]

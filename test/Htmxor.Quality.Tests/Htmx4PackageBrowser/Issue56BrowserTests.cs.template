@@ -1735,6 +1735,49 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
+	public async Task Application_owned_htmx4_consumes_reswap_retarget_and_reselect_together()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await OpenIssue154PageAsync(context);
+		var originalTargetMarkup = await page.Locator("#issue-154-target")
+			.EvaluateAsync<string>("element => element.outerHTML");
+		var responseTask = WaitForIssue154ResponseAsync(page, "swap-selection");
+
+		await page.Locator("#issue-154-swap-selection").ClickAsync();
+		var response = await responseTask;
+
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		var headers = await response.AllHeadersAsync();
+		Assert.Equal("outerHTML", headers["hx-reswap"]);
+		Assert.Equal("#issue-154-final-target", headers["hx-retarget"]);
+		Assert.Equal("[data-issue-154-selected]", headers["hx-reselect"]);
+		Assert.Contains(
+			"data-issue-154-unselected",
+			await response.TextAsync(),
+			StringComparison.Ordinal);
+
+		await page.Locator("article#issue-154-selected-root[data-issue-154-selected]").WaitForAsync();
+		Assert.Equal(
+			originalTargetMarkup,
+			await page.Locator("#issue-154-target").EvaluateAsync<string>("element => element.outerHTML"));
+		Assert.Equal(0, await page.Locator("#issue-154-final-target").CountAsync());
+		Assert.Equal(0, await page.Locator("[data-issue-154-old-final]").CountAsync());
+		Assert.Equal(0, await page.Locator("[data-issue-154-unselected]").CountAsync());
+		var selectedRoot = page.Locator("#issue-154-selected-root");
+		Assert.Equal("ARTICLE", await selectedRoot.EvaluateAsync<string>("element => element.tagName"));
+		Assert.Equal(1, await selectedRoot.Locator(":scope > *").CountAsync());
+		Assert.Equal(
+			"selected response",
+			await selectedRoot.Locator(":scope > strong[data-issue-154-selected-child]").InnerTextAsync());
+	}
+
+	[Fact]
 	public async Task NavigateTo_preserves_the_stock_redirect_and_adapts_the_direct_htmx_response()
 	{
 		await using var app = CreateApplication(new Issue56RequestProbe());

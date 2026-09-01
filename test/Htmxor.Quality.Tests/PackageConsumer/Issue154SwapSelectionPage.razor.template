@@ -1,0 +1,42 @@
+@page "/issue-154-swap-selection"
+@using System.Net
+@using Htmxor.Http
+
+<section data-issue-154-swap-selection data-operation="@Operation">
+    component response @Operation
+</section>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Operation { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Operation is null)
+        {
+            return;
+        }
+
+        var response = HttpContext.GetHtmxContext().Response;
+        response.StatusCode(HttpStatusCode.Accepted);
+        if (Operation == "empty")
+        {
+            response.EmptyBody();
+        }
+        else if (Operation == "navigation")
+        {
+            response.Location("/retained-navigation");
+        }
+
+        response.Reswap("innerHTML");
+        response.Reswap("acmeMorph settle:25ms");
+        response.Retarget("#discarded-target");
+        response.Retarget("closest [data-issue-154-target]");
+        response.Reselect("#discarded-selection");
+        response.Reselect(":scope > [data-issue-154-selection]");
+    }
+}
