@@ -9,8 +9,8 @@ using Microsoft.Extensions.Options;
 namespace Htmxor.Http;
 
 /// <summary>
-/// Provides htmx response operations for a request with exactly one normalized
-/// <c>HX-Request: true</c> marker.
+/// Provides htmx response operations. Core response-header operations require a request
+/// with exactly one normalized <c>HX-Request: true</c> marker.
 /// </summary>
 public sealed class HtmxResponse(HttpContext context)
 {
