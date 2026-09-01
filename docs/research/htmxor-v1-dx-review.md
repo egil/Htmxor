@@ -13,7 +13,8 @@
   remains open
 - Navigation-response update: the second bounded slice of #154 consolidates the
   seven navigation choices, removes the inaccurate structured location
-  prototype, and leaves the broader request/response issue open
+  prototype, scopes body suppression to one render, validates stock redirects
+  before adaptation, and leaves the broader request/response issue open
 
 ## Verdict
 
@@ -261,14 +262,22 @@ the request, location and history destinations must be same-origin HTTP(S),
 non-HTTP(S) schemes are rejected, and only `Redirect` permits deliberate
 cross-origin HTTP(S). A successful call returns the same response, clears the
 other navigation headers, emits one exact value, and applies the operation's
-body effect. `Location`, `Redirect`, and `Refresh` suppress component output;
-push, replace, and both prevent methods keep it. Explicit `EmptyBody()` remains
-independent. Navigation calls do not change the status, and htmx does not
-process their headers on 3xx responses.
+render-scoped body effect. `Location`, `Redirect`, and `Refresh` suppress
+component output; push, replace, and both prevent methods keep it. Explicit
+`EmptyBody()` remains independent during that render. Suppression resets before
+a later same-`HttpContext` component render, including error handling. Before an
+unstarted suppressed response is written, Htmxor clears a positive declared
+`Content-Length`; the suppressed `WriteAsync` overloads returning `Task` and
+`ValueTask` preserve pre-canceled tokens. Navigation calls do not change the
+status, and htmx does not process their headers on 3xx responses.
 
-The renderer's `ForceLoad` plus `ReplaceHistoryEntry` case now emits one
-`HX-Redirect` to retain the full load and no conflicting `HX-Replace-Url`. This
-does not establish `ReplaceHistoryEntry` browser-history parity.
+Direct-render stock 302 adaptation validates the redirect before changing
+status or removing `Location`, leaving an invalid stock redirect unchanged. The
+renderer's `ForceLoad` plus `ReplaceHistoryEntry` case emits one `HX-Redirect`
+to retain the full load and no conflicting `HX-Replace-Url`. This does not
+establish `ReplaceHistoryEntry` browser-history parity. Separately packed
+consumers prove exact `Location(Uri)` wire text and actionless generated-route
+header-plus-empty-body behavior without claiming browser execution for either.
 
 The remaining pass must:
 
@@ -333,7 +342,7 @@ does not prove browser or extension compatibility.
 | Request verbs, forms, values, validation | Htmxor owns server access, callback execution, binding compatibility, and antiforgery. Native htmx starts the request. |
 | Triggers, synchronization, confirmation, indicators | These stay in client markup. Server code must tolerate duplicates, cancellation, and overlap. |
 | Targets, selectors, swaps, OOB, partials | Htmxor selects server output. Htmx chooses DOM delivery. |
-| History, boost, redirects, statuses, caching | Htmxor enforces the typed navigation wire, baseline URI policy, one-header rule, and body effect. The application authorizes destinations and chooses broader navigation and cache policy. |
+| History, boost, redirects, statuses, caching | Htmxor enforces the typed navigation wire, baseline URI policy, one-header rule, and render-scoped body effect. The application authorizes destinations and chooses broader navigation and cache policy. |
 | Events, JavaScript, configuration, CSS, extensions | The application owns the client code. Htmxor only needs protocol APIs for data the server must read or write. |
 
 This split lets an application adopt a new htmx client feature without waiting

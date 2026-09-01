@@ -249,13 +249,19 @@ changes only after both checks succeed. Successful calls return the same
 `HtmxResponse` instance. The last navigation call clears the other navigation
 headers, writes one exact value, and replaces the previous automatic navigation
 body effect with its own. An explicit `EmptyBody()` remains independent from
-that automatic effect. Navigation calls do not change status, and htmx does not
-process these response headers on 3xx responses.
+that automatic effect during the current render. Suppression resets before a
+later component render on the same `HttpContext`, including error-handler
+re-execution. Before an unstarted suppressed response is written, Htmxor clears
+a positive declared `Content-Length`; the suppressed `WriteAsync` overloads
+returning `Task` and `ValueTask` preserve pre-canceled tokens. Navigation calls
+do not change status, and htmx does not process these response headers on 3xx
+responses.
 
-For direct htmx rendering, `ForceLoad` plus `ReplaceHistoryEntry` emits one
-`HX-Redirect` to preserve the required full load and no conflicting
-`HX-Replace-Url`. This does not establish `ReplaceHistoryEntry` parity in browser
-history.
+For direct htmx rendering, Htmxor validates a stock local 302 redirect before
+changing status or removing `Location`; an invalid stock redirect remains
+unchanged. `ForceLoad` plus `ReplaceHistoryEntry` emits one `HX-Redirect` to
+preserve the required full load and no conflicting `HX-Replace-Url`. This does
+not establish `ReplaceHistoryEntry` parity in browser history.
 
 Use the stock `HttpContext` for cookies, cache policy, general response headers,
 and other ASP.NET Core behavior. The first bounded
@@ -302,7 +308,9 @@ The second #154 slice removes `Location(LocationTarget)`, `LocationTarget`, and
 consumer proving their value. `Location(Uri)` joins `Location(string)`; no
 replacement structured `HX-Location` model is introduced. These package
 decisions do not claim that malformed-marker browser or extension behavior was
-executed.
+executed. Separately packed consumers prove exact `Location(Uri)` wire text and
+`HX-Location` plus an empty body for an actionless generated route; neither
+proof is a browser execution.
 
 ## V1 decisions still open
 

@@ -397,10 +397,15 @@ The last successful navigation call wins: it clears the other core navigation
 headers before writing one exact value, and its automatic component-body effect
 replaces the previous navigation operation's effect. `EmptyBody()` is
 independent; once explicitly selected it continues to suppress component output
-even if a later push, replace, or prevent operation would otherwise keep it.
-Navigation operations do not change the response status code. Htmx does not
-process these response headers on a 3xx response, so a response that expects htmx
-to act on one must use an appropriate non-3xx status.
+for that render even if a later push, replace, or prevent operation would
+otherwise keep it. A subsequent component render on the same `HttpContext`,
+including an error-handler re-execution, starts with fresh body-control state.
+Before an unstarted suppressed response is written, Htmxor clears a positive
+declared `Content-Length`; the suppressed `WriteAsync` overloads returning
+`Task` and `ValueTask` preserve pre-canceled tokens. Navigation operations do
+not change the response status code. Htmx does not process these response
+headers on a 3xx response, so a response that expects htmx to act on one must
+use an appropriate non-3xx status.
 
 These are separate choices, not a chain; each line belongs in a different
 callback or branch:
@@ -748,17 +753,19 @@ perform a full navigation, refresh, or mutate history while processing the
 current response. `Location`, `Redirect`, and `Refresh` suppress component
 output. Push, replace, and both prevent operations keep it. The last navigation
 operation controls this automatic choice, while an explicit `EmptyBody()` stays
-in effect independently.
+in effect independently during the current component render.
 
 These operations leave the response status unchanged, and htmx does not process
 their headers on a 3xx response. Test authentication challenges and return URLs;
 URI validation and a response header are not substitutes for endpoint
 authorization or an application decision that the destination is allowed.
 
-When the renderer handles `NavigationManager` with both `ForceLoad` and
-`ReplaceHistoryEntry`, it preserves the required full load with one
-`HX-Redirect`. It does not also emit `HX-Replace-Url`, and this bounded decision
-does not claim `ReplaceHistoryEntry` parity in browser history.
+Before adapting a stock local 302 response for direct htmx rendering, Htmxor
+validates the destination and, when it is invalid, leaves the stock status and
+`Location` unchanged. When the renderer handles `NavigationManager` with both
+`ForceLoad` and `ReplaceHistoryEntry`, it preserves the required full load with
+one `HX-Redirect`. It does not also emit `HX-Replace-Url`, and this bounded
+decision does not claim `ReplaceHistoryEntry` parity in browser history.
 
 ## Htmx HTTP headers
 
