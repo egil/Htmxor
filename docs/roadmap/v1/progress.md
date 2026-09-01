@@ -1843,10 +1843,20 @@ plus a literal `QUERY`, without depending on the removed public constants.
 At that exact head, the focused Release suite passed 52 of 52 tests. The focused
 packed-package command passed 1 of 1 outer tests while asserting 19 of 19 tests
 inside the external consumer; the actionless packed scenario passed 1 of 1 while
-asserting 21 of 21 inner tests. The repository fast profile passed 417 of 417
-tests: 117 quality, 45 ASP.NET Core 10, and 255 core tests. Its Release solution
-build completed with zero warnings and errors, and analyzer and style gates
-passed. The recorded commands were:
+asserting 21 of 21 inner tests.
+
+Review-fix commit `32f29c93f9b72dcf9971ef7b134ec2df8414e7e1` adds an exact
+standard-request rendering assertion for `HtmxAsyncLoad`: `hx-get` retains the
+request path, `hx-trigger` is `load`, `hx-target` is the component identifier,
+and `hx-swap` is `outerHTML`, while only the loading fragment is rendered.
+
+At the final clean head, the repository fast profile passed 418 of 418 tests:
+117 quality, 45 ASP.NET Core 10, and 256 core tests. The full profile passed 421
+of 421 tests: 118 quality, 45 ASP.NET Core 10, and 258 core/browser tests, with
+two fresh matching nonempty Cobertura copies. Both Release solution builds
+completed with zero
+warnings and errors, and analyzer and style gates passed. The recorded commands
+were:
 
 ```text
 dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-151-client-helpers-red-final.trx" --results-directory artifacts/results/issue-151-client-helpers-red-final --verbosity minimal
@@ -1854,16 +1864,16 @@ dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-r
 dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-151-client-helpers-packed-corrected-final.trx" --results-directory artifacts/results/issue-151-client-helpers-packed-corrected-final --verbosity minimal
 dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Package_only_application_preserves_actionless_unsafe_route_antiforgery --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-151-client-helpers-packed-actionless-corrected-final.trx" --results-directory artifacts/results/issue-151-client-helpers-packed-actionless-corrected-final --verbosity minimal
 dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
 ```
 
 This evidence proves the packed public boundary, Razor compilation, string
-pass-through, maintained sample compilation, and server header serialization.
-It does not prove browser or extension runtime behavior, CSP, performance,
-Kestrel, TLS, Windows, macOS, Firefox, WebKit, another framework or htmx version,
-a published or signed package, or source/binary compatibility with a prior beta.
-The full and mutation profiles were not run for this bounded task. This later
-progress-only head was not executed; executable claims remain tied to
-`90ea1245f1c97b1aa9656e00d36b198e118b43b6`.
+pass-through, maintained sample compilation, server header serialization, and
+the existing Chromium browser suite. It does not prove browser runtime semantics
+for every newly accepted raw value or unknown extension, CSP, performance, TLS,
+Windows, macOS, Firefox, WebKit, another framework or htmx version, a published
+or signed package, or source/binary compatibility with a prior beta. The
+mutation profile was not run for this bounded POC task.
 
 This slice changes names, not the mapping path proved by issue #145. That issue's
 exact package evidence used the earlier `AddHtmxorComponentEndpoints()` spelling
