@@ -40,10 +40,17 @@ internal sealed class ConditionalResponseBodyStream(Stream inner, HtmxResponse r
 		set => inner.WriteTimeout = value;
 	}
 
-	public override void Flush() => inner.Flush();
+	public override void Flush()
+	{
+		_ = response.SuppressResponseBodyWrite();
+		inner.Flush();
+	}
 
 	public override Task FlushAsync(CancellationToken cancellationToken)
-		=> inner.FlushAsync(cancellationToken);
+	{
+		_ = response.SuppressResponseBodyWrite();
+		return inner.FlushAsync(cancellationToken);
+	}
 
 	public override int Read(byte[] buffer, int offset, int count)
 		=> inner.Read(buffer, offset, count);
@@ -70,7 +77,7 @@ internal sealed class ConditionalResponseBodyStream(Stream inner, HtmxResponse r
 
 	public override void Write(byte[] buffer, int offset, int count)
 	{
-		if (!response.EmptyResponseBodyRequested)
+		if (!response.SuppressResponseBodyWrite())
 		{
 			inner.Write(buffer, offset, count);
 		}
@@ -78,7 +85,7 @@ internal sealed class ConditionalResponseBodyStream(Stream inner, HtmxResponse r
 
 	public override void Write(ReadOnlySpan<byte> buffer)
 	{
-		if (!response.EmptyResponseBodyRequested)
+		if (!response.SuppressResponseBodyWrite())
 		{
 			inner.Write(buffer);
 		}
@@ -89,20 +96,34 @@ internal sealed class ConditionalResponseBodyStream(Stream inner, HtmxResponse r
 		int offset,
 		int count,
 		CancellationToken cancellationToken)
-		=> response.EmptyResponseBodyRequested
-			? Task.CompletedTask
-			: inner.WriteAsync(buffer, offset, count, cancellationToken);
+	{
+		if (!response.SuppressResponseBodyWrite())
+		{
+			return inner.WriteAsync(buffer, offset, count, cancellationToken);
+		}
+
+		return cancellationToken.IsCancellationRequested
+			? Task.FromCanceled(cancellationToken)
+			: Task.CompletedTask;
+	}
 
 	public override ValueTask WriteAsync(
 		ReadOnlyMemory<byte> buffer,
 		CancellationToken cancellationToken = default)
-		=> response.EmptyResponseBodyRequested
-			? ValueTask.CompletedTask
-			: inner.WriteAsync(buffer, cancellationToken);
+	{
+		if (!response.SuppressResponseBodyWrite())
+		{
+			return inner.WriteAsync(buffer, cancellationToken);
+		}
+
+		return cancellationToken.IsCancellationRequested
+			? ValueTask.FromCanceled(cancellationToken)
+			: ValueTask.CompletedTask;
+	}
 
 	public override void WriteByte(byte value)
 	{
-		if (!response.EmptyResponseBodyRequested)
+		if (!response.SuppressResponseBodyWrite())
 		{
 			inner.WriteByte(value);
 		}
