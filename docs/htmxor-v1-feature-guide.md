@@ -360,9 +360,10 @@ headers.
 ### Response operations
 
 The response API covers the core htmx 4 response headers plus HTTP status and
-body control. The second bounded
-[#154](https://github.com/egil/Htmxor/issues/154) slice makes these navigation
-operations one current contract:
+body control. The first three bounded
+[#154](https://github.com/egil/Htmxor/issues/154) slices make strict request
+classification, navigation, and swap/selection overrides current contracts.
+The navigation operations are:
 
 | Operation | Wire result | Component output | Use |
 | --- | --- | --- | --- |
@@ -420,27 +421,30 @@ The other currently exposed server response operations are:
 
 | Operation | Wire result | Use |
 | --- | --- | --- |
-| `Reswap(...)` | `HX-Reswap` | Override the swap style and modifiers |
-| `Retarget(...)` | `HX-Retarget` | Override the target selector |
-| `Reselect(...)` | `HX-Reselect` | Override response selection |
+| `Reswap(string)` | `HX-Reswap` | Override the complete swap style and modifiers value |
+| `Retarget(string)` | `HX-Retarget` | Override the complete target selector value |
+| `Reselect(string)` | `HX-Reselect` | Override the complete response-selection value |
 | `Trigger(...)` | `HX-Trigger` | Dispatch one or more client events with optional JSON details |
 | `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics |
 | `EmptyBody()` | Empty HTTP body | Return only status, headers, cookies, and other metadata |
 
-The second bounded #151 slice preserves `HtmxResponse.Trigger(...)`, raw
-`HtmxResponse.Reswap(string)`, `SwapStyle`, and
-`HtmxResponse.Reswap(SwapStyle, string?)` because they remain server-protocol
-operations rather than client attribute-authoring helpers. The raw overload is
-the escape hatch for application-selected or extension-provided swap values. The
-first bounded #154 slice makes it use the same strict request guard as the other
-covered operations.
+`Reswap`, `Retarget`, and `Reselect` accept one complete application-authored
+htmx or extension value. They preserve valid input exactly and do not parse it
+through a closed Htmxor grammar. Each rejects null, empty, whitespace-only,
+surrounding-whitespace, and control-character input before the strict request
+marker guard. A failed check changes no response header, status, or body-control
+state. A successful call returns the same response, overwrites only its matching
+header, and leaves status and body behavior unchanged. All three headers may
+coexist. These operations retain component output and do not reset an earlier
+`EmptyBody()` or suppressing navigation decision.
 
-The second bounded #154 slice removes `Location(LocationTarget)`,
-`LocationTarget`, and `AjaxContext`; they did not model htmx 4 accurately, and no
-replacement structured `HX-Location` model is added. `Reswap`, `Retarget`,
-`Reselect`, trigger serialization, status 286/`StopPolling`, remaining request
-parsing and naming, extension headers, and the complete protocol matrix remain
-later #154 work.
+The third bounded #154 slice removes the incomplete public `SwapStyle`, its
+typed `Reswap` overload, and the converter. Use `Reswap(string)` for core or
+extension-defined values; no replacement closed DSL is added. The second slice
+already removed `Location(LocationTarget)`, `LocationTarget`, and `AjaxContext`
+without adding a replacement structured `HX-Location` model. Trigger
+serialization, status 286/`StopPolling`, remaining request parsing and naming,
+extension headers, and the complete protocol matrix remain later #154 work.
 
 ## Htmx 4 attribute reference
 
@@ -464,10 +468,11 @@ must use a selected htmx profile and remain forward-compatible.
 The second bounded #151 slice therefore removes the public `Constants`, the
 `Trigger` facade, builders, and supporting types, `SwapStyleBuilder`,
 `SwapStyleBuilderExtension`, and `ScrollDirection`, and the builder-based
-`HtmxResponse.Reswap(...)` overload. `SwapStyleExtensions` becomes internal.
-It adds no optional adapter: native Razor and raw string values are the
-forward-compatible client surface. This is a package and markup-authoring
-decision; it does not claim that any browser or extension behavior was executed.
+`HtmxResponse.Reswap(...)` overload. The third bounded #154 slice also removes
+the incomplete `SwapStyle`, its typed response overload, and its converter. No
+optional adapter replaces them: native Razor and raw string values are the
+forward-compatible client and response surfaces. This does not claim browser
+compatibility for an extension-defined value that was not executed.
 
 The following tables cover every attribute in the official htmx 4.0.0 editor
 metadata. The last column says what Htmxor or the application must do on the
@@ -794,9 +799,9 @@ must not elevate any of them to authentication or authorization evidence.
 | `HX-Redirect` | `Redirect(string/Uri)` |
 | `HX-Refresh` | `Refresh()` |
 | `HX-Replace-Url` | `ReplaceUrl(string/Uri)` or `PreventBrowserCurrentUrlUpdate()` |
-| `HX-Reswap` | `Reswap(...)` |
-| `HX-Retarget` | `Retarget(...)` |
-| `HX-Reselect` | `Reselect(...)` |
+| `HX-Reswap` | `Reswap(string)` |
+| `HX-Retarget` | `Retarget(string)` |
+| `HX-Reselect` | `Reselect(string)` |
 | `HX-Trigger` | `Trigger(...)` |
 
 Use the static-SSR `HttpContext` for application headers, cookies, status codes,
@@ -804,6 +809,8 @@ and cache headers before the response starts. Htmxor does not need wrappers for
 `Content-Language`, ETag, `Cache-Control`, or other general HTTP features.
 The five navigation headers above are mutually exclusive: the last successful
 navigation operation leaves exactly one of them on the response.
+`HX-Reswap`, `HX-Retarget`, and `HX-Reselect` are independent and may coexist;
+each operation replaces only an earlier value for that same header.
 
 ## Events, JavaScript, CSS, and configuration
 

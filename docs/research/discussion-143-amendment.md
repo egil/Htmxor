@@ -271,9 +271,26 @@ one `HX-Request` value whose surrounding HTTP spaces or tabs trim to lowercase
 retain stock or not-found routing, ignore dependent htmx context, and cannot
 mutate response headers, status, or body-control state through the covered
 Htmxor operations. Later #154 slices still own status 286/`StopPolling`, request
-naming and remaining value policies, `Reswap`, `Retarget`, `Reselect`, trigger
-argument and serialization rules, extension headers, and the complete protocol
-matrix.
+naming and remaining value policies, trigger argument and serialization rules,
+extension headers, and the complete protocol matrix.
+
+The third bounded #154 slice makes the three swap and selection response
+operations current:
+
+| Operation | Wire result | Body effect |
+| --- | --- | --- |
+| `Reswap(string)` | `HX-Reswap` | Unchanged |
+| `Retarget(string)` | `HX-Retarget` | Unchanged |
+| `Reselect(string)` | `HX-Reselect` | Unchanged |
+
+Each argument is one complete open htmx or extension value. Htmxor rejects null,
+empty, whitespace-only, surrounding-whitespace, and control-character values
+before the strict htmx marker guard. It does not trim, repair, or parse accepted
+values through a closed grammar. Failure mutates nothing. Success returns the
+same response, preserves the exact value, and overwrites only the matching
+header, so the three different headers may coexist. These calls do not change
+status, suppress component output, or reset suppression previously selected by
+`EmptyBody()` or navigation.
 
 ## Write htmx as htmx
 
@@ -295,22 +312,25 @@ unless their protocol needs a small server hook.
 The second bounded #151 slice removes the public `Constants`, the `Trigger`
 facade, builders, and supporting types, `SwapStyleBuilder`,
 `SwapStyleBuilderExtension`, `ScrollDirection`, and the builder-based
-`HtmxResponse.Reswap(...)` overload from the stable core. `SwapStyleExtensions`
-becomes internal. Native Razor and raw strings are the client surface; this
-slice does not add an optional adapter package.
+`HtmxResponse.Reswap(...)` overload from the stable core. Native Razor and raw
+strings are the client surface; this slice does not add an optional adapter
+package.
 
 Server-protocol operations remain distinct. `HtmxResponse.Trigger(...)` still
-writes `HX-Trigger`, and raw `HtmxResponse.Reswap(string)` still writes
-`HX-Reswap`. `SwapStyle`, `HtmxResponse.Reswap(SwapStyle, string?)`,
-and the first #154 slice's strict request guard on raw `Reswap(string)` remain.
-The second #154 slice removes `Location(LocationTarget)`, `LocationTarget`, and
-`AjaxContext` because they did not accurately model htmx 4 and had no maintained
-consumer proving their value. `Location(Uri)` joins `Location(string)`; no
-replacement structured `HX-Location` model is introduced. These package
-decisions do not claim that malformed-marker browser or extension behavior was
-executed. Separately packed consumers prove exact `Location(Uri)` wire text and
-`HX-Location` plus an empty body for an actionless generated route; neither
-proof is a browser execution.
+writes `HX-Trigger`. The third #154 slice retains raw
+`HtmxResponse.Reswap(string)` beside `Retarget(string)` and `Reselect(string)`,
+but removes `SwapStyle`, its typed overload, and its converter rather than
+turning an incomplete htmx 4 profile into a stable promise. The second #154
+slice removes `Location(LocationTarget)`, `LocationTarget`, and `AjaxContext`
+because they did not accurately model htmx 4 and had no maintained consumer
+proving their value. `Location(Uri)` joins `Location(string)`; no replacement
+structured `HX-Location` model is introduced. These package decisions do not
+claim malformed-marker browser behavior or compatibility with an unexecuted
+extension. Separately packed consumers prove exact `Location(Uri)` wire text
+and `HX-Location` plus an empty body for an actionless generated route; neither
+proof is a browser execution. Application-owned htmx 4.0.0 browser evidence
+does consume `HX-Reswap`, `HX-Retarget`, and `HX-Reselect` together with core
+values and proves the resulting target and DOM shape.
 
 ## V1 decisions still open
 
