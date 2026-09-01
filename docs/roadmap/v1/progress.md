@@ -144,6 +144,11 @@ Last updated: 2026-09-01
 - Issue #154 baseline and freshly fetched `origin/main`: `c6eac31919a96ac58e2f5fd28c1ea8e466a51a5e`.
 - Issue #154 preserved meaningful packed-consumer red: `8ad87a972520d5d407b9fccd372532cb0412ec41`.
 - Issue #154 verified executable marker-classification proof: `3b72888a4f09e5350b9d90323f1b94de3d874247`.
+- Issue #154 navigation-response base and freshly fetched `origin/main`: `e1696a4674d766ba6889d4ef94c005a93ee588a7`.
+- Issue #154 preserved meaningful navigation-response red: `96a8c30b99ab28d1e3bcd594535e9f0d53f239b9`.
+- Issue #154 verified main navigation-response implementation: `ae994a3d4335a736b45454603a23ba26fd594448`.
+- Issue #154 preserved navigation history-literal review red: `02702fe4b0c783d03908d442dcd06a3eaddf1842`.
+- Issue #154 verified corrected navigation-response proof: `3032c4f79a8e3c4e2d8092961c3d11966c476236`.
 - Framework boundary under test: .NET SDK 10.0.400, ASP.NET Core 10.0.11, and Blazor static SSR. The package, repository tooling, tests, test application, and maintained samples now target `net10.0`; the generator remains a `netstandard2.0` compiler component packaged under `analyzers/dotnet/cs`. Current package-only TestServer and Kestrel/Chromium consumers restore a locally packed `net10.0` Htmxor package. Earlier `net8.0` package references below record historical exact-head evidence and are not current compatibility claims.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -151,10 +156,15 @@ Last updated: 2026-09-01
   does not embed or silently select that runtime. Issue #108 is the first narrow
   executed htmx 4 browser slice; the remaining conformance matrix is unproved.
 - V1 slices proved on this tree: issue #78, stock `@page` routing with a direct HTMX GET; issue #81, every documented .NET 10 Blazor component-route constraint plus typed optional presence and absence; issue #83, authorization-policy and authenticated-user parity for normal and direct GETs; issue #85, one stock named `EditForm` POST with form binding, antiforgery ordering, request-component callback dispatch, and direct component output; issue #87, one shared runtime path for component-owned PUT, PATCH, and DELETE actions represented by fixed future-generator output; issue #89, composition of that assumed generated action output with an application-authored asynchronous parameter lifecycle override; issue #91, one assumed-generated constrained HTMX-only GET route for a component without `@page`, using stock Blazor invocation and static SSR; issue #93, build-time discovery and emission for that one constrained HTMX-only GET route without checked-in generated output; issue #95, analyzer packaging and one application-level registration that connects the generated route to runtime in an external package-only consumer; issue #97, deterministic aggregation of two supported package-consumer declarations through that single registration call; issue #100, one package-generated stock-page PUT callback bound to the compiled component endpoint while two explicit HTMX-only controls remain GET-only; issue #103, shared POST, PUT, PATCH, and DELETE inference for stock `@page` and omitted-`Methods` HTMX-only routes with explicit-method conflicts rejected before mapping; issue #106, explicit authoritative C# method discovery for matching `.razor.cs` partials and all-C# components, deterministic rejection and registration suppression when a C# declaration omits `Methods`, and no method widening from manual render-tree code; issue #108, removal of Htmxor-owned htmx distribution and one package-only application-owned htmx 4.0.0 stock-page and component-GET browser path; issue #56, stock antiforgery and generated POST, PUT, PATCH, and DELETE callback dispatch through the htmx 4 request context in a package-only browser consumer; issue #111, generated safe QUERY callback dispatch for stock and HTMX-only route owners through the real htmx 4 package/browser boundary; issue #50, standard OutputCache variation for one stock full/direct GET pair in a package-only Kestrel consumer; issue #18, dynamic application response headers through the stock request-owned `HttpContext` on normal and direct GET paths; issues #72 and #75, published Production startup plus stock fingerprinted application-asset and packaged-adapter compatibility; issue #116, one htmx 4 `HX-Trigger` response-event surface with post-swap Chromium dispatch and configured JSON details; issue #118, typed htmx 4 full/partial request context, complete source/target identities, stock/direct representation selection, and forged-header fail-closed controls; issue #120, distinct native POST and htmx 4 PUT form destinations with stock full-page fallback, direct partial swapping, and server-owned route, method, authorization, and antiforgery decisions; issue #122, one pure multi-target htmx 4 partial response composed from server-selected `HtmxFragment` instances; issue #64, stock local `NavigationManager.NavigateTo` redirect parity for ordinary GETs and successful `HX-Redirect` full-page navigation for direct htmx GETs; issue #125, static ID-selector `hx-target` order independence for all five generated action methods under stock and omitted-`Methods` route owners; issue #127, `Int32` route-value delivery for one omitted-Methods generated HTMX-only route on direct GET and its declared PUT action; issue #129, application-selected component error status/body plus native htmx 4 default and source-owned no-swap policies through the published package/browser boundary; issue #131, native htmx 4 DELETE form-value placement without stock antiforgery-token transport through the published package/browser boundary; issue #133, raw application-authored OOB response composition with native htmx 4 main-before-OOB DOM and event order through the published package/browser boundary; issue #135, raw application-authored `<hx-partial>` response composition with native htmx 4 main-before-partial DOM and event order through the published package/browser boundary; issue #137, one selected `HtmxFragment` retaining routed-page and wrapper lifecycle while the excluded sibling descendant performs no initialization, parameter, or render work; issue #139, one selected fragment's gated asynchronous initialization completing before htmx observes the response while the excluded sibling performs no lifecycle or render work; issue #141, arbitrary supported project-root `HtmxRoute` cardinality with three separately packed consumer routes retaining independent contracts through one registration; issue #144, two concurrent selected-fragment requests retaining request-local gates, lifecycle records, response completion, and htmx browser swaps while both excluded siblings perform zero work; issue #148, a .NET 10-only package, repository, samples, tooling, and package-consumer boundary using the supported ASP.NET Core 10 convention-builder helper; issue #154, one conservative `HX-Request` classifier shared by routing and the covered response operations, with invalid markers retaining stock or not-found behavior and no response mutation.
+- Issue #154 additionally proves one consolidated navigation response with exact
+  URI text, operation-specific body effects, validation-before-marker ordering,
+  and last-call-wins replacement of competing navigation headers through unit,
+  packed TestServer, Kestrel, and Chromium boundaries.
 - Issue #145 additionally proves generated no-argument registration for root and one standard route-group mapping, with all maintained samples consuming the generator as an analyzer and no destination-registration compatibility overload.
-- Current implementation slice: the first bounded part of issue #154 classifies
+- Current implementation slices: the first bounded part of issue #154 classifies
   `HX-Request` once by value for request routing and the covered response
-  operations. Issues #151 and #154 remain open.
+  operations; the second consolidates navigation response validation, header
+  replacement, and body effects. Issues #151 and #154 remain open.
 
 ## Proven v1 behavior
 
@@ -2034,7 +2044,7 @@ responses retained component output and a navigation chain retained all five
 headers. These were behavioral failures after successful build, host startup,
 browser launch, discovery, and execution.
 
-Exact clean executable commit
+Main implementation commit
 `ae994a3d4335a736b45454603a23ba26fd594448` consolidates
 `Location`, `PushUrl`, both history-prevention methods, `Redirect`, `Refresh`,
 and `ReplaceUrl`. Destination overloads validate before the strict marker guard,
@@ -2055,7 +2065,7 @@ parity. `Location(LocationTarget)`, `LocationTarget`, `AjaxContext`, and their
 now-unused serialization helpers are removed without inventing a replacement
 structured location model.
 
-At that exact clean executable head:
+At that exact clean main implementation head:
 
 - the focused core and renderer command passed 44 of 44 tests;
 - the separately packed public consumer command passed 1 of 1 outer tests and
@@ -2072,7 +2082,35 @@ At that exact clean executable head:
   Cobertura reports have SHA-256
   `757D25A21D8E6A5D4A587E8D80394B227FB4C9E9A712968AA9B7C3BB572DE84D`.
 
-The exact executable commands were:
+Independent Standards and Spec/DX reviews of exact clean documentation head
+`4ec9452b75191eb13281edb7a22df936b4df8a55` both found that history
+sentinels were compared case-insensitively. The implementation therefore
+rejected otherwise-valid relative references such as `TRUE` and `False`, even
+though only the exact lowercase `true` and `false` protocol literals are
+reserved. Spec/DX also found one contradictory sentence that described the
+first #154 slice's existing strict `Reswap(string)` request guard as missing.
+
+Review-red test-only commit
+`02702fe4b0c783d03908d442dcd06a3eaddf1842` retains exact lowercase
+rejection while requiring uppercase and mixed-case relative references to be
+accepted and emitted unchanged by both `PushUrl` and `ReplaceUrl`. The focused
+selection compiled and executed 44 tests: 42 passed and 2 failed on the
+case-insensitive comparison. The packed consumer's outer test failed after its
+47 inner tests executed: 46 passed and 1 failed on the same comparison.
+
+Final corrected exact clean executable commit
+`3032c4f79a8e3c4e2d8092961c3d11966c476236` uses ordinal
+case-sensitive sentinel comparison. At that commit, the focused selection
+passed 44 of 44 and the packed consumer passed 1 of 1 outer tests while
+asserting 47 of 47 inner tests. The fast profile passed 452 of 452 tests: 117
+quality, 45 ASP.NET Core 10, and 290 core tests. The full profile passed 455 of
+455 tests: 118 quality, 45 ASP.NET Core 10, and 292 core/browser tests. Analyzer
+and style gates passed, the authoritative Release build completed with zero
+warnings and errors, and the two fresh matching nonempty Cobertura reports have
+SHA-256
+`79873D77E13502D3244B4ED05F3221811E667C0284EB6DFD38626460AC42DFBE`.
+
+The main implementation's exact executable commands were:
 
 ```text
 dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxorRendererNavigationTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-navigation-unit-executable.trx" --results-directory artifacts/results/issue-154-navigation-unit-executable --verbosity minimal
@@ -2083,13 +2121,27 @@ dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile
 dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
 ```
 
-The first full-profile attempt was setup failure rather than product evidence:
-six stale harness workspaces filled `/tmp` while Playwright was copied into a
-temporary publish. Removing only those disposable generated workspaces restored
-6.5 GB. A subsequent full run passed the quality and ASP.NET Core 10 projects
-but one legacy event-handler E2E assertion timed out with stale text; the exact
-isolated test immediately passed 1 of 1 with the same binaries. The final
-complete full-profile run above is the acceptance result.
+The exact review-red and corrected focused commands were:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxorRendererNavigationTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-history-case-red.trx" --results-directory artifacts/results/issue-154-review-history-case-red --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-history-case-packed-red.trx" --results-directory artifacts/results/issue-154-review-history-case-packed-red --verbosity minimal
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxorRendererNavigationTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-history-case-green.trx" --results-directory artifacts/results/issue-154-review-history-case-green --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-history-case-packed-green.trx" --results-directory artifacts/results/issue-154-review-history-case-packed-green --verbosity minimal
+```
+
+The fast and full profile commands were then repeated at the corrected
+executable commit.
+
+The main implementation commit's first full-profile attempt was setup failure
+rather than product evidence: six stale harness workspaces filled `/tmp` while
+Playwright was copied into a temporary publish. Removing only those disposable
+generated workspaces restored 6.5 GB. A subsequent full run passed the quality
+and ASP.NET Core 10 projects but one legacy event-handler E2E assertion timed
+out with stale text; the exact isolated test immediately passed 1 of 1 with the
+same binaries. The final complete full-profile run at that main implementation
+commit supplied its acceptance result; both profiles were later repeated
+cleanly at the corrected executable commit as recorded above.
 
 This proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Linux under WSL2, local
 unsigned `net10.0` packages, TestServer, real Kestrel, Microsoft Playwright

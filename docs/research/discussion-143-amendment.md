@@ -296,7 +296,7 @@ slice does not add an optional adapter package.
 Server-protocol operations remain distinct. `HtmxResponse.Trigger(...)` still
 writes `HX-Trigger`, and raw `HtmxResponse.Reswap(string)` still writes
 `HX-Reswap`. `SwapStyle`, `HtmxResponse.Reswap(SwapStyle, string?)`,
-and the first #154 slice's missing request guard on raw `Reswap(string)` remain.
+and the first #154 slice's strict request guard on raw `Reswap(string)` remain.
 The second #154 slice removes `Location(LocationTarget)`, `LocationTarget`, and
 `AjaxContext` because they did not accurately model htmx 4 and had no maintained
 consumer proving their value. `Location(Uri)` joins `Location(string)`; no
