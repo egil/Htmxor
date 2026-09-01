@@ -392,14 +392,13 @@ public sealed class Issue56BrowserTests
 		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
 		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
 		var page = await context.NewPageAsync();
-		var pollingRequests = new ConcurrentQueue<string>();
+		var issue154Requests = new ConcurrentQueue<string>();
 		page.Request += (_, request) =>
 		{
 			var uri = new Uri(request.Url);
-			if (uri.AbsolutePath == Issue154PollingPath &&
-				(uri.Query == "?iteration=1" || uri.Query == "?iteration=2"))
+			if (uri.AbsolutePath == Issue154PollingPath)
 			{
-				pollingRequests.Enqueue(uri.PathAndQuery);
+				issue154Requests.Enqueue(uri.PathAndQuery);
 			}
 		};
 		var firstResponseTask = page.WaitForResponseAsync(response =>
@@ -438,13 +437,14 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(
 			new[]
 			{
+				Issue154PollingPath,
 				$"{Issue154PollingPath}?iteration=1",
 				$"{Issue154PollingPath}?iteration=2",
 			},
-			pollingRequests.ToArray());
-		var requestCountAfterTerminalReplacement = pollingRequests.Count;
+			issue154Requests.ToArray());
+		var requestCountAfterTerminalReplacement = issue154Requests.Count;
 		await Task.Delay(TimeSpan.FromMilliseconds(350));
-		Assert.Equal(requestCountAfterTerminalReplacement, pollingRequests.Count);
+		Assert.Equal(requestCountAfterTerminalReplacement, issue154Requests.Count);
 	}
 
 	[Fact]
