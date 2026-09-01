@@ -431,11 +431,13 @@ The other currently exposed server response operations are:
 ### Trigger response events
 
 Every successful `Trigger(...)` call participates in one compact
-`HX-Trigger` JSON object. Htmxor validates the event name, then writes it as a
-JSON property name so quotes, backslashes, and other characters are safely
-encoded. Names remain exact and case-sensitive after decoding. Distinct names
-append in call and wire-member order. A later call with the same name replaces
-its detail at the name's first position:
+`HX-Trigger` JSON object. Htmxor validates the event name as well-formed UTF-16,
+then writes it as a JSON property name so quotes, backslashes, and other
+characters are safely encoded. Ill-formed isolated surrogate halves are
+rejected rather than replaced with U+FFFD. Names remain exact and
+case-sensitive after decoding. Distinct names append in call and wire-member
+order. A later call with the same name replaces its detail at the name's first
+position:
 
 ```csharp
 args.Response
@@ -455,8 +457,10 @@ semantic ordering promise from JSON. Htmx 4 iterates the parsed object's
 properties using JavaScript enumeration rules, so applications must not infer
 universal browser dispatch order for integer-like event names.
 
-A call without detail, or with a null detail, emits an empty object, for example
-`{"cart:changed":{}}`. It does not emit JSON `null`: the exact htmx 4.0.0
+A call without detail, or with any detail that serializes to JSON `null`, emits
+an empty object, for example `{"cart:changed":{}}`. This includes a null CLR
+value, a null `JsonElement`, or a converter-written null. It does not emit JSON
+`null`: the exact htmx 4.0.0
 [header handler](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js#L859-L873)
 passes the parsed detail to code that
 [dereferences it before dispatch](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js#L1565-L1575),
@@ -464,16 +468,19 @@ so a null detail prevents that event from firing. Within a detail object, the
 member named `target` is htmx protocol data; use it only when deliberately
 selecting the event dispatch target.
 
-Detail values use the application's ASP.NET Core `JsonOptions` by default. A
-call can supply `JsonSerializerOptions` to override them for that detail. The
-outer `HX-Trigger` object remains compact even when the selected detail options
-enable `WriteIndented`, and dictionary-key policy does not rewrite event names.
+Detail data uses the application's ASP.NET Core `JsonOptions` by default. A
+call can supply `JsonSerializerOptions` to override the data contract for that
+detail, including converters, property and dictionary naming, number behavior,
+and the accepted serialization depth. Htmxor then writes the final response
+object with its compact, header-safe JSON encoding. Consequently the selected
+`Encoder` and `WriteIndented` do not control the final header representation,
+and dictionary-key policy does not rewrite event names.
 
-Null, empty, whitespace-only, surrounding-whitespace, and control-containing
-event names are rejected without trimming or repair. Name validation, detail
-serialization, and the strict htmx request-marker guard are transactional: a
-failure leaves the response header, status, body behavior, and accumulated
-Htmxor events unchanged. The first successful Htmxor call replaces a
+Null, empty, whitespace-only, surrounding-whitespace, control-containing, and
+ill-formed UTF-16 event names are rejected without trimming or repair. Name
+validation, detail serialization, and the strict htmx request-marker guard are
+transactional: a failure leaves the response header, status, body behavior,
+and accumulated Htmxor events unchanged. The first successful Htmxor call replaces a
 preexisting manually written `HX-Trigger`; subsequent Htmxor calls merge only
 the events owned by this response API. A successful call returns the same
 response instance and changes neither status nor body behavior.

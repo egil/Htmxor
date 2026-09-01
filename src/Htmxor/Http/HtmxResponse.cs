@@ -314,12 +314,12 @@ public sealed class HtmxResponse(HttpContext context)
 	/// </summary>
 	/// <param name="eventName">
 	/// The exact, case-sensitive event name. It must not be empty or whitespace-only, have
-	/// surrounding whitespace, or contain control characters.
+	/// surrounding whitespace, contain control characters, or contain ill-formed UTF-16.
 	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Trigger(string eventName)
 	{
-		ValidateOpenResponseValue(eventName, nameof(eventName));
+		ValidateTriggerEventName(eventName);
 		AssertIsHtmxRequest();
 		return MergeTrigger(eventName, detail: null);
 	}
@@ -329,25 +329,30 @@ public sealed class HtmxResponse(HttpContext context)
 	/// </summary>
 	/// <param name="eventName">
 	/// The exact, case-sensitive event name. It must not be empty or whitespace-only, have
-	/// surrounding whitespace, or contain control characters.
+	/// surrounding whitespace, contain control characters, or contain ill-formed UTF-16.
 	/// </param>
 	/// <param name="detail">
-	/// The detail to pass to the client-side event. A <see langword="null"/> detail is emitted
-	/// as an empty JSON object.
+	/// The detail to pass to the client-side event. A detail that is or serializes to JSON
+	/// <see langword="null"/> is emitted as an empty JSON object.
 	/// </param>
 	/// <param name="jsonSerializerOptions">
 	/// The <see cref="JsonSerializerOptions"/> used to serialize <paramref name="detail"/>.
 	/// If omitted, the application's configured <see cref="JsonOptions.SerializerOptions"/>
-	/// are used when available.
+	/// are used when available. Htmxor owns the final compact, header-safe JSON encoding.
 	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Trigger<TEventDetail>(string eventName, TEventDetail detail, JsonSerializerOptions? jsonSerializerOptions = null)
 	{
-		ValidateOpenResponseValue(eventName, nameof(eventName));
+		ValidateTriggerEventName(eventName);
 		jsonSerializerOptions ??= context.RequestServices.GetService<IOptions<JsonOptions>>()?.Value.SerializerOptions;
 		JsonElement? serializedDetail = detail is null
 			? null
 			: JsonSerializer.SerializeToElement(detail, jsonSerializerOptions);
+		if (serializedDetail?.ValueKind == JsonValueKind.Null)
+		{
+			serializedDetail = null;
+		}
+
 		AssertIsHtmxRequest();
 		return MergeTrigger(eventName, serializedDetail);
 	}
@@ -391,7 +396,14 @@ public sealed class HtmxResponse(HttpContext context)
 	private static string SerializeTriggerHeader(List<TriggerHeaderEvent> events)
 	{
 		var buffer = new ArrayBufferWriter<byte>();
-		using (var writer = new Utf8JsonWriter(buffer))
+		using (var writer = new Utf8JsonWriter(
+			buffer,
+			new JsonWriterOptions
+			{
+				// Details already passed the selected serializer depth limit. The outer
+				// response object must not impose a second, unrelated lower limit.
+				MaxDepth = int.MaxValue,
+			}))
 		{
 			writer.WriteStartObject();
 			foreach (var triggerEvent in events)
@@ -419,6 +431,17 @@ public sealed class HtmxResponse(HttpContext context)
 
 	private readonly record struct TriggerHeaderEvent(string EventName, JsonElement? Detail);
 
+	private static void ValidateTriggerEventName(string eventName)
+	{
+		ValidateOpenResponseValue(eventName, nameof(eventName));
+		if (!IsWellFormedUtf16(eventName))
+		{
+			throw new ArgumentException(
+				"The event name must contain well-formed UTF-16.",
+				nameof(eventName));
+		}
+	}
+
 	private static void ValidateOpenResponseValue(string value, string parameterName)
 	{
 		ArgumentNullException.ThrowIfNull(value, parameterName);
@@ -432,6 +455,22 @@ public sealed class HtmxResponse(HttpContext context)
 				"or contain control characters.",
 				parameterName);
 		}
+	}
+
+	private static bool IsWellFormedUtf16(string value)
+	{
+		var remaining = value.AsSpan();
+		while (!remaining.IsEmpty)
+		{
+			if (Rune.DecodeFromUtf16(remaining, out _, out var charsConsumed) != OperationStatus.Done)
+			{
+				return false;
+			}
+
+			remaining = remaining[charsConsumed..];
+		}
+
+		return true;
 	}
 
 	private void AssertIsHtmxRequest()

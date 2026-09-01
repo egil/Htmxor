@@ -21,10 +21,11 @@ the open-string `Reswap(string)`, `Retarget(string)`, and `Reselect(string)`
 operations remain available.
 
 Successful `Trigger(...)` calls merge exact, case-sensitive event names into
-one compact `HX-Trigger` JSON object. Event details use the application's
+one compact `HX-Trigger` JSON object. Event-detail data uses the application's
 ASP.NET Core JSON options by default, with a per-call `JsonSerializerOptions`
-override; see the [v1 guide](docs/htmxor-v1-feature-guide.md#trigger-response-events)
-for merge, validation, and no-detail behavior.
+override; Htmxor owns final header-safe encoding. See the
+[v1 guide](docs/htmxor-v1-feature-guide.md#trigger-response-events) for merge,
+validation, encoding, and no-detail behavior.
 
 Blazor Static SSR comes with basic interactivity via enhanced navigation and enhanced form handling.
 Adding Htmx (htmx.org) to the mix gives you access to another level of interactivity while still

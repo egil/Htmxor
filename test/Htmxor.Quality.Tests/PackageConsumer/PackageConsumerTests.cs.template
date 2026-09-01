@@ -535,6 +535,8 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			"event ",
 			"event\ninside",
 			"event\u007Finside",
+			"event\uD800inside",
+			"event\uDC00inside",
 		];
 		foreach (var eventName in invalidEventNames)
 		{
