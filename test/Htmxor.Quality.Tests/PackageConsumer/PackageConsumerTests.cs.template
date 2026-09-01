@@ -199,6 +199,23 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			static parameter => parameter.ParameterType.FullName == "Htmxor.SwapStyleBuilder");
 	}
 
+	[Fact]
+	public void Package_removes_legacy_status_286_contract_but_keeps_general_status()
+	{
+		var packageAssembly = typeof(HtmxResponse).Assembly;
+
+		Assert.Null(packageAssembly.GetType("Htmxor.Http.HtmxStatusCodes"));
+		Assert.DoesNotContain(
+			typeof(HtmxResponse).GetMethods(),
+			static method => method.Name == "StopPolling");
+
+		var context = CreateNavigationContext(validMarker: true);
+		var response = new HtmxResponse(context);
+
+		Assert.Same(response, response.StatusCode((HttpStatusCode)286));
+		Assert.Equal(286, context.Response.StatusCode);
+	}
+
 	[Theory]
 	[InlineData(null)]
 	[InlineData("")]

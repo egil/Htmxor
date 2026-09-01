@@ -123,6 +123,23 @@ public class HtmxResponseTests : BunitContext
 		Assert.Equal(typeof(string), Assert.Single(reswap.GetParameters()).ParameterType);
 	}
 
+	[Fact]
+	public void Htmx4_response_surface_removes_legacy_status_286_contract_but_keeps_general_status()
+	{
+		var assembly = typeof(HtmxResponse).Assembly;
+
+		Assert.Null(assembly.GetType("Htmxor.Http.HtmxStatusCodes"));
+		Assert.DoesNotContain(
+			typeof(HtmxResponse).GetMethods(),
+			static method => method.Name == "StopPolling");
+
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+
+		Assert.Same(response, response.StatusCode((System.Net.HttpStatusCode)286));
+		Assert.Equal(286, context.Response.StatusCode);
+	}
+
 	[Theory]
 	[InlineData(null)]
 	[InlineData("")]

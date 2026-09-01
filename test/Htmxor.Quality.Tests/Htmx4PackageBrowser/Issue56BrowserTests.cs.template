@@ -41,6 +41,7 @@ public sealed class Issue56BrowserTests
 		"/issue-64/redirect?force-load=true&replace-history-entry=true";
 	private const string Issue64DestinationPath = "/issue-64/destination";
 	private const string Issue154Path = "/issue-154/navigation";
+	private const string Issue154PollingPath = "/issue-154/polling";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
 	private static readonly string[] NavigationResponseHeaderNames =
@@ -378,6 +379,72 @@ public sealed class Issue56BrowserTests
 			name => string.Equals(name, "manual:event", StringComparison.Ordinal));
 		Assert.Empty(pageErrors);
 		Assert.Empty(consoleErrors);
+	}
+
+	[Fact]
+	public async Task Application_owned_htmx4_stops_polling_with_replacement_markup_not_status_286()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var pollingRequests = new ConcurrentQueue<string>();
+		page.Request += (_, request) =>
+		{
+			var uri = new Uri(request.Url);
+			if (uri.AbsolutePath == Issue154PollingPath &&
+				(uri.Query == "?iteration=1" || uri.Query == "?iteration=2"))
+			{
+				pollingRequests.Enqueue(uri.PathAndQuery);
+			}
+		};
+		var firstResponseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).PathAndQuery == $"{Issue154PollingPath}?iteration=1" &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+		var secondResponseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).PathAndQuery == $"{Issue154PollingPath}?iteration=2" &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+
+		var navigation = await page.GotoAsync(Issue154PollingPath);
+		Assert.NotNull(navigation);
+		Assert.Equal((int)HttpStatusCode.OK, navigation.Status);
+		Assert.Contains("data-stock-shell", await navigation.TextAsync(), StringComparison.Ordinal);
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+
+		var firstResponse = await firstResponseTask;
+		Assert.Equal(286, firstResponse.Status);
+		var firstBody = await firstResponse.TextAsync();
+		Assert.Contains(
+			"data-issue-154-poll-state=\"status-286\"",
+			firstBody,
+			StringComparison.Ordinal);
+		Assert.Contains("hx-trigger=\"load delay:100ms\"", firstBody, StringComparison.Ordinal);
+
+		var secondResponse = await secondResponseTask;
+		Assert.Equal((int)HttpStatusCode.OK, secondResponse.Status);
+		var finalBody = await secondResponse.TextAsync();
+		Assert.Contains(
+			"data-issue-154-poll-state=\"complete\"",
+			finalBody,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("hx-get=", finalBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("hx-trigger=", finalBody, StringComparison.Ordinal);
+		await page.Locator("#issue-154-polling[data-issue-154-poll-state='complete']").WaitForAsync();
+
+		Assert.Equal(
+			new[]
+			{
+				$"{Issue154PollingPath}?iteration=1",
+				$"{Issue154PollingPath}?iteration=2",
+			},
+			pollingRequests.ToArray());
+		var requestCountAfterTerminalReplacement = pollingRequests.Count;
+		await Task.Delay(TimeSpan.FromMilliseconds(350));
+		Assert.Equal(requestCountAfterTerminalReplacement, pollingRequests.Count);
 	}
 
 	[Fact]

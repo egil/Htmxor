@@ -1,0 +1,46 @@
+@page "/issue-154/polling"
+@using System.Net
+@using Htmxor.Http
+@inject HtmxContext Htmx
+
+@if (Iteration is null)
+{
+	<main data-issue-154-polling>
+		<div id="issue-154-polling"
+			 hx-get="/issue-154/polling?iteration=1"
+			 hx-trigger="load delay:100ms"
+			 hx-swap="outerHTML"
+			 data-issue-154-poll-state="waiting">
+			Waiting for the first poll
+		</div>
+	</main>
+}
+else if (Iteration == 1)
+{
+	<div id="issue-154-polling"
+		 hx-get="/issue-154/polling?iteration=2"
+		 hx-trigger="load delay:100ms"
+		 hx-swap="outerHTML"
+		 data-issue-154-poll-state="status-286">
+		Status 286 did not stop this poll
+	</div>
+}
+else
+{
+	<div id="issue-154-polling" data-issue-154-poll-state="complete">
+		Polling complete
+	</div>
+}
+
+@code {
+	[SupplyParameterFromQuery]
+	public int? Iteration { get; set; }
+
+	protected override void OnParametersSet()
+	{
+		if (Iteration == 1 && Htmx.Request.IsHtmxRequest)
+		{
+			Htmx.Response.StatusCode((HttpStatusCode)286);
+		}
+	}
+}
