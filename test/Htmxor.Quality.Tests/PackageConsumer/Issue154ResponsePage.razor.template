@@ -1,0 +1,46 @@
+@page "/issue-154-response"
+@using Htmxor.Http
+@inject HtmxContext HtmxContext
+
+<section data-issue-154-response-page
+         data-is-htmx="@HtmxContext.Request.IsHtmxRequest.ToString().ToLowerInvariant()"
+         data-routing-mode="@HtmxContext.Request.RoutingMode"
+         data-request-type="@(HtmxContext.Request.RequestType?.ToString() ?? "none")"
+         data-rejection-count="@rejectionCount"
+         data-success-count="@successCount">
+    Issue 154 response operation probe
+</section>
+
+@code {
+    private static readonly Action<HtmxResponse>[] CoreResponseOperations =
+    [
+        response => response.Location("/next"),
+        response => response.PushUrl("/next"),
+        response => response.Redirect("/next"),
+        response => response.Refresh(),
+        response => response.ReplaceUrl("/next"),
+        response => response.Reswap("acmeMorph"),
+        response => response.Retarget("#target"),
+        response => response.Reselect("#selection"),
+        response => response.Trigger("issue154:event"),
+    ];
+
+    private int rejectionCount;
+    private int successCount;
+
+    protected override void OnInitialized()
+    {
+        foreach (var operation in CoreResponseOperations)
+        {
+            try
+            {
+                operation(HtmxContext.Response);
+                successCount++;
+            }
+            catch (InvalidOperationException)
+            {
+                rejectionCount++;
+            }
+        }
+    }
+}

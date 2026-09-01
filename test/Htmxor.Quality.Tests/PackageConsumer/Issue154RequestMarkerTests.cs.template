@@ -1,0 +1,185 @@
+using System.Net;
+using Htmxor.Http;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+public sealed partial class PackageConsumerTests
+{
+	private const string Issue154ResponseRequestPath = RoutePrefix + "/issue-154-response";
+
+	public static TheoryData<string, string[]?> InvalidIssue154RequestMarkers =>
+		new()
+		{
+			{ "missing", null },
+			{ "blank", [""] },
+			{ "false", ["false"] },
+			{ "malformed", ["truthy"] },
+			{ "comma-joined", ["true, true"] },
+			{ "repeated", ["true", "true"] },
+		};
+
+	[Theory]
+	[MemberData(nameof(InvalidIssue154RequestMarkers))]
+	public async Task Invalid_request_marker_with_partial_context_cannot_reach_an_htmx_only_route(
+		string markerCase,
+		string[]? markerValues)
+	{
+		using var response = await SendIssue154RequestAsync(
+			ReportRequestPath,
+			markerValues,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.NotFound,
+			$"Marker case '{markerCase}' returned {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+		Assert.DoesNotContain("data-issue-97-report-component", body, StringComparison.Ordinal);
+	}
+
+	[Theory]
+	[MemberData(nameof(InvalidIssue154RequestMarkers))]
+	public async Task Invalid_request_marker_with_partial_context_keeps_the_stock_page_shell(
+		string markerCase,
+		string[]? markerValues)
+	{
+		using var response = await SendIssue154RequestAsync(
+			PageRequestPath,
+			markerValues,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"Marker case '{markerCase}' returned {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+		Assert.Contains("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
+		Assert.Contains("data-issue-100-report-page", body, StringComparison.Ordinal);
+	}
+
+	[Theory]
+	[MemberData(nameof(InvalidIssue154RequestMarkers))]
+	public async Task Invalid_request_marker_rejects_core_response_operations_without_header_mutation(
+		string markerCase,
+		string[]? markerValues)
+	{
+		using var response = await SendIssue154RequestAsync(
+			Issue154ResponseRequestPath,
+			markerValues,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"Marker case '{markerCase}' returned {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
+		Assert.Contains("data-issue-154-response-page", body, StringComparison.Ordinal);
+		Assert.Contains("data-is-htmx=\"false\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-routing-mode=\"Standard\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-request-type=\"none\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-rejection-count=\"9\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-success-count=\"0\"", body, StringComparison.Ordinal);
+		Assert.All(CoreResponseHeaders, header => Assert.False(
+			response.Headers.Contains(header),
+			$"Marker case '{markerCase}' allowed the response header {header}."));
+	}
+
+	[Theory]
+	[InlineData("true")]
+	[InlineData(" True ")]
+	[InlineData("TRUE")]
+	public async Task One_normalized_true_marker_preserves_direct_routing_and_response_operations(
+		string markerValue)
+	{
+		using var routeResponse = await SendIssue154RequestAsync(
+			ReportRequestPath,
+			[markerValue],
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost);
+		var routeBody = await routeResponse.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, routeResponse.StatusCode);
+		Assert.Contains("data-issue-97-report-component", routeBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("<html", routeBody, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain("data-stock-shell", routeBody, StringComparison.Ordinal);
+
+		using var fullResponse = await SendIssue154RequestAsync(
+			PageRequestPath,
+			[markerValue],
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost,
+			requestType: "full");
+		var fullBody = await fullResponse.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, fullResponse.StatusCode);
+		Assert.Contains("<html", fullBody, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", fullBody, StringComparison.Ordinal);
+		Assert.Contains("data-issue-100-report-page", fullBody, StringComparison.Ordinal);
+
+		using var response = await SendIssue154RequestAsync(
+			Issue154ResponseRequestPath,
+			[markerValue],
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost);
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.All(CoreResponseHeaderValues, expected => Assert.Equal(
+			expected.Value,
+			Assert.Single(response.Headers.GetValues(expected.Name))));
+	}
+
+	private static readonly string[] CoreResponseHeaders =
+		[
+			HtmxResponseHeaderNames.Location,
+			HtmxResponseHeaderNames.PushUrl,
+			HtmxResponseHeaderNames.Redirect,
+			HtmxResponseHeaderNames.Refresh,
+			HtmxResponseHeaderNames.ReplaceUrl,
+			HtmxResponseHeaderNames.Reswap,
+			HtmxResponseHeaderNames.Retarget,
+			HtmxResponseHeaderNames.Reselect,
+			HtmxResponseHeaderNames.Trigger,
+		];
+
+	private static readonly (string Name, string Value)[] CoreResponseHeaderValues =
+		[
+			(HtmxResponseHeaderNames.Location, "/next"),
+			(HtmxResponseHeaderNames.PushUrl, "/next"),
+			(HtmxResponseHeaderNames.Redirect, "/next"),
+			(HtmxResponseHeaderNames.Refresh, "true"),
+			(HtmxResponseHeaderNames.ReplaceUrl, "/next"),
+			(HtmxResponseHeaderNames.Reswap, "acmeMorph"),
+			(HtmxResponseHeaderNames.Retarget, "#target"),
+			(HtmxResponseHeaderNames.Reselect, "#selection"),
+			(HtmxResponseHeaderNames.Trigger, "issue154:event"),
+		];
+
+	private async Task<HttpResponseMessage> SendIssue154RequestAsync(
+		string path,
+		string[]? markerValues,
+		string userName,
+		string host,
+		string requestType = "partial")
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		request.Headers.Host = host;
+		request.Headers.Add(HtmxRequestHeaderNames.RequestType, requestType);
+		AddRequestMarker(request, markerValues);
+		request.Headers.Add(PackageConsumerAuthenticationHandler.UserHeaderName, userName);
+
+		return await client.SendAsync(request);
+	}
+
+	private static void AddRequestMarker(HttpRequestMessage request, string[]? markerValues)
+	{
+		if (markerValues is not null)
+		{
+			Assert.True(
+				request.Headers.TryAddWithoutValidation(HtmxRequestHeaderNames.HtmxRequest, markerValues),
+				"The issue #154 request marker must be staged without header-value normalization.");
+		}
+	}
+}

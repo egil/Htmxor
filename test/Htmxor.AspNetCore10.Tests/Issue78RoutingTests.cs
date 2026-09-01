@@ -66,6 +66,30 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 	}
 
 	[Theory]
+	[InlineData(null, null)]
+	[InlineData("", null)]
+	[InlineData("false", null)]
+	[InlineData("malformed", null)]
+	[InlineData("true, true", null)]
+	[InlineData("true", "true")]
+	public async Task Invalid_htmx_request_marker_with_partial_type_retains_stock_page(
+		string? markerValue,
+		string? repeatedMarkerValue)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-78");
+		AddHtmxRequestMarker(request, markerValue, repeatedMarkerValue);
+		request.Headers.Add("HX-Request-Type", "partial");
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Contains("<html", body, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
+		Assert.Contains("data-issue-78-page", body, StringComparison.Ordinal);
+	}
+
+	[Theory]
 	[InlineData("/issue-81/bool/{BoolValue:bool}", "/issue-81/bool/true", "System.Boolean", "True")]
 	[InlineData("/issue-81/datetime/{DateTimeValue:datetime}", "/issue-81/datetime/2026-08-27", "System.DateTime", "2026-08-27T00:00:00.0000000")]
 	[InlineData("/issue-81/decimal/{DecimalValue:decimal}", "/issue-81/decimal/123.45", "System.Decimal", "123.45")]
@@ -135,6 +159,22 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 			.Where(endpoint => endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type == typeof(Issue81Page));
 		Assert.Single(pageEndpoints.Where(endpoint =>
 			string.Equals(endpoint.RoutePattern.RawText, routeTemplate, StringComparison.OrdinalIgnoreCase)));
+	}
+
+	private static void AddHtmxRequestMarker(
+		HttpRequestMessage request,
+		string? markerValue,
+		string? repeatedMarkerValue)
+	{
+		if (markerValue is null)
+		{
+			return;
+		}
+
+		string[] markerValues = repeatedMarkerValue is null
+			? [markerValue]
+			: [markerValue, repeatedMarkerValue];
+		request.Headers.TryAddWithoutValidation("HX-Request", markerValues);
 	}
 
 	private async Task AssertSuccessfulNormalAndHtmxResponses(string requestPath, string expectedRouteValue)

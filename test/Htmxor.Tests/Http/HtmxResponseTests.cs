@@ -20,7 +20,7 @@ public class HtmxResponseTests : BunitContext
 		{
 			RequestServices = services.BuildServiceProvider()
 		};
-		result.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "";
+		result.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
 		result.GetHtmxContext();
 		return result;
 	}
@@ -374,5 +374,33 @@ public class HtmxResponseTests : BunitContext
 			method => Assert.DoesNotContain(
 				method.GetParameters(),
 				parameter => parameter.ParameterType.FullName == "Htmxor.TriggerTiming"));
+	}
+
+	public static TheoryData<string[]?> InvalidRequestMarkers =>
+		new()
+		{
+			{ null },
+			{ [""] },
+			{ ["false"] },
+			{ ["truthy"] },
+			{ ["true, true"] },
+			{ ["true", "true"] },
+		};
+
+	[Theory]
+	[MemberData(nameof(InvalidRequestMarkers))]
+	public void Invalid_request_marker_rejects_raw_reswap_without_header_mutation(
+		string[]? markerValues)
+	{
+		var context = new DefaultHttpContext();
+		if (markerValues is not null)
+		{
+			context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = markerValues;
+		}
+		var response = new HtmxResponse(context);
+
+		Assert.Throws<InvalidOperationException>(() => response.Reswap("acmeMorph"));
+
+		Assert.False(context.Response.Headers.ContainsKey(HtmxResponseHeaderNames.Reswap));
 	}
 }

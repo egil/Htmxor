@@ -122,6 +122,29 @@ public sealed class Issue91HtmxOnlyRouteTests : IAsyncLifetime
 	}
 
 	[Theory]
+	[InlineData(null, null)]
+	[InlineData("", null)]
+	[InlineData("false", null)]
+	[InlineData("malformed", null)]
+	[InlineData("true, true", null)]
+	[InlineData("true", "true")]
+	public async Task Htmx_only_get_rejects_invalid_request_markers_with_partial_type(
+		string? markerValue,
+		string? repeatedMarkerValue)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, RequestPath);
+		AddHtmxRequestMarker(request, markerValue, repeatedMarkerValue);
+		request.Headers.Add("HX-Request-Type", "partial");
+		request.Headers.Add(Issue91AuthenticationHandler.UserHeaderName, "issue-91-user");
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+		Assert.DoesNotContain("data-issue-91-component", body, StringComparison.Ordinal);
+	}
+
+	[Theory]
 	[InlineData(null)]
 	[InlineData("")]
 	[InlineData("unknown")]
@@ -156,6 +179,22 @@ public sealed class Issue91HtmxOnlyRouteTests : IAsyncLifetime
 
 		Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
 		Assert.DoesNotContain("data-issue-91-component", body, StringComparison.Ordinal);
+	}
+
+	private static void AddHtmxRequestMarker(
+		HttpRequestMessage request,
+		string? markerValue,
+		string? repeatedMarkerValue)
+	{
+		if (markerValue is null)
+		{
+			return;
+		}
+
+		string[] markerValues = repeatedMarkerValue is null
+			? [markerValue]
+			: [markerValue, repeatedMarkerValue];
+		request.Headers.TryAddWithoutValidation("HX-Request", markerValues);
 	}
 
 	private async Task<HttpResponseMessage> SendAsync(
