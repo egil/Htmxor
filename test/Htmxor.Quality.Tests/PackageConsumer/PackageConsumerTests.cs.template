@@ -230,6 +230,24 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			AssertRejectedNavigation(response => response.ReplaceUrl(literal));
 		}
 
+		foreach (var relativeReference in new[] { "TRUE", "False" })
+		{
+			foreach (var operation in new Func<HtmxResponse, HtmxResponse>[]
+			{
+				response => response.PushUrl(relativeReference),
+				response => response.ReplaceUrl(relativeReference),
+			})
+			{
+				var context = CreateNavigationContext(validMarker: true);
+				var response = new HtmxResponse(context);
+
+				Assert.Same(response, operation(response));
+				Assert.Equal(
+					relativeReference,
+					Assert.Single(GetNavigationHeaders(context)).Value.ToString());
+			}
+		}
+
 		foreach (var destination in new[]
 		{
 			"https://other.example/orders/42",
