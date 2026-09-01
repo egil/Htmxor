@@ -1,0 +1,67 @@
+@page "/issue-154-marker"
+@using System.Net
+@using Htmxor
+@using Htmxor.Http
+
+<section data-issue-154-marker
+         data-rejected-operation-count="@rejectedOperationCount"
+         data-operation-count="@operationCount">
+    marker classification
+</section>
+
+@code {
+    private int rejectedOperationCount;
+    private int operationCount;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "guard-response")]
+    public bool GuardResponse { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!GuardResponse)
+        {
+            return;
+        }
+
+        var response = HttpContext.GetHtmxContext().Response;
+        Action<HtmxResponse>[] operations =
+        [
+            candidate => candidate.StatusCode(HttpStatusCode.Created),
+            candidate => candidate.EmptyBody(),
+            candidate => candidate.Location("/forbidden-location"),
+            candidate => candidate.Location(new LocationTarget { Path = "/forbidden-location" }),
+            candidate => candidate.PushUrl("/forbidden-push"),
+            candidate => candidate.PushUrl(new Uri("/forbidden-push", UriKind.Relative)),
+            candidate => candidate.PreventBrowserHistoryUpdate(),
+            candidate => candidate.PreventBrowserCurrentUrlUpdate(),
+            candidate => candidate.Redirect("/forbidden-redirect"),
+            candidate => candidate.Redirect(new Uri("/forbidden-redirect", UriKind.Relative)),
+            candidate => candidate.Refresh(),
+            candidate => candidate.ReplaceUrl("/forbidden-replace"),
+            candidate => candidate.ReplaceUrl(new Uri("/forbidden-replace", UriKind.Relative)),
+            candidate => candidate.Reswap("acmeMorph settle:25ms"),
+            candidate => candidate.Reswap(SwapStyle.outerHTML, "settle:25ms"),
+            candidate => candidate.Retarget("#forbidden-target"),
+            candidate => candidate.Reselect("#forbidden-selection"),
+            candidate => candidate.Trigger("forbidden:event"),
+            candidate => candidate.Trigger("forbidden:event", new { Detail = "forbidden" }),
+        ];
+
+        operationCount = operations.Length;
+        foreach (var operation in operations)
+        {
+            try
+            {
+                operation(response);
+            }
+            catch (InvalidOperationException)
+            {
+                rejectedOperationCount++;
+            }
+        }
+    }
+}
