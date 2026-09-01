@@ -149,6 +149,9 @@ Last updated: 2026-09-01
 - Issue #154 verified main navigation-response implementation: `ae994a3d4335a736b45454603a23ba26fd594448`.
 - Issue #154 preserved navigation history-literal review red: `02702fe4b0c783d03908d442dcd06a3eaddf1842`.
 - Issue #154 verified corrected navigation-response proof: `3032c4f79a8e3c4e2d8092961c3d11966c476236`.
+- Issue #154 preserved initial navigation-response correction red: `662ffbc41375ad313f7ca10041f1e41a2e80265d`.
+- Issue #154 preserved corrected same-context error re-execution red: `5937a16a1dc75116596fec6744ff0eb9968ca67b`.
+- Issue #154 verified post-review navigation-response corrections: `e4afa3a29e1acafd1e45d3cf84ba5348532acd3f`.
 - Framework boundary under test: .NET SDK 10.0.400, ASP.NET Core 10.0.11, and Blazor static SSR. The package, repository tooling, tests, test application, and maintained samples now target `net10.0`; the generator remains a `netstandard2.0` compiler component packaged under `analyzers/dotnet/cs`. Current package-only TestServer and Kestrel/Chromium consumers restore a locally packed `net10.0` Htmxor package. Earlier `net8.0` package references below record historical exact-head evidence and are not current compatibility claims.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -159,12 +162,17 @@ Last updated: 2026-09-01
 - Issue #154 additionally proves one consolidated navigation response with exact
   URI text, operation-specific body effects, validation-before-marker ordering,
   and last-call-wins replacement of competing navigation headers through unit,
-  packed TestServer, Kestrel, and Chromium boundaries.
+  packed TestServer, Kestrel, and Chromium boundaries. Post-review proof adds
+  render-local suppression, unstarted positive declared `Content-Length`
+  cleanup, pre-canceled `Task` and `ValueTask` `WriteAsync` overloads,
+  validation-before-adaptation for stock redirects, same-`HttpContext`
+  error-page re-execution, exact packed `Location(Uri)` text, and an actionless
+  generated-route header-plus-empty-body response.
 - Issue #145 additionally proves generated no-argument registration for root and one standard route-group mapping, with all maintained samples consuming the generator as an analyzer and no destination-registration compatibility overload.
 - Current implementation slices: the first bounded part of issue #154 classifies
   `HX-Request` once by value for request routing and the covered response
   operations; the second consolidates navigation response validation, header
-  replacement, and body effects. Issues #151 and #154 remain open.
+  replacement, and render-local body effects. Issues #151 and #154 remain open.
 
 ## Proven v1 behavior
 
@@ -2053,9 +2061,9 @@ against the request, enforce the documented HTTP(S) origin rules, and mutate
 only after both checks pass. Each successful call returns the same response,
 clears all five core navigation headers, writes one value, and replaces the
 prior automatic body effect. Explicit `EmptyBody()` remains independently
-suppressing, and navigation calls leave status unchanged.
+suppressing within that render, and navigation calls leave status unchanged.
 
-The stock Razor component renderer receives a request-scoped, non-owning
+The stock Razor component renderer receives a per-render, non-owning
 conditional response stream before it caches its writer. It therefore honors
 the response body's final navigation state without replacing the framework
 renderer or changing the legacy invoker. `ForceLoad` plus
@@ -2143,23 +2151,101 @@ same binaries. The final complete full-profile run at that main implementation
 commit supplied its acceptance result; both profiles were later repeated
 cleanly at the corrected executable commit as recorded above.
 
-This proof used .NET SDK 10.0.400, ASP.NET Core 10.0.11, Linux under WSL2, local
-unsigned `net10.0` packages, TestServer, real Kestrel, Microsoft Playwright
+#### Post-review navigation response corrections
+
+The accepted review corrections protect this behavior:
+
+> When a valid htmx component render selects body suppression, Htmxor limits it
+> to that render, preserves pre-cancellation, and, for an unstarted response,
+> emits neither component output nor a positive declared `Content-Length` while
+> retaining any selected navigation header. When error handling re-executes a
+> component on the same `HttpContext`, or a stock redirect destination is
+> invalid, Htmxor renders the error body with fresh body-control state or
+> preserves the stock 302 and `Location`, respectively.
+
+Initial test-only commit
+`662ffbc41375ad313f7ca10041f1e41a2e80265d` preserved two meaningful focused
+failures: 46 tests executed, 44 passed, and the suppressed `WriteAsync`
+overloads returning `Task` and `ValueTask` failed to preserve pre-canceled
+tokens. Its separately packed public and actionless consumers already passed 48
+of 48 and 51 of 51 inner tests. Those packed boundaries prove that
+`Location(Uri)` emits exact `Uri.OriginalString` wire text and that an actionless
+generated DELETE response contains `HX-Location` with an empty body while
+binding and initialization still execute and no callback does.
+
+Corrected test-only commit
+`5937a16a1dc75116596fec6744ff0eb9968ca67b` gives this path-based exception
+handler fixture a fresh service scope so its second Razor component render can
+execute, then separately proves that re-execution works without suppression.
+Its clean Production Kestrel run executed 33 inner tests: 27 passed and 6
+failed. The passing no-suppression control distinguishes fixture validity from
+the four body-state leaks after `EmptyBody`, `Location`, `Redirect`, and
+`Refresh`; the other failures were one positive declared `Content-Length`
+mismatch and one invalid same-origin stock redirect that Htmxor mutated instead
+of preserving.
+
+Implementation commit
+`e4afa3a29e1acafd1e45d3cf84ba5348532acd3f` clears a positive declared
+`Content-Length` before an unstarted suppressed response writes, preserves
+pre-canceled tokens for the suppressed `WriteAsync` overloads returning `Task`
+and `ValueTask`, resets body-control state around each component render, and
+validates a stock local redirect before changing its status or removing
+`Location`. At that exact clean head:
+
+- the focused response, renderer, and stream command passed 46 of 46 tests;
+- the separately packed public consumer passed 1 of 1 outer tests and asserted
+  48 of 48 inner TestServer tests;
+- the actionless packed consumer passed 1 of 1 outer tests and asserted 51 of 51
+  inner TestServer tests;
+- the package-only Production Kestrel/browser consumer passed 1 of 1 outer tests
+  and asserted 33 of 33 inner tests;
+- the fast profile passed 454 of 454 tests: 117 quality, 45 ASP.NET Core 10, and
+  292 core tests; and
+- the full profile passed 457 of 457 tests: 118 quality, 45 ASP.NET Core 10, and
+  294 core/browser tests. Analyzer and style gates passed, the authoritative
+  Release build completed with zero warnings and errors, and two fresh matching
+  nonempty Cobertura reports have SHA-256
+  `390E9AB8539109F3DE286A09E2B359DAC78BCC1713C5995B95F98DE0CE4E8B6A`.
+
+The exact clean-head commands were:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxorRendererNavigationTests|FullyQualifiedName~ConditionalResponseBodyStreamTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-fixes-focused.trx" --results-directory artifacts/results/issue-154-review-fixes-focused --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-fixes-packed.trx" --results-directory artifacts/results/issue-154-review-fixes-packed --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_preserves_actionless_unsafe_route_antiforgery --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-fixes-packed-actionless.trx" --results-directory artifacts/results/issue-154-review-fixes-packed-actionless --verbosity minimal
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-fixes-htmx4.trx" --results-directory artifacts/results/issue-154-review-fixes-htmx4 --verbosity minimal
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
+```
+
+These navigation-response proofs used .NET SDK 10.0.400, ASP.NET Core 10.0.11,
+Linux under WSL2, local unsigned `net10.0` packages, TestServer, real Kestrel,
+Microsoft Playwright
 1.62.0, cached Chrome for Testing 151.0.7922.34, and the application-owned htmx
 4.0.0 asset with SHA-256
 `E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
 It proves exact response serialization and state through the packed public
 boundary, stock-renderer body suppression, normal htmx swaps, location,
 redirect, refresh, push, replace, both prevention operations, and forced full
-load behavior. Cross-origin redirect is covered at validation and packed API
+load behavior. The post-review proof adds unit-only pre-canceled tokens for the
+suppressed `WriteAsync` overloads returning `Task` and `ValueTask`; one
+application-declared positive `Content-Length` with `EmptyBody()` over Kestrel;
+a no-suppression control and same-`HttpContext` path-based error-page
+re-execution after four suppressors; one malformed same-origin stock redirect;
+packed TestServer `Location(Uri)` text; and an actionless generated DELETE
+response. The new Kestrel response cases use raw HTTP rather than Chromium
+interaction. Cross-origin redirect is covered at validation and packed API
 boundaries, not through an external browser destination.
 
 It does not exercise fresh browser or SDK provisioning, TLS, Windows, macOS,
 Firefox, WebKit, a NuGet-published or signed package, .NET 11, another framework
 or htmx version, proxies, containers, external services, performance, streaming
-fragment output, boosted-navigation rewriting, arbitrary user-authored
-`Content-Length`, or replacement-history parity. Full-scope mutation was not
-run and is not required for this ordinary pull-request slice.
+fragment output, boosted-navigation rewriting, suppression after response start,
+redirect adaptation after response start, other `Content-Length` interactions,
+mid-write or transport cancellation, other exception-handler forms, browser
+execution of the new packed URI and actionless cases, or replacement-history
+parity. Full-scope mutation was not run and is not required for this ordinary
+pull-request slice.
 
 Issue #154 remains open. The recommended next bounded slice is the remaining
 swap-and-selection response family: define argument validation, strict guard

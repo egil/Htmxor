@@ -226,13 +226,20 @@ Navigation operations are last-call-wins: a successful call clears the other
 navigation headers, writes one exact value, and replaces any earlier automatic
 navigation body effect with its own. `EmptyBody()` is independent, so an
 explicit empty-body choice remains in effect after a later push, replace, or
-prevent operation. Navigation operations do not change the status code. Htmx
-does not process these response headers on 3xx responses.
+prevent operation during the current component render. Suppression state resets
+before another component render on the same `HttpContext`, including an error
+handler's component re-execution. Before an unstarted suppressed response is
+written, Htmxor clears a positive declared `Content-Length`; the suppressed
+`WriteAsync` overloads returning `Task` and `ValueTask` preserve pre-canceled
+tokens. Navigation operations do not change the status code. Htmx does not
+process these response headers on 3xx responses.
 
-For direct htmx rendering, a `NavigationManager` command that combines
-`ForceLoad` with `ReplaceHistoryEntry` produces one `HX-Redirect` to preserve the
-required full load. It does not also emit `HX-Replace-Url`, and Htmxor does not
-claim replace-history parity for that combination.
+For direct htmx rendering, Htmxor validates a stock local 302 redirect before
+changing its status or removing `Location`; an invalid redirect remains a stock
+response. A `NavigationManager` command that combines `ForceLoad` with
+`ReplaceHistoryEntry` produces one `HX-Redirect` to preserve the required full
+load. It does not also emit `HX-Replace-Url`, and Htmxor does not claim
+replace-history parity for that combination.
 
 The earlier `Location(LocationTarget)` overload and its `LocationTarget` and
 `AjaxContext` types have been removed because they did not model htmx 4
