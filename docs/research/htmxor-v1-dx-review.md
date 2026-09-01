@@ -7,6 +7,9 @@
 - Feature inventory: [Htmxor v1 guide and htmx 4 map](../htmxor-v1-feature-guide.md)
 - Registration update: the first bounded slice of #151 makes
   `AddHtmxor()` / `AddHtmxorEndpoints()` current; the broader issue remains open
+- Client-helper update: the second bounded slice of #151 removes the incomplete
+  trigger, swap, and constants helpers from the stable core; the broader issue
+  remains open
 
 ## Verdict
 
@@ -14,15 +17,15 @@ The component model is good. A developer should be able to add htmx attributes
 to an `@page`, stock form, or element callback without creating another endpoint
 or learning another renderer.
 
-The API is not ready to freeze. The registration naming problem identified by
-this review is resolved by the first bounded slice of #151. Three broader
-problems remain:
+The API is not ready to freeze. The registration naming problem and incomplete
+client-helper problem identified by this review are resolved by the first and
+second bounded slices of #151. Three broader problems remain:
 
 1. Route and action discovery advertises options that the generator rejects,
    then reports failures too broadly.
 2. Fragment selection mixes server work with DOM identity and request headers.
-3. The package exports incomplete client helpers and implementation types beside
-   the small server API developers need.
+3. The package exports implementation types beside the small server API
+   developers need.
 
 The best default is native htmx markup plus a small typed server API. Copying
 every htmx attribute, trigger, swap value, configuration option, and extension
@@ -94,7 +97,7 @@ behavior.
 | Request data | The context shape is easy to learn | Fix .NET naming and represent invalid headers safely | Finish |
 | Response operations | Fluent methods fit the protocol | Use the same guards, validation, return type, and body rules | Finish |
 | Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
-| Trigger and swap helpers | Their typed names imply full coverage, but they omit htmx 4 behavior | Remove them from core v1 or move them to a versioned optional package | Do not freeze |
+| Trigger and swap helpers | Native markup and open strings avoid a closed Htmxor profile | Remove the incomplete helpers from core v1 | Removed in the second #151 slice |
 | Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
 | Client extensions | Raw markup works without package changes | Add a server hook only when an extension sends server data | Keep |
 | Interactive Blazor | DOM ownership is not obvious from local markup | Document and test one owner for each DOM and navigation region | Track in #57 |
@@ -119,8 +122,8 @@ app.MapRazorComponents<App>().AddHtmxorEndpoints();
 
 The beta does not keep forwarding aliases for the old names. This slice does not
 restore the destination argument that #145 removed or change its mapping path.
-#151 remains open for the stable type allow-list, exported-member review,
-client-helper decision, and public-API compatibility baseline.
+#151 remains open for the complete stable type allow-list, exported-type and
+member review, and public-API compatibility baseline.
 
 The #145 proof covers component policy and metadata, hosts, route constraints,
 antiforgery, generated methods, and shared group metadata. It does not cover
@@ -199,9 +202,10 @@ Those values describe browser delivery and cannot grant server access.
 
 ### 5. Native markup beats an incomplete C# client API
 
-The package exports `Constants`, `Trigger`, trigger builders, `SwapStyle`, swap
-builders, and supporting enums and records. Their names imply a complete,
-version-aware htmx model, but the htmx 4 inventory shows gaps:
+At the review baseline, the package exported `Constants`, `Trigger`, trigger
+builders, `SwapStyle`, swap builders, and supporting enums and records. Their
+names implied a complete, version-aware htmx model, but the htmx 4 inventory
+showed gaps:
 
 - swap helpers omit aliases, morph styles, `outerSync`, `textContent`, and
   extension styles;
@@ -211,13 +215,20 @@ version-aware htmx model, but the htmx 4 inventory shows gaps:
 - closed enums cannot represent extension values on the same code path.
 
 Razor accepts native htmx markup and colon attributes. Official editor metadata
-already supplies client completions. Htmxor should either remove these helpers
-from core v1 or move them to an optional, htmx-versioned package with a raw
-string fallback and metadata-driven parity tests.
+already supplies client completions. The second bounded #151 slice therefore
+removes `Constants`, the trigger facade/builders, the swap builders, and their
+supporting public types from the stable core and does not create an optional
+adapter package. Native Razor and open string values remain the client escape
+hatch for application-selected and extension-provided syntax.
 
 Adding the missing 4.0.0 constants by hand would only postpone the next drift.
 Typed response helpers are different: they serialize response headers and
-coordinate status and body behavior that Razor markup cannot express.
+coordinate status and body behavior that Razor markup cannot express. The slice
+therefore preserves `HtmxResponse.Trigger(...)` and raw
+`HtmxResponse.Reswap(string)`. It also preserves `SwapStyle`,
+`HtmxResponse.Reswap(SwapStyle, string?)`, `AjaxContext`, and `LocationTarget`
+unchanged for #154. These are server-protocol and serialization decisions, not
+browser-conformance evidence.
 
 ### 6. The HTTP context needs one set of rules
 
@@ -252,19 +263,22 @@ V1 needs a reviewed public allow-list:
 | Keep | registration and mapping, `HtmxRoute`, normal-only marker, `HtmxFragment`, `HtmxHeadOutlet`, context and request/response types, callback event arguments, core header names |
 | Reshape | fragment selection, method declarations, header parsing and naming, response rules, extension headers |
 | Require a demonstrated use case | direct-request layout, async-load helpers, structured `HX-Location` model |
-| Make internal or remove | renderer and generator bridges, renderer exceptions, conditional-render machinery, incomplete client helper implementation types |
+| Make internal or remove | renderer and generator bridges, renderer exceptions, conditional-render machinery |
 
 This table is a review result, not permission to delete types without checking
 consumers. An API compatibility baseline should catch unreviewed changes and
 prevent generator assembly needs from becoming accidental user promises.
+The second bounded #151 slice acts only on the separately reviewed client-helper
+decision; the rest of this allow-list and exported-member review remains open.
 
 ### 8. Examples need honest status labels
 
 Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
 ideas that still need API decisions. Registration and QUERY now have bounded
-proof through #145 and #111, and the first #151 slice makes the consistent
-registration names current. Multi-fragment selection and optional extension use
-still need explicit status labels.
+proof through #145 and #111, while the first two #151 slices make the consistent
+registration names and native-markup client-helper decision current.
+Multi-fragment selection and optional extension use still need explicit status
+labels.
 
 The discussion should stay short and link to the repository guide for the full
 inventory. Examples should identify whether they show an accepted v1 contract,
@@ -289,7 +303,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 
 | Issue | Decision or result |
 | --- | --- |
-| [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Keep the selected registration names, approve the public allow-list, decide the client helpers, and add API compatibility checks |
+| [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Retain the selected registration names and the decision to remove client helpers; still approve the complete public allow-list, review exported members, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
 | [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Normalize names and validation, cover core headers, add extension headers, and test exact HTTP input and output |

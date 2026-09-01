@@ -31,7 +31,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(17, 17, 17, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(19, 19, 19, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -49,7 +49,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(19, 19, 19, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(21, 21, 21, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 
@@ -652,9 +652,9 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(3, Count(applicationSource, "HtmxRoute("));
 		Assert.Equal(1, Count(razorSource, "HtmxRoute("));
 		Assert.Equal(3, Count(razorSource, "@attribute [Authorize"));
-		Assert.Equal(2, Count(razorSource, "hx-put="));
-		Assert.Equal(1, Count(razorSource, "hx-patch="));
-		Assert.Equal(1, Count(razorSource, "hx-delete="));
+		Assert.Equal(3, Count(razorSource, "hx-put="));
+		Assert.Equal(2, Count(razorSource, "hx-patch="));
+		Assert.Equal(2, Count(razorSource, "hx-delete="));
 		Assert.Equal(1, Count(razorSource, "@onput=\"PutReport\""));
 		Assert.Equal(1, Count(razorSource, "@onpatch=\"PatchReport\""));
 		Assert.Equal(1, Count(razorSource, "@ondelete=\"DeleteReport\""));

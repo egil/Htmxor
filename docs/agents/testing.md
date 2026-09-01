@@ -59,7 +59,11 @@ The initial CA1502 measurements come from the unchanged prerequisite commit `457
 | `production` | `Htmxor.Quality` and every newly added production/tooling project path | 10 | New code must meet the limit | 0 allowed above 10 |
 | `tests` | `Htmxor.Quality.Tests` and every newly added focused-test project path | 5 | New tests must meet the limit | 0 allowed above 5 |
 
-The nine production methods above the long-term ceiling of 10 are `HtmxRouteAttribute.Equals` at 16, `HtmxTriggerSpecification.ToString` at 15, `EndpointMetadata.IsValidFor` at 14, `HtmxorComponentEndpointInvoker.RenderComponentCore` at 18, `HtmxorComponentEndpointInvoker.ValidateRequestAsync` at 15, `HtmxorComponentRequestHost.GetRouteParameters` at 16, `HtmxorRenderer.RenderCore` at 11, `HtmxorRenderer.RenderElement` at 12, and `HtmxorRenderer.RenderAttributes` at 22. The existing test method `AlbaScenarioExtensions.WithHxHeaders` is 10, above the focused-test direction of 5. This is recorded legacy debt, not work assigned to the quality-foundation change.
+The nine production methods above the long-term ceiling of 10 at adoption were `HtmxRouteAttribute.Equals` at 16, `HtmxTriggerSpecification.ToString` at 15, `EndpointMetadata.IsValidFor` at 14, `HtmxorComponentEndpointInvoker.RenderComponentCore` at 18, `HtmxorComponentEndpointInvoker.ValidateRequestAsync` at 15, `HtmxorComponentRequestHost.GetRouteParameters` at 16, `HtmxorRenderer.RenderCore` at 11, `HtmxorRenderer.RenderElement` at 12, and `HtmxorRenderer.RenderAttributes` at 22. The existing test method `AlbaScenarioExtensions.WithHxHeaders` is 10, above the focused-test direction of 5. This is recorded legacy debt, not work assigned to the quality-foundation change.
+
+The second bounded #151 slice removes `HtmxTriggerSpecification.ToString`.
+The list above remains the historical adoption measurement; current source has
+eight of those production methods, and the fixed project ceiling is unchanged.
 
 All six legacy projects pass CA1505 with method and type minimums of 20. A deliberately malformed probe produced CA1509, which confirms invalid profile entries fail instead of disappearing silently.
 

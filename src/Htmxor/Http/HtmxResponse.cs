@@ -171,9 +171,9 @@ public sealed class HtmxResponse(HttpContext context)
 	}
 
 	/// <summary>
-	/// Allows you to specify how the response will be swapped.
+	/// Allows you to specify the complete hx-swap value for the response.
 	/// </summary>
-	/// <param name="modifier">The hx-swap attributes supports modifiers for changing the behavior of the swap.</param>
+	/// <param name="modifier">The swap style and any modifiers, including extension-defined values.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Reswap(string modifier)
 	{
@@ -204,21 +204,6 @@ public sealed class HtmxResponse(HttpContext context)
 			: style;
 
 		headers[HtmxResponseHeaderNames.Reswap] = value;
-
-		return this;
-	}
-
-	/// <summary>
-	/// Allows you to specify how the response will be swapped.
-	/// </summary>
-	/// <param></param>
-	/// <param name="swapStyle"></param>
-	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
-	public HtmxResponse Reswap(SwapStyleBuilder swapStyle)
-	{
-		ArgumentNullException.ThrowIfNull(swapStyle);
-
-		headers[HtmxResponseHeaderNames.Reswap] = swapStyle.Build();
 
 		return this;
 	}

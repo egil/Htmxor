@@ -57,4 +57,3 @@ public enum SwapStyle
 	/// </summary>
 	none,
 }
-

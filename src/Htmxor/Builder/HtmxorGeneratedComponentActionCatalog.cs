@@ -115,7 +115,7 @@ internal static class HtmxorGeneratedComponentActionCatalog
 			HttpMethods.IsPut(method) ||
 			HttpMethods.IsPatch(method) ||
 			HttpMethods.IsDelete(method) ||
-			Constants.HttpMethods.IsQuery(method);
+			string.Equals(method, "QUERY", StringComparison.OrdinalIgnoreCase);
 
 	public static IReadOnlyList<HtmxorComponentActionDescriptor> Bind(
 		Type componentType,

@@ -80,7 +80,7 @@ public class HtmxFragment : ConditionalComponentBase
 		{
 			builder.AddMultipleAttributes(2, AdditionalAttributes);
 		}
-		builder.AddAttribute(3, Constants.Attributes.Id, Id);
+		builder.AddAttribute(3, HtmxorAttributeNames.Id, Id);
 		builder.AddContent(4, ChildContent);
 		builder.CloseElement();
 	}

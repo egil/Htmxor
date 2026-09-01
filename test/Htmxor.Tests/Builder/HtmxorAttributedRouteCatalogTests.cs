@@ -235,7 +235,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
 		var generatedAction = new HtmxorGeneratedComponentAction(
 			fixture.Types[0],
-			Constants.HttpMethods.Query,
+			HttpMethods.Query,
 			"PackageConsumer.ReportComponent.QueryReport",
 			usesStockRoute: false);
 
@@ -247,10 +247,10 @@ public sealed class HtmxorAttributedRouteCatalogTests
 
 		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
 		Assert.Equal(
-			[HttpMethods.Get, Constants.HttpMethods.Query],
+			[HttpMethods.Get, HttpMethods.Query],
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
 		var action = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
-		Assert.Equal(Constants.HttpMethods.Query, action.HttpMethod);
+		Assert.Equal(HttpMethods.Query, action.HttpMethod);
 		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
 	}
 
@@ -293,11 +293,11 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				"PackageConsumer.ReportComponent",
 				"/reports/{ReportId:int}",
 				"report.policy",
-				Methods: [HttpMethods.Get, Constants.HttpMethods.Query]));
+				Methods: [HttpMethods.Get, HttpMethods.Query]));
 		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
 		var generatedAction = new HtmxorGeneratedComponentAction(
 			fixture.Types[0],
-			Constants.HttpMethods.Query,
+			HttpMethods.Query,
 			"PackageConsumer.ReportComponent.QueryReport",
 			usesStockRoute: false);
 
@@ -309,7 +309,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 
 		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
 		Assert.Equal(
-			[HttpMethods.Get, Constants.HttpMethods.Query],
+			[HttpMethods.Get, HttpMethods.Query],
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
 		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
 	}

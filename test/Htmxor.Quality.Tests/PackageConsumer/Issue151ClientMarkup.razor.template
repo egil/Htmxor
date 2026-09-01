@@ -1,0 +1,63 @@
+@namespace Htmxor.PackageConsumer
+
+@* This is the complete 49-attribute htmx.org 4.0.0 web-types inventory.
+   The wildcard metadata entries use representative colon names, and the final
+   attributes exercise values that a future or application extension owns. *@
+<div hx-get="/get"
+     hx-post="/post"
+     hx-put="/put"
+     hx-patch="/patch"
+     hx-delete="/delete"
+     hx-query="/query"
+     hx-trigger="intersect rootMargin:100px passive prevent"
+     hx-swap="outerMorph target:#result strip:true swapEmpty:true"
+     hx-target="#result"
+     hx-select="#selected"
+     hx-on="click -> console.log('clicked')"
+     hx-vals="{ value: 'metadata' }"
+     hx-include="#included"
+     hx-swap-oob="outerSync"
+     hx-select-oob="#additional"
+     hx-push-url="true"
+     hx-replace-url="false"
+     hx-headers="{ X-Metadata: 'value' }"
+     hx-encoding="multipart/form-data"
+     hx-indicator="#indicator"
+     hx-boost="true"
+     hx-sync="this:queue all"
+     hx-confirm="Continue?"
+     hx-validate="true"
+     hx-disable="this"
+     hx-ignore
+     hx-preserve
+     hx-morph-skip
+     hx-morph-skip-children
+     hx-preload="mouseover"
+     hx-pending="#pending"
+     hx-status:422="swap:none"
+     hx-action="/action"
+     hx-method="QUERY"
+     hx-config="{ timeout: 1000 }"
+     hx-history-elt
+     hx-sse:connect="/events"
+     hx-sse:close="done"
+     hx-ws:connect="/socket"
+     hx-ws:send
+     hx-head="merge"
+     hx-browser-indicator="favicon"
+     hx-targets="find .target"
+     hx-ptag="metadata"
+     hx-history="false"
+     hx-nonce="application-owned"
+     hx-live="state"
+     hx-live:text="state.message"
+     hx-prompt="Question?"
+     hx-future="application-extension">
+    <span id="included">Metadata inventory</span>
+    <span id="indicator"></span>
+    <template id="pending"></template>
+</div>
+
+<hx-partial hx-target="#result" hx-swap="acmeMorph">
+    <p id="selected">Unknown extension swap values pass through.</p>
+</hx-partial>
