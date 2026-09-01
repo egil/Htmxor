@@ -143,7 +143,7 @@ Last updated: 2026-08-31
 - Issue #151 verified post-Copilot test-scope correction: `7f76732cf828c46fe68627477163cb9b56022f85`.
 - Issue #154 baseline and freshly fetched `origin/main`: `c6eac31919a96ac58e2f5fd28c1ea8e466a51a5e`.
 - Issue #154 preserved meaningful packed-consumer red: `8ad87a972520d5d407b9fccd372532cb0412ec41`.
-- Issue #154 verified executable marker-classification proof: `350624e9da3992fed94b8b69b1e34ce414c4b03e`.
+- Issue #154 verified executable marker-classification proof: `350a4bd321294a76697aa65f33092caaa4637e22`.
 - Framework boundary under test: .NET SDK 10.0.400, ASP.NET Core 10.0.11, and Blazor static SSR. The package, repository tooling, tests, test application, and maintained samples now target `net10.0`; the generator remains a `netstandard2.0` compiler component packaged under `analyzers/dotnet/cs`. Current package-only TestServer and Kestrel/Chromium consumers restore a locally packed `net10.0` Htmxor package. Earlier `net8.0` package references below record historical exact-head evidence and are not current compatibility claims.
 - Product target correction authorized on 2026-08-28: v1 documentation,
   examples, browser conformance, and release evidence target an
@@ -1940,7 +1940,7 @@ completion.
 The first bounded slice of issue #154 protects this behavior:
 
 > When a .NET 10 request supplies `HX-Request` and `HX-Request-Type`, Htmxor
-> selects direct representation and permits core htmx response operations only
+> selects direct representation and permits core htmx response-header operations only
 > for exactly one normalized `HX-Request: true`; missing, blank, `false`,
 > malformed, comma-joined, or repeated markers retain stock or not-found
 > behavior and cannot mutate core response headers or body state.
@@ -1955,13 +1955,16 @@ exposed the missing raw `Reswap(string)` guard. These were behavioral failures
 after successful restore, Release compilation, discovery, and execution.
 
 At exact clean executable commit
-`350624e9da3992fed94b8b69b1e34ce414c4b03e`, one internal classifier accepts
+`350a4bd321294a76697aa65f33092caaa4637e22`, one internal classifier accepts
 exactly one lowercase `true` after trimming only HTTP optional whitespace
 (space or tab). `HtmxRequest` and `HtmxResponse` both use it. Invalid markers
 leave `RoutingMode.Standard`, suppress dependent `HX-*` context, and cause the
 covered response operations, including raw `Reswap(string)`, to reject before
 mutating headers, status, or body-control state. Exactly one normalized `true`
 retains the existing full and partial behavior.
+
+This later progress-only head changes documentation only; executable claims
+remain tied to `350a4bd321294a76697aa65f33092caaa4637e22`.
 
 The recorded exact-head evidence is:
 
