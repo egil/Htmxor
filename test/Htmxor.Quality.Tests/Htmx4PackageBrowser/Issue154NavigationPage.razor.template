@@ -43,8 +43,7 @@ else
 		<button id="issue-154-empty"
 				type="button"
 				hx-get="/issue-154/navigation?operation=content-length-empty"
-				hx-target="#issue-154-target"
-				hx-swap="innerHTML">Explicit empty</button>
+				hx-target="#issue-154-target">Explicit empty</button>
 		<button id="issue-154-push"
 				type="button"
 				hx-get="/issue-154/navigation?operation=push"
