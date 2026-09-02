@@ -86,8 +86,8 @@ TYPE Htmxor.HtmxLayoutAttribute
   Property Int32 Priority
 TYPE Htmxor.HtmxRouteAttribute
   Constructor Void .ctor(System.String)
-  Method Boolean Equals(System.Object)
   Method Boolean Equals(Htmxor.HtmxRouteAttribute)
+  Method Boolean Equals(System.Object)
   Method Int32 GetHashCode()
   Method System.String get_CurrentUrl()
   Method System.String[] get_DefaultHttpMethods()

@@ -590,7 +590,8 @@ internal static class PackagePublicSurface
 			foreach (var member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
 				.Where(member => member.MemberType is MemberTypes.Constructor or MemberTypes.Event or MemberTypes.Field or MemberTypes.Method or MemberTypes.NestedType or MemberTypes.Property)
 				.OrderBy(member => member.MemberType)
-				.ThenBy(member => member.Name, StringComparer.Ordinal))
+				.ThenBy(member => member.Name, StringComparer.Ordinal)
+				.ThenBy(member => member.ToString(), StringComparer.Ordinal))
 			{
 				output.AppendLine($"  {member.MemberType} {member}");
 			}
