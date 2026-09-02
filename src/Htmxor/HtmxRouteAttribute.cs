@@ -31,10 +31,14 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 	public string[] Methods { get; init; } = [ImplicitHttpMethod];
 
 	/// <summary>
-	/// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.CurrentURL"/> header matches the specified value. 
-	/// If null or whitespace, this route is not limited to a specific URL.
+	/// Specify to only use this route if the <see cref="HtmxRequestHeaderNames.CurrentUrl"/> header matches the specified value.
+	/// A relative declaration is resolved against the parsed request URL. Absolute declarations
+	/// must be HTTP(S); scheme, host, and effective port use URI comparison rules, while path and
+	/// query comparison is ordinal and case-sensitive. Fragments are not part of the comparison.
+	/// If null or whitespace, this route is not limited to a specific URL. This is a representation
+	/// hint only and never an authorization boundary.
 	/// </summary>
-	public string? CurrentURL { get; init; }
+	public string? CurrentUrl { get; init; }
 
 	/// <summary>
 	/// Specify to only use this representation if the complete <see cref="HtmxRequestHeaderNames.Target"/>
@@ -69,7 +73,7 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 		return other is not null
 			&& Template.Equals(other.Template, StringComparison.OrdinalIgnoreCase)
 			&& Methods.SequenceEqual(other.Methods, StringComparer.OrdinalIgnoreCase)
-			&& string.Equals(CurrentURL, other.CurrentURL, StringComparison.OrdinalIgnoreCase)
+			&& string.Equals(CurrentUrl, other.CurrentUrl, StringComparison.Ordinal)
 			&& HtmxElementIdentity.Equals(Target, other.Target)
 			&& HasSameTargets(Targets, other.Targets);
 	}
@@ -83,7 +87,7 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 			hash.Add(Methods[i], StringComparer.OrdinalIgnoreCase);
 		}
 
-		hash.Add(CurrentURL, StringComparer.OrdinalIgnoreCase);
+		hash.Add(CurrentUrl, StringComparer.Ordinal);
 		hash.Add(HtmxElementIdentity.GetHashCode(Target));
 
 		for (int i = 0; i < Targets.Length; i++)

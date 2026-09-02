@@ -448,7 +448,7 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
-	public async Task Application_owned_htmx4_selects_partial_and_full_representations_with_complete_identities()
+	public async Task Application_owned_htmx4_selects_partial_full_boosted_and_history_representations_with_complete_identities()
 	{
 		await using var app = CreateApplication(new Issue56RequestProbe());
 		await app.StartAsync();
@@ -464,14 +464,19 @@ public sealed class Issue56BrowserTests
 		Assert.Contains("data-stock-shell", await navigation.TextAsync(), StringComparison.Ordinal);
 		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
 
+		var partialCurrentUrl = page.Url;
 		var partialResponseTask = page.WaitForResponseAsync(response =>
-			new Uri(response.Url).AbsolutePath == Issue118Path);
+			new Uri(response.Url).AbsolutePath == Issue118Path &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
 		await page.Locator("#issue-118-partial").ClickAsync();
 		var partialResponse = await partialResponseTask;
 		var partialHeaders = await partialResponse.Request.AllHeadersAsync();
-		Assert.Equal("partial", partialHeaders["hx-request-type"]);
-		Assert.Equal("button#issue-118-partial", partialHeaders["hx-source"]);
-		Assert.Equal("div#issue-118-partial-target", partialHeaders["hx-target"]);
+		AssertCoreRequestHeaders(
+			partialHeaders,
+			partialCurrentUrl,
+			"partial",
+			"button#issue-118-partial",
+			"div#issue-118-partial-target");
 		Assert.DoesNotContain("data-stock-shell", await partialResponse.TextAsync(), StringComparison.Ordinal);
 		var partialContext = page.Locator("#issue-118-partial-target [data-issue-118-context]");
 		await partialContext.WaitForAsync();
@@ -482,14 +487,19 @@ public sealed class Issue56BrowserTests
 			"div#issue-118-partial-target");
 
 		await page.ReloadAsync();
+		var fullCurrentUrl = page.Url;
 		var fullResponseTask = page.WaitForResponseAsync(response =>
-			new Uri(response.Url).AbsolutePath == Issue118Path);
+			new Uri(response.Url).AbsolutePath == Issue118Path &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
 		await page.Locator("#issue-118-full").ClickAsync();
 		var fullResponse = await fullResponseTask;
 		var fullHeaders = await fullResponse.Request.AllHeadersAsync();
-		Assert.Equal("full", fullHeaders["hx-request-type"]);
-		Assert.Equal("button#issue-118-full", fullHeaders["hx-source"]);
-		Assert.Equal("div#issue-118-full-target", fullHeaders["hx-target"]);
+		AssertCoreRequestHeaders(
+			fullHeaders,
+			fullCurrentUrl,
+			"full",
+			"button#issue-118-full",
+			"div#issue-118-full-target");
 		Assert.Contains("data-stock-shell", await fullResponse.TextAsync(), StringComparison.Ordinal);
 		var fullContext = page.Locator("#issue-118-full-target [data-issue-118-context]");
 		await fullContext.WaitForAsync();
@@ -498,6 +508,39 @@ public sealed class Issue56BrowserTests
 			"full",
 			"button#issue-118-full",
 			"div#issue-118-full-target");
+
+		var boostedCurrentUrl = page.Url;
+		var boostedUrl = new Uri(new Uri(boostedCurrentUrl), "/issue-118/request-context?branch=boosted").AbsoluteUri;
+		var boostedResponseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).PathAndQuery == "/issue-118/request-context?branch=boosted" &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+		var boostedUrlTask = page.WaitForURLAsync(boostedUrl);
+		await page.Locator("#issue-118-boosted").ClickAsync();
+		var boostedResponse = await boostedResponseTask;
+		await boostedUrlTask;
+		var boostedHeaders = await boostedResponse.Request.AllHeadersAsync();
+		AssertCoreRequestHeaders(
+			boostedHeaders,
+			boostedCurrentUrl,
+			"full",
+			"a#issue-118-boosted",
+			"body",
+			boosted: true);
+		Assert.Contains("data-stock-shell", await boostedResponse.TextAsync(), StringComparison.Ordinal);
+		await page.Locator("#issue-118-boosted").WaitForAsync();
+
+		var historyRestoreCurrentUrl = new Uri(baseAddress, Issue118Path).AbsoluteUri;
+		var historyResponseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).PathAndQuery == Issue118Path &&
+			string.Equals(response.Request.Method, "GET", StringComparison.Ordinal));
+		var historyUrlTask = page.WaitForURLAsync(historyRestoreCurrentUrl);
+		await page.EvaluateAsync("() => history.back()");
+		var historyResponse = await historyResponseTask;
+		await historyUrlTask;
+		var historyHeaders = await historyResponse.Request.AllHeadersAsync();
+		AssertHistoryRestoreRequestHeaders(historyHeaders);
+		Assert.Contains("data-stock-shell", await historyResponse.TextAsync(), StringComparison.Ordinal);
+		await page.Locator("#issue-118-boosted").WaitForAsync();
 	}
 
 	[Fact]
@@ -2106,6 +2149,69 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(requestType, await locator.GetAttributeAsync("data-request-type"));
 		Assert.Equal(source, await locator.GetAttributeAsync("data-source"));
 		Assert.Equal(target, await locator.GetAttributeAsync("data-target"));
+	}
+
+	private static void AssertCoreRequestHeaders(
+		IReadOnlyDictionary<string, string> headers,
+		string currentUrl,
+		string requestType,
+		string source,
+		string target,
+		bool boosted = false,
+		bool historyRestore = false)
+	{
+		Assert.Equal("true", GetRequestHeader(headers, "HX-Request"));
+		Assert.Equal(requestType, GetRequestHeader(headers, "HX-Request-Type"));
+		Assert.Equal(currentUrl, GetRequestHeader(headers, "HX-Current-URL"));
+		Assert.Equal(source, GetRequestHeader(headers, "HX-Source"));
+		Assert.Equal(target, GetRequestHeader(headers, "HX-Target"));
+		AssertHeaderValue(headers, "HX-Boosted", boosted);
+		AssertHeaderValue(headers, "HX-History-Restore-Request", historyRestore);
+	}
+
+	private static void AssertHistoryRestoreRequestHeaders(
+		IReadOnlyDictionary<string, string> headers)
+	{
+		Assert.Equal("true", GetRequestHeader(headers, "HX-History-Restore-Request"));
+		Assert.Equal("full", GetRequestHeader(headers, "HX-Request-Type"));
+		foreach (var name in new[]
+		{
+			"HX-Request",
+			"HX-Boosted",
+			"HX-Current-URL",
+			"HX-Source",
+			"HX-Target",
+		})
+		{
+			Assert.DoesNotContain(
+				headers.Keys,
+				key => string.Equals(key, name, StringComparison.OrdinalIgnoreCase));
+		}
+	}
+
+	private static string GetRequestHeader(
+		IReadOnlyDictionary<string, string> headers,
+		string name)
+		=> Assert.Single(
+			headers,
+			header => string.Equals(header.Key, name, StringComparison.OrdinalIgnoreCase)).Value;
+
+	private static void AssertHeaderValue(
+		IReadOnlyDictionary<string, string> headers,
+		string name,
+		bool expected)
+	{
+		var matches = headers
+			.Where(header => string.Equals(header.Key, name, StringComparison.OrdinalIgnoreCase))
+			.ToArray();
+		if (expected)
+		{
+			Assert.Equal("true", Assert.Single(matches).Value);
+		}
+		else
+		{
+			Assert.Empty(matches);
+		}
 	}
 
 	private static void AssertEnvelope(

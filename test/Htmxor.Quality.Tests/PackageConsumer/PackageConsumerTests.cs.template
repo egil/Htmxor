@@ -675,6 +675,189 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			context.Response.Headers[HtmxResponseHeaderNames.Trigger].ToString());
 	}
 
+	[Fact]
+	public void Package_exposes_current_url_naming_and_conservative_core_request_matrix()
+	{
+		var requestPropertyNames = typeof(HtmxRequest)
+			.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+			.Select(static property => property.Name)
+			.ToArray();
+		Assert.Contains(nameof(HtmxRequest.CurrentUrl), requestPropertyNames);
+		Assert.DoesNotContain("CurrentURL", requestPropertyNames);
+
+		var headerFieldNames = typeof(HtmxRequestHeaderNames)
+			.GetFields(BindingFlags.Public | BindingFlags.Static)
+			.Where(static field => field.IsLiteral)
+			.Select(static field => field.Name)
+			.ToArray();
+		Assert.Contains(nameof(HtmxRequestHeaderNames.CurrentUrl), headerFieldNames);
+		Assert.DoesNotContain("CurrentURL", headerFieldNames);
+		Assert.Equal(
+			new[]
+			{
+				nameof(HtmxRequestHeaderNames.Boosted),
+				nameof(HtmxRequestHeaderNames.CurrentUrl),
+				nameof(HtmxRequestHeaderNames.HistoryRestoreRequest),
+				nameof(HtmxRequestHeaderNames.HtmxRequest),
+				nameof(HtmxRequestHeaderNames.RequestType),
+				nameof(HtmxRequestHeaderNames.Source),
+				nameof(HtmxRequestHeaderNames.Target),
+			}.OrderBy(static name => name, StringComparer.Ordinal),
+			headerFieldNames.OrderBy(static name => name, StringComparer.Ordinal));
+
+		var routePropertyNames = typeof(HtmxRouteAttribute)
+			.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+			.Select(static property => property.Name)
+			.ToArray();
+		Assert.Contains(nameof(HtmxRouteAttribute.CurrentUrl), routePropertyNames);
+		Assert.DoesNotContain("CurrentURL", routePropertyNames);
+
+		var valid = ParseWireRequest(
+			marker: ["true"],
+			requestType: ["partial"],
+			boosted: ["true"],
+			historyRestore: ["true"],
+			currentUrl: [" https://EXAMPLE.test/orders?Filter=Open\t"],
+			source: [" button#submit\t"],
+			target: ["section#result"]);
+		Assert.True(valid.IsHtmxRequest);
+		Assert.Equal(HtmxRequestType.Partial, valid.RequestType);
+		Assert.Equal(RoutingMode.Direct, valid.RoutingMode);
+		Assert.True(valid.IsBoosted);
+		Assert.True(valid.IsHistoryRestoreRequest);
+		Assert.Equal(
+			"https://EXAMPLE.test/orders?Filter=Open",
+			valid.CurrentUrl?.OriginalString);
+		Assert.Equal("button#submit", valid.Source);
+		Assert.Equal("section#result", valid.Target);
+
+		foreach (var marker in new string[]?[]
+		{
+			null,
+			[""],
+			[" "],
+			["false"],
+			["TRUE"],
+			["true,false"],
+			["true\n"],
+			["true", "true"],
+			["true", "false"],
+			[new string('\uD800', 1)],
+		})
+		{
+			var request = ParseWireRequest(
+				marker,
+				requestType: ["partial"],
+				boosted: ["true"],
+				historyRestore: ["true"],
+				currentUrl: ["https://example.test/orders"],
+				source: ["button#submit"],
+				target: ["section#result"]);
+
+			Assert.False(request.IsHtmxRequest);
+			Assert.Equal(RoutingMode.Standard, request.RoutingMode);
+			Assert.Null(request.RequestType);
+			Assert.False(request.IsBoosted);
+			Assert.False(request.IsHistoryRestoreRequest);
+			Assert.Null(request.CurrentUrl);
+			Assert.Null(request.Source);
+			Assert.Null(request.Target);
+		}
+
+		var normalizedMarker = ParseWireRequest(marker: ["\ttrue\t"], requestType: ["partial"]);
+		Assert.True(normalizedMarker.IsHtmxRequest);
+		Assert.Equal(HtmxRequestType.Partial, normalizedMarker.RequestType);
+
+		foreach (var requestType in new string[]?[]
+		{
+			null,
+			[""],
+			["unknown"],
+			["partial,full"],
+			["partial\n"],
+			["partial", "full"],
+			[new string('\uD800', 1)],
+		})
+		{
+			var request = ParseWireRequest(marker: ["true"], requestType: requestType);
+
+			Assert.True(request.IsHtmxRequest);
+			Assert.Null(request.RequestType);
+			Assert.Equal(RoutingMode.Standard, request.RoutingMode);
+		}
+
+		var normalizedPartial = ParseWireRequest(marker: ["true"], requestType: ["\tpartial\t"]);
+		Assert.Equal(HtmxRequestType.Partial, normalizedPartial.RequestType);
+		Assert.Equal(RoutingMode.Direct, normalizedPartial.RoutingMode);
+
+		foreach (var booleanValue in new string[]?[]
+		{
+			null,
+			[""],
+			["false"],
+			["TRUE"],
+			["true,false"],
+			["true\n"],
+			["true", "true"],
+			["true", "false"],
+			[new string('\uD800', 1)],
+		})
+		{
+			var request = ParseWireRequest(
+				marker: ["true"],
+				requestType: ["full"],
+				boosted: booleanValue,
+				historyRestore: booleanValue);
+
+			Assert.False(request.IsBoosted);
+			Assert.False(request.IsHistoryRestoreRequest);
+		}
+
+		foreach (var currentUrl in new string[]?[]
+		{
+			null,
+			[""],
+			[" /orders"],
+			["ftp://example.test/orders"],
+			["https://example.test/orders\n"],
+			["https://example.test/orders", "https://example.test/orders"],
+			[new string('\uD800', 1)],
+		})
+		{
+			var request = ParseWireRequest(marker: ["true"], requestType: ["full"], currentUrl: currentUrl);
+
+			Assert.Null(request.CurrentUrl);
+		}
+
+		var commaJoinedOpenValues = ParseWireRequest(
+			marker: ["true"],
+			requestType: ["partial"],
+			source: ["button#source,button#other"],
+			target: ["section#target,div#other"]);
+		Assert.Equal("button#source,button#other", commaJoinedOpenValues.Source);
+		Assert.Equal("section#target,div#other", commaJoinedOpenValues.Target);
+
+		foreach (var openValue in new string[]?[]
+		{
+			null,
+			[""],
+			[" "],
+			["button\n#submit"],
+			["button#submit", "button#submit"],
+			[new string('\uD800', 1)],
+		})
+		{
+			var request = ParseWireRequest(
+				marker: ["true"],
+				requestType: ["partial"],
+				source: openValue,
+				target: openValue);
+
+			Assert.Null(request.Source);
+			Assert.Null(request.Target);
+		}
+	}
+
 	[Theory]
 	[MemberData(nameof(InvalidHtmxRequestMarkers))]
 	public async Task Invalid_marker_cannot_reach_an_htmx_only_route(
@@ -1259,6 +1442,34 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		}
 
 		return request;
+	}
+
+	private static HtmxRequest ParseWireRequest(
+		string[]? marker = null,
+		string[]? requestType = null,
+		string[]? boosted = null,
+		string[]? historyRestore = null,
+		string[]? currentUrl = null,
+		string[]? source = null,
+		string[]? target = null)
+	{
+		var context = new DefaultHttpContext();
+		SetHeader(context, HtmxRequestHeaderNames.HtmxRequest, marker);
+		SetHeader(context, HtmxRequestHeaderNames.RequestType, requestType);
+		SetHeader(context, HtmxRequestHeaderNames.Boosted, boosted);
+		SetHeader(context, HtmxRequestHeaderNames.HistoryRestoreRequest, historyRestore);
+		SetHeader(context, HtmxRequestHeaderNames.CurrentUrl, currentUrl);
+		SetHeader(context, HtmxRequestHeaderNames.Source, source);
+		SetHeader(context, HtmxRequestHeaderNames.Target, target);
+		return new HtmxRequest(context);
+	}
+
+	private static void SetHeader(DefaultHttpContext context, string name, string[]? values)
+	{
+		if (values is not null)
+		{
+			context.Request.Headers[name] = new Microsoft.Extensions.Primitives.StringValues(values);
+		}
 	}
 
 	private static readonly string[] NavigationHeaderNames =

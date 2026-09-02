@@ -32,32 +32,47 @@ public sealed class HtmxRequest
 
 	/// <summary>
 	/// Gets whether htmx requested a full-page or partial representation.
-	/// Invalid, missing, or contradictory values are exposed as <see langword="null"/>.
+	/// Exactly one lowercase <c>full</c> or <c>partial</c> value is recognized after
+	/// trimming HTTP optional whitespace; missing, blank, malformed, comma-joined, repeated,
+	/// and contradictory values are exposed as <see langword="null"/>.
 	/// </summary>
 	public HtmxRequestType? RequestType { get; }
 
 	/// <summary>
-	/// Gets whether or not the current request is an request initiated via an element using hx-boost.
+	/// Gets whether the current request was initiated via an element using <c>hx-boost</c>.
+	/// When the request marker is valid, only one lowercase <c>true</c> value after HTTP optional
+	/// whitespace is recognized; otherwise dependent htmx context is suppressed.
 	/// </summary>
 	public bool IsBoosted { get; }
 
 	/// <summary>
-	/// Gets whether or not the current request is an Htmx history restore request.
+	/// Gets whether the current request is an htmx history restore request.
+	/// When the request marker is valid, only one lowercase <c>true</c> value after HTTP optional
+	/// whitespace is recognized; otherwise dependent htmx context is suppressed.
 	/// </summary>
 	public bool IsHistoryRestoreRequest { get; }
 
 	/// <summary>
-	/// Gets the current URL of the browser.
+	/// Gets the browser's current absolute HTTP(S) URL from <c>HX-Current-URL</c>, preserving
+	/// its normalized field text through <see cref="Uri.OriginalString"/>.
+	/// Missing, repeated, malformed, non-HTTP(S), control-containing, and ill-formed values
+	/// are exposed as <see langword="null"/>.
 	/// </summary>
-	public Uri? CurrentURL { get; }
+	public Uri? CurrentUrl { get; }
 
 	/// <summary>
-	/// Gets the target element identity in `tag#id` or `tag` form, if present.
+	/// Gets the exact untrusted target element hint. Htmx normally supplies <c>tag#id</c> or
+	/// tag-only text; Htmxor retains one nonblank open value after trimming only HTTP optional
+	/// whitespace. Repeated, control-containing, and ill-formed values are exposed as
+	/// <see langword="null"/>.
 	/// </summary>
 	public string? Target { get; }
 
 	/// <summary>
-	/// Gets the source element identity in `tag#id` or `tag` form, if present.
+	/// Gets the exact untrusted source element hint. Htmx normally supplies <c>tag#id</c> or
+	/// tag-only text; Htmxor retains one nonblank open value after trimming only HTTP optional
+	/// whitespace. Repeated, control-containing, and ill-formed values are exposed as
+	/// <see langword="null"/>.
 	/// </summary>
 	public string? Source { get; }
 
@@ -74,7 +89,8 @@ public sealed class HtmxRequest
 		ArgumentNullException.ThrowIfNull(context);
 		Method = context.Request.Method;
 		Path = context.Request.Path;
-		var isHtmx = IsHtmxRequest = HtmxRequestMarkerClassifier.IsHtmxRequest(context.Request.Headers);
+		var parsed = HtmxRequestHeaderParser.Parse(context.Request.Headers);
+		var isHtmx = IsHtmxRequest = parsed.IsHtmxRequest;
 
 		if (!isHtmx)
 		{
@@ -82,37 +98,16 @@ public sealed class HtmxRequest
 			return;
 		}
 
-		IsBoosted = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.Boosted);
-		IsHistoryRestoreRequest = context.Request.Headers.ContainsKey(HtmxRequestHeaderNames.HistoryRestoreRequest);
-		CurrentURL = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.CurrentURL, static value => Uri.TryCreate(value, UriKind.RelativeOrAbsolute, out var uri) ? uri : null);
-		RequestType = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.RequestType, ParseRequestType);
-		Target = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Target);
-		Source = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.Source);
-		EventHandlerId = GetHxValueOrDefault(context.Request.Headers, HtmxRequestHeaderNames.EventHandlerId);
+		IsBoosted = parsed.IsBoosted;
+		IsHistoryRestoreRequest = parsed.IsHistoryRestoreRequest;
+		CurrentUrl = parsed.CurrentUrl;
+		RequestType = parsed.RequestType;
+		Target = parsed.Target;
+		Source = parsed.Source;
+		EventHandlerId = parsed.EventHandlerId;
 
 		RoutingMode = RequestType is HtmxRequestType.Partial
 			? RoutingMode.Direct
 			: RoutingMode.Standard;
 	}
-
-	private static HtmxRequestType? ParseRequestType(string value)
-		=> value switch
-		{
-			"full" => HtmxRequestType.Full,
-			"partial" => HtmxRequestType.Partial,
-			_ => null,
-		};
-
-	private static string? GetHxValueOrDefault(IHeaderDictionary headers, string key)
-		=> headers.TryGetValue(key, out var values)
-		&& values.Count == 1
-		&& values[0] is var value
-		&& !string.IsNullOrWhiteSpace(value)
-		? value.Trim()
-		: null;
-
-	private static T? GetHxValueOrDefault<T>(IHeaderDictionary headers, string key, Func<string, T?> factory)
-		=> GetHxValueOrDefault(headers, key) is string value
-		? factory.Invoke(value)
-		: default(T);
 }

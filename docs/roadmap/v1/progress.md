@@ -2771,3 +2771,119 @@ Chromium through the generated package-consumer/browser boundary. They did not
 exercise fresh browser provisioning, other browsers or operating systems,
 external services, or full-scope mutation. Issue #154 remains open; no issue
 closure, package publication, release, or merge is part of this repair.
+
+### Current working slice: seven-header request contract and representation matching
+
+This sixth bounded [#154](https://github.com/egil/Htmxor/issues/154) slice
+protects the following behavior:
+
+> When an application receives an htmx request, Htmxor parses each of htmx 4's seven core request headers once through a conservative, field-specific policy; missing, repeated, malformed, or contradictory values cannot select direct routing or become authorization evidence, and route representation filters consume the same parsed values exposed to component code.
+
+The required base was verified as `origin/main` at
+`30ff3c9bec2907abbe4bd67e1159fd56799480b5`; the detached worktree `HEAD` and
+`origin/main` are both that commit. The worktree is intentionally dirty while
+the slice is handed off. A commit could not be created because the linked
+worktree's shared Git index at
+`/home/egil/src/Htmxor/.git/worktrees/Htmxor4/index.lock` is on a read-only
+filesystem; no shared metadata or Git configuration was changed.
+
+The request implementation now:
+
+- exports `CurrentUrl` consistently from `HtmxRequest`,
+  `HtmxRequestHeaderNames`, and `HtmxRouteAttribute`, with no `CurrentURL`
+  compatibility aliases;
+- parses the seven public htmx 4 headers once, after one exact normalized
+  lowercase `HX-Request: true` marker: `full`/`partial` request type, exact
+  lowercase boolean flags, one absolute HTTP(S) current URL, and exact
+  nonblank open source/target strings after HTTP optional-whitespace trimming;
+- rejects missing, blank, malformed, comma-joined, repeated, contradictory,
+  control-containing, and ill-formed values according to each field's policy;
+- keeps source and target as open untrusted strings with htmx `tag#id` or
+  tag-only identity matching; and
+- resolves relative current-URL declarations against the parsed URL, applies
+  URI rules to scheme/host/effective port, and compares path/query text
+  ordinally and case-sensitively. These hints remain representation filters,
+  never route-method, action, authorization, or antiforgery authority. The
+  generated action identity header remains internal and outside the public
+  seven-header contract.
+
+The pre-implementation focused Release test was meaningful red at the exact
+base plus the new tests. It discovered and executed 53 tests: 41 passed and
+12 failed on the old presence-based parsing, permissive current-URL handling,
+open-value controls, repeated values, and case-insensitive path matching. The
+retained TRX is
+`artifacts/results/issue-154-request-red/issue-154-request-red.trx`. A
+separately packed consumer built the exact-base `Htmxor.0.0.0-issue154-red`
+package and executed 4 external tests: 0 passed and 4 failed on the old public
+spelling, presence-based booleans, relative current URL, and control-bearing
+open values. Its retained TRX is
+`artifacts/results/issue-154-request-packed-red/issue-154-request-packed-red.trx`.
+The setup-only restore, temporary analyzer naming correction, and sandbox
+socket failures were not treated as behavioral red evidence. The packed red
+test command ran from an isolated clone at the exact base and referenced only
+the locally packed base package:
+
+```text
+dotnet test consumer/Htmxor.PackageRed.csproj --configuration Release --no-restore --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-request-packed-red.trx" --results-directory /home/egil/.codex/worktrees/9b6a/Htmxor/artifacts/results/issue-154-request-packed-red --verbosity minimal -m:1
+```
+
+The focused Release matrix then passed 59 of 59 core request, route, and
+attribute tests. The exact focused command was:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxRequestTests|FullyQualifiedName~HtmxorComponentEndpointMatcherPolicyTest|FullyQualifiedName~HtmxRouteAttributeTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-request-matrix-focused-iteration-3.trx" --results-directory artifacts/results/issue-154-request-matrix-focused-iteration-3 --verbosity minimal -m:1
+```
+
+The packed external consumer matrix passed its outer test and 64 of 64
+package-only inner tests, including public-name reflection and wire-shaped
+header cases. The actionless antiforgery variant passed its outer test and 67
+of 67 inner tests. The application-owned .NET 10 Production Kestrel/Chromium
+boundary passed its outer test and 35 of 35 inner browser tests using the
+exact htmx 4.0.0 asset. It exercised full, partial, boosted, and history
+restore branches and captured the exact request headers. The htmx 4 history
+restore request in this application contains only
+`HX-History-Restore-Request: true` and `HX-Request-Type: full` from the seven
+core fields; therefore it remains standard-routed because the strict marker is
+absent. The browser proof used the application-owned asset with SHA-256
+`E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
+
+The repository-owned profiles passed at the same dirty executable tree and
+base `HEAD`. The progress-only appendix was added after those runs and does
+not alter executable inputs:
+
+```text
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
+```
+
+Fast passed 117 quality, 45 ASP.NET Core 10, and 336 core tests: 498 of 498
+total. Full passed 118 quality, 45 ASP.NET Core 10, and 338 core/browser tests:
+501 of 501 total. Both profiles passed analyzer and style error gates, Release
+build compilation, test execution, and the repository policy checks with zero
+errors or timeouts. Restore reported four `NU1900` warnings because the
+NuGet vulnerability service index was unavailable; these were restore-audit
+warnings, not compiler or analyzer warnings. Full coverage retained two fresh
+byte-identical nonempty Cobertura copies with SHA-256
+`5589ed468b6c6763c2896bb5a6d2576f741cccdb2b8c090fba9ed27372ece2f9` at:
+
+```text
+artifacts/results/full/htmxor/dc26d014-7cfa-40aa-81d3-ca3577dcbafc/coverage.cobertura.xml
+artifacts/results/full/htmxor/_eagle1_2026-09-01_20_41_06/In/eagle1/coverage.cobertura.xml
+```
+
+The separate final Standards review checked repository policy, authority
+boundaries, parsing design, complexity, documentation, and retained evidence
+and found zero actionable findings. The separate final Spec/DX review checked
+the live #154 clarification, the v1 goal, public names, field matrices,
+representation semantics, browser branches, and scope and found zero
+actionable findings. Neither review ran tests or altered the worktree.
+
+This evidence does not exercise fresh browser/SDK/NuGet-audit provisioning,
+TLS, Windows, macOS, Firefox, WebKit, a signed or published package,
+self-contained or trimmed deployment, .NET 11, another framework or htmx
+version, proxies, containers, external services, concurrent clients, or
+full-scope mutation. It does not establish general status-286 semantics or
+polling behavior outside the exact application-owned htmx 4.0.0 interaction.
+Issue #154 remains open; extension-header access, the remaining request/API
+contract work, the final protocol matrix, merge, package publication, and
+release remain outside this slice.

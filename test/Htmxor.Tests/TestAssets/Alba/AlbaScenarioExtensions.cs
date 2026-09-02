@@ -13,7 +13,7 @@ internal static class AlbaScenarioExtensions
 		HtmxRequestType? requestType = HtmxRequestType.Partial,
 		bool? isBoosted = null,
 		bool? isHistoryRestoreRequest = null,
-		string? currentURL = null,
+		string? currentUrl = null,
 		string? target = null,
 		string? source = null,
 		string? eventHandlerId = null)
@@ -38,9 +38,9 @@ internal static class AlbaScenarioExtensions
 			scenario.WithRequestHeader(HtmxRequestHeaderNames.HistoryRestoreRequest, "true");
 		}
 
-		if (currentURL is not null)
+		if (currentUrl is not null)
 		{
-			scenario.WithRequestHeader(HtmxRequestHeaderNames.CurrentURL, currentURL);
+			scenario.WithRequestHeader(HtmxRequestHeaderNames.CurrentUrl, currentUrl);
 		}
 
 		if (target is not null)
