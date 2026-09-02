@@ -1,3 +1,4 @@
+using Htmxor.Builder;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Http;
 
@@ -73,7 +74,7 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 		return other is not null
 			&& Template.Equals(other.Template, StringComparison.OrdinalIgnoreCase)
 			&& Methods.SequenceEqual(other.Methods, StringComparer.OrdinalIgnoreCase)
-			&& string.Equals(CurrentUrl, other.CurrentUrl, StringComparison.Ordinal)
+			&& HtmxCurrentUrlMatcher.AreEquivalentDeclarations(CurrentUrl, other.CurrentUrl)
 			&& HtmxElementIdentity.Equals(Target, other.Target)
 			&& HasSameTargets(Targets, other.Targets);
 	}
@@ -87,7 +88,7 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 			hash.Add(Methods[i], StringComparer.OrdinalIgnoreCase);
 		}
 
-		hash.Add(CurrentUrl, StringComparer.Ordinal);
+		hash.Add(HtmxCurrentUrlMatcher.GetDeclarationHashCode(CurrentUrl));
 		hash.Add(HtmxElementIdentity.GetHashCode(Target));
 
 		for (int i = 0; i < Targets.Length; i++)

@@ -38,6 +38,23 @@ public sealed class HtmxRouteAttributeTests
 	}
 
 	[Fact]
+	public void Equality_and_hash_set_use_runtime_current_url_equivalence_for_absolute_urls()
+	{
+		var defaultPort = new HtmxRouteAttribute("/items")
+		{
+			CurrentUrl = "HTTPS://LOCALHOST/foo#first",
+		};
+		var explicitPort = new HtmxRouteAttribute("/items")
+		{
+			CurrentUrl = "https://localhost:443/foo#second",
+		};
+
+		Assert.Equal(defaultPort, explicitPort);
+		Assert.Equal(defaultPort.GetHashCode(), explicitPort.GetHashCode());
+		Assert.Single(new HashSet<HtmxRouteAttribute> { defaultPort, explicitPort });
+	}
+
+	[Fact]
 	public void Equality_and_hash_set_keep_case_distinct_element_ids_separate()
 	{
 		var lower = new HtmxRouteAttribute("/items") { Target = "div#result" };

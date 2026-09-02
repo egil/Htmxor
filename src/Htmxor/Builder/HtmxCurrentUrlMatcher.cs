@@ -1,9 +1,53 @@
+using System.Diagnostics.CodeAnalysis;
 using Htmxor.Http;
 
 namespace Htmxor.Builder;
 
 internal static class HtmxCurrentUrlMatcher
 {
+	public static bool AreEquivalentDeclarations(string? left, string? right)
+	{
+		if (ReferenceEquals(left, right))
+		{
+			return true;
+		}
+
+		if (left is null || right is null)
+		{
+			return false;
+		}
+
+		if (TryCreateAbsoluteHttpUrl(left, out var leftUrl) &&
+			TryCreateAbsoluteHttpUrl(right, out var rightUrl))
+		{
+			return AreEquivalent(leftUrl, rightUrl);
+		}
+
+		return string.Equals(left, right, StringComparison.Ordinal);
+	}
+
+	public static int GetDeclarationHashCode(string? declaration)
+	{
+		if (declaration is null)
+		{
+			return 0;
+		}
+
+		if (!TryCreateAbsoluteHttpUrl(declaration, out var url))
+		{
+			return StringComparer.Ordinal.GetHashCode(declaration);
+		}
+
+		var hash = new HashCode();
+		hash.Add(url.Scheme, StringComparer.OrdinalIgnoreCase);
+		hash.Add(url.IdnHost, StringComparer.OrdinalIgnoreCase);
+		hash.Add(url.Port);
+		hash.Add(url.UserInfo, StringComparer.Ordinal);
+		hash.Add(url.AbsolutePath, StringComparer.Ordinal);
+		hash.Add(url.Query, StringComparer.Ordinal);
+		return hash.ToHashCode();
+	}
+
 	public static bool Matches(string declaration, Uri? currentUrl)
 	{
 		if (currentUrl is null ||
@@ -28,6 +72,23 @@ internal static class HtmxCurrentUrlMatcher
 		{
 			return false;
 		}
+	}
+
+	private static bool TryCreateAbsoluteHttpUrl(string value, [NotNullWhen(true)] out Uri? url)
+	{
+		url = null;
+
+		if (!HtmxRequestHeaderParser.IsWellFormedUtf16(value) ||
+			!Uri.TryCreate(value, UriKind.Absolute, out var parsedUrl) ||
+			parsedUrl is null ||
+			!parsedUrl.IsWellFormedOriginalString() ||
+			!IsHttpUrl(parsedUrl))
+		{
+			return false;
+		}
+
+		url = parsedUrl;
+		return true;
 	}
 
 	private static bool AreEquivalent(Uri expected, Uri actual)
