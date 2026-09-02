@@ -7,6 +7,7 @@
 	<h1>htmx 4 request context</h1>
 	<button id="issue-118-partial" hx-get="/issue-118/request-context" hx-target="#issue-118-partial-target">Load partial</button>
 	<button id="issue-118-full" hx-get="/issue-118/request-context" hx-target="#issue-118-full-target" hx-select="#issue-118-selection">Load full</button>
+	<a id="issue-118-boosted" hx-boost="true" href="/issue-118/request-context?branch=boosted">Load boosted</a>
 	<div id="issue-118-partial-target"></div>
 	<div id="issue-118-full-target"></div>
 	<section id="issue-118-selection"

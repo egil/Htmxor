@@ -212,6 +212,21 @@ from a header is untrusted.
 redirect, refresh, history updates, swap overrides, target overrides, response
 selection, and client events. It also controls status and an empty body.
 
+The sixth bounded [#154](https://github.com/egil/Htmxor/issues/154) slice makes
+the request side current. `HtmxContext.Request` parses the seven core htmx 4
+headers once. A single normalized lowercase `HX-Request: true` is required
+before dependent context is exposed; request type recognizes only `full` and
+`partial`, only `partial` selects direct routing, boolean boost/history fields
+recognize only one lowercase `true`, `CurrentUrl` is one untrusted absolute
+HTTP(S) `Uri`, and `Source`/`Target` retain one exact nonblank open string after
+HTTP optional-whitespace trimming. Repeated, malformed, contradictory,
+control-containing, and ill-formed values fail closed by field. Current-URL
+route filters resolve relative declarations against the parsed URL, compare
+scheme/host/port using URI rules, and keep path/query comparison ordinal and
+case-sensitive. These headers remain representation hints, never route-method,
+action, authorization, or antiforgery authority; the generated action identity
+header remains internal and outside the seven-header surface.
+
 The second bounded
 [#154](https://github.com/egil/Htmxor/issues/154) slice makes the navigation
 choices current:

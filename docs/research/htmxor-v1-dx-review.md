@@ -19,6 +19,11 @@
   `Reswap(string)`, `Retarget(string)`, and `Reselect(string)` as exact open
   values, removes the incomplete closed swap model, and leaves the broader
   request/response issue open
+- Request-context update: the sixth bounded slice of #154 exposes the
+  `CurrentUrl` names, parses the seven core htmx 4 request headers once with
+  field-specific fail-closed policies, and feeds the same values to component
+  code and representation matching; the generated action identity remains
+  internal
 
 ## Verdict
 
@@ -103,8 +108,8 @@ behavior.
 | One fragment | `HtmxFragment` is clear, but `Id` has two jobs | Give server selection its own stable name | Redesign |
 | Several fragments | Lambdas and render flags hide the result | Select an ordered set of names once per response | Missing |
 | OOB and partial delivery | Native htmx markup already expresses it | Do not add another Htmxor component hierarchy | Keep |
-| Request data | Strict `HX-Request` marker handling is current | Finish parsing and naming for the remaining request data | Finish |
-| Response operations | The strict marker guard, navigation family, open swap/selection family, trigger serialization, and native polling boundary are current | Finish remaining request values/naming and the extension contract | First five #154 slices current; broader issue open |
+| Request data | The seven-header htmx 4 request contract is current | Finish bounded extension access and the final protocol matrix | Sixth #154 slice current; broader issue open |
+| Response operations | The strict marker guard, navigation family, open swap/selection family, trigger serialization, and native polling boundary are current | Finish the bounded extension contract and final protocol matrix | Six #154 slices current; broader issue open |
 | Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
 | Trigger and swap helpers | Native markup and open strings avoid a closed Htmxor profile | Remove the incomplete helpers from core v1 | Removed in the second #151 slice |
 | Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
@@ -140,22 +145,24 @@ nested groups, multiple Razor component applications, group endpoint filters or
 rate limits, interactive render modes, or the grouped path on Kestrel or in a
 browser.
 
-### 2. `HtmxRoute` offers members the generator refuses
+### 2. `HtmxRoute` exposes representation filters without making them authority
 
-`HtmxRouteAttribute` exports `CurrentURL`, `Target`, and `Targets`. The v1
-generator rejects those named arguments with the generic `HTMXOR001` diagnostic.
-IntelliSense therefore recommends declarations that cannot build.
+`HtmxRouteAttribute` exports `CurrentUrl`, `Target`, and `Targets` through the
+implemented request and endpoint path. The sixth bounded #154 slice parses the
+seven core htmx 4 request headers once and feeds the same values to component
+code and representation matching. `CurrentUrl` is an untrusted absolute
+HTTP(S) URI; relative route declarations resolve against it, URI
+scheme/host/effective port use URI rules, and path/query comparison remains
+ordinal and case-sensitive. `Source` and `Target` remain exact open strings
+with htmx's `tag#id` or tag-only identity semantics rather than becoming a
+closed wrapper type.
 
-Those members also point developers toward the wrong authority rule.
-`HX-Current-URL`, `HX-Source`, and `HX-Target` can help choose a representation,
-but they come from the client. A URL and HTTP method must identify the server
-capability. Htmx selectors such as `closest`, `next`, and `find` do not even
-require a target ID.
-
-V1 should implement a member through the full request path or remove it. It
-should not publish members that always fail at build time. Representation
-choices can happen in component code or through explicit fragment selection
-after routing and authorization.
+These members do not change the authority rule. `HX-Current-URL`, `HX-Source`,
+and `HX-Target` come from the client and can refine a server-owned
+representation only after route, method, authorization, antiforgery, and
+action checks. Htmx selectors such as `closest`, `next`, and `find` do not even
+require a target ID. The generated action identity header remains internal and
+outside the seven-header public contract.
 
 ### 3. Build failures need specific diagnostics
 
@@ -330,10 +337,9 @@ exercise both sides of this boundary.
 
 The remaining pass must:
 
-- use .NET acronym casing such as `CurrentUrl` for the remaining request API;
-- finish the value policy for the other boolean and structured request headers;
-- keep every header-derived value documented as untrusted;
 - provide validated APIs for extension request and response headers;
+- keep every header-derived value documented as untrusted as the extension
+  surface grows; and
 - remove or prove other protocol behavior carried forward from older htmx
   versions.
 
@@ -369,8 +375,9 @@ Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
 ideas that still need API decisions. Registration and QUERY now have bounded
 proof through #145 and #111, while the first two #151 slices make the consistent
 registration names and native-markup client-helper decision current. The first
-four #154 slices make strict request classification, navigation responses, open
-swap/selection response values, and trigger serialization current. Navigation
+six #154 slices make strict request classification, the seven-header request
+contract, navigation responses, open swap/selection response values, trigger
+serialization, and native polling replacement current. Navigation
 examples must show separate choices or branches, while the three independent
 swap and selection headers may be chained. Multi-fragment selection and
 optional extension use still need explicit status labels.
@@ -401,7 +408,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 | [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Retain the selected registration names and the decision to remove client helpers; still approve the complete public allow-list, review exported members, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
-| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, navigation responses, open swap/selection responses, trigger serialization, and native polling are current; remaining names and request values plus extension headers stay open |
+| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, the seven-header request contract, navigation responses, open swap/selection responses, trigger serialization, and native polling are current; bounded extension headers and the final contract matrix remain open |
 
 Existing issues keep their current scope:
 

@@ -339,23 +339,34 @@ injected or cascaded where the final v1 API permits.
 
 | Htmxor value | htmx input | Intended use |
 | --- | --- | --- |
-| `IsHtmxRequest` | Exactly one lowercase `HX-Request: true` after trimming HTTP spaces or tabs | Choose an HTML representation, never authorization |
-| `RequestType` | `HX-Request-Type: full\|partial` | Decide stock page versus direct representation |
-| `IsBoosted` | `HX-Boosted` | Preserve boosted navigation semantics |
-| `IsHistoryRestoreRequest` | `HX-History-Restore-Request` | Return the representation history restoration expects |
-| `CurrentUrl` | `HX-Current-URL` | Optional browser-location hint |
-| `Source` | `HX-Source` | Optional `tag#id` source hint |
-| `Target` | `HX-Target` | Optional `tag#id` target hint |
+| `IsHtmxRequest` | Exactly one lowercase `HX-Request: true` after trimming only HTTP optional whitespace (space or tab) | Choose an HTML representation, never authorization |
+| `RequestType` | Exactly one normalized `HX-Request-Type: full\|partial` | Decide stock page versus direct representation; only `partial` is direct |
+| `IsBoosted` | Exactly one normalized lowercase `HX-Boosted: true` | Preserve boosted navigation semantics |
+| `IsHistoryRestoreRequest` | Exactly one normalized lowercase `HX-History-Restore-Request: true` | Identify a history restoration request |
+| `CurrentUrl` | One normalized absolute HTTP(S) `HX-Current-URL` value | Optional browser-location hint, exposed as an untrusted `Uri` |
+| `Source` | One normalized nonblank `HX-Source` open value | Optional exact source hint, normally `tag#id` or tag-only |
+| `Target` | One normalized nonblank `HX-Target` open value | Optional exact target hint, normally `tag#id` or tag-only |
 | `Method`, `Path` | HTTP request line | Bind the action to the normalized route and method |
 
-Every header-derived value is untrusted. Htmxor recognizes a request only when
-`HX-Request` contains exactly one value whose surrounding HTTP spaces or tabs
-trim to lowercase `true`. Missing, blank, `false`, malformed, comma-joined, and
-repeated markers make
+Every header-derived value is untrusted. Htmxor parses this request context once
+per request. `HX-Request` is the prerequisite: missing, blank, `false`,
+case-variant, malformed, comma-joined, or repeated markers make
 `IsHtmxRequest` false, retain standard routing, and suppress all dependent
-`HX-*` context. The current beta member is `CurrentURL`; later issue #154 slices
-own its planned `CurrentUrl` rename and a clear API for additional protocol
-headers.
+`HX-*` context. Boolean fields are false unless their single value is lowercase
+`true`; request type is null unless its single value is `full` or `partial`;
+repeated or contradictory values fail closed. `CurrentUrl` accepts only one
+well-formed absolute HTTP(S) URI and preserves the normalized field text through
+`Uri.OriginalString`. `Source` and `Target` remain exact open strings rather
+than closed wrapper types: only surrounding HTTP optional whitespace is removed,
+and repeated, blank, control-containing, or ill-formed UTF-16 values become
+null. Their `tag#id` or tag-only interpretation is a representation hint, not
+route, method, action, authorization, or antiforgery authority.
+
+For a `CurrentUrl` route filter, a relative declaration is resolved against the
+parsed request URL. Absolute declarations must be HTTP(S); scheme, host, and
+effective port use URI comparison rules, while path and query use ordinal,
+case-sensitive comparison. Fragments are ignored because they are not part of
+the HTTP request URL. A missing or invalid client URL cannot satisfy a filter.
 
 ### Response operations
 
@@ -638,7 +649,13 @@ Htmx 4 fetches full-page content for history navigation when it needs the
 server. Htmxor must interpret `HX-History-Restore-Request` and
 `HX-Request-Type` together and avoid returning an isolated fragment where a full
 document is required. Browser history storage and ASP.NET Core output caching
-are separate systems.
+are separate systems. With the exact application-owned htmx 4.0.0 asset used by
+the browser proof, a cache-miss restore request sends
+`HX-History-Restore-Request: true` and `HX-Request-Type: full` but omits
+`HX-Request`, `HX-Boosted`, `HX-Current-URL`, `HX-Source`, and `HX-Target`.
+Because the request marker is the prerequisite for dependent context, Htmxor
+keeps that observed request on standard routing; clients that send the complete
+header set receive the parsed dependent values.
 
 ### Extension-specific attributes
 
@@ -878,12 +895,12 @@ decision does not claim `ReplaceHistoryEntry` parity in browser history.
 | Header | Htmxor handling |
 | --- | --- |
 | `HX-Request` | Recognize exactly one value that equals lowercase `true` after trimming surrounding HTTP spaces or tabs; otherwise ignore dependent htmx context. |
-| `HX-Request-Type` | Distinguish `full` and `partial` representations. |
-| `HX-Boosted` | Preserve boosted navigation semantics. |
-| `HX-Current-URL` | Expose as an optional, untrusted URI. |
-| `HX-Source` | Expose the optional `tag#id` source hint. |
-| `HX-Target` | Expose the optional `tag#id` target hint. |
-| `HX-History-Restore-Request` | Return the correct restoration representation. |
+| `HX-Request-Type` | Recognize one normalized lowercase `full` or `partial`; only `partial` selects direct routing. |
+| `HX-Boosted` | Recognize one normalized lowercase `true`; all other shapes are false. |
+| `HX-Current-URL` | Expose one well-formed absolute HTTP(S) value as an untrusted `Uri`, preserving `OriginalString`; other shapes are null. |
+| `HX-Source` | Expose one exact nonblank open value after trimming only HTTP optional whitespace; repeated, control-containing, or ill-formed values are null. |
+| `HX-Target` | Expose one exact nonblank open value after trimming only HTTP optional whitespace; repeated, control-containing, or ill-formed values are null. |
+| `HX-History-Restore-Request` | Recognize one normalized lowercase `true`; the valid marker remains the prerequisite for exposing it. |
 
 Extensions can add headers such as `HX-Prompt` or `HX-PTag`; application headers
 can be added with `hx-headers`. Htmxor needs a bounded extension mechanism but
@@ -1143,15 +1160,13 @@ through.
 The current repository contains useful prototypes and evidence. The first two
 bounded #151 slices make the registration names current and remove the
 incomplete client trigger, swap, and constants helpers from the stable core. The
-first five bounded #154 slices add the strict request classifier, the
-navigation-response contract, the open swap/selection response contract, the
-trigger-response contract, and the native htmx 4 polling replacement proof
-above, including removal of the inaccurate structured location prototype and
-incomplete closed swap model. Other parts of
+first six bounded #154 slices add the strict request classifier and seven-header
+request contract, the navigation-response contract, the open swap/selection
+response contract, the trigger-response contract, and the native htmx 4 polling
+replacement proof above, including removal of the inaccurate structured
+location prototype and incomplete closed swap model. Other parts of
 the public API do not yet match this guide:
 
-- `HtmxRoute` exposes target/current-URL properties that the current source
-  generator rejects on the v1 path;
 - direct method inference and diagnostics cover only a limited set of Razor
   syntax;
 - fragment selection currently couples `Id`, request-target matching, `Match`,

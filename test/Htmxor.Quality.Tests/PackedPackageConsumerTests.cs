@@ -31,7 +31,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(63, 63, 63, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(64, 64, 64, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -49,7 +49,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(66, 66, 66, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(67, 67, 67, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 

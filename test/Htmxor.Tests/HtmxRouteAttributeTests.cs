@@ -5,19 +5,19 @@ namespace Htmxor;
 public sealed class HtmxRouteAttributeTests
 {
 	[Fact]
-	public void Equality_and_hash_set_treat_route_fields_and_element_tags_case_insensitively()
+	public void Equality_and_hash_set_treat_route_fields_and_element_tags_with_their_declared_case_rules()
 	{
 		var first = new HtmxRouteAttribute("/Items")
 		{
 			Methods = [HttpMethods.Get],
-			CurrentURL = "/Source",
+			CurrentUrl = "/source",
 			Target = "div#result",
 			Targets = ["section", "span#secondary"],
 		};
 		var second = new HtmxRouteAttribute("/items")
 		{
 			Methods = ["get"],
-			CurrentURL = "/source",
+			CurrentUrl = "/source",
 			Target = "DIV#result",
 			Targets = ["SECTION", "SPAN#secondary"],
 		};
@@ -25,6 +25,16 @@ public sealed class HtmxRouteAttributeTests
 		Assert.Equal(first, second);
 		Assert.Equal(first.GetHashCode(), second.GetHashCode());
 		Assert.Single(new HashSet<HtmxRouteAttribute> { first, second });
+	}
+
+	[Fact]
+	public void Equality_and_hash_set_keep_case_distinct_current_url_path_and_query_separate()
+	{
+		var lower = new HtmxRouteAttribute("/items") { CurrentUrl = "/source?mode=read" };
+		var upper = new HtmxRouteAttribute("/items") { CurrentUrl = "/Source?mode=READ" };
+
+		Assert.NotEqual(lower, upper);
+		Assert.Equal(2, new HashSet<HtmxRouteAttribute> { lower, upper }.Count);
 	}
 
 	[Fact]
@@ -43,7 +53,7 @@ public sealed class HtmxRouteAttributeTests
 		var absent = new HtmxRouteAttribute("/items");
 		var present = new HtmxRouteAttribute("/items")
 		{
-			CurrentURL = "/source",
+			CurrentUrl = "/source",
 			Target = "div#result",
 		};
 

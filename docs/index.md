@@ -5,9 +5,9 @@
 ## V1 design
 
 The [v1 guide and htmx 4 map](htmxor-v1-feature-guide.md) documents the current
-registration pair, navigation-response contract, `HX-Trigger` serialization
-contract, and native htmx 4 polling replacement pattern, and labels the
-remaining v1 APIs by status. The
+registration pair, seven-header request contract, navigation-response contract,
+`HX-Trigger` serialization contract, and native htmx 4 polling replacement
+pattern, and labels the remaining v1 APIs by status. The
 [developer experience review](research/htmxor-v1-dx-review.md) explains the
 remaining API decisions and links the issues that track them.
 
@@ -246,6 +246,25 @@ The earlier `Location(LocationTarget)` overload and its `LocationTarget` and
 `AjaxContext` types have been removed because they did not model htmx 4
 accurately. No replacement structured `HX-Location` model is included in this
 slice.
+
+## Htmx request context
+
+`HtmxContext.Request` exposes the seven core htmx 4 request headers through one
+request-scoped parse. `HX-Request` must be exactly one normalized lowercase
+`true` after trimming only HTTP optional whitespace (space or tab); otherwise
+Htmxor keeps standard routing and suppresses dependent header values. The
+request type recognizes only `full` and `partial`, with only `partial` selecting
+direct routing. Boost and history flags recognize only one lowercase `true`.
+`CurrentUrl` is an untrusted absolute HTTP(S) `Uri`; `Source` and `Target` are
+exact open strings, normally `tag#id` or tag-only values. Missing, repeated,
+malformed, contradictory, control-containing, and ill-formed inputs fail closed
+according to their field policy. None of these client values authorizes a route,
+method, action, authorization decision, or antiforgery bypass.
+
+`CurrentUrl` route filters accept relative declarations resolved against the
+parsed URL and absolute HTTP(S) declarations. Scheme, host, and effective port
+follow URI comparison rules; path and query comparisons remain ordinal and
+case-sensitive. A missing or invalid client URL cannot satisfy a filter.
 
 ## Htmx swap and selection responses
 

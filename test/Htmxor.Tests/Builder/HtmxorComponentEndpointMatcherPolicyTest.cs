@@ -90,9 +90,10 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 	public static TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]> MatchingHxRouteRequests = new TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]>
 	{
 		{ new("/"), [] },
-		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/foo")] },
-		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/FOO")] },
-		{ new("/") { CurrentURL = "/FOO"}, [(HtmxRequestHeaderNames.CurrentURL, "/foo")] },
+		{ new("/") { CurrentUrl = "/foo"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/foo")] },
+		{ new("/") { CurrentUrl = "/foo?Filter=Open"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/foo?Filter=Open")] },
+		{ new("/") { CurrentUrl = "HTTPS://LOCALHOST/foo"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/foo")] },
+		{ new("/") { CurrentUrl = "https://localhost:443/foo"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/foo")] },
 		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
 		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "DIV#foo")] },
 		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
@@ -119,7 +120,9 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 
 	public static TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]> NoneMatchingHxRouteRequests = new TheoryData<HtmxRouteAttribute, (string HeaderName, string? Value)[]>
 	{
-		{ new("/") { CurrentURL = "/foo"}, [(HtmxRequestHeaderNames.CurrentURL, "/bar")] },
+		{ new("/") { CurrentUrl = "/foo"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/bar")] },
+		{ new("/") { CurrentUrl = "https://localhost/foo"}, [(HtmxRequestHeaderNames.CurrentUrl, "http://localhost/foo")] },
+		{ new("/") { CurrentUrl = "ftp://localhost/foo"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/foo")] },
 		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#bar")] },
 		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#FOO")] },
 		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "div#baz")] },
@@ -137,6 +140,26 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 				.. requestHeaders])
 			.Build();
 		var candidates = CreateHxCandidateSet(hxRouteAttribute);
+
+		cut.ApplyAsync(httpContext, candidates);
+
+		candidates.IsValidCandidate(0).Should().BeFalse();
+	}
+
+	[Fact]
+	public void ApplyAsync_current_url_matching_keeps_path_and_query_case_sensitive()
+	{
+		var cut = new ComponentEndpointMatcherPolicy();
+		var httpContext = new HttpContextBuilder()
+			.WithRequestHeader(
+				(HtmxRequestHeaderNames.HtmxRequest, "true"),
+				(HtmxRequestHeaderNames.RequestType, "partial"),
+				(HtmxRequestHeaderNames.CurrentUrl, "https://example.test/Items?Filter=Open"))
+			.Build();
+		var candidates = CreateHxCandidateSet(new HtmxRouteAttribute("/")
+		{
+			CurrentUrl = "https://example.test/items?filter=open",
+		});
 
 		cut.ApplyAsync(httpContext, candidates);
 

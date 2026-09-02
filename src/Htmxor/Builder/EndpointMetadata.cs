@@ -4,9 +4,9 @@ namespace Htmxor.Builder;
 
 internal sealed record class EndpointMetadata(HtmxRouteAttribute HxRoute)
 {
-	private readonly Uri? currentUrl = string.IsNullOrWhiteSpace(HxRoute.CurrentURL)
+	private readonly string? currentUrl = string.IsNullOrWhiteSpace(HxRoute.CurrentUrl)
 		? null
-		: new Uri(HxRoute.CurrentURL, UriKind.RelativeOrAbsolute);
+		: HxRoute.CurrentUrl;
 
 	public bool IsValidFor(HtmxRequest htmxRequest)
 	{
@@ -16,7 +16,7 @@ internal sealed record class EndpointMetadata(HtmxRouteAttribute HxRoute)
 		if (htmxRequest.RoutingMode is not RoutingMode.Direct)
 			return false;
 
-		if (currentUrl is not null && Uri.Compare(currentUrl, htmxRequest.CurrentURL, UriComponents.HttpRequestUrl, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
+		if (currentUrl is not null && !HtmxCurrentUrlMatcher.Matches(currentUrl, htmxRequest.CurrentUrl))
 			return false;
 
 		if (!string.IsNullOrWhiteSpace(HxRoute.Target) && !HtmxElementIdentity.Equals(HxRoute.Target, htmxRequest.Target))

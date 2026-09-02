@@ -24,7 +24,7 @@ public sealed class HtmxRequestTests
 		context.Request.Headers[HtmxRequestHeaderNames.RequestType] = "partial";
 		context.Request.Headers[HtmxRequestHeaderNames.Boosted] = "true";
 		context.Request.Headers[HtmxRequestHeaderNames.HistoryRestoreRequest] = "true";
-		context.Request.Headers[HtmxRequestHeaderNames.CurrentURL] = "/current";
+		context.Request.Headers[HtmxRequestHeaderNames.CurrentUrl] = "/current";
 		context.Request.Headers[HtmxRequestHeaderNames.Target] = "section#target";
 		context.Request.Headers[HtmxRequestHeaderNames.Source] = "button#source";
 
@@ -35,7 +35,7 @@ public sealed class HtmxRequestTests
 		Assert.Null(request.RequestType);
 		Assert.False(request.IsBoosted);
 		Assert.False(request.IsHistoryRestoreRequest);
-		Assert.Null(request.CurrentURL);
+		Assert.Null(request.CurrentUrl);
 		Assert.Null(request.Target);
 		Assert.Null(request.Source);
 	}
@@ -119,5 +119,132 @@ public sealed class HtmxRequestTests
 
 		Assert.Null(request.RequestType);
 		Assert.Equal(RoutingMode.Standard, request.RoutingMode);
+	}
+
+	[Theory]
+	[InlineData("")]
+	[InlineData("false")]
+	[InlineData("TRUE")]
+	[InlineData("true,false")]
+	public void Boolean_request_headers_require_one_lowercase_true_value(string value)
+	{
+		var context = new DefaultHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
+		context.Request.Headers[HtmxRequestHeaderNames.RequestType] = "full";
+		context.Request.Headers[HtmxRequestHeaderNames.Boosted] = value;
+		context.Request.Headers[HtmxRequestHeaderNames.HistoryRestoreRequest] = value;
+
+		var request = new HtmxRequest(context);
+
+		Assert.False(request.IsBoosted);
+		Assert.False(request.IsHistoryRestoreRequest);
+	}
+
+	[Fact]
+	public void Repeated_boolean_request_headers_fail_closed()
+	{
+		var context = new DefaultHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
+		context.Request.Headers[HtmxRequestHeaderNames.RequestType] = "full";
+		context.Request.Headers[HtmxRequestHeaderNames.Boosted] =
+			new Microsoft.Extensions.Primitives.StringValues(["true", "true"]);
+		context.Request.Headers[HtmxRequestHeaderNames.HistoryRestoreRequest] =
+			new Microsoft.Extensions.Primitives.StringValues(["true", "false"]);
+
+		var request = new HtmxRequest(context);
+
+		Assert.False(request.IsBoosted);
+		Assert.False(request.IsHistoryRestoreRequest);
+	}
+
+	[Theory]
+	[InlineData("https://example.test/current", "https://example.test/current")]
+	[InlineData(" /current ", null)]
+	[InlineData("ftp://example.test/current", null)]
+	[InlineData("https://example.test/current\n", null)]
+	public void Current_url_requires_one_absolute_http_uri(
+		string value,
+		string? expectedOriginalString)
+	{
+		var context = new DefaultHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
+		context.Request.Headers[HtmxRequestHeaderNames.RequestType] = "full";
+		context.Request.Headers[HtmxRequestHeaderNames.CurrentUrl] = value;
+
+		var request = new HtmxRequest(context);
+
+		Assert.Equal(expectedOriginalString, request.CurrentUrl?.OriginalString);
+	}
+
+	[Fact]
+	public void Ill_formed_utf16_request_header_values_fail_closed()
+	{
+		var context = new DefaultHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
+		context.Request.Headers[HtmxRequestHeaderNames.RequestType] = "partial";
+		var illFormed = new string('\uD800', 1);
+		context.Request.Headers[HtmxRequestHeaderNames.CurrentUrl] = illFormed;
+		context.Request.Headers[HtmxRequestHeaderNames.Source] = illFormed;
+		context.Request.Headers[HtmxRequestHeaderNames.Target] = illFormed;
+
+		var request = new HtmxRequest(context);
+
+		Assert.Null(request.CurrentUrl);
+		Assert.Null(request.Source);
+		Assert.Null(request.Target);
+	}
+
+	[Fact]
+	public void Repeated_current_url_fails_closed()
+	{
+		var context = new DefaultHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
+		context.Request.Headers[HtmxRequestHeaderNames.RequestType] = "full";
+		context.Request.Headers[HtmxRequestHeaderNames.CurrentUrl] =
+			new Microsoft.Extensions.Primitives.StringValues([
+				"https://example.test/current",
+				"https://example.test/current"]);
+
+		var request = new HtmxRequest(context);
+
+		Assert.Null(request.CurrentUrl);
+	}
+
+	[Theory]
+	[InlineData("button#submit", "button#submit")]
+	[InlineData(" button#submit\t", "button#submit")]
+	[InlineData(" ", null)]
+	[InlineData("button\n#submit", null)]
+	public void Source_and_target_preserve_one_safe_open_value(
+		string value,
+		string? expectedValue)
+	{
+		var context = new DefaultHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
+		context.Request.Headers[HtmxRequestHeaderNames.RequestType] = "partial";
+		context.Request.Headers[HtmxRequestHeaderNames.Source] = value;
+		context.Request.Headers[HtmxRequestHeaderNames.Target] = value;
+
+		var request = new HtmxRequest(context);
+
+		Assert.Equal(expectedValue, request.Source);
+		Assert.Equal(expectedValue, request.Target);
+	}
+
+	[Fact]
+	public void Repeated_source_and_target_fail_closed()
+	{
+		var context = new DefaultHttpContext();
+		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
+		context.Request.Headers[HtmxRequestHeaderNames.RequestType] = "partial";
+		context.Request.Headers[HtmxRequestHeaderNames.Source] =
+			new Microsoft.Extensions.Primitives.StringValues(["button#source", "button#source"]);
+		context.Request.Headers[HtmxRequestHeaderNames.Target] =
+			new Microsoft.Extensions.Primitives.StringValues(["section#target", "section#target"]);
+
+		var request = new HtmxRequest(context);
+
+		Assert.Null(request.Source);
+		Assert.Null(request.Target);
 	}
 }

@@ -31,7 +31,7 @@ public class BulkUpdate1Test : TestAppTestBase
 			s.WithHxHeaders(
 				target: "span#toast",
 				source: "form#checked-contacts",
-				currentURL: $"{Host.Server.BaseAddress}bulk-update-1");
+				currentUrl: $"{Host.Server.BaseAddress}bulk-update-1");
 
 			s.StatusCodeShouldBe(HttpStatusCode.OK);
 			s.ContentShouldBeHtml($"""
