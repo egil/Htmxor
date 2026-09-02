@@ -23,7 +23,7 @@ internal static class HtmxCurrentUrlMatcher
 			return AreEquivalent(leftUrl, rightUrl);
 		}
 
-		return string.Equals(left, right, StringComparison.Ordinal);
+		return string.Equals(RemoveFragment(left), RemoveFragment(right), StringComparison.Ordinal);
 	}
 
 	public static int GetDeclarationHashCode(string? declaration)
@@ -35,7 +35,7 @@ internal static class HtmxCurrentUrlMatcher
 
 		if (!TryCreateAbsoluteHttpUrl(declaration, out var url))
 		{
-			return StringComparer.Ordinal.GetHashCode(declaration);
+			return StringComparer.Ordinal.GetHashCode(RemoveFragment(declaration));
 		}
 
 		var hash = new HashCode();
@@ -51,8 +51,13 @@ internal static class HtmxCurrentUrlMatcher
 	public static bool Matches(string declaration, Uri? currentUrl)
 	{
 		if (currentUrl is null ||
-			!HtmxRequestHeaderParser.IsWellFormedUtf16(declaration) ||
-			!Uri.TryCreate(declaration, UriKind.RelativeOrAbsolute, out var declaredUrl) ||
+			!HtmxRequestHeaderParser.IsWellFormedUtf16(declaration))
+		{
+			return false;
+		}
+
+		var declarationWithoutFragment = RemoveFragment(declaration);
+		if (!Uri.TryCreate(declarationWithoutFragment, UriKind.RelativeOrAbsolute, out var declaredUrl) ||
 			!declaredUrl.IsWellFormedOriginalString())
 		{
 			return false;
@@ -89,6 +94,12 @@ internal static class HtmxCurrentUrlMatcher
 
 		url = parsedUrl;
 		return true;
+	}
+
+	private static string RemoveFragment(string value)
+	{
+		var fragmentStart = value.IndexOf('#', StringComparison.Ordinal);
+		return fragmentStart < 0 ? value : value[..fragmentStart];
 	}
 
 	private static bool AreEquivalent(Uri expected, Uri actual)

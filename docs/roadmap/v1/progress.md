@@ -2905,8 +2905,29 @@ behavioral red evidence.
 
 `HtmxCurrentUrlMatcher` now shares its scheme/host/effective-port,
 user-information, path, and query equivalence plus fragment exclusion with
-`HtmxRouteAttribute` equality and hashing. Relative and invalid declarations
-remain ordinal values because their equivalence depends on the request URL or
-they cannot satisfy runtime matching. The focused request/route matrix then
-passed 26 of 26 tests, including the regression; its retained TRX is
+`HtmxRouteAttribute` equality and hashing. Relative declarations remain
+ordinal after fragment removal because other equivalence depends on the
+request URL; invalid declarations cannot satisfy runtime matching. The
+focused request/route matrix then passed 26 of 26 tests, including the
+regression; its retained TRX is
 `artifacts/results/issue-154-copilot-green/issue-154-copilot-green.trx`.
+
+### PR review remediation: relative current-URL fragments
+
+Copilot's follow-up Standards review identified that the route-equality fix
+still kept relative declarations such as `/source#first` and
+`/source#second` distinct even though the documented current-URL comparison
+excludes fragments. The focused regression was recorded before implementation:
+the equality/hash test failed 1 of 1 with that expected mismatch, and the
+retained TRX is `artifacts/results/issue-154-copilot-p2-red/issue-154-copilot-p2-red.trx`.
+
+The matcher now removes a URI fragment before validating and resolving a
+relative declaration, and the same fragment-free representation feeds route
+attribute equality and hashing. This keeps relative path/query comparison
+ordinal while making fragment exclusion consistent at both runtime and
+`ComponentInfo.HxRoutes` de-duplication. The focused request/route matrix
+passed 28 of 28 tests, including a positive runtime fragment case; its
+retained TRX is `artifacts/results/issue-154-copilot-p2-green/issue-154-copilot-p2-green.trx`.
+The repository full profile passed 504 of 504 tests: 118 quality, 45 ASP.NET
+Core 10, and 341 core tests, with Release/analyzer/style gates passing. The
+same four NU1900 vulnerability-service warnings remained environmental.
