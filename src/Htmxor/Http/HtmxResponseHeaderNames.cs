@@ -2,7 +2,7 @@
 
 /// <summary>
 /// The HTMX response header names.
-/// Based on this version: <seealso href="https://github.com/bigskysoftware/htmx/blob/5aa0ec7e27c0dc282dd728886a77c0e321d3ca67/www/content/reference.md#response-headers-reference-response_headers"/>
+/// Based on the htmx 4.0.0 source: <seealso href="https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js"/>
 /// </summary>
 public static class HtmxResponseHeaderNames
 {
