@@ -2981,9 +2981,11 @@ Audit result:
   validated as ASCII HTTP-header-safe URI text before the marker guard and
   response mutation. Swap/selection headers validate their complete values with
   the same ASCII HTTP-header-safe boundary before the marker guard and overwrite
-  only themselves; trigger calls own one merged compact JSON object; every
-  guarded response operation leaves status unchanged, and body effects remain
-  the documented render-local navigation or explicit `EmptyBody` choices.
+  only themselves; trigger calls own one merged compact JSON object; guarded
+  header and body-control operations leave status unchanged, while the
+  separately documented guarded `StatusCode` operation intentionally sets it;
+  body effects remain the documented render-local navigation or explicit
+  `EmptyBody` choices.
 - The packed package consumer sends the seven core fields over `HttpClient` to
   TestServer: missing, false, malformed, repeated, and contradictory values are
   observed at the HTTP boundary and asserted against both component-visible

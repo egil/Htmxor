@@ -1841,7 +1841,7 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
-	public async Task Application_owned_htmx4_applies_location_redirect_and_refresh_navigation()
+	public async Task Application_owned_htmx4_applies_navigation_and_explicit_empty_response()
 	{
 		await using var app = CreateApplication(new Issue56RequestProbe());
 		await app.StartAsync();
