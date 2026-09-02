@@ -9,9 +9,30 @@
     marker classification
 </section>
 
+@if (WireProbe)
+{
+    <output data-issue-154-wire-probe
+            data-is-htmx-request="@wireIsHtmxRequest"
+            data-request-type="@wireRequestType"
+            data-routing-mode="@wireRoutingMode"
+            data-is-boosted="@wireIsBoosted"
+            data-is-history-restore="@wireIsHistoryRestore"
+            data-current-url="@wireCurrentUrl"
+            data-source="@wireSource"
+            data-target="@wireTarget"></output>
+}
+
 @code {
     private int rejectedOperationCount;
     private int operationCount;
+    private string wireIsHtmxRequest = "null";
+    private string wireRequestType = "null";
+    private string wireRoutingMode = "null";
+    private string wireIsBoosted = "null";
+    private string wireIsHistoryRestore = "null";
+    private string wireCurrentUrl = "null";
+    private string wireSource = "null";
+    private string wireTarget = "null";
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -20,8 +41,25 @@
     [SupplyParameterFromQuery(Name = "guard-response")]
     public bool GuardResponse { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "wire-probe")]
+    public bool WireProbe { get; set; }
+
     protected override void OnParametersSet()
     {
+        if (WireProbe)
+        {
+            var request = HttpContext.GetHtmxContext().Request;
+            wireIsHtmxRequest = request.IsHtmxRequest.ToString().ToLowerInvariant();
+            wireRequestType = request.RequestType?.ToString().ToLowerInvariant() ?? "null";
+            wireRoutingMode = request.RoutingMode.ToString();
+            wireIsBoosted = request.IsBoosted.ToString().ToLowerInvariant();
+            wireIsHistoryRestore = request.IsHistoryRestoreRequest.ToString().ToLowerInvariant();
+            wireCurrentUrl = request.CurrentUrl?.OriginalString ?? "null";
+            wireSource = request.Source ?? "null";
+            wireTarget = request.Target ?? "null";
+        }
+
         if (!GuardResponse)
         {
             return;

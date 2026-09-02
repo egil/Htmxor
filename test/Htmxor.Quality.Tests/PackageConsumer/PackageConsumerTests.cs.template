@@ -68,7 +68,33 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		{ "malformed", ["TRUE"] },
 		{ "comma-joined", ["true,false"] },
 		{ "repeated", ["true", "true"] },
+		{ "contradictory", ["true", "false"] },
 	};
+
+	public static IEnumerable<object[]> InvalidCoreRequestHeaderWireCases()
+	{
+		yield return new object[] { "request-type-missing", HtmxRequestHeaderNames.RequestType, null!, "null", "Standard", "true", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "request-type-false", HtmxRequestHeaderNames.RequestType, new[] { "false" }, "null", "Standard", "true", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "request-type-malformed", HtmxRequestHeaderNames.RequestType, new[] { "whole" }, "null", "Standard", "true", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "request-type-contradictory", HtmxRequestHeaderNames.RequestType, new[] { "partial", "full" }, "null", "Standard", "true", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "boosted-missing", HtmxRequestHeaderNames.Boosted, null!, "partial", "Direct", "false", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "boosted-false", HtmxRequestHeaderNames.Boosted, new[] { "false" }, "partial", "Direct", "false", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "boosted-malformed", HtmxRequestHeaderNames.Boosted, new[] { "TRUE" }, "partial", "Direct", "false", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "boosted-contradictory", HtmxRequestHeaderNames.Boosted, new[] { "true", "false" }, "partial", "Direct", "false", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "history-missing", HtmxRequestHeaderNames.HistoryRestoreRequest, null!, "partial", "Direct", "true", "false", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "history-false", HtmxRequestHeaderNames.HistoryRestoreRequest, new[] { "false" }, "partial", "Direct", "true", "false", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "history-malformed", HtmxRequestHeaderNames.HistoryRestoreRequest, new[] { "TRUE" }, "partial", "Direct", "true", "false", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "history-contradictory", HtmxRequestHeaderNames.HistoryRestoreRequest, new[] { "true", "false" }, "partial", "Direct", "true", "false", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "current-url-missing", HtmxRequestHeaderNames.CurrentUrl, null!, "partial", "Direct", "true", "true", "null", "button#submit", "section#result" };
+		yield return new object[] { "current-url-malformed", HtmxRequestHeaderNames.CurrentUrl, new[] { "ftp://example.test/orders" }, "partial", "Direct", "true", "true", "null", "button#submit", "section#result" };
+		yield return new object[] { "current-url-contradictory", HtmxRequestHeaderNames.CurrentUrl, new[] { "https://example.test/orders", "https://example.test/other" }, "partial", "Direct", "true", "true", "null", "button#submit", "section#result" };
+		yield return new object[] { "source-missing", HtmxRequestHeaderNames.Source, null!, "partial", "Direct", "true", "true", "https://example.test/orders", "null", "section#result" };
+		yield return new object[] { "source-malformed", HtmxRequestHeaderNames.Source, new[] { " " }, "partial", "Direct", "true", "true", "https://example.test/orders", "null", "section#result" };
+		yield return new object[] { "source-contradictory", HtmxRequestHeaderNames.Source, new[] { "button#submit", "button#other" }, "partial", "Direct", "true", "true", "https://example.test/orders", "null", "section#result" };
+		yield return new object[] { "target-missing", HtmxRequestHeaderNames.Target, null!, "partial", "Direct", "true", "true", "https://example.test/orders", "button#submit", "null" };
+		yield return new object[] { "target-malformed", HtmxRequestHeaderNames.Target, new[] { " " }, "partial", "Direct", "true", "true", "https://example.test/orders", "button#submit", "null" };
+		yield return new object[] { "target-contradictory", HtmxRequestHeaderNames.Target, new[] { "section#result", "div#other" }, "partial", "Direct", "true", "true", "https://example.test/orders", "button#submit", "null" };
+	}
 
 	public async Task InitializeAsync()
 	{
@@ -909,6 +935,69 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		Assert.DoesNotContain("data-stock-shell", body, StringComparison.Ordinal);
 	}
 
+	[Theory]
+	[MemberData(nameof(InvalidCoreRequestHeaderWireCases))]
+	public async Task Invalid_core_request_headers_fail_closed_through_TestServer(
+		string caseName,
+		string headerName,
+		string[]? values,
+		string expectedRequestType,
+		string expectedRoutingMode,
+		string expectedBoosted,
+		string expectedHistoryRestore,
+		string expectedCurrentUrl,
+		string expectedSource,
+		string expectedTarget)
+	{
+		using var request = CreateWireProbeRequest(headerName, values);
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"{caseName}: expected an OK response, got {response.StatusCode}.\n{body}");
+		Assert.Contains(
+			"data-issue-154-wire-probe",
+			body,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-is-htmx-request=\"true\"",
+			body,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-request-type=\"{expectedRequestType}\"",
+			body,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-routing-mode=\"{expectedRoutingMode}\"",
+			body,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-is-boosted=\"{expectedBoosted}\"",
+			body,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-is-history-restore=\"{expectedHistoryRestore}\"",
+			body,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-current-url=\"{expectedCurrentUrl}\"",
+			body,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-source=\"{expectedSource}\"",
+			body,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-target=\"{expectedTarget}\"",
+			body,
+			StringComparison.Ordinal);
+
+		var direct = string.Equals(expectedRoutingMode, nameof(RoutingMode.Direct), StringComparison.Ordinal);
+		Assert.Equal(direct, body.Contains("data-stock-shell", StringComparison.Ordinal) is false);
+		Assert.Equal(direct, body.Contains("<html", StringComparison.OrdinalIgnoreCase) is false);
+	}
+
 	[Fact]
 	public async Task Report_route_preserves_its_component_policy_and_metadata()
 	{
@@ -1442,6 +1531,41 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		}
 
 		return request;
+	}
+
+	private static HttpRequestMessage CreateWireProbeRequest(string headerName, string[]? values)
+	{
+		var request = new HttpRequestMessage(
+			HttpMethod.Get,
+			MarkerPageRequestPath + "?wire-probe=true");
+		request.Headers.Host = ReportHost;
+		AddHeader(request, HtmxRequestHeaderNames.HtmxRequest, ["true"]);
+		AddHeader(request, HtmxRequestHeaderNames.RequestType, ["partial"]);
+		AddHeader(request, HtmxRequestHeaderNames.Boosted, ["true"]);
+		AddHeader(request, HtmxRequestHeaderNames.HistoryRestoreRequest, ["true"]);
+		AddHeader(request, HtmxRequestHeaderNames.CurrentUrl, ["https://example.test/orders"]);
+		AddHeader(request, HtmxRequestHeaderNames.Source, ["button#submit"]);
+		AddHeader(request, HtmxRequestHeaderNames.Target, ["section#result"]);
+		request.Headers.Add(
+			PackageConsumerAuthenticationHandler.UserHeaderName,
+			PackageConsumerAuthenticationHandler.ReportUserName);
+		request.Headers.Remove(headerName);
+		AddHeader(request, headerName, values);
+
+		return request;
+	}
+
+	private static void AddHeader(HttpRequestMessage request, string name, string[]? values)
+	{
+		if (values is null)
+		{
+			return;
+		}
+
+		foreach (var value in values)
+		{
+			request.Headers.TryAddWithoutValidation(name, value);
+		}
 	}
 
 	private static HtmxRequest ParseWireRequest(

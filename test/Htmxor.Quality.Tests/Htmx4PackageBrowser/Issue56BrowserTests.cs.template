@@ -1853,6 +1853,7 @@ public sealed class Issue56BrowserTests
 		await AssertIssue154LocationAsync(browser, baseAddress);
 		await AssertIssue154RedirectAsync(browser, baseAddress);
 		await AssertIssue154RefreshAsync(browser, baseAddress);
+		await AssertIssue154ExplicitEmptyAsync(browser, baseAddress);
 	}
 
 	[Fact]
@@ -2600,6 +2601,33 @@ public sealed class Issue56BrowserTests
 			"() => typeof window.issue154RefreshSentinel === 'undefined'"));
 		Assert.Equal(1, await page.Locator("body[data-stock-shell]").CountAsync());
 		Assert.Equal(1, await page.Locator("#issue-154-target[data-state='initial']").CountAsync());
+	}
+
+	private static async Task AssertIssue154ExplicitEmptyAsync(IBrowser browser, Uri baseAddress)
+	{
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await OpenIssue154PageAsync(context);
+		var target = page.Locator("#issue-154-target");
+		await page.EvaluateAsync(
+			"""
+			() => {
+				window.issue154EmptySettled = false;
+				document.body.addEventListener('htmx:finally:request', () => {
+					window.issue154EmptySettled = true;
+				}, { once: true });
+			}
+			""");
+		var responseTask = WaitForIssue154ResponseAsync(page, "content-length-empty");
+
+		await page.Locator("#issue-154-empty").ClickAsync();
+		var response = await responseTask;
+
+		Assert.Equal((int)HttpStatusCode.OK, response.Status);
+		Assert.Equal(string.Empty, await response.TextAsync());
+		await page.WaitForFunctionAsync("() => window.issue154EmptySettled === true");
+		Assert.Equal(1, await target.CountAsync());
+		Assert.Equal(string.Empty, await target.InnerTextAsync());
+		Assert.Equal(0, await target.Locator(":scope > *").CountAsync());
 	}
 
 	private static async Task AssertIssue154HistoryUpdateAsync(

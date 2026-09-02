@@ -122,7 +122,8 @@ public sealed class HtmxResponse(HttpContext context)
 	/// </summary>
 	/// <param name="path">
 	/// The destination. It must be a well-formed relative reference or resolve to the active
-	/// request origin over HTTP(S). The value is not trimmed or normalized.
+	/// request origin over HTTP(S), and contain only ASCII HTTP-header-safe characters. The value
+	/// is not trimmed or normalized.
 	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Location(string path)
@@ -138,7 +139,7 @@ public sealed class HtmxResponse(HttpContext context)
 	/// </summary>
 	/// <param name="path">
 	/// The destination. It must be a well-formed relative reference or resolve to the active
-	/// request origin over HTTP(S).
+	/// request origin over HTTP(S), and contain only ASCII HTTP-header-safe characters.
 	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Location(Uri path)
@@ -153,7 +154,7 @@ public sealed class HtmxResponse(HttpContext context)
 	/// </summary>
 	/// <param name="url">
 	/// The destination. It must not be the reserved <c>true</c> or <c>false</c> history
-	/// literal, and it is not trimmed or normalized.
+	/// literal, contain only ASCII HTTP-header-safe characters, and it is not trimmed or normalized.
 	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse PushUrl(string url)
@@ -167,7 +168,8 @@ public sealed class HtmxResponse(HttpContext context)
 	/// Sets <c>HX-Push-Url</c> to <see cref="Uri.OriginalString"/> from the relative or
 	/// same-origin HTTP(S) <paramref name="url"/> and retains component output.
 	/// </summary>
-	/// <param name="url">The destination, which must not represent <c>true</c> or <c>false</c>.</param>
+	/// <param name="url">The destination, which must not represent <c>true</c> or <c>false</c> and must contain
+	/// only ASCII HTTP-header-safe characters.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse PushUrl(Uri url)
 	{
@@ -202,7 +204,8 @@ public sealed class HtmxResponse(HttpContext context)
 	/// <paramref name="url"/> and suppresses component output. Absolute cross-origin
 	/// HTTP(S) destinations are allowed for deliberate full-page navigation.
 	/// </summary>
-	/// <param name="url">The destination. The value is not trimmed or normalized.</param>
+	/// <param name="url">The destination. It must contain only ASCII HTTP-header-safe characters; the value is
+	/// not trimmed or normalized.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Redirect(string url)
 	{
@@ -216,7 +219,7 @@ public sealed class HtmxResponse(HttpContext context)
 	/// HTTP(S) <paramref name="url"/> and suppresses component output. Absolute cross-origin
 	/// HTTP(S) destinations are allowed for deliberate full-page navigation.
 	/// </summary>
-	/// <param name="url">The destination.</param>
+	/// <param name="url">The destination, which must contain only ASCII HTTP-header-safe characters.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse Redirect(Uri url)
 	{
@@ -241,7 +244,7 @@ public sealed class HtmxResponse(HttpContext context)
 	/// </summary>
 	/// <param name="url">
 	/// The destination. It must not be the reserved <c>true</c> or <c>false</c> history
-	/// literal, and it is not trimmed or normalized.
+	/// literal, contain only ASCII HTTP-header-safe characters, and it is not trimmed or normalized.
 	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse ReplaceUrl(string url)
@@ -255,7 +258,8 @@ public sealed class HtmxResponse(HttpContext context)
 	/// Sets <c>HX-Replace-Url</c> to <see cref="Uri.OriginalString"/> from the relative or
 	/// same-origin HTTP(S) <paramref name="url"/> and retains component output.
 	/// </summary>
-	/// <param name="url">The destination, which must not represent <c>true</c> or <c>false</c>.</param>
+	/// <param name="url">The destination, which must not represent <c>true</c> or <c>false</c> and must contain
+	/// only ASCII HTTP-header-safe characters.</param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse ReplaceUrl(Uri url)
 	{

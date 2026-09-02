@@ -2945,11 +2945,10 @@ same four NU1900 vulnerability-service warnings remained environmental.
 
 Protected behavior:
 
-> When published Htmxor v1 HTTP-context contract accounts for all seven core
-> htmx 4 request headers and all nine core response headers, exposes only the
-> intended beta interface, applies one documented trust and mutation policy,
-> and has exact current-head package and browser evidence for every behavior it
-> claims.
+> When a static-SSR component callback inspects an htmx request or shapes its
+> response, Htmxor exposes predictable parsing, naming, validation, and fluent
+> behavior for all seven core request and nine core response headers, while
+> malformed or extension input cannot silently broaden the request.
 
 The final audit starts from the clean `origin/main` executable head
 `f6c71fdfd5f22f17a02c2eb9b8ecf2e323514339` (`fix(test): use htmx 4 extension
@@ -3025,7 +3024,7 @@ Acceptance verdict against the live #154 checklist:
 - [x] `HX-Location`, redirect, refresh, push/replace URL, reswap, retarget, reselect, and trigger serialization have exact header tests. Focused response tests, packed TestServer consumers, and the browser fixture cover the listed operations.
 - [x] Every fluent mutator follows the same HTMX-only guard and argument policy, with body suppression documented and tested. Focused response tests cover validation-before-guard, fluent identity, state atomicity, navigation exclusivity, status, and body effects.
 - [x] Event detail JSON uses the application's configured serializer policy where intended and has deterministic merge/overwrite behavior. Focused trigger tests and the browser event proof cover configured details, compact encoding, merge order, and duplicate replacement.
-- [x] Extension headers can be read/written through a bounded API without a new Htmxor package release and without bypassing security metadata. The extension focused tests and application-owned browser extension round-trip cover the bounded seam; no release or security metadata bypass is introduced.
+- [x] Extension headers can be read/written through a bounded API without a new Htmxor package release and without bypassing security metadata. The extension focused tests and application-owned browser extension round-trip cover the bounded seam; the implementation adds no security-metadata bypass, while this transport evidence is not an adversarial proof of every surrounding security policy.
 - [x] General application headers remain a documented `HttpContext` concern. The guide documents `HttpContext` for non-core and intentionally multi-valued application headers, and the package surface retains only the narrow Htmxor context wrapper.
 - [x] htmx 4.0.0 browser evidence covers redirects, history, handled errors, triggered events, empty responses, and any selected configuration changes. The application-owned default-configuration Production/Kestrel/Chromium matrix covers those branches; no additional configuration change is claimed.
 
