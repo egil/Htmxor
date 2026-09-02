@@ -11,181 +11,181 @@ members are not repeated. The package contains the following complete
 allow-list at the audited package head:
 
 ASSEMBLY Htmxor 1.0.0.0
-TYPE Htmxor.Builder.HtmxorGeneratedComponentAction
-  Constructor Void .ctor(System.Type, System.String, System.String, Boolean)
-  Constructor Void .ctor(System.Type, System.String, System.String, Boolean, System.Type)
-TYPE Htmxor.Components.ConditionalComponentBase
-  Method Boolean ShouldOutput(Htmxor.Http.HtmxContext, Int32, Int32)
-TYPE Htmxor.Components.HtmxAsyncLoad
-  Constructor Void .ctor()
-  Method System.Collections.Generic.IDictionary`2[System.String,System.Object] get_AdditionalAttributes()
-  Method Microsoft.AspNetCore.Components.RenderFragment get_ChildContent()
-  Method System.String get_Element()
-  Method System.String get_Id()
-  Method Microsoft.AspNetCore.Components.RenderFragment get_Loading()
-  Method Void set_AdditionalAttributes(System.Collections.Generic.IDictionary`2[System.String,System.Object])
-  Method Void set_ChildContent(Microsoft.AspNetCore.Components.RenderFragment)
-  Method Void set_Element(System.String)
-  Method Void set_Id(System.String)
-  Method Void set_Loading(Microsoft.AspNetCore.Components.RenderFragment)
-  Property System.Collections.Generic.IDictionary`2[System.String,System.Object] AdditionalAttributes
-  Property Microsoft.AspNetCore.Components.RenderFragment ChildContent
-  Property System.String Element
-  Property System.String Id
-  Property Microsoft.AspNetCore.Components.RenderFragment Loading
-TYPE Htmxor.Components.HtmxFragment
-  Constructor Void .ctor()
-  Method Boolean ShouldOutput(Htmxor.Http.HtmxContext, Int32, Int32)
-  Method System.Collections.Generic.IDictionary`2[System.String,System.Object] get_AdditionalAttributes()
-  Method Microsoft.AspNetCore.Components.RenderFragment get_ChildContent()
-  Method System.String get_Element()
-  Method System.String get_Id()
-  Method System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean] get_Match()
-  Method Boolean get_RenderDuringStandardRequest()
-  Method Void set_AdditionalAttributes(System.Collections.Generic.IDictionary`2[System.String,System.Object])
-  Method Void set_ChildContent(Microsoft.AspNetCore.Components.RenderFragment)
-  Method Void set_Element(System.String)
-  Method Void set_Id(System.String)
-  Method Void set_Match(System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean])
-  Method Void set_RenderDuringStandardRequest(Boolean)
-  Property System.Collections.Generic.IDictionary`2[System.String,System.Object] AdditionalAttributes
-  Property Microsoft.AspNetCore.Components.RenderFragment ChildContent
-  Property System.String Element
-  Property System.String Id
-  Property System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean] Match
-  Property Boolean RenderDuringStandardRequest
-TYPE Htmxor.Components.HtmxHeadOutlet
-  Constructor Void .ctor()
-  Method Void Attach(Microsoft.AspNetCore.Components.RenderHandle)
-  Method System.Threading.Tasks.Task SetParametersAsync(Microsoft.AspNetCore.Components.ParameterView)
-TYPE Htmxor.Components.HtmxLayoutComponentBase
-  Method Boolean ShouldOutput(Htmxor.Http.HtmxContext, Int32, Int32)
-TYPE Htmxor.Components.IConditionalRender
-  Method Boolean ShouldOutput(Htmxor.Http.HtmxContext, Int32, Int32)
-TYPE Htmxor.DependencyInjection.HtmxorNavigationException
-  Constructor Void .ctor(System.String, System.String, Microsoft.AspNetCore.Components.NavigationOptions ByRef)
-  Method Microsoft.AspNetCore.Components.NavigationOptions get_Options()
-  Method System.String get_RequestedLocation()
-  Property Microsoft.AspNetCore.Components.NavigationOptions Options
-  Property System.String RequestedLocation
-TYPE Htmxor.Endpoints.IHtmxorGeneratedComponentActionRequest
-  Method Boolean TryConsume(Htmxor.Builder.HtmxorGeneratedComponentAction)
-TYPE Htmxor.EventHandlers
-TYPE Htmxor.HtmxEventArgs
-  Constructor Void .ctor(Htmxor.Http.HtmxContext)
-  Method Htmxor.Http.HtmxRequest get_Request()
-  Method Htmxor.Http.HtmxResponse get_Response()
-  Property Htmxor.Http.HtmxRequest Request
-  Property Htmxor.Http.HtmxResponse Response
-TYPE Htmxor.HtmxLayoutAttribute
-  Constructor Void .ctor(System.Type)
-  Method System.Type get_LayoutType()
-  Method Int32 get_Priority()
-  Method Void set_Priority(Int32)
-  Property System.Type LayoutType
-  Property Int32 Priority
-TYPE Htmxor.HtmxRouteAttribute
-  Constructor Void .ctor(System.String)
-  Method Boolean Equals(Htmxor.HtmxRouteAttribute)
-  Method Boolean Equals(System.Object)
-  Method Int32 GetHashCode()
-  Method System.String get_CurrentUrl()
-  Method System.String[] get_DefaultHttpMethods()
-  Method System.String[] get_Methods()
-  Method System.String get_Target()
-  Method System.String[] get_Targets()
-  Method System.String get_Template()
-  Method Void set_CurrentUrl(System.String)
-  Method Void set_Methods(System.String[])
-  Method Void set_Target(System.String)
-  Method Void set_Targets(System.String[])
-  Property System.String CurrentUrl
-  Property System.String[] DefaultHttpMethods
-  Property System.String[] Methods
-  Property System.String Target
-  Property System.String[] Targets
-  Property System.String Template
-TYPE Htmxor.Http.HtmxContext
-  Constructor Void .ctor(Microsoft.AspNetCore.Http.HttpContext)
-  Method Htmxor.Http.HtmxRequest get_Request()
-  Method Htmxor.Http.HtmxResponse get_Response()
-  Property Htmxor.Http.HtmxRequest Request
-  Property Htmxor.Http.HtmxResponse Response
-TYPE Htmxor.Http.HtmxRequest
-  Constructor Void .ctor(Microsoft.AspNetCore.Http.HttpContext)
-  Method Boolean TryGetExtensionHeader(System.String, System.String ByRef)
-  Method System.Uri get_CurrentUrl()
-  Method Boolean get_IsBoosted()
-  Method Boolean get_IsHistoryRestoreRequest()
-  Method Boolean get_IsHtmxRequest()
-  Method System.String get_Method()
-  Method Microsoft.AspNetCore.Http.PathString get_Path()
-  Method System.Nullable`1[Htmxor.Http.HtmxRequestType] get_RequestType()
-  Method Htmxor.Http.RoutingMode get_RoutingMode()
-  Method System.String get_Source()
-  Method System.String get_Target()
-  Property System.Uri CurrentUrl
-  Property Boolean IsBoosted
-  Property Boolean IsHistoryRestoreRequest
-  Property Boolean IsHtmxRequest
-  Property System.String Method
-  Property Microsoft.AspNetCore.Http.PathString Path
-  Property System.Nullable`1[Htmxor.Http.HtmxRequestType] RequestType
-  Property Htmxor.Http.RoutingMode RoutingMode
-  Property System.String Source
-  Property System.String Target
-TYPE Htmxor.Http.HtmxRequestHeaderNames
-  Field System.String Boosted
-  Field System.String CurrentUrl
-  Field System.String HistoryRestoreRequest
-  Field System.String HtmxRequest
-  Field System.String RequestType
-  Field System.String Source
-  Field System.String Target
-TYPE Htmxor.Http.HtmxRequestType
-  Field Htmxor.Http.HtmxRequestType Full
-  Field Htmxor.Http.HtmxRequestType Partial
-  Field Int32 value__
-TYPE Htmxor.Http.HtmxResponse
-  Constructor Void .ctor(Microsoft.AspNetCore.Http.HttpContext)
-  Method Htmxor.Http.HtmxResponse EmptyBody()
-  Method Htmxor.Http.HtmxResponse Location(System.String)
-  Method Htmxor.Http.HtmxResponse Location(System.Uri)
-  Method Htmxor.Http.HtmxResponse PreventBrowserCurrentUrlUpdate()
-  Method Htmxor.Http.HtmxResponse PreventBrowserHistoryUpdate()
-  Method Htmxor.Http.HtmxResponse PushUrl(System.String)
-  Method Htmxor.Http.HtmxResponse PushUrl(System.Uri)
-  Method Htmxor.Http.HtmxResponse Redirect(System.String)
-  Method Htmxor.Http.HtmxResponse Redirect(System.Uri)
-  Method Htmxor.Http.HtmxResponse Refresh()
-  Method Htmxor.Http.HtmxResponse ReplaceUrl(System.String)
-  Method Htmxor.Http.HtmxResponse ReplaceUrl(System.Uri)
-  Method Htmxor.Http.HtmxResponse Reselect(System.String)
-  Method Htmxor.Http.HtmxResponse Reswap(System.String)
-  Method Htmxor.Http.HtmxResponse Retarget(System.String)
-  Method Htmxor.Http.HtmxResponse SetExtensionHeader(System.String, System.String)
-  Method Htmxor.Http.HtmxResponse StatusCode(System.Net.HttpStatusCode)
-  Method Htmxor.Http.HtmxResponse Trigger(System.String)
-  Method Htmxor.Http.HtmxResponse Trigger[TEventDetail](System.String, TEventDetail, System.Text.Json.JsonSerializerOptions)
-TYPE Htmxor.Http.HtmxResponseHeaderNames
-  Field System.String Location
-  Field System.String PushUrl
-  Field System.String Redirect
-  Field System.String Refresh
-  Field System.String ReplaceUrl
-  Field System.String Reselect
-  Field System.String Reswap
-  Field System.String Retarget
-  Field System.String Trigger
-TYPE Htmxor.Http.RoutingMode
-  Field Htmxor.Http.RoutingMode Direct
-  Field Htmxor.Http.RoutingMode Standard
-  Field Int32 value__
-TYPE Htmxor.IHtmxorComponentEndpointInvoker
-TYPE Microsoft.AspNetCore.Builder.HtmxorComponentEndpointRouteBuilderExtensions
-  Method Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder, Microsoft.AspNetCore.Routing.IEndpointRouteBuilder, System.Reflection.Assembly, System.Collections.Generic.IReadOnlyList`1[System.String])
-  Method Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder, Microsoft.AspNetCore.Routing.IEndpointRouteBuilder, System.Reflection.Assembly, System.Collections.Generic.IReadOnlyList`1[System.String], System.Collections.Generic.IReadOnlyList`1[Htmxor.Builder.HtmxorGeneratedComponentAction])
-TYPE Microsoft.AspNetCore.Http.HttpContextExtensions
-  Method Htmxor.Http.HtmxContext GetHtmxContext(Microsoft.AspNetCore.Http.HttpContext)
-TYPE Microsoft.Extensions.DependencyInjection.HtmxorApplicationBuilderExtensions
-  Method Microsoft.Extensions.DependencyInjection.IRazorComponentsBuilder AddHtmxor(Microsoft.Extensions.DependencyInjection.IRazorComponentsBuilder)
+TYPE Htmxor.Builder.HtmxorGeneratedComponentAction [kind=class;abstract=False;sealed=True;genericArity=0;base=System.Object]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=4] Void .ctor(System.Type, System.String, System.String, Boolean)
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=5] Void .ctor(System.Type, System.String, System.String, Boolean, System.Type)
+TYPE Htmxor.Components.ConditionalComponentBase [kind=class;abstract=True;sealed=False;genericArity=0;base=Microsoft.AspNetCore.Components.ComponentBase]
+  Method [visibility=public;static=False;abstract=False;virtual=True;final=False;genericArity=0;parameters=3] Boolean ShouldOutput(Htmxor.Http.HtmxContext, Int32, Int32)
+TYPE Htmxor.Components.HtmxAsyncLoad [kind=class;abstract=False;sealed=True;genericArity=0;base=Htmxor.Components.ConditionalComponentBase]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Void .ctor()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Collections.Generic.IDictionary`2[System.String,System.Object] get_AdditionalAttributes()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Microsoft.AspNetCore.Components.RenderFragment get_ChildContent()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Element()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Id()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Microsoft.AspNetCore.Components.RenderFragment get_Loading()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_AdditionalAttributes(System.Collections.Generic.IDictionary`2[System.String,System.Object])
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_ChildContent(Microsoft.AspNetCore.Components.RenderFragment)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Element(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Id(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Loading(Microsoft.AspNetCore.Components.RenderFragment)
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.Collections.Generic.IDictionary`2[System.String,System.Object] AdditionalAttributes
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Microsoft.AspNetCore.Components.RenderFragment ChildContent
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Element
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Id
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Microsoft.AspNetCore.Components.RenderFragment Loading
+TYPE Htmxor.Components.HtmxFragment [kind=class;abstract=False;sealed=False;genericArity=0;base=Htmxor.Components.ConditionalComponentBase]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Void .ctor()
+  Method [visibility=public;static=False;abstract=False;virtual=True;final=False;genericArity=0;parameters=3] Boolean ShouldOutput(Htmxor.Http.HtmxContext, Int32, Int32)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Collections.Generic.IDictionary`2[System.String,System.Object] get_AdditionalAttributes()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Microsoft.AspNetCore.Components.RenderFragment get_ChildContent()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Element()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Id()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean] get_Match()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Boolean get_RenderDuringStandardRequest()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_AdditionalAttributes(System.Collections.Generic.IDictionary`2[System.String,System.Object])
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_ChildContent(Microsoft.AspNetCore.Components.RenderFragment)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Element(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Id(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Match(System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean])
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_RenderDuringStandardRequest(Boolean)
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.Collections.Generic.IDictionary`2[System.String,System.Object] AdditionalAttributes
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Microsoft.AspNetCore.Components.RenderFragment ChildContent
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Element
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Id
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean] Match
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Boolean RenderDuringStandardRequest
+TYPE Htmxor.Components.HtmxHeadOutlet [kind=class;abstract=False;sealed=False;genericArity=0;base=System.Object]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Void .ctor()
+  Method [visibility=public;static=False;abstract=False;virtual=True;final=True;genericArity=0;parameters=1] Void Attach(Microsoft.AspNetCore.Components.RenderHandle)
+  Method [visibility=public;static=False;abstract=False;virtual=True;final=True;genericArity=0;parameters=1] System.Threading.Tasks.Task SetParametersAsync(Microsoft.AspNetCore.Components.ParameterView)
+TYPE Htmxor.Components.HtmxLayoutComponentBase [kind=class;abstract=True;sealed=False;genericArity=0;base=Microsoft.AspNetCore.Components.LayoutComponentBase]
+  Method [visibility=public;static=False;abstract=False;virtual=True;final=False;genericArity=0;parameters=3] Boolean ShouldOutput(Htmxor.Http.HtmxContext, Int32, Int32)
+TYPE Htmxor.Components.IConditionalRender [kind=interface;abstract=True;sealed=False;genericArity=0;base=none]
+  Method [visibility=public;static=False;abstract=True;virtual=True;final=False;genericArity=0;parameters=3] Boolean ShouldOutput(Htmxor.Http.HtmxContext, Int32, Int32)
+TYPE Htmxor.DependencyInjection.HtmxorNavigationException [kind=class;abstract=False;sealed=True;genericArity=0;base=Microsoft.AspNetCore.Components.NavigationException]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=3] Void .ctor(System.String, System.String, Microsoft.AspNetCore.Components.NavigationOptions ByRef)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Microsoft.AspNetCore.Components.NavigationOptions get_Options()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_RequestedLocation()
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Microsoft.AspNetCore.Components.NavigationOptions Options
+  Property [visibility=public|none;static=False;get=public,instance;set=none] System.String RequestedLocation
+TYPE Htmxor.Endpoints.IHtmxorGeneratedComponentActionRequest [kind=interface;abstract=True;sealed=False;genericArity=0;base=none]
+  Method [visibility=public;static=False;abstract=True;virtual=True;final=False;genericArity=0;parameters=1] Boolean TryConsume(Htmxor.Builder.HtmxorGeneratedComponentAction)
+TYPE Htmxor.EventHandlers [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
+TYPE Htmxor.HtmxEventArgs [kind=class;abstract=False;sealed=False;genericArity=0;base=System.EventArgs]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void .ctor(Htmxor.Http.HtmxContext)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxRequest get_Request()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse get_Response()
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Htmxor.Http.HtmxRequest Request
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Htmxor.Http.HtmxResponse Response
+TYPE Htmxor.HtmxLayoutAttribute [kind=class;abstract=False;sealed=True;genericArity=0;base=System.Attribute]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void .ctor(System.Type)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Type get_LayoutType()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Int32 get_Priority()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Priority(Int32)
+  Property [visibility=public|private;static=False;get=public,instance;set=private,instance] System.Type LayoutType
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Int32 Priority
+TYPE Htmxor.HtmxRouteAttribute [kind=class;abstract=False;sealed=True;genericArity=0;base=System.Attribute]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void .ctor(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=True;final=True;genericArity=0;parameters=1] Boolean Equals(Htmxor.HtmxRouteAttribute)
+  Method [visibility=public;static=False;abstract=False;virtual=True;final=False;genericArity=0;parameters=1] Boolean Equals(System.Object)
+  Method [visibility=public;static=False;abstract=False;virtual=True;final=False;genericArity=0;parameters=0] Int32 GetHashCode()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_CurrentUrl()
+  Method [visibility=public;static=True;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String[] get_DefaultHttpMethods()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String[] get_Methods()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Target()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String[] get_Targets()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Template()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_CurrentUrl(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Methods(System.String[])
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Target(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Targets(System.String[])
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String CurrentUrl
+  Property [visibility=public|none;static=True;get=public,static;set=none] System.String[] DefaultHttpMethods
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String[] Methods
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Target
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String[] Targets
+  Property [visibility=public|none;static=False;get=public,instance;set=none] System.String Template
+TYPE Htmxor.Http.HtmxContext [kind=class;abstract=False;sealed=True;genericArity=0;base=System.Object]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void .ctor(Microsoft.AspNetCore.Http.HttpContext)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxRequest get_Request()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse get_Response()
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Htmxor.Http.HtmxRequest Request
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Htmxor.Http.HtmxResponse Response
+TYPE Htmxor.Http.HtmxRequest [kind=class;abstract=False;sealed=True;genericArity=0;base=System.Object]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void .ctor(Microsoft.AspNetCore.Http.HttpContext)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=2] Boolean TryGetExtensionHeader(System.String, System.String ByRef)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Uri get_CurrentUrl()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Boolean get_IsBoosted()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Boolean get_IsHistoryRestoreRequest()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Boolean get_IsHtmxRequest()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Method()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Microsoft.AspNetCore.Http.PathString get_Path()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Nullable`1[Htmxor.Http.HtmxRequestType] get_RequestType()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.RoutingMode get_RoutingMode()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Source()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Target()
+  Property [visibility=public|none;static=False;get=public,instance;set=none] System.Uri CurrentUrl
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Boolean IsBoosted
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Boolean IsHistoryRestoreRequest
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Boolean IsHtmxRequest
+  Property [visibility=public|none;static=False;get=public,instance;set=none] System.String Method
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Microsoft.AspNetCore.Http.PathString Path
+  Property [visibility=public|none;static=False;get=public,instance;set=none] System.Nullable`1[Htmxor.Http.HtmxRequestType] RequestType
+  Property [visibility=public|none;static=False;get=public,instance;set=none] Htmxor.Http.RoutingMode RoutingMode
+  Property [visibility=public|none;static=False;get=public,instance;set=none] System.String Source
+  Property [visibility=public|none;static=False;get=public,instance;set=none] System.String Target
+TYPE Htmxor.Http.HtmxRequestHeaderNames [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Boosted
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String CurrentUrl
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String HistoryRestoreRequest
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String HtmxRequest
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String RequestType
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Source
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Target
+TYPE Htmxor.Http.HtmxRequestType [kind=enum;abstract=False;sealed=True;genericArity=0;base=System.Enum]
+  Field [visibility=public;static=True;literal=True;readonly=False] Htmxor.Http.HtmxRequestType Full
+  Field [visibility=public;static=True;literal=True;readonly=False] Htmxor.Http.HtmxRequestType Partial
+  Field [visibility=public;static=False;literal=False;readonly=False] Int32 value__
+TYPE Htmxor.Http.HtmxResponse [kind=class;abstract=False;sealed=True;genericArity=0;base=System.Object]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void .ctor(Microsoft.AspNetCore.Http.HttpContext)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse EmptyBody()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Location(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Location(System.Uri)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse PreventBrowserCurrentUrlUpdate()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse PreventBrowserHistoryUpdate()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse PushUrl(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse PushUrl(System.Uri)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Redirect(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Redirect(System.Uri)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse Refresh()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse ReplaceUrl(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse ReplaceUrl(System.Uri)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Reselect(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Reswap(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Retarget(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=2] Htmxor.Http.HtmxResponse SetExtensionHeader(System.String, System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse StatusCode(System.Net.HttpStatusCode)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Trigger(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=1;parameters=3] Htmxor.Http.HtmxResponse Trigger[TEventDetail](System.String, TEventDetail, System.Text.Json.JsonSerializerOptions)
+TYPE Htmxor.Http.HtmxResponseHeaderNames [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Location
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String PushUrl
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Redirect
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Refresh
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String ReplaceUrl
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Reselect
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Reswap
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Retarget
+  Field [visibility=public;static=True;literal=True;readonly=False] System.String Trigger
+TYPE Htmxor.Http.RoutingMode [kind=enum;abstract=False;sealed=True;genericArity=0;base=System.Enum]
+  Field [visibility=public;static=True;literal=True;readonly=False] Htmxor.Http.RoutingMode Direct
+  Field [visibility=public;static=True;literal=True;readonly=False] Htmxor.Http.RoutingMode Standard
+  Field [visibility=public;static=False;literal=False;readonly=False] Int32 value__
+TYPE Htmxor.IHtmxorComponentEndpointInvoker [kind=interface;abstract=True;sealed=False;genericArity=0;base=none]
+TYPE Microsoft.AspNetCore.Builder.HtmxorComponentEndpointRouteBuilderExtensions [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
+  Method [visibility=public;static=True;abstract=False;virtual=False;final=False;genericArity=0;parameters=4] Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder, Microsoft.AspNetCore.Routing.IEndpointRouteBuilder, System.Reflection.Assembly, System.Collections.Generic.IReadOnlyList`1[System.String])
+  Method [visibility=public;static=True;abstract=False;virtual=False;final=False;genericArity=0;parameters=5] Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder, Microsoft.AspNetCore.Routing.IEndpointRouteBuilder, System.Reflection.Assembly, System.Collections.Generic.IReadOnlyList`1[System.String], System.Collections.Generic.IReadOnlyList`1[Htmxor.Builder.HtmxorGeneratedComponentAction])
+TYPE Microsoft.AspNetCore.Http.HttpContextExtensions [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
+  Method [visibility=public;static=True;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxContext GetHtmxContext(Microsoft.AspNetCore.Http.HttpContext)
+TYPE Microsoft.Extensions.DependencyInjection.HtmxorApplicationBuilderExtensions [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
+  Method [visibility=public;static=True;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Microsoft.Extensions.DependencyInjection.IRazorComponentsBuilder AddHtmxor(Microsoft.Extensions.DependencyInjection.IRazorComponentsBuilder)

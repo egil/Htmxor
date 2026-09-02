@@ -586,19 +586,98 @@ internal static class PackagePublicSurface
 
 		foreach (var type in assembly.GetExportedTypes().OrderBy(type => type.FullName, StringComparer.Ordinal))
 		{
-			output.AppendLine($"TYPE {type.FullName}");
+			output.AppendLine($"TYPE {FormatType(type)}");
 			foreach (var member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
 				.Where(member => member.MemberType is MemberTypes.Constructor or MemberTypes.Event or MemberTypes.Field or MemberTypes.Method or MemberTypes.NestedType or MemberTypes.Property)
 				.OrderBy(member => member.MemberType)
 				.ThenBy(member => member.Name, StringComparer.Ordinal)
 				.ThenBy(member => member.ToString(), StringComparer.Ordinal))
 			{
-				output.AppendLine($"  {member.MemberType} {member}");
+				output.AppendLine(FormatMember(member));
 			}
 		}
 
 		return output.ToString().TrimEnd();
 	}
+
+	private static string FormatType(Type type) =>
+		$"{type.FullName} [kind={GetTypeKind(type)};abstract={type.IsAbstract};sealed={type.IsSealed};genericArity={type.GetGenericArguments().Length};base={type.BaseType?.FullName ?? "none"}]";
+
+	private static string GetTypeKind(Type type) =>
+		type.IsInterface ? "interface" : type.IsEnum ? "enum" : type.BaseType == typeof(MulticastDelegate) ? "delegate" : type.IsValueType ? "struct" : "class";
+
+	private static string FormatMember(MemberInfo member)
+	{
+		var shape = member switch
+		{
+			ConstructorInfo constructor => FormatMethodShape(constructor),
+			MethodInfo method => FormatMethodShape(method),
+			FieldInfo field => $"visibility={FormatVisibility(field)};static={field.IsStatic};literal={field.IsLiteral};readonly={field.IsInitOnly}",
+			PropertyInfo property => $"visibility={FormatVisibility(property)};static={IsStatic(property)};get={FormatAccessor(property.GetMethod)};set={FormatAccessor(property.SetMethod)}",
+			EventInfo @event => $"visibility={FormatVisibility(@event)};static={IsStatic(@event)};add={FormatAccessor(@event.AddMethod)};remove={FormatAccessor(@event.RemoveMethod)}",
+			Type nestedType => $"visibility={FormatVisibility(nestedType)};abstract={nestedType.IsAbstract};sealed={nestedType.IsSealed}",
+			_ => throw new InvalidOperationException($"Unsupported public member kind: {member.MemberType}.")
+		};
+
+		return $"  {member.MemberType} [{shape}] {member}";
+	}
+
+	private static string FormatMethodShape(MethodBase method) =>
+		$"visibility={FormatVisibility(method)};static={method.IsStatic};abstract={method.IsAbstract};virtual={method.IsVirtual};final={method.IsFinal};genericArity={(method is MethodInfo methodInfo ? methodInfo.GetGenericArguments().Length : 0)};parameters={method.GetParameters().Length}";
+
+	private static string FormatVisibility(MemberInfo member)
+	{
+		if (member is MethodBase method)
+		{
+			return FormatMethodVisibility(method);
+		}
+
+		if (member is FieldInfo field)
+		{
+			return FormatFieldVisibility(field);
+		}
+
+		return member switch
+		{
+			PropertyInfo property => FormatAccessorVisibility(property.GetMethod, property.SetMethod),
+			EventInfo @event => FormatAccessorVisibility(@event.AddMethod, @event.RemoveMethod),
+			Type type => FormatTypeVisibility(type),
+			_ => throw new InvalidOperationException($"Unsupported public member kind: {member.MemberType}.")
+		};
+	}
+
+	private static string FormatMethodVisibility(MethodBase method) =>
+		method.IsPublic ? "public" : method.IsFamily ? "protected" : method.IsAssembly ? "internal" : "private";
+
+	private static string FormatFieldVisibility(FieldInfo field) =>
+		field.IsPublic ? "public" : field.IsFamily ? "protected" : field.IsAssembly ? "internal" : "private";
+
+	private static string FormatTypeVisibility(Type type) =>
+		type.IsNestedPublic ? "public" : type.IsNestedFamily ? "protected" : type.IsNestedAssembly ? "internal" : "private";
+
+	private static string FormatAccessorVisibility(MethodInfo? first, MethodInfo? second) =>
+		$"{FormatAccessorVisibility(first)}|{FormatAccessorVisibility(second)}";
+
+	private static string FormatAccessorVisibility(MethodInfo? accessor) => accessor switch
+	{
+		null => "none",
+		_ when accessor.IsPublic => "public",
+		_ when accessor.IsFamily => "protected",
+		_ when accessor.IsAssembly => "internal",
+		_ => "private"
+	};
+
+	private static string FormatAccessor(MethodInfo? accessor) => accessor switch
+	{
+		null => "none",
+		_ => $"{FormatAccessorVisibility(accessor)},{(accessor.IsStatic ? "static" : "instance")}",
+	};
+
+	private static bool IsStatic(PropertyInfo property) =>
+		property.GetMethod?.IsStatic ?? property.SetMethod?.IsStatic ?? false;
+
+	private static bool IsStatic(EventInfo @event) =>
+		@event.AddMethod?.IsStatic ?? @event.RemoveMethod?.IsStatic ?? false;
 }
 
 internal static class PackageConsumerEvidence

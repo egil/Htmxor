@@ -14,16 +14,17 @@
 - Navigation-response update: the second bounded slice of #154 consolidates the
   seven navigation choices, removes the inaccurate structured location
   prototype, scopes body suppression to one render, validates stock redirects
-  before adaptation, and leaves the broader request/response issue open
+  before adaptation; the final #154 audit records the completed contract
 - Swap/selection-response update: the third bounded slice of #154 keeps
-  `Reswap(string)`, `Retarget(string)`, and `Reselect(string)` as exact open
-  values, removes the incomplete closed swap model, and leaves the broader
-  request/response issue open
+  `Reswap(string)`, `Retarget(string)`, and `Reselect(string)` as ASCII-safe
+  open values and removes the incomplete closed swap model; the final audit
+  records their Kestrel boundary proof
 - Request-context update: the sixth bounded slice of #154 exposes the
   `CurrentUrl` names, parses the seven core htmx 4 request headers once with
   field-specific fail-closed policies, and feeds the same values to component
-  code and representation matching; the generated action identity remains
-  internal
+  code and representation matching; the final audit completes the bounded
+  extension surface, public allow-list, and protocol matrix, while the generated
+  action identity remains internal
 
 ## Verdict
 
@@ -108,8 +109,8 @@ behavior.
 | One fragment | `HtmxFragment` is clear, but `Id` has two jobs | Give server selection its own stable name | Redesign |
 | Several fragments | Lambdas and render flags hide the result | Select an ordered set of names once per response | Missing |
 | OOB and partial delivery | Native htmx markup already expresses it | Do not add another Htmxor component hierarchy | Keep |
-| Request data | The seven-header htmx 4 request contract is current | Finish bounded extension access and the final protocol matrix | Sixth #154 slice current; broader issue open |
-| Response operations | The strict marker guard, navigation family, open swap/selection family, trigger serialization, and native polling boundary are current | Finish the bounded extension contract and final protocol matrix | Six #154 slices current; broader issue open |
+| Request data | The seven-header htmx 4 request contract is current | Retain the bounded extension access and final protocol matrix | Current in the final #154 audit |
+| Response operations | The strict marker guard, navigation family, ASCII-safe open swap/selection family, trigger serialization, and native polling boundary are current | Keep response values within the validated HTTP-header boundary | Current in the final #154 audit |
 | Client attributes | Native markup is direct and current | Add optional profile-aware diagnostics without rejecting new syntax | Keep |
 | Trigger and swap helpers | Native markup and open strings avoid a closed Htmxor profile | Remove the incomplete helpers from core v1 | Removed in the second #151 slice |
 | Layout and async helpers | They add Htmxor concepts | Keep only helpers that beat stock components and explicit fragments | Reassess |
@@ -254,8 +255,8 @@ invent a replacement structured `HX-Location` model.
 
 ### 6. The HTTP context needs one set of rules
 
-`HtmxContext` with `Request` and `Response` is easy to learn. Its details need a
-final pass. Five bounded parts are current:
+`HtmxContext` with `Request` and `Response` is easy to learn. The bounded #154
+work is current in the final audit:
 
 - the first bounded #154 slice now recognizes only exactly one normalized
   `HX-Request: true`, ignores dependent context for every invalid marker shape,
@@ -268,7 +269,10 @@ final pass. Five bounded parts are current:
 - the fourth bounded #154 slice gives `Trigger(...)` one htmx 4 response-event
   serialization and merge contract while keeping the htmx 2 timing API removed.
 - the fifth bounded #154 slice removes the obsolete status-286 polling contract
-  and proves native terminal replacement markup with application-owned htmx 4.0.0.
+  and proves native terminal replacement markup with application-owned htmx 4.0.0; and
+- the final #154 audit completes the extension-header contract, public
+  exported-member allow-list, wire-level request matrix, and separately packed
+  Production/Kestrel/Chromium evidence.
 
 The navigation family validates destination arguments before the strict marker
 guard and mutates nothing on failure. It rejects null, blank, surrounding
@@ -297,15 +301,17 @@ establish `ReplaceHistoryEntry` browser-history parity. Separately packed
 consumers prove exact `Location(Uri)` wire text and actionless generated-route
 header-plus-empty-body behavior without claiming browser execution for either.
 
-The swap and selection family validates each complete value before the strict
-marker guard and mutates nothing on failure. It rejects null, empty,
-whitespace-only, surrounding whitespace, and values containing control
-characters without trimming or repairing them. Successful calls preserve the
-exact string, return the same response, overwrite only their matching header,
-and leave status and body-control state unchanged. The three headers may
-coexist. A package-only Kestrel/Chromium interaction with application-owned
-htmx 4.0.0 consumes all three together and proves the server-retargeted element
-receives only the response-selected subtree through the response-selected swap.
+The swap and selection family validates each complete ASCII HTTP-header-safe
+value before the strict marker guard and mutates nothing on failure. It rejects
+null, empty, whitespace-only, surrounding whitespace, control characters, and
+non-ASCII characters without trimming or repairing them. Successful calls
+preserve the exact string, return the same response, overwrite only their
+matching header, and leave status and body-control state unchanged. The three
+headers may coexist. A package-only Kestrel/Chromium interaction with
+application-owned htmx 4.0.0 consumes all three together and proves the
+server-retargeted element receives only the response-selected subtree through
+the response-selected swap; the same boundary rejects non-ASCII values before
+Kestrel header serialization.
 
 The trigger family validates and safely JSON-encodes exact, case-sensitive,
 well-formed UTF-16 event names. Successful calls form one compact `HX-Trigger` JSON object:
@@ -335,13 +341,10 @@ constant while retaining `StatusCode(HttpStatusCode)` as ordinary application
 HTTP status control. The packed consumer and Production Kestrel/Chromium proof
 exercise both sides of this boundary.
 
-The remaining pass must:
-
-- provide validated APIs for extension request and response headers;
-- keep every header-derived value documented as untrusted as the extension
-  surface grows; and
-- remove or prove other protocol behavior carried forward from older htmx
-  versions.
+The final #154 audit provides validated APIs for extension request and response
+headers, keeps every header-derived value documented as untrusted, and records
+the retained public surface and protocol matrix. Future htmx-version work must
+extend this evidence rather than silently broadening the current contract.
 
 General HTTP belongs on `HttpContext`. Htmxor does not need wrappers for cookies,
 ETags, content language, or ASP.NET Core output-cache policy.
@@ -367,17 +370,19 @@ This table is a review result, not permission to delete types without checking
 consumers. An API compatibility baseline should catch unreviewed changes and
 prevent generator assembly needs from becoming accidental user promises.
 The second bounded #151 slice acts only on the separately reviewed client-helper
-decision; the rest of this allow-list and exported-member review remains open.
+decision. The final #154 audit retains a separately packed exported-type/member
+allow-list; broader API compatibility policy remains tracked by #151.
 
 ### 8. Examples need honest status labels
 
 Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
 ideas that still need API decisions. Registration and QUERY now have bounded
 proof through #145 and #111, while the first two #151 slices make the consistent
-registration names and native-markup client-helper decision current. The first
-six #154 slices make strict request classification, the seven-header request
-contract, navigation responses, open swap/selection response values, trigger
-serialization, and native polling replacement current. Navigation
+registration names and native-markup client-helper decision current. The final
+#154 audit and its preceding slices make strict request classification, the
+seven-header request contract, navigation responses, ASCII-safe open
+swap/selection response values, trigger serialization, extension exchange,
+public surface, wire matrix, and native polling replacement current. Navigation
 examples must show separate choices or branches, while the three independent
 swap and selection headers may be chained. Multi-fragment selection and
 optional extension use still need explicit status labels.
@@ -408,7 +413,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 | [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Retain the selected registration names and the decision to remove client helpers; still approve the complete public allow-list, review exported members, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
-| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, the seven-header request contract, navigation responses, open swap/selection responses, trigger serialization, and native polling are current. The bounded extension-header surface is in progress pending separately packed htmx 4 browser evidence; the final contract matrix remains open. |
+| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, the seven-header request contract, navigation responses, ASCII-safe open swap/selection responses, trigger serialization, native polling, bounded extension exchange, the public surface, and the final wire/browser evidence are current in the closure audit. |
 
 Existing issues keep their current scope:
 

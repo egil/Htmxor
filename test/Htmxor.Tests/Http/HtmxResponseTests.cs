@@ -148,6 +148,7 @@ public class HtmxResponseTests : BunitContext
 	[InlineData("value ")]
 	[InlineData("value\ninside")]
 	[InlineData("value\u007Finside")]
+	[InlineData("café")]
 	public void Invalid_swap_and_selection_values_are_rejected_before_the_marker_guard_without_mutation(
 		string? value)
 	{
