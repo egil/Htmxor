@@ -2959,10 +2959,11 @@ same seven request and nine response headers documented in the
 [v1 guide](../../htmxor-v1-feature-guide.md).
 
 The corrected executable proof head is the clean
-`b403e692489cda08add84a00d6bc43f2cb683ad0` (`fix(protocol): close issue-154
-response header boundary`). The implementation change is deliberately narrow:
+`a60a46f90f7ce59238caebe93ec8ea45b6bc1438` (`fix(protocol): preserve unicode
+trigger event names`). The implementation change is deliberately narrow:
 accepted navigation and swap/selection response values must be ASCII
-HTTP-header-safe text, and the existing validation-before-marker ordering and
+HTTP-header-safe text, trigger event names retain well-formed Unicode JSON
+property-name support, and the existing validation-before-marker ordering and
 no-mutation failure behavior are unchanged.
 
 Audit result:
@@ -2981,7 +2982,8 @@ Audit result:
   validated as ASCII HTTP-header-safe URI text before the marker guard and
   response mutation. Swap/selection headers validate their complete values with
   the same ASCII HTTP-header-safe boundary before the marker guard and overwrite
-  only themselves; trigger calls own one merged compact JSON object; guarded
+  only themselves; trigger calls own one merged compact JSON object and preserve
+  exact well-formed Unicode event names; guarded
   header and body-control operations leave status unchanged, while the
   separately documented guarded `StatusCode` operation intentionally sets it;
   body effects remain the documented render-local navigation or explicit
@@ -3020,8 +3022,9 @@ Audit result:
 This slice corrects the stale response-header source link from an htmx 1-era
 repository commit to the exact htmx 4.0.0 semantic source, distinguishes that
 reference from the npm asset executed by the browser proof, adds one concise
-public 7+9 reference table, and rejects non-ASCII navigation and swap/selection
-values before they can reach response-header mutation or Kestrel serialization.
+public 7+9 reference table, rejects non-ASCII navigation and swap/selection
+values before they can reach response-header mutation or Kestrel serialization,
+and preserves Unicode trigger event names for JSON encoding.
 
 Acceptance verdict against the live #154 checklist:
 
@@ -3060,51 +3063,64 @@ Meaningful red before the implementation change:
   dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests.Invalid_swap_and_selection_values_are_rejected_before_the_marker_guard_without_mutation" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-unicode-open-response-red.trx" --results-directory artifacts/results/issue-154-unicode-open-response-red --verbosity minimal -m:1
   ```
 
+- The review-exposed trigger regression was reproduced by temporarily restoring
+  the pre-fix shared open-value validation on the otherwise clean `a60a46f`
+  checkout while adding only the new regression test. The focused command failed
+  1 of 1 because the Unicode event name was rejected as a direct response-header
+  value instead of being JSON encoded. The retained red TRX is
+  `artifacts/results/issue-154-unicode-trigger-red/issue-154-unicode-trigger-red.trx`.
+
+  ```text
+  dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests.Trigger_preserves_unicode_event_name_as_a_json_property" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-unicode-trigger-red.trx" --results-directory artifacts/results/issue-154-unicode-trigger-red --verbosity minimal -m:1
+  ```
+
 Evidence at the exact clean corrected executable head
-`b403e692489cda08add84a00d6bc43f2cb683ad0`:
+`a60a46f90f7ce59238caebe93ec8ea45b6bc1438`:
 
 - Focused HTTP/route characterization:
   ```text
-  dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxRequestTests|FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxorComponentEndpointMatcherPolicyTest|FullyQualifiedName~HtmxExtensionHeaderTests|FullyQualifiedName~HtmxRouteAttributeTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-final-audit-focused.trx" --results-directory artifacts/results/issue-154-final-audit-focused --verbosity minimal -m:1
+  dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxRequestTests|FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxorComponentEndpointMatcherPolicyTest|FullyQualifiedName~HtmxExtensionHeaderTests|FullyQualifiedName~HtmxRouteAttributeTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-remediation-focused.trx" --results-directory artifacts/results/issue-154-review-remediation-focused --verbosity minimal -m:1
   ```
-  passed 150/150; its retained TRX is
-  `artifacts/results/issue-154-final-audit-focused/issue-154-final-audit-focused.trx`.
+  passed 151/151; its retained TRX is
+  `artifacts/results/issue-154-review-remediation-focused/issue-154-review-remediation-focused.trx`.
+  The trigger-specific green replay also passed 1/1; its retained TRX is
+  `artifacts/results/issue-154-unicode-trigger-green/issue-154-unicode-trigger-green.trx`.
 - Separately packed package consumers passed one outer test each. The exact
   standard-consumer command was:
 
   ```text
-  dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-final-audit-packed.trx" --results-directory artifacts/results/issue-154-final-audit-packed --verbosity minimal
+  dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-remediation-packed-green.trx" --results-directory artifacts/results/issue-154-review-remediation-packed-green --verbosity minimal -m:1
   ```
 
   It passed its outer test and parsed 93/93 inner TestServer cases. The exact
   actionless-consumer command was:
 
   ```text
-  dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_preserves_actionless_unsafe_route_antiforgery" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-final-audit-packed-actionless.trx" --results-directory artifacts/results/issue-154-final-audit-packed-actionless --verbosity minimal
+  dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_preserves_actionless_unsafe_route_antiforgery" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-remediation-packed-actionless-green.trx" --results-directory artifacts/results/issue-154-review-remediation-packed-actionless-green --verbosity minimal -m:1
   ```
 
   It passed its outer test and parsed 96/96 inner cases. Their retained TRX
-  files are `artifacts/results/issue-154-final-audit-packed/
-  issue-154-final-audit-packed.trx` and
-  `artifacts/results/issue-154-final-audit-packed-actionless/
-  issue-154-final-audit-packed-actionless.trx`.
+  files are `artifacts/results/issue-154-review-remediation-packed-green/
+  issue-154-review-remediation-packed-green.trx` and
+  `artifacts/results/issue-154-review-remediation-packed-actionless-green/
+  issue-154-review-remediation-packed-actionless-green.trx`.
 - The repository-owned public-surface verifier passed 1/1 outer test. Its exact
   command was:
 
   ```text
-  dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_public_surface_matches_retained_allow_list" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-public-surface.trx" --results-directory artifacts/results/issue-154-public-surface --verbosity minimal
+  dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_public_surface_matches_retained_allow_list" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-review-remediation-public-surface.trx" --results-directory artifacts/results/issue-154-review-remediation-public-surface --verbosity minimal -m:1
   ```
 
   It loaded `lib/net10.0/Htmxor.dll` from a freshly packed package and matched
   the complete retained exported-type/member allow-list, including explicit
   type kind/base and member accessibility, staticness, dispatch, and accessor
   shape. Its retained TRX is
-  `artifacts/results/issue-154-public-surface/issue-154-public-surface.trx`.
-- Separately packed `net10.0` Production/Kestrel/Chromium proof passed one
-  The exact browser command was:
+  `artifacts/results/issue-154-review-remediation-public-surface/issue-154-review-remediation-public-surface.trx`.
+- Separately packed `net10.0` Production/Kestrel/Chromium proof passed one outer
+  test; the exact browser command was:
 
   ```text
-  dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions" --blame-hang --blame-hang-timeout 10min --logger "trx;LogFileName=issue-154-final-audit-browser.trx" --results-directory artifacts/results/issue-154-final-audit-browser --verbosity minimal
+  dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions" --blame-hang --blame-hang-timeout 10min --logger "trx;LogFileName=issue-154-review-remediation-browser.trx" --results-directory artifacts/results/issue-154-review-remediation-browser --verbosity minimal
   ```
 
   It passed one outer test and 39/39 inner browser cases, including the
@@ -3115,23 +3131,23 @@ Evidence at the exact clean corrected executable head
   Chrome for Testing 151.0.7922.34, and the exact htmx asset SHA-256
   `E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
   Its retained outer TRX is
-  `artifacts/results/issue-154-final-audit-browser/issue-154-final-audit-browser.trx`.
+  `artifacts/results/issue-154-review-remediation-browser/issue-154-review-remediation-browser.trx`.
 - The repository-owned command
   `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast`
-  passed 118 quality, 45 ASP.NET Core 10 hosted, and 361 non-E2E Htmxor tests:
-  524/524 total, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The same
-  command with `--profile full` passed 119 quality, 45 hosted, and 363 complete
-  Htmxor tests: 527/527 total, with the same zero failure/skip/error/timeout
+  passed 118 quality, 45 ASP.NET Core 10 hosted, and 362 non-E2E Htmxor tests:
+  525/525 total, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The same
+  command with `--profile full` passed 119 quality, 45 hosted, and 364 complete
+  Htmxor tests: 528/528 total, with the same zero failure/skip/error/timeout
   counts. Both profiles passed analyzer/style error gates and Release build
   compilation with 0 warnings and 0 errors. The full-profile summary is
   retained at `artifacts/results/full/summary.md`.
 - Full coverage retained two fresh nonempty byte-identical Cobertura copies with
   SHA-256
-  `44337d3758d592cace50aa01ab1ce80a273277b59674b465040fca2ddc05be43` at
-  `artifacts/results/full/htmxor/ebac7e20-742d-44cf-9241-e113db632b5e/
+  `65285c87f227650e14957c2f33bb64096141297e544c167ab10199faf06d2f57` at
+  `artifacts/results/full/htmxor/cfbcd1e8-5c66-4221-81e0-5f47ae5235d4/
   coverage.cobertura.xml` and
-  `artifacts/results/full/htmxor/_eagle1-wsl_2026-09-02_20_48_09/In/eagle1-wsl/
-  coverage.cobertura.xml`. Each file is 904334 bytes; this is coverage
+  `artifacts/results/full/htmxor/_eagle1-wsl_2026-09-02_21_20_47/In/eagle1-wsl/
+  coverage.cobertura.xml`. Each file is 906083 bytes; this is coverage
   characterization, not a score acceptance claim.
 - The packed audit command was:
 
@@ -3142,7 +3158,7 @@ Evidence at the exact clean corrected executable head
   It produced
   `artifacts/issue154-final-audit-package/Htmxor.1.0.0-issue154-final-audit.nupkg`
   from the same executable head. The 17-file package has SHA-256
-  `dff863dacadd9558232f17f12764c4c5fab494993e3d9fa62939530a298a0e69`; it
+  `2043f1f595a7ed9eaa5d3b710f01e244627d342ef13b185bdb834420e8c5275f`; it
   contains only `net10.0` runtime assets, the analyzer, the Htmxor static asset,
   and the ASP.NET Core framework reference; no htmx runtime is transitive or
   embedded. The complete reflection allow-list is retained in
