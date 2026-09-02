@@ -2781,11 +2781,10 @@ protects the following behavior:
 
 The required base was verified as `origin/main` at
 `30ff3c9bec2907abbe4bd67e1159fd56799480b5`; the detached worktree `HEAD` and
-`origin/main` are both that commit. The worktree is intentionally dirty while
-the slice is handed off. A commit could not be created because the linked
-worktree's shared Git index at
-`/home/egil/src/Htmxor/.git/worktrees/Htmxor4/index.lock` is on a read-only
-filesystem; no shared metadata or Git configuration was changed.
+`origin/main` are both that commit. The linked worktree's shared Git index at
+`/home/egil/src/Htmxor/.git/worktrees/Htmxor4/index.lock` was read-only, so the
+verified diff was committed from a temporary full clone without changing
+shared metadata or Git configuration.
 
 The request implementation now:
 
@@ -2887,3 +2886,27 @@ polling behavior outside the exact application-owned htmx 4.0.0 interaction.
 Issue #154 remains open; extension-header access, the remaining request/API
 contract work, the final protocol matrix, merge, package publication, and
 release remain outside this slice.
+
+### PR review remediation: current-URL route equality and hashing
+
+Copilot's Standards review of PR #164 identified that `HtmxRouteAttribute`
+equality and hashing compared `CurrentUrl` as an ordinal string while runtime
+matching treated absolute HTTP(S) scheme and host case-insensitively, used the
+effective port, and ignored fragments. That mismatch could leave equivalent
+route attributes in `ComponentInfo.HxRoutes` and create ambiguous candidates.
+
+The focused regression was recorded before the remediation at the same exact
+base-derived executable tree. The new equality/hash test failed 1 of 1 with
+the expected mismatch between `HTTPS://LOCALHOST/foo#first` and
+`https://localhost:443/foo#second`; the retained TRX is
+`artifacts/results/issue-154-copilot-red/issue-154-copilot-red.trx`. The
+socket-permission abort from the unprivileged first attempt was not treated as
+behavioral red evidence.
+
+`HtmxCurrentUrlMatcher` now shares its scheme/host/effective-port,
+user-information, path, and query equivalence plus fragment exclusion with
+`HtmxRouteAttribute` equality and hashing. Relative and invalid declarations
+remain ordinal values because their equivalence depends on the request URL or
+they cannot satisfy runtime matching. The focused request/route matrix then
+passed 26 of 26 tests, including the regression; its retained TRX is
+`artifacts/results/issue-154-copilot-green/issue-154-copilot-green.trx`.
