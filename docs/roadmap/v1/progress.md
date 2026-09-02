@@ -190,14 +190,20 @@ Last updated: 2026-09-01
   boundary proves exact retained-body post-swap dispatch. Missing or JSON-null
   details use `{}` so exact htmx 4.0.0 dispatches them; the removed htmx 2
   timing surface stays removed.
+- Issue #154 additionally proves the bounded application-owned extension-header
+  seam: one exact ASCII-safe opaque value can cross the public request/response
+  boundary while all 16 core names, internal `HXOR-*` ownership, malformed
+  names, unsafe values, and size-limit violations remain protected. The value
+  has no routing, method, action, authorization, antiforgery, cache, or general
+  HTTP authority.
 - Issue #145 additionally proves generated no-argument registration for root and one standard route-group mapping, with all maintained samples consuming the generator as an analyzer and no destination-registration compatibility overload.
-- Current implementation slices: the first bounded part of issue #154 classifies
-  `HX-Request` once by value for request routing and the covered response
-  operations; the second consolidates navigation response validation, header
-  replacement, and render-local body effects; the third finalizes open swap and
-  selection response values; the fourth finalizes trigger merging and
-  serialization; the fifth removes the obsolete status-286 polling API and
-  proves native htmx 4 terminal replacement. Issues #151 and #154 remain open.
+- Current implementation slices: issue #154's eight bounded parts classify the
+  seven request headers, consolidate navigation response validation and
+  render-local body effects, finalize open swap/selection values, finalize
+  trigger merging/serialization, remove the obsolete status-286 polling API,
+  and add the bounded extension-header exchange; the final audit records the
+  complete 7+9 field inventory and public boundary. Issues #151 and #154
+  remain open pending their separate closure decisions.
 
 ## Proven v1 behavior
 
@@ -2932,20 +2938,124 @@ The repository full profile passed 504 of 504 tests: 118 quality, 45 ASP.NET
 Core 10, and 341 core tests, with Release/analyzer/style gates passing. The
 same four NU1900 vulnerability-service warnings remained environmental.
 
-### Issue #154: bounded extension-header seam (in progress)
+### Issue #154: final HTTP-context audit and closure recommendation
 
-Protected behavior: when an application-owned htmx extension exchanges a
-non-core `HX-*` field, component code can read or write one opaque value without
-access to Htmxor-owned fields, endpoint authority, security decisions, cache
-policy, or general HTTP headers.
+Protected behavior:
 
-This slice starts from refreshed `origin/main`
-`875ca01caea7bc3f3bdabd5d1266b6ddd7f8069f`. The focused red at that exact base
-executed 15 public-wire tests and failed because the two public operations were
-absent; it was not a compilation or setup failure. The current implementation
-keeps a deep HTTP-context module interface—`TryGetExtensionHeader` and
-`SetExtensionHeader`—while internalizing protected-name, field syntax,
-single-value, UTF-16, ASCII header-safety, and 4096 UTF-8-byte validation.
-Focused green currently passes 18 of 18 tests. Browser, separately packed
-extension execution, full profile, review, and final clean-head evidence remain
-required before this behavior is recorded as proved.
+> When published Htmxor v1 HTTP-context contract accounts for all seven core
+> htmx 4 request headers and all nine core response headers, exposes only the
+> intended beta interface, applies one documented trust and mutation policy,
+> and has exact current-head package and browser evidence for every behavior it
+> claims.
+
+The final audit starts from the clean `origin/main` executable head
+`f6c71fdfd5f22f17a02c2eb9b8ecf2e323514339` (`fix(test): use htmx 4 extension
+hook contract`). The exact htmx 4.0.0 tag resolves to source commit
+`4195bc0dc26b612ea5bea46f5914c6386eadeba3`; its official reference lists the
+same seven request and nine response headers documented in the
+[official htmx 4 reference](https://four.htmx.org/reference/) and the
+[v1 guide](../../htmxor-v1-feature-guide.md).
+
+Audit result:
+
+- `HtmxRequestHeaderNames` exposes exactly the seven core request names:
+  `HX-Request`, `HX-Request-Type`, `HX-Current-URL`, `HX-Source`, `HX-Target`,
+  `HX-Boosted`, and `HX-History-Restore-Request`. The request parser reads one
+  cached `HtmxContext`, uses the strict lowercase marker as the dependency gate,
+  rejects missing/repeated/malformed values as documented, preserves exact open
+  strings, and exposes `CurrentUrl` only as an untrusted absolute HTTP(S)
+  `Uri`.
+- `HtmxResponseHeaderNames` exposes exactly the nine core response names:
+  `HX-Trigger`, `HX-Location`, `HX-Redirect`, `HX-Refresh`, `HX-Retarget`,
+  `HX-Reswap`, `HX-Reselect`, `HX-Replace-Url`, and `HX-Push-Url`. Navigation
+  headers are mutually exclusive and last-call-wins; swap/selection headers
+  overwrite only themselves; trigger calls own one merged compact JSON object;
+  every guarded response operation leaves status unchanged, and body effects
+  remain the documented render-local navigation or explicit `EmptyBody`
+  choices.
+- Non-core `StatusCode(HttpStatusCode)` remains general HTTP control and
+  `EmptyBody()` remains independent body metadata control. `SetExtensionHeader`
+  and `TryGetExtensionHeader` exchange one bounded opaque application-owned
+  field, while general `HttpContext` headers remain the escape hatch for
+  non-`HX-*` or intentionally multi-valued application protocol data.
+- The protected extension-name inventory is exactly the case-insensitive union
+  of those 16 core names and internal `HXOR-Event-Handler-Id`. `HXOR-*` names,
+  malformed field names, and names over 4096 UTF-8 bytes are rejected. Request
+  extension values are one exact ASCII header-safe value; response names and
+  values are validated before the strict marker guard, with the same 4096-byte
+  bound and no routing, method, action, authorization, antiforgery, cache, or
+  general-HTTP authority.
+- The packaged `lib/net10.0/Htmxor.dll` public reflection surface contains the
+  intended HTTP types and members only: `HtmxContext`, `HtmxRequest`,
+  `HtmxRequestHeaderNames`, `HtmxRequestType`, `HtmxResponse`,
+  `HtmxResponseHeaderNames`, and `RoutingMode`, with exactly seven public
+  request constants, nine public response constants, and the documented
+  request/response operations. `EventHandlerId` is internal. The package has
+  no `CurrentURL` aliases, `HtmxStatusCodes`, `StopPolling`, `SwapStyle`,
+  `LocationTarget`, `AjaxContext`, `TriggerTiming`, or timed trigger constants;
+  it contains no htmx runtime, legacy extension, or build-only dependency.
+
+The documentation correction in this slice changes the stale response-header
+source link from an htmx 1-era repository commit to the exact htmx 4.0.0 source
+and adds one concise public 7+9 reference table. No production behavior change
+was required by the audit.
+
+Evidence at the exact clean executable head above:
+
+- Focused HTTP/route characterization:
+  ```text
+  dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxRequestTests|FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxorComponentEndpointMatcherPolicyTest|FullyQualifiedName~HtmxExtensionHeaderTests|FullyQualifiedName~HtmxRouteAttributeTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-final-audit-focused.trx" --results-directory artifacts/results/issue-154-final-audit-focused --verbosity minimal -m:1
+  ```
+  passed 148/148; its retained TRX is
+  `artifacts/results/issue-154-final-audit-focused/issue-154-final-audit-focused.trx`.
+- Separately packed package consumers passed one outer test each. The standard
+  consumer parsed and passed 64/64 inner TestServer cases, and the actionless
+  unsafe-route consumer parsed and passed 67/67 inner cases. Their retained
+  TRX files are `artifacts/results/issue-154-final-audit-packed/
+  issue-154-final-audit-packed.trx` and
+  `artifacts/results/issue-154-final-audit-packed-actionless/
+  issue-154-final-audit-packed-actionless.trx`.
+- Separately packed `net10.0` Production/Kestrel/Chromium proof passed one
+  outer test and 36/36 inner browser cases, including the application-owned
+  htmx 4.0.0 extension hook round-trip for `HX-PTag`. The fixture used
+  Microsoft.Playwright 1.62.0, cached Chromium revision 1234 / Chrome for
+  Testing 151.0.7922.34, and the exact htmx asset SHA-256
+  `E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
+  Its retained outer TRX is
+  `artifacts/results/issue-154-final-audit-browser/issue-154-final-audit-browser.trx`.
+- The repository-owned `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj
+  -- check --profile fast` passed 117 quality, 45 ASP.NET Core 10 hosted, and
+  359 non-E2E Htmxor tests: 521/521 total, 0 failed, 0 skipped, 0 errors, and
+  0 timeouts. The same `full` command passed 118 quality, 45 hosted, and 361
+  complete Htmxor tests: 524/524 total, with the same zero failure/skip/error/
+  timeout counts. Both profiles passed analyzer/style error gates and Release
+  build compilation with 0 warnings and 0 errors.
+- Full coverage retained two fresh nonempty byte-identical Cobertura copies with
+  SHA-256
+  `1eb580cd45d006dc6b86eb62173aec2d46bd006fc1e2ea08af07f2562fe992f7` at
+  `artifacts/results/full/htmxor/d64cd6fa-ee79-4220-b472-18c7f654e7d3/
+  coverage.cobertura.xml` and
+  `artifacts/results/full/htmxor/_eagle1-wsl_2026-09-02_18_29_19/In/eagle1-wsl/
+  coverage.cobertura.xml`. This is coverage characterization, not a score
+  acceptance claim.
+- The packed audit artifact was
+  `artifacts/issue154-final-audit-package/Htmxor.1.0.0-issue154-final-audit.nupkg`,
+  built from the same executable head. It contains only `net10.0` runtime assets,
+  the analyzer, the Htmxor static asset, and the ASP.NET Core framework
+  reference; no htmx runtime is transitive or embedded.
+
+The first unprivileged VSTest attempts aborted before discovery with local
+`SocketException (13): Permission denied`; they are setup evidence, not red
+test evidence. Repeating the identical test and quality commands with local
+socket access produced the passing counts above. The environment was .NET SDK
+10.0.400 / ASP.NET Core 10.0.11 on Ubuntu 26.04.1 under WSL2.
+
+This evidence does not exercise fresh browser/SDK/NuGet-audit provisioning,
+TLS, Windows, macOS, Firefox, WebKit, a signed or published package,
+self-contained or trimmed deployment, .NET 11, another framework or htmx
+version, proxies, containers, external services, concurrent clients, or
+full-scope mutation. It does not establish general status-286 semantics or
+polling behavior outside the exact application-owned htmx 4.0.0 interaction.
+Separate Standards and Spec/DX reviews, PR CI, and automatic Copilot review
+remain required before this record is final. Issue #154 remains open; after
+the documentation PR is reviewed and merged, closing #154 is recommended.

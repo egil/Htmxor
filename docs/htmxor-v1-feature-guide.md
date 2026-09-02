@@ -1,8 +1,8 @@
 # Htmxor v1 guide and htmx 4 map
 
-Status: design draft for the planned Htmxor v1 API. The registration names,
-client-helper decision, navigation-response contract, and trigger-response
-contract below are current; other proposed APIs remain labeled as proposals.
+Status: the bounded v1 HTTP-context contract below is current for htmx 4.0.0.
+The registration names and client-helper decision are current; other proposed
+APIs remain labeled as proposals.
 
 The [v1 goal](roadmap/v1/goal.md) is the authority when this guide and the
 current code differ. The [v1 progress record](roadmap/v1/progress.md) says which
@@ -15,6 +15,8 @@ adapter. It does not bundle htmx. Use the
 [official htmx 4 documentation](https://four.htmx.org/docs/),
 [reference](https://four.htmx.org/reference/), and
 [extension catalog](https://four.htmx.org/extensions/) for client semantics.
+The exact source used for the recorded browser evidence is the
+[htmx 4.0.0 source](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js).
 
 Htmxor has a narrow job: let a static-SSR component answer htmx requests without
 forcing the application to build a second endpoint or rendering layer.
@@ -396,10 +398,11 @@ the HTTP request URL. A missing or invalid client URL cannot satisfy a filter.
 ### Response operations
 
 The response API covers the core htmx 4 response headers plus HTTP status and
-body control. The first five bounded
+body control. The bounded
 [#154](https://github.com/egil/Htmxor/issues/154) slices make strict request
 classification, navigation, swap/selection overrides, trigger serialization,
-and native polling replacement current contracts. The navigation operations are:
+native polling replacement, and extension-header exchange current contracts.
+The navigation operations are:
 
 | Operation | Wire result | Component output | Use |
 | --- | --- | --- | --- |
@@ -554,9 +557,9 @@ defines the trigger serialization and merge contract above. The fifth bounded
 #154 slice removes the obsolete `StopPolling` and `HtmxStatusCodes` surface.
 For htmx 4 polling, return replacement markup without polling attributes; the
 general `StatusCode(HttpStatusCode)` operation remains available and does not
-give numeric 286 special polling meaning. Remaining request parsing and
-naming, extension headers, and the complete protocol matrix remain later #154
-work.
+give numeric 286 special polling meaning. The final #154 audit records the
+request/response header inventory, public surface, trust policy, and evidence
+boundaries in the progress record.
 
 ## Htmx 4 attribute reference
 
@@ -916,35 +919,41 @@ decision does not claim `ReplaceHistoryEntry` parity in browser history.
 
 ## Htmx HTTP headers
 
-### Request headers
+### Core request and response headers
 
-| Header | Htmxor handling |
-| --- | --- |
-| `HX-Request` | Recognize exactly one value that equals lowercase `true` after trimming surrounding HTTP spaces or tabs; otherwise ignore dependent htmx context. |
-| `HX-Request-Type` | Recognize one normalized lowercase `full` or `partial`; only `partial` selects direct routing. |
-| `HX-Boosted` | Recognize one normalized lowercase `true`; all other shapes are false. |
-| `HX-Current-URL` | Expose one well-formed absolute HTTP(S) value as an untrusted `Uri`, preserving `OriginalString`; other shapes are null. |
-| `HX-Source` | Expose one exact nonblank open value after trimming only HTTP optional whitespace; repeated, control-containing, or ill-formed values are null. |
-| `HX-Target` | Expose one exact nonblank open value after trimming only HTTP optional whitespace; repeated, control-containing, or ill-formed values are null. |
-| `HX-History-Restore-Request` | Recognize one normalized lowercase `true`; the valid marker remains the prerequisite for exposing it. |
+This is the public 7+9 contract. The names and ordering follow the official
+htmx 4 reference; Htmxor exposes the server-side member or operation shown in
+the second column.
+
+| Direction and header | Public surface | Wire and validation contract | Effect, ownership, and trust |
+| --- | --- | --- | --- |
+| Request `HX-Request` | `Request.IsHtmxRequest` | Exactly one lowercase `true` after trimming surrounding space or tab; missing, repeated, malformed, or other values are false. | Shared htmx prerequisite for dependent request fields, direct routing, and guarded response operations; untrusted marker, never authorization. |
+| Request `HX-Request-Type` | `Request.RequestType` | One normalized `full` or `partial`; otherwise null. | Only `partial` selects direct component output; the value is an untrusted representation hint. |
+| Request `HX-Current-URL` | `Request.CurrentUrl` | One well-formed absolute HTTP(S) value as a `Uri`, preserving `OriginalString`; missing, repeated, or invalid values are null. | Optional current-location route-filter hint; untrusted and never route, method, action, or security authority. |
+| Request `HX-Source` | `Request.Source` | One exact nonblank open value after trimming only surrounding space or tab; repeated, blank, control-containing, or ill-formed values are null. | Source identity hint, normally `tag#id` or tag-only; untrusted. |
+| Request `HX-Target` | `Request.Target` | One exact nonblank open value with the same validation as `Source`. | Target identity hint; it does not select or authorize a server action. |
+| Request `HX-Boosted` | `Request.IsBoosted` | Exactly one normalized lowercase `true`; all other values are false. | Optional boosted-navigation hint; untrusted. |
+| Request `HX-History-Restore-Request` | `Request.IsHistoryRestoreRequest` | Exactly one normalized lowercase `true`; dependent on the valid htmx marker. | Optional history-restore hint; untrusted. |
+| Response `HX-Trigger` | `Response.Trigger(...)` | Event names are exact, case-sensitive, well-formed UTF-16 JSON names; details use the application or per-call JSON options and final compact header-safe encoding. | First successful call replaces a manual header; later calls merge in call order and replace duplicate detail at its first position. Status and body behavior are unchanged. |
+| Response `HX-Location` | `Response.Location(string/Uri)` | URI reference is validated before the strict marker guard; relative destinations resolve same-origin HTTP(S), and emitted text is exact. | Last successful navigation header wins; component output is suppressed and status is unchanged. |
+| Response `HX-Redirect` | `Response.Redirect(string/Uri)` | URI reference is validated before the marker guard; cross-origin HTTP(S) is permitted, non-HTTP(S) is rejected, and emitted text is exact. | Last successful navigation header wins; component output is suppressed and status is unchanged. |
+| Response `HX-Refresh` | `Response.Refresh()` | Emits `true` after the strict marker guard. | Last successful navigation header wins; component output is suppressed and status is unchanged. |
+| Response `HX-Retarget` | `Response.Retarget(string)` | Complete nonblank open value; no surrounding whitespace or controls; validation precedes the marker guard. | Replaces only `HX-Retarget`; it can coexist with swap/selection headers and leaves status/body behavior unchanged. |
+| Response `HX-Reswap` | `Response.Reswap(string)` | Complete nonblank open value; no surrounding whitespace or controls; validation precedes the marker guard. | Replaces only `HX-Reswap`; it can coexist with retarget/selection headers and leaves status/body behavior unchanged. |
+| Response `HX-Reselect` | `Response.Reselect(string)` | Complete nonblank open value; no surrounding whitespace or controls; validation precedes the marker guard. | Replaces only `HX-Reselect`; it can coexist with retarget/swap headers and leaves status/body behavior unchanged. |
+| Response `HX-Replace-Url` | `Response.ReplaceUrl(string/Uri)` or `PreventBrowserCurrentUrlUpdate()` | URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
+| Response `HX-Push-Url` | `Response.PushUrl(string/Uri)` or `PreventBrowserHistoryUpdate()` | URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
+
+All response operations require exactly one normalized lowercase `HX-Request:
+true`; invalid input is validated before that guard and changes no response
+state. The five navigation headers are mutually exclusive and last-call-wins;
+swap and selection headers are independent; trigger calls merge only Htmxor-owned
+events. `StatusCode`, `EmptyBody`, `SetExtensionHeader`, and general
+`HttpContext` headers are deliberately non-core operations documented above.
 
 Extensions can add headers such as `HX-Prompt` or `HX-PTag`; application headers
 can be added with `hx-headers`. Htmxor needs a bounded extension mechanism but
 must not elevate any of them to authentication or authorization evidence.
-
-### Response headers
-
-| Header | Htmxor operation |
-| --- | --- |
-| `HX-Location` | `HtmxResponse.Location(string/Uri)` |
-| `HX-Push-Url` | `PushUrl(string/Uri)` or `PreventBrowserHistoryUpdate()` |
-| `HX-Redirect` | `Redirect(string/Uri)` |
-| `HX-Refresh` | `Refresh()` |
-| `HX-Replace-Url` | `ReplaceUrl(string/Uri)` or `PreventBrowserCurrentUrlUpdate()` |
-| `HX-Reswap` | `Reswap(string)` |
-| `HX-Retarget` | `Retarget(string)` |
-| `HX-Reselect` | `Reselect(string)` |
-| `HX-Trigger` | `Trigger(...)` |
 
 Use the static-SSR `HttpContext` for application headers, cookies, status codes,
 and cache headers before the response starts. Htmxor does not need wrappers for
