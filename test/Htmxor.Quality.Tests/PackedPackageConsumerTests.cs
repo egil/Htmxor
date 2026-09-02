@@ -1,4 +1,6 @@
 using System.IO.Compression;
+using System.Reflection;
+using System.Text;
 using System.Xml.Linq;
 using Htmxor.Quality;
 
@@ -31,7 +33,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(64, 64, 64, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(87, 87, 87, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -49,8 +51,29 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(67, 67, 67, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(90, 90, 90, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+	}
+
+	[Fact]
+	public async Task Package_only_public_surface_matches_retained_allow_list()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		await workspace.PackOnlyAsync();
+
+		var allowListPath = Path.Combine(
+			RepositoryLocator.Find(),
+			"docs",
+			"roadmap",
+			"v1",
+			"issue-154-package-public-surface.txt");
+		var allowList = File.ReadAllText(allowListPath);
+		var marker = allowList.IndexOf("ASSEMBLY ", StringComparison.Ordinal);
+		Assert.True(marker >= 0, "The retained package surface must contain an assembly marker.");
+
+		Assert.Equal(
+			allowList[marker..].Trim(),
+			PackagePublicSurface.Format(workspace.PackagePath));
 	}
 
 	[Fact]
@@ -204,6 +227,8 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 
 		return await TestAsync();
 	}
+
+	public Task<ProcessResult> PackOnlyAsync() => PackAsync("1.0.0");
 
 	public async Task<ProcessResult> BuildForDiagnosticAsync()
 	{
@@ -462,7 +487,9 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 		</configuration>
 		""";
 
-	private Task<ProcessResult> PackAsync() =>
+	private Task<ProcessResult> PackAsync() => PackAsync(PackageVersion);
+
+	private Task<ProcessResult> PackAsync(string packageVersion) =>
 		RunRequiredAsync(
 			"pack",
 			Path.Combine(repositoryRoot, "src", "Htmxor", "Htmxor.csproj"),
@@ -471,7 +498,7 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 			"--no-restore",
 			"--output",
 			packageDirectory,
-			$"-p:MinVerVersionOverride={PackageVersion}");
+			$"-p:MinVerVersionOverride={packageVersion}");
 
 	private Task<ProcessResult> RestoreAsync() =>
 		RunRequiredAsync(
@@ -543,6 +570,34 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 	}
 
 	public void Dispose() => temporaryDirectory.Dispose();
+}
+
+internal static class PackagePublicSurface
+{
+	public static string Format(string packagePath)
+	{
+		using var package = ZipFile.OpenRead(packagePath);
+		using var entry = Assert.Single(package.Entries, entry => entry.FullName == "lib/net10.0/Htmxor.dll").Open();
+		using var assemblyStream = new MemoryStream();
+		entry.CopyTo(assemblyStream);
+		var assembly = Assembly.Load(assemblyStream.ToArray());
+		var output = new StringBuilder();
+		output.AppendLine($"ASSEMBLY {assembly.GetName().Name} {assembly.GetName().Version}");
+
+		foreach (var type in assembly.GetExportedTypes().OrderBy(type => type.FullName, StringComparer.Ordinal))
+		{
+			output.AppendLine($"TYPE {type.FullName}");
+			foreach (var member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+				.Where(member => member.MemberType is MemberTypes.Constructor or MemberTypes.Event or MemberTypes.Field or MemberTypes.Method or MemberTypes.NestedType or MemberTypes.Property)
+				.OrderBy(member => member.MemberType)
+				.ThenBy(member => member.Name, StringComparer.Ordinal))
+			{
+				output.AppendLine($"  {member.MemberType} {member}");
+			}
+		}
+
+		return output.ToString().TrimEnd();
+	}
 }
 
 internal static class PackageConsumerEvidence

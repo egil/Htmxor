@@ -134,6 +134,9 @@ internal static class HtmxRequestHeaderParser
 
 		return true;
 	}
+
+	internal static bool IsAsciiHeaderSafe(string value)
+		=> value.All(static character => !char.IsControl(character) && character <= '\u007e');
 }
 
 internal readonly record struct HtmxRequestHeaderValues(

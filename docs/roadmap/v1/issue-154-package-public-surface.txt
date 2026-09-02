@@ -3,9 +3,9 @@ Issue #154 package public-surface allow-list
 Package: artifacts/issue154-final-audit-package/Htmxor.1.0.0-issue154-final-audit.nupkg
 Assembly: lib/net10.0/Htmxor.dll
 Inspection command:
-  dotnet run --project /tmp/htmxor-public-surface/Reflection.csproj --no-restore -- /tmp/htmxor-public-surface/package/lib/net10.0/Htmxor.dll
+  dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_public_surface_matches_retained_allow_list" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-public-surface.trx" --results-directory artifacts/results/issue-154-public-surface --verbosity minimal
 
-The command lists every exported public Htmxor type and its declared public
+The repository-owned test command lists every exported public Htmxor type and its declared public
 constructors, events, fields, methods, nested types, and properties. Inherited
 members are not repeated. The package contains the following complete
 allow-list at the audited package head:

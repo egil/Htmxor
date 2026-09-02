@@ -41,12 +41,7 @@ internal static class HtmxNavigationDestinationValidator
 			throw new ArgumentException("The destination cannot have surrounding whitespace.", argumentName);
 		}
 
-		if (destination.Any(char.IsControl))
-		{
-			throw new ArgumentException("The destination cannot contain control characters.", argumentName);
-		}
-
-		if (destination.Any(static character => character > '\u007e'))
+		if (!HtmxRequestHeaderParser.IsAsciiHeaderSafe(destination))
 		{
 			throw new ArgumentException(
 				"The destination must contain only ASCII HTTP header characters.",

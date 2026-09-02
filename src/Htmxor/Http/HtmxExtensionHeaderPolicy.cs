@@ -83,7 +83,7 @@ internal static class HtmxExtensionHeaderPolicy
 
 	private static bool IsValidValue(string value)
 		=> HtmxRequestHeaderParser.IsWellFormedUtf16(value) &&
-			value.All(character => !char.IsControl(character) && character <= 0x7e) &&
+			HtmxRequestHeaderParser.IsAsciiHeaderSafe(value) &&
 			GetEncodedByteCount(value) <= MaximumEncodedBytes;
 
 	private static int GetEncodedByteCount(string value) => Encoding.UTF8.GetByteCount(value);
