@@ -76,23 +76,29 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		yield return new object[] { "request-type-missing", HtmxRequestHeaderNames.RequestType, null!, "null", "Standard", "true", "true", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "request-type-false", HtmxRequestHeaderNames.RequestType, new[] { "false" }, "null", "Standard", "true", "true", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "request-type-malformed", HtmxRequestHeaderNames.RequestType, new[] { "whole" }, "null", "Standard", "true", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "request-type-repeated", HtmxRequestHeaderNames.RequestType, new[] { "partial", "partial" }, "null", "Standard", "true", "true", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "request-type-contradictory", HtmxRequestHeaderNames.RequestType, new[] { "partial", "full" }, "null", "Standard", "true", "true", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "boosted-missing", HtmxRequestHeaderNames.Boosted, null!, "partial", "Direct", "false", "true", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "boosted-false", HtmxRequestHeaderNames.Boosted, new[] { "false" }, "partial", "Direct", "false", "true", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "boosted-malformed", HtmxRequestHeaderNames.Boosted, new[] { "TRUE" }, "partial", "Direct", "false", "true", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "boosted-repeated", HtmxRequestHeaderNames.Boosted, new[] { "true", "true" }, "partial", "Direct", "false", "true", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "boosted-contradictory", HtmxRequestHeaderNames.Boosted, new[] { "true", "false" }, "partial", "Direct", "false", "true", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "history-missing", HtmxRequestHeaderNames.HistoryRestoreRequest, null!, "partial", "Direct", "true", "false", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "history-false", HtmxRequestHeaderNames.HistoryRestoreRequest, new[] { "false" }, "partial", "Direct", "true", "false", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "history-malformed", HtmxRequestHeaderNames.HistoryRestoreRequest, new[] { "TRUE" }, "partial", "Direct", "true", "false", "https://example.test/orders", "button#submit", "section#result" };
+		yield return new object[] { "history-repeated", HtmxRequestHeaderNames.HistoryRestoreRequest, new[] { "true", "true" }, "partial", "Direct", "true", "false", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "history-contradictory", HtmxRequestHeaderNames.HistoryRestoreRequest, new[] { "true", "false" }, "partial", "Direct", "true", "false", "https://example.test/orders", "button#submit", "section#result" };
 		yield return new object[] { "current-url-missing", HtmxRequestHeaderNames.CurrentUrl, null!, "partial", "Direct", "true", "true", "null", "button#submit", "section#result" };
 		yield return new object[] { "current-url-malformed", HtmxRequestHeaderNames.CurrentUrl, new[] { "ftp://example.test/orders" }, "partial", "Direct", "true", "true", "null", "button#submit", "section#result" };
+		yield return new object[] { "current-url-repeated", HtmxRequestHeaderNames.CurrentUrl, new[] { "https://example.test/orders", "https://example.test/orders" }, "partial", "Direct", "true", "true", "null", "button#submit", "section#result" };
 		yield return new object[] { "current-url-contradictory", HtmxRequestHeaderNames.CurrentUrl, new[] { "https://example.test/orders", "https://example.test/other" }, "partial", "Direct", "true", "true", "null", "button#submit", "section#result" };
 		yield return new object[] { "source-missing", HtmxRequestHeaderNames.Source, null!, "partial", "Direct", "true", "true", "https://example.test/orders", "null", "section#result" };
 		yield return new object[] { "source-malformed", HtmxRequestHeaderNames.Source, new[] { " " }, "partial", "Direct", "true", "true", "https://example.test/orders", "null", "section#result" };
+		yield return new object[] { "source-repeated", HtmxRequestHeaderNames.Source, new[] { "button#submit", "button#submit" }, "partial", "Direct", "true", "true", "https://example.test/orders", "null", "section#result" };
 		yield return new object[] { "source-contradictory", HtmxRequestHeaderNames.Source, new[] { "button#submit", "button#other" }, "partial", "Direct", "true", "true", "https://example.test/orders", "null", "section#result" };
 		yield return new object[] { "target-missing", HtmxRequestHeaderNames.Target, null!, "partial", "Direct", "true", "true", "https://example.test/orders", "button#submit", "null" };
 		yield return new object[] { "target-malformed", HtmxRequestHeaderNames.Target, new[] { " " }, "partial", "Direct", "true", "true", "https://example.test/orders", "button#submit", "null" };
+		yield return new object[] { "target-repeated", HtmxRequestHeaderNames.Target, new[] { "section#result", "section#result" }, "partial", "Direct", "true", "true", "https://example.test/orders", "button#submit", "null" };
 		yield return new object[] { "target-contradictory", HtmxRequestHeaderNames.Target, new[] { "section#result", "div#other" }, "partial", "Direct", "true", "true", "https://example.test/orders", "button#submit", "null" };
 	}
 
