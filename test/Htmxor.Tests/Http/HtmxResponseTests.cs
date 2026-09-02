@@ -281,6 +281,7 @@ public class HtmxResponseTests : BunitContext
 	[InlineData(" /orders/42")]
 	[InlineData("/orders/42 ")]
 	[InlineData("/orders/\n42")]
+	[InlineData("https://app.example/caf\u00e9")]
 	[InlineData("http://[::1")]
 	public void Invalid_navigation_destinations_are_rejected_before_the_marker_guard_without_mutation(
 		string? destination)

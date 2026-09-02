@@ -15,8 +15,11 @@ adapter. It does not bundle htmx. Use the
 [official htmx 4 documentation](https://four.htmx.org/docs/),
 [reference](https://four.htmx.org/reference/), and
 [extension catalog](https://four.htmx.org/extensions/) for client semantics.
-The exact source used for the recorded browser evidence is the
-[htmx 4.0.0 source](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js).
+The [htmx 4.0.0 source](https://github.com/bigskysoftware/htmx/blob/v4.0.0/src/htmx.js)
+is the semantic reference for this map. The browser evidence executes the
+application-owned `htmx.org@4.0.0` npm distribution; its exact tarball, file,
+and SHA-256 are recorded in the maintained
+[browser-fixture provenance](../test/Htmxor.Quality.Tests/Htmx4PackageBrowser/HTMX-PROVENANCE.md).
 
 Htmxor has a narrow job: let a static-SSR component answer htmx requests without
 forcing the application to build a second endpoint or rendering layer.
@@ -406,22 +409,24 @@ The navigation operations are:
 
 | Operation | Wire result | Component output | Use |
 | --- | --- | --- | --- |
-| `Location(string/Uri)` | `HX-Location: <uri-reference>` | Suppressed | Make a new htmx request without a full page reload |
-| `PushUrl(string/Uri)` | `HX-Push-Url: <uri-reference>` | Kept | Push a history entry and process the returned component output normally |
+| `Location(string/Uri)` | `HX-Location: <ASCII-safe uri-reference>` | Suppressed | Make a new htmx request without a full page reload |
+| `PushUrl(string/Uri)` | `HX-Push-Url: <ASCII-safe uri-reference>` | Kept | Push a history entry and process the returned component output normally |
 | `PreventBrowserHistoryUpdate()` | `HX-Push-Url: false` | Kept | Prevent a history push while processing the returned component output |
-| `Redirect(string/Uri)` | `HX-Redirect: <uri-reference>` | Suppressed | Perform a full browser navigation |
+| `Redirect(string/Uri)` | `HX-Redirect: <ASCII-safe uri-reference>` | Suppressed | Perform a full browser navigation |
 | `Refresh()` | `HX-Refresh: true` | Suppressed | Refresh the current page |
-| `ReplaceUrl(string/Uri)` | `HX-Replace-Url: <uri-reference>` | Kept | Replace the current history entry and process the returned component output normally |
+| `ReplaceUrl(string/Uri)` | `HX-Replace-Url: <ASCII-safe uri-reference>` | Kept | Replace the current history entry and process the returned component output normally |
 | `PreventBrowserCurrentUrlUpdate()` | `HX-Replace-Url: false` | Kept | Prevent current-URL replacement while processing the returned component output |
 
 Each destination overload rejects null, blank, surrounding whitespace, control
-characters, and malformed URI references; it does not trim or repair the input.
+characters, non-ASCII characters, and malformed URI references; it does not
+trim or repair the input. Accepted destinations are ASCII HTTP-header-safe
+text.
 `PushUrl` and `ReplaceUrl` also reject the reserved history literals `true` and
 `false`. A string is emitted exactly as supplied. A `Uri` is emitted through
 `Uri.OriginalString`, preserving the caller's URI text rather than a normalized
 `ToString()` value.
 
-Every destination permits relative URI references. After resolution against the
+Every valid destination may be a relative URI reference. After resolution against the
 active request, `Location`, `PushUrl`, and `ReplaceUrl` must use HTTP or HTTPS
 with the same scheme, host, and effective port as that request. `Redirect`
 deliberately permits a destination that resolves to cross-origin HTTP or HTTPS.
@@ -935,14 +940,14 @@ the second column.
 | Request `HX-Boosted` | `Request.IsBoosted` | Exactly one normalized lowercase `true`; all other values are false. | Optional boosted-navigation hint; untrusted. |
 | Request `HX-History-Restore-Request` | `Request.IsHistoryRestoreRequest` | Exactly one normalized lowercase `true`; dependent on the valid htmx marker. | Optional history-restore hint; untrusted. |
 | Response `HX-Trigger` | `Response.Trigger(...)` | Event names are exact, case-sensitive, well-formed UTF-16 JSON names; details use the application or per-call JSON options and final compact header-safe encoding. | First successful call replaces a manual header; later calls merge in call order and replace duplicate detail at its first position. Status and body behavior are unchanged. |
-| Response `HX-Location` | `Response.Location(string/Uri)` | URI reference is validated before the strict marker guard; relative destinations resolve same-origin HTTP(S), and emitted text is exact. | Last successful navigation header wins; component output is suppressed and status is unchanged. |
-| Response `HX-Redirect` | `Response.Redirect(string/Uri)` | URI reference is validated before the marker guard; cross-origin HTTP(S) is permitted, non-HTTP(S) is rejected, and emitted text is exact. | Last successful navigation header wins; component output is suppressed and status is unchanged. |
+| Response `HX-Location` | `Response.Location(string/Uri)` | ASCII-safe URI reference is validated before the strict marker guard; relative destinations resolve same-origin HTTP(S), and emitted text is exact. | Last successful navigation header wins; component output is suppressed and status is unchanged. |
+| Response `HX-Redirect` | `Response.Redirect(string/Uri)` | ASCII-safe URI reference is validated before the marker guard; cross-origin HTTP(S) is permitted, non-HTTP(S) is rejected, and emitted text is exact. | Last successful navigation header wins; component output is suppressed and status is unchanged. |
 | Response `HX-Refresh` | `Response.Refresh()` | Emits `true` after the strict marker guard. | Last successful navigation header wins; component output is suppressed and status is unchanged. |
 | Response `HX-Retarget` | `Response.Retarget(string)` | Complete nonblank open value; no surrounding whitespace or controls; validation precedes the marker guard. | Replaces only `HX-Retarget`; it can coexist with swap/selection headers and leaves status/body behavior unchanged. |
 | Response `HX-Reswap` | `Response.Reswap(string)` | Complete nonblank open value; no surrounding whitespace or controls; validation precedes the marker guard. | Replaces only `HX-Reswap`; it can coexist with retarget/selection headers and leaves status/body behavior unchanged. |
 | Response `HX-Reselect` | `Response.Reselect(string)` | Complete nonblank open value; no surrounding whitespace or controls; validation precedes the marker guard. | Replaces only `HX-Reselect`; it can coexist with retarget/swap headers and leaves status/body behavior unchanged. |
-| Response `HX-Replace-Url` | `Response.ReplaceUrl(string/Uri)` or `PreventBrowserCurrentUrlUpdate()` | URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
-| Response `HX-Push-Url` | `Response.PushUrl(string/Uri)` or `PreventBrowserHistoryUpdate()` | URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
+| Response `HX-Replace-Url` | `Response.ReplaceUrl(string/Uri)` or `PreventBrowserCurrentUrlUpdate()` | ASCII-safe URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
+| Response `HX-Push-Url` | `Response.PushUrl(string/Uri)` or `PreventBrowserHistoryUpdate()` | ASCII-safe URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
 
 All response operations require exactly one normalized lowercase `HX-Request:
 true`; invalid input is validated before that guard and changes no response
@@ -1195,11 +1200,14 @@ through.
 The current repository contains useful prototypes and evidence. The first two
 bounded #151 slices make the registration names current and remove the
 incomplete client trigger, swap, and constants helpers from the stable core. The
-first six bounded #154 slices add the strict request classifier and seven-header
-request contract, the navigation-response contract, the open swap/selection
-response contract, the trigger-response contract, and the native htmx 4 polling
-replacement proof above, including removal of the inaccurate structured
-location prototype and incomplete closed swap model. Other parts of
+bounded #154 slices add the strict request classifier and seven-header request
+contract, the navigation-response contract, the open swap/selection response
+contract, the trigger-response contract, the native htmx 4 polling replacement
+proof above, and the bounded extension-header exchange, including removal of the
+inaccurate structured location prototype and incomplete closed swap model. The
+final audit also seals the complete 7+9 inventory and rejects non-ASCII
+navigation destinations before they can reach an HTTP response header. Other
+parts of
 the public API do not yet match this guide:
 
 - direct method inference and diagnostics cover only a limited set of Razor

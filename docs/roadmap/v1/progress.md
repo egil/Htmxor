@@ -195,15 +195,18 @@ Last updated: 2026-09-01
   boundary while all 16 core names, internal `HXOR-*` ownership, malformed
   names, unsafe values, and size-limit violations remain protected. The value
   has no routing, method, action, authorization, antiforgery, cache, or general
-  HTTP authority.
+  HTTP authority in Htmxor's contract. The round-trip proof establishes opaque
+  transport only; it is not an adversarial proof of every surrounding security
+  policy's non-interference.
 - Issue #145 additionally proves generated no-argument registration for root and one standard route-group mapping, with all maintained samples consuming the generator as an analyzer and no destination-registration compatibility overload.
 - Current implementation slices: issue #154's eight bounded parts classify the
   seven request headers, consolidate navigation response validation and
   render-local body effects, finalize open swap/selection values, finalize
   trigger merging/serialization, remove the obsolete status-286 polling API,
   and add the bounded extension-header exchange; the final audit records the
-  complete 7+9 field inventory and public boundary. Issues #151 and #154
-  remain open pending their separate closure decisions.
+  complete 7+9 field inventory and public boundary, and the final navigation
+  correction rejects non-ASCII destinations before response-header mutation.
+  Issues #151 and #154 remain open pending their separate closure decisions.
 
 ## Proven v1 behavior
 
@@ -2968,11 +2971,12 @@ Audit result:
 - `HtmxResponseHeaderNames` exposes exactly the nine core response names:
   `HX-Trigger`, `HX-Location`, `HX-Redirect`, `HX-Refresh`, `HX-Retarget`,
   `HX-Reswap`, `HX-Reselect`, `HX-Replace-Url`, and `HX-Push-Url`. Navigation
-  headers are mutually exclusive and last-call-wins; swap/selection headers
-  overwrite only themselves; trigger calls own one merged compact JSON object;
-  every guarded response operation leaves status unchanged, and body effects
-  remain the documented render-local navigation or explicit `EmptyBody`
-  choices.
+  headers are mutually exclusive and last-call-wins; their destinations are
+  validated as ASCII HTTP-header-safe URI text before the marker guard and
+  response mutation. Swap/selection headers overwrite only themselves; trigger
+  calls own one merged compact JSON object; every guarded response operation
+  leaves status unchanged, and body effects remain the documented render-local
+  navigation or explicit `EmptyBody` choices.
 - Non-core `StatusCode(HttpStatusCode)` remains general HTTP control and
   `EmptyBody()` remains independent body metadata control. `SetExtensionHeader`
   and `TryGetExtensionHeader` exchange one bounded opaque application-owned
@@ -2983,22 +2987,40 @@ Audit result:
   malformed field names, and names over 4096 UTF-8 bytes are rejected. Request
   extension values are one exact ASCII header-safe value; response names and
   values are validated before the strict marker guard, with the same 4096-byte
-  bound and no routing, method, action, authorization, antiforgery, cache, or
-  general-HTTP authority.
-- The packaged `lib/net10.0/Htmxor.dll` public reflection surface contains the
-  intended HTTP types and members only: `HtmxContext`, `HtmxRequest`,
-  `HtmxRequestHeaderNames`, `HtmxRequestType`, `HtmxResponse`,
+  bound. This transport contract grants no routing, method, action,
+  authorization, antiforgery, cache, or general-HTTP authority; the round-trip
+  evidence is not an adversarial proof of every surrounding security policy's
+  non-interference.
+- Within `Htmxor.Http`, the packaged `lib/net10.0/Htmxor.dll` public reflection
+  surface contains the intended types and members only: `HtmxContext`,
+  `HtmxRequest`, `HtmxRequestHeaderNames`, `HtmxRequestType`, `HtmxResponse`,
   `HtmxResponseHeaderNames`, and `RoutingMode`, with exactly seven public
   request constants, nine public response constants, and the documented
-  request/response operations. `EventHandlerId` is internal. The package has
-  no `CurrentURL` aliases, `HtmxStatusCodes`, `StopPolling`, `SwapStyle`,
-  `LocationTarget`, `AjaxContext`, `TriggerTiming`, or timed trigger constants;
-  it contains no htmx runtime, legacy extension, or build-only dependency.
+  request/response operations. `EventHandlerId` is internal. The complete
+  assembly exported-type/member allow-list, including the public
+  `HttpContextExtensions` seam, is retained in
+  `issue-154-package-public-surface.txt`. The package has no `CurrentURL`
+  aliases, `HtmxStatusCodes`, `StopPolling`, `SwapStyle`, `LocationTarget`,
+  `AjaxContext`, `TriggerTiming`, or timed trigger constants; it contains no
+  htmx runtime, legacy extension, or build-only dependency.
 
-The documentation correction in this slice changes the stale response-header
-source link from an htmx 1-era repository commit to the exact htmx 4.0.0 source
-and adds one concise public 7+9 reference table. No production behavior change
-was required by the audit.
+This slice corrects the stale response-header source link from an htmx 1-era
+repository commit to the exact htmx 4.0.0 semantic source, distinguishes that
+reference from the npm asset executed by the browser proof, adds one concise
+public 7+9 reference table, and rejects non-ASCII navigation destinations before
+they can reach response-header mutation.
+
+Acceptance verdict against the live #154 checklist:
+
+- [x] A public contract table maps every member to all seven request and all nine response headers. The guide's 7+9 table maps each core header to its public member, wire contract, validation, effect, ownership, and trust boundary.
+- [x] Missing, repeated, malformed, false, and contradictory request values have wire-level tests and fail conservatively. The focused request matrix covers the raw header cases and the packed consumers exercise the resulting routing/representation boundary.
+- [x] `HX-Request-Type: full` and `partial`, boosted navigation, and history restoration select the documented representation. The focused request matrix and the packed Production/Kestrel/Chromium matrix cover these distinctions.
+- [x] `HX-Location`, redirect, refresh, push/replace URL, reswap, retarget, reselect, and trigger serialization have exact header tests. Focused response tests, packed TestServer consumers, and the browser fixture cover the listed operations.
+- [x] Every fluent mutator follows the same HTMX-only guard and argument policy, with body suppression documented and tested. Focused response tests cover validation-before-guard, fluent identity, state atomicity, navigation exclusivity, status, and body effects.
+- [x] Event detail JSON uses the application's configured serializer policy where intended and has deterministic merge/overwrite behavior. Focused trigger tests and the browser event proof cover configured details, compact encoding, merge order, and duplicate replacement.
+- [x] Extension headers can be read/written through a bounded API without a new Htmxor package release and without bypassing security metadata. The extension focused tests and application-owned browser extension round-trip cover the bounded seam; no release or security metadata bypass is introduced.
+- [x] General application headers remain a documented `HttpContext` concern. The guide documents `HttpContext` for non-core and intentionally multi-valued application headers, and the package surface retains only the narrow Htmxor context wrapper.
+- [x] htmx 4.0.0 browser evidence covers redirects, history, handled errors, triggered events, empty responses, and any selected configuration changes. The application-owned default-configuration Production/Kestrel/Chromium matrix covers those branches; no additional configuration change is claimed.
 
 Evidence at the exact clean executable head above:
 

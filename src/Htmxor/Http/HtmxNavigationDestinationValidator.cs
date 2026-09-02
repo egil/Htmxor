@@ -46,6 +46,13 @@ internal static class HtmxNavigationDestinationValidator
 			throw new ArgumentException("The destination cannot contain control characters.", argumentName);
 		}
 
+		if (destination.Any(static character => character > '\u007e'))
+		{
+			throw new ArgumentException(
+				"The destination must contain only ASCII HTTP header characters.",
+				argumentName);
+		}
+
 		var uriKind = destination.StartsWith("//", StringComparison.Ordinal)
 			? UriKind.Relative
 			: UriKind.RelativeOrAbsolute;
