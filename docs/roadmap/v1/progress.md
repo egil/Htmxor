@@ -2959,11 +2959,11 @@ same seven request and nine response headers documented in the
 [v1 guide](../../htmxor-v1-feature-guide.md).
 
 The corrected executable proof head is the clean
-`b5259861c771631a73eb99a33f2564df66fd2df3` (`fix(protocol): complete
-issue-154 audit evidence`). The implementation change is deliberately narrow:
-accepted navigation destinations must be ASCII HTTP-header-safe text, and the
-existing validation-before-marker ordering and no-mutation failure behavior are
-unchanged.
+`b403e692489cda08add84a00d6bc43f2cb683ad0` (`fix(protocol): close issue-154
+response header boundary`). The implementation change is deliberately narrow:
+accepted navigation and swap/selection response values must be ASCII
+HTTP-header-safe text, and the existing validation-before-marker ordering and
+no-mutation failure behavior are unchanged.
 
 Audit result:
 
@@ -2979,10 +2979,11 @@ Audit result:
   `HX-Reswap`, `HX-Reselect`, `HX-Replace-Url`, and `HX-Push-Url`. Navigation
   headers are mutually exclusive and last-call-wins; their destinations are
   validated as ASCII HTTP-header-safe URI text before the marker guard and
-  response mutation. Swap/selection headers overwrite only themselves; trigger
-  calls own one merged compact JSON object; every guarded response operation
-  leaves status unchanged, and body effects remain the documented render-local
-  navigation or explicit `EmptyBody` choices.
+  response mutation. Swap/selection headers validate their complete values with
+  the same ASCII HTTP-header-safe boundary before the marker guard and overwrite
+  only themselves; trigger calls own one merged compact JSON object; every
+  guarded response operation leaves status unchanged, and body effects remain
+  the documented render-local navigation or explicit `EmptyBody` choices.
 - The packed package consumer sends the seven core fields over `HttpClient` to
   TestServer: missing, false, malformed, repeated, and contradictory values are
   observed at the HTTP boundary and asserted against both component-visible
@@ -3017,20 +3018,20 @@ Audit result:
 This slice corrects the stale response-header source link from an htmx 1-era
 repository commit to the exact htmx 4.0.0 semantic source, distinguishes that
 reference from the npm asset executed by the browser proof, adds one concise
-public 7+9 reference table, and rejects non-ASCII navigation destinations before
-they can reach response-header mutation.
+public 7+9 reference table, and rejects non-ASCII navigation and swap/selection
+values before they can reach response-header mutation or Kestrel serialization.
 
 Acceptance verdict against the live #154 checklist:
 
 - [x] A public contract table maps every member to all seven request and all nine response headers. The guide's 7+9 table maps each core header to its public member, wire contract, validation, effect, ownership, and trust boundary.
-- [x] Missing, repeated, malformed, false, and contradictory request values have wire-level tests and fail conservatively. The packed `Invalid_core_request_headers_fail_closed_through_TestServer` matrix covers 21 raw request-header cases, while the marker theory covers invalid marker values and the focused parser matrix covers control and ill-formed input.
+- [x] Missing, repeated, malformed, false, and contradictory request values have wire-level tests and fail conservatively. The packed `Invalid_core_request_headers_fail_closed_through_TestServer` matrix covers 27 raw request-header cases, while the marker theory covers invalid marker values and the focused parser matrix covers control and ill-formed input.
 - [x] `HX-Request-Type: full` and `partial`, boosted navigation, and history restoration select the documented representation. The focused request matrix and the packed Production/Kestrel/Chromium matrix cover these distinctions.
 - [x] `HX-Location`, redirect, refresh, push/replace URL, reswap, retarget, reselect, and trigger serialization have exact header tests. Focused response tests, packed TestServer consumers, and the browser fixture cover the listed operations.
 - [x] Every fluent mutator follows the same HTMX-only guard and argument policy, with body suppression documented and tested. Focused response tests cover validation-before-guard, fluent identity, state atomicity, navigation exclusivity, status, and body effects.
 - [x] Event detail JSON uses the application's configured serializer policy where intended and has deterministic merge/overwrite behavior. Focused trigger tests and the browser event proof cover configured details, compact encoding, merge order, and duplicate replacement.
 - [x] Extension headers can be read/written through a bounded API without a new Htmxor package release and without bypassing security metadata. The extension focused tests and application-owned browser extension round-trip cover the bounded seam; the implementation adds no security-metadata bypass, while this transport evidence is not an adversarial proof of every surrounding security policy.
 - [x] General application headers remain a documented `HttpContext` concern. The guide documents `HttpContext` for non-core and intentionally multi-valued application headers, and the package surface retains only the narrow Htmxor context wrapper.
-- [x] htmx 4.0.0 browser evidence covers redirects, history, handled errors, triggered events, empty responses, and any selected configuration changes. The application-owned default-configuration Production/Kestrel/Chromium matrix covers redirects, history, the handled 422 error branch, configured events, and an explicit empty response whose default `innerHTML` swap clears target contents; no additional configuration change is claimed.
+- [x] htmx 4.0.0 browser evidence covers redirects, history, handled errors, triggered events, empty responses, and any selected configuration changes. The application-owned default-configuration Production/Kestrel/Chromium matrix covers redirects, history, the handled 422 error branch, configured events, an explicit empty response whose default `innerHTML` swap clears target contents, and non-ASCII response values rejected before Kestrel header serialization; no additional configuration change is claimed.
 
 Meaningful red before the implementation change:
 
@@ -3046,14 +3047,25 @@ Meaningful red before the implementation change:
   dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests.Invalid_navigation_destinations_are_rejected_before_the_marker_guard_without_mutation" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-unicode-red-accepted-uri.trx" --results-directory artifacts/results/issue-154-unicode-red-accepted-uri --verbosity minimal -m:1
   ```
 
+- At the pre-fix executable head `8ef200745bb0ed7b1b1fbeb7cde01ad048567bc1`,
+  with the pending regression test as the only relevant working-tree test
+  change, the focused swap/selection command failed 1 of 8 cases (7 passed)
+  for `café`: the Unicode value reached the marker guard instead of being
+  rejected as invalid header input. The retained red TRX is
+  `artifacts/results/issue-154-unicode-open-response-red/issue-154-unicode-open-response-red.trx`.
+
+  ```text
+  dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxResponseTests.Invalid_swap_and_selection_values_are_rejected_before_the_marker_guard_without_mutation" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-unicode-open-response-red.trx" --results-directory artifacts/results/issue-154-unicode-open-response-red --verbosity minimal -m:1
+  ```
+
 Evidence at the exact clean corrected executable head
-`b5259861c771631a73eb99a33f2564df66fd2df3`:
+`b403e692489cda08add84a00d6bc43f2cb683ad0`:
 
 - Focused HTTP/route characterization:
   ```text
   dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxRequestTests|FullyQualifiedName~HtmxResponseTests|FullyQualifiedName~HtmxorComponentEndpointMatcherPolicyTest|FullyQualifiedName~HtmxExtensionHeaderTests|FullyQualifiedName~HtmxRouteAttributeTests" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-final-audit-focused.trx" --results-directory artifacts/results/issue-154-final-audit-focused --verbosity minimal -m:1
   ```
-  passed 149/149; its retained TRX is
+  passed 150/150; its retained TRX is
   `artifacts/results/issue-154-final-audit-focused/issue-154-final-audit-focused.trx`.
 - Separately packed package consumers passed one outer test each. The exact
   standard-consumer command was:
@@ -3062,14 +3074,14 @@ Evidence at the exact clean corrected executable head
   dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-final-audit-packed.trx" --results-directory artifacts/results/issue-154-final-audit-packed --verbosity minimal
   ```
 
-  It passed its outer test and parsed 87/87 inner TestServer cases. The exact
+  It passed its outer test and parsed 93/93 inner TestServer cases. The exact
   actionless-consumer command was:
 
   ```text
   dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_application_preserves_actionless_unsafe_route_antiforgery" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-final-audit-packed-actionless.trx" --results-directory artifacts/results/issue-154-final-audit-packed-actionless --verbosity minimal
   ```
 
-  It passed its outer test and parsed 90/90 inner cases. Their retained TRX
+  It passed its outer test and parsed 96/96 inner cases. Their retained TRX
   files are `artifacts/results/issue-154-final-audit-packed/
   issue-154-final-audit-packed.trx` and
   `artifacts/results/issue-154-final-audit-packed-actionless/
@@ -3082,7 +3094,9 @@ Evidence at the exact clean corrected executable head
   ```
 
   It loaded `lib/net10.0/Htmxor.dll` from a freshly packed package and matched
-  the complete retained exported-type/member allow-list. Its retained TRX is
+  the complete retained exported-type/member allow-list, including explicit
+  type kind/base and member accessibility, staticness, dispatch, and accessor
+  shape. Its retained TRX is
   `artifacts/results/issue-154-public-surface/issue-154-public-surface.trx`.
 - Separately packed `net10.0` Production/Kestrel/Chromium proof passed one
   The exact browser command was:
@@ -3091,9 +3105,10 @@ Evidence at the exact clean corrected executable head
   dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~Htmx4PackageBrowserTests.Package_only_net10_production_publish_preserves_assets_and_component_actions" --blame-hang --blame-hang-timeout 10min --logger "trx;LogFileName=issue-154-final-audit-browser.trx" --results-directory artifacts/results/issue-154-final-audit-browser --verbosity minimal
   ```
 
-  It passed one outer test and 36/36 inner browser cases, including the
+  It passed one outer test and 39/39 inner browser cases, including the
   application-owned htmx 4.0.0 extension hook round-trip for `HX-PTag` and the
-  explicit empty response/default swap case. The
+  explicit empty response/default swap case plus the three non-ASCII
+  swap/selection rejection cases at the Kestrel boundary. The
   fixture used Microsoft.Playwright 1.62.0, cached Chromium revision 1234 /
   Chrome for Testing 151.0.7922.34, and the exact htmx asset SHA-256
   `E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F`.
@@ -3101,21 +3116,21 @@ Evidence at the exact clean corrected executable head
   `artifacts/results/issue-154-final-audit-browser/issue-154-final-audit-browser.trx`.
 - The repository-owned command
   `dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast`
-  passed 118 quality, 45 ASP.NET Core 10 hosted, and 360 non-E2E Htmxor tests:
-  523/523 total, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The same
-  command with `--profile full` passed 119 quality, 45 hosted, and 362 complete
-  Htmxor tests: 526/526 total, with the same zero failure/skip/error/timeout
+  passed 118 quality, 45 ASP.NET Core 10 hosted, and 361 non-E2E Htmxor tests:
+  524/524 total, 0 failed, 0 skipped, 0 errors, and 0 timeouts. The same
+  command with `--profile full` passed 119 quality, 45 hosted, and 363 complete
+  Htmxor tests: 527/527 total, with the same zero failure/skip/error/timeout
   counts. Both profiles passed analyzer/style error gates and Release build
   compilation with 0 warnings and 0 errors. The full-profile summary is
   retained at `artifacts/results/full/summary.md`.
 - Full coverage retained two fresh nonempty byte-identical Cobertura copies with
   SHA-256
-  `ac9436369bcf34711bf0c5852699f637fd88ca68398f319dd83472f009e444f5` at
-  `artifacts/results/full/htmxor/c68581dd-3068-448b-869a-f013cdffd6c3/
+  `44337d3758d592cace50aa01ab1ce80a273277b59674b465040fca2ddc05be43` at
+  `artifacts/results/full/htmxor/ebac7e20-742d-44cf-9241-e113db632b5e/
   coverage.cobertura.xml` and
-  `artifacts/results/full/htmxor/_eagle1-wsl_2026-09-02_19_50_58/In/eagle1-wsl/
-  coverage.cobertura.xml`. This is coverage characterization, not a score
-  acceptance claim.
+  `artifacts/results/full/htmxor/_eagle1-wsl_2026-09-02_20_48_09/In/eagle1-wsl/
+  coverage.cobertura.xml`. Each file is 904334 bytes; this is coverage
+  characterization, not a score acceptance claim.
 - The packed audit command was:
 
   ```text
@@ -3125,7 +3140,7 @@ Evidence at the exact clean corrected executable head
   It produced
   `artifacts/issue154-final-audit-package/Htmxor.1.0.0-issue154-final-audit.nupkg`
   from the same executable head. The 17-file package has SHA-256
-  `c67ffe0e0ad332a67f40529253c0190eab50a2278ed72f356eb519f44af45c9b`; it
+  `dff863dacadd9558232f17f12764c4c5fab494993e3d9fa62939530a298a0e69`; it
   contains only `net10.0` runtime assets, the analyzer, the Htmxor static asset,
   and the ASP.NET Core framework reference; no htmx runtime is transitive or
   embedded. The complete reflection allow-list is retained in
