@@ -1935,6 +1935,27 @@ public sealed class Issue56BrowserTests
 			await selectedRoot.Locator(":scope > strong[data-issue-154-selected-child]").InnerTextAsync());
 	}
 
+	[Theory]
+	[InlineData("unicode-reswap", "HX-Reswap")]
+	[InlineData("unicode-retarget", "HX-Retarget")]
+	[InlineData("unicode-reselect", "HX-Reselect")]
+	public async Task Application_owned_htmx4_rejects_non_ascii_open_response_values_before_Kestrel_header_write(
+		string operation,
+		string rejectedHeader)
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
+		using var request = CreateIssue154Request(operation);
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+		Assert.Contains("data-issue-154-error", body, StringComparison.Ordinal);
+		Assert.False(response.Headers.Contains(rejectedHeader));
+	}
+
 	[Fact]
 	public async Task Application_owned_htmx4_extension_round_trips_an_opaque_header()
 	{

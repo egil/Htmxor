@@ -126,6 +126,15 @@ else
 				Htmx.Response.Retarget("#issue-154-final-target");
 				Htmx.Response.Reselect("[data-issue-154-selected]");
 				break;
+			case "unicode-reswap":
+				Htmx.Response.Reswap("café");
+				break;
+			case "unicode-retarget":
+				Htmx.Response.Retarget("café");
+				break;
+			case "unicode-reselect":
+				Htmx.Response.Reselect("café");
+				break;
 			case "chain":
 				Htmx.Response.Location(StatePath("discarded-location"));
 				Htmx.Response.Redirect(StatePath("discarded-redirect"));
