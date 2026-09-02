@@ -408,7 +408,7 @@ for Htmxor while keeping the difficult server rules typed and testable.
 | [#151: freeze the v1 public API](https://github.com/egil/Htmxor/issues/151) | Retain the selected registration names and the decision to remove client helpers; still approve the complete public allow-list, review exported members, and add API compatibility checks |
 | [#152: finish route and action declarations](https://github.com/egil/Htmxor/issues/152) | Add the normal-only marker, equivalent component forms, supported callback declarations, and specific diagnostics |
 | [#153: separate fragment selection from DOM delivery](https://github.com/egil/Htmxor/issues/153) | Add stable names, whole/single/ordered selection, defined error behavior, and lifecycle proof |
-| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, the seven-header request contract, navigation responses, open swap/selection responses, trigger serialization, and native polling are current; bounded extension headers and the final contract matrix remain open |
+| [#154: finish the htmx 4 HTTP context](https://github.com/egil/Htmxor/issues/154) | Strict request classification, the seven-header request contract, navigation responses, open swap/selection responses, trigger serialization, and native polling are current. The bounded extension-header surface is in progress pending separately packed htmx 4 browser evidence; the final contract matrix remains open. |
 
 Existing issues keep their current scope:
 

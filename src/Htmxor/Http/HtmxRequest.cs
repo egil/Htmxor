@@ -7,6 +7,8 @@ namespace Htmxor.Http;
 /// </summary>
 public sealed class HtmxRequest
 {
+	private readonly IHeaderDictionary headers;
+
 	/// <summary>
 	/// Gets the routing mode for the current request.
 	/// </summary>
@@ -87,6 +89,7 @@ public sealed class HtmxRequest
 	public HtmxRequest(HttpContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
+		headers = context.Request.Headers;
 		Method = context.Request.Method;
 		Path = context.Request.Path;
 		var parsed = HtmxRequestHeaderParser.Parse(context.Request.Headers);
@@ -109,5 +112,27 @@ public sealed class HtmxRequest
 		RoutingMode = RequestType is HtmxRequestType.Partial
 			? RoutingMode.Direct
 			: RoutingMode.Standard;
+	}
+
+	/// <summary>
+	/// Attempts to get one exact, untrusted value from an application-owned extension request
+	/// header. The name must be an unprotected <c>HX-*</c> HTTP field name. Missing, repeated,
+	/// unsafe, malformed, or over-4096-byte values return <see langword="false"/> without
+	/// trimming, repairing, parsing, or inferring extension semantics.
+	/// </summary>
+	/// <param name="name">The application-owned extension field name.</param>
+	/// <param name="value">The exact single field value when the method returns <see langword="true"/>.</param>
+	/// <returns>
+	/// <see langword="true"/> when the strict htmx marker and extension field are valid; otherwise,
+	/// <see langword="false"/>. The value remains untrusted and cannot grant route, action, method,
+	/// authorization, antiforgery, or cache authority.
+	/// </returns>
+	public bool TryGetExtensionHeader(string name, out string value)
+	{
+		value = string.Empty;
+		return IsHtmxRequest &&
+			HtmxExtensionHeaderPolicy.IsAllowedName(name) &&
+			headers.TryGetValue(name, out var values) &&
+			HtmxExtensionHeaderPolicy.TryGetRequestValue(values, out value);
 	}
 }

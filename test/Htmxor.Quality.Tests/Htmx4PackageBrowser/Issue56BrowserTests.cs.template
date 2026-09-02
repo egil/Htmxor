@@ -41,6 +41,7 @@ public sealed class Issue56BrowserTests
 		"/issue-64/redirect?force-load=true&replace-history-entry=true";
 	private const string Issue64DestinationPath = "/issue-64/destination";
 	private const string Issue154Path = "/issue-154/navigation";
+	private const string Issue154ExtensionPath = "/issue-154/extension";
 	private const string Issue154PollingPath = "/issue-154/polling";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
@@ -1931,6 +1932,30 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(
 			"selected response",
 			await selectedRoot.Locator(":scope > strong[data-issue-154-selected-child]").InnerTextAsync());
+	}
+
+	[Fact]
+	public async Task Application_owned_htmx4_extension_round_trips_an_opaque_header()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		var page = await context.NewPageAsync();
+		var navigation = await page.GotoAsync(Issue154ExtensionPath);
+		Assert.NotNull(navigation);
+		var responseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).PathAndQuery == Issue154ExtensionPath + "?updated=true");
+
+		await page.Locator("#issue-154-extension-request").ClickAsync();
+		var response = await responseTask;
+
+		Assert.Equal("browser-extension", (await response.Request.AllHeadersAsync())["hx-ptag"]);
+		Assert.Equal("browser-extension", (await response.AllHeadersAsync())["hx-ptag"]);
+		await page.Locator("#issue-154-extension-target[data-issue-154-extension-value='browser-extension']").WaitForAsync();
 	}
 
 	[Fact]

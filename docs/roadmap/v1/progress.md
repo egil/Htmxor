@@ -2931,3 +2931,21 @@ retained TRX is `artifacts/results/issue-154-copilot-p2-green/issue-154-copilot-
 The repository full profile passed 504 of 504 tests: 118 quality, 45 ASP.NET
 Core 10, and 341 core tests, with Release/analyzer/style gates passing. The
 same four NU1900 vulnerability-service warnings remained environmental.
+
+### Issue #154: bounded extension-header seam (in progress)
+
+Protected behavior: when an application-owned htmx extension exchanges a
+non-core `HX-*` field, component code can read or write one opaque value without
+access to Htmxor-owned fields, endpoint authority, security decisions, cache
+policy, or general HTTP headers.
+
+This slice starts from refreshed `origin/main`
+`875ca01caea7bc3f3bdabd5d1266b6ddd7f8069f`. The focused red at that exact base
+executed 15 public-wire tests and failed because the two public operations were
+absent; it was not a compilation or setup failure. The current implementation
+keeps a deep HTTP-context module interface—`TryGetExtensionHeader` and
+`SetExtensionHeader`—while internalizing protected-name, field syntax,
+single-value, UTF-16, ASCII header-safety, and 4096 UTF-8-byte validation.
+Focused green currently passes 18 of 18 tests. Browser, separately packed
+extension execution, full profile, review, and final clean-head evidence remain
+required before this behavior is recorded as proved.

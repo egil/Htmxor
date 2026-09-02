@@ -99,6 +99,24 @@ public sealed class HtmxResponse(HttpContext context)
 	}
 
 	/// <summary>
+	/// Sets one application-owned extension response header to its exact value. The field name
+	/// must be an unprotected <c>HX-*</c> HTTP field name, and its ASCII header-safe value must
+	/// be well-formed UTF-16 and no longer than 4096 UTF-8 bytes. The operation validates both
+	/// arguments before checking the htmx marker, replaces only the same header, and does not
+	/// change status or component-body behavior.
+	/// </summary>
+	/// <param name="name">The application-owned extension field name.</param>
+	/// <param name="value">The exact extension value; empty values are allowed.</param>
+	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
+	public HtmxResponse SetExtensionHeader(string name, string value)
+	{
+		HtmxExtensionHeaderPolicy.ValidateResponseInput(name, value);
+		AssertIsHtmxRequest();
+		headers[name] = value;
+		return this;
+	}
+
+	/// <summary>
 	/// Sets <c>HX-Location</c> to the exact relative or same-origin HTTP(S) URI reference
 	/// in <paramref name="path"/> and suppresses component output.
 	/// </summary>
