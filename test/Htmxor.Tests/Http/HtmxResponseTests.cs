@@ -818,6 +818,20 @@ public class HtmxResponseTests : BunitContext
 	}
 
 	[Fact]
+	public void Trigger_preserves_unicode_event_name_as_a_json_property()
+	{
+		var context = CreateHttpContext();
+		var response = context.GetHtmxContext().Response;
+		const string eventName = "café";
+
+		response.Trigger(eventName);
+
+		using var document = JsonDocument.Parse(GetTriggerHeader(context));
+		var property = Assert.Single(document.RootElement.EnumerateObject().ToArray());
+		Assert.Equal(eventName, property.Name);
+	}
+
+	[Fact]
 	public void Trigger_merges_case_sensitive_event_names_in_call_order()
 	{
 		var context = CreateHttpContext();

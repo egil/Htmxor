@@ -444,7 +444,18 @@ public sealed class HtmxResponse(HttpContext context)
 
 	private static void ValidateTriggerEventName(string eventName)
 	{
-		ValidateOpenResponseValue(eventName, nameof(eventName));
+		ArgumentNullException.ThrowIfNull(eventName, nameof(eventName));
+		if (eventName.Length == 0 ||
+			char.IsWhiteSpace(eventName[0]) ||
+			char.IsWhiteSpace(eventName[^1]) ||
+			eventName.Any(char.IsControl))
+		{
+			throw new ArgumentException(
+				"The event name must not be empty or whitespace-only, have surrounding whitespace, " +
+				"or contain control characters.",
+				nameof(eventName));
+		}
+
 		if (!IsWellFormedUtf16(eventName))
 		{
 			throw new ArgumentException(
