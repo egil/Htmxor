@@ -55,6 +55,23 @@ public sealed class HtmxRouteAttributeTests
 	}
 
 	[Fact]
+	public void Equality_and_hash_set_ignore_fragments_for_relative_current_url_declarations()
+	{
+		var firstFragment = new HtmxRouteAttribute("/items")
+		{
+			CurrentUrl = "/source#first",
+		};
+		var secondFragment = new HtmxRouteAttribute("/items")
+		{
+			CurrentUrl = "/source#second",
+		};
+
+		Assert.Equal(firstFragment, secondFragment);
+		Assert.Equal(firstFragment.GetHashCode(), secondFragment.GetHashCode());
+		Assert.Single(new HashSet<HtmxRouteAttribute> { firstFragment, secondFragment });
+	}
+
+	[Fact]
 	public void Equality_and_hash_set_keep_case_distinct_element_ids_separate()
 	{
 		var lower = new HtmxRouteAttribute("/items") { Target = "div#result" };

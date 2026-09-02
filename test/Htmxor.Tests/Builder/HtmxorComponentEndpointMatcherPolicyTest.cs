@@ -94,6 +94,7 @@ public class HtmxorComponentEndpointMatcherPolicyTest
 		{ new("/") { CurrentUrl = "/foo?Filter=Open"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/foo?Filter=Open")] },
 		{ new("/") { CurrentUrl = "HTTPS://LOCALHOST/foo"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/foo")] },
 		{ new("/") { CurrentUrl = "https://localhost:443/foo"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/foo")] },
+		{ new("/") { CurrentUrl = "/foo#first"}, [(HtmxRequestHeaderNames.CurrentUrl, "https://localhost/foo#second")] },
 		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
 		{ new("/") { Target = "div#foo"}, [(HtmxRequestHeaderNames.Target, "DIV#foo")] },
 		{ new("/") { Targets = ["div#foo", "section"]}, [(HtmxRequestHeaderNames.Target, "div#foo")] },
