@@ -362,6 +362,31 @@ and repeated, blank, control-containing, or ill-formed UTF-16 values become
 null. Their `tag#id` or tag-only interpretation is a representation hint, not
 route, method, action, authorization, or antiforgery authority.
 
+### Extension headers
+
+An application-owned extension can use one bounded opaque `HX-*` field without
+making Htmxor own that extension's JavaScript or semantics:
+
+```csharp
+if (Htmx.Request.TryGetExtensionHeader("HX-PTag", out var tag))
+{
+	Htmx.Response.SetExtensionHeader("HX-PTag", tag);
+}
+```
+
+Both operations accept the `HX-` prefix and protect names case-insensitively, so
+casing cannot bypass the seven core request or nine core response names, any
+`HXOR-*` name, or malformed and over-4096-byte field names. Request access
+requires the strict htmx marker and returns false for missing, repeated,
+control-containing, ill-formed, non-ASCII, or over-4096-byte values. Response
+access validates name and value before the marker guard, accepts empty values,
+replaces only the same extension field, and leaves status and body decisions
+unchanged. Values are exact but untrusted; they cannot grant routing, methods,
+actions, authorization, antiforgery, rate limits, cache variation, or any other
+security authority. Configure cache variation yourself when such a field affects
+a representation. Use `HttpContext` for non-`HX-*` application headers or an
+intentionally multi-valued protocol.
+
 For a `CurrentUrl` route filter, a relative declaration is resolved against the
 parsed request URL. Absolute declarations must be HTTP(S); scheme, host, and
 effective port use URI comparison rules, while path and query use ordinal,
@@ -436,6 +461,7 @@ The other currently exposed server response operations are:
 | `Retarget(string)` | `HX-Retarget` | Override the complete target selector value |
 | `Reselect(string)` | `HX-Reselect` | Override the complete response-selection value |
 | `Trigger(...)` | `HX-Trigger` | Dispatch one or more client events through one compact JSON object |
+| `SetExtensionHeader(name, value)` | One application-owned `HX-*` field | Exchange a bounded opaque extension value |
 | `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics |
 | `EmptyBody()` | Empty HTTP body | Return only status, headers, cookies, and other metadata |
 

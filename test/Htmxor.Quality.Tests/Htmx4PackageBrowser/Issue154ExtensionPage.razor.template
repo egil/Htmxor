@@ -1,0 +1,29 @@
+@page "/issue-154/extension"
+@using Htmxor.Http
+@inject HtmxContext Htmx
+
+<main data-issue-154-extension>
+	<button id="issue-154-extension-request"
+			type="button"
+			hx-get="/issue-154/extension?updated=true"
+			hx-target="#issue-154-extension-target">Use extension header</button>
+	<section id="issue-154-extension-target" data-issue-154-extension-value="@Value">@Value</section>
+</main>
+
+@code {
+	[SupplyParameterFromQuery]
+	public bool Updated { get; set; }
+
+	private string Value { get; set; } = "initial";
+
+	protected override void OnParametersSet()
+	{
+		if (!Updated || !Htmx.Request.TryGetExtensionHeader("HX-PTag", out var tag))
+		{
+			return;
+		}
+
+		Htmx.Response.SetExtensionHeader("HX-PTag", tag);
+		Value = tag;
+	}
+}

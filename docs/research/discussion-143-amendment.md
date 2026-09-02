@@ -227,6 +227,13 @@ case-sensitive. These headers remain representation hints, never route-method,
 action, authorization, or antiforgery authority; the generated action identity
 header remains internal and outside the seven-header surface.
 
+The seventh bounded #154 slice adds only `TryGetExtensionHeader` and
+`SetExtensionHeader`. They protect core and `HXOR-*` names behind the HTTP-context
+module, require the strict marker, retain a single exact header-safe value within
+4096 UTF-8 bytes, and do not create cache or security authority. It deliberately
+does not adopt this research document's registry, typed wrappers, or automatic
+cache policy.
+
 The second bounded
 [#154](https://github.com/egil/Htmxor/issues/154) slice makes the navigation
 choices current:
