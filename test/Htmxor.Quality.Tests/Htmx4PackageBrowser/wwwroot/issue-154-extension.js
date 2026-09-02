@@ -1,6 +1,9 @@
 htmx.registerExtension('issue-154-extension-header', {
-	'htmx:config:request': context => {
-		context.ctx.request.headers['HX-PTag'] = 'browser-extension';
+	onEvent: (name, event) => {
+		if (name === 'htmx:config:request') {
+			event.detail.ctx.request.headers['HX-PTag'] = 'browser-extension';
+		}
+
 		return true;
 	},
 });
