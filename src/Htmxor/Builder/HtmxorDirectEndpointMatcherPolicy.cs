@@ -20,8 +20,24 @@ internal sealed class HtmxorDirectEndpointMatcherPolicy : MatcherPolicy, IEndpoi
 	{
 		ArgumentNullException.ThrowIfNull(httpContext);
 		ArgumentNullException.ThrowIfNull(candidates);
-		if (httpContext.GetHtmxContext().Request.RoutingMode is RoutingMode.Direct)
+		var htmxRequest = httpContext.GetHtmxContext().Request;
+		if (htmxRequest.RoutingMode is RoutingMode.Direct)
 		{
+			for (var index = 0; index < candidates.Count; index++)
+			{
+				if (!candidates.IsValidCandidate(index) ||
+					candidates[index].Endpoint.Metadata.GetMetadata<HtmxorDirectEndpointMetadata>() is null)
+				{
+					continue;
+				}
+
+				var routeMetadata = candidates[index].Endpoint.Metadata.GetMetadata<EndpointMetadata>();
+				if (routeMetadata is not null && !routeMetadata.IsValidFor(htmxRequest))
+				{
+					candidates.SetValidity(index, false);
+				}
+			}
+
 			return Task.CompletedTask;
 		}
 

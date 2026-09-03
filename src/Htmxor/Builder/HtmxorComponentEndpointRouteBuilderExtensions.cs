@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Reflection;
+using Htmxor;
 using Htmxor.Builder;
 using Htmxor.Endpoints;
 using Htmxor.Http;
@@ -161,6 +162,13 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		foreach (var metadata in generatedRoute.Metadata)
 		{
 			endpointBuilder.Metadata.Add(metadata);
+		}
+		var routeMetadata = generatedRoute.Metadata
+			.OfType<HtmxRouteAttribute>()
+			.SingleOrDefault();
+		if (routeMetadata is not null)
+		{
+			endpointBuilder.Metadata.Add(new EndpointMetadata(routeMetadata));
 		}
 
 		var routeEndpointBuilder = endpointBuilder as RouteEndpointBuilder

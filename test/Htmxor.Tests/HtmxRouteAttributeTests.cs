@@ -95,4 +95,15 @@ public sealed class HtmxRouteAttributeTests
 		Assert.False(present.Equals(absent));
 		Assert.Equal(2, new HashSet<HtmxRouteAttribute> { absent, present }.Count);
 	}
+
+	[Fact]
+	public void Null_targets_are_normalized_to_empty()
+	{
+		var route = new HtmxRouteAttribute("/items")
+		{
+			Targets = null!,
+		};
+
+		Assert.Empty(route.Targets);
+	}
 }

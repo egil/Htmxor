@@ -159,6 +159,28 @@ public sealed partial class ProductCard : ComponentBase
 An explicit `Methods` value is the complete allow-list. It does not add to an
 inferred list.
 
+An HTMX-only route may also declare representation filters. `CurrentUrl` is a
+relative or absolute HTTP(S) browser-location hint, `Target` is one exact
+element identity, and `Targets` is an ordered set of acceptable identities:
+
+```csharp
+[HtmxRoute(
+    "/products/{id:int}",
+    Methods = [HttpMethods.Get],
+    CurrentUrl = "/orders",
+    Target = "section#product",
+    Targets = ["section#product", "div#fallback"])]
+public sealed class ProductCard : ComponentBase
+{
+}
+```
+
+When a direct htmx request is evaluated, every declared filter must match. A
+missing or invalid `HX-Current-URL`, or a nonmatching `HX-Target`, leaves the
+route unselected. These values choose among component representations only;
+they never widen the route or method allow-list and never grant action,
+authentication, authorization, antiforgery, or other security authority.
+
 ## Declare component actions
 
 The v1 method model is small:

@@ -36,7 +36,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(93, 93, 93, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(94, 94, 94, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
@@ -54,7 +54,7 @@ public sealed class PackedPackageConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(96, 96, 96, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(97, 97, 97, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 
@@ -272,10 +272,8 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 			consumerDirectory,
 			"Issue97ReportComponent.razor.cs");
 		var source = File.ReadAllText(componentPath);
-		const string supportedMethods =
-			"HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = [\"GET\", \"PATCH\"])";
-		const string conflictingMethods =
-			"HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = [\"GET\"])";
+		const string supportedMethods = "Methods = [\"GET\", \"PATCH\"]";
+		const string conflictingMethods = "Methods = [\"GET\"]";
 		var rewritten = source.Replace(
 			supportedMethods,
 			conflictingMethods,
@@ -295,10 +293,8 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 			consumerDirectory,
 			"Issue97SummaryComponent.cs");
 		var source = File.ReadAllText(componentPath);
-		const string explicitMethods =
-			"HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [\"GET\"])";
-		const string omittedMethods =
-			"HtmxRoute(\"/summaries/{SummaryId:int}\")";
+		const string explicitMethods = "Methods = [\"GET\"],";
+		const string omittedMethods = "";
 		var rewritten = source.Replace(
 			explicitMethods,
 			omittedMethods,
@@ -339,10 +335,8 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 			consumerDirectory,
 			"Issue97SummaryComponent.cs");
 		var componentSource = File.ReadAllText(componentPath);
-		const string getOnlyRoute =
-			"HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [\"GET\"])";
-		const string unsafeRoute =
-			"HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [\"GET\", \"DELETE\"])";
+		const string getOnlyRoute = "Methods = [\"GET\"],";
+		const string unsafeRoute = "Methods = [\"GET\", \"DELETE\"],";
 		var rewrittenComponent = componentSource.Replace(
 			getOnlyRoute,
 			unsafeRoute,
@@ -1023,12 +1017,6 @@ internal static class PackageConsumerEvidence
 		var pageSource = File.ReadAllText(Path.Combine(
 			consumerDirectory,
 			"Issue100ReportPage.razor"));
-		const string reportRoute =
-			"[HtmxRoute(\"/htmx-reports/{ReportId:int}\", Methods = [\"GET\", \"PATCH\"])]";
-		const string summaryRoute =
-			"[HtmxRoute(\"/summaries/{SummaryId:int}\", Methods = [\"GET\"])]";
-		const string auditRoute =
-			"@attribute [HtmxRoute(\"/audits/{AuditId:int}\", Methods = [\"GET\", \"POST\"])]";
 		const string pageRoute = "@page \"/reports/{ReportId:int}\"";
 
 		Assert.Equal(2, Count(applicationSource, "AddHtmxor()"));
@@ -1054,10 +1042,25 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(1, Count(reportSource, "hx-put="));
 		Assert.Equal(1, Count(reportSource, "@onpatch=\"PatchReport\""));
 		Assert.DoesNotContain("@onput", reportSource, StringComparison.Ordinal);
-		Assert.Equal(1, Count(reportPartialSource, reportRoute));
+		Assert.Equal(1, Count(reportPartialSource, "[HtmxRoute("));
+		Assert.Contains("Methods = [\"GET\", \"PATCH\"]", reportPartialSource, StringComparison.Ordinal);
+		Assert.Contains("CurrentUrl = \"/orders\"", reportPartialSource, StringComparison.Ordinal);
+		Assert.Contains("Target = \"section#patch-result\"", reportPartialSource, StringComparison.Ordinal);
+		Assert.Contains(
+			"Targets = [\"section#patch-result\", \"div#fallback\"]",
+			reportPartialSource,
+			StringComparison.Ordinal);
 		Assert.Equal(1, Count(reportPartialSource, "private void PatchReport(HtmxEventArgs _)"));
-		Assert.Equal(1, Count(summarySource, summaryRoute));
-		Assert.Equal(1, Count(auditSource, auditRoute));
+		Assert.Equal(1, Count(summarySource, "[HtmxRoute("));
+		Assert.Contains("Methods = [\"GET\"]", summarySource, StringComparison.Ordinal);
+		Assert.Contains("CurrentUrl = \"/orders\"", summarySource, StringComparison.Ordinal);
+		Assert.Contains("Target = \"section\"", summarySource, StringComparison.Ordinal);
+		Assert.Contains("Targets = null!", summarySource, StringComparison.Ordinal);
+		Assert.Equal(1, Count(auditSource, "@attribute [HtmxRoute("));
+		Assert.Contains("Methods = [\"GET\", \"POST\"]", auditSource, StringComparison.Ordinal);
+		Assert.Contains("CurrentUrl = \"/orders\"", auditSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("Target = ", auditSource, StringComparison.Ordinal);
+		Assert.Contains("Targets = [\"section\", \"div#fallback\"]", auditSource, StringComparison.Ordinal);
 		Assert.Equal(1, Count(summarySource, "[Authorize("));
 		Assert.Contains(
 			"protected override void BuildRenderTree(RenderTreeBuilder builder)",

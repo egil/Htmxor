@@ -1,4 +1,5 @@
 using System.Reflection;
+using Htmxor;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
@@ -136,7 +137,14 @@ internal static class HtmxorAttributedRouteCatalog
 		}
 
 		var policy = ReadAuthorizationPolicy(componentType);
-		return new ValidatedDeclaration(componentType, route.Template, policy, route.ExplicitMethods);
+		return new ValidatedDeclaration(
+			componentType,
+			route.Template,
+			policy,
+			route.ExplicitMethods,
+			route.CurrentUrl,
+			route.Target,
+			route.Targets);
 	}
 
 	private static ValidatedRoute ReadRoute(Type componentType, CustomAttributeData attribute)
@@ -148,17 +156,32 @@ internal static class HtmxorAttributedRouteCatalog
 			throw Unsupported(componentType, "the HtmxRoute template must be a non-blank string");
 		}
 
-		if (attribute.NamedArguments.Count > 1 ||
-			attribute.NamedArguments.Count == 1 &&
-			!string.Equals(attribute.NamedArguments[0].MemberName, nameof(HtmxRouteAttribute.Methods), StringComparison.Ordinal))
+		string[]? explicitMethods = null;
+		string? currentUrl = null;
+		string? target = null;
+		string[]? targets = null;
+		foreach (var namedArgument in attribute.NamedArguments)
 		{
-			throw Unsupported(
-				componentType,
-				"HtmxRoute supports only the Methods named argument");
+			switch (namedArgument.MemberName)
+			{
+				case nameof(HtmxRouteAttribute.Methods):
+					explicitMethods = ReadExplicitMethods(componentType, namedArgument.TypedValue);
+					break;
+				case nameof(HtmxRouteAttribute.CurrentUrl):
+					currentUrl = ReadOptionalString(componentType, namedArgument);
+					break;
+				case nameof(HtmxRouteAttribute.Target):
+					target = ReadOptionalString(componentType, namedArgument);
+					break;
+				case nameof(HtmxRouteAttribute.Targets):
+					targets = ReadTargets(componentType, namedArgument.TypedValue);
+					break;
+				default:
+					throw Unsupported(
+						componentType,
+						$"HtmxRoute named argument '{namedArgument.MemberName}' is not supported");
+			}
 		}
-		var explicitMethods = attribute.NamedArguments.Count == 0
-			? null
-			: ReadExplicitMethods(componentType, attribute.NamedArguments[0].TypedValue);
 
 		if (!HtmxorRouteTemplateContract.IsSupported(template))
 		{
@@ -176,7 +199,68 @@ internal static class HtmxorAttributedRouteCatalog
 			throw Unsupported(componentType, "the HtmxRoute template is not a valid route pattern", exception);
 		}
 
-		return new ValidatedRoute(template, explicitMethods);
+		return new ValidatedRoute(template, explicitMethods, currentUrl, target, targets);
+	}
+
+	private static string? ReadOptionalString(
+		Type componentType,
+		CustomAttributeNamedArgument argument)
+	{
+		if (argument.TypedValue.Value is null)
+		{
+			return null;
+		}
+
+		if (argument.TypedValue.Value is string value)
+		{
+			var isValid = argument.MemberName switch
+			{
+				nameof(HtmxRouteAttribute.CurrentUrl) => HtmxRouteRepresentationContract.IsValidCurrentUrl(value),
+				nameof(HtmxRouteAttribute.Target) => HtmxRouteRepresentationContract.IsValidOptionalTarget(value),
+				_ => false,
+			};
+			if (!isValid)
+			{
+				throw Unsupported(
+					componentType,
+					$"HtmxRoute named argument '{argument.MemberName}' must be a valid representation value");
+			}
+
+			return value;
+		}
+
+		throw Unsupported(
+			componentType,
+			$"HtmxRoute named argument '{argument.MemberName}' must be a string or null");
+	}
+
+	private static string[] ReadTargets(
+		Type componentType,
+		CustomAttributeTypedArgument targetsArgument)
+	{
+		if (targetsArgument.Value is null)
+		{
+			return [];
+		}
+
+		if (targetsArgument.Value is not IEnumerable<CustomAttributeTypedArgument> targets)
+		{
+			throw Unsupported(
+				componentType,
+				"HtmxRoute named argument 'Targets' must be a string array");
+		}
+
+		var values = targets
+			.Select(static argument => argument.Value as string)
+			.ToArray();
+		if (values.Any(static value => !HtmxRouteRepresentationContract.IsValidTarget(value)))
+		{
+			throw Unsupported(
+				componentType,
+				"HtmxRoute named argument 'Targets' must be a string array");
+		}
+
+		return values!;
 	}
 
 	private static string[] ReadExplicitMethods(
@@ -298,9 +382,15 @@ internal static class HtmxorAttributedRouteCatalog
 
 		var route = metadata.OfType<HtmxRouteAttribute>().SingleOrDefault();
 		var expectedMethods = declaration.ExplicitMethods ?? [HtmxRouteAttribute.ImplicitHttpMethod];
+		var expectedTargets = declaration.Targets ?? [];
+		var actualTargets = route?.Targets ?? [];
 		if (route is null ||
 			!string.Equals(route.Template, declaration.Route, StringComparison.Ordinal) ||
-			!route.Methods.SequenceEqual(expectedMethods, StringComparer.OrdinalIgnoreCase))
+			route.Methods is null ||
+			!route.Methods.SequenceEqual(expectedMethods, StringComparer.OrdinalIgnoreCase) ||
+			!string.Equals(route.CurrentUrl, declaration.CurrentUrl, StringComparison.Ordinal) ||
+			!string.Equals(route.Target, declaration.Target, StringComparison.Ordinal) ||
+			!actualTargets.SequenceEqual(expectedTargets, StringComparer.Ordinal))
 		{
 			throw Unsupported(
 				declaration.ComponentType,
@@ -337,11 +427,19 @@ internal static class HtmxorAttributedRouteCatalog
 
 	private sealed record RoutedType(Type ComponentType, CustomAttributeData[] Routes);
 
-	private sealed record ValidatedRoute(string Template, string[]? ExplicitMethods);
+	private sealed record ValidatedRoute(
+		string Template,
+		string[]? ExplicitMethods,
+		string? CurrentUrl,
+		string? Target,
+		string[]? Targets);
 
 	private sealed record ValidatedDeclaration(
 		Type ComponentType,
 		string Route,
 		string Policy,
-		string[]? ExplicitMethods);
+		string[]? ExplicitMethods,
+		string? CurrentUrl,
+		string? Target,
+		string[]? Targets);
 }

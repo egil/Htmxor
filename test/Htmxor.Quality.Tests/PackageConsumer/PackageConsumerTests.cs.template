@@ -803,7 +803,10 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			.GetProperties(BindingFlags.Public | BindingFlags.Instance)
 			.Select(static property => property.Name)
 			.ToArray();
+		Assert.Contains(nameof(HtmxRouteAttribute.Methods), routePropertyNames);
 		Assert.Contains(nameof(HtmxRouteAttribute.CurrentUrl), routePropertyNames);
+		Assert.Contains(nameof(HtmxRouteAttribute.Target), routePropertyNames);
+		Assert.Contains(nameof(HtmxRouteAttribute.Targets), routePropertyNames);
 		Assert.DoesNotContain("CurrentURL", routePropertyNames);
 
 		var valid = ParseWireRequest(
@@ -1074,7 +1077,10 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			ReportDeclaredRoute,
 			ReportPolicyName,
 			[HttpMethods.Get, HttpMethods.Patch],
-			[HttpMethods.Get, HttpMethods.Patch]);
+			[HttpMethods.Get, HttpMethods.Patch],
+			"/orders",
+			"section#patch-result",
+			["section#patch-result", "div#fallback"]);
 		AssertHost(endpoint, ReportHost);
 		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 
@@ -1129,12 +1135,18 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			SummaryPolicyName,
 #if ISSUE103_ACTIONLESS_UNSAFE
 			[HttpMethods.Get, HttpMethods.Delete],
-			[HttpMethods.Get, HttpMethods.Delete]);
+			[HttpMethods.Get, HttpMethods.Delete],
+			"/orders",
+			"section",
+			[]);
 		AssertHost(endpoint, SummaryHost);
 		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 #else
 			[HttpMethods.Get],
-			[HttpMethods.Get]);
+			[HttpMethods.Get],
+			"/orders",
+			"section",
+			[]);
 		AssertHost(endpoint, SummaryHost);
 		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
 #endif
@@ -1195,7 +1207,10 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			AuditDeclaredRoute,
 			AuditPolicyName,
 			[HttpMethods.Get, HttpMethods.Post],
-			[HttpMethods.Get, HttpMethods.Post]);
+			[HttpMethods.Get, HttpMethods.Post],
+			"/orders",
+			null,
+			["section", "div#fallback"]);
 		AssertHost(endpoint, AuditHost);
 		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 
@@ -1229,6 +1244,29 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			PackageConsumerAuthenticationHandler.AuditUserName,
 			AuditHost,
 			HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task Route_representation_filters_select_only_matching_packed_routes()
+	{
+		await AssertRouteRepresentationAsync(
+			ReportRequestPath,
+			PackageConsumerAuthenticationHandler.ReportUserName,
+			ReportHost,
+			"data-issue-97-report-component",
+			"section#patch-result");
+		await AssertRouteRepresentationAsync(
+			SummaryRequestPath,
+			PackageConsumerAuthenticationHandler.SummaryUserName,
+			SummaryHost,
+			"data-issue-97-summary-component",
+			"section");
+		await AssertRouteRepresentationAsync(
+			AuditRequestPath,
+			PackageConsumerAuthenticationHandler.AuditUserName,
+			AuditHost,
+			"data-issue-141-audit-component",
+			"div#fallback");
 	}
 
 	[Fact]
@@ -1554,6 +1592,12 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		request.Headers.Host = host;
 		request.Headers.Add("HX-Request", "true");
 		request.Headers.Add("HX-Request-Type", "partial");
+		request.Headers.Add(HtmxRequestHeaderNames.CurrentUrl, "https://example.test/orders");
+		request.Headers.Add(
+			HtmxRequestHeaderNames.Target,
+			path.Contains("htmx-reports", StringComparison.Ordinal)
+				? "section#patch-result"
+				: "section");
 		if (userName is not null)
 		{
 			request.Headers.Add(PackageConsumerAuthenticationHandler.UserHeaderName, userName);
@@ -1836,6 +1880,71 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		Assert.DoesNotContain("data-issue-100-report-page", body, StringComparison.Ordinal);
 	}
 
+	private async Task AssertRouteRepresentationAsync(
+		string path,
+		string userName,
+		string host,
+		string expectedComponent,
+		string expectedTarget)
+	{
+		using var matchingResponse = await SendAsync(
+			path,
+			direct: true,
+			userName,
+			host,
+			target: expectedTarget);
+		var matchingBody = await matchingResponse.Content.ReadAsStringAsync();
+		Assert.True(
+			matchingResponse.StatusCode == HttpStatusCode.OK,
+			$"Expected a matching 200 OK, received {(int)matchingResponse.StatusCode} " +
+			$"{matchingResponse.StatusCode}. Body: {matchingBody}");
+		Assert.Contains(expectedComponent, matchingBody, StringComparison.Ordinal);
+
+		using var wrongUrlResponse = await SendAsync(
+			path,
+			direct: true,
+			userName,
+			host,
+			currentUrl: "https://example.test/other",
+			target: expectedTarget);
+		var wrongUrlBody = await wrongUrlResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.NotFound, wrongUrlResponse.StatusCode);
+		Assert.DoesNotContain(expectedComponent, wrongUrlBody, StringComparison.Ordinal);
+
+		using var wrongTargetResponse = await SendAsync(
+			path,
+			direct: true,
+			userName,
+			host,
+			currentUrl: "https://example.test/orders",
+			target: "div#other");
+		var wrongTargetBody = await wrongTargetResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.NotFound, wrongTargetResponse.StatusCode);
+		Assert.DoesNotContain(expectedComponent, wrongTargetBody, StringComparison.Ordinal);
+
+		using var malformedUrlResponse = await SendAsync(
+			path,
+			direct: true,
+			userName,
+			host,
+			currentUrl: "ftp://example.test/orders",
+			target: expectedTarget);
+		var malformedUrlBody = await malformedUrlResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.NotFound, malformedUrlResponse.StatusCode);
+		Assert.DoesNotContain(expectedComponent, malformedUrlBody, StringComparison.Ordinal);
+
+		using var malformedTargetResponse = await SendAsync(
+			path,
+			direct: true,
+			userName,
+			host,
+			currentUrl: "https://example.test/orders",
+			target: " ");
+		var malformedTargetBody = await malformedTargetResponse.Content.ReadAsStringAsync();
+		Assert.Equal(HttpStatusCode.NotFound, malformedTargetResponse.StatusCode);
+		Assert.DoesNotContain(expectedComponent, malformedTargetBody, StringComparison.Ordinal);
+	}
+
 	private RouteEndpoint[] GetGeneratedComponentEndpoints() =>
 		((IEndpointRouteBuilder)app).DataSources
 			.SelectMany(dataSource => dataSource.Endpoints)
@@ -1881,7 +1990,10 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		string declaredRoute,
 		string policyName,
 		IReadOnlyList<string> expectedMethods,
-		IReadOnlyList<string>? declaredMethods = null)
+		IReadOnlyList<string>? declaredMethods = null,
+		string? expectedCurrentUrl = null,
+		string? expectedTarget = null,
+		IReadOnlyList<string>? expectedTargets = null)
 	{
 		var endpoint = Assert.Single(endpoints, endpoint =>
 			endpoint.Metadata.GetRequiredMetadata<ComponentTypeMetadata>().Type == typeof(TComponent));
@@ -1895,6 +2007,9 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		var route = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxRouteAttribute>());
 		Assert.Equal(declaredRoute, route.Template);
 		Assert.Equal(declaredMethods ?? [HttpMethods.Get], route.Methods);
+		Assert.Equal(expectedCurrentUrl, route.CurrentUrl);
+		Assert.Equal(expectedTarget, route.Target);
+		Assert.Equal(expectedTargets ?? [], route.Targets);
 		var authorization = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>();
 		Assert.Contains(authorization, data => data.Policy == policyName);
 		Assert.Contains(authorization, data => data.Policy == GroupPolicyName);
@@ -1912,7 +2027,9 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		string path,
 		bool direct,
 		string? userName,
-		string host)
+		string host,
+		string currentUrl = "https://example.test/orders",
+		string? target = null)
 	{
 		using var request = new HttpRequestMessage(HttpMethod.Get, path);
 		request.Headers.Host = host;
@@ -1920,6 +2037,12 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		{
 			request.Headers.Add("HX-Request", "true");
 			request.Headers.Add("HX-Request-Type", "partial");
+			request.Headers.Add(HtmxRequestHeaderNames.CurrentUrl, currentUrl);
+			request.Headers.Add(
+				HtmxRequestHeaderNames.Target,
+				target ?? (path.Contains("htmx-reports", StringComparison.Ordinal)
+					? "section#patch-result"
+					: "section"));
 		}
 
 		if (userName is not null)

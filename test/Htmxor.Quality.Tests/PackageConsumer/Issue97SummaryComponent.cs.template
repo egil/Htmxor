@@ -7,7 +7,12 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Htmxor.PackageConsumer;
 
-[HtmxRoute("/summaries/{SummaryId:int}", Methods = ["GET"])]
+[HtmxRoute(
+	"/summaries/{SummaryId:int}",
+	Methods = ["GET"],
+	CurrentUrl = "/orders",
+	Target = "section",
+	Targets = null!)]
 [Authorize(Policy = "issue-97-summary-policy")]
 [Host("summaries.internal.example")]
 public sealed class Issue97SummaryComponent : ComponentBase
