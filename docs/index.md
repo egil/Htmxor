@@ -102,12 +102,12 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
       </head>
 
       <!--
-        Adding hx-boost="true" is optional.
-        hx-boost returns the "enhanced navigation" and "enhanced forms"
-        features that are lost by removing blazor.web.js script below.
-        Learn more here: https://htmx.org/attributes/hx-boost/
+        Adding hx-boost:inherited="true" is optional.
+        hx-boost restores enhanced navigation and forms after removing the
+        blazor.web.js script below.
+        Learn more here: https://four.htmx.org/reference/attributes/hx-boost
       -->
-    + <body hx-boost="true">
+    + <body hx-boost:inherited="true">
           <Routes />
 
     -     <script src="_framework/blazor.web.js"></script>
@@ -124,7 +124,7 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
 5. **Create an Optional Direct Request Layout**
 
-   Optionally, create a layout that will be used during [direct routing](routing.md#direct-routing), e.g., `/Components/Layout/HtmxorLayout.razor`:
+   Optionally, create a layout for [direct requests](htmxor-v1-feature-guide.md#choose-which-requests-reach-a-component), e.g., `/Components/Layout/HtmxorLayout.razor`:
 
     ```razor
     @inherits HtmxLayoutComponentBase

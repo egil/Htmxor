@@ -158,8 +158,17 @@ The v1 method model is small:
 | `PUT` | Statically discoverable `@onput` | Accepted and proved in focused tests |
 | `PATCH` | Statically discoverable `@onpatch` | Accepted and proved in focused tests |
 | `DELETE` | Statically discoverable `@ondelete` | Accepted and proved in focused tests |
-| `QUERY` | Application-authored `@onquery` | Accepted future intent; needs complete executable evidence |
+| `QUERY` | Application-authored `@onquery` | Proved for one binding per stock or HTMX-only route owner |
 | Other methods | Narrow explicit declaration and extension API | Not implicit in v1 |
+
+[#111](https://github.com/egil/Htmxor/issues/111) proves one static
+`@onquery` method-group binding on an `@page` and on an omitted-`Methods`
+`HtmxRoute`. Its package-only test uses htmx 4.0.0, form-encoded content, real
+Kestrel, and Chromium. It also proves that client-only `hx-query` cannot grant
+the method. The slice does not cover JSON or other content types, large or
+streaming bodies, cancellation, concurrent QUERY requests, several QUERY
+bindings on one component, composition with an unsafe action, broad typed route
+conversion, or reverse proxies.
 
 An ordinary element callback keeps behavior near the markup:
 
@@ -395,7 +404,7 @@ server. Htmx still owns all DOM behavior.
 | `hx-put` | Issue PUT | Declare `@onput`; unsafe and antiforgery-protected. |
 | `hx-patch` | Issue PATCH | Declare `@onpatch`; unsafe and antiforgery-protected. |
 | `hx-delete` | Issue DELETE | Declare `@ondelete`; unsafe and antiforgery-protected. DELETE values are not body data by default in htmx 4. |
-| `hx-query` | Issue QUERY | Requires application-authored `@onquery`. This is accepted future v1 intent, not a client-granted method. |
+| `hx-query` | Issue QUERY | Requires application-authored `@onquery`. Issue #111 proves one form-encoded binding per route owner; the client never grants the method. |
 | `hx-action` | Set the request URL | Pair with `hx-method`, or let a verb-specific attribute win. It never grants the server route. |
 | `hx-method` | Select GET, POST, PUT, PATCH, DELETE, or QUERY | The component declaration must independently allow the method. Useful for progressive markup resembling form `action`/`method`. |
 | `hx-trigger` | Choose events, filters, polling, and modifiers | No server API is needed. Account for duplicate, aborted, delayed, or concurrent requests. |
@@ -492,7 +501,7 @@ Htmxor helper types.
 
 ### Active search
 
-Use a safe GET while the QUERY path is still unproved:
+Use a safe GET for an idempotent search:
 
 ```razor
 <input name="q"
@@ -506,6 +515,11 @@ Use a safe GET while the QUERY path is still unproved:
 Declare `/products/search` as an `@page` or HTMX-only GET component. Bind and
 validate the query as ordinary untrusted input. `hx-sync` suppresses stale
 client delivery; the server must still tolerate cancellation and overlap.
+
+Use `hx-query` only when the component declares `@onquery` and the deployed
+HTTP path accepts QUERY. The proved slice covers one form-encoded value on
+Kestrel and Chromium, not reverse proxies or the broader request shapes listed
+above.
 
 ### Lazy load and infinite scrolling
 
