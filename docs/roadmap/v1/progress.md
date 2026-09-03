@@ -3179,3 +3179,95 @@ polling behavior outside the exact application-owned htmx 4.0.0 interaction.
 Separate Standards and Spec/DX reviews, PR CI, and automatic Copilot review
 remain required before this record is final. Issue #154 remains open; after
 the documentation PR is reviewed and merged, closing #154 is recommended.
+
+### Issue #173: complete HtmxRoute representation contract
+
+Protected behavior:
+
+> When a generated HTMX-only component declares any retained HtmxRoute member,
+> Htmxor compiles and maps the complete declaration for Razor, matching
+> code-behind, and all-C# authors, and uses CurrentUrl, Target, and Targets only
+> to filter direct representation without widening the route or HTTP methods.
+
+Issue #173 is delivered by PR #182, merged into `main` at
+`3597ac8c2dffd11aee1dd530f04faebd87008dcb`, and closed in milestone 1. The
+executable implementation commits are `38f819edcda82aa74ea573a86ad37e71e7b3e948`
+(`feat(routes): preserve Htmx route representation filters`) and
+`219cbb335d282cace447397e913eca55bd1662ba`
+(`fix(routes): reject invalid representation declarations`). The latter is the
+exact clean head used for the final local evidence; the merge commit carries
+that source tree together with the then-current `main` documentation state.
+
+The pre-implementation focused route-filter and compiler-boundary tests each
+failed 1 of 1 against the old behavior. Their retained reds are
+`artifacts/results/issue-173-filter-red/issue-173-filter-red.trx` and
+`artifacts/results/issue-173-analyzer-red/issue-173-analyzer-red.trx`. The
+follow-up null-target and invalid-value regressions were also recorded before
+their fixes in `artifacts/results/issue-173-null-targets-red/`,
+`artifacts/results/issue-173-packed-null-targets-red/`, and
+`artifacts/results/issue-173-invalid-values-red/` (the last failed 6 of 6).
+
+The generator/analyzer, runtime catalog, endpoint metadata, and direct matcher
+now retain `Template`, `Methods`, `CurrentUrl`, `Target`, and `Targets` for
+generated HTMX-only routes. Razor, a matching code-behind partial, and an
+all-C# component are covered through the packaged consumer. `CurrentUrl`,
+`Target`, and `Targets` only filter direct representation candidates; route
+templates and the exhaustive `Methods` allow-list remain server-owned. A null
+`Targets` value is normalized to the documented unconstrained empty set, and
+invalid current-URL, target, or target-list values fail in the analyzer and in
+the runtime catalog before endpoint mapping can be partially applied. The
+packed TestServer proof includes a `Targets`-only route where a non-first
+allowed target selects and an unlisted target returns 404.
+
+Focused executable proof at `219cbb335d282cace447397e913eca55bd1662ba`:
+
+```text
+dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~HtmxorRouteDeclarationAnalyzerTests|FullyQualifiedName~HtmxorAttributedRouteCatalogTests|FullyQualifiedName~HtmxRouteAttributeTests|FullyQualifiedName~HtmxorComponentEndpointMatcherPolicyTest" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-173-invalid-values-focused-green.trx" --results-directory artifacts/results/issue-173-invalid-values-focused-green --verbosity minimal
+```
+
+passed 92 of 92 tests. The packed package TestServer replay was:
+
+```text
+dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests" --blame-hang --blame-hang-timeout 10min --logger "trx;LogFileName=issue-173-review-remediation-packed.trx" --results-directory artifacts/results/issue-173-review-remediation-packed --verbosity minimal
+```
+
+It passed 8 of 8 outer tests and asserted 97 of 97 standard-consumer plus 94
+of 94 actionless-consumer cases. The retained outer TRX is
+`artifacts/results/issue-173-review-remediation-packed/issue-173-review-remediation-packed.trx`.
+
+The repository-owned final gates at the same exact clean executable head were:
+
+```text
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
+dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
+```
+
+Fast passed 118 Quality, 45 ASP.NET Core 10, and 371 Htmxor tests: 534 of
+534 total, with 0 failed, skipped, errors, or timeouts. Full passed 119 Quality,
+45 ASP.NET Core 10, and 373 Htmxor tests: 537 of 537 total, with the same zero
+failure, skip, error, and timeout counts. Both Release builds had 0 warnings
+and 0 errors, and analyzer/style error gates passed. Full retained fresh
+Cobertura at `artifacts/results/full/htmxor/_eagle1-wsl_2026-09-03_13_23_11/In/eagle1-wsl/coverage.cobertura.xml`
+with 80.45% line and 73.33% branch coverage characterization; the canonical
+summary is `artifacts/results/full/summary.md`.
+
+Separate published-head Standards and Spec reviews passed with 0 findings.
+Copilot's follow-up review at `219cbb3` generated 0 new comments and requested
+final human attention because direct endpoint selection is security-adjacent;
+that independent human review was completed before merge. CI passed CodeQL,
+create-nuget, validate-nuget, dependency-review, Infer#, and run-test; deploy
+and Stryker were skipped as configured. No package publication, release,
+deployment, or full-scope mutation run was performed.
+
+This slice does not prove normal-only reachability, the later action-syntax
+decision or implementation, fragments, browser behavior, another framework or
+htmx version, or a final public API freeze. The direct-route evidence is the
+package/TestServer boundary above and does not establish a broader security
+or performance claim.
+
+The recommended next slice is issue #170, the code-free decision for the exact
+normal-only component declaration. Its protected behavior is: when a stock
+route declares the approved normal-only marker, Htmxor preserves its normal
+Blazor route and does not expose it through direct htmx routing. That decision
+should be recorded before implementing the dependent reachability work; it is
+a human decision and is not inferred by this issue.
