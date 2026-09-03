@@ -1,5 +1,8 @@
+using System.Collections.Immutable;
 using System.IO.Compression;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Text;
 using System.Xml.Linq;
 using Htmxor.Quality;
@@ -578,106 +581,358 @@ internal static class PackagePublicSurface
 	{
 		using var package = ZipFile.OpenRead(packagePath);
 		using var entry = Assert.Single(package.Entries, entry => entry.FullName == "lib/net10.0/Htmxor.dll").Open();
-		using var assemblyStream = new MemoryStream();
-		entry.CopyTo(assemblyStream);
-		var assembly = Assembly.Load(assemblyStream.ToArray());
+		using var assemblyImage = new MemoryStream();
+		entry.CopyTo(assemblyImage);
+		assemblyImage.Position = 0;
+		using var peReader = new PEReader(assemblyImage);
+		var reader = peReader.GetMetadataReader();
+		var assembly = reader.GetAssemblyDefinition();
 		var output = new StringBuilder();
-		output.AppendLine($"ASSEMBLY {assembly.GetName().Name} {assembly.GetName().Version}");
+		output.AppendLine($"ASSEMBLY {reader.GetString(assembly.Name)} {assembly.Version}");
 
-		foreach (var type in assembly.GetExportedTypes().OrderBy(type => type.FullName, StringComparer.Ordinal))
+		foreach (var typeHandle in reader.TypeDefinitions
+			.Where(handle => IsExported(reader, handle))
+			.OrderBy(handle => FormatTypeName(reader, handle), StringComparer.Ordinal))
 		{
-			output.AppendLine($"TYPE {FormatType(type)}");
-			foreach (var member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
-				.Where(member => member.MemberType is MemberTypes.Constructor or MemberTypes.Event or MemberTypes.Field or MemberTypes.Method or MemberTypes.NestedType or MemberTypes.Property)
-				.OrderBy(member => member.MemberType)
+			var type = reader.GetTypeDefinition(typeHandle);
+			var context = SignatureContext.ForType(reader, type);
+			output.AppendLine($"TYPE {FormatType(reader, typeHandle, type, context)}");
+			foreach (var member in GetMembers(reader, type, context)
+				.OrderBy(member => member.Kind)
 				.ThenBy(member => member.Name, StringComparer.Ordinal)
-				.ThenBy(member => member.ToString(), StringComparer.Ordinal))
+				.ThenBy(member => member.Signature, StringComparer.Ordinal))
 			{
-				output.AppendLine(FormatMember(member));
+				output.AppendLine(member.Output);
 			}
 		}
 
 		return output.ToString().TrimEnd();
 	}
 
-	private static string FormatType(Type type) =>
-		$"{type.FullName} [kind={GetTypeKind(type)};abstract={type.IsAbstract};sealed={type.IsSealed};genericArity={type.GetGenericArguments().Length};base={type.BaseType?.FullName ?? "none"}]";
+	private static string FormatType(
+		MetadataReader reader,
+		TypeDefinitionHandle handle,
+		TypeDefinition type,
+		SignatureContext context) =>
+		$"{FormatTypeName(reader, handle)} [kind={GetTypeKind(reader, type, context)};abstract={type.Attributes.HasFlag(TypeAttributes.Abstract)};sealed={type.Attributes.HasFlag(TypeAttributes.Sealed)};genericArity={type.GetGenericParameters().Count};base={FormatEntityType(reader, type.BaseType, context)}]";
 
-	private static string GetTypeKind(Type type) =>
-		type.IsInterface ? "interface" : type.IsEnum ? "enum" : type.BaseType == typeof(MulticastDelegate) ? "delegate" : type.IsValueType ? "struct" : "class";
-
-	private static string FormatMember(MemberInfo member)
+	private static string GetTypeKind(MetadataReader reader, TypeDefinition type, SignatureContext context)
 	{
-		var shape = member switch
+		if (type.Attributes.HasFlag(TypeAttributes.Interface))
 		{
-			ConstructorInfo constructor => FormatMethodShape(constructor),
-			MethodInfo method => FormatMethodShape(method),
-			FieldInfo field => $"visibility={FormatVisibility(field)};static={field.IsStatic};literal={field.IsLiteral};readonly={field.IsInitOnly}",
-			PropertyInfo property => $"visibility={FormatVisibility(property)};static={IsStatic(property)};get={FormatAccessor(property.GetMethod)};set={FormatAccessor(property.SetMethod)}",
-			EventInfo @event => $"visibility={FormatVisibility(@event)};static={IsStatic(@event)};add={FormatAccessor(@event.AddMethod)};remove={FormatAccessor(@event.RemoveMethod)}",
-			Type nestedType => $"visibility={FormatVisibility(nestedType)};abstract={nestedType.IsAbstract};sealed={nestedType.IsSealed}",
-			_ => throw new InvalidOperationException($"Unsupported public member kind: {member.MemberType}.")
-		};
-
-		return $"  {member.MemberType} [{shape}] {member}";
-	}
-
-	private static string FormatMethodShape(MethodBase method) =>
-		$"visibility={FormatVisibility(method)};static={method.IsStatic};abstract={method.IsAbstract};virtual={method.IsVirtual};final={method.IsFinal};genericArity={(method is MethodInfo methodInfo ? methodInfo.GetGenericArguments().Length : 0)};parameters={method.GetParameters().Length}";
-
-	private static string FormatVisibility(MemberInfo member)
-	{
-		if (member is MethodBase method)
-		{
-			return FormatMethodVisibility(method);
+			return "interface";
 		}
 
-		if (member is FieldInfo field)
+		return FormatEntityType(reader, type.BaseType, context) switch
 		{
-			return FormatFieldVisibility(field);
-		}
-
-		return member switch
-		{
-			PropertyInfo property => FormatAccessorVisibility(property.GetMethod, property.SetMethod),
-			EventInfo @event => FormatAccessorVisibility(@event.AddMethod, @event.RemoveMethod),
-			Type type => FormatTypeVisibility(type),
-			_ => throw new InvalidOperationException($"Unsupported public member kind: {member.MemberType}.")
+			"System.Enum" => "enum",
+			"System.MulticastDelegate" => "delegate",
+			"System.ValueType" => "struct",
+			_ => "class",
 		};
 	}
 
-	private static string FormatMethodVisibility(MethodBase method) =>
-		method.IsPublic ? "public" : method.IsFamily ? "protected" : method.IsAssembly ? "internal" : "private";
+	private static IEnumerable<SurfaceMember> GetMembers(
+		MetadataReader reader,
+		TypeDefinition type,
+		SignatureContext typeContext) =>
+		GetMethods(reader, type, typeContext)
+			.Concat(GetEvents(reader, type, typeContext))
+			.Concat(GetFields(reader, type, typeContext))
+			.Concat(GetProperties(reader, type, typeContext))
+			.Concat(GetNestedTypes(reader, type));
 
-	private static string FormatFieldVisibility(FieldInfo field) =>
-		field.IsPublic ? "public" : field.IsFamily ? "protected" : field.IsAssembly ? "internal" : "private";
-
-	private static string FormatTypeVisibility(Type type) =>
-		type.IsNestedPublic ? "public" : type.IsNestedFamily ? "protected" : type.IsNestedAssembly ? "internal" : "private";
-
-	private static string FormatAccessorVisibility(MethodInfo? first, MethodInfo? second) =>
-		$"{FormatAccessorVisibility(first)}|{FormatAccessorVisibility(second)}";
-
-	private static string FormatAccessorVisibility(MethodInfo? accessor) => accessor switch
+	private static IEnumerable<SurfaceMember> GetMethods(
+		MetadataReader reader,
+		TypeDefinition type,
+		SignatureContext typeContext)
 	{
-		null => "none",
-		_ when accessor.IsPublic => "public",
-		_ when accessor.IsFamily => "protected",
-		_ when accessor.IsAssembly => "internal",
-		_ => "private"
-	};
+		var provider = new SurfaceSignatureProvider(reader);
+		foreach (var methodHandle in type.GetMethods())
+		{
+			var method = reader.GetMethodDefinition(methodHandle);
+			if ((method.Attributes & MethodAttributes.MemberAccessMask) != MethodAttributes.Public)
+			{
+				continue;
+			}
 
-	private static string FormatAccessor(MethodInfo? accessor) => accessor switch
+			var name = reader.GetString(method.Name);
+			var context = typeContext.ForMethod(reader, method);
+			var signature = method.DecodeSignature(provider, context);
+			var displayName = name + FormatGenericParameters(context.MethodParameters);
+			var displaySignature = $"{signature.ReturnType} {displayName}({string.Join(", ", signature.ParameterTypes)})";
+			var kind = name is ".ctor" or ".cctor" ? "Constructor" : "Method";
+			var kindOrder = kind == "Constructor" ? 1 : 4;
+			var shape = FormatMethodShape(method.Attributes, method.GetGenericParameters().Count, signature.ParameterTypes.Length);
+			yield return new(kindOrder, name, displaySignature, $"  {kind} [{shape}] {displaySignature}");
+		}
+	}
+
+	private static IEnumerable<SurfaceMember> GetEvents(
+		MetadataReader reader,
+		TypeDefinition type,
+		SignatureContext typeContext)
 	{
-		null => "none",
-		_ => $"{FormatAccessorVisibility(accessor)},{(accessor.IsStatic ? "static" : "instance")}",
-	};
+		foreach (var eventHandle in type.GetEvents())
+		{
+			var @event = reader.GetEventDefinition(eventHandle);
+			var accessors = @event.GetAccessors();
+			if (!IsPublic(reader, accessors.Adder) && !IsPublic(reader, accessors.Remover))
+			{
+				continue;
+			}
 
-	private static bool IsStatic(PropertyInfo property) =>
-		property.GetMethod?.IsStatic ?? property.SetMethod?.IsStatic ?? false;
+			var name = reader.GetString(@event.Name);
+			var signature = $"{FormatEntityType(reader, @event.Type, typeContext)} {name}";
+			var shape = $"visibility={FormatAccessorVisibility(reader, accessors.Adder)}|{FormatAccessorVisibility(reader, accessors.Remover)};static={IsStatic(reader, accessors.Adder, accessors.Remover)};add={FormatAccessor(reader, accessors.Adder)};remove={FormatAccessor(reader, accessors.Remover)}";
+			yield return new(2, name, signature, $"  Event [{shape}] {signature}");
+		}
+	}
 
-	private static bool IsStatic(EventInfo @event) =>
-		@event.AddMethod?.IsStatic ?? @event.RemoveMethod?.IsStatic ?? false;
+	private static IEnumerable<SurfaceMember> GetFields(
+		MetadataReader reader,
+		TypeDefinition type,
+		SignatureContext typeContext)
+	{
+		var provider = new SurfaceSignatureProvider(reader);
+		foreach (var fieldHandle in type.GetFields())
+		{
+			var field = reader.GetFieldDefinition(fieldHandle);
+			if ((field.Attributes & FieldAttributes.FieldAccessMask) != FieldAttributes.Public)
+			{
+				continue;
+			}
+
+			var name = reader.GetString(field.Name);
+			var signature = $"{field.DecodeSignature(provider, typeContext)} {name}";
+			var shape = $"visibility=public;static={field.Attributes.HasFlag(FieldAttributes.Static)};literal={field.Attributes.HasFlag(FieldAttributes.Literal)};readonly={field.Attributes.HasFlag(FieldAttributes.InitOnly)}";
+			yield return new(3, name, signature, $"  Field [{shape}] {signature}");
+		}
+	}
+
+	private static IEnumerable<SurfaceMember> GetProperties(
+		MetadataReader reader,
+		TypeDefinition type,
+		SignatureContext typeContext)
+	{
+		var provider = new SurfaceSignatureProvider(reader);
+		foreach (var propertyHandle in type.GetProperties())
+		{
+			var property = reader.GetPropertyDefinition(propertyHandle);
+			var accessors = property.GetAccessors();
+			if (!IsPublic(reader, accessors.Getter) && !IsPublic(reader, accessors.Setter))
+			{
+				continue;
+			}
+
+			var name = reader.GetString(property.Name);
+			var decoded = property.DecodeSignature(provider, typeContext);
+			var parameters = decoded.ParameterTypes.Length == 0
+				? string.Empty
+				: $"({string.Join(", ", decoded.ParameterTypes)})";
+			var signature = $"{decoded.ReturnType} {name}{parameters}";
+			var shape = $"visibility={FormatAccessorVisibility(reader, accessors.Getter)}|{FormatAccessorVisibility(reader, accessors.Setter)};static={IsStatic(reader, accessors.Getter, accessors.Setter)};get={FormatAccessor(reader, accessors.Getter)};set={FormatAccessor(reader, accessors.Setter)}";
+			yield return new(5, name, signature, $"  Property [{shape}] {signature}");
+		}
+	}
+
+	private static IEnumerable<SurfaceMember> GetNestedTypes(
+		MetadataReader reader,
+		TypeDefinition type)
+	{
+		foreach (var nestedHandle in type.GetNestedTypes())
+		{
+			var nested = reader.GetTypeDefinition(nestedHandle);
+			if ((nested.Attributes & TypeAttributes.VisibilityMask) != TypeAttributes.NestedPublic)
+			{
+				continue;
+			}
+
+			var name = reader.GetString(nested.Name);
+			var signature = FormatTypeName(reader, nestedHandle);
+			var shape = $"visibility=public;abstract={nested.Attributes.HasFlag(TypeAttributes.Abstract)};sealed={nested.Attributes.HasFlag(TypeAttributes.Sealed)}";
+			yield return new(6, name, signature, $"  NestedType [{shape}] {signature}");
+		}
+	}
+
+	private static string FormatMethodShape(MethodAttributes attributes, int genericArity, int parameterCount) =>
+		$"visibility={FormatMethodVisibility(attributes)};static={attributes.HasFlag(MethodAttributes.Static)};abstract={attributes.HasFlag(MethodAttributes.Abstract)};virtual={attributes.HasFlag(MethodAttributes.Virtual)};final={attributes.HasFlag(MethodAttributes.Final)};genericArity={genericArity};parameters={parameterCount}";
+
+	private static string FormatGenericParameters(ImmutableArray<string> parameters) =>
+		parameters.Length == 0 ? string.Empty : $"[{string.Join(",", parameters)}]";
+
+	private static bool IsExported(MetadataReader reader, TypeDefinitionHandle handle)
+	{
+		var type = reader.GetTypeDefinition(handle);
+		return (type.Attributes & TypeAttributes.VisibilityMask) switch
+		{
+			TypeAttributes.Public => true,
+			TypeAttributes.NestedPublic => IsExported(reader, type.GetDeclaringType()),
+			_ => false,
+		};
+	}
+
+	private static string FormatTypeName(MetadataReader reader, TypeDefinitionHandle handle)
+	{
+		var type = reader.GetTypeDefinition(handle);
+		var name = reader.GetString(type.Name);
+		var declaringType = type.GetDeclaringType();
+		if (!declaringType.IsNil)
+		{
+			return $"{FormatTypeName(reader, declaringType)}+{name}";
+		}
+
+		var @namespace = reader.GetString(type.Namespace);
+		return string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
+	}
+
+	private static string FormatTypeName(MetadataReader reader, TypeReferenceHandle handle)
+	{
+		var type = reader.GetTypeReference(handle);
+		var name = reader.GetString(type.Name);
+		if (type.ResolutionScope.Kind == HandleKind.TypeReference)
+		{
+			return $"{FormatTypeName(reader, (TypeReferenceHandle)type.ResolutionScope)}+{name}";
+		}
+
+		var @namespace = reader.GetString(type.Namespace);
+		return string.IsNullOrEmpty(@namespace) ? name : $"{@namespace}.{name}";
+	}
+
+	private static string FormatEntityType(MetadataReader reader, EntityHandle handle, SignatureContext context)
+	{
+		if (handle.IsNil)
+		{
+			return "none";
+		}
+
+		return handle.Kind switch
+		{
+			HandleKind.TypeDefinition => FormatTypeName(reader, (TypeDefinitionHandle)handle),
+			HandleKind.TypeReference => FormatTypeName(reader, (TypeReferenceHandle)handle),
+			HandleKind.TypeSpecification => reader.GetTypeSpecification((TypeSpecificationHandle)handle)
+				.DecodeSignature(new SurfaceSignatureProvider(reader), context),
+			_ => throw new InvalidOperationException($"Unsupported type handle: {handle.Kind}."),
+		};
+	}
+
+	private static bool IsPublic(MetadataReader reader, MethodDefinitionHandle handle) =>
+		!handle.IsNil && (reader.GetMethodDefinition(handle).Attributes & MethodAttributes.MemberAccessMask) == MethodAttributes.Public;
+
+	private static bool IsStatic(MetadataReader reader, MethodDefinitionHandle first, MethodDefinitionHandle second)
+	{
+		var handle = first.IsNil ? second : first;
+		return !handle.IsNil && reader.GetMethodDefinition(handle).Attributes.HasFlag(MethodAttributes.Static);
+	}
+
+	private static string FormatAccessor(MetadataReader reader, MethodDefinitionHandle handle) =>
+		handle.IsNil
+			? "none"
+			: $"{FormatMethodVisibility(reader.GetMethodDefinition(handle).Attributes)},{(reader.GetMethodDefinition(handle).Attributes.HasFlag(MethodAttributes.Static) ? "static" : "instance")}";
+
+	private static string FormatAccessorVisibility(MetadataReader reader, MethodDefinitionHandle handle) =>
+		handle.IsNil ? "none" : FormatMethodVisibility(reader.GetMethodDefinition(handle).Attributes);
+
+	private static string FormatMethodVisibility(MethodAttributes attributes) =>
+		(attributes & MethodAttributes.MemberAccessMask) switch
+		{
+			MethodAttributes.Public => "public",
+			MethodAttributes.Family => "protected",
+			MethodAttributes.Assembly => "internal",
+			_ => "private",
+		};
+
+	private readonly record struct SurfaceMember(int Kind, string Name, string Signature, string Output);
+
+	private readonly record struct SignatureContext(
+		ImmutableArray<string> TypeParameters,
+		ImmutableArray<string> MethodParameters)
+	{
+		public static SignatureContext ForType(MetadataReader reader, TypeDefinition type) =>
+			new(GetParameterNames(reader, type.GetGenericParameters()), []);
+
+		public SignatureContext ForMethod(MetadataReader reader, MethodDefinition method) =>
+			this with { MethodParameters = GetParameterNames(reader, method.GetGenericParameters()) };
+
+		private static ImmutableArray<string> GetParameterNames(
+			MetadataReader reader,
+			GenericParameterHandleCollection handles) =>
+			handles.Select(handle => reader.GetString(reader.GetGenericParameter(handle).Name)).ToImmutableArray();
+	}
+
+	private sealed class SurfaceSignatureProvider(MetadataReader reader) : ISignatureTypeProvider<string, SignatureContext>
+	{
+		public string GetArrayType(string elementType, ArrayShape shape) =>
+			$"{elementType}[{new string(',', shape.Rank - 1)}]";
+
+		public string GetByReferenceType(string elementType) => $"{elementType} ByRef";
+
+		public string GetFunctionPointerType(MethodSignature<string> signature) =>
+			$"methodptr({string.Join(", ", signature.ParameterTypes)})->{signature.ReturnType}";
+
+		public string GetGenericInstantiation(string genericType, ImmutableArray<string> typeArguments) =>
+			$"{genericType}[{string.Join(",", typeArguments.Select(QualifyGenericArgument))}]";
+
+		public string GetGenericMethodParameter(SignatureContext genericContext, int index) =>
+			index < genericContext.MethodParameters.Length ? genericContext.MethodParameters[index] : $"!!{index}";
+
+		public string GetGenericTypeParameter(SignatureContext genericContext, int index) =>
+			index < genericContext.TypeParameters.Length ? genericContext.TypeParameters[index] : $"!{index}";
+
+		public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired) =>
+			$"{unmodifiedType} {(isRequired ? "modreq" : "modopt")}({modifier})";
+
+		public string GetPinnedType(string elementType) => $"{elementType} pinned";
+
+		public string GetPointerType(string elementType) => $"{elementType}*";
+
+		public string GetPrimitiveType(PrimitiveTypeCode typeCode) => typeCode switch
+		{
+			PrimitiveTypeCode.Boolean => "Boolean",
+			PrimitiveTypeCode.Byte => "Byte",
+			PrimitiveTypeCode.Char => "Char",
+			PrimitiveTypeCode.Double => "Double",
+			PrimitiveTypeCode.Int16 => "Int16",
+			PrimitiveTypeCode.Int32 => "Int32",
+			PrimitiveTypeCode.Int64 => "Int64",
+			PrimitiveTypeCode.IntPtr => "System.IntPtr",
+			PrimitiveTypeCode.Object => "System.Object",
+			PrimitiveTypeCode.SByte => "SByte",
+			PrimitiveTypeCode.Single => "Single",
+			PrimitiveTypeCode.String => "System.String",
+			PrimitiveTypeCode.TypedReference => "System.TypedReference",
+			PrimitiveTypeCode.UInt16 => "UInt16",
+			PrimitiveTypeCode.UInt32 => "UInt32",
+			PrimitiveTypeCode.UInt64 => "UInt64",
+			PrimitiveTypeCode.UIntPtr => "System.UIntPtr",
+			PrimitiveTypeCode.Void => "Void",
+			_ => throw new InvalidOperationException($"Unsupported primitive type: {typeCode}."),
+		};
+
+		public string GetSZArrayType(string elementType) => $"{elementType}[]";
+
+		public string GetTypeFromDefinition(
+			MetadataReader metadataReader,
+			TypeDefinitionHandle handle,
+			byte rawTypeKind) => FormatTypeName(reader, handle);
+
+		public string GetTypeFromReference(
+			MetadataReader metadataReader,
+			TypeReferenceHandle handle,
+			byte rawTypeKind) => FormatTypeName(reader, handle);
+
+		public string GetTypeFromSpecification(
+			MetadataReader metadataReader,
+			SignatureContext genericContext,
+			TypeSpecificationHandle handle,
+			byte rawTypeKind) => metadataReader.GetTypeSpecification(handle).DecodeSignature(this, genericContext);
+
+		private static string QualifyGenericArgument(string type) => type switch
+		{
+			"Boolean" or "Byte" or "Char" or "Double" or "Int16" or "Int32" or "Int64" or "SByte" or "Single" or "UInt16" or "UInt32" or "UInt64" => $"System.{type}",
+			_ => type,
+		};
+	}
 }
 
 internal static class PackageConsumerEvidence

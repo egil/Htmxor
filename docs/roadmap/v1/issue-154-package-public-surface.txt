@@ -6,7 +6,8 @@ Inspection command:
   dotnet test test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~PackedPackageConsumerTests.Package_only_public_surface_matches_retained_allow_list" --blame-hang --blame-hang-timeout 5min --logger "trx;LogFileName=issue-154-public-surface.trx" --results-directory artifacts/results/issue-154-public-surface --verbosity minimal
 
 The repository-owned test command lists every exported public Htmxor type and its declared public
-constructors, events, fields, methods, nested types, and properties. Inherited
+constructors, events, fields, methods, nested types, and properties, including
+required and optional signature modifiers. Inherited
 members are not repeated. The package contains the following complete
 allow-list at the audited package head:
 
@@ -95,10 +96,10 @@ TYPE Htmxor.HtmxRouteAttribute [kind=class;abstract=False;sealed=True;genericAri
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Target()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String[] get_Targets()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Template()
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_CurrentUrl(System.String)
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Methods(System.String[])
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Target(System.String)
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Targets(System.String[])
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void modreq(System.Runtime.CompilerServices.IsExternalInit) set_CurrentUrl(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void modreq(System.Runtime.CompilerServices.IsExternalInit) set_Methods(System.String[])
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void modreq(System.Runtime.CompilerServices.IsExternalInit) set_Target(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void modreq(System.Runtime.CompilerServices.IsExternalInit) set_Targets(System.String[])
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String CurrentUrl
   Property [visibility=public|none;static=True;get=public,static;set=none] System.String[] DefaultHttpMethods
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String[] Methods
