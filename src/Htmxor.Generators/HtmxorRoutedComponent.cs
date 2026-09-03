@@ -173,7 +173,7 @@ internal sealed class HtmxorRoutedComponent
 	{
 		var unsupportedArgument = route.NamedArguments
 			.Select(static argument => argument.Key)
-			.Where(static name => !string.Equals(name, "Methods", StringComparison.Ordinal))
+			.Where(static name => !IsSupportedRouteNamedArgument(name))
 			.OrderBy(static name => name, StringComparer.Ordinal)
 			.FirstOrDefault();
 		if (unsupportedArgument is not null)
@@ -181,19 +181,38 @@ internal sealed class HtmxorRoutedComponent
 			return "HtmxRoute named argument '" + unsupportedArgument + "' is not supported";
 		}
 
-		var methods = route.NamedArguments
-			.Where(static argument => string.Equals(argument.Key, "Methods", StringComparison.Ordinal))
-			.Select(static argument => argument.Value)
-			.ToImmutableArray();
-		if (methods.Length == 0)
+		foreach (var argument in route.NamedArguments)
 		{
-			return null;
+			var reason = ValidateRouteNamedArgument(argument);
+			if (reason is not null)
+			{
+				return reason;
+			}
 		}
 
-		return methods.Length == 1 && HasSupportedExplicitMethods(methods[0])
-			? null
-			: "explicit HtmxRoute Methods must resolve to a non-empty unique subset of GET, POST, PUT, PATCH, DELETE, and QUERY";
+		return null;
 	}
+
+	private static string? ValidateRouteNamedArgument(KeyValuePair<string, TypedConstant> argument)
+		=> argument.Key switch
+		{
+			"Methods" => HasSupportedExplicitMethods(argument.Value)
+				? null
+				: "explicit HtmxRoute Methods must resolve to a non-empty unique subset of GET, POST, PUT, PATCH, DELETE, and QUERY",
+			"CurrentUrl" or "Target" => HasSupportedOptionalString(argument.Value)
+				? null
+				: "HtmxRoute named argument '" + argument.Key + "' must resolve to a constant string or null",
+			"Targets" => HasSupportedTargets(argument.Value)
+				? null
+				: "HtmxRoute named argument 'Targets' must resolve to a constant string array",
+			_ => "HtmxRoute named argument '" + argument.Key + "' is not supported",
+		};
+
+	private static bool IsSupportedRouteNamedArgument(string name)
+		=> string.Equals(name, "Methods", StringComparison.Ordinal) ||
+			string.Equals(name, "CurrentUrl", StringComparison.Ordinal) ||
+			string.Equals(name, "Target", StringComparison.Ordinal) ||
+			string.Equals(name, "Targets", StringComparison.Ordinal);
 
 	private string? ValidateRouteOrigin(CancellationToken cancellationToken)
 	{
@@ -347,6 +366,14 @@ internal sealed class HtmxorRoutedComponent
 			IsSupportedMethod(method) &&
 			uniqueMethods.Add(method));
 	}
+
+	private static bool HasSupportedOptionalString(TypedConstant value)
+		=> value.IsNull || value.Value is string;
+
+	private static bool HasSupportedTargets(TypedConstant targets)
+		=> targets.IsNull ||
+			(targets.Kind == TypedConstantKind.Array &&
+				targets.Values.All(static value => value.Value is string));
 
 	private static bool IsSupportedMethod(string method)
 		=> string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) ||

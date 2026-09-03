@@ -379,6 +379,40 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Contains("anonymous", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task Route_representation_filters_are_supported_for_compiled_declarations()
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"], CurrentUrl = \"/orders\", Target = \"section#result\", Targets = [\"section#result\", \"div#fallback\"])]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
+	public async Task Null_targets_are_supported_for_compiled_declarations()
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"], Targets = null!)]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
 	[Theory]
 	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"TRACE\"])]",
@@ -388,10 +422,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Htmxor.HtmxRouteAttribute(\"/other/{Id:int}\", Methods = [\"GET\"])]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"exactly one HtmxRoute")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"], Target = \"result\")]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"Target")]
 	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\", Roles = \"admin\")]",

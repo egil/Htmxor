@@ -48,12 +48,18 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 	/// </summary>
 	public string? Target { get; init; }
 
+	private string[] targets = [];
+
 	/// <summary>
 	/// Specify to only use this representation if the complete <see cref="HtmxRequestHeaderNames.Target"/>
 	/// element identity in `tag#id` or `tag` form matches one of the specified values.
 	/// If null or empty, this route is not limited to a specific set of targets.
 	/// </summary>
-	public string[] Targets { get; init; } = [];
+	public string[] Targets
+	{
+		get => targets;
+		init => targets = value ?? [];
+	}
 
 	/// <summary>
 	/// Constructs an instance of <see cref="HtmxRouteAttribute"/>.

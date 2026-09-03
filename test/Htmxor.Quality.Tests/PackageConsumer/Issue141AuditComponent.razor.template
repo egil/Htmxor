@@ -1,4 +1,8 @@
-@attribute [HtmxRoute("/audits/{AuditId:int}", Methods = ["GET", "POST"])]
+@attribute [HtmxRoute(
+    "/audits/{AuditId:int}",
+	Methods = ["GET", "POST"],
+	CurrentUrl = "/orders",
+	Targets = ["section", "div#fallback"])]
 @attribute [Authorize(Policy = "issue-141-audit-policy")]
 @attribute [Host("audits.internal.example")]
 @using Htmxor

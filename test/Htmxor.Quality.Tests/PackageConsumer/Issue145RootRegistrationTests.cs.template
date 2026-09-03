@@ -121,6 +121,8 @@ public sealed class Issue145RootRegistrationTests : IAsyncLifetime
 		{
 			request.Headers.Add("HX-Request", "true");
 			request.Headers.Add("HX-Request-Type", "partial");
+			request.Headers.Add("HX-Current-URL", "https://example.test/orders");
+			request.Headers.Add("HX-Target", "section#patch-result");
 		}
 
 		return await client.SendAsync(request);
