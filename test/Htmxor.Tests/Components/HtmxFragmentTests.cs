@@ -61,6 +61,19 @@ public sealed class HtmxFragmentTests : BunitContext
 		Assert.Equal(expectedChild ? 1 : 0, component.FindAll("[data-fragment]").Count);
 	}
 
+	[Fact]
+	public void Direct_request_renders_selected_fragment_independently_of_delivery_target()
+	{
+		AddContext("div#different-target");
+
+		var component = Render<HtmxFragment>(parameters => parameters
+			.Add(fragment => fragment.Element, "aside")
+			.Add(fragment => fragment.Id, "sidebar")
+			.AddChildContent("<span data-fragment>content</span>"));
+
+		Assert.Single(component.FindAll("[data-fragment]"));
+	}
+
 	private void AddContext(string? target = null)
 	{
 		var context = new DefaultHttpContext();
