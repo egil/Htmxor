@@ -62,7 +62,7 @@ public sealed class HtmxFragmentTests : BunitContext
 	}
 
 	[Fact]
-	public void Direct_request_renders_selected_fragment_independently_of_delivery_target()
+	public void Direct_request_without_application_selection_renders_fragment_ignoring_delivery_target()
 	{
 		AddContext("div#different-target");
 
