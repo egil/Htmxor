@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
+using Htmxor;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -199,12 +200,17 @@ internal sealed class HtmxorRoutedComponent
 			"Methods" => HasSupportedExplicitMethods(argument.Value)
 				? null
 				: "explicit HtmxRoute Methods must resolve to a non-empty unique subset of GET, POST, PUT, PATCH, DELETE, and QUERY",
-			"CurrentUrl" or "Target" => HasSupportedOptionalString(argument.Value)
+			"CurrentUrl" => HasSupportedOptionalString(argument.Value) &&
+				HtmxRouteRepresentationContract.IsValidCurrentUrl(argument.Value.Value as string)
 				? null
-				: "HtmxRoute named argument '" + argument.Key + "' must resolve to a constant string or null",
-			"Targets" => HasSupportedTargets(argument.Value)
+				: "HtmxRoute named argument 'CurrentUrl' must resolve to a valid relative or absolute HTTP(S) URI or null",
+			"Target" => HasSupportedOptionalString(argument.Value) &&
+				HtmxRouteRepresentationContract.IsValidOptionalTarget(argument.Value.Value as string)
 				? null
-				: "HtmxRoute named argument 'Targets' must resolve to a constant string array",
+				: "HtmxRoute named argument 'Target' must resolve to a valid element identity or null or whitespace",
+			"Targets" => HasSupportedTargets(argument.Value) && HasSupportedTargetValues(argument.Value)
+				? null
+				: "HtmxRoute named argument 'Targets' must resolve to a constant array of valid element identities",
 			_ => "HtmxRoute named argument '" + argument.Key + "' is not supported",
 		};
 
@@ -374,6 +380,11 @@ internal sealed class HtmxorRoutedComponent
 		=> targets.IsNull ||
 			(targets.Kind == TypedConstantKind.Array &&
 				targets.Values.All(static value => value.Value is string));
+
+	private static bool HasSupportedTargetValues(TypedConstant targets)
+		=> targets.IsNull ||
+			targets.Values.All(static value =>
+			value.Value is string target && HtmxRouteRepresentationContract.IsValidTarget(target));
 
 	private static bool IsSupportedMethod(string method)
 		=> string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) ||

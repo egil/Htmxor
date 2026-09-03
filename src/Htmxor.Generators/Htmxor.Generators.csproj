@@ -19,6 +19,9 @@
 		<Compile
 			Include="..\Htmxor\Builder\HtmxorRouteTemplateContract.cs"
 			Link="Shared\HtmxorRouteTemplateContract.cs" />
+		<Compile
+			Include="..\Htmxor\Builder\HtmxRouteRepresentationContract.cs"
+			Link="Shared\HtmxRouteRepresentationContract.cs" />
 	</ItemGroup>
 
 </Project>

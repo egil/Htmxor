@@ -414,6 +414,35 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Theory]
+	[InlineData("CurrentUrl = \"ftp://example.test/orders\"", "CurrentUrl")]
+	[InlineData("Target = \"section#\"", "Target")]
+	[InlineData("Targets = [\"section\", \" \"]", "Targets")]
+	public async Task Invalid_route_representation_values_report_nonconfigurable_error(
+		string namedArgument,
+		string memberName)
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			$"[global::Htmxor.HtmxRouteAttribute(\"/items/{{Id:int}}\", Methods = [\"GET\"], {namedArgument})]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains(
+			$"HtmxRoute named argument '{memberName}'",
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+	}
+
+	[Theory]
 	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"TRACE\"])]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",

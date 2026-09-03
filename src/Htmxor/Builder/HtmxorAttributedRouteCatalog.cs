@@ -1,4 +1,5 @@
 using System.Reflection;
+using Htmxor;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
@@ -212,6 +213,19 @@ internal static class HtmxorAttributedRouteCatalog
 
 		if (argument.TypedValue.Value is string value)
 		{
+			var isValid = argument.MemberName switch
+			{
+				nameof(HtmxRouteAttribute.CurrentUrl) => HtmxRouteRepresentationContract.IsValidCurrentUrl(value),
+				nameof(HtmxRouteAttribute.Target) => HtmxRouteRepresentationContract.IsValidOptionalTarget(value),
+				_ => false,
+			};
+			if (!isValid)
+			{
+				throw Unsupported(
+					componentType,
+					$"HtmxRoute named argument '{argument.MemberName}' must be a valid representation value");
+			}
+
 			return value;
 		}
 
@@ -239,7 +253,7 @@ internal static class HtmxorAttributedRouteCatalog
 		var values = targets
 			.Select(static argument => argument.Value as string)
 			.ToArray();
-		if (values.Any(static value => value is null))
+		if (values.Any(static value => !HtmxRouteRepresentationContract.IsValidTarget(value)))
 		{
 			throw Unsupported(
 				componentType,

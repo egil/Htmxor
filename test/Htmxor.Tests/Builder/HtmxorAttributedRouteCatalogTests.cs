@@ -175,6 +175,45 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
+	public async Task Bridge_rejects_an_invalid_current_url_before_mapping()
+	{
+		await AssertInvalidRouteDeclarationAsync(
+			new ComponentDefinition(
+				"PackageConsumer.ZInvalidCurrentUrlComponent",
+				"/invalid-current-url/{Id:int}",
+				"invalid.policy",
+				HasAdditionalRouteFilter: true,
+				CurrentUrl: "ftp://example.test/orders"),
+			"CurrentUrl");
+	}
+
+	[Fact]
+	public async Task Bridge_rejects_an_invalid_target_before_mapping()
+	{
+		await AssertInvalidRouteDeclarationAsync(
+			new ComponentDefinition(
+				"PackageConsumer.ZInvalidTargetComponent",
+				"/invalid-target/{Id:int}",
+				"invalid.policy",
+				HasAdditionalRouteFilter: true,
+				Target: "section#"),
+			"Target");
+	}
+
+	[Fact]
+	public async Task Bridge_rejects_an_invalid_targets_value_before_mapping()
+	{
+		await AssertInvalidRouteDeclarationAsync(
+			new ComponentDefinition(
+				"PackageConsumer.ZInvalidTargetsComponent",
+				"/invalid-targets/{Id:int}",
+				"invalid.policy",
+				HasAdditionalRouteFilter: true,
+				Targets: ["section", " "]),
+			"Targets");
+	}
+
+	[Fact]
 	public async Task Bridge_maps_nothing_when_metadata_construction_throws()
 	{
 		var fixture = DynamicComponentAssembly.Create(
@@ -601,6 +640,23 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		return app;
 	}
 
+	private static async Task AssertInvalidRouteDeclarationAsync(
+		ComponentDefinition definition,
+		string expectedArgument)
+	{
+		var fixture = DynamicComponentAssembly.Create(definition);
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest));
+
+		Assert.Contains($"HtmxRoute named argument '{expectedArgument}'", exception.Message, StringComparison.Ordinal);
+		Assert.Empty(GetGeneratedEndpoints(app));
+	}
+
 	private static HttpRequestMessage CreateDirectRequest(
 		string path,
 		string currentUrl,
@@ -642,7 +698,10 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		bool HasHtmxRoute = true,
 		IReadOnlyList<string>? StockRoutes = null,
 		bool ExplicitMethods = true,
-		IReadOnlyList<string>? Methods = null);
+		IReadOnlyList<string>? Methods = null,
+		string? CurrentUrl = null,
+		string? Target = null,
+		IReadOnlyList<string>? Targets = null);
 
 	private sealed record DynamicComponentAssembly(Assembly Assembly, Type[] Types, string[] Manifest)
 	{
@@ -707,11 +766,11 @@ public sealed class HtmxorAttributedRouteCatalogTests
 			if (definition.HasAdditionalRouteFilter)
 			{
 				properties.Add(typeof(HtmxRouteAttribute).GetProperty(nameof(HtmxRouteAttribute.CurrentUrl))!);
-				values.Add("/orders");
+				values.Add(definition.CurrentUrl ?? "/orders");
 				properties.Add(typeof(HtmxRouteAttribute).GetProperty(nameof(HtmxRouteAttribute.Target))!);
-				values.Add("section#result");
+				values.Add(definition.Target ?? "section#result");
 				properties.Add(typeof(HtmxRouteAttribute).GetProperty(nameof(HtmxRouteAttribute.Targets))!);
-				values.Add(new[] { "section#result", "div#fallback" });
+				values.Add((definition.Targets ?? ["section#result", "div#fallback"]).ToArray());
 			}
 
 			type.SetCustomAttribute(new CustomAttributeBuilder(
