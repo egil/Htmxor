@@ -4,8 +4,8 @@ Status: review draft only. Nothing in this directory has been published to GitHu
 
 The agreed product and engineering target is [the Htmxor v1 goal](./goal.md).
 The remaining files are tracker drafts and must stay consistent with that goal.
-Use the [v1 orchestrator brief](./orchestrator-brief.md) to track proved progress
-and select one implementation slice at a time.
+Use the v1 goal, progress record, live issue state, and active delivery agents
+to track proved progress and select one implementation slice at a time.
 
 This packet prepares the first tracker changes for a stable Htmxor v1 without
 prematurely turning architecture hypotheses into implementation tickets.
@@ -32,7 +32,6 @@ ASP.NET Core change.
 | Draft | Purpose |
 | --- | --- |
 | [V1 goal](./goal.md) | Agreed product and engineering target |
-| [Orchestrator brief](./orchestrator-brief.md) | Agent input for progress tracking and next-slice selection |
 | [Progress record](./progress.md) | Last reviewed evidence, active work, and next candidate |
 | [Milestone](./proposed-milestone.md) | Stable-v1 outcome and release gates |
 | [Parent issue](./proposed-parent-issue.md) | Product contract, scope, sequencing, and later issue map |

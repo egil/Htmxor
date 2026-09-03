@@ -18,7 +18,7 @@ Do not demand full whitespace normalization. The repository gate intentionally v
 
 Identify the governing requirement in this order: the approved issue or specification, the pull request contract, then a referenced repository document. If none exists, state `No spec available` rather than inventing requirements.
 
-Check every acceptance criterion, edge and failure path, explicit exclusion, and authority limit. Reject unrequested product behavior, framework-support changes, security drift, or claims about dependencies that were not exercised. For v1 work, enforce the forbidden implementation shapes and stop conditions in `docs/roadmap/v1/orchestrator-brief.md`.
+Check every acceptance criterion, edge and failure path, explicit exclusion, and authority limit. Reject unrequested product behavior, framework-support changes, security drift, or claims about dependencies that were not exercised. For v1 work, enforce the forbidden implementation shapes and stop conditions in `AGENTS.md` and the v1 goal.
 
 ## Findings
 
