@@ -22,18 +22,27 @@ public sealed class PublicRendererComponentStateSeamTests
 		await renderer.Dispatcher.InvokeAsync(async () =>
 		{
 			var root = renderer.BeginRenderingComponent(typeof(NestedBoundaryRoot), ParameterView.Empty);
+			await probe.SelectedInitializationEntered.Task;
+			root.QuiescenceTask.IsCompleted.Should().BeFalse();
+			probe.ReleaseSelectedInitialization();
 			await root.QuiescenceTask;
+			var completedEvents = probe.Events.ToArray();
+			var rootMarkup = renderer.WriteRootComponentHtml();
 			var selectedMarkup = renderer.WriteSelectedComponentHtml();
 
-			selectedMarkup.Should().Be("<section data-selected=\"\">selected</section>");
+			rootMarkup.Should().Be("<main data-root=\"\"><div><section data-selected=\"\">selected:ready</section></div><aside data-root-sibling=\"\">sibling</aside></main>");
+			rootMarkup.Should().Contain("data-root");
+			rootMarkup.Should().Contain("data-root-sibling");
+			selectedMarkup.Should().Be("<section data-selected=\"\">selected:ready</section>");
 			selectedMarkup.Should().NotContain("data-root");
 			selectedMarkup.Should().NotContain("data-root-sibling");
-			probe.Events.Should().Contain("lifecycle:root");
-			probe.Events.Should().Contain("lifecycle:container");
-			probe.Events.Should().Contain("lifecycle:selected");
-			probe.Events.Should().Contain("lifecycle:sibling");
-			probe.Events.Should().Contain("data:selected");
-			probe.Events.Should().Contain("data:sibling");
+			completedEvents.Count(eventName => eventName == "lifecycle:root").Should().Be(1);
+			completedEvents.Count(eventName => eventName == "lifecycle:container").Should().Be(1);
+			completedEvents.Count(eventName => eventName == "lifecycle:selected").Should().Be(1);
+			completedEvents.Count(eventName => eventName == "lifecycle:sibling").Should().Be(1);
+			completedEvents.Count(eventName => eventName == "data-ready:selected").Should().Be(1);
+			completedEvents.Should().Contain("data:selected");
+			completedEvents.Should().Contain("data:sibling");
 			output.WriteLine($"Selected component output: {selectedMarkup}");
 			output.WriteLine($"Completed lifecycle and data work: {string.Join(", ", probe.Events)}");
 		});
@@ -41,18 +50,22 @@ public sealed class PublicRendererComponentStateSeamTests
 
 	private sealed class ProbeRenderer : StaticHtmlRenderer
 	{
+		private int rootComponentId = -1;
 		private int selectedComponentId = -1;
 		public ProbeRenderer(IServiceProvider services) : base(services, NullLoggerFactory.Instance) { }
 		protected override ComponentState CreateComponentState(int componentId, IComponent component, ComponentState? parentComponentState)
 		{
+			if (component is NestedBoundaryRoot) rootComponentId = componentId;
 			if (component is SelectedBoundary) selectedComponentId = componentId;
 			return base.CreateComponentState(componentId, component, parentComponentState);
 		}
-		public string WriteSelectedComponentHtml()
+		public string WriteRootComponentHtml() => WriteComponentHtml(rootComponentId);
+		public string WriteSelectedComponentHtml() => WriteComponentHtml(selectedComponentId);
+		private string WriteComponentHtml(int componentId)
 		{
-			selectedComponentId.Should().NotBe(-1);
+			componentId.Should().NotBe(-1);
 			using var writer = new StringWriter();
-			WriteComponentHtml(selectedComponentId, writer);
+			WriteComponentHtml(componentId, writer);
 			return writer.ToString();
 		}
 	}
@@ -78,9 +91,15 @@ public sealed class PublicRendererComponentStateSeamTests
 	private sealed class SelectedBoundary : ObservedComponent
 	{
 		protected override string Name => "selected";
+		protected override async Task OnInitializedAsync()
+		{
+			await base.OnInitializedAsync();
+			await Probe.WaitForSelectedInitializationAsync();
+			Probe.RecordDataReady(Name);
+		}
 		protected override void BuildRenderTree(RenderTreeBuilder builder)
 		{
-			builder.OpenElement(0, "section"); builder.AddAttribute(1, "data-selected", ""); builder.AddContent(2, Probe.Read(Name)); builder.CloseElement();
+			builder.OpenElement(0, "section"); builder.AddAttribute(1, "data-selected", ""); builder.AddContent(2, Probe.Read(Name)); builder.AddContent(3, ":ready"); builder.CloseElement();
 		}
 	}
 	private sealed class RootSibling : ObservedComponent
@@ -99,8 +118,17 @@ public sealed class PublicRendererComponentStateSeamTests
 	}
 	private sealed class RenderProbe
 	{
+		public TaskCompletionSource SelectedInitializationEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private readonly TaskCompletionSource selectedInitializationRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		public List<string> Events { get; } = [];
 		public string Read(string component) { Events.Add($"data:{component}"); return component; }
 		public void RecordLifecycle(string component) => Events.Add($"lifecycle:{component}");
+		public void RecordDataReady(string component) => Events.Add($"data-ready:{component}");
+		public async Task WaitForSelectedInitializationAsync()
+		{
+			SelectedInitializationEntered.TrySetResult();
+			await selectedInitializationRelease.Task;
+		}
+		public void ReleaseSelectedInitialization() => selectedInitializationRelease.TrySetResult();
 	}
 }
