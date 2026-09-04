@@ -26,9 +26,9 @@ public sealed class PublicRendererComponentStateSeamTests
 			root.QuiescenceTask.IsCompleted.Should().BeFalse();
 			probe.ReleaseSelectedInitialization();
 			await root.QuiescenceTask;
-			var completedEvents = probe.Events.ToArray();
+			var selectedComponentId = renderer.ResolveSelectedComponentIdFromCompletedTopology();
 			var rootMarkup = renderer.WriteRootComponentHtml();
-			var selectedMarkup = renderer.WriteSelectedComponentHtml();
+			var selectedMarkup = renderer.WriteSelectedComponentHtml(selectedComponentId);
 
 			rootMarkup.Should().Be("<main data-root=\"\"><div><section data-selected=\"\">selected:ready</section></div><aside data-root-sibling=\"\">sibling</aside></main>");
 			rootMarkup.Should().Contain("data-root");
@@ -36,13 +36,14 @@ public sealed class PublicRendererComponentStateSeamTests
 			selectedMarkup.Should().Be("<section data-selected=\"\">selected:ready</section>");
 			selectedMarkup.Should().NotContain("data-root");
 			selectedMarkup.Should().NotContain("data-root-sibling");
+			var completedEvents = probe.Events.ToArray();
 			completedEvents.Count(eventName => eventName == "lifecycle:root").Should().Be(1);
 			completedEvents.Count(eventName => eventName == "lifecycle:container").Should().Be(1);
 			completedEvents.Count(eventName => eventName == "lifecycle:selected").Should().Be(1);
 			completedEvents.Count(eventName => eventName == "lifecycle:sibling").Should().Be(1);
 			completedEvents.Count(eventName => eventName == "data-ready:selected").Should().Be(1);
-			completedEvents.Should().Contain("data:selected");
-			completedEvents.Should().Contain("data:sibling");
+			completedEvents.Count(eventName => eventName == "data:selected").Should().Be(2);
+			completedEvents.Count(eventName => eventName == "data:sibling").Should().Be(1);
 			output.WriteLine($"Selected component output: {selectedMarkup}");
 			output.WriteLine($"Completed lifecycle and data work: {string.Join(", ", probe.Events)}");
 		});
@@ -51,16 +52,26 @@ public sealed class PublicRendererComponentStateSeamTests
 	private sealed class ProbeRenderer : StaticHtmlRenderer
 	{
 		private int rootComponentId = -1;
-		private int selectedComponentId = -1;
+		private readonly List<ComponentState> componentStates = [];
 		public ProbeRenderer(IServiceProvider services) : base(services, NullLoggerFactory.Instance) { }
 		protected override ComponentState CreateComponentState(int componentId, IComponent component, ComponentState? parentComponentState)
 		{
 			if (component is NestedBoundaryRoot) rootComponentId = componentId;
-			if (component is SelectedBoundary) selectedComponentId = componentId;
-			return base.CreateComponentState(componentId, component, parentComponentState);
+			var state = base.CreateComponentState(componentId, component, parentComponentState);
+			componentStates.Add(state);
+			return state;
 		}
 		public string WriteRootComponentHtml() => WriteComponentHtml(rootComponentId);
-		public string WriteSelectedComponentHtml() => WriteComponentHtml(selectedComponentId);
+		public string WriteSelectedComponentHtml(int componentId) => WriteComponentHtml(componentId);
+		public int ResolveSelectedComponentIdFromCompletedTopology()
+		{
+			var selected = componentStates.Single(state => state.Component is SelectedBoundary);
+			selected.ParentComponentState.Should().NotBeNull();
+			selected.ParentComponentState!.Component.Should().BeOfType<NestedBoundaryContainer>();
+			selected.ParentComponentState.ParentComponentState.Should().NotBeNull();
+			selected.ParentComponentState.ParentComponentState!.Component.Should().BeOfType<NestedBoundaryRoot>();
+			return selected.ComponentId;
+		}
 		private string WriteComponentHtml(int componentId)
 		{
 			componentId.Should().NotBe(-1);
