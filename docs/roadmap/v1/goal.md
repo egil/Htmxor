@@ -124,8 +124,11 @@ permits one replaceable internal adapter to initialize the actual request-scoped
 ASP.NET Core form services. It may access the existing
 `HttpContextFormDataProvider.SetFormData` and
 `EndpointAntiforgeryStateProvider.SetRequestContext` and `DisableTokenGeneration`
-methods. The installed stock mapper, converters, options, form components, and
-validation runtime remain authoritative. General private renderer access and a
+methods, and read the applicable
+`ConfiguredRenderModesMetadata.ConfiguredRenderModes` property getter to decide
+whether completed non-streaming output disables token generation. The installed
+stock mapper, converters, options, form components, and validation runtime remain
+authoritative. General private renderer access and a
 copy of the form runtime remain outside this exception.
 
 The adapter baseline is ASP.NET Core v10.0.11, commit

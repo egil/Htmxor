@@ -64,6 +64,7 @@
 
 	<ItemGroup>
 		<None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
+		<None Update="Endpoints\ASP.NET-Core-LICENSE.txt" Pack="true" PackagePath="licenses/ASP.NET-Core-LICENSE.txt" />
 		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
 		<None Include="..\..\docs\htmxor-icon-square-x.png" Pack="true" PackagePath="\" />
 		<None
