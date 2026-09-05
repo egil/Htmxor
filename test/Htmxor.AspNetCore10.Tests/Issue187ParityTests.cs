@@ -2,9 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Htmxor;
-using Htmxor.DependencyInjection;
 using Htmxor.Endpoints;
-using Htmxor.Rendering;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -17,7 +15,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -172,40 +169,17 @@ public sealed class Issue187ParityTests
 	private static void ConfigureInternalCandidate(IServiceCollection services)
 	{
 		services.AddSingleton<Issue188CandidateInvocationProbe>();
-		services.AddScoped<EndpointRoutingStateProvider>();
-		services.AddScoped<HtmxorRenderer>();
-		services.AddScoped<HtmxorComponentEndpointInvoker>();
-		services.RemoveAll<IRazorComponentEndpointInvoker>();
+		HtmxorEndpointCandidateServices.Add(services);
+		var candidate = services.Single(service => service.ServiceType == typeof(IRazorComponentEndpointInvoker));
+		services.Remove(candidate);
 		services.AddScoped<IRazorComponentEndpointInvoker>(serviceProvider =>
 			new Issue188CandidateTrackingInvoker(
-				serviceProvider.GetRequiredService<HtmxorComponentEndpointInvoker>(),
+				serviceProvider.GetRequiredService<HtmxorEndpointCandidateInvoker>(),
 				serviceProvider.GetRequiredService<Issue188CandidateInvocationProbe>()));
-
-		RemoveStockCascadingHttpContextProvider(services);
-		services.AddCascadingValue(serviceProvider =>
-			serviceProvider.GetRequiredService<HtmxorRenderer>().HttpContext);
 	}
-
-	private static void RemoveStockCascadingHttpContextProvider(IServiceCollection services)
-	{
-		var provider = services
-			.Where(IsScopedFactory)
-			.Single(IsCascadingHttpContextProvider);
-		services.Remove(provider);
-	}
-
-	private static bool IsScopedFactory(ServiceDescriptor service)
-		=> service.Lifetime is ServiceLifetime.Scoped &&
-			service.ImplementationType is null &&
-			service.ImplementationFactory is not null;
-
-	private static bool IsCascadingHttpContextProvider(ServiceDescriptor service)
-		=> service.ImplementationFactory?.Target?.ToString()?.Contains(
-			typeof(HttpContext).FullName!,
-			StringComparison.Ordinal) == true;
 
 	private sealed class Issue188CandidateTrackingInvoker(
-		HtmxorComponentEndpointInvoker candidate,
+		HtmxorEndpointCandidateInvoker candidate,
 		Issue188CandidateInvocationProbe probe)
 		: IRazorComponentEndpointInvoker
 	{

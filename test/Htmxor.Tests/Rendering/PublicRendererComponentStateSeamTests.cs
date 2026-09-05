@@ -1,9 +1,8 @@
-using Htmxor.Rendering.Buffering;
+using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure;
 using Microsoft.AspNetCore.Components.Rendering;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit.Abstractions;
@@ -59,19 +58,17 @@ public sealed class PublicRendererComponentStateSeamTests
 		var probe = new RenderProbe();
 		var topology = new CompletedTopologyProbe();
 		var serviceCollection = new ServiceCollection().AddSingleton(probe);
-		serviceCollection.AddOptions<RazorComponentsServiceOptions>();
 		await using var services = serviceCollection.BuildServiceProvider();
 		await using var renderer = new ProductionProbeRenderer(services, topology);
-		var context = new DefaultHttpContext { RequestServices = services };
-		var renderTask = renderer.Dispatcher.InvokeAsync(async () =>
-			await renderer.RenderEndpointComponent(context, typeof(NestedBoundaryRoot), ParameterView.Empty));
+		var renderTask = renderer.Dispatcher.InvokeAsync(() =>
+			renderer.RenderEndpointComponentAsync(typeof(NestedBoundaryRoot), ParameterView.Empty));
 		await probe.SelectedInitializationEntered.Task;
 		renderTask.IsCompleted.Should().BeFalse();
 		probe.ReleaseSelectedInitialization();
 		var rendered = await renderTask;
 		var selectedComponentId = topology.ResolveSelectedComponentId();
 
-		var rootMarkup = await WriteHtmlAsync(rendered);
+		var rootMarkup = await WriteHtmlAsync(renderer, rendered);
 		var selectedMarkup = await renderer.WriteSelectedComponentHtmlAsync(selectedComponentId);
 
 		rootMarkup.Should().Be("<main data-root=\"\"><div><section data-selected=\"\">selected:ready</section></div><aside data-root-sibling=\"\">sibling</aside></main>");
@@ -80,16 +77,14 @@ public sealed class PublicRendererComponentStateSeamTests
 			"selected output must bind to the inherited framework writer, not a Htmxor copy or shadow");
 	}
 
-	private static async Task<string> WriteHtmlAsync(RenderedComponentHtmlContent content)
+	private static async Task<string> WriteHtmlAsync(StaticHtmlRenderer renderer, HtmlRootComponent content)
 	{
 		using var output = new StringWriter();
-		await using var writer = new ConditionalBufferedTextWriter(output);
-		await content.WriteToAsync(writer);
-		await writer.FlushAsync();
+		await renderer.Dispatcher.InvokeAsync(() => content.WriteHtmlTo(output));
 		return output.ToString();
 	}
 
-	private sealed class ProductionProbeRenderer : HtmxorRenderer
+	private sealed class ProductionProbeRenderer : HtmxorEndpointCandidateRenderer
 	{
 		private readonly CompletedTopologyProbe topology;
 
@@ -99,7 +94,7 @@ public sealed class PublicRendererComponentStateSeamTests
 			this.topology = topology;
 		}
 
-		protected override HtmxorComponentState CreateComponentState(
+		protected override ComponentState CreateComponentState(
 			int componentId,
 			IComponent component,
 			ComponentState? parentComponentState)
@@ -121,9 +116,7 @@ public sealed class PublicRendererComponentStateSeamTests
 		public async Task<string> WriteSelectedComponentHtmlAsync(int componentId)
 		{
 			using var output = new StringWriter();
-			await using var writer = new ConditionalBufferedTextWriter(output);
-			await Dispatcher.InvokeAsync(() => WriteComponentHtml(componentId, writer));
-			await writer.FlushAsync();
+			await Dispatcher.InvokeAsync(() => WriteCompletedComponentHtml(componentId, output));
 			return output.ToString();
 		}
 	}
