@@ -1,0 +1,9 @@
+{
+  "status": "ahead",
+  "files": [
+    {
+      "filename": "src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs",
+      "status": "modified"
+    }
+  ]
+}

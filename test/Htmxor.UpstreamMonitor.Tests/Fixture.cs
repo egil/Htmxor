@@ -32,8 +32,9 @@ internal static class Fixture
 		string path,
 		WatchMatch match = WatchMatch.File,
 		ApiSurface apiSurface = ApiSurface.None,
+		WatchRelationship relationship = WatchRelationship.Reimplements,
 		params string[] dependencies) =>
-		new(path, match, apiSurface, dependencies);
+		new(path, match, apiSurface, relationship, dependencies);
 
 	public static UpstreamMonitorApplication Application(FakeGitHubTransport transport)
 	{

@@ -26,40 +26,53 @@ public sealed class ApiSurfaceChangeTests
 		var result = await application.RunAsync(request);
 
 		Assert.Equal(MonitorStatus.Drift, result.Status);
-		Assert.Contains(
-			new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.BaseType, "Renderer"),
+		Assert.Equal(
+			[
+				new ApiChange("IRazorComponentEndpointInvoker", ChangeKind.Added, ApiSymbolKind.Member, "Task WarmAsync(CancellationToken cancellationToken)", ReviewClassification.ExtensibilityOpportunity),
+				new ApiChange("IRazorComponentEndpointInvoker", ChangeKind.Added, ApiSymbolKind.Member, "ValueTask InvokeAsync(HttpContext context)", ReviewClassification.ExtensibilityOpportunity),
+				new ApiChange("IRazorComponentEndpointInvoker", ChangeKind.Removed, ApiSymbolKind.Member, "Task InvokeAsync(HttpContext context)", ReviewClassification.CompatibilityRisk),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.BaseType, "RendererV2", ReviewClassification.ExtensibilityOpportunity),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Constraint, "where T : notnull, IDisposable", ReviewClassification.ExtensibilityOpportunity),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Constructor, "public StaticHtmlRenderer(IServiceProvider services)", ReviewClassification.ExtensibilityOpportunity),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Member, "protected abstract ValueTask RenderAsync(T value)", ReviewClassification.ExtensibilityOpportunity),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Member, "protected virtual bool CanRender(T value)", ReviewClassification.ExtensibilityOpportunity),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.BaseType, "Renderer", ReviewClassification.CompatibilityRisk),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Constraint, "where T : class", ReviewClassification.CompatibilityRisk),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Constructor, "protected StaticHtmlRenderer(IServiceProvider services)", ReviewClassification.CompatibilityRisk),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Member, "protected virtual Task RenderAsync(T value)", ReviewClassification.CompatibilityRisk),
+				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Member, "public abstract string Format(T value)", ReviewClassification.CompatibilityRisk),
+			],
+			result.ApiChanges.OrderBy(change => change.TypeName).ThenBy(change => change.Kind).ThenBy(change => change.SymbolKind).ThenBy(change => change.Signature));
+		ReportAssertions.EqualApiReport(result);
+	}
+
+	[Fact]
+	public async Task Watched_interface_disappearance_is_a_compatibility_risk()
+	{
+		var transport = SourceChangeTests.DriftTransport("github/compare-interface-disappeared.json");
+		AddSourceResponses(transport, InvokerPath, "IRazorComponentEndpointInvoker.Disappeared.cs");
+		var application = Fixture.Application(transport);
+		var request = new MonitorRequest(
+			Fixture.Manifest(Fixture.Watch(
+				InvokerPath,
+				apiSurface: ApiSurface.Interface,
+				relationship: WatchRelationship.Implements)),
+			10,
+			RequestedTag: "v10.0.12",
+			BaselineCommit: Fixture.BaselineCommit);
+
+		var result = await application.RunAsync(request);
+
+		Assert.Equal(
+			[
+				new ApiChange(
+					"IRazorComponentEndpointInvoker",
+					ChangeKind.Removed,
+					ApiSymbolKind.Type,
+					"public interface IRazorComponentEndpointInvoker",
+					ReviewClassification.CompatibilityRisk),
+			],
 			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.BaseType, "RendererV2"),
-			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Constraint, "where T : class"),
-			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Constraint, "where T : notnull, IDisposable"),
-			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Constructor, "protected StaticHtmlRenderer(IServiceProvider services)"),
-			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Constructor, "public StaticHtmlRenderer(IServiceProvider services)"),
-			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Member, "protected virtual Task RenderAsync(T value)"),
-			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Member, "protected abstract ValueTask RenderAsync(T value)"),
-			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("IRazorComponentEndpointInvoker", ChangeKind.Removed, ApiSymbolKind.Member, "Task InvokeAsync(HttpContext context)"),
-			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("IRazorComponentEndpointInvoker", ChangeKind.Added, ApiSymbolKind.Member, "ValueTask InvokeAsync(HttpContext context)"),
-			result.ApiChanges);
-		Assert.Contains(
-			new ApiChange("IRazorComponentEndpointInvoker", ChangeKind.Added, ApiSymbolKind.Member, "Task WarmAsync(CancellationToken cancellationToken)"),
-			result.ApiChanges);
-		Assert.Contains("public/protected API", result.MarkdownReport, StringComparison.OrdinalIgnoreCase);
 	}
 
 	private static void AddSourceResponses(

@@ -20,6 +20,22 @@ internal enum ApiSurface
 	Interface,
 }
 
+internal enum WatchRelationship
+{
+	Mirrors,
+	Reimplements,
+	Subclasses,
+	Implements,
+}
+
+internal enum ReviewClassification
+{
+	ParityRequired,
+	CompatibilityRisk,
+	ExtensibilityOpportunity,
+	ImplementationReview,
+}
+
 internal enum ChangeKind
 {
 	Added,
@@ -29,6 +45,7 @@ internal enum ChangeKind
 
 internal enum ApiSymbolKind
 {
+	Type,
 	BaseType,
 	Constraint,
 	Constructor,
@@ -39,6 +56,7 @@ internal sealed record WatchTarget(
 	string Path,
 	WatchMatch Match,
 	ApiSurface ApiSurface,
+	WatchRelationship Relationship,
 	IReadOnlyList<string> LocalDependencies);
 
 internal sealed record WatchManifest(
@@ -55,13 +73,17 @@ internal sealed record MonitorRequest(
 
 internal sealed record UpstreamRevision(string Tag, string Commit);
 
-internal sealed record SourceChange(string Path, ChangeKind Kind);
+internal sealed record SourceChange(
+	string Path,
+	ChangeKind Kind,
+	ReviewClassification Classification);
 
 internal sealed record ApiChange(
 	string TypeName,
 	ChangeKind Kind,
 	ApiSymbolKind SymbolKind,
-	string Signature);
+	string Signature,
+	ReviewClassification Classification);
 
 internal sealed record IssueUpsertInput(
 	string Identity,
@@ -78,3 +100,13 @@ internal sealed record MonitorResult(
 	string MarkdownReport,
 	IssueUpsertInput? Issue,
 	string? InfrastructureError);
+
+internal enum IssueWriteAction
+{
+	None,
+	Created,
+	Updated,
+	ReopenedAndUpdated,
+}
+
+internal sealed record IssueWriteResult(IssueWriteAction Action, long? IssueNumber, string? Error);
