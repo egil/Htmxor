@@ -92,12 +92,30 @@ fragment can hydrate into an interactive component. The documentation must make
 DOM and navigation ownership clear when HTMX and interactive Blazor share a
 page.
 
-Htmxor should use supported ASP.NET Core and Blazor extension points. It must not
-depend on copied renderer code, private reflection, or global replacement of the
-stock renderer, endpoint invoker, routing state, navigation manager, or form
-runtime. If a public API is intended mainly for framework infrastructure, Htmxor
-must isolate it behind a replaceable internal boundary and test it on every
-supported .NET version.
+Htmxor should use supported ASP.NET Core and Blazor extension points. Render-tree
+generation remains owned by the framework through supported public/protected
+`Renderer`, `StaticHtmlRenderer`, and `ComponentState` seams. Htmxor must not use
+private reflection or globally replace stock routing state, the navigation
+manager, or the form runtime.
+
+An inactive or active global endpoint-invoker/endpoint-renderer adaptation is
+allowed only when it preserves observable stock behavior. The stock endpoint
+factory, request delegates, and effective endpoint metadata remain authoritative;
+Htmxor's selected-output variation belongs at the supported HTML-writing seam.
+Any necessary endpoint-coordination source adaptation must remain in one narrow
+internal module with its upstream license, exact source URLs, release tag,
+commit, and synchronization date. [The upstream monitor](https://github.com/egil/Htmxor/issues/184)
+must track these relationships; a detected change requires review and renewed
+parity evidence before adoption.
+
+[Issue #188](https://github.com/egil/Htmxor/issues/188) establishes only an inactive
+candidate selected by a paired test host for ordinary non-form, non-streaming
+requests. Public `AddHtmxor` registration continues using the stock invoker until
+[the complete parity work](https://github.com/egil/Htmxor/issues/186) proves the
+activation boundary. This exception does not claim that activation is complete.
+If a public API is intended mainly for framework infrastructure, Htmxor must
+isolate it behind a replaceable internal boundary and test it on every supported
+.NET version.
 
 ## The application owns HTMX
 

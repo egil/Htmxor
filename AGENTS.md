@@ -10,10 +10,17 @@ Keep v1 work within these limits:
 
 - Do not add application-authored controllers or Minimal API endpoints for component routes.
 - Do not replace component instance callbacks with static endpoint handlers.
-- Do not copy private Blazor renderer code or add private reflection.
+- Keep lower-level Blazor render-tree generation framework-owned; do not add private reflection.
 - Do not treat HTMX headers as authorization evidence.
 - Do not bind Htmxor to one embedded HTMX version.
 - Do not claim framework, browser, package, performance, or security behavior that the recorded command did not exercise.
+
+An inactive or active global endpoint-invoker/endpoint-renderer adaptation is
+permitted only under [the v1 renderer requirements](docs/roadmap/v1/goal.md#blazor-remains-in-charge):
+observable stock parity, supported render-tree seams, upstream license and exact
+provenance, and [#184 monitoring](https://github.com/egil/Htmxor/issues/184).
+Issue #188 authorizes an inactive candidate selected by its paired test host;
+production registration activation remains gated on the complete #186 parity work.
 
 Stop for a user decision if evidence requires changing the v1 goal, public developer model, supported target framework, or security posture.
 
