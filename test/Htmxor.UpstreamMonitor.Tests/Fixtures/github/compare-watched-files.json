@@ -1,0 +1,29 @@
+{
+  "status": "ahead",
+  "files": [
+    {
+      "filename": "src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs",
+      "status": "modified"
+    },
+    {
+      "filename": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs",
+      "status": "modified"
+    },
+    {
+      "filename": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Diagnostics.cs",
+      "status": "added"
+    },
+    {
+      "filename": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs",
+      "status": "removed"
+    },
+    {
+      "filename": "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs",
+      "status": "removed"
+    },
+    {
+      "filename": "src/Unrelated/Unwatched.cs",
+      "status": "modified"
+    }
+  ]
+}

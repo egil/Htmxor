@@ -1,0 +1,13 @@
+{
+  "status": "ahead",
+  "files": [
+    {
+      "filename": "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs",
+      "status": "modified"
+    },
+    {
+      "filename": "src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs",
+      "status": "modified"
+    }
+  ]
+}

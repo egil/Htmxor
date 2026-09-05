@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<CodeMetricsProfile>production</CodeMetricsProfile>
+		<Description>Detects relevant ASP.NET Core source drift for Htmxor.</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="Htmxor.UpstreamMonitor.Tests" />
+	</ItemGroup>
+
+</Project>
