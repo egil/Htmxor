@@ -2,6 +2,8 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Htmxor;
+using Htmxor.Endpoints;
+using Htmxor.Rendering;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -12,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -89,6 +92,27 @@ public sealed class Issue187ParityTests
 		Assert.DoesNotContain("data-issue-187", stockBody, StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task Htmxor_host_can_select_internal_endpoint_candidate_from_test_wiring()
+	{
+		await using var host = await Issue187ParityHost.CreateAsync(
+			useHtmxor: true,
+			configureHtmxorServices: ConfigureInternalCandidate);
+		using var scope = host.App.Services.CreateScope();
+
+		var invoker = scope.ServiceProvider.GetRequiredService<IRazorComponentEndpointInvoker>();
+		Assert.IsType<HtmxorComponentEndpointInvoker>(invoker);
+	}
+
+	private static void ConfigureInternalCandidate(IServiceCollection services)
+	{
+		services.AddScoped<HtmxorRenderer>();
+		services.AddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
+		services.RemoveAll<IRazorComponentEndpointInvoker>();
+		services.AddScoped<IRazorComponentEndpointInvoker>(serviceProvider =>
+			serviceProvider.GetRequiredService<IHtmxorComponentEndpointInvoker>());
+	}
+
 	private static HttpRequestMessage CreateAuthorizedRequest()
 	{
 		var request = new HttpRequestMessage(HttpMethod.Get, Issue187ParityConstants.RequestPath);
@@ -137,7 +161,9 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 
 	public HttpClient Client { get; } = client;
 
-	public static async Task<Issue187ParityHost> CreateAsync(bool useHtmxor)
+	public static async Task<Issue187ParityHost> CreateAsync(
+		bool useHtmxor,
+		Action<IServiceCollection>? configureHtmxorServices = null)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
@@ -165,6 +191,7 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 		if (useHtmxor)
 		{
 			razorComponents.AddHtmxor();
+			configureHtmxorServices?.Invoke(builder.Services);
 		}
 
 		var app = builder.Build();
