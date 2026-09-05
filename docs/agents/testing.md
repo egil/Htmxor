@@ -86,3 +86,33 @@ Report:
 - whether full-scope mutation was applicable and, if run, whether it produced a valid report and a passing quality result.
 
 A retained report and a passing command are separate facts. Say which one the evidence proves.
+
+## Explicit upstream monitoring
+
+`dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile upstream`
+runs the static gates and deterministic monitor fixtures, then queries GitHub with
+`GH_TOKEN` from the environment. The separate hourly/manual upstream workflow
+uses this profile; ordinary `fast` and `full` run only the local fixtures and
+manifest policy. Package restore remains part of the existing preparation.
+The monitor's `NetworkAccess` classification describes upstream monitoring
+capability, not an operating-system network sandbox.
+
+Reports are written to `artifacts/upstream-monitor/upstream-monitor.json` and
+`artifacts/upstream-monitor/upstream-monitor.md`. Exit 0 means current, 1 means
+drift requiring review, and 2 means infrastructure failure. A drift result
+creates, updates, or reopens the stable upstream review issue. The manifest's
+reviewed baseline changes only after human review and renewed parity evidence.
+
+To reproduce an exact comparison locally, use:
+
+```text
+dotnet run --project eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj -- --tag v10.0.11 --baseline a5383385245bdacc20ec19f30e46090a8154d8da --json artifacts/upstream-monitor/upstream-monitor.json --markdown artifacts/upstream-monitor/upstream-monitor.md
+```
+
+Tokens are accepted only through `GH_TOKEN`, never a command-line argument.
+Downloaded source is inspected as text and is never compiled or executed.
+The independent local policy checks the renderer seam's framework identities
+and source-owned `// Htmxor upstream dependency: <path> | mirrors|reimplements`
+markers; maintain those markers alongside deliberately adapted implementations.
+A live provider run is separate integration evidence and does not prove hosted
+Actions scheduling, dispatch delivery, issue-write permission, or artifact upload.

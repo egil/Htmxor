@@ -1,0 +1,96 @@
+{
+  "repository": "dotnet/aspnetcore",
+  "reviewed": {
+    "tag": "v10.0.11",
+    "commit": "a5383385245bdacc20ec19f30e46090a8154d8da"
+  },
+  "watches": [
+    {
+      "path": "src/Components/Components/src/RenderTree/Renderer.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/Rendering/HtmxorRenderer.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/Rendering/ComponentState.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/Rendering/HtmxorComponentState.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs",
+      "match": "file",
+      "api": "interface",
+      "relationship": "implements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
+        "src/Htmxor/IHtmxorComponentEndpointInvoker.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer",
+      "match": "prefix",
+      "api": "subclass",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Rendering/HtmxorRenderer.EventDispatch.cs",
+        "src/Htmxor/Rendering/HtmxorRenderer.HtmxorEventDispatch.cs",
+        "src/Htmxor/Rendering/HtmxorRenderer.Rendering.cs",
+        "src/Htmxor/Rendering/HtmxorRenderer.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.HtmlWriting.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "mirrors",
+      "dependencies": [
+        "src/Htmxor/Rendering/HtmxorRenderer.HtmlWriting.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "mirrors",
+      "dependencies": [
+        "src/Htmxor/Rendering/HtmxorRenderer.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
+      ]
+    }
+  ]
+}

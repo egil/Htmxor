@@ -12,7 +12,7 @@ internal sealed record ProcessCommand(
 	string WorkingDirectory,
 	IReadOnlyList<string> Arguments,
 	bool EnsureSuccess = true,
-	NetworkAccess NetworkAccess = NetworkAccess.Disabled)
+	NetworkAccess NetworkAccess = NetworkAccess.Unknown)
 {
 	public string Display =>
 		$"{FileName} {string.Join(' ', Arguments.Select(QuoteForDisplay))}";

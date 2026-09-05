@@ -23,5 +23,5 @@ internal sealed record RepositoryEvidence(string Head, bool Dirty)
 	}
 
 	private static ProcessCommand Git(string repositoryRoot, params string[] arguments) =>
-		new("git", repositoryRoot, arguments);
+		new("git", repositoryRoot, arguments, NetworkAccess: NetworkAccess.Disabled);
 }

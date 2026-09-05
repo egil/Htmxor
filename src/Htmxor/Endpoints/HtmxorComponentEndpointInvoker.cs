@@ -1,3 +1,4 @@
+// Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 using System.Buffers;
 using System.Diagnostics;
 using System.Net;

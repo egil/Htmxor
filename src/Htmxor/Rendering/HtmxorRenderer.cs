@@ -1,3 +1,5 @@
+// Htmxor upstream dependency: src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs | mirrors
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer | reimplements
 using System.Collections;
 using System.Reflection;
 using System.Runtime.ExceptionServices;

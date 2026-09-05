@@ -15,7 +15,7 @@ internal static class Program
 		catch (Exception exception)
 		{
 			Console.Error.WriteLine(exception.Message);
-			return 1;
+			return exception.Data["ExitCode"] is int exitCode ? exitCode : 1;
 		}
 	}
 }

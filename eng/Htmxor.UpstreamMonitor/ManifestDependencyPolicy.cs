@@ -1,22 +1,90 @@
+using System.Text.RegularExpressions;
+
 namespace Htmxor.UpstreamMonitor;
 
-internal static class ManifestDependencyPolicy
+internal static partial class ManifestDependencyPolicy
 {
-	public static IReadOnlyList<string> FindMissingDependencies(
-		string repositoryRoot,
-		WatchManifest manifest)
+	// This is the renderer seam's framework identity-to-source map, not an inventory of local owners. Local relationships are derived independently of manifest watches.
+	private static readonly IReadOnlyDictionary<string, string> frameworkSources = new Dictionary<string, string>(StringComparer.Ordinal)
 	{
-		_ = repositoryRoot;
-		_ = manifest;
-		return [];
+		["Microsoft.AspNetCore.Components.RenderTree.Renderer"] = "src/Components/Components/src/RenderTree/Renderer.cs",
+		["Microsoft.AspNetCore.Components.Rendering.ComponentState"] = "src/Components/Components/src/Rendering/ComponentState.cs",
+		["Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure.StaticHtmlRenderer"] = "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs",
+		["Microsoft.AspNetCore.Components.Endpoints.IRazorComponentEndpointInvoker"] = "src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs",
+	};
+
+	public static IReadOnlyList<string> FindMissingDependencies(string repositoryRoot, WatchManifest manifest) =>
+		manifest.Targets.SelectMany(target => target.LocalDependencies).Distinct(StringComparer.Ordinal)
+			.Where(path => !File.Exists(Path.Combine(repositoryRoot, path))).Order(StringComparer.Ordinal).ToArray();
+
+	public static IReadOnlyList<LocalFrameworkDependency> FindUntrackedDependencies(string repositoryRoot, WatchManifest manifest)
+	{
+		var root = Path.Combine(repositoryRoot, "src", "Htmxor");
+		if (!Directory.Exists(root))
+		{
+			return [];
+		}
+		return Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+			.Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin"))
+			.SelectMany(path => Discover(Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'), new CSharpSource(File.ReadAllText(path))))
+			.Distinct().Where(dependency => !Covered(manifest, dependency))
+			.OrderBy(dependency => dependency.LocalPath, StringComparer.Ordinal).ThenBy(dependency => dependency.UpstreamPath, StringComparer.Ordinal)
+			.ThenBy(dependency => dependency.Relationship).ToArray();
 	}
 
-	public static IReadOnlyList<LocalFrameworkDependency> FindUntrackedDependencies(
-		string repositoryRoot,
-		WatchManifest manifest)
+	private static bool Covered(WatchManifest manifest, LocalFrameworkDependency dependency) => manifest.Targets.Any(watch =>
+		UpstreamMonitorApplication.Matches(watch, dependency.UpstreamPath) && watch.Relationship == dependency.Relationship &&
+		watch.LocalDependencies.Contains(dependency.LocalPath, StringComparer.Ordinal));
+
+	private static IEnumerable<LocalFrameworkDependency> Discover(string localPath, CSharpSource source)
 	{
-		_ = repositoryRoot;
-		_ = manifest;
-		return [];
+		foreach (var comment in source.Comments)
+		{
+			var marker = Provenance().Match(comment);
+			if (marker.Success)
+			{
+				yield return new(localPath, marker.Groups[1].Value, Enum.Parse<WatchRelationship>(marker.Groups[2].Value, true));
+			}
+		}
+		var imports = Imports().Matches(source.Text).Select(match => match.Groups[1].Value).ToArray();
+		foreach (var type in source.Types)
+		{
+			foreach (var name in type.Bases)
+			{
+				var identity = Resolve(name, source, imports);
+				if (identity is not null && frameworkSources.TryGetValue(identity, out var upstreamPath))
+				{
+					yield return new(localPath, upstreamPath, identity.Split('.').Last().StartsWith('I')
+						? WatchRelationship.Implements : WatchRelationship.Subclasses);
+				}
+			}
+		}
 	}
+
+	private static string? Resolve(string name, CSharpSource source, string[] imports)
+	{
+		name = name.Replace("global::", string.Empty, StringComparison.Ordinal).Trim();
+		if (name.Contains('.', StringComparison.Ordinal))
+		{
+			return name;
+		}
+		var aliases = Aliases().Matches(source.Text);
+		var alias = aliases.FirstOrDefault(match => match.Groups[1].Value == name);
+		if (alias is not null)
+		{
+			return alias.Groups[2].Value.Replace("global::", string.Empty, StringComparison.Ordinal);
+		}
+		if (source.Types.Any(type => type.Name == name))
+		{
+			return null;
+		}
+		return imports.Select(import => import + "." + name).FirstOrDefault(frameworkSources.ContainsKey);
+	}
+
+	[GeneratedRegex(@"^// Htmxor upstream dependency: (src/[^\s|]+) \| (mirrors|reimplements)$")]
+	private static partial Regex Provenance();
+	[GeneratedRegex(@"\busing\s+([\w.]+)\s*;")]
+	private static partial Regex Imports();
+	[GeneratedRegex(@"\busing\s+(\w+)\s*=\s*([\w.:]+)\s*;")]
+	private static partial Regex Aliases();
 }
