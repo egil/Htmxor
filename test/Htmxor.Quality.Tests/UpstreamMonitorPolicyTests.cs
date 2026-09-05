@@ -61,15 +61,27 @@ public sealed class UpstreamMonitorPolicyTests
 
 		Assert.Equal(
 			[
+				"src/Components/Components/src/ComponentBase.cs|file|subclass|subclasses|src/Htmxor/Components/ConditionalComponentBase.cs,src/Htmxor/Endpoints/HtmxorDirectComponentHost.cs,src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs",
+				"src/Components/Components/src/IComponent.cs|file|interface|implements|src/Htmxor/Components/HtmxHeadOutlet.cs,src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs",
+				"src/Components/Components/src/LayoutComponentBase.cs|file|subclass|subclasses|src/Htmxor/Components/HtmxLayoutComponentBase.cs",
+				"src/Components/Components/src/NavigationException.cs|file|subclass|subclasses|src/Htmxor/DependencyInjection/HtmxorNavigationException.cs",
+				"src/Components/Components/src/NavigationManager.cs|file|subclass|subclasses|src/Htmxor/DependencyInjection/HtmxorNavigationManager.cs",
 				"src/Components/Components/src/RenderTree/Renderer.cs|file|subclass|subclasses|src/Htmxor/Rendering/HtmxorRenderer.cs",
 				"src/Components/Components/src/Rendering/ComponentState.cs|file|subclass|subclasses|src/Htmxor/Rendering/HtmxorComponentState.cs",
+				"src/Components/Components/src/Routing/IHostEnvironmentNavigationManager.cs|file|interface|implements|src/Htmxor/DependencyInjection/HtmxorNavigationManager.cs",
+				"src/Components/Components/src/Routing/IRoutingStateProvider.cs|file|interface|implements|src/Htmxor/DependencyInjection/EndpointRoutingStateProvider.cs",
 				"src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
 				"src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs|file|interface|implements|src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs,src/Htmxor/IHtmxorComponentEndpointInvoker.cs",
 				"src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
 				"src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer|prefix|subclass|reimplements|src/Htmxor/Rendering/HtmxorRenderer.EventDispatch.cs,src/Htmxor/Rendering/HtmxorRenderer.HtmxorEventDispatch.cs,src/Htmxor/Rendering/HtmxorRenderer.Rendering.cs,src/Htmxor/Rendering/HtmxorRenderer.cs",
+				"src/Components/Web/src/Forms/AntiforgeryStateProvider.cs|file|subclass|subclasses|src/Htmxor/DependencyInjection/DefaultAntiforgeryStateProvider.cs",
 				"src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.HtmlWriting.cs|file|subclass|mirrors|src/Htmxor/Rendering/HtmxorRenderer.HtmlWriting.cs",
 				"src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs|file|subclass|mirrors|src/Htmxor/Rendering/HtmxorRenderer.cs",
 				"src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs|file|subclass|subclasses|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
+				"src/Html.Abstractions/src/IHtmlAsyncContent.cs|file|interface|implements|src/Htmxor/Rendering/RenderedComponentHtmlContent.cs",
+				"src/Http/Routing/src/EndpointDataSource.cs|file|subclass|subclasses|src/Htmxor/Builder/ComponentEndpointDataSource.cs",
+				"src/Http/Routing/src/Matching/IEndpointSelectorPolicy.cs|file|interface|implements|src/Htmxor/Builder/ComponentEndpointMatcherPolicy.cs,src/Htmxor/Builder/HtmxorDirectEndpointMatcherPolicy.cs",
+				"src/Http/Routing/src/Matching/MatcherPolicy.cs|file|subclass|subclasses|src/Htmxor/Builder/ComponentEndpointMatcherPolicy.cs,src/Htmxor/Builder/HtmxorDirectEndpointMatcherPolicy.cs",
 			],
 			ProjectWatches(manifest, root));
 	}

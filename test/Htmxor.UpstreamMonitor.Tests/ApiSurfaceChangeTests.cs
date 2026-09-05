@@ -31,7 +31,7 @@ public sealed class ApiSurfaceChangeTests
 			new ApiChange("StaticHtmlRenderer", ChangeKind.Added, ApiSymbolKind.Member, after, ReviewClassification.ExtensibilityOpportunity),
 			new ApiChange("StaticHtmlRenderer", ChangeKind.Removed, ApiSymbolKind.Member, before, ReviewClassification.CompatibilityRisk),
 		}, result.ApiChanges);
-		ReportAssertions.Equal(result, new ReportExpectation("drift", new("v10.0.11", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
+		ReportAssertions.Equal(result, new ReportExpectation("drift", new("unresolved", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
 			[new(StaticRendererPath, "changed", "compatibility-risk")],
 			[new("StaticHtmlRenderer", "added", "member", after, "extensibility-opportunity"),
 			 new("StaticHtmlRenderer", "removed", "member", before, "compatibility-risk")], null));
@@ -55,7 +55,7 @@ public sealed class ApiSurfaceChangeTests
 			new ApiChange("Renderer", ChangeKind.Added, ApiSymbolKind.Constructor, "public Renderer(string value)", ReviewClassification.ExtensibilityOpportunity),
 			new ApiChange("Renderer", ChangeKind.Removed, ApiSymbolKind.Constructor, "public Renderer(int value)", ReviewClassification.CompatibilityRisk),
 		}, result.ApiChanges);
-		ReportAssertions.Equal(result, new ReportExpectation("drift", new("v10.0.11", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
+		ReportAssertions.Equal(result, new ReportExpectation("drift", new("unresolved", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
 			[new(rendererPath, "changed", "compatibility-risk")],
 			[new("Renderer", "added", "constructor", "public Renderer(string value)", "extensibility-opportunity"),
 			 new("Renderer", "removed", "constructor", "public Renderer(int value)", "compatibility-risk")], null));
@@ -78,7 +78,7 @@ public sealed class ApiSurfaceChangeTests
 			new ApiChange("StaticHtmlRenderer", ChangeKind.Added, ApiSymbolKind.Member, "protected abstract void Render()", ReviewClassification.ExtensibilityOpportunity),
 			new ApiChange("StaticHtmlRenderer", ChangeKind.Removed, ApiSymbolKind.Member, "protected virtual void Render()", ReviewClassification.CompatibilityRisk),
 		}, result.ApiChanges.OrderBy(change => change.Kind));
-		ReportAssertions.Equal(result, new ReportExpectation("drift", new("v10.0.11", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
+		ReportAssertions.Equal(result, new ReportExpectation("drift", new("unresolved", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
 			[new(StaticRendererPath, "changed", "compatibility-risk")],
 			[new("StaticHtmlRenderer", "added", "member", "protected abstract void Render()", "extensibility-opportunity"),
 			 new("StaticHtmlRenderer", "removed", "member", "protected virtual void Render()", "compatibility-risk")], null));

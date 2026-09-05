@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Htmxor.UpstreamMonitor;
 
 namespace Htmxor.UpstreamMonitor.Tests;
@@ -17,6 +16,7 @@ public sealed class ManifestDependencyPolicyTests
 		{ "primary-constructor", InvokerInterfacePath, "Implements" },
 		{ "aliased-renderer", StaticRendererPath, "Subclasses" },
 		{ "mirrored-source", "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.HtmlWriting.cs", "Mirrors" },
+		{ "private-access-source", "src/Components/Endpoints/src/Forms/Provider.cs", "PrivateAccesses" },
 		{ "reimplemented-source", "src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs", "Reimplements" },
 	};
 
@@ -77,6 +77,68 @@ public sealed class ManifestDependencyPolicyTests
 		Assert.Contains(dependency.UpstreamPath, new[] { upstreamPath, $"unresolved:{identity}" });
 	}
 
+	[Theory]
+	[InlineData("using Microsoft.AspNetCore.Http; public class Dependency : IResult { }", false)]
+	[InlineData("using Microsoft.AspNetCore.Http; public class Dependency : IResult { }", true)]
+	[InlineData("public class Dependency : global::Microsoft.AspNetCore.Http.IResult { }", false)]
+	public void Trusted_framework_identity_without_a_reviewed_source_map_is_reported_as_unresolved(
+		string source, bool unrelatedWatch)
+	{
+		using var repository = new TemporaryRepository();
+		repository.Write(LocalPath, source);
+		var manifest = unrelatedWatch
+			? Fixture.Manifest(Watch(StaticRendererPath, WatchRelationship.Subclasses, LocalPath))
+			: Fixture.Manifest();
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		Assert.Equal([new LocalFrameworkDependency(LocalPath,
+			"unresolved:Microsoft.AspNetCore.Http.IResult", WatchRelationship.Implements)], untracked);
+	}
+
+	[Theory]
+	[InlineData("// Htmxor upstream dependency: src/Components/Endpoints/src/Forms/Provider.cs | private-accesses trailing")]
+	[InlineData("// Example: Htmxor upstream dependency: src/Components/Endpoints/src/Forms/Provider.cs | private-accesses")]
+	[InlineData("class Dependency { string marker = \"// Htmxor upstream dependency: src/Components/Endpoints/src/Forms/Provider.cs | private-accesses\"; }")]
+	public void Private_access_provenance_requires_an_exact_comment_marker(string source)
+	{
+		using var repository = new TemporaryRepository();
+		repository.Write(LocalPath, source);
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, Fixture.Manifest());
+
+		Assert.Empty(untracked);
+	}
+
+	[Fact]
+	public void JSON_manifest_reads_private_access_relationship_without_a_public_API_surface()
+	{
+		using var repository = new TemporaryRepository();
+		repository.Write("eng/Htmxor.UpstreamMonitor/upstream-watch.json", """
+			{
+			  "repository": "dotnet/aspnetcore",
+			  "reviewed": { "tag": "v10.0.11", "commit": "a5383385245bdacc20ec19f30e46090a8154d8da" },
+			  "watches": [{
+			    "path": "src/Components/Endpoints/src/Forms/Provider.cs",
+			    "match": "file", "api": "none", "relationship": "private-accesses",
+			    "dependencies": ["src/Htmxor/Dependency.cs"]
+			  }]
+			}
+			""");
+
+		var manifest = WatchManifestFile.Read(repository.Path);
+
+		Assert.Equal(Fixture.Repository, manifest.Repository);
+		Assert.Equal("v10.0.11", manifest.ReviewedTag);
+		Assert.Equal(Fixture.ReviewedCommit, manifest.ReviewedCommit);
+		var watch = Assert.Single(manifest.Targets);
+		Assert.Equal("src/Components/Endpoints/src/Forms/Provider.cs", watch.Path);
+		Assert.Equal(WatchMatch.File, watch.Match);
+		Assert.Equal(ApiSurface.None, watch.ApiSurface);
+		Assert.Equal(WatchRelationship.PrivateAccesses, watch.Relationship);
+		Assert.Equal([LocalPath], watch.LocalDependencies);
+	}
+
 	[Fact]
 	public void Committed_manifest_covers_every_local_framework_dependency()
 	{
@@ -84,8 +146,7 @@ public sealed class ManifestDependencyPolicyTests
 		var manifestPath = Path.Combine(repositoryRoot, "eng", "Htmxor.UpstreamMonitor", "upstream-watch.json");
 
 		Assert.True(File.Exists(manifestPath), "The upstream monitor manifest must be committed.");
-		using var document = JsonDocument.Parse(File.ReadAllText(manifestPath));
-		var manifest = ReadManifest(document.RootElement);
+		var manifest = WatchManifestFile.Read(repositoryRoot);
 
 		Assert.Empty(ManifestDependencyPolicy.FindUntrackedDependencies(repositoryRoot, manifest));
 	}
@@ -207,23 +268,6 @@ public sealed class ManifestDependencyPolicyTests
 			},
 			relationship: relationship,
 			dependencies: dependencies);
-
-	private static WatchManifest ReadManifest(JsonElement manifest)
-	{
-		var reviewed = manifest.GetProperty("reviewed");
-		return new WatchManifest(
-			manifest.GetProperty("repository").GetString()!,
-			reviewed.GetProperty("tag").GetString()!,
-			reviewed.GetProperty("commit").GetString()!,
-			manifest.GetProperty("watches").EnumerateArray().Select(ReadWatch).ToArray());
-	}
-
-	private static WatchTarget ReadWatch(JsonElement watch) => new(
-		watch.GetProperty("path").GetString()!,
-		Enum.Parse<WatchMatch>(watch.GetProperty("match").GetString()!, ignoreCase: true),
-		Enum.Parse<ApiSurface>(watch.GetProperty("api").GetString()!, ignoreCase: true),
-		Enum.Parse<WatchRelationship>(watch.GetProperty("relationship").GetString()!, ignoreCase: true),
-		watch.GetProperty("dependencies").EnumerateArray().Select(value => value.GetString()!).ToArray());
 
 	private sealed class TemporaryRepository : IDisposable
 	{

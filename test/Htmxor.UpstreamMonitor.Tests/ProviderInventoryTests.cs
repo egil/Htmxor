@@ -53,7 +53,7 @@ public sealed class ProviderInventoryTests
 		Assert.Equal(expected, result.SourceChanges.OrderBy(change => change.Path, StringComparer.Ordinal));
 		Assert.Equal(MonitorStatus.Drift, result.Status);
 		ReportAssertions.Equal(result, new ReportExpectation("drift",
-			new("v10.0.11", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
+			new("unresolved", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
 			expected.Select(change => new SourceReportRow(change.Path, change.Kind.ToString().ToLowerInvariant(), "parity-required")).ToArray(), [], null));
 	}
 
@@ -86,5 +86,5 @@ public sealed class ProviderInventoryTests
 	internal static MonitorRequest Request(WatchTarget watch) => new(Fixture.Manifest(watch), 10, "v10.0.12", Fixture.BaselineCommit);
 
 	internal static ReportExpectation FailureReport(string error) => new("infrastructure-error",
-		new("v10.0.11", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit), [], [], error);
+		new("unresolved", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit), [], [], error);
 }

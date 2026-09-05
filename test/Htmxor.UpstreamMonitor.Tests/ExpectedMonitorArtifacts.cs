@@ -101,7 +101,7 @@ internal static class ExpectedMonitorArtifacts
 
 	public static ReportExpectation NewerCurrentReport() => new(
 		"current",
-		new("v10.0.11", Fixture.BaselineCommit),
+		new("unresolved", Fixture.BaselineCommit),
 		new("v10.0.12", Fixture.TargetCommit),
 		[],
 		[],
@@ -119,7 +119,7 @@ internal static class ExpectedMonitorArtifacts
 		IReadOnlyList<SourceReportRow> sourceChanges,
 		IReadOnlyList<ApiReportRow> apiChanges) => new(
 		"drift",
-		new("v10.0.11", Fixture.BaselineCommit),
+		new("unresolved", Fixture.BaselineCommit),
 		new("v10.0.12", Fixture.TargetCommit),
 		sourceChanges,
 		apiChanges,
@@ -141,7 +141,7 @@ internal static class ExpectedMonitorArtifacts
 			string.Empty,
 			"Identity: aspnetcore-10-upstream-drift",
 			string.Empty,
-			$"- Previous: [v10.0.11 ({Fixture.BaselineCommit})](https://github.com/dotnet/aspnetcore/tree/{Fixture.BaselineCommit})",
+			$"- Previous: [unresolved ({Fixture.BaselineCommit})](https://github.com/dotnet/aspnetcore/tree/{Fixture.BaselineCommit})",
 			$"- Current: [v10.0.12 ({Fixture.TargetCommit})](https://github.com/dotnet/aspnetcore/tree/{Fixture.TargetCommit})",
 			$"- Compare: https://github.com/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
 			"- Parity tests: pending review",

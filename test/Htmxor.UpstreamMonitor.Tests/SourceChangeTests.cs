@@ -69,6 +69,33 @@ public sealed class SourceChangeTests
 		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.ImplementationReviewReport());
 	}
 
+	[Theory]
+	[InlineData("added", "Added", "added")]
+	[InlineData("modified", "Changed", "changed")]
+	[InlineData("removed", "Removed", "removed")]
+	public async Task Private_access_source_addition_change_or_removal_requires_compatibility_review(
+		string providerStatus, string expectedKind, string reportKind)
+	{
+		const string path = "src/Components/Endpoints/src/Forms/Provider.cs";
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12",
+			Fixture.Read("github/ref-v10.0.12-direct.json"));
+		transport.AddJson($"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			$$"""{"files":[{"filename":"{{path}}","status":"{{providerStatus}}"}]}""");
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(
+			Fixture.Watch(path, relationship: WatchRelationship.PrivateAccesses)));
+
+		Assert.Equal(MonitorStatus.Drift, result.Status);
+		Assert.Null(result.InfrastructureError);
+		Assert.Equal([new SourceChange(path, Enum.Parse<ChangeKind>(expectedKind), ReviewClassification.CompatibilityRisk)], result.SourceChanges);
+		Assert.Empty(result.ApiChanges);
+		ReportAssertions.Equal(result, new ReportExpectation("drift",
+			new("unresolved", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
+			[new(path, reportKind, "compatibility-risk")], [], null));
+		Assert.Contains($"- Compatibility risk | {reportKind} | {path}", Assert.IsType<IssueUpsertInput>(result.Issue).Body);
+	}
+
 	internal static FakeGitHubTransport DriftTransport(string compareFixture)
 	{
 		var transport = new FakeGitHubTransport();
