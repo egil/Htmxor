@@ -74,6 +74,8 @@ public sealed class PublicRendererComponentStateSeamTests
 
 		rootMarkup.Should().Be("<main data-root=\"\"><div><section data-selected=\"\">selected:ready</section></div><aside data-root-sibling=\"\">sibling</aside></main>");
 		selectedMarkup.Should().Be("<section data-selected=\"\">selected:ready</section>");
+		typeof(StaticHtmlRenderer).IsAssignableFrom(typeof(HtmxorRenderer)).Should().BeTrue(
+			"the production renderer must write completed ComponentState output through the supported StaticHtmlRenderer boundary");
 	}
 
 	private static async Task<string> WriteHtmlAsync(RenderedComponentHtmlContent content)
