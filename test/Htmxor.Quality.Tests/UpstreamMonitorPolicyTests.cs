@@ -174,7 +174,7 @@ public sealed class UpstreamMonitorPolicyTests
 				.Order(StringComparer.Ordinal)
 				.ToArray();
 			Assert.All(dependencies, dependency => Assert.True(
-				ExistsOrPendingConvergence(repositoryRoot, dependency),
+				File.Exists(Path.Combine(repositoryRoot, dependency)),
 				$"Manifest dependency '{dependency}' must exist."));
 			projection.Add(string.Join('|',
 				watch.GetProperty("path").GetString(),
@@ -186,10 +186,6 @@ public sealed class UpstreamMonitorPolicyTests
 
 		return projection.Order(StringComparer.Ordinal).ToArray();
 	}
-
-	private static bool ExistsOrPendingConvergence(string repositoryRoot, string dependency) =>
-		// Issue #188 owns this exact dependency; its presence gate is deferred until convergence.
-		dependency == "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs" || File.Exists(Path.Combine(repositoryRoot, dependency));
 
 	internal static WorkflowPolicy ExpectedWorkflow() => new(
 		"repository_dispatch,schedule,workflow_dispatch",
