@@ -1,6 +1,9 @@
+using Htmxor.Rendering.Buffering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit.Abstractions;
@@ -47,6 +50,78 @@ public sealed class PublicRendererComponentStateSeamTests
 			output.WriteLine($"Selected component output: {selectedMarkup}");
 			output.WriteLine($"Completed lifecycle and data work: {string.Join(", ", probe.Events)}");
 		});
+	}
+
+	[Fact]
+	public async Task Production_renderer_writes_the_root_or_one_completed_component_boundary()
+	{
+		var probe = new RenderProbe();
+		var serviceCollection = new ServiceCollection().AddSingleton(probe);
+		serviceCollection.AddOptions<RazorComponentsServiceOptions>();
+		await using var services = serviceCollection.BuildServiceProvider();
+		await using var renderer = new ProductionProbeRenderer(services);
+		var context = new DefaultHttpContext { RequestServices = services };
+		var renderTask = renderer.Dispatcher.InvokeAsync(async () =>
+			await renderer.RenderEndpointComponent(context, typeof(NestedBoundaryRoot), ParameterView.Empty));
+		await probe.SelectedInitializationEntered.Task;
+		renderTask.IsCompleted.Should().BeFalse();
+		probe.ReleaseSelectedInitialization();
+		var rendered = await renderTask;
+		var selectedComponentId = renderer.ResolveSelectedComponentIdFromCompletedTopology();
+
+		var rootMarkup = await WriteHtmlAsync(rendered);
+		var selectedMarkup = await renderer.WriteSelectedComponentHtmlAsync(selectedComponentId);
+
+		rootMarkup.Should().Be("<main data-root=\"\"><div><section data-selected=\"\">selected:ready</section></div><aside data-root-sibling=\"\">sibling</aside></main>");
+		selectedMarkup.Should().Be("<section data-selected=\"\">selected:ready</section>");
+	}
+
+	private static async Task<string> WriteHtmlAsync(RenderedComponentHtmlContent content)
+	{
+		using var output = new StringWriter();
+		await using var writer = new ConditionalBufferedTextWriter(output);
+		await content.WriteToAsync(writer);
+		await writer.FlushAsync();
+		return output.ToString();
+	}
+
+	private sealed class ProductionProbeRenderer : HtmxorRenderer
+	{
+		private readonly List<ComponentState> componentStates = [];
+
+		public ProductionProbeRenderer(IServiceProvider services)
+			: base(services, NullLoggerFactory.Instance)
+		{
+		}
+
+		protected override HtmxorComponentState CreateComponentState(
+			int componentId,
+			IComponent component,
+			ComponentState? parentComponentState)
+		{
+			var state = base.CreateComponentState(componentId, component, parentComponentState);
+			componentStates.Add(state);
+			return state;
+		}
+
+		public int ResolveSelectedComponentIdFromCompletedTopology()
+		{
+			var selected = componentStates.Single(state => state.Component is SelectedBoundary);
+			selected.ParentComponentState.Should().NotBeNull();
+			selected.ParentComponentState!.Component.Should().BeOfType<NestedBoundaryContainer>();
+			selected.ParentComponentState.ParentComponentState.Should().NotBeNull();
+			selected.ParentComponentState.ParentComponentState!.Component.Should().BeOfType<NestedBoundaryRoot>();
+			return selected.ComponentId;
+		}
+
+		public async Task<string> WriteSelectedComponentHtmlAsync(int componentId)
+		{
+			using var output = new StringWriter();
+			await using var writer = new ConditionalBufferedTextWriter(output);
+			await Dispatcher.InvokeAsync(() => WriteComponentHtml(componentId, writer));
+			await writer.FlushAsync();
+			return output.ToString();
+		}
 	}
 
 	private sealed class ProbeRenderer : StaticHtmlRenderer
