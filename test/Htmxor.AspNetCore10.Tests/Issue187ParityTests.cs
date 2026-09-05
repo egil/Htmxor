@@ -114,6 +114,20 @@ public sealed class Issue187ParityTests
 		await AssertUnauthorizedParityAsync(stock, candidate);
 	}
 
+	[Fact]
+	public async Task Inactive_candidate_retains_the_stock_routing_state_provider()
+	{
+		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
+		await using var candidate = await CreateInternalCandidateHostAsync();
+		await using var stockScope = stock.App.Services.CreateAsyncScope();
+		await using var candidateScope = candidate.App.Services.CreateAsyncScope();
+
+		var stockProvider = stockScope.ServiceProvider.GetRequiredService<IRoutingStateProvider>();
+		var candidateProvider = candidateScope.ServiceProvider.GetRequiredService<IRoutingStateProvider>();
+
+		Assert.Equal(stockProvider.GetType(), candidateProvider.GetType());
+	}
+
 	private static Task<Issue187ParityHost> CreateInternalCandidateHostAsync()
 		=> Issue187ParityHost.CreateAsync(
 			useHtmxor: true,
@@ -123,9 +137,6 @@ public sealed class Issue187ParityTests
 	{
 		services.AddSingleton<Issue188CandidateInvocationProbe>();
 		services.AddScoped<EndpointRoutingStateProvider>();
-		services.RemoveAll<IRoutingStateProvider>();
-		services.AddScoped<IRoutingStateProvider>(serviceProvider =>
-			serviceProvider.GetRequiredService<EndpointRoutingStateProvider>());
 		services.AddScoped<HtmxorRenderer>();
 		services.AddScoped<HtmxorComponentEndpointInvoker>();
 		services.RemoveAll<IRazorComponentEndpointInvoker>();

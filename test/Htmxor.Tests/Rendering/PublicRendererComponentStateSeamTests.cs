@@ -76,8 +76,8 @@ public sealed class PublicRendererComponentStateSeamTests
 
 		rootMarkup.Should().Be("<main data-root=\"\"><div><section data-selected=\"\">selected:ready</section></div><aside data-root-sibling=\"\">sibling</aside></main>");
 		selectedMarkup.Should().Be("<section data-selected=\"\">selected:ready</section>");
-		typeof(StaticHtmlRenderer).IsAssignableFrom(typeof(HtmxorRenderer)).Should().BeTrue(
-			"the production renderer must write completed ComponentState output through the supported StaticHtmlRenderer boundary");
+		renderer.SelectedComponentWriterOwner.Should().Be(typeof(StaticHtmlRenderer),
+			"selected output must bind to the inherited framework writer, not a Htmxor copy or shadow");
 	}
 
 	private static async Task<string> WriteHtmlAsync(RenderedComponentHtmlContent content)
@@ -107,6 +107,15 @@ public sealed class PublicRendererComponentStateSeamTests
 			var state = base.CreateComponentState(componentId, component, parentComponentState);
 			topology.Record(state);
 			return state;
+		}
+
+		public Type? SelectedComponentWriterOwner
+		{
+			get
+			{
+				Action<int, TextWriter> writeComponent = WriteComponentHtml;
+				return writeComponent.Method.DeclaringType;
+			}
 		}
 
 		public async Task<string> WriteSelectedComponentHtmlAsync(int componentId)
