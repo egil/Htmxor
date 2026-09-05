@@ -45,10 +45,17 @@ internal static class HtmxorEndpointCandidateServices
 
 		// AddRazorComponents does not expose a supported replacement hook for its HttpContext cascade.
 		// Issue #184 watches this registration shape so upstream drift is reviewed before candidate adoption.
-		var stockHttpContextSupplier = services
+		var stockHttpContextSuppliers = services
 			.Where(IsScopedFactory)
-			.Single(IsCascadingHttpContextSupplier);
-		services.Remove(stockHttpContextSupplier);
+			.Where(IsCascadingHttpContextSupplier)
+			.ToArray();
+		if (stockHttpContextSuppliers.Length is not 1)
+		{
+			throw new InvalidOperationException(
+				$"Expected exactly one scoped cascading HttpContext supplier registered by AddRazorComponents, but found {stockHttpContextSuppliers.Length}. ASP.NET Core's upstream registration shape may have changed.");
+		}
+
+		services.Remove(stockHttpContextSuppliers[0]);
 		services.AddCascadingValue(serviceProvider =>
 			serviceProvider.GetRequiredService<HtmxorEndpointCandidateRenderer>().HttpContext);
 	}
