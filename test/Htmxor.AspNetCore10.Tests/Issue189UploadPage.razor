@@ -1,0 +1,52 @@
+@page "/issue-189/upload"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Http
+@inject Issue189RequestProbe Probe
+
+<section data-instance="@instance" data-caption="@Model!.Caption">
+    <EditForm Model="Model" FormName="upload" method="post" enctype="multipart/form-data" OnValidSubmit="UploadAsync">
+        <input name="Model.Caption" />
+        <input type="file" name="Model.Attachment" />
+        <button type="submit">Upload</button>
+    </EditForm>
+    <output>@uploaded</output>
+</section>
+
+@code {
+    private readonly Guid instance = Guid.NewGuid();
+    private string uploaded = "not-submitted";
+
+    [SupplyParameterFromForm]
+    private UploadModel? Model { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Model ??= new();
+        Probe.Record("upload", instance, "initialized", Model.Caption);
+    }
+
+    protected override void OnParametersSet()
+        => Probe.Record("upload", instance, "parameters-set", Model!.Caption);
+
+    private async Task UploadAsync()
+    {
+        if (Model!.Attachment is { } file)
+        {
+            using var reader = new StreamReader(file.OpenReadStream());
+            uploaded = $"{file.Name}|{file.FileName}|{file.ContentType}|{file.Length}|{await reader.ReadToEndAsync()}";
+        }
+        else
+        {
+            uploaded = "missing-file";
+        }
+
+        Probe.Record("upload", instance, "uploaded", uploaded);
+    }
+
+    public sealed class UploadModel
+    {
+        public string Caption { get; set; } = string.Empty;
+
+        public IFormFile? Attachment { get; set; }
+    }
+}
