@@ -111,8 +111,25 @@ dotnet run --project eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj --
 
 Tokens are accepted only through `GH_TOKEN`, never a command-line argument.
 Downloaded source is inspected as text and is never compiled or executed.
-The independent local policy checks the renderer seam's framework identities
-and source-owned `// Htmxor upstream dependency: <path> | mirrors|reimplements`
-markers; maintain those markers alongside deliberately adapted implementations.
+The independent local policy discovers direct ASP.NET Core bases and interfaces
+from local declarations using type metadata from the installed .NET 10 ASP.NET
+Core framework. It reads that trusted metadata locally and makes no network calls.
+The reviewed source-path map supplies locations, not the discovery inventory:
+a framework identity without a mapped source is reported as `unresolved:<identity>`
+and requires a reviewed canonical path plus manifest coverage.
+
+Source-owned provenance markers have the exact form
+`// Htmxor upstream dependency: <src/...path> | <relationship>`, where the
+relationship is `mirrors`, `reimplements`, or `private-accesses`. Maintain each
+marker alongside its local dependency and matching manifest watch.
+`private-accesses` describes narrow cached, fail-fast access to private provider
+metadata; use `api: none`. Every watched addition, removal, or change is a
+compatibility risk. Mirrored and reimplemented sources still require parity
+review. EndpointHtmlRenderer EventDispatch remains covered by its reimplementation
+prefix watch.
+
+An explicit baseline equal to the reviewed commit retains the reviewed tag.
+A differing explicit baseline is labeled `unresolved` in JSON, Markdown, and the
+review issue while retaining its exact commit.
 A live provider run is separate integration evidence and does not prove hosted
 Actions scheduling, dispatch delivery, issue-write permission, or artifact upload.

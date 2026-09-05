@@ -4,13 +4,25 @@ namespace Htmxor.UpstreamMonitor;
 
 internal static partial class ManifestDependencyPolicy
 {
-	// This is the renderer seam's framework identity-to-source map, not an inventory of local owners. Local relationships are derived independently of manifest watches.
+	// This map supplies reviewed source locations only. Trusted framework metadata independently determines which local relationships require coverage.
 	private static readonly IReadOnlyDictionary<string, string> frameworkSources = new Dictionary<string, string>(StringComparer.Ordinal)
 	{
 		["Microsoft.AspNetCore.Components.RenderTree.Renderer"] = "src/Components/Components/src/RenderTree/Renderer.cs",
 		["Microsoft.AspNetCore.Components.Rendering.ComponentState"] = "src/Components/Components/src/Rendering/ComponentState.cs",
 		["Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure.StaticHtmlRenderer"] = "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs",
 		["Microsoft.AspNetCore.Components.Endpoints.IRazorComponentEndpointInvoker"] = "src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs",
+		["Microsoft.AspNetCore.Components.ComponentBase"] = "src/Components/Components/src/ComponentBase.cs",
+		["Microsoft.AspNetCore.Components.Forms.AntiforgeryStateProvider"] = "src/Components/Web/src/Forms/AntiforgeryStateProvider.cs",
+		["Microsoft.AspNetCore.Components.IComponent"] = "src/Components/Components/src/IComponent.cs",
+		["Microsoft.AspNetCore.Components.LayoutComponentBase"] = "src/Components/Components/src/LayoutComponentBase.cs",
+		["Microsoft.AspNetCore.Components.NavigationException"] = "src/Components/Components/src/NavigationException.cs",
+		["Microsoft.AspNetCore.Components.NavigationManager"] = "src/Components/Components/src/NavigationManager.cs",
+		["Microsoft.AspNetCore.Components.Routing.IHostEnvironmentNavigationManager"] = "src/Components/Components/src/Routing/IHostEnvironmentNavigationManager.cs",
+		["Microsoft.AspNetCore.Components.Routing.IRoutingStateProvider"] = "src/Components/Components/src/Routing/IRoutingStateProvider.cs",
+		["Microsoft.AspNetCore.Html.IHtmlAsyncContent"] = "src/Html.Abstractions/src/IHtmlAsyncContent.cs",
+		["Microsoft.AspNetCore.Routing.EndpointDataSource"] = "src/Http/Routing/src/EndpointDataSource.cs",
+		["Microsoft.AspNetCore.Routing.MatcherPolicy"] = "src/Http/Routing/src/Matching/MatcherPolicy.cs",
+		["Microsoft.AspNetCore.Routing.Matching.IEndpointSelectorPolicy"] = "src/Http/Routing/src/Matching/IEndpointSelectorPolicy.cs",
 	};
 
 	public static IReadOnlyList<string> FindMissingDependencies(string repositoryRoot, WatchManifest manifest) =>
@@ -43,7 +55,7 @@ internal static partial class ManifestDependencyPolicy
 			var marker = Provenance().Match(comment);
 			if (marker.Success)
 			{
-				yield return new(localPath, marker.Groups[1].Value, Enum.Parse<WatchRelationship>(marker.Groups[2].Value, true));
+				yield return new(localPath, marker.Groups[1].Value, WatchManifestFile.ParseRelationship(marker.Groups[2].Value));
 			}
 		}
 		var imports = Imports().Matches(source.Text).Select(match => match.Groups[1].Value).ToArray();
@@ -52,10 +64,10 @@ internal static partial class ManifestDependencyPolicy
 			foreach (var name in type.Bases)
 			{
 				var identity = Resolve(name, source, imports);
-				if (identity is not null && frameworkSources.TryGetValue(identity, out var upstreamPath))
+				if (identity is not null && TrustedFrameworkTypes.Contains(identity))
 				{
-					yield return new(localPath, upstreamPath, identity.Split('.').Last().StartsWith('I')
-						? WatchRelationship.Implements : WatchRelationship.Subclasses);
+					var upstreamPath = frameworkSources.GetValueOrDefault(identity, "unresolved:" + identity);
+					yield return new(localPath, upstreamPath, TrustedFrameworkTypes.Relationship(identity));
 				}
 			}
 		}
@@ -78,10 +90,10 @@ internal static partial class ManifestDependencyPolicy
 		{
 			return null;
 		}
-		return imports.Select(import => import + "." + name).FirstOrDefault(frameworkSources.ContainsKey);
+		return imports.Select(import => import + "." + name).FirstOrDefault(TrustedFrameworkTypes.Contains);
 	}
 
-	[GeneratedRegex(@"^// Htmxor upstream dependency: (src/[^\s|]+) \| (mirrors|reimplements)$")]
+	[GeneratedRegex(@"^// Htmxor upstream dependency: (src/[^\s|]+) \| (mirrors|reimplements|private-accesses)$")]
 	private static partial Regex Provenance();
 	[GeneratedRegex(@"\busing\s+([\w.]+)\s*;")]
 	private static partial Regex Imports();

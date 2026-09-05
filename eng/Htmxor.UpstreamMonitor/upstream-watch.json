@@ -91,6 +91,119 @@
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
       ]
+    },
+    {
+      "path": "src/Components/Components/src/ComponentBase.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/Components/ConditionalComponentBase.cs",
+        "src/Htmxor/Endpoints/HtmxorDirectComponentHost.cs",
+        "src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/IComponent.cs",
+      "match": "file",
+      "api": "interface",
+      "relationship": "implements",
+      "dependencies": [
+        "src/Htmxor/Components/HtmxHeadOutlet.cs",
+        "src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/LayoutComponentBase.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/Components/HtmxLayoutComponentBase.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/NavigationException.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/DependencyInjection/HtmxorNavigationException.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/NavigationManager.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/DependencyInjection/HtmxorNavigationManager.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/Routing/IHostEnvironmentNavigationManager.cs",
+      "match": "file",
+      "api": "interface",
+      "relationship": "implements",
+      "dependencies": [
+        "src/Htmxor/DependencyInjection/HtmxorNavigationManager.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/Routing/IRoutingStateProvider.cs",
+      "match": "file",
+      "api": "interface",
+      "relationship": "implements",
+      "dependencies": [
+        "src/Htmxor/DependencyInjection/EndpointRoutingStateProvider.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Web/src/Forms/AntiforgeryStateProvider.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/DependencyInjection/DefaultAntiforgeryStateProvider.cs"
+      ]
+    },
+    {
+      "path": "src/Html.Abstractions/src/IHtmlAsyncContent.cs",
+      "match": "file",
+      "api": "interface",
+      "relationship": "implements",
+      "dependencies": [
+        "src/Htmxor/Rendering/RenderedComponentHtmlContent.cs"
+      ]
+    },
+    {
+      "path": "src/Http/Routing/src/EndpointDataSource.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/Builder/ComponentEndpointDataSource.cs"
+      ]
+    },
+    {
+      "path": "src/Http/Routing/src/Matching/IEndpointSelectorPolicy.cs",
+      "match": "file",
+      "api": "interface",
+      "relationship": "implements",
+      "dependencies": [
+        "src/Htmxor/Builder/ComponentEndpointMatcherPolicy.cs",
+        "src/Htmxor/Builder/HtmxorDirectEndpointMatcherPolicy.cs"
+      ]
+    },
+    {
+      "path": "src/Http/Routing/src/Matching/MatcherPolicy.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/Builder/ComponentEndpointMatcherPolicy.cs",
+        "src/Htmxor/Builder/HtmxorDirectEndpointMatcherPolicy.cs"
+      ]
     }
   ]
 }

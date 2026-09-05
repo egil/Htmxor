@@ -11,7 +11,9 @@ internal static class MonitorReports
 		var sources = sourceChanges.OrderBy(change => change.Path, StringComparer.Ordinal).ThenBy(change => change.Kind).ToArray();
 		var apis = apiChanges.Distinct().OrderBy(change => change.TypeName, StringComparer.Ordinal).ThenBy(change => change.Kind)
 			.ThenBy(change => change.SymbolKind).ThenBy(change => change.Signature, StringComparer.Ordinal).ToArray();
-		var baseline = new UpstreamRevision(request.Manifest.ReviewedTag, request.BaselineCommit ?? request.Manifest.ReviewedCommit);
+		var baselineCommit = request.BaselineCommit ?? request.Manifest.ReviewedCommit;
+		var baselineTag = baselineCommit == request.Manifest.ReviewedCommit ? request.Manifest.ReviewedTag : "unresolved";
+		var baseline = new UpstreamRevision(baselineTag, baselineCommit);
 		return new(status, upstream, sources, apis, Json(status, baseline, upstream, sources, apis, error),
 			Markdown(status, baseline, upstream, sources, apis, error),
 			status == MonitorStatus.Drift ? Issue(request, baseline, upstream!, sources, apis) : null, error);

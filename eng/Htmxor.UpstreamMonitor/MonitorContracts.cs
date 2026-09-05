@@ -26,6 +26,7 @@ internal enum WatchRelationship
 	Reimplements,
 	Subclasses,
 	Implements,
+	PrivateAccesses,
 }
 
 internal enum ReviewClassification

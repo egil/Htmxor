@@ -58,7 +58,10 @@ internal static partial class ApiSurfaceComparer
 	}
 
 	private static bool Visible(string signature, bool isInterface) =>
-		signature.Length > 0 && (PublicOrProtected().IsMatch(signature) || (isInterface && !NonPublic().IsMatch(signature)));
+		signature.Length > 0 && VisibleModifiers(new CSharpSource(signature).Text, isInterface);
+
+	private static bool VisibleModifiers(string declaration, bool isInterface) =>
+		PublicOrProtected().IsMatch(declaration) || (isInterface && !NonPublic().IsMatch(declaration));
 
 	private static IEnumerable<string> MemberDeclarations(string body, string declarationBody)
 	{
@@ -84,7 +87,7 @@ internal static partial class ApiSurfaceComparer
 	private static string WithAccessors(string declaration, string body, string declarationBody, int boundary, bool expression)
 	{
 		var header = Attributes().Replace(declaration, string.Empty);
-		if (header.Contains('(', StringComparison.Ordinal))
+		if (CallableParameters().IsMatch(new CSharpSource(header).Text))
 		{
 			return declaration;
 		}
@@ -101,6 +104,9 @@ internal static partial class ApiSurfaceComparer
 			.Select(CSharpSource.Normalize).Where(accessor => Accessor().IsMatch(accessor)).ToArray();
 		return accessors.Length == 0 ? declaration : declaration + " { " + string.Join("; ", accessors) + "; }";
 	}
+
+	[GeneratedRegex(@"\)\s*(?:where\s+.*)?$")]
+	private static partial Regex CallableParameters();
 
 	[GeneratedRegex(@"^(?:(?:public|private|protected|internal)\s+)*(?:get|set|init|add|remove)$")]
 	private static partial Regex Accessor();

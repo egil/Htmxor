@@ -63,7 +63,8 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 		{
 			return ReviewClassification.ParityRequired;
 		}
-		if (changes.Any(change => change.Kind == ChangeKind.Removed))
+		if (watches.Any(watch => watch.Relationship == WatchRelationship.PrivateAccesses) ||
+			changes.Any(change => change.Kind == ChangeKind.Removed))
 		{
 			return ReviewClassification.CompatibilityRisk;
 		}

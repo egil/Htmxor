@@ -8,6 +8,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 		<InternalsVisibleTo Include="Htmxor.UpstreamMonitor.Tests" />
 	</ItemGroup>
 
