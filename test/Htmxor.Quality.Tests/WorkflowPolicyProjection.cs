@@ -23,6 +23,8 @@ internal static class WorkflowPolicyProjection
 			PermissionEntries(permissions),
 			MonitorCommand(monitor),
 			string.Join(',', Entries(Mapping(Child(monitor, "env"))).Order(StringComparer.Ordinal)),
+			EffectiveContinueOnError(Child(job, "continue-on-error")),
+			EffectiveContinueOnError(Child(monitor, "continue-on-error")),
 			Scalar(Child(upload, "if")),
 			string.Join(',', BlockLines(Child(Mapping(Child(upload, "with")), "path"))),
 			PositiveInt(Scalar(Child(Mapping(Child(upload, "with")), "retention-days"))),
@@ -83,6 +85,14 @@ internal static class WorkflowPolicyProjection
 	{
 		var command = Scalar(Child(step, "run"));
 		return string.IsNullOrEmpty(command) ? null : command.Trim();
+	}
+
+	private static string EffectiveContinueOnError(YamlNode? node)
+	{
+		var value = Scalar(node);
+		return string.IsNullOrEmpty(value) || value.Equals("false", StringComparison.OrdinalIgnoreCase)
+			? "false"
+			: value;
 	}
 
 	private static IEnumerable<string> BlockLines(YamlNode? node) =>

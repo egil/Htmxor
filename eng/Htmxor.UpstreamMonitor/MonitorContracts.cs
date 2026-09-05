@@ -65,6 +65,11 @@ internal sealed record WatchManifest(
 	string ReviewedCommit,
 	IReadOnlyList<WatchTarget> Targets);
 
+internal sealed record LocalFrameworkDependency(
+	string LocalPath,
+	string UpstreamPath,
+	WatchRelationship Relationship);
+
 internal sealed record MonitorRequest(
 	WatchManifest Manifest,
 	int SupportedMajorVersion,

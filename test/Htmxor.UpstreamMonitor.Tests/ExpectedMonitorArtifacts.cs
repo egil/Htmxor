@@ -99,6 +99,14 @@ internal static class ExpectedMonitorArtifacts
 		[],
 		null);
 
+	public static ReportExpectation NewerCurrentReport() => new(
+		"current",
+		new("v10.0.11", Fixture.BaselineCommit),
+		new("v10.0.12", Fixture.TargetCommit),
+		[],
+		[],
+		null);
+
 	public static ReportExpectation InfrastructureReport() => new(
 		"infrastructure-error",
 		new("v10.0.11", Fixture.ReviewedCommit),

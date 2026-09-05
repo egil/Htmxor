@@ -58,6 +58,44 @@ public sealed class ReleaseDiscoveryTests
 	}
 
 	[Fact]
+	public async Task Newer_release_with_only_unwatched_changes_is_current_without_an_issue()
+	{
+		const string compare = "/repos/dotnet/aspnetcore/compare/" + Fixture.BaselineCommit + "..." + Fixture.TargetCommit;
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(compare, """
+			{
+			  "status": "ahead",
+			  "files": [
+			    {
+			      "filename": "src/Unrelated/Unwatched.cs",
+			      "status": "modified"
+			    }
+			  ]
+			}
+			""");
+		var request = new MonitorRequest(
+			Fixture.Manifest(Fixture.Watch(ExpectedMonitorArtifacts.Invoker)),
+			10,
+			RequestedTag: "v10.0.12",
+			BaselineCommit: Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Equal(MonitorStatus.Current, result.Status);
+		Assert.Equal(new UpstreamRevision("v10.0.12", Fixture.TargetCommit), result.Upstream);
+		Assert.Empty(result.SourceChanges);
+		Assert.Empty(result.ApiChanges);
+		Assert.Null(result.Issue);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.NewerCurrentReport());
+		Assert.Equal(
+			[
+				(HttpMethod.Get, "/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12"),
+				(HttpMethod.Get, compare),
+			],
+			transport.Requests.Select(observed => (observed.Method, observed.PathAndQuery)));
+	}
+
+	[Fact]
 	public async Task Explicit_annotated_tag_resolves_to_its_commit_without_release_discovery()
 	{
 		var transport = new FakeGitHubTransport();

@@ -10,11 +10,23 @@ public sealed class WorkflowBoundaryTests
 	[InlineData("wrong-project", "eng/Htmxor.Quality/Htmxor.Quality.csproj", "eng/Other/Other.csproj")]
 	[InlineData("missing-separator", " -- check", " check")]
 	[InlineData("different-workspace", "      - name: Upload reports", "  other:\n    steps:\n      - name: Upload reports")]
+	[InlineData("job-continues-on-error", "  monitor:\n", "  monitor:\n    continue-on-error: true\n")]
+	[InlineData("monitor-continues-on-error", "        run: dotnet run", "        continue-on-error: true\n        run: dotnet run")]
 	public void Workflow_oracle_rejects_effective_job_and_command_regressions(string scenario, string before, string after)
 	{
 		var invalid = UpstreamMonitorPolicyTests.ValidWorkflow().Replace(before, after, StringComparison.Ordinal);
 
 		Assert.True(UpstreamMonitorPolicyTests.ExpectedWorkflow() != WorkflowPolicyProjection.Parse(invalid), scenario);
+	}
+
+	[Theory]
+	[InlineData("  monitor:\n", "  monitor:\n    continue-on-error: false\n")]
+	[InlineData("        run: dotnet run", "        continue-on-error: false\n        run: dotnet run")]
+	public void Explicit_false_continue_on_error_retains_failure_propagation(string before, string after)
+	{
+		var workflow = UpstreamMonitorPolicyTests.ValidWorkflow().Replace(before, after, StringComparison.Ordinal);
+
+		Assert.Equal(UpstreamMonitorPolicyTests.ExpectedWorkflow(), WorkflowPolicyProjection.Parse(workflow));
 	}
 
 	[Fact]

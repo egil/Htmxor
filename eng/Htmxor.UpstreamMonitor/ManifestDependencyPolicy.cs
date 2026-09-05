@@ -10,4 +10,13 @@ internal static class ManifestDependencyPolicy
 		_ = manifest;
 		return [];
 	}
+
+	public static IReadOnlyList<LocalFrameworkDependency> FindUntrackedDependencies(
+		string repositoryRoot,
+		WatchManifest manifest)
+	{
+		_ = repositoryRoot;
+		_ = manifest;
+		return [];
+	}
 }
