@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Threading;
 using Htmxor;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -35,17 +36,17 @@ public sealed class Issue187ParityTests
 		Assert.Equal(HttpStatusCode.OK, stockSnapshot.StatusCode);
 		Assert.Equal(stockSnapshot.StatusCode, htmxorSnapshot.StatusCode);
 		Assert.Equal(stockSnapshot.Headers, htmxorSnapshot.Headers);
-		Assert.Equal(stockSnapshot.Body, htmxorSnapshot.Body);
-		Assert.Contains("data-item-id=\"42\"", stockSnapshot.Body, StringComparison.Ordinal);
-		Assert.Contains("data-query=\"from-query\"", stockSnapshot.Body, StringComparison.Ordinal);
-		Assert.Contains("data-di=\"from-di\"", stockSnapshot.Body, StringComparison.Ordinal);
-		Assert.Contains("data-user=\"issue-187-user\"", stockSnapshot.Body, StringComparison.Ordinal);
-		Assert.Contains("data-auth-state-user=\"issue-187-user\"", stockSnapshot.Body, StringComparison.Ordinal);
-		Assert.Contains("data-authorization-policy=\"issue-187-policy\"", stockSnapshot.Body, StringComparison.Ordinal);
-		Assert.Contains("data-endpoint-marker=\"preserved\"", stockSnapshot.Body, StringComparison.Ordinal);
-		Assert.Contains("data-session=\"session-value\"", stockSnapshot.Body, StringComparison.Ordinal);
-		Assert.Contains("data-lifecycle=\"initialized|parameters-set\"", stockSnapshot.Body, StringComparison.Ordinal);
-		Assert.Contains("ordinary-output", stockSnapshot.Body, StringComparison.Ordinal);
+		Assert.Equal(stockSnapshot.BodyBytes, htmxorSnapshot.BodyBytes);
+		Assert.Contains("data-item-id=\"42\"", stockSnapshot.BodyText, StringComparison.Ordinal);
+		Assert.Contains("data-query=\"from-query\"", stockSnapshot.BodyText, StringComparison.Ordinal);
+		Assert.Contains("data-di=\"from-di\"", stockSnapshot.BodyText, StringComparison.Ordinal);
+		Assert.Contains("data-user=\"issue-187-user\"", stockSnapshot.BodyText, StringComparison.Ordinal);
+		Assert.Contains("data-auth-state-user=\"issue-187-user\"", stockSnapshot.BodyText, StringComparison.Ordinal);
+		Assert.Contains("data-authorization-policy=\"issue-187-policy\"", stockSnapshot.BodyText, StringComparison.Ordinal);
+		Assert.Contains("data-endpoint-marker=\"preserved\"", stockSnapshot.BodyText, StringComparison.Ordinal);
+		Assert.Contains("data-session=\"session-value\"", stockSnapshot.BodyText, StringComparison.Ordinal);
+		Assert.Contains("data-lifecycle=\"initialized|parameters-set\"", stockSnapshot.BodyText, StringComparison.Ordinal);
+		Assert.Contains("ordinary-output", stockSnapshot.BodyText, StringComparison.Ordinal);
 		AssertSessionCookie(stockSnapshot.Headers);
 	}
 
@@ -103,10 +104,10 @@ public sealed class Issue187ParityTests
 		var stockSnapshot = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
 		var candidateSnapshot = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
 
-		Assert.Equal(HttpStatusCode.OK, stockSnapshot.StatusCode);
+		Assert.NotEqual(HttpStatusCode.OK, stockSnapshot.StatusCode);
 		Assert.Equal(stockSnapshot.StatusCode, candidateSnapshot.StatusCode);
 		Assert.Equal(stockSnapshot.Headers, candidateSnapshot.Headers);
-		Assert.Equal(stockSnapshot.Body, candidateSnapshot.Body);
+		Assert.Equal(stockSnapshot.BodyBytes, candidateSnapshot.BodyBytes);
 		Assert.Equal(
 			1,
 			candidate.App.Services.GetRequiredService<Issue187CandidateInvocationProbe>().InvocationCount);
@@ -159,9 +160,11 @@ public sealed class Issue187ParityTests
 
 	private sealed class Issue187CandidateInvocationProbe
 	{
-		public int InvocationCount { get; private set; }
+		private int _invocationCount;
 
-		public void RecordInvocation() => InvocationCount++;
+		public int InvocationCount => Volatile.Read(ref _invocationCount);
+
+		public void RecordInvocation() => Interlocked.Increment(ref _invocationCount);
 	}
 
 	private static HttpRequestMessage CreateAuthorizedRequest()
@@ -308,7 +311,8 @@ internal sealed class Issue187AuthenticationHandler(
 internal sealed record Issue187ResponseSnapshot(
 	HttpStatusCode StatusCode,
 	IReadOnlyDictionary<string, string> Headers,
-	string Body)
+	byte[] BodyBytes,
+	string BodyText)
 {
 	public static async Task<Issue187ResponseSnapshot> CreateAsync(HttpResponseMessage response)
 	{
@@ -319,8 +323,9 @@ internal sealed record Issue187ResponseSnapshot(
 				group => group.Key,
 				group => NormalizeHeader(group.Key, group.SelectMany(header => header.Value)),
 				StringComparer.OrdinalIgnoreCase);
-		var body = await response.Content.ReadAsStringAsync();
-		return new Issue187ResponseSnapshot(response.StatusCode, headers, body);
+		var bodyBytes = await response.Content.ReadAsByteArrayAsync();
+		var bodyText = await response.Content.ReadAsStringAsync();
+		return new Issue187ResponseSnapshot(response.StatusCode, headers, bodyBytes, bodyText);
 	}
 
 	private static string NormalizeHeader(string name, IEnumerable<string> values)
