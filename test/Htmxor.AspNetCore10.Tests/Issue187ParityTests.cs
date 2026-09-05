@@ -2,17 +2,22 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Htmxor;
+using Htmxor.DependencyInjection;
 using Htmxor.Endpoints;
+using Htmxor.Rendering;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
+using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -96,7 +101,7 @@ public sealed class Issue187ParityTests
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await Issue187ParityHost.CreateAsync(
 			useHtmxor: true,
-			useInternalCandidate: true);
+			configureHtmxorServices: ConfigureInternalCandidate);
 
 		using var stockResponse = await stock.Client.SendAsync(CreateAuthorizedRequest());
 		using var candidateResponse = await candidate.Client.SendAsync(CreateAuthorizedRequest());
@@ -105,9 +110,70 @@ public sealed class Issue187ParityTests
 
 		Assert.Equal(HttpStatusCode.OK, stockSnapshot.StatusCode);
 		Assert.Equal(stockSnapshot.StatusCode, candidateSnapshot.StatusCode);
+		Assert.Equal(
+			1,
+			candidate.App.Services.GetRequiredService<Issue188CandidateInvocationProbe>().InvocationCount);
 		Assert.Equal(stockSnapshot.Headers, candidateSnapshot.Headers);
 		Assert.Equal(stockSnapshot.Body, candidateSnapshot.Body);
-		Assert.Equal(typeof(HtmxorComponentEndpointInvoker), candidate.GetEndpointInvokerType());
+	}
+
+	private static void ConfigureInternalCandidate(IServiceCollection services)
+	{
+		services.AddSingleton<Issue188CandidateInvocationProbe>();
+		services.AddScoped<EndpointRoutingStateProvider>();
+		services.RemoveAll<IRoutingStateProvider>();
+		services.AddScoped<IRoutingStateProvider>(serviceProvider =>
+			serviceProvider.GetRequiredService<EndpointRoutingStateProvider>());
+		services.AddScoped<HtmxorRenderer>();
+		services.AddScoped<HtmxorComponentEndpointInvoker>();
+		services.RemoveAll<IRazorComponentEndpointInvoker>();
+		services.AddScoped<IRazorComponentEndpointInvoker>(serviceProvider =>
+			new Issue188CandidateTrackingInvoker(
+				serviceProvider.GetRequiredService<HtmxorComponentEndpointInvoker>(),
+				serviceProvider.GetRequiredService<Issue188CandidateInvocationProbe>()));
+
+		RemoveStockCascadingHttpContextProvider(services);
+		services.AddCascadingValue(serviceProvider =>
+			serviceProvider.GetRequiredService<HtmxorRenderer>().HttpContext);
+	}
+
+	private static void RemoveStockCascadingHttpContextProvider(IServiceCollection services)
+	{
+		var provider = services
+			.Where(IsScopedFactory)
+			.Single(IsCascadingHttpContextProvider);
+		services.Remove(provider);
+	}
+
+	private static bool IsScopedFactory(ServiceDescriptor service)
+		=> service.Lifetime is ServiceLifetime.Scoped &&
+			service.ImplementationType is null &&
+			service.ImplementationFactory is not null;
+
+	private static bool IsCascadingHttpContextProvider(ServiceDescriptor service)
+		=> service.ImplementationFactory?.Target?.ToString()?.Contains(
+			typeof(HttpContext).FullName!,
+			StringComparison.Ordinal) == true;
+
+	private sealed class Issue188CandidateTrackingInvoker(
+		HtmxorComponentEndpointInvoker candidate,
+		Issue188CandidateInvocationProbe probe)
+		: IRazorComponentEndpointInvoker
+	{
+		public Task Render(HttpContext context)
+		{
+			probe.RecordInvocation();
+			return candidate.Render(context);
+		}
+	}
+
+	private sealed class Issue188CandidateInvocationProbe
+	{
+		private int invocationCount;
+
+		public int InvocationCount => Volatile.Read(ref invocationCount);
+
+		public void RecordInvocation() => Interlocked.Increment(ref invocationCount);
 	}
 
 	private static HttpRequestMessage CreateAuthorizedRequest()
@@ -160,7 +226,7 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 
 	public static async Task<Issue187ParityHost> CreateAsync(
 		bool useHtmxor,
-		bool useInternalCandidate = false)
+		Action<IServiceCollection>? configureHtmxorServices = null)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
@@ -187,14 +253,8 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 		var razorComponents = builder.Services.AddRazorComponents();
 		if (useHtmxor)
 		{
-			if (useInternalCandidate)
-			{
-				razorComponents.AddLegacyHtmx();
-			}
-			else
-			{
-				razorComponents.AddHtmxor();
-			}
+			razorComponents.AddHtmxor();
+			configureHtmxorServices?.Invoke(builder.Services);
 		}
 
 		var app = builder.Build();
@@ -218,12 +278,6 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 			.SelectMany(dataSource => dataSource.Endpoints)
 			.OfType<RouteEndpoint>()
 			.Single(endpoint => endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type == typeof(Issue187Page));
-
-	public Type GetEndpointInvokerType()
-	{
-		using var scope = App.Services.CreateScope();
-		return scope.ServiceProvider.GetRequiredService<IRazorComponentEndpointInvoker>().GetType();
-	}
 
 	public async ValueTask DisposeAsync()
 	{
