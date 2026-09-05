@@ -75,20 +75,24 @@ internal sealed partial class CSharpSource
 		var opening = match.Index + match.Length - 1;
 		var closing = ClosingBrace(Text, opening);
 		var name = Normalize(match.Groups["name"].Value);
-		var tail = match.Groups["tail"].Value.Trim();
-		tail = WithoutPrimaryConstructor(tail);
+		var tailGroup = match.Groups["tail"];
+		var tail = tailGroup.Value.TrimStart();
+		var parameterLength = PrimaryParameterLength(tail);
+		var parameters = parameterLength == 0 ? null : NormalizeDeclaration(
+			DeclarationText.Substring(tailGroup.Index + tailGroup.Length - tail.Length, parameterLength));
+		tail = tail[parameterLength..].Trim();
 		var constraints = Constraint().Matches(tail).Select(value => Normalize(value.Value)).ToArray();
 		var bases = tail.Split("where ", StringSplitOptions.None)[0].Trim();
 		return new(name, Normalize(match.Groups["modifiers"].Value + match.Groups["kind"].Value + " " + name),
 			match.Groups["kind"].Value == "interface", bases.StartsWith(':') ? bases[1..].Split(',').Select(Normalize).ToArray() : [],
-			constraints, Text[(opening + 1)..closing], DeclarationText[(opening + 1)..closing]);
+			constraints, Text[(opening + 1)..closing], DeclarationText[(opening + 1)..closing], parameters);
 	}
 
-	private static string WithoutPrimaryConstructor(string tail)
+	private static int PrimaryParameterLength(string tail)
 	{
 		if (!tail.StartsWith('('))
 		{
-			return tail;
+			return 0;
 		}
 		var depth = 0;
 		for (var index = 0; index < tail.Length; index++)
@@ -96,7 +100,7 @@ internal sealed partial class CSharpSource
 			depth += tail[index] switch { '(' => 1, ')' => -1, _ => 0 };
 			if (depth == 0)
 			{
-				return tail[(index + 1)..].Trim();
+				return index + 1;
 			}
 		}
 		throw new MonitorFailure("Source declaration has an unmatched parameter list.");
@@ -113,4 +117,4 @@ internal sealed partial class CSharpSource
 }
 
 internal sealed record SourceType(string Name, string Signature, bool IsInterface, IReadOnlyList<string> Bases,
-	IReadOnlyList<string> Constraints, string Body, string DeclarationBody);
+	IReadOnlyList<string> Constraints, string Body, string DeclarationBody, string? PrimaryConstructorParameters);

@@ -32,6 +32,11 @@ internal static partial class ApiSurfaceComparer
 	private static IEnumerable<ApiSymbol> Symbols(SourceType type)
 	{
 		yield return new(ApiSymbolKind.Type, type.Signature);
+		if (type.PrimaryConstructorParameters is not null)
+		{
+			var accessibility = type.Signature.Split(' ').Contains("abstract", StringComparer.Ordinal) ? "protected" : "public";
+			yield return new(ApiSymbolKind.Constructor, $"{accessibility} {type.Name.Split('<')[0]}{type.PrimaryConstructorParameters}");
+		}
 		foreach (var baseType in type.Bases)
 		{
 			yield return new(ApiSymbolKind.BaseType, baseType);
