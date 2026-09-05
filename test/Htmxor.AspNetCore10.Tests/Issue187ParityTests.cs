@@ -41,6 +41,8 @@ public sealed class Issue187ParityTests
 		Assert.Equal(stockSnapshot.StatusCode, htmxorSnapshot.StatusCode);
 		Assert.Equal(stockSnapshot.Headers, htmxorSnapshot.Headers);
 		Assert.Equal(stockSnapshot.Body, htmxorSnapshot.Body);
+		AssertTempDataAvailable(stockSnapshot.Body);
+		AssertTempDataAvailable(htmxorSnapshot.Body);
 		Assert.Contains("data-item-id=\"42\"", stockSnapshot.Body, StringComparison.Ordinal);
 		Assert.Contains("data-query=\"from-query\"", stockSnapshot.Body, StringComparison.Ordinal);
 		Assert.Contains("data-di=\"from-di\"", stockSnapshot.Body, StringComparison.Ordinal);
@@ -60,22 +62,7 @@ public sealed class Issue187ParityTests
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var htmxor = await Issue187ParityHost.CreateAsync(useHtmxor: true);
 
-		var stockEndpoint = stock.GetIssueEndpoint();
-		var htmxorEndpoint = htmxor.GetIssueEndpoint();
-
-		Assert.Equal(stockEndpoint.RoutePattern.RawText, htmxorEndpoint.RoutePattern.RawText);
-		Assert.Equal(
-			stockEndpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type,
-			htmxorEndpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type);
-		Assert.Equal(
-			stockEndpoint.Metadata.GetMetadata<RootComponentMetadata>()?.Type,
-			htmxorEndpoint.Metadata.GetMetadata<RootComponentMetadata>()?.Type);
-		Assert.Equal(
-			GetAuthorizationPolicies(stockEndpoint),
-			GetAuthorizationPolicies(htmxorEndpoint));
-		Assert.Equal(
-			stockEndpoint.Metadata.GetMetadata<Issue187EndpointMetadata>(),
-			htmxorEndpoint.Metadata.GetMetadata<Issue187EndpointMetadata>());
+		AssertEndpointMetadataParity(stock.GetIssueEndpoint(), htmxor.GetIssueEndpoint());
 	}
 
 	[Fact]
@@ -84,24 +71,14 @@ public sealed class Issue187ParityTests
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var htmxor = await Issue187ParityHost.CreateAsync(useHtmxor: true);
 
-		using var stockResponse = await stock.Client.GetAsync(Issue187ParityConstants.RequestPath);
-		using var htmxorResponse = await htmxor.Client.GetAsync(Issue187ParityConstants.RequestPath);
-		var stockBody = await stockResponse.Content.ReadAsStringAsync();
-		var htmxorBody = await htmxorResponse.Content.ReadAsStringAsync();
-
-		Assert.Equal(HttpStatusCode.Unauthorized, stockResponse.StatusCode);
-		Assert.Equal(stockResponse.StatusCode, htmxorResponse.StatusCode);
-		Assert.Equal(stockBody, htmxorBody);
-		Assert.DoesNotContain("data-issue-187", stockBody, StringComparison.Ordinal);
+		await AssertUnauthorizedParityAsync(stock, htmxor);
 	}
 
 	[Fact]
 	public async Task Inactive_candidate_has_byte_exact_paired_response_parity()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
-		await using var candidate = await Issue187ParityHost.CreateAsync(
-			useHtmxor: true,
-			configureHtmxorServices: ConfigureInternalCandidate);
+		await using var candidate = await CreateInternalCandidateHostAsync();
 
 		using var stockResponse = await stock.Client.SendAsync(CreateAuthorizedRequest());
 		using var candidateResponse = await candidate.Client.SendAsync(CreateAuthorizedRequest());
@@ -113,9 +90,34 @@ public sealed class Issue187ParityTests
 		Assert.Equal(
 			1,
 			candidate.App.Services.GetRequiredService<Issue188CandidateInvocationProbe>().InvocationCount);
-		Assert.Equal(stockSnapshot.Headers, candidateSnapshot.Headers);
+		AssertTempDataAvailable(candidateSnapshot.Body);
+		AssertTempDataAvailable(stockSnapshot.Body);
 		Assert.Equal(stockSnapshot.Body, candidateSnapshot.Body);
+		Assert.Equal(stockSnapshot.Headers, candidateSnapshot.Headers);
 	}
+
+	[Fact]
+	public async Task Inactive_candidate_preserves_component_route_and_authorization_metadata()
+	{
+		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
+		await using var candidate = await CreateInternalCandidateHostAsync();
+
+		AssertEndpointMetadataParity(stock.GetIssueEndpoint(), candidate.GetIssueEndpoint());
+	}
+
+	[Fact]
+	public async Task Inactive_candidate_has_paired_unauthorized_rejection()
+	{
+		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
+		await using var candidate = await CreateInternalCandidateHostAsync();
+
+		await AssertUnauthorizedParityAsync(stock, candidate);
+	}
+
+	private static Task<Issue187ParityHost> CreateInternalCandidateHostAsync()
+		=> Issue187ParityHost.CreateAsync(
+			useHtmxor: true,
+			configureHtmxorServices: ConfigureInternalCandidate);
 
 	private static void ConfigureInternalCandidate(IServiceCollection services)
 	{
@@ -188,6 +190,44 @@ public sealed class Issue187ParityTests
 			.Select(metadata => metadata.Policy ?? $"roles:{metadata.Roles}|schemes:{metadata.AuthenticationSchemes}")
 			.ToArray();
 
+	private static void AssertEndpointMetadataParity(RouteEndpoint stockEndpoint, RouteEndpoint actualEndpoint)
+	{
+		Assert.Equal(stockEndpoint.RoutePattern.RawText, actualEndpoint.RoutePattern.RawText);
+		Assert.Equal(
+			stockEndpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type,
+			actualEndpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type);
+		Assert.Equal(
+			stockEndpoint.Metadata.GetMetadata<RootComponentMetadata>()?.Type,
+			actualEndpoint.Metadata.GetMetadata<RootComponentMetadata>()?.Type);
+		Assert.Equal(
+			GetAuthorizationPolicies(stockEndpoint),
+			GetAuthorizationPolicies(actualEndpoint));
+		Assert.Equal(
+			stockEndpoint.Metadata.GetMetadata<Issue187EndpointMetadata>(),
+			actualEndpoint.Metadata.GetMetadata<Issue187EndpointMetadata>());
+	}
+
+	private static async Task AssertUnauthorizedParityAsync(
+		Issue187ParityHost stock,
+		Issue187ParityHost actual)
+	{
+		using var stockResponse = await stock.Client.GetAsync(Issue187ParityConstants.RequestPath);
+		using var actualResponse = await actual.Client.GetAsync(Issue187ParityConstants.RequestPath);
+		var stockBody = await stockResponse.Content.ReadAsStringAsync();
+		var actualBody = await actualResponse.Content.ReadAsStringAsync();
+
+		Assert.Equal(HttpStatusCode.Unauthorized, stockResponse.StatusCode);
+		Assert.Equal(stockResponse.StatusCode, actualResponse.StatusCode);
+		Assert.Equal(stockBody, actualBody);
+		Assert.DoesNotContain("data-issue-187", stockBody, StringComparison.Ordinal);
+	}
+
+	private static void AssertTempDataAvailable(string body)
+		=> Assert.Contains(
+			$"data-temp-data=\"{Issue187ParityConstants.TempDataValue}\"",
+			body,
+			StringComparison.Ordinal);
+
 	private static void AssertSessionCookie(IReadOnlyDictionary<string, string> headers)
 	{
 		Assert.True(headers.TryGetValue("Set-Cookie", out var setCookie));
@@ -202,6 +242,8 @@ internal static class Issue187ParityConstants
 	public const string RequestPath = "/issue-187/42?query=from-query";
 	public const string SessionKey = "issue-187-session-key";
 	public const string SessionValue = "session-value";
+	public const string TempDataKey = "issue-187-temp-data-key";
+	public const string TempDataValue = "temp-data-value";
 }
 
 internal sealed record Issue187EndpointMetadata(string Value)
@@ -238,6 +280,7 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 		builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
 		builder.Services.AddDistributedMemoryCache();
 		builder.Services.AddSession(options => options.Cookie.Name = "issue187-session");
+		builder.Services.AddMvcCore().AddViews();
 		builder.Services.AddHttpContextAccessor();
 		builder.Services.AddAuthentication(Issue187AuthenticationHandler.SchemeName)
 			.AddScheme<AuthenticationSchemeOptions, Issue187AuthenticationHandler>(

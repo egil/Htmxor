@@ -3,7 +3,9 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Mvc.ViewFeatures
 @inject Issue187RequestProbe RequestProbe
+@inject ITempDataDictionaryFactory TempDataDictionaryFactory
 
 <main data-issue-187
       data-item-id="@ItemId"
@@ -14,6 +16,7 @@
       data-authorization-policy="@AuthorizationPolicy"
       data-endpoint-marker="@EndpointMarker"
       data-session="@SessionValue"
+      data-temp-data="@TempDataValue"
       data-lifecycle="@string.Join('|', RequestProbe.Lifecycle)">
     ordinary-output
 </main>
@@ -36,6 +39,8 @@
 
     private string? SessionValue { get; set; }
 
+    private string? TempDataValue { get; set; }
+
     private string AuthorizationPolicy
         => HttpContext.GetEndpoint()?.Metadata.GetOrderedMetadata<IAuthorizeData>()
             .SingleOrDefault(metadata => metadata.Policy is not null)?.Policy
@@ -52,6 +57,9 @@
         AuthenticationStateUser = authenticationState.User.Identity?.Name;
         HttpContext.Session.SetString(Issue187ParityConstants.SessionKey, Issue187ParityConstants.SessionValue);
         SessionValue = HttpContext.Session.GetString(Issue187ParityConstants.SessionKey);
+        var tempData = TempDataDictionaryFactory.GetTempData(HttpContext);
+        tempData[Issue187ParityConstants.TempDataKey] = Issue187ParityConstants.TempDataValue;
+        TempDataValue = tempData[Issue187ParityConstants.TempDataKey]?.ToString();
     }
 
     protected override void OnParametersSet() => RequestProbe.Record("parameters-set");
