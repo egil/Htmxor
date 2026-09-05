@@ -86,6 +86,25 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
+	public void Candidate_registration_reports_duplicate_stock_HttpContext_suppliers()
+	{
+		IServiceCollection services = new ServiceCollection();
+		services.AddRazorComponents();
+		var stockSupplier = services.Single(service =>
+			service.ImplementationFactory?.Target?.ToString()?.Contains(
+				typeof(HttpContext).FullName!,
+				StringComparison.Ordinal) == true);
+		services.Add(stockSupplier);
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			HtmxorEndpointCandidateServices.Add(services));
+
+		Assert.Equal(
+			"Expected exactly one scoped cascading HttpContext supplier registered by AddRazorComponents, but found 2. ASP.NET Core's upstream registration shape may have changed.",
+			exception.Message);
+	}
+
+	[Fact]
 	public async Task Inactive_candidate_has_byte_exact_paired_response_parity()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
