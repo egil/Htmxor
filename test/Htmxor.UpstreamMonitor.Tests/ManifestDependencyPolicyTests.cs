@@ -20,6 +20,63 @@ public sealed class ManifestDependencyPolicyTests
 		{ "reimplemented-source", "src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs", "Reimplements" },
 	};
 
+	public static TheoryData<string, string, string, string> AdditionalFrameworkDeclarations => new()
+	{
+		{ "component-base", "Microsoft.AspNetCore.Components.ComponentBase", "src/Components/Components/src/ComponentBase.cs", "Subclasses" },
+		{ "component-interface", "Microsoft.AspNetCore.Components.IComponent", "src/Components/Components/src/IComponent.cs", "Implements" },
+		{ "navigation-manager", "Microsoft.AspNetCore.Components.NavigationManager", "src/Components/Components/src/NavigationManager.cs", "Subclasses" },
+	};
+
+	[Theory]
+	[MemberData(nameof(AdditionalFrameworkDeclarations))]
+	public void Additional_framework_identity_is_reported_without_any_watch(
+		string fixture, string identity, string upstreamPath, string relationshipName)
+	{
+		using var repository = new TemporaryRepository();
+		repository.WriteFixture(fixture);
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, Fixture.Manifest());
+
+		AssertAdditionalDependency(untracked, identity, upstreamPath, relationshipName);
+	}
+
+	[Theory]
+	[MemberData(nameof(AdditionalFrameworkDeclarations))]
+	public void Unrelated_watch_cannot_hide_an_additional_framework_identity(
+		string fixture, string identity, string upstreamPath, string relationshipName)
+	{
+		using var repository = new TemporaryRepository();
+		repository.WriteFixture(fixture);
+		var manifest = Fixture.Manifest(Watch(StaticRendererPath, WatchRelationship.Subclasses, LocalPath));
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		AssertAdditionalDependency(untracked, identity, upstreamPath, relationshipName);
+	}
+
+	[Theory]
+	[MemberData(nameof(AdditionalFrameworkDeclarations))]
+	public void Exact_watch_covers_an_additional_framework_identity(
+		string fixture, string identity, string upstreamPath, string relationshipName)
+	{
+		using var repository = new TemporaryRepository();
+		repository.WriteFixture(fixture);
+		var manifest = Fixture.Manifest(Watch(upstreamPath, Enum.Parse<WatchRelationship>(relationshipName), LocalPath));
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		Assert.True(untracked.Count == 0, $"{identity} is covered by its exact source watch: {string.Join(", ", untracked)}");
+	}
+
+	private static void AssertAdditionalDependency(IReadOnlyList<LocalFrameworkDependency> untracked,
+		string identity, string upstreamPath, string relationshipName)
+	{
+		var dependency = Assert.Single(untracked);
+		Assert.Equal(LocalPath, dependency.LocalPath);
+		Assert.Equal(Enum.Parse<WatchRelationship>(relationshipName), dependency.Relationship);
+		Assert.Contains(dependency.UpstreamPath, new[] { upstreamPath, $"unresolved:{identity}" });
+	}
+
 	[Fact]
 	public void Committed_manifest_covers_every_local_framework_dependency()
 	{
