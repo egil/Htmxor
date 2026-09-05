@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Threading;
 using Htmxor;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -159,9 +160,11 @@ public sealed class Issue187ParityTests
 
 	private sealed class Issue187CandidateInvocationProbe
 	{
-		public int InvocationCount { get; private set; }
+		private int _invocationCount;
 
-		public void RecordInvocation() => InvocationCount++;
+		public int InvocationCount => Volatile.Read(ref _invocationCount);
+
+		public void RecordInvocation() => Interlocked.Increment(ref _invocationCount);
 	}
 
 	private static HttpRequestMessage CreateAuthorizedRequest()
