@@ -1,0 +1,58 @@
+@page "/issue-187/{ItemId:int}"
+@attribute [Authorize(Policy = Issue187ParityConstants.PolicyName)]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Http
+@inject Issue187RequestProbe RequestProbe
+
+<main data-issue-187
+      data-item-id="@ItemId"
+      data-query="@QueryValue"
+      data-di="@RequestProbe.Value"
+      data-user="@HttpContext.User.Identity?.Name"
+      data-auth-state-user="@AuthenticationStateUser"
+      data-authorization-policy="@AuthorizationPolicy"
+      data-endpoint-marker="@EndpointMarker"
+      data-session="@SessionValue"
+      data-lifecycle="@string.Join('|', RequestProbe.Lifecycle)">
+    ordinary-output
+</main>
+
+@code {
+    [Parameter]
+    public int ItemId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "query")]
+    public string? QueryValue { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
+
+    private string? AuthenticationStateUser { get; set; }
+
+    private string? SessionValue { get; set; }
+
+    private string AuthorizationPolicy
+        => HttpContext.GetEndpoint()?.Metadata.GetOrderedMetadata<IAuthorizeData>()
+            .SingleOrDefault(metadata => metadata.Policy is not null)?.Policy
+            ?? "none";
+
+    private string EndpointMarker
+        => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue187EndpointMetadata>()?.Value
+            ?? "missing";
+
+    protected override async Task OnInitializedAsync()
+    {
+        RequestProbe.Record("initialized");
+        var authenticationState = await AuthenticationStateTask;
+        AuthenticationStateUser = authenticationState.User.Identity?.Name;
+        HttpContext.Session.SetString(Issue187ParityConstants.SessionKey, Issue187ParityConstants.SessionValue);
+        SessionValue = HttpContext.Session.GetString(Issue187ParityConstants.SessionKey);
+    }
+
+    protected override void OnParametersSet() => RequestProbe.Record("parameters-set");
+}
