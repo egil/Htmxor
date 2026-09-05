@@ -20,8 +20,9 @@ public sealed class PublicRendererComponentStateSeamTests
 	public async Task Completed_nested_component_boundary_can_be_serialized_without_root_or_sibling()
 	{
 		var probe = new RenderProbe();
+		var topology = new CompletedTopologyProbe();
 		await using var services = new ServiceCollection().AddSingleton(probe).BuildServiceProvider();
-		await using var renderer = new ProbeRenderer(services);
+		await using var renderer = new ProbeRenderer(services, topology);
 		await renderer.Dispatcher.InvokeAsync(async () =>
 		{
 			var root = renderer.BeginRenderingComponent(typeof(NestedBoundaryRoot), ParameterView.Empty);
@@ -29,7 +30,7 @@ public sealed class PublicRendererComponentStateSeamTests
 			root.QuiescenceTask.IsCompleted.Should().BeFalse();
 			probe.ReleaseSelectedInitialization();
 			await root.QuiescenceTask;
-			var selectedComponentId = renderer.ResolveSelectedComponentIdFromCompletedTopology();
+			var selectedComponentId = topology.ResolveSelectedComponentId();
 			var rootMarkup = renderer.WriteRootComponentHtml();
 			var selectedMarkup = renderer.WriteSelectedComponentHtml(selectedComponentId);
 
@@ -56,10 +57,11 @@ public sealed class PublicRendererComponentStateSeamTests
 	public async Task Production_renderer_writes_the_root_or_one_completed_component_boundary()
 	{
 		var probe = new RenderProbe();
+		var topology = new CompletedTopologyProbe();
 		var serviceCollection = new ServiceCollection().AddSingleton(probe);
 		serviceCollection.AddOptions<RazorComponentsServiceOptions>();
 		await using var services = serviceCollection.BuildServiceProvider();
-		await using var renderer = new ProductionProbeRenderer(services);
+		await using var renderer = new ProductionProbeRenderer(services, topology);
 		var context = new DefaultHttpContext { RequestServices = services };
 		var renderTask = renderer.Dispatcher.InvokeAsync(async () =>
 			await renderer.RenderEndpointComponent(context, typeof(NestedBoundaryRoot), ParameterView.Empty));
@@ -67,7 +69,7 @@ public sealed class PublicRendererComponentStateSeamTests
 		renderTask.IsCompleted.Should().BeFalse();
 		probe.ReleaseSelectedInitialization();
 		var rendered = await renderTask;
-		var selectedComponentId = renderer.ResolveSelectedComponentIdFromCompletedTopology();
+		var selectedComponentId = topology.ResolveSelectedComponentId();
 
 		var rootMarkup = await WriteHtmlAsync(rendered);
 		var selectedMarkup = await renderer.WriteSelectedComponentHtmlAsync(selectedComponentId);
@@ -89,11 +91,12 @@ public sealed class PublicRendererComponentStateSeamTests
 
 	private sealed class ProductionProbeRenderer : HtmxorRenderer
 	{
-		private readonly List<ComponentState> componentStates = [];
+		private readonly CompletedTopologyProbe topology;
 
-		public ProductionProbeRenderer(IServiceProvider services)
+		public ProductionProbeRenderer(IServiceProvider services, CompletedTopologyProbe topology)
 			: base(services, NullLoggerFactory.Instance)
 		{
+			this.topology = topology;
 		}
 
 		protected override HtmxorComponentState CreateComponentState(
@@ -102,18 +105,8 @@ public sealed class PublicRendererComponentStateSeamTests
 			ComponentState? parentComponentState)
 		{
 			var state = base.CreateComponentState(componentId, component, parentComponentState);
-			componentStates.Add(state);
+			topology.Record(state);
 			return state;
-		}
-
-		public int ResolveSelectedComponentIdFromCompletedTopology()
-		{
-			var selected = componentStates.Single(state => state.Component is SelectedBoundary);
-			selected.ParentComponentState.Should().NotBeNull();
-			selected.ParentComponentState!.Component.Should().BeOfType<NestedBoundaryContainer>();
-			selected.ParentComponentState.ParentComponentState.Should().NotBeNull();
-			selected.ParentComponentState.ParentComponentState!.Component.Should().BeOfType<NestedBoundaryRoot>();
-			return selected.ComponentId;
 		}
 
 		public async Task<string> WriteSelectedComponentHtmlAsync(int componentId)
@@ -129,18 +122,36 @@ public sealed class PublicRendererComponentStateSeamTests
 	private sealed class ProbeRenderer : StaticHtmlRenderer
 	{
 		private int rootComponentId = -1;
-		private readonly List<ComponentState> componentStates = [];
-		public ProbeRenderer(IServiceProvider services) : base(services, NullLoggerFactory.Instance) { }
+		private readonly CompletedTopologyProbe topology;
+		public ProbeRenderer(IServiceProvider services, CompletedTopologyProbe topology) : base(services, NullLoggerFactory.Instance)
+		{
+			this.topology = topology;
+		}
 		protected override ComponentState CreateComponentState(int componentId, IComponent component, ComponentState? parentComponentState)
 		{
 			if (component is NestedBoundaryRoot) rootComponentId = componentId;
 			var state = base.CreateComponentState(componentId, component, parentComponentState);
-			componentStates.Add(state);
+			topology.Record(state);
 			return state;
 		}
 		public string WriteRootComponentHtml() => WriteComponentHtml(rootComponentId);
 		public string WriteSelectedComponentHtml(int componentId) => WriteComponentHtml(componentId);
-		public int ResolveSelectedComponentIdFromCompletedTopology()
+		private string WriteComponentHtml(int componentId)
+		{
+			componentId.Should().NotBe(-1);
+			using var writer = new StringWriter();
+			WriteComponentHtml(componentId, writer);
+			return writer.ToString();
+		}
+	}
+
+	private sealed class CompletedTopologyProbe
+	{
+		private readonly List<ComponentState> componentStates = [];
+
+		public void Record(ComponentState state) => componentStates.Add(state);
+
+		public int ResolveSelectedComponentId()
 		{
 			var selected = componentStates.Single(state => state.Component is SelectedBoundary);
 			selected.ParentComponentState.Should().NotBeNull();
@@ -148,13 +159,6 @@ public sealed class PublicRendererComponentStateSeamTests
 			selected.ParentComponentState.ParentComponentState.Should().NotBeNull();
 			selected.ParentComponentState.ParentComponentState!.Component.Should().BeOfType<NestedBoundaryRoot>();
 			return selected.ComponentId;
-		}
-		private string WriteComponentHtml(int componentId)
-		{
-			componentId.Should().NotBe(-1);
-			using var writer = new StringWriter();
-			WriteComponentHtml(componentId, writer);
-			return writer.ToString();
 		}
 	}
 
