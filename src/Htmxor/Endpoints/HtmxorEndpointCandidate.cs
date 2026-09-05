@@ -7,8 +7,11 @@
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs
 // https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
 // Issue #184 relationships: reimplements RazorComponentEndpointInvoker, subclasses StaticHtmlRenderer,
-// implements IRazorComponentEndpointInvoker, and consumes ComponentState through supported seams.
+// implements IRazorComponentEndpointInvoker, consumes ComponentState through supported seams, and reimplements
+// the RazorComponentsServiceCollectionExtensions cascading HttpContext registration selection.
 
 using System.Buffers;
 using System.Text;
@@ -40,6 +43,8 @@ internal static class HtmxorEndpointCandidateServices
 		services.AddScoped<IRazorComponentEndpointInvoker>(serviceProvider =>
 			serviceProvider.GetRequiredService<HtmxorEndpointCandidateInvoker>());
 
+		// AddRazorComponents does not expose a supported replacement hook for its HttpContext cascade.
+		// Issue #184 watches this registration shape so upstream drift is reviewed before candidate adoption.
 		var stockHttpContextSupplier = services
 			.Where(IsScopedFactory)
 			.Single(IsCascadingHttpContextSupplier);
