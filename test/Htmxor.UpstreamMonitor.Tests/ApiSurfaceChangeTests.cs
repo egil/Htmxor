@@ -15,8 +15,8 @@ public sealed class ApiSurfaceChangeTests
 		AddSourceResponses(transport, InvokerPath, "IRazorComponentEndpointInvoker.cs");
 		var application = Fixture.Application(transport);
 		var manifest = Fixture.Manifest(
-			Fixture.Watch(StaticRendererPath, apiSurface: ApiSurface.Subclass),
-			Fixture.Watch(InvokerPath, apiSurface: ApiSurface.Interface));
+			Fixture.Watch(StaticRendererPath, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Mirrors),
+			Fixture.Watch(InvokerPath, apiSurface: ApiSurface.Interface, relationship: WatchRelationship.Implements));
 		var request = new MonitorRequest(
 			manifest,
 			10,
@@ -26,24 +26,12 @@ public sealed class ApiSurfaceChangeTests
 		var result = await application.RunAsync(request);
 
 		Assert.Equal(MonitorStatus.Drift, result.Status);
+		Assert.Equal(ExpectedMonitorArtifacts.MixedSourceChanges(), result.SourceChanges);
 		Assert.Equal(
-			[
-				new ApiChange("IRazorComponentEndpointInvoker", ChangeKind.Added, ApiSymbolKind.Member, "Task WarmAsync(CancellationToken cancellationToken)", ReviewClassification.ExtensibilityOpportunity),
-				new ApiChange("IRazorComponentEndpointInvoker", ChangeKind.Added, ApiSymbolKind.Member, "ValueTask InvokeAsync(HttpContext context)", ReviewClassification.ExtensibilityOpportunity),
-				new ApiChange("IRazorComponentEndpointInvoker", ChangeKind.Removed, ApiSymbolKind.Member, "Task InvokeAsync(HttpContext context)", ReviewClassification.CompatibilityRisk),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.BaseType, "RendererV2", ReviewClassification.ExtensibilityOpportunity),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Constraint, "where T : notnull, IDisposable", ReviewClassification.ExtensibilityOpportunity),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Constructor, "public StaticHtmlRenderer(IServiceProvider services)", ReviewClassification.ExtensibilityOpportunity),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Member, "protected abstract ValueTask RenderAsync(T value)", ReviewClassification.ExtensibilityOpportunity),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Added, ApiSymbolKind.Member, "protected virtual bool CanRender(T value)", ReviewClassification.ExtensibilityOpportunity),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.BaseType, "Renderer", ReviewClassification.CompatibilityRisk),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Constraint, "where T : class", ReviewClassification.CompatibilityRisk),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Constructor, "protected StaticHtmlRenderer(IServiceProvider services)", ReviewClassification.CompatibilityRisk),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Member, "protected virtual Task RenderAsync(T value)", ReviewClassification.CompatibilityRisk),
-				new ApiChange("StaticHtmlRenderer<T>", ChangeKind.Removed, ApiSymbolKind.Member, "public abstract string Format(T value)", ReviewClassification.CompatibilityRisk),
-			],
+			ExpectedMonitorArtifacts.MixedApiChanges(),
 			result.ApiChanges.OrderBy(change => change.TypeName).ThenBy(change => change.Kind).ThenBy(change => change.SymbolKind).ThenBy(change => change.Signature));
-		ReportAssertions.EqualApiReport(result);
+		Assert.Equal(ExpectedMonitorArtifacts.MixedIssue(), result.Issue);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.MixedDriftReport());
 	}
 
 	[Fact]
@@ -73,6 +61,7 @@ public sealed class ApiSurfaceChangeTests
 					ReviewClassification.CompatibilityRisk),
 			],
 			result.ApiChanges);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.TypeDisappearanceReport());
 	}
 
 	private static void AddSourceResponses(

@@ -5,8 +5,6 @@ namespace Htmxor.UpstreamMonitor.Tests;
 
 public sealed class MonitorOutcomeTests
 {
-	private const string Invoker = "src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs";
-
 	[Fact]
 	public async Task Provider_failure_reports_infrastructure_error_without_a_misleading_issue()
 	{
@@ -18,11 +16,10 @@ public sealed class MonitorOutcomeTests
 
 		var result = await application.RunAsync(new MonitorRequest(Fixture.Manifest(), 10));
 
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.InfrastructureReport());
 		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
-		Assert.Contains("503", result.InfrastructureError, StringComparison.Ordinal);
+		Assert.Equal(ExpectedMonitorArtifacts.InfrastructureError, result.InfrastructureError);
 		Assert.Null(result.Issue);
-		Assert.Contains("infrastructure-error", result.JsonReport, StringComparison.Ordinal);
-		Assert.Contains("infrastructure error", result.MarkdownReport, StringComparison.OrdinalIgnoreCase);
 		var observed = Assert.Single(transport.Requests);
 		Assert.Equal(HttpMethod.Get, observed.Method);
 		Assert.Equal("/repos/dotnet/aspnetcore/releases?per_page=100", observed.PathAndQuery);
@@ -34,32 +31,40 @@ public sealed class MonitorOutcomeTests
 		var first = await RunSingleFileDriftAsync();
 		var second = await RunSingleFileDriftAsync();
 
-		var expected = ExpectedIssue();
+		var expected = ExpectedMonitorArtifacts.SingleFileIssue();
 		Assert.Equal(expected, first.Issue);
 		Assert.Equal(expected, second.Issue);
 	}
 
 	[Fact]
-	public async Task Absent_matching_issue_is_created_once()
+	public async Task Created_issue_is_reused_on_the_second_upsert()
 	{
-		var transport = IssueTransport("[]");
+		var transport = IssueTransport(UnrelatedIssues());
 		transport.AddJson("/repos/egil/Htmxor/issues", "{\"number\":42,\"state\":\"open\"}");
+		transport.AddJson(
+			"/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100",
+			IssuesWithMatch("open"));
+		transport.AddJson("/repos/egil/Htmxor/issues/42", "{\"number\":42,\"state\":\"open\"}");
 
-		var outcome = await UpsertAsync(transport, DriftResult());
+		var first = await UpsertAsync(transport, DriftResult());
+		var second = await UpsertAsync(transport, DriftResult());
 
 		Assert.Equal(
-			new IssueWriteObservation(
+			new RepeatedIssueWriteObservation(
 				new IssueWriteResult(IssueWriteAction.Created, 42, null),
+				new IssueWriteResult(IssueWriteAction.Updated, 42, null),
 				string.Join('\n',
 					"GET /repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100 ",
-					$"POST /repos/egil/Htmxor/issues {CreateBody()}")),
-			outcome);
+					$"POST /repos/egil/Htmxor/issues {CreateBody()}",
+					"GET /repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100 ",
+					$"PATCH /repos/egil/Htmxor/issues/42 {UpdateBody()}")),
+			new RepeatedIssueWriteObservation(first.Result, second.Result, second.Requests));
 	}
 
 	[Fact]
 	public async Task Open_matching_issue_is_updated_without_duplicate_creation()
 	{
-		var transport = IssueTransport(OpenIssue(state: "open"));
+		var transport = IssueTransport(IssuesWithMatch("open"));
 		transport.AddJson("/repos/egil/Htmxor/issues/42", "{\"number\":42,\"state\":\"open\"}");
 
 		var outcome = await UpsertAsync(transport, DriftResult());
@@ -76,7 +81,7 @@ public sealed class MonitorOutcomeTests
 	[Fact]
 	public async Task Closed_matching_issue_is_reopened_then_updated()
 	{
-		var transport = IssueTransport(OpenIssue(state: "closed"));
+		var transport = IssueTransport(IssuesWithMatch("closed"));
 		transport.AddJson("/repos/egil/Htmxor/issues/42", "{\"number\":42,\"state\":\"open\"}");
 		transport.AddJson("/repos/egil/Htmxor/issues/42", "{\"number\":42,\"state\":\"open\"}");
 
@@ -102,7 +107,7 @@ public sealed class MonitorOutcomeTests
 		var result = DriftResult() with
 		{
 			Status = status,
-			Issue = status == MonitorStatus.Current ? null : ExpectedIssue(),
+			Issue = status == MonitorStatus.Current ? null : ExpectedMonitorArtifacts.SingleFileIssue(),
 			InfrastructureError = status == MonitorStatus.InfrastructureError ? "503 Service Unavailable" : null,
 		};
 
@@ -117,7 +122,7 @@ public sealed class MonitorOutcomeTests
 	{
 		var transport = SourceChangeTests.DriftTransport("github/compare-watched-files.json");
 		var application = Fixture.Application(transport);
-		var manifest = Fixture.Manifest(Fixture.Watch(Invoker));
+		var manifest = Fixture.Manifest(Fixture.Watch(ExpectedMonitorArtifacts.Invoker));
 		var request = new MonitorRequest(
 			manifest,
 			10,
@@ -127,38 +132,14 @@ public sealed class MonitorOutcomeTests
 		return await application.RunAsync(request);
 	}
 
-	private static IssueUpsertInput ExpectedIssue() => new(
-		"aspnetcore-10-upstream-drift",
-		"repo:egil/Htmxor is:issue label:upstream-monitor \"aspnetcore-10-upstream-drift\" in:body",
-		"ASP.NET Core v10.0.12 requires Htmxor upstream review",
-		$$"""
-		## ASP.NET Core upstream drift
-
-		- Previous: [v10.0.11 ({{Fixture.BaselineCommit}})](https://github.com/dotnet/aspnetcore/tree/{{Fixture.BaselineCommit}})
-		- Current: [v10.0.12 ({{Fixture.TargetCommit}})](https://github.com/dotnet/aspnetcore/tree/{{Fixture.TargetCommit}})
-		- Compare: https://github.com/dotnet/aspnetcore/compare/{{Fixture.BaselineCommit}}...{{Fixture.TargetCommit}}
-		- Parity tests: pending review
-
-		### Classified changes
-
-		- Parity required | changed | {{Invoker}}
-
-		### Review checklist
-
-		- [ ] Review source changes
-		- [ ] Review public/protected API changes
-		- [ ] Run or update parity tests
-		- [ ] Update the reviewed manifest baseline
-		""");
-
 	private static MonitorResult DriftResult() => new(
 		MonitorStatus.Drift,
 		new UpstreamRevision("v10.0.12", Fixture.TargetCommit),
-		[new SourceChange(Invoker, ChangeKind.Changed, ReviewClassification.ParityRequired)],
+		[new SourceChange(ExpectedMonitorArtifacts.Invoker, ChangeKind.Changed, ReviewClassification.ParityRequired)],
 		[],
 		"{}",
 		"report",
-		ExpectedIssue(),
+		ExpectedMonitorArtifacts.SingleFileIssue(),
 		null);
 
 	private static FakeGitHubTransport IssueTransport(string searchResponse)
@@ -170,14 +151,29 @@ public sealed class MonitorOutcomeTests
 		return transport;
 	}
 
-	private static string OpenIssue(string state) =>
-		$"[{{\"number\":42,\"state\":\"{state}\",\"body\":\"identity: aspnetcore-10-upstream-drift\"}}]";
+	private static string UnrelatedIssues() => Issues(
+		new(7, "open", "unrelated open upstream monitor issue"),
+		new(8, "closed", "unrelated closed upstream monitor issue"));
+
+	private static string IssuesWithMatch(string state) => Issues(
+		new(7, "open", "unrelated open upstream monitor issue"),
+		new(8, "closed", "unrelated closed upstream monitor issue"),
+		new(42, state, ExpectedMonitorArtifacts.SingleFileIssue().Body));
+
+	private static string Issues(params IssueFixture[] issues) =>
+		System.Text.Json.JsonSerializer.Serialize(issues.Select(issue => new
+		{
+			number = issue.Number,
+			state = issue.State,
+			body = issue.Body,
+			labels = new[] { new { name = "upstream-monitor" } },
+		}));
 
 	private static async Task<IssueWriteObservation> UpsertAsync(
 		FakeGitHubTransport transport,
 		MonitorResult result)
 	{
-		using var client = new HttpClient(transport) { BaseAddress = new Uri("https://api.github.test") };
+		using var client = new HttpClient(transport, disposeHandler: false) { BaseAddress = new Uri("https://api.github.test") };
 		var upserter = new GitHubIssueUpserter(client);
 
 		var write = await upserter.UpsertAsync(result);
@@ -194,18 +190,25 @@ public sealed class MonitorOutcomeTests
 
 	private static string CreateBody() => CanonicalJson(System.Text.Json.JsonSerializer.Serialize(new
 	{
-		title = ExpectedIssue().Title,
-		body = ExpectedIssue().Body,
+		title = ExpectedMonitorArtifacts.SingleFileIssue().Title,
+		body = ExpectedMonitorArtifacts.SingleFileIssue().Body,
 		labels = new[] { "upstream-monitor" },
 	}));
 
 	private static string UpdateBody() => CanonicalJson(System.Text.Json.JsonSerializer.Serialize(new
 	{
-		title = ExpectedIssue().Title,
-		body = ExpectedIssue().Body,
+		title = ExpectedMonitorArtifacts.SingleFileIssue().Title,
+		body = ExpectedMonitorArtifacts.SingleFileIssue().Body,
 	}));
 
 	private sealed record IssueWriteObservation(
 		IssueWriteResult Result,
 		string Requests);
+
+	private sealed record RepeatedIssueWriteObservation(
+		IssueWriteResult First,
+		IssueWriteResult Second,
+		string Requests);
+
+	private sealed record IssueFixture(long Number, string State, string Body);
 }

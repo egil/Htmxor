@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.Json;
 using Htmxor.Quality;
 
@@ -14,6 +13,20 @@ public sealed class UpstreamMonitorPolicyTests
 		var upstream = QualityOptions.Parse(["check", "--profile", "upstream"]);
 
 		Assert.Equal("Upstream", upstream.Profile.ToString());
+	}
+
+	[Fact]
+	public void Upstream_profile_runs_static_fixture_and_network_monitor_plan()
+	{
+		var root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "htmxor-upstream-plan"));
+		var results = Path.Combine(root, "artifacts", "results", "upstream");
+
+		var plan = QualityPlanFactory.Create(
+			root,
+			results,
+			QualityOptions.Parse(["check", "--profile", "upstream"]));
+
+		Assert.Equal(ExpectedUpstreamPlan(), Project(plan, root));
 	}
 
 	[Theory]
@@ -71,6 +84,7 @@ public sealed class UpstreamMonitorPolicyTests
 
 	[Theory]
 	[InlineData("workflow trigger")]
+	[InlineData("inline workflow trigger")]
 	[InlineData("permission")]
 	[InlineData("dispatch type")]
 	[InlineData("upload condition")]
@@ -82,6 +96,7 @@ public sealed class UpstreamMonitorPolicyTests
 		var invalid = scenario switch
 		{
 			"workflow trigger" => workflow.Replace("  workflow_dispatch:\n", "  pull_request:\n  workflow_dispatch:\n", StringComparison.Ordinal),
+			"inline workflow trigger" => workflow.Replace("  workflow_dispatch:\n", "  pull_request: {}\n  workflow_dispatch:\n", StringComparison.Ordinal),
 			"permission" => workflow.Replace("  issues: write\n", "  issues: write\n  packages: write\n", StringComparison.Ordinal),
 			"dispatch type" => workflow.Replace("types: [aspnetcore-release-published]\n", "types: [something-else]\n", StringComparison.Ordinal),
 			"upload condition" => workflow.Replace("if: always()\n", "if: success()\n", StringComparison.Ordinal),
@@ -115,11 +130,34 @@ public sealed class UpstreamMonitorPolicyTests
 		{
 			yield return plan.Mutation;
 		}
+
+		if (plan.UpstreamMonitor is not null)
+		{
+			yield return plan.UpstreamMonitor;
+		}
 	}
 
-	private static string NetworkAccess(ProcessCommand command) =>
-		command.GetType().GetProperty("NetworkAccess", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-			?.GetValue(command)?.ToString() ?? "Missing explicit network capability";
+	private static string NetworkAccess(ProcessCommand command) => command.NetworkAccess.ToString();
+
+	private static UpstreamPlanObservation Project(QualityPlan plan, string root) => new(
+		string.Join('\n', plan.Preparation.Select(command => Command(command, root))),
+		string.Join('\n', plan.Tests.Select(test => $"{test.Project}|{Command(test.Command, root)}")),
+		plan.UpstreamMonitor is null ? null : Command(plan.UpstreamMonitor, root));
+
+	private static UpstreamPlanObservation ExpectedUpstreamPlan() => new(
+		string.Join('\n',
+			"Disabled|dotnet restore <root>/Htmxor.sln",
+			"Disabled|dotnet tool restore --tool-manifest <root>/.config/dotnet-tools.json",
+			"Disabled|dotnet format analyzers <root>/Htmxor.sln --verify-no-changes --no-restore --severity error --verbosity minimal",
+			"Disabled|dotnet format style <root>/Htmxor.sln --verify-no-changes --no-restore --severity error --verbosity minimal",
+			"Disabled|dotnet build <root>/Htmxor.sln --configuration Release --no-restore"),
+		string.Join('\n',
+			"test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj|Disabled|dotnet test <root>/test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-build --no-restore --blame-hang --blame-hang-timeout 5min --logger trx;LogFileName=upstream-policy.trx --results-directory <root>/artifacts/results/upstream/upstream-policy --filter FullyQualifiedName~UpstreamMonitorPolicyTests",
+			"test/Htmxor.UpstreamMonitor.Tests/Htmxor.UpstreamMonitor.Tests.csproj|Disabled|dotnet test <root>/test/Htmxor.UpstreamMonitor.Tests/Htmxor.UpstreamMonitor.Tests.csproj --configuration Release --no-build --no-restore --blame-hang --blame-hang-timeout 5min --logger trx;LogFileName=upstream-fixtures.trx --results-directory <root>/artifacts/results/upstream/upstream-fixtures"),
+		"Enabled|dotnet run --project <root>/eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj -- --json <root>/artifacts/upstream-monitor/upstream-monitor.json --markdown <root>/artifacts/upstream-monitor/upstream-monitor.md");
+
+	private static string Command(ProcessCommand command, string root) =>
+		$"{command.NetworkAccess}|{command.Display.Replace(root, "<root>", StringComparison.Ordinal).Replace('\\', '/')}";
 
 	private static IReadOnlyList<string> ProjectWatches(JsonElement manifest, string repositoryRoot)
 	{
@@ -195,4 +233,9 @@ public sealed class UpstreamMonitorPolicyTests
 		string? UploadCondition,
 		string UploadPaths,
 		int? RetentionDays);
+
+	private sealed record UpstreamPlanObservation(
+		string Preparation,
+		string Tests,
+		string? Monitor);
 }

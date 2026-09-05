@@ -36,7 +36,7 @@ public sealed class SourceChangeTests
 				new SourceChange(StaticRenderer, ChangeKind.Removed, ReviewClassification.ParityRequired),
 			],
 			result.SourceChanges);
-		ReportAssertions.EqualDriftReport(result);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.WatchedFilesReport());
 	}
 
 	[Fact]
@@ -66,6 +66,7 @@ public sealed class SourceChangeTests
 			[new SourceChange(renderer, ChangeKind.Changed, ReviewClassification.ImplementationReview)],
 			result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.ImplementationReviewReport());
 	}
 
 	internal static FakeGitHubTransport DriftTransport(string compareFixture)

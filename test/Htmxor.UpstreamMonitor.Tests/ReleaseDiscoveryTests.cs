@@ -18,13 +18,12 @@ public sealed class ReleaseDiscoveryTests
 
 		var result = await application.RunAsync(new MonitorRequest(Fixture.Manifest(), 10));
 
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.CurrentReport());
 		Assert.Equal(MonitorStatus.Current, result.Status);
 		Assert.Equal(new UpstreamRevision("v10.0.11", Fixture.ReviewedCommit), result.Upstream);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
 		Assert.Null(result.Issue);
-		Assert.Contains("\"status\": \"current\"", result.JsonReport, StringComparison.Ordinal);
-		Assert.Contains("v10.0.11", result.MarkdownReport, StringComparison.Ordinal);
 		Assert.Equal(
 			[
 				(HttpMethod.Get, "/repos/dotnet/aspnetcore/releases?per_page=100"),

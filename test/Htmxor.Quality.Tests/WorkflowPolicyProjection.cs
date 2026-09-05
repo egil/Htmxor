@@ -1,136 +1,86 @@
+using YamlDotNet.RepresentationModel;
+
 namespace Htmxor.Quality.Tests;
 
 internal static class WorkflowPolicyProjection
 {
 	public static UpstreamMonitorPolicyTests.WorkflowPolicy Parse(string yaml)
 	{
-		var lines = yaml.Replace("\r", string.Empty, StringComparison.Ordinal).Split('\n');
-		var triggers = DirectKeys(lines, "on", 2);
-		var permissions = DirectEntries(lines, "permissions", 2);
-		var cron = DescendantValue(lines, "schedule", 2, "cron");
-		var dispatchTypes = BracketValues(DescendantValue(lines, "repository_dispatch", 2, "types"));
-		var monitorStep = FindStep(lines, line => Value(line).Contains("check --profile upstream", StringComparison.Ordinal));
-		var uploadStep = FindStep(lines, line => Value(line).StartsWith("actions/upload-artifact@", StringComparison.Ordinal));
+		var workflow = ParseRoot(yaml);
+		var triggers = Mapping(Child(workflow, "on"));
+		var permissions = Mapping(Child(workflow, "permissions"));
+		var steps = Steps(workflow).ToArray();
+		var monitor = SingleStep(steps, "run", "check --profile upstream");
+		var upload = SingleStep(steps, "uses", "actions/upload-artifact@");
 
 		return new UpstreamMonitorPolicyTests.WorkflowPolicy(
-			string.Join(',', triggers.Order(StringComparer.Ordinal)),
-			Unquote(cron),
-			string.Join(',', dispatchTypes.Order(StringComparer.Ordinal)),
-			string.Join(',', permissions.Order(StringComparer.Ordinal)),
-			MonitorCommand(monitorStep),
-			MonitorEnvironment(monitorStep),
-			StepValue(uploadStep, "if"),
-			UploadPaths(uploadStep),
-			ParsePositiveInt(StepValue(uploadStep, "retention-days")));
+			string.Join(',', Keys(triggers).Order(StringComparer.Ordinal)),
+			Cron(triggers),
+			string.Join(',', Values(Child(Mapping(Child(triggers, "repository_dispatch")), "types")).Order(StringComparer.Ordinal)),
+			string.Join(',', Entries(permissions).Order(StringComparer.Ordinal)),
+			MonitorCommand(monitor),
+			string.Join(',', Keys(Mapping(Child(monitor, "env"))).Order(StringComparer.Ordinal)),
+			Scalar(Child(upload, "if")),
+			string.Join(',', BlockLines(Child(Mapping(Child(upload, "with")), "path"))),
+			PositiveInt(Scalar(Child(Mapping(Child(upload, "with")), "retention-days"))));
 	}
 
-	private static IReadOnlyList<string> DirectKeys(string[] lines, string parent, int childIndent) =>
-		Descendants(lines, parent, childIndent - 2)
-			.Where(line => Indent(line) == childIndent && line.TrimEnd().EndsWith(':'))
-			.Select(Key)
-			.ToArray();
-
-	private static IReadOnlyList<string> DirectEntries(string[] lines, string parent, int childIndent) =>
-		Descendants(lines, parent, childIndent - 2)
-			.Where(line => Indent(line) == childIndent && line.Contains(':', StringComparison.Ordinal))
-			.Select(line => $"{Key(line)}={Value(line)}")
-			.ToArray();
-
-	private static string? DescendantValue(string[] lines, string parent, int parentIndent, string child) =>
-		Descendants(lines, parent, parentIndent)
-			.Where(line => Indent(line) > parentIndent && Key(line) == child)
-			.Select(Value)
-			.FirstOrDefault();
-
-	private static string[] Descendants(string[] lines, string parent, int parentIndent)
+	private static YamlMappingNode ParseRoot(string yaml)
 	{
-		var start = Array.FindIndex(lines, line => Indent(line) == parentIndent && Key(line) == parent);
-		return start < 0
-			? []
-			: lines.Skip(start + 1)
-				.TakeWhile(line => string.IsNullOrWhiteSpace(line) || Indent(line) > parentIndent)
-				.ToArray();
+		var stream = new YamlStream();
+		stream.Load(new StringReader(yaml));
+		return Mapping(stream.Documents.Single().RootNode);
 	}
 
-	private static (string[] Lines, int Indent)? FindStep(string[] lines, Func<string, bool> predicate)
+	private static YamlNode? Child(YamlMappingNode parent, string key) =>
+		parent.Children.FirstOrDefault(pair => Scalar(pair.Key) == key).Value;
+
+	private static YamlMappingNode Mapping(YamlNode? node) => node as YamlMappingNode ?? new YamlMappingNode();
+
+	private static string Scalar(YamlNode? node) => (node as YamlScalarNode)?.Value ?? string.Empty;
+
+	private static IEnumerable<string> Keys(YamlMappingNode mapping) =>
+		mapping.Children.Keys.Select(Scalar);
+
+	private static IEnumerable<string> Entries(YamlMappingNode mapping) =>
+		mapping.Children.Select(pair => $"{Scalar(pair.Key)}={Scalar(pair.Value)}");
+
+	private static IEnumerable<string> Values(YamlNode? node) => node switch
 	{
-		return Steps(lines).FirstOrDefault(step => step.Lines.Any(predicate));
-	}
+		YamlSequenceNode sequence => sequence.Children.Select(Scalar),
+		YamlScalarNode scalar when !string.IsNullOrEmpty(scalar.Value) => [scalar.Value],
+		_ => [],
+	};
 
-	private static IEnumerable<(string[] Lines, int Indent)> Steps(string[] lines) =>
-		lines.Select((line, index) => (line, index))
-			.Where(item => item.line.TrimStart().StartsWith("- ", StringComparison.Ordinal))
-			.Select(item =>
-			{
-				var indent = Indent(item.line);
-				return (
-					lines.Skip(item.index).TakeWhile((line, offset) =>
-						offset == 0 || string.IsNullOrWhiteSpace(line) || Indent(line) > indent).ToArray(),
-					indent);
-			});
+	private static string Cron(YamlMappingNode triggers) =>
+		(Child(triggers, "schedule") as YamlSequenceNode)?.Children
+			.OfType<YamlMappingNode>()
+			.Select(item => Scalar(Child(item, "cron")))
+			.SingleOrDefault() ?? string.Empty;
 
-	private static string[] BlockValues(string[] lines, string key)
+	private static IEnumerable<YamlMappingNode> Steps(YamlMappingNode workflow) =>
+		Mapping(Child(workflow, "jobs")).Children.Values
+			.OfType<YamlMappingNode>()
+			.Select(job => Child(job, "steps"))
+			.OfType<YamlSequenceNode>()
+			.SelectMany(sequence => sequence.Children.OfType<YamlMappingNode>());
+
+	private static YamlMappingNode SingleStep(
+		IEnumerable<YamlMappingNode> steps,
+		string key,
+		string value) =>
+		steps.Where(step => Scalar(Child(step, key)).Contains(value, StringComparison.Ordinal))
+			.SingleOrDefault() ?? new YamlMappingNode();
+
+	private static string? MonitorCommand(YamlMappingNode step)
 	{
-		var index = Array.FindIndex(lines, line => Key(line) == key);
-		if (index < 0 || Value(lines[index]) != "|")
-		{
-			return [];
-		}
-
-		var indent = Indent(lines[index]);
-		return lines.Skip(index + 1)
-			.TakeWhile(line => string.IsNullOrWhiteSpace(line) || Indent(line) > indent)
-			.Where(line => !string.IsNullOrWhiteSpace(line))
-			.Select(line => line.Trim())
-			.ToArray();
+		var command = Scalar(Child(step, "run"));
+		return string.IsNullOrEmpty(command) ? null : command.Split(" -- ", 2).Last();
 	}
 
-	private static IReadOnlyList<string> BracketValues(string? value) =>
-		value is null || !value.StartsWith("[", StringComparison.Ordinal) || !value.EndsWith("]", StringComparison.Ordinal)
-			? []
-			: value[1..^1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+	private static IEnumerable<string> BlockLines(YamlNode? node) =>
+		Scalar(node).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-	private static int? ParsePositiveInt(string? value) =>
+	private static int? PositiveInt(string value) =>
 		int.TryParse(value, out var number) && number > 0 ? number : null;
-
-	private static string? ValueOrNull(string[] lines, string key) =>
-		lines.Where(line => Key(line) == key).Select(Value).FirstOrDefault();
-
-	private static string? MonitorCommand((string[] Lines, int Indent)? step) =>
-		step is null ? null : Value(step.Value.Lines.Single(line => Key(line) == "run")).Split(" -- ", 2).Last();
-
-	private static string MonitorEnvironment((string[] Lines, int Indent)? step) =>
-		step is null
-			? string.Empty
-			: string.Join(',', DirectEntryKeys(step.Value.Lines, "env", step.Value.Indent + 4).Order(StringComparer.Ordinal));
-
-	private static IReadOnlyList<string> DirectEntryKeys(string[] lines, string parent, int childIndent) =>
-		Descendants(lines, parent, childIndent - 2)
-			.Where(line => Indent(line) == childIndent && line.Contains(':', StringComparison.Ordinal))
-			.Select(Key)
-			.ToArray();
-
-	private static string? StepValue((string[] Lines, int Indent)? step, string key) =>
-		step is null ? null : ValueOrNull(step.Value.Lines, key);
-
-	private static string UploadPaths((string[] Lines, int Indent)? step) =>
-		step is null ? string.Empty : string.Join(',', BlockValues(step.Value.Lines, "path"));
-
-	private static string Unquote(string? value) => value?.Trim('\'', '"') ?? string.Empty;
-
-	private static int Indent(string line) => line.Length - line.TrimStart().Length;
-
-	private static string Key(string line)
-	{
-		var trimmed = line.TrimStart().TrimStart('-', ' ');
-		var separator = trimmed.IndexOf(':');
-		return separator < 0 ? string.Empty : trimmed[..separator].Trim();
-	}
-
-	private static string Value(string line)
-	{
-		var trimmed = line.TrimStart().TrimStart('-', ' ');
-		var separator = trimmed.IndexOf(':');
-		return separator < 0 ? string.Empty : trimmed[(separator + 1)..].Trim();
-	}
 }

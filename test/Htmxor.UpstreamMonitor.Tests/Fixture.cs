@@ -15,8 +15,10 @@ internal static class Fixture
 		File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", relativePath));
 
 	public static string GitHubContent(string relativeSourcePath)
+		=> GitHubContentText(Read(relativeSourcePath));
+
+	public static string GitHubContentText(string source)
 	{
-		var source = Read(relativeSourcePath);
 		return JsonSerializer.Serialize(new
 		{
 			type = "file",

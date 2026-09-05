@@ -1,10 +1,17 @@
 namespace Htmxor.Quality;
 
+internal enum NetworkAccess
+{
+	Disabled,
+	Enabled,
+}
+
 internal sealed record ProcessCommand(
 	string FileName,
 	string WorkingDirectory,
 	IReadOnlyList<string> Arguments,
-	bool EnsureSuccess = true)
+	bool EnsureSuccess = true,
+	NetworkAccess NetworkAccess = NetworkAccess.Disabled)
 {
 	public string Display =>
 		$"{FileName} {string.Join(' ', Arguments.Select(QuoteForDisplay))}";

@@ -9,7 +9,8 @@ internal sealed record TestCommand(
 internal sealed record QualityPlan(
 	IReadOnlyList<ProcessCommand> Preparation,
 	IReadOnlyList<TestCommand> Tests,
-	ProcessCommand? Mutation);
+	ProcessCommand? Mutation,
+	ProcessCommand? UpstreamMonitor = null);
 
 internal static class QualityPlanFactory
 {
