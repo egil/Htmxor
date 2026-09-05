@@ -31,10 +31,12 @@ internal sealed partial class CSharpSource
 		Text = new string(characters);
 		DeclarationText = new string(declarations);
 		Comments = comments;
+		Imports = new CSharpImports(Text);
 		Types = TypeDeclaration().Matches(Text).Select(ParseType).ToArray();
 	}
 
 	public string Text { get; }
+	public CSharpImports Imports { get; }
 	private string DeclarationText { get; }
 	public IReadOnlyList<string> Comments { get; }
 	public IReadOnlyList<SourceType> Types { get; }
@@ -73,7 +75,8 @@ internal sealed partial class CSharpSource
 	private SourceType ParseType(Match match)
 	{
 		var opening = match.Index + match.Length - 1;
-		var closing = ClosingBrace(Text, opening);
+		var closing = Text[opening] == ';' ? opening : ClosingBrace(Text, opening);
+		var bodyStart = Math.Min(opening + 1, closing);
 		var name = Normalize(match.Groups["name"].Value);
 		var tailGroup = match.Groups["tail"];
 		var tail = tailGroup.Value.TrimStart();
@@ -85,18 +88,15 @@ internal sealed partial class CSharpSource
 		var bases = tail.Split("where ", StringSplitOptions.None)[0].Trim();
 		return new(name, ScopeAt(match.Index), Normalize(match.Groups["modifiers"].Value + match.Groups["kind"].Value + " " + name),
 			match.Groups["kind"].Value == "interface", bases.StartsWith(':') ? CSharpTypeName.SplitList(bases[1..]).Select(Normalize).ToArray() : [],
-			constraints, Text[(opening + 1)..closing], DeclarationText[(opening + 1)..closing], parameters);
+			constraints, Text[bodyStart..closing], DeclarationText[bodyStart..closing], parameters, match.Index);
 	}
 
 	private string ScopeAt(int position)
 	{
-		var namespaces = NamespaceDeclaration().Matches(Text[..position])
-			.Where(match => match.Groups[2].Value == ";" || ClosingBrace(Text, match.Index + match.Length - 1) > position)
-			.Select(match => CSharpTypeName.Compact(match.Groups[1].Value));
 		var containingTypes = TypeDeclaration().Matches(Text[..position])
-			.Where(match => ClosingBrace(Text, match.Index + match.Length - 1) > position)
+			.Where(match => match.Value.EndsWith('{') && ClosingBrace(Text, match.Index + match.Length - 1) > position)
 			.Select(match => CSharpTypeName.MetadataIdentity(match.Groups["name"].Value));
-		return string.Join('.', namespaces.Concat(containingTypes));
+		return string.Join('.', new[] { Imports.NamespaceAt(position) }.Concat(containingTypes).Where(name => name.Length > 0));
 	}
 
 	private static int PrimaryParameterLength(string tail)
@@ -119,10 +119,8 @@ internal sealed partial class CSharpSource
 
 	[GeneratedRegex("(?<raw>\"{3,})[\\s\\S]*?\\k<raw>|@\"(?:[^\"]|\"\")*\"|\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])+'|//[^\\r\\n]*|/\\*[\\s\\S]*?\\*/")]
 	private static partial Regex Trivia();
-	[GeneratedRegex(@"\b(?<modifiers>(?:(?:public|protected|internal|private|abstract|sealed|static|partial|readonly|ref)\s+)*)(?<kind>class|interface|struct|record)\s+(?<name>\w+(?:\s*<[^>{}]+>)?)(?<tail>[^;{}]*)\{")]
+	[GeneratedRegex(@"\b(?<modifiers>(?:(?:public|protected|internal|private|abstract|sealed|static|partial|readonly|ref)\s+)*)(?<kind>class|interface|struct|record)\s+(?<name>\w+(?:\s*<[^>{}]+>)?)(?<tail>[^;{}]*)[;{]")]
 	private static partial Regex TypeDeclaration();
-	[GeneratedRegex(@"\bnamespace\s+([\w.\s]+?)\s*([;{])")]
-	private static partial Regex NamespaceDeclaration();
 	[GeneratedRegex(@"where\s+\w+\s*:\s*.*?(?=\bwhere\s|$)")]
 	private static partial Regex Constraint();
 	[GeneratedRegex(@"\s+")]
@@ -130,4 +128,4 @@ internal sealed partial class CSharpSource
 }
 
 internal sealed record SourceType(string Name, string Scope, string Signature, bool IsInterface, IReadOnlyList<string> Bases,
-	IReadOnlyList<string> Constraints, string Body, string DeclarationBody, string? PrimaryConstructorParameters);
+	IReadOnlyList<string> Constraints, string Body, string DeclarationBody, string? PrimaryConstructorParameters, int Position);

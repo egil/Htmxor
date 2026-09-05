@@ -42,7 +42,8 @@ internal static partial class ManifestDependencyPolicy
 			.ToDictionary(path => Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'), path => new CSharpSource(File.ReadAllText(path)));
 		var localTypes = sources.Values.SelectMany(source => source.Types)
 			.Select(type => Qualify(type.Scope, CSharpTypeName.MetadataIdentity(type.Name))).ToHashSet(StringComparer.Ordinal);
-		return sources.SelectMany(source => Discover(source.Key, source.Value, localTypes))
+		var global = sources.Values.SelectMany(source => source.Imports.Global).ToArray();
+		return sources.SelectMany(source => Discover(source.Key, source.Value, localTypes, global))
 			.Distinct().Where(dependency => !Covered(manifest, dependency))
 			.OrderBy(dependency => dependency.LocalPath, StringComparer.Ordinal).ThenBy(dependency => dependency.UpstreamPath, StringComparer.Ordinal)
 			.ThenBy(dependency => dependency.Relationship).ToArray();
@@ -52,7 +53,7 @@ internal static partial class ManifestDependencyPolicy
 		UpstreamMonitorApplication.Matches(watch, dependency.UpstreamPath) && watch.Relationship == dependency.Relationship &&
 		watch.LocalDependencies.Contains(dependency.LocalPath, StringComparer.Ordinal));
 
-	private static IEnumerable<LocalFrameworkDependency> Discover(string localPath, CSharpSource source, HashSet<string> localTypes)
+	private static IEnumerable<LocalFrameworkDependency> Discover(string localPath, CSharpSource source, HashSet<string> localTypes, IReadOnlyList<SourceUsing> global)
 	{
 		foreach (var comment in source.Comments)
 		{
@@ -62,12 +63,11 @@ internal static partial class ManifestDependencyPolicy
 				yield return new(localPath, marker.Groups[1].Value, WatchManifestFile.ParseRelationship(marker.Groups[2].Value));
 			}
 		}
-		var imports = Imports().Matches(source.Text).Select(match => match.Groups[1].Value).ToArray();
 		foreach (var type in source.Types)
 		{
 			foreach (var name in type.Bases)
 			{
-				var identity = Resolve(name, type.Scope, source, imports, localTypes);
+				var identity = Resolve(name, type.Scope, source.Imports.At(type.Position, global), localTypes);
 				if (identity is not null && TrustedFrameworkTypes.Contains(identity))
 				{
 					var upstreamPath = frameworkSources.GetValueOrDefault(identity, "unresolved:" + identity);
@@ -77,22 +77,60 @@ internal static partial class ManifestDependencyPolicy
 		}
 	}
 
-	private static string? Resolve(string name, string scope, CSharpSource source, string[] imports, HashSet<string> localTypes)
+	private static string? Resolve(string name, string scope, IEnumerable<SourceImportScope> scopes, HashSet<string> localTypes)
 	{
-		name = CSharpTypeName.MetadataIdentity(ExpandAlias(name, source));
-		if (IsLocal(name, scope, localTypes))
+		name = CSharpTypeName.Compact(name);
+		if (name.StartsWith("global::", StringComparison.Ordinal))
 		{
-			return null;
+			return ExternalIdentity(CSharpTypeName.MetadataIdentity(name), localTypes);
 		}
-		if (name.Contains('.', StringComparison.Ordinal))
+		foreach (var imports in scopes)
 		{
-			return name;
+			if (IsLocalThrough(CSharpTypeName.MetadataIdentity(name), ref scope, imports.Namespace, localTypes))
+			{
+				return null;
+			}
+			var expanded = ExpandAlias(name, imports.Directives);
+			if (expanded is not null)
+			{
+				var identity = CSharpTypeName.MetadataIdentity(expanded);
+				return IsLocal(identity, scope, localTypes) ? null : identity;
+			}
+			var resolved = ResolveImported(CSharpTypeName.MetadataIdentity(name), imports.Directives, localTypes);
+			if (resolved is not null)
+			{
+				return IsLocal(resolved, scope, localTypes) ? null : resolved;
+			}
 		}
-		if (imports.Any(import => localTypes.Contains(Qualify(import, name))))
+		return ExternalIdentity(CSharpTypeName.MetadataIdentity(name), localTypes);
+	}
+
+	private static string? ExternalIdentity(string name, HashSet<string> localTypes) => localTypes.Contains(name) ? null : name;
+
+	private static string? ResolveImported(string name, IReadOnlyList<SourceUsing> imports, HashSet<string> localTypes)
+	{
+		var candidates = imports.Where(import => import.Alias.Length == 0)
+			.Select(import => Qualify(CSharpTypeName.MetadataIdentity(import.Target), name)).ToArray();
+		return candidates.FirstOrDefault(localTypes.Contains) ?? candidates.FirstOrDefault(TrustedFrameworkTypes.Contains);
+	}
+
+	// Dotted namespaces add lookup levels, but only each lexical declaration owns its using directives.
+	private static bool IsLocalThrough(string name, ref string scope, string boundary, HashSet<string> localTypes)
+	{
+		while (true)
 		{
-			return null;
+			if (localTypes.Contains(Qualify(scope, name)))
+			{
+				return true;
+			}
+			var reachedBoundary = scope == boundary;
+			var separator = scope.LastIndexOf('.');
+			scope = separator < 0 ? string.Empty : scope[..separator];
+			if (reachedBoundary)
+			{
+				return false;
+			}
 		}
-		return imports.Select(import => import + "." + name).FirstOrDefault(TrustedFrameworkTypes.Contains);
 	}
 
 	private static bool IsLocal(string name, string scope, HashSet<string> localTypes)
@@ -115,19 +153,14 @@ internal static partial class ManifestDependencyPolicy
 
 	private static string Qualify(string typeNamespace, string name) => typeNamespace.Length == 0 ? name : typeNamespace + "." + name;
 
-	private static string ExpandAlias(string name, CSharpSource source)
+	private static string? ExpandAlias(string name, IReadOnlyList<SourceUsing> imports)
 	{
-		name = CSharpTypeName.Compact(name);
 		var separator = name.IndexOfAny(['.', ':', '<', '(']);
 		var prefix = separator < 0 ? name : name[..separator];
-		var alias = Aliases().Matches(source.Text).FirstOrDefault(match => match.Groups[1].Value == prefix);
-		return alias is null ? name : alias.Groups[2].Value + name[prefix.Length..].Replace("::", ".", StringComparison.Ordinal);
+		var alias = imports.FirstOrDefault(import => import.Alias == prefix);
+		return alias is null ? null : alias.Target + name[prefix.Length..].Replace("::", ".", StringComparison.Ordinal);
 	}
 
 	[GeneratedRegex(@"^// Htmxor upstream dependency: (src/[^\s|]+) \| (mirrors|reimplements|private-accesses)$")]
 	private static partial Regex Provenance();
-	[GeneratedRegex(@"\busing\s+([\w.]+)\s*;")]
-	private static partial Regex Imports();
-	[GeneratedRegex(@"\busing\s+(\w+)\s*=\s*([^;]+)\s*;")]
-	private static partial Regex Aliases();
 }
