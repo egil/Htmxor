@@ -18,10 +18,12 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\eng\Htmxor.UpstreamMonitor\Htmxor.UpstreamMonitor.csproj" />
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<Compile Remove="Fixtures\**\*.cs" />
+		<Compile Include="Fixtures\dependencies\**\*.cs" />
 		<None Include="Fixtures\**\*.cs" CopyToOutputDirectory="PreserveNewest" />
 		<None Update="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>

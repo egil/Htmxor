@@ -5,6 +5,21 @@ namespace Htmxor.UpstreamMonitor.Tests;
 
 public sealed class ManifestDependencyPolicyTests
 {
+	private const string LocalPath = "src/Htmxor/Dependency.cs";
+	private const string StaticRendererPath = "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs";
+	private const string InvokerInterfacePath = "src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs";
+
+	public static TheoryData<string, string, string> DependencyDeclarations => new()
+	{
+		{ "qualified-renderer", StaticRendererPath, "Subclasses" },
+		{ "partial-renderer", "src/Components/Components/src/RenderTree/Renderer.cs", "Subclasses" },
+		{ "imported-interface", InvokerInterfacePath, "Implements" },
+		{ "primary-constructor", InvokerInterfacePath, "Implements" },
+		{ "aliased-renderer", StaticRendererPath, "Subclasses" },
+		{ "mirrored-source", "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.HtmlWriting.cs", "Mirrors" },
+		{ "reimplemented-source", "src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs", "Reimplements" },
+	};
+
 	[Fact]
 	public void Committed_manifest_covers_every_local_framework_dependency()
 	{
@@ -38,32 +53,94 @@ public sealed class ManifestDependencyPolicyTests
 	}
 
 	[Theory]
-	[InlineData(
-		"internal sealed class UnlistedRenderer : Microsoft.AspNetCore.Components.Web.HtmlRendering.StaticHtmlRenderer { }",
-		"src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs",
-		"Subclasses")]
-	[InlineData(
-		"internal sealed class UnlistedInvoker : Microsoft.AspNetCore.Components.Endpoints.IRazorComponentEndpointInvoker { }",
-		"src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs",
-		"Implements")]
-	[InlineData(
-		"// Htmxor upstream dependency: src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.HtmlWriting.cs | mirrors",
-		"src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.HtmlWriting.cs",
-		"Mirrors")]
-	[InlineData(
-		"// Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements",
-		"src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs",
-		"Reimplements")]
-	public void Local_framework_dependency_absent_from_manifest_is_reported(
-		string source,
+	[MemberData(nameof(DependencyDeclarations))]
+	public void Local_framework_dependency_absent_from_existing_watch_is_reported(
+		string fixture,
 		string upstreamPath,
 		string relationshipName)
 	{
 		using var repository = new TemporaryRepository();
-		const string localPath = "src/Htmxor/UnlistedFrameworkDependency.cs";
-		repository.Write(localPath, source);
+		repository.WriteFixture(fixture);
 		var relationship = Enum.Parse<WatchRelationship>(relationshipName);
-		var manifest = Fixture.Manifest(Fixture.Watch(
+		var manifest = Fixture.Manifest(Watch(upstreamPath, relationship));
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		Assert.Equal([new LocalFrameworkDependency(LocalPath, upstreamPath, relationship)], untracked);
+	}
+
+	[Theory]
+	[MemberData(nameof(DependencyDeclarations))]
+	public void Local_framework_dependency_is_discovered_with_an_empty_manifest(
+		string fixture,
+		string upstreamPath,
+		string relationshipName)
+	{
+		using var repository = new TemporaryRepository();
+		repository.WriteFixture(fixture);
+		var manifest = Fixture.Manifest();
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		Assert.Equal(
+			[new LocalFrameworkDependency(LocalPath, upstreamPath, Enum.Parse<WatchRelationship>(relationshipName))],
+			untracked);
+	}
+
+	[Theory]
+	[MemberData(nameof(DependencyDeclarations))]
+	public void An_unrelated_watch_for_the_same_local_file_does_not_cover_a_framework_dependency(
+		string fixture,
+		string upstreamPath,
+		string relationshipName)
+	{
+		using var repository = new TemporaryRepository();
+		repository.WriteFixture(fixture);
+		var manifest = Fixture.Manifest(Watch(
+			"src/Components/Components/src/ComponentBase.cs", WatchRelationship.Subclasses, LocalPath));
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		Assert.Equal(
+			[new LocalFrameworkDependency(LocalPath, upstreamPath, Enum.Parse<WatchRelationship>(relationshipName))],
+			untracked);
+	}
+
+	[Theory]
+	[MemberData(nameof(DependencyDeclarations))]
+	public void A_watch_covering_the_declared_dependency_has_no_omission(
+		string fixture,
+		string upstreamPath,
+		string relationshipName)
+	{
+		using var repository = new TemporaryRepository();
+		repository.WriteFixture(fixture);
+		var manifest = Fixture.Manifest(Watch(upstreamPath, Enum.Parse<WatchRelationship>(relationshipName), LocalPath));
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		Assert.Empty(untracked);
+	}
+
+	[Theory]
+	[InlineData("comments")]
+	[InlineData("strings")]
+	[InlineData("imports-and-usages")]
+	[InlineData("local-homonyms")]
+	public void Source_without_a_framework_relationship_does_not_add_spurious_dependencies(string fixture)
+	{
+		using var repository = new TemporaryRepository();
+		repository.WriteFixture("qualified-renderer");
+		repository.WriteFixture(fixture);
+		var manifest = Fixture.Manifest();
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		Assert.Equal([new LocalFrameworkDependency(LocalPath, StaticRendererPath, WatchRelationship.Subclasses)], untracked);
+	}
+
+	private static WatchTarget Watch(string upstreamPath, WatchRelationship relationship, params string[] dependencies) =>
+		Fixture.Watch(
 			upstreamPath,
 			apiSurface: relationship switch
 			{
@@ -71,12 +148,8 @@ public sealed class ManifestDependencyPolicyTests
 				WatchRelationship.Implements => ApiSurface.Interface,
 				_ => ApiSurface.None,
 			},
-			relationship: relationship));
-
-		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
-
-		Assert.Equal([new LocalFrameworkDependency(localPath, upstreamPath, relationship)], untracked);
-	}
+			relationship: relationship,
+			dependencies: dependencies);
 
 	private static WatchManifest ReadManifest(JsonElement manifest)
 	{
@@ -106,6 +179,15 @@ public sealed class ManifestDependencyPolicyTests
 		}
 
 		public string Path { get; }
+
+		public void WriteFixture(string fixture)
+		{
+			var directory = System.IO.Path.Combine(AppContext.BaseDirectory, "Fixtures", "dependencies", fixture);
+			foreach (var file in Directory.GetFiles(directory, "*.cs"))
+			{
+				Write($"src/Htmxor/{System.IO.Path.GetFileName(file)}", File.ReadAllText(file));
+			}
+		}
 
 		public void Write(string relativePath, string contents = "")
 		{
