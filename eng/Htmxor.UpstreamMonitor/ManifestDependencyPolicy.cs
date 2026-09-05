@@ -13,6 +13,7 @@ internal static partial class ManifestDependencyPolicy
 		["Microsoft.AspNetCore.Components.Endpoints.IRazorComponentEndpointInvoker"] = "src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs",
 		["Microsoft.AspNetCore.Components.ComponentBase"] = "src/Components/Components/src/ComponentBase.cs",
 		["Microsoft.AspNetCore.Components.Forms.AntiforgeryStateProvider"] = "src/Components/Web/src/Forms/AntiforgeryStateProvider.cs",
+		["Microsoft.AspNetCore.Components.Forms.InputBase`1"] = "src/Components/Web/src/Forms/InputBase.cs",
 		["Microsoft.AspNetCore.Components.IComponent"] = "src/Components/Components/src/IComponent.cs",
 		["Microsoft.AspNetCore.Components.LayoutComponentBase"] = "src/Components/Components/src/LayoutComponentBase.cs",
 		["Microsoft.AspNetCore.Components.NavigationException"] = "src/Components/Components/src/NavigationException.cs",
@@ -36,9 +37,12 @@ internal static partial class ManifestDependencyPolicy
 		{
 			return [];
 		}
-		return Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+		var sources = Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
 			.Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin"))
-			.SelectMany(path => Discover(Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'), new CSharpSource(File.ReadAllText(path))))
+			.ToDictionary(path => Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'), path => new CSharpSource(File.ReadAllText(path)));
+		var localTypes = sources.Values.SelectMany(source => source.Types)
+			.Select(type => Qualify(type.Scope, CSharpTypeName.MetadataIdentity(type.Name))).ToHashSet(StringComparer.Ordinal);
+		return sources.SelectMany(source => Discover(source.Key, source.Value, localTypes))
 			.Distinct().Where(dependency => !Covered(manifest, dependency))
 			.OrderBy(dependency => dependency.LocalPath, StringComparer.Ordinal).ThenBy(dependency => dependency.UpstreamPath, StringComparer.Ordinal)
 			.ThenBy(dependency => dependency.Relationship).ToArray();
@@ -48,7 +52,7 @@ internal static partial class ManifestDependencyPolicy
 		UpstreamMonitorApplication.Matches(watch, dependency.UpstreamPath) && watch.Relationship == dependency.Relationship &&
 		watch.LocalDependencies.Contains(dependency.LocalPath, StringComparer.Ordinal));
 
-	private static IEnumerable<LocalFrameworkDependency> Discover(string localPath, CSharpSource source)
+	private static IEnumerable<LocalFrameworkDependency> Discover(string localPath, CSharpSource source, HashSet<string> localTypes)
 	{
 		foreach (var comment in source.Comments)
 		{
@@ -63,7 +67,7 @@ internal static partial class ManifestDependencyPolicy
 		{
 			foreach (var name in type.Bases)
 			{
-				var identity = Resolve(name, source, imports);
+				var identity = Resolve(name, type.Scope, source, imports, localTypes);
 				if (identity is not null && TrustedFrameworkTypes.Contains(identity))
 				{
 					var upstreamPath = frameworkSources.GetValueOrDefault(identity, "unresolved:" + identity);
@@ -73,30 +77,57 @@ internal static partial class ManifestDependencyPolicy
 		}
 	}
 
-	private static string? Resolve(string name, CSharpSource source, string[] imports)
+	private static string? Resolve(string name, string scope, CSharpSource source, string[] imports, HashSet<string> localTypes)
 	{
-		name = name.Replace("global::", string.Empty, StringComparison.Ordinal).Trim();
+		name = CSharpTypeName.MetadataIdentity(ExpandAlias(name, source));
+		if (IsLocal(name, scope, localTypes))
+		{
+			return null;
+		}
 		if (name.Contains('.', StringComparison.Ordinal))
 		{
 			return name;
 		}
-		var aliases = Aliases().Matches(source.Text);
-		var alias = aliases.FirstOrDefault(match => match.Groups[1].Value == name);
-		if (alias is not null)
-		{
-			return alias.Groups[2].Value.Replace("global::", string.Empty, StringComparison.Ordinal);
-		}
-		if (source.Types.Any(type => type.Name == name))
+		if (imports.Any(import => localTypes.Contains(Qualify(import, name))))
 		{
 			return null;
 		}
 		return imports.Select(import => import + "." + name).FirstOrDefault(TrustedFrameworkTypes.Contains);
 	}
 
+	private static bool IsLocal(string name, string scope, HashSet<string> localTypes)
+	{
+		if (name.Contains('.', StringComparison.Ordinal))
+		{
+			return localTypes.Contains(name);
+		}
+		while (!localTypes.Contains(Qualify(scope, name)))
+		{
+			if (scope.Length == 0)
+			{
+				return false;
+			}
+			var separator = scope.LastIndexOf('.');
+			scope = separator < 0 ? string.Empty : scope[..separator];
+		}
+		return true;
+	}
+
+	private static string Qualify(string typeNamespace, string name) => typeNamespace.Length == 0 ? name : typeNamespace + "." + name;
+
+	private static string ExpandAlias(string name, CSharpSource source)
+	{
+		name = CSharpTypeName.Compact(name);
+		var separator = name.IndexOfAny(['.', ':', '<', '(']);
+		var prefix = separator < 0 ? name : name[..separator];
+		var alias = Aliases().Matches(source.Text).FirstOrDefault(match => match.Groups[1].Value == prefix);
+		return alias is null ? name : alias.Groups[2].Value + name[prefix.Length..].Replace("::", ".", StringComparison.Ordinal);
+	}
+
 	[GeneratedRegex(@"^// Htmxor upstream dependency: (src/[^\s|]+) \| (mirrors|reimplements|private-accesses)$")]
 	private static partial Regex Provenance();
 	[GeneratedRegex(@"\busing\s+([\w.]+)\s*;")]
 	private static partial Regex Imports();
-	[GeneratedRegex(@"\busing\s+(\w+)\s*=\s*([\w.:]+)\s*;")]
+	[GeneratedRegex(@"\busing\s+(\w+)\s*=\s*([^;]+)\s*;")]
 	private static partial Regex Aliases();
 }

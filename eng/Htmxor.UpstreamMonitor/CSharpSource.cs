@@ -83,9 +83,20 @@ internal sealed partial class CSharpSource
 		tail = tail[parameterLength..].Trim();
 		var constraints = Constraint().Matches(tail).Select(value => Normalize(value.Value)).ToArray();
 		var bases = tail.Split("where ", StringSplitOptions.None)[0].Trim();
-		return new(name, Normalize(match.Groups["modifiers"].Value + match.Groups["kind"].Value + " " + name),
-			match.Groups["kind"].Value == "interface", bases.StartsWith(':') ? bases[1..].Split(',').Select(Normalize).ToArray() : [],
+		return new(name, ScopeAt(match.Index), Normalize(match.Groups["modifiers"].Value + match.Groups["kind"].Value + " " + name),
+			match.Groups["kind"].Value == "interface", bases.StartsWith(':') ? CSharpTypeName.SplitList(bases[1..]).Select(Normalize).ToArray() : [],
 			constraints, Text[(opening + 1)..closing], DeclarationText[(opening + 1)..closing], parameters);
+	}
+
+	private string ScopeAt(int position)
+	{
+		var namespaces = NamespaceDeclaration().Matches(Text[..position])
+			.Where(match => match.Groups[2].Value == ";" || ClosingBrace(Text, match.Index + match.Length - 1) > position)
+			.Select(match => CSharpTypeName.Compact(match.Groups[1].Value));
+		var containingTypes = TypeDeclaration().Matches(Text[..position])
+			.Where(match => ClosingBrace(Text, match.Index + match.Length - 1) > position)
+			.Select(match => CSharpTypeName.MetadataIdentity(match.Groups["name"].Value));
+		return string.Join('.', namespaces.Concat(containingTypes));
 	}
 
 	private static int PrimaryParameterLength(string tail)
@@ -110,11 +121,13 @@ internal sealed partial class CSharpSource
 	private static partial Regex Trivia();
 	[GeneratedRegex(@"\b(?<modifiers>(?:(?:public|protected|internal|private|abstract|sealed|static|partial|readonly|ref)\s+)*)(?<kind>class|interface|struct|record)\s+(?<name>\w+(?:\s*<[^>{}]+>)?)(?<tail>[^;{}]*)\{")]
 	private static partial Regex TypeDeclaration();
+	[GeneratedRegex(@"\bnamespace\s+([\w.\s]+?)\s*([;{])")]
+	private static partial Regex NamespaceDeclaration();
 	[GeneratedRegex(@"where\s+\w+\s*:\s*.*?(?=\bwhere\s|$)")]
 	private static partial Regex Constraint();
 	[GeneratedRegex(@"\s+")]
 	private static partial Regex Whitespace();
 }
 
-internal sealed record SourceType(string Name, string Signature, bool IsInterface, IReadOnlyList<string> Bases,
+internal sealed record SourceType(string Name, string Scope, string Signature, bool IsInterface, IReadOnlyList<string> Bases,
 	IReadOnlyList<string> Constraints, string Body, string DeclarationBody, string? PrimaryConstructorParameters);
