@@ -104,7 +104,7 @@ public sealed class Issue187ParityTests
 		var stockSnapshot = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
 		var candidateSnapshot = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
 
-		Assert.NotEqual(HttpStatusCode.OK, stockSnapshot.StatusCode);
+		Assert.Equal(HttpStatusCode.OK, stockSnapshot.StatusCode);
 		Assert.Equal(stockSnapshot.StatusCode, candidateSnapshot.StatusCode);
 		Assert.Equal(stockSnapshot.Headers, candidateSnapshot.Headers);
 		Assert.Equal(stockSnapshot.BodyBytes, candidateSnapshot.BodyBytes);
