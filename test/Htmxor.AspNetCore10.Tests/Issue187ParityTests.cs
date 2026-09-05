@@ -75,6 +75,20 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
+	public async Task Ordinary_AddHtmxor_host_retains_the_stock_endpoint_invoker()
+	{
+		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
+		await using var htmxor = await Issue187ParityHost.CreateAsync(useHtmxor: true);
+		await using var stockScope = stock.App.Services.CreateAsyncScope();
+		await using var htmxorScope = htmxor.App.Services.CreateAsyncScope();
+
+		var stockInvoker = stockScope.ServiceProvider.GetRequiredService<IRazorComponentEndpointInvoker>();
+		var htmxorInvoker = htmxorScope.ServiceProvider.GetRequiredService<IRazorComponentEndpointInvoker>();
+
+		Assert.Equal(stockInvoker.GetType(), htmxorInvoker.GetType());
+	}
+
+	[Fact]
 	public async Task Inactive_candidate_has_byte_exact_paired_response_parity()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
@@ -92,8 +106,30 @@ public sealed class Issue187ParityTests
 			candidate.App.Services.GetRequiredService<Issue188CandidateInvocationProbe>().InvocationCount);
 		AssertTempDataAvailable(candidateSnapshot.Body);
 		AssertTempDataAvailable(stockSnapshot.Body);
-		Assert.Equal(stockSnapshot.Body, candidateSnapshot.Body);
 		Assert.Equal(stockSnapshot.Headers, candidateSnapshot.Headers);
+		Assert.Equal(stockSnapshot.Body, candidateSnapshot.Body);
+	}
+
+	[Fact]
+	public async Task Inactive_candidate_initializes_endpoint_selected_route_state()
+	{
+		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
+		await using var candidate = await CreateInternalCandidateHostAsync();
+
+		using var stockResponse = await stock.Client.SendAsync(CreateAuthorizedRequest());
+		using var candidateResponse = await candidate.Client.SendAsync(CreateAuthorizedRequest());
+		var stockSnapshot = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidateSnapshot = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.Contains(
+			$"data-routing-page-type=\"{typeof(Issue187Page).FullName}\"",
+			stockSnapshot.Body,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			$"data-routing-template=\"{Issue187ParityConstants.RouteTemplate}\"",
+			stockSnapshot.Body,
+			StringComparison.Ordinal);
+		Assert.Equal(stockSnapshot.Body, candidateSnapshot.Body);
 	}
 
 	[Fact]
@@ -251,6 +287,7 @@ internal static class Issue187ParityConstants
 	public const string PolicyName = "issue-187-policy";
 	public const string AuthorizedUser = "issue-187-user";
 	public const string RequestPath = "/issue-187/42?query=from-query";
+	public const string RouteTemplate = "/issue-187/{ItemId:int}";
 	public const string SessionKey = "issue-187-session-key";
 	public const string SessionValue = "session-value";
 	public const string TempDataKey = "issue-187-temp-data-key";

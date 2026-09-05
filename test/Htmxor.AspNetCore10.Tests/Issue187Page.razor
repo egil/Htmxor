@@ -2,10 +2,12 @@
 @attribute [Authorize(Policy = Issue187ParityConstants.PolicyName)]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Http
 @using Microsoft.AspNetCore.Mvc.ViewFeatures
 @inject Issue187RequestProbe RequestProbe
 @inject ITempDataDictionaryFactory TempDataDictionaryFactory
+@inject IRoutingStateProvider RoutingStateProvider
 
 <main data-issue-187
       data-item-id="@ItemId"
@@ -17,6 +19,8 @@
       data-endpoint-marker="@EndpointMarker"
       data-session="@SessionValue"
       data-temp-data="@TempDataValue"
+      data-routing-page-type="@RoutingStateProvider.RouteData?.PageType.FullName"
+      data-routing-template="@RoutingStateProvider.RouteData?.Template"
       data-lifecycle="@string.Join('|', RequestProbe.Lifecycle)">
     ordinary-output
 </main>
