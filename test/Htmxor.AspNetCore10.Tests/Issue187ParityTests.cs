@@ -2,8 +2,6 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Htmxor;
-using Htmxor.Endpoints;
-using Htmxor.Rendering;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -93,24 +91,77 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Htmxor_host_can_select_internal_endpoint_candidate_from_test_wiring()
+	public async Task Htmxor_host_can_select_internal_endpoint_candidate_through_hosted_request()
 	{
-		await using var host = await Issue187ParityHost.CreateAsync(
+		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
+		await using var candidate = await Issue187ParityHost.CreateAsync(
 			useHtmxor: true,
 			configureHtmxorServices: ConfigureInternalCandidate);
-		using var scope = host.App.Services.CreateScope();
 
-		var invoker = scope.ServiceProvider.GetRequiredService<IRazorComponentEndpointInvoker>();
-		Assert.IsType<HtmxorComponentEndpointInvoker>(invoker);
+		using var stockResponse = await stock.Client.SendAsync(CreateAuthorizedRequest());
+		using var candidateResponse = await candidate.Client.SendAsync(CreateAuthorizedRequest());
+		var stockSnapshot = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidateSnapshot = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.Equal(HttpStatusCode.OK, stockSnapshot.StatusCode);
+		Assert.Equal(stockSnapshot.StatusCode, candidateSnapshot.StatusCode);
+		Assert.Equal(stockSnapshot.Headers, candidateSnapshot.Headers);
+		Assert.Equal(stockSnapshot.Body, candidateSnapshot.Body);
+		Assert.Equal(
+			1,
+			candidate.App.Services.GetRequiredService<Issue187CandidateInvocationProbe>().InvocationCount);
 	}
 
 	private static void ConfigureInternalCandidate(IServiceCollection services)
 	{
-		services.AddScoped<HtmxorRenderer>();
-		services.AddScoped<IHtmxorComponentEndpointInvoker, HtmxorComponentEndpointInvoker>();
+		var stockInvoker = services.Single(service => service.ServiceType == typeof(IRazorComponentEndpointInvoker));
+		services.AddSingleton<Issue187CandidateInvocationProbe>();
+		services.AddScoped<IHtmxorComponentEndpointInvoker>(serviceProvider =>
+			new Issue187CandidateEndpointInvoker(
+				CreateService<IRazorComponentEndpointInvoker>(stockInvoker, serviceProvider),
+				serviceProvider.GetRequiredService<Issue187CandidateInvocationProbe>()));
 		services.RemoveAll<IRazorComponentEndpointInvoker>();
 		services.AddScoped<IRazorComponentEndpointInvoker>(serviceProvider =>
 			serviceProvider.GetRequiredService<IHtmxorComponentEndpointInvoker>());
+	}
+
+	private static T CreateService<T>(ServiceDescriptor descriptor, IServiceProvider serviceProvider)
+	{
+		if (descriptor.ImplementationInstance is T instance)
+		{
+			return instance;
+		}
+
+		if (descriptor.ImplementationFactory is { } factory)
+		{
+			return (T)factory(serviceProvider);
+		}
+
+		if (descriptor.ImplementationType is { } implementationType)
+		{
+			return (T)ActivatorUtilities.CreateInstance(serviceProvider, implementationType);
+		}
+
+		throw new InvalidOperationException("The stock invoker registration has no implementation.");
+	}
+
+	private sealed class Issue187CandidateEndpointInvoker(
+		IRazorComponentEndpointInvoker inner,
+		Issue187CandidateInvocationProbe probe)
+		: IHtmxorComponentEndpointInvoker
+	{
+		public Task Render(HttpContext context)
+		{
+			probe.RecordInvocation();
+			return inner.Render(context);
+		}
+	}
+
+	private sealed class Issue187CandidateInvocationProbe
+	{
+		public int InvocationCount { get; private set; }
+
+		public void RecordInvocation() => InvocationCount++;
 	}
 
 	private static HttpRequestMessage CreateAuthorizedRequest()
