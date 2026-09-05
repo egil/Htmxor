@@ -2,7 +2,17 @@ namespace Htmxor.UpstreamMonitor;
 
 internal static class Program
 {
-	public static int Main() => 2;
+	internal static Func<HttpClient> CreateHttpClient { get; set; } = () => new HttpClient
+	{
+		BaseAddress = new Uri("https://api.github.com"),
+	};
+
+	public static async Task<int> Main(string[] args)
+	{
+		using var client = CreateHttpClient();
+		return await RunAsync(args, Environment.GetEnvironmentVariable, client,
+			Environment.CurrentDirectory, Console.Out, Console.Error);
+	}
 
 	internal static Task<int> RunAsync(
 		IReadOnlyList<string> arguments,

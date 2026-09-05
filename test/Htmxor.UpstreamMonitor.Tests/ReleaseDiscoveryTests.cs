@@ -5,6 +5,31 @@ namespace Htmxor.UpstreamMonitor.Tests;
 public sealed class ReleaseDiscoveryTests
 {
 	[Fact]
+	public async Task Latest_stable_supported_version_is_selected_semantically_across_release_pages()
+	{
+		const string page1 = "/repos/dotnet/aspnetcore/releases?per_page=100";
+		const string page2 = "/repos/dotnet/aspnetcore/releases?per_page=100&page=2";
+		var transport = new FakeGitHubTransport();
+		transport.AddJson(page1, System.Text.Json.JsonSerializer.Serialize(
+			Enumerable.Range(1, 100).Select(version => new { tag_name = $"v11.0.{version}", draft = false, prerelease = false })), page2);
+		transport.AddJson(page2, """
+			[{"tag_name":"v10.0.9","draft":false,"prerelease":false},
+			 {"tag_name":"v10.0.12","draft":true,"prerelease":false},
+			 {"tag_name":"v10.0.11","draft":false,"prerelease":false},
+			 {"tag_name":"v10.0.13-preview.1","draft":false,"prerelease":true},
+			 {"tag_name":"v10.0.10","draft":false,"prerelease":false}]
+			""");
+		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(Fixture.Manifest(), 10));
+
+		Assert.Equal(new UpstreamRevision("v10.0.11", Fixture.ReviewedCommit), result.Upstream);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.CurrentReport());
+		Assert.Equal([page1, page2, "/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11"], transport.Requests.Select(request => request.PathAndQuery));
+		Assert.All(transport.Requests, request => Assert.Equal(HttpMethod.Get, request.Method));
+	}
+
+	[Fact]
 	public async Task Latest_supported_stable_release_at_the_reviewed_commit_is_discovery_only()
 	{
 		var transport = new FakeGitHubTransport();

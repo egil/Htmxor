@@ -5,6 +5,37 @@ namespace Htmxor.UpstreamMonitor.Tests;
 
 public sealed class MonitorOutcomeTests
 {
+	[Theory]
+	[InlineData("open")]
+	[InlineData("closed")]
+	public async Task Identity_on_second_issue_page_excludes_pull_requests_and_prevents_duplicate_creation(string state)
+	{
+		const string firstPage = "/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100";
+		const string nextPage = firstPage + "&page=2";
+		var transport = new FakeGitHubTransport();
+		var first = Enumerable.Range(1, 100).Select(number => new
+		{
+			number,
+			state = "open",
+			body = ExpectedMonitorArtifacts.SingleFileIssue().Body,
+			pull_request = new { url = $"https://api.github.test/repos/egil/Htmxor/pulls/{number}" },
+			labels = new[] { new { name = "upstream-monitor" } },
+		});
+		transport.AddJson(firstPage, System.Text.Json.JsonSerializer.Serialize(first), nextPage);
+		transport.AddJson(nextPage, Issues(new IssueFixture(142, state, ExpectedMonitorArtifacts.SingleFileIssue().Body)));
+		transport.AddJson("/repos/egil/Htmxor/issues/142", "{\"number\":142,\"state\":\"open\"}");
+		transport.AddJson("/repos/egil/Htmxor/issues/142", "{\"number\":142,\"state\":\"open\"}");
+
+		var observation = await UpsertAsync(transport, DriftResult());
+
+		Assert.Equal(new IssueWriteResult(state == "open" ? IssueWriteAction.Updated : IssueWriteAction.ReopenedAndUpdated, 142, null), observation.Result);
+		Assert.Equal(new[] { firstPage, nextPage }, transport.Requests.Where(request => request.Method == HttpMethod.Get).Select(request => request.PathAndQuery));
+		var writes = transport.Requests.Where(request => request.Method != HttpMethod.Get).ToArray();
+		Assert.Equal(state == "open" ? 1 : 2, writes.Length);
+		Assert.All(writes, request => Assert.Equal((HttpMethod.Patch, "/repos/egil/Htmxor/issues/142"), (request.Method, request.PathAndQuery)));
+		Assert.Equal(UpdateBody(), CanonicalJson(writes.Last().Body));
+	}
+
 	[Fact]
 	public async Task Provider_failure_reports_infrastructure_error_without_a_misleading_issue()
 	{

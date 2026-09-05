@@ -2,6 +2,7 @@ using Htmxor.UpstreamMonitor;
 
 namespace Htmxor.UpstreamMonitor.Tests;
 
+[Collection("Process environment")]
 public sealed class ConsoleBoundaryTests
 {
 	[Fact]
@@ -110,21 +111,17 @@ public sealed class ConsoleBoundaryTests
 	private static string CanonicalJson(string json) =>
 		System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonDocument.Parse(json).RootElement);
 
-	private static async Task<ConsoleObservation> RunAsync(
+	internal static async Task<ConsoleObservation> RunAsync(
 		TemporaryMonitorWorkspace workspace,
 		FakeGitHubTransport transport,
-		IReadOnlyList<string> arguments)
+		IReadOnlyList<string> arguments,
+		string? token = "fixture-token")
 	{
 		using var client = new HttpClient(transport) { BaseAddress = new Uri("https://api.github.test") };
 		using var standardOutput = new StringWriter();
 		using var standardError = new StringWriter();
-		var exitCode = await Program.RunAsync(
-			arguments,
-			name => name == "GH_TOKEN" ? "fixture-token" : null,
-			client,
-			workspace.Path,
-			standardOutput,
-			standardError);
+		using var process = new MonitorProcessScope(workspace.Path, token, client, standardOutput, standardError);
+		var exitCode = await Program.Main(arguments.ToArray());
 		var jsonPath = ArgumentPath(arguments, "--json") ?? Path.Combine(workspace.Path, "upstream-monitor.json");
 		var markdownPath = ArgumentPath(arguments, "--markdown") ?? Path.Combine(workspace.Path, "upstream-monitor.md");
 
@@ -151,13 +148,13 @@ public sealed class ConsoleBoundaryTests
 		request.Body is null ? null : CanonicalJson(request.Body),
 		request.Authorization);
 
-	private sealed record ConsoleRequestObservation(
+	internal sealed record ConsoleRequestObservation(
 		HttpMethod Method,
 		string PathAndQuery,
 		string? Body,
 		string? Authorization);
 
-	private sealed record ConsoleObservation(
+	internal sealed record ConsoleObservation(
 		int ExitCode,
 		IReadOnlyList<ConsoleRequestObservation> Requests,
 		string? JsonReport,
@@ -165,7 +162,7 @@ public sealed class ConsoleBoundaryTests
 		string StandardOutput = "",
 		string StandardError = "");
 
-	private sealed class TemporaryMonitorWorkspace : IDisposable
+	internal sealed class TemporaryMonitorWorkspace : IDisposable
 	{
 		public TemporaryMonitorWorkspace()
 		{

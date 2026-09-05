@@ -16,11 +16,34 @@ internal sealed class FakeGitHubTransport : HttpMessageHandler
 
 	public IReadOnlyList<ObservedRequest> Requests => requests;
 
-	public void AddJson(string pathAndQuery, string json) =>
-		Add(pathAndQuery, () => new HttpResponseMessage(HttpStatusCode.OK)
+	public void AddJson(string pathAndQuery, string json, string? nextPage = null) =>
+		Add(pathAndQuery, () => JsonResponse(json, nextPage));
+
+	public void ReplaceJson(string pathAndQuery, string json)
+	{
+		responses.Remove(pathAndQuery);
+		AddJson(pathAndQuery, json);
+	}
+
+	public void ReplaceWithFailure(string pathAndQuery)
+	{
+		responses.Remove(pathAndQuery);
+		AddStatus(pathAndQuery, HttpStatusCode.ServiceUnavailable);
+	}
+
+	private static HttpResponseMessage JsonResponse(string json, string? nextPage)
+	{
+		var response = new HttpResponseMessage(HttpStatusCode.OK)
 		{
 			Content = new StringContent(json, Encoding.UTF8, "application/json"),
-		});
+		};
+		if (nextPage is not null)
+		{
+			response.Headers.Add("Link", $"<https://api.github.test{nextPage}>; rel=\"next\"");
+		}
+
+		return response;
+	}
 
 	public void AddStatus(string pathAndQuery, HttpStatusCode status) =>
 		Add(pathAndQuery, () => new HttpResponseMessage(status));

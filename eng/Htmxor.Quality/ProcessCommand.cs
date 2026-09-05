@@ -2,6 +2,7 @@ namespace Htmxor.Quality;
 
 internal enum NetworkAccess
 {
+	Unknown,
 	Disabled,
 	Enabled,
 }

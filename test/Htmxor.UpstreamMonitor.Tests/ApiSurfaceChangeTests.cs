@@ -8,6 +8,29 @@ public sealed class ApiSurfaceChangeTests
 	private const string InvokerPath = "src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs";
 
 	[Fact]
+	public async Task Virtual_to_abstract_modifier_alone_changes_the_consumed_contract()
+	{
+		var transport = SourceChangeTests.DriftTransport("github/compare-api-files.json");
+		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{StaticRendererPath}?ref={Fixture.BaselineCommit}",
+			Fixture.GitHubContentText("public abstract class StaticHtmlRenderer { protected virtual void Render() { } }"));
+		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{StaticRendererPath}?ref={Fixture.TargetCommit}",
+			Fixture.GitHubContentText("public abstract class StaticHtmlRenderer { protected abstract void Render(); }"));
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(
+			Fixture.Watch(StaticRendererPath, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses)));
+
+		Assert.Equal(new[]
+		{
+			new ApiChange("StaticHtmlRenderer", ChangeKind.Added, ApiSymbolKind.Member, "protected abstract void Render()", ReviewClassification.ExtensibilityOpportunity),
+			new ApiChange("StaticHtmlRenderer", ChangeKind.Removed, ApiSymbolKind.Member, "protected virtual void Render()", ReviewClassification.CompatibilityRisk),
+		}, result.ApiChanges.OrderBy(change => change.Kind));
+		ReportAssertions.Equal(result, new ReportExpectation("drift", new("v10.0.11", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
+			[new(StaticRendererPath, "changed", "compatibility-risk")],
+			[new("StaticHtmlRenderer", "added", "member", "protected abstract void Render()", "extensibility-opportunity"),
+			 new("StaticHtmlRenderer", "removed", "member", "protected virtual void Render()", "compatibility-risk")], null));
+	}
+
+	[Fact]
 	public async Task Subclass_and_interface_surfaces_report_public_and_protected_API_changes()
 	{
 		var transport = SourceChangeTests.DriftTransport("github/compare-api-files.json");
