@@ -1,0 +1,17 @@
+@using Microsoft.AspNetCore.Components.Authorization
+
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    <CascadingAuthenticationState>
+        <Router AppAssembly="typeof(Issue187App).Assembly">
+            <Found Context="routeData">
+                <RouteView RouteData="routeData" />
+            </Found>
+            <NotFound>
+                <p data-issue-187-not-found>Not found</p>
+            </NotFound>
+        </Router>
+    </CascadingAuthenticationState>
+</body>
+</html>
