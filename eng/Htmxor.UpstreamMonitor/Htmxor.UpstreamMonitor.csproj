@@ -13,4 +13,13 @@
 		<InternalsVisibleTo Include="Htmxor.UpstreamMonitor.Tests" />
 	</ItemGroup>
 
+	<!-- Preserve the SDK's target-framework context without configuration or custom DefineConstants. -->
+	<Target Name="CaptureTargetFrameworkSymbols" BeforeTargets="GetAssemblyAttributes"
+		DependsOnTargets="GenerateTargetFrameworkDefineConstants;GenerateNETCompatibleDefineConstants">
+		<Error Condition="'@(_ImplicitDefineConstant)' == ''" Text="SDK target-framework symbols are required for local dependency discovery." />
+		<ItemGroup>
+			<AssemblyMetadata Include="Htmxor.TargetFrameworkSymbols" Value="@(_ImplicitDefineConstant, ',')" />
+		</ItemGroup>
+	</Target>
+
 </Project>

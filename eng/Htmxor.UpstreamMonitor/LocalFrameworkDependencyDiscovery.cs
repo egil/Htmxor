@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.CodeAnalysis;
@@ -9,7 +10,7 @@ namespace Htmxor.UpstreamMonitor;
 internal static partial class LocalFrameworkDependencyDiscovery
 {
 	private static readonly Lazy<PortableExecutableReference[]> frameworkReferences = new(ReadFrameworkReferences);
-	private static readonly CSharpParseOptions parseOptions = new(LanguageVersion.Preview);
+	private static readonly Lazy<CSharpParseOptions> parseOptions = new(ReadParseOptions);
 
 	// This map supplies reviewed source locations only. Trusted framework metadata independently determines which local relationships require coverage.
 	private static readonly IReadOnlyDictionary<string, string> frameworkSources = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -51,8 +52,20 @@ internal static partial class LocalFrameworkDependencyDiscovery
 		Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
 			.Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin"))
 			.Order(StringComparer.Ordinal)
-			.Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path), parseOptions,
+			.Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path), parseOptions.Value,
 				Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'))).ToArray();
+
+	private static CSharpParseOptions ReadParseOptions()
+	{
+		var symbols = typeof(LocalFrameworkDependencyDiscovery).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+			.Where(attribute => attribute.Key == "Htmxor.TargetFrameworkSymbols")
+			.SelectMany(attribute => attribute.Value?.Split(',') ?? []).Distinct(StringComparer.Ordinal).ToArray();
+		if (symbols.Length == 0 || symbols.Any(symbol => !SyntaxFacts.IsValidIdentifier(symbol)))
+		{
+			throw new MonitorFailure("The monitor's SDK target-framework symbols are missing or invalid.");
+		}
+		return new(LanguageVersion.Preview, preprocessorSymbols: symbols);
+	}
 
 	private static PortableExecutableReference[] ReadFrameworkReferences()
 	{
