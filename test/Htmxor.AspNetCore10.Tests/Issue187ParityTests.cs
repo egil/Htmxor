@@ -343,7 +343,7 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 				Issue187AuthenticationHandler.AccessValue)));
 		builder.Services.AddCascadingAuthenticationState();
 		builder.Services.AddScoped<Issue187RequestProbe>();
-		var razorComponents = builder.Services.AddRazorComponents();
+		var razorComponents = builder.Services.AddRazorComponents(options.ConfigureRazorComponentOptions);
 		options.ConfigureRazorComponents(razorComponents);
 		if (useHtmxor)
 		{
@@ -475,6 +475,8 @@ internal sealed class Issue187ParityHostOptions
 	public Action<WebApplicationBuilder> ConfigureBuilder { get; init; } = _ => { };
 
 	public Action<IRazorComponentsBuilder> ConfigureRazorComponents { get; init; } = _ => { };
+
+	public Action<RazorComponentsServiceOptions> ConfigureRazorComponentOptions { get; init; } = _ => { };
 
 	public Action<RazorComponentsEndpointConventionBuilder> ConfigureEndpoints { get; init; } = _ => { };
 

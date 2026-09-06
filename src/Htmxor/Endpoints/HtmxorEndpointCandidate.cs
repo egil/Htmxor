@@ -298,12 +298,18 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 		var initializers = services.GetRequiredService<HtmxorEndpointCandidateFormServices>().GetJavaScriptInitializers(
 			services.GetRequiredService<IOptions<RazorComponentsServiceOptions>>().Value);
-		if (initializers is not null && !context.Request.Headers.ContainsKey("blazor-enhanced-nav"))
+		if (initializers is not null && !IsProgressivelyEnhancedNavigation(context.Request))
 		{
 			writer.Write("<!--Blazor-Web-Initializers:");
 			writer.Write(Convert.ToBase64String(Encoding.UTF8.GetBytes(initializers)));
 			writer.Write("-->");
 		}
+	}
+
+	private static bool IsProgressivelyEnhancedNavigation(HttpRequest request)
+	{
+		var accept = request.Headers.Accept;
+		return accept.Count == 1 && string.Equals(accept[0]!, "text/html; blazor-enhanced-nav=on", StringComparison.Ordinal);
 	}
 
 	internal async Task WritePersistedStateAsync(TextWriter writer, IComponentRenderMode[] configuredModes)
