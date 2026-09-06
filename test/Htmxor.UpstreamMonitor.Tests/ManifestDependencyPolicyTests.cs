@@ -170,6 +170,63 @@ public sealed class ManifestDependencyPolicyTests
 	}
 
 	[Fact]
+	public void Candidate_form_service_private_accesses_are_declared_by_source_and_manifest()
+	{
+		var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
+		var manifest = WatchManifestFile.Read(repositoryRoot);
+		var expected = new[]
+		{
+			new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+				"src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs", WatchRelationship.PrivateAccesses),
+			new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+				"src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs", WatchRelationship.PrivateAccesses),
+			new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+				"src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs", WatchRelationship.PrivateAccesses),
+		};
+
+		var declared = LocalFrameworkDependencyDiscovery.Discover(repositoryRoot)
+			.Where(dependency => dependency.LocalPath == "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
+				&& dependency.Relationship == WatchRelationship.PrivateAccesses)
+			.OrderBy(dependency => dependency.UpstreamPath, StringComparer.Ordinal).ToArray();
+		var watches = manifest.Targets
+			.Where(target => target.Relationship == WatchRelationship.PrivateAccesses
+				&& target.LocalDependencies.Contains("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs", StringComparer.Ordinal))
+			.ToArray();
+		var watched = watches
+			.Select(target => new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+				target.Path, target.Relationship))
+			.OrderBy(dependency => dependency.UpstreamPath, StringComparer.Ordinal).ToArray();
+
+		Assert.Equal(expected.OrderBy(dependency => dependency.UpstreamPath, StringComparer.Ordinal), declared);
+		Assert.Equal(expected.OrderBy(dependency => dependency.UpstreamPath, StringComparer.Ordinal), watched);
+		Assert.All(watches, target =>
+		{
+			Assert.Equal(WatchMatch.File, target.Match);
+			Assert.Equal(ApiSurface.None, target.ApiSurface);
+			Assert.Single(target.LocalDependencies);
+		});
+	}
+
+	[Fact]
+	public void Candidate_form_sources_have_complete_manifest_associations()
+	{
+		var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
+		var manifest = WatchManifestFile.Read(repositoryRoot);
+		var localPaths = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
+			"src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs",
+			"src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+			"src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.NamedSubmit.cs",
+		};
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repositoryRoot, manifest)
+			.Where(dependency => localPaths.Contains(dependency.LocalPath)).ToArray();
+
+		Assert.Empty(untracked);
+	}
+
+	[Fact]
 	public void Missing_local_manifest_dependency_is_reported_without_network_access()
 	{
 		using var repository = new TemporaryRepository();
