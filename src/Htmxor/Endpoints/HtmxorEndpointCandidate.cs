@@ -50,6 +50,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using static Microsoft.AspNetCore.Components.Web.RenderMode;
 using RouteData = Microsoft.AspNetCore.Components.RouteData;
 
@@ -167,6 +168,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			ArrayPool<byte>.Shared,
 			ArrayPool<char>.Shared);
 		htmlContent.WriteHtmlTo(writer);
+		renderer.EmitInitializersIfNecessary(context, writer);
 		if (context.Features.Get<IExceptionHandlerFeature>() is null &&
 			context.Features.Get<IStatusCodeReExecuteFeature>() is null)
 		{
@@ -221,6 +223,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		invocationId = Guid.NewGuid();
 		webAssemblySettingsEmitted = false;
 		componentRenderModes.Clear();
+		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().InitializeResourceCollection(context);
 		var navigationManager = services.GetRequiredService<NavigationManager>();
 		if (navigationManager is IHostEnvironmentNavigationManager hostNavigationManager)
 		{
@@ -290,6 +293,18 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 	protected override ResourceAssetCollection Assets
 		=> resourceCollection ??= httpContext.GetEndpoint()?.Metadata.GetMetadata<ResourceAssetCollection>() ?? base.Assets;
+
+	internal void EmitInitializersIfNecessary(HttpContext context, TextWriter writer)
+	{
+		var initializers = services.GetRequiredService<HtmxorEndpointCandidateFormServices>().GetJavaScriptInitializers(
+			services.GetRequiredService<IOptions<RazorComponentsServiceOptions>>().Value);
+		if (initializers is not null && !context.Request.Headers.ContainsKey("blazor-enhanced-nav"))
+		{
+			writer.Write("<!--Blazor-Web-Initializers:");
+			writer.Write(Convert.ToBase64String(Encoding.UTF8.GetBytes(initializers)));
+			writer.Write("-->");
+		}
+	}
 
 	internal async Task WritePersistedStateAsync(TextWriter writer, IComponentRenderMode[] configuredModes)
 	{

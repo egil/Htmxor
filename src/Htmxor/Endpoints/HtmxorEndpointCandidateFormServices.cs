@@ -31,6 +31,11 @@ internal sealed class HtmxorEndpointCandidateFormServices
 	private readonly MethodInfo setRequestContext;
 	private readonly MethodInfo disableTokenGeneration;
 	private readonly MethodInfo getConfiguredRenderModes;
+	private readonly PropertyInfo javaScriptInitializers;
+	private readonly Type resourceCollectionUrlMetadataType;
+	private readonly Type resourceCollectionProviderType;
+	private readonly PropertyInfo resourceCollectionUrl;
+	private readonly MethodInfo setResourceCollection;
 
 	private HtmxorEndpointCandidateFormServices()
 	{
@@ -45,6 +50,13 @@ internal sealed class HtmxorEndpointCandidateFormServices
 			typeof(void));
 		getConfiguredRenderModes = RequireMethod(renderModesMetadataType, "get_ConfiguredRenderModes", BindingFlags.Public,
 			typeof(IComponentRenderMode[]));
+		javaScriptInitializers = typeof(RazorComponentsServiceOptions).GetProperty("JavaScriptInitializers", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+			?? throw IncompatibleFramework("RazorComponentsServiceOptions.JavaScriptInitializers");
+		resourceCollectionUrlMetadataType = RequireType("ResourceCollectionUrlMetadata");
+		resourceCollectionProviderType = EndpointAssembly.GetType("Microsoft.AspNetCore.Components.ResourceCollectionProvider", true)!;
+		resourceCollectionUrl = resourceCollectionProviderType.GetProperty("ResourceCollectionUrl", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+			?? throw IncompatibleFramework("ResourceCollectionProvider.ResourceCollectionUrl");
+		setResourceCollection = RequireMethod(resourceCollectionProviderType, "SetResourceCollection", BindingFlags.NonPublic, typeof(void), typeof(ResourceAssetCollection));
 		if (renderModesMetadataType.GetProperty("ConfiguredRenderModes", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)?.GetMethod != getConfiguredRenderModes ||
 			!setRequestContext.IsAssembly || !disableTokenGeneration.IsAssembly ||
 			!typeof(AntiforgeryStateProvider).IsAssignableFrom(antiforgeryProviderType))
@@ -94,6 +106,19 @@ internal sealed class HtmxorEndpointCandidateFormServices
 		return metadata is null
 			? []
 			: (IComponentRenderMode[])Invoke(getConfiguredRenderModes, metadata, null)!;
+	}
+
+	internal string? GetJavaScriptInitializers(RazorComponentsServiceOptions options) => (string?)javaScriptInitializers.GetValue(options);
+
+	internal void InitializeResourceCollection(HttpContext context)
+	{
+		var collection = context.GetEndpoint()?.Metadata.GetMetadata<ResourceAssetCollection>();
+		var metadata = collection is null ? null : context.GetEndpoint()?.Metadata.LastOrDefault(resourceCollectionUrlMetadataType.IsInstanceOfType);
+		if (metadata is not null && context.RequestServices.GetService(resourceCollectionProviderType) is { } provider)
+		{
+			resourceCollectionUrl.SetValue(provider, resourceCollectionUrlMetadataType.GetProperty("Url")!.GetValue(metadata));
+			Invoke(setResourceCollection, provider, [collection]);
+		}
 	}
 
 	private static Type RequireType(string name)

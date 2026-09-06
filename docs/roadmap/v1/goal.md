@@ -96,7 +96,11 @@ Htmxor should use supported ASP.NET Core and Blazor extension points. Render-tre
 generation remains owned by the framework through supported public/protected
 `Renderer`, `StaticHtmlRenderer`, and `ComponentState` seams. Htmxor must not
 globally replace stock routing state, the navigation manager, or the form runtime.
-Private framework access is limited to the form-service adapter defined below.
+Private framework access is limited to the isolated framework adapter defined
+below for form, initializer, and resource seams. Each use requires exact
+upstream provenance, source inventory, drift monitoring, runtime shape
+validation, and paired parity evidence. Htmxor does not copy private renderer
+code.
 
 An inactive or active global endpoint-invoker/endpoint-renderer adaptation is
 allowed only when it preserves observable stock behavior. The stock endpoint
