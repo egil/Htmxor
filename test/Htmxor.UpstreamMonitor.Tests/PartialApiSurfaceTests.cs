@@ -127,6 +127,13 @@ public sealed class PartialApiSurfaceTests
 		var transport = ProviderInventoryTests.TargetTransport();
 		transport.AddJson($"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
 			JsonSerializer.Serialize(new { files = files.Select(file => new { filename = file.Path, status = file.Status }) }));
+		foreach (var directory in files.GroupBy(file => file.Path[..file.Path.LastIndexOf('/')]))
+		{
+			PrefixInventoryFixture.Listing(transport, directory.Key, Fixture.BaselineCommit,
+				directory.Where(file => file.Status != "added").Select(file => file.Path));
+			PrefixInventoryFixture.Listing(transport, directory.Key, Fixture.TargetCommit,
+				directory.Where(file => file.Status != "removed").Select(file => file.Path));
+		}
 		return transport;
 	}
 
