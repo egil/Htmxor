@@ -311,11 +311,18 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 		bool useHtmxor,
 		Action<IServiceCollection>? configureHtmxorServices = null,
 		Issue187ParityHostOptions? options = null)
+		=> await CreateAsync<Issue187App>(useHtmxor, configureHtmxorServices, options);
+
+	public static async Task<Issue187ParityHost> CreateAsync<TRootComponent>(
+		bool useHtmxor,
+		Action<IServiceCollection>? configureHtmxorServices = null,
+		Issue187ParityHostOptions? options = null)
+		where TRootComponent : IComponent
 	{
 		options ??= new();
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
-			ApplicationName = typeof(Issue187App).Assembly.GetName().Name,
+			ApplicationName = typeof(TRootComponent).Assembly.GetName().Name,
 			EnvironmentName = options.EnvironmentName,
 		});
 		builder.WebHost.UseTestServer();
@@ -348,7 +355,7 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 		options.ConfigureServices?.Invoke(builder.Services);
 		var app = builder.Build();
 		ConfigurePipeline(app, options);
-		var endpoints = app.MapRazorComponents<Issue187App>()
+		var endpoints = app.MapRazorComponents<TRootComponent>()
 			.WithMetadata(Issue187EndpointMetadata.Instance);
 		options.ConfigureEndpoints(endpoints);
 		if (useHtmxor)
