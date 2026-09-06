@@ -190,6 +190,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private int invocationSequence;
 	private Guid invocationId;
 	private bool webAssemblySettingsEmitted;
+	private ResourceAssetCollection? resourceCollection;
 	private readonly Dictionary<IComponent, IComponentRenderMode> componentRenderModes = new(ReferenceEqualityComparer.Instance);
 
 	public HtmxorEndpointCandidateRenderer(IServiceProvider services, ILoggerFactory loggerFactory)
@@ -286,6 +287,9 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		=> component is HtmxorEndpointCandidateRenderModeBoundary boundary
 			? boundary.RenderMode
 			: componentRenderModes.GetValueOrDefault(component);
+
+	protected override ResourceAssetCollection Assets
+		=> resourceCollection ??= httpContext.GetEndpoint()?.Metadata.GetMetadata<ResourceAssetCollection>() ?? base.Assets;
 
 	internal async Task WritePersistedStateAsync(TextWriter writer, IComponentRenderMode[] configuredModes)
 	{
