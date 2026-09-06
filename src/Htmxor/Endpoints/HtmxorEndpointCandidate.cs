@@ -29,6 +29,7 @@ using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Routing;
@@ -92,7 +93,10 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 	private async Task RenderComponentCore(HttpContext context)
 	{
 		context.Response.ContentType = DefaultContentType;
-		context.Response.Headers[EnhancedNavigationHeader] = "allow";
+		if (context.Features.Get<IStatusCodeReExecuteFeature>() is null)
+		{
+			context.Response.Headers[EnhancedNavigationHeader] = "allow";
+		}
 
 		var endpoint = context.GetEndpoint()
 			?? throw new InvalidOperationException($"An endpoint must be set on the '{nameof(HttpContext)}'.");
