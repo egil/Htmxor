@@ -4,6 +4,7 @@ using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.AspNetCore10;
@@ -119,6 +120,22 @@ public sealed class Issue191PersistedStateParityTests
 			StringComparison.Ordinal));
 	}
 
+	[Fact]
+	public async Task Candidate_status_code_reexecution_suppresses_persisted_state_like_stock()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync();
+		using var stockResponse = await pair.Stock.Client.GetAsync(Issue191HostPair.StatusOriginPath);
+		using var candidateResponse = await pair.Candidate.Client.GetAsync(Issue191HostPair.StatusOriginPath);
+		var stock = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidate = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.Equal(HttpStatusCode.NotFound, stock.StatusCode);
+		Assert.DoesNotContain("Component-State:", stock.Body, StringComparison.Ordinal);
+		Assert.Equal(stock.StatusCode, candidate.StatusCode);
+		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
+		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
+	}
+
 	private static HttpRequestMessage CreateRequest(string user)
 	{
 		var request = new HttpRequestMessage(HttpMethod.Get, Issue191HostPair.Path);
@@ -148,6 +165,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 	public const string Path = "/issue-191/state";
 	public const string WebAssemblyPath = "/issue-191/webassembly-state";
 	public const string AutoPath = "/issue-191/auto-state";
+	public const string StatusOriginPath = "/issue-191/status-origin";
 
 	public Issue187ParityHost Stock { get; } = stock;
 
@@ -158,6 +176,20 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 		var protection = new EphemeralDataProtectionProvider();
 		var options = new Issue187ParityHostOptions
 		{
+			BeforeSession = app =>
+			{
+				app.UseStatusCodePagesWithReExecute(Path);
+				app.Use(async (context, next) =>
+				{
+					if (context.Request.Path == StatusOriginPath)
+					{
+						context.Response.StatusCode = StatusCodes.Status404NotFound;
+						return;
+					}
+
+					await next(context);
+				});
+			},
 			ConfigureRazorComponents = builder =>
 			{
 				builder.AddInteractiveServerComponents();
