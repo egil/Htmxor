@@ -28,9 +28,25 @@ public sealed class Issue189FormIsolationTests
 		EqualResponse(stock[0], candidate[0]);
 		EqualResponse(stock[1], candidate[1]);
 		AssertIsolation(pair, pair.Candidate);
-		EqualComponents(pair.Observe(pair.Stock, "first"), pair.Observe(pair.Candidate, "first"));
-		EqualComponents(pair.Observe(pair.Stock, "second"), pair.Observe(pair.Candidate, "second"));
+		EqualRequestComponents(pair.Observe(pair.Stock, "first"), pair.Observe(pair.Candidate, "first"));
+		EqualRequestComponents(pair.Observe(pair.Stock, "second"), pair.Observe(pair.Candidate, "second"));
 	}
+
+	private static void EqualRequestComponents(Issue189Observation stock, Issue189Observation candidate)
+	{
+		var stockComponents = stock.Components.ToArray();
+		var candidateComponents = candidate.Components.ToArray();
+		AssertInitializationPrecedesCallback(stockComponents);
+		AssertInitializationPrecedesCallback(candidateComponents);
+
+		// Sibling continuations have no shared order across hosts; stable sorting retains each component's lifecycle order.
+		Assert.Equal(
+			stockComponents.OrderBy(item => item.Label, StringComparer.Ordinal).Select(item => (item.Label, item.Phase, item.Value)),
+			candidateComponents.OrderBy(item => item.Label, StringComparer.Ordinal).Select(item => (item.Label, item.Phase, item.Value)));
+	}
+
+	private static void AssertInitializationPrecedesCallback(Issue189ComponentEvent[] components)
+		=> Assert.Equal(components.Length - 1, Array.FindIndex(components, item => item.Phase is "valid" or "invalid"));
 
 	private static async Task<Issue189Response[]> SendTwoAsync(Issue187ParityHost host, Issue189Tokens tokens, bool overlap)
 	{
