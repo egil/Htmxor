@@ -1,0 +1,13 @@
+@page "/issue-190/router-not-found-origin"
+@inject Issue190NotFoundJournal Journal
+@inject NavigationManager Navigation
+
+<main data-issue-190-router-origin>unreachable</main>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Journal.Record("origin:initialized");
+        Navigation.NotFound();
+    }
+}

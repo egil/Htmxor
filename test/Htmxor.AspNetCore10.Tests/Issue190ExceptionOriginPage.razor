@@ -1,0 +1,12 @@
+@page "/issue-190/exception-origin"
+@inject Issue190ExceptionHandlerJournal Journal
+
+<main data-issue-190-exception-origin>unreachable</main>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Journal.Record("origin");
+        throw new InvalidOperationException("issue-190 pre-commit component exception");
+    }
+}

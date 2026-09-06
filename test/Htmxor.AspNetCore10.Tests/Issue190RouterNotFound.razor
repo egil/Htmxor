@@ -1,0 +1,10 @@
+@inject Issue190NotFoundJournal Journal
+
+<main data-issue-190-router-not-found>router-not-found</main>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Journal.Record("component:initialized");
+    }
+}

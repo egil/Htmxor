@@ -29,6 +29,7 @@ using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Routing;
@@ -92,7 +93,10 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 	private async Task RenderComponentCore(HttpContext context)
 	{
 		context.Response.ContentType = DefaultContentType;
-		context.Response.Headers[EnhancedNavigationHeader] = "allow";
+		if (context.Features.Get<IStatusCodeReExecuteFeature>() is null)
+		{
+			context.Response.Headers[EnhancedNavigationHeader] = "allow";
+		}
 
 		var endpoint = context.GetEndpoint()
 			?? throw new InvalidOperationException($"An endpoint must be set on the '{nameof(HttpContext)}'.");
@@ -109,7 +113,16 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 
 		renderer.InitializeStandardComponentServices(context, pageComponent, request.HandlerName, request.Form);
-		var htmlContent = await renderer.RenderEndpointComponentAsync(rootComponent, ParameterView.Empty);
+		HtmlRootComponent htmlContent;
+		try
+		{
+			htmlContent = await renderer.RenderEndpointComponentAsync(rootComponent, ParameterView.Empty);
+		}
+		catch (NavigationException navigationException)
+		{
+			context.Response.Redirect(navigationException.Location);
+			return;
+		}
 		if (request.IsPost)
 		{
 			await renderer.DispatchSubmitEventAsync(request.HandlerName, out var isBadRequest);
@@ -121,6 +134,12 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 
 		context.RequestServices.GetRequiredService<HtmxorEndpointCandidateFormServices>()
 			.DisableTokenGenerationForCompletedResponse(context, endpoint);
+		if (renderer.NotFoundEventArgs is not null)
+		{
+			context.Response.StatusCode = StatusCodes.Status404NotFound;
+			context.Response.ContentType = null;
+			return;
+		}
 
 		const int defaultBufferSize = 16 * 1024;
 		await using var writer = new HttpResponseStreamWriter(
@@ -139,6 +158,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private readonly IServiceProvider services;
 	private readonly EndpointRoutingStateProvider routingState;
 	private HttpContext httpContext = default!;
+	private NotFoundEventArgs? notFoundEventArgs;
 
 	public HtmxorEndpointCandidateRenderer(IServiceProvider services, ILoggerFactory loggerFactory)
 		: this(services, loggerFactory, new EndpointRoutingStateProvider())
@@ -157,15 +177,19 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 	internal HttpContext? HttpContext => httpContext;
 
+	internal NotFoundEventArgs? NotFoundEventArgs => notFoundEventArgs;
+
 	internal void InitializeStandardComponentServices(
 		HttpContext context, Type pageComponent, string? handler = null, IFormCollection? form = null)
 	{
 		httpContext = context;
+		notFoundEventArgs = null;
 		var navigationManager = services.GetRequiredService<NavigationManager>();
 		if (navigationManager is IHostEnvironmentNavigationManager hostNavigationManager)
 		{
 			hostNavigationManager.Initialize(GetContextBaseUri(context.Request), GetFullUri(context.Request));
 		}
+		navigationManager.OnNotFound += (_, args) => notFoundEventArgs = args;
 
 		var authenticationStateProvider = services.GetService<AuthenticationStateProvider>();
 		if (authenticationStateProvider is IHostEnvironmentAuthenticationStateProvider hostAuthenticationStateProvider)

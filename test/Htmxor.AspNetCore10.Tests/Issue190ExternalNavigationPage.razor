@@ -1,0 +1,15 @@
+@page "/issue-190/navigate-external"
+@inject NavigationManager Navigation
+@inject Issue190LifecycleJournal Lifecycle
+
+<main data-issue-190-external-output>unreachable</main>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Lifecycle.Record("external-initialized");
+        Navigation.NavigateTo(Issue190ExternalNavigationContract.Destination);
+    }
+
+    protected override void OnParametersSet() => Lifecycle.Record("external-parameters-set");
+}
