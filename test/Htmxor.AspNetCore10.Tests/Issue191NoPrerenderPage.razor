@@ -1,0 +1,5 @@
+@page "/issue-191/no-prerender"
+@using Microsoft.AspNetCore.Components.Web
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<main data-issue-191-no-prerender="rendered">must not be prerendered</main>

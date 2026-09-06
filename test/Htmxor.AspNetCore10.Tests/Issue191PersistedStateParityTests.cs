@@ -213,6 +213,35 @@ public sealed class Issue191PersistedStateParityTests
 		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
 	}
 
+	[Fact]
+	public async Task Candidate_non_prerendered_interactive_component_preserves_stock_marker_only_output()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync();
+		using var stockResponse = await pair.Stock.Client.GetAsync(Issue191HostPair.NoPrerenderPath);
+		using var candidateResponse = await pair.Candidate.Client.GetAsync(Issue191HostPair.NoPrerenderPath);
+		var stock = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidate = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.DoesNotContain("data-issue-191-no-prerender", stock.Body, StringComparison.Ordinal);
+		Assert.Contains("<!--Blazor:", stock.Body, StringComparison.Ordinal);
+		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
+	}
+
+	[Fact]
+	public async Task Candidate_rejects_unconfigured_interactive_server_mode_like_stock()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync(includeServerRenderMode: false);
+		using var stockResponse = await pair.Stock.Client.GetAsync(Issue191HostPair.Path);
+		using var candidateResponse = await pair.Candidate.Client.GetAsync(Issue191HostPair.Path);
+		var stock = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidate = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.Equal(HttpStatusCode.InternalServerError, stock.StatusCode);
+		Assert.Contains("AddInteractiveServerRenderMode", stock.Body, StringComparison.Ordinal);
+		Assert.Equal(stock.StatusCode, candidate.StatusCode);
+		Assert.Contains("AddInteractiveServerRenderMode", candidate.Body, StringComparison.Ordinal);
+	}
+
 	private static HttpRequestMessage CreateRequest(string user)
 	{
 		var request = new HttpRequestMessage(HttpMethod.Get, Issue191HostPair.Path);
@@ -250,6 +279,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 	public const string Path = "/issue-191/state";
 	public const string WebAssemblyPath = "/issue-191/webassembly-state";
 	public const string AutoPath = "/issue-191/auto-state";
+	public const string NoPrerenderPath = "/issue-191/no-prerender";
 	public const string StatusOriginPath = "/issue-191/status-origin";
 	public const string ExceptionOriginPath = "/issue-191/exception-origin";
 
@@ -259,7 +289,8 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 
 	public static async Task<Issue191HostPair> CreateAsync(
 		string? javaScriptInitializers = null,
-		Action<RazorComponentsEndpointConventionBuilder>? configureEndpoints = null)
+		Action<RazorComponentsEndpointConventionBuilder>? configureEndpoints = null,
+		bool includeServerRenderMode = true)
 	{
 		var protection = new EphemeralDataProtectionProvider();
 		var fixture = Issue191JavaScriptInitializers.Create(javaScriptInitializers);
@@ -290,17 +321,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 				builder.AddInteractiveWebAssemblyComponents();
 			},
 			ConfigureBuilder = builder => fixture?.Configure(builder),
-			ConfigureEndpoints = endpoints =>
-			{
-				endpoints.WithMetadata(new ResourceAssetCollection([
-					new ResourceAsset(
-						"assets/issue-191.fingerprint.js",
-						[new ResourceAssetProperty("label", "issue-191.js")]),
-				]));
-				endpoints.AddInteractiveServerRenderMode();
-				endpoints.AddInteractiveWebAssemblyRenderMode();
-				configureEndpoints?.Invoke(endpoints);
-			},
+			ConfigureEndpoints = endpoints => ConfigureEndpoints(endpoints, includeServerRenderMode, configureEndpoints),
 			ConfigureServices = services => services.AddSingleton<IDataProtectionProvider>(protection),
 		};
 		var stock = await Issue187ParityHost.CreateAsync<Issue191App>(false, options: options);
@@ -309,6 +330,24 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 			HtmxorEndpointCandidateServices.Add,
 			options);
 		return new(stock, candidate) { initializerFixture = fixture };
+	}
+
+	private static void ConfigureEndpoints(
+		RazorComponentsEndpointConventionBuilder endpoints,
+		bool includeServerRenderMode,
+		Action<RazorComponentsEndpointConventionBuilder>? configureEndpoints)
+	{
+		endpoints.WithMetadata(new ResourceAssetCollection([
+			new ResourceAsset(
+				"assets/issue-191.fingerprint.js",
+				[new ResourceAssetProperty("label", "issue-191.js")]),
+		]));
+		if (includeServerRenderMode)
+		{
+			endpoints.AddInteractiveServerRenderMode();
+		}
+		endpoints.AddInteractiveWebAssemblyRenderMode();
+		configureEndpoints?.Invoke(endpoints);
 	}
 
 	public async ValueTask DisposeAsync()

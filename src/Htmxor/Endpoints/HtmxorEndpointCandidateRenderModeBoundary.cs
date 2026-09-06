@@ -23,20 +23,28 @@ using Microsoft.AspNetCore.Components.Web;
 namespace Htmxor.Endpoints;
 
 internal sealed class HtmxorEndpointCandidateRenderModeBoundary(
+	HttpContext context,
+	HtmxorEndpointCandidateFormServices formServices,
 	[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type componentType,
 	IComponentRenderMode renderMode) : IComponent
 {
 	private RenderHandle renderHandle;
 	private IReadOnlyDictionary<string, object?>? parameters;
+	private readonly bool prerender = GetPrerender(renderMode);
 
-	public IComponentRenderMode RenderMode { get; } = renderMode;
+	public IComponentRenderMode RenderMode { get; } = ValidateConfiguration(context, formServices, componentType, renderMode)
+		? renderMode
+		: throw new InvalidOperationException("Render mode configuration validation unexpectedly returned false.");
 
 	public void Attach(RenderHandle renderHandle) => this.renderHandle = renderHandle;
 
 	public Task SetParametersAsync(ParameterView parameters)
 	{
 		this.parameters = parameters.ToDictionary();
-		renderHandle.Render(Render);
+		if (prerender)
+		{
+			renderHandle.Render(Render);
+		}
 		return Task.CompletedTask;
 	}
 
@@ -47,13 +55,6 @@ internal sealed class HtmxorEndpointCandidateRenderModeBoundary(
 		int invocationSequence,
 		Guid invocationId)
 	{
-		var prerender = RenderMode switch
-		{
-			Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode mode => mode.Prerender,
-			Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode mode => mode.Prerender,
-			Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode mode => mode.Prerender,
-			_ => throw new InvalidOperationException($"Unsupported render mode '{RenderMode.GetType().FullName}'."),
-		};
 		var marker = new HtmxorEndpointCandidateMarker
 		{
 			Type = RenderMode switch
@@ -88,6 +89,21 @@ internal sealed class HtmxorEndpointCandidateRenderModeBoundary(
 			marker.ParameterValues = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(values));
 		}
 		return marker;
+	}
+
+	private static bool GetPrerender(IComponentRenderMode renderMode)
+		=> renderMode switch
+		{
+			Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode mode => mode.Prerender,
+			Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode mode => mode.Prerender,
+			Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode mode => mode.Prerender,
+			_ => throw new ArgumentException($"Server-side rendering does not support the render mode '{renderMode}'.", nameof(renderMode)),
+		};
+
+	private static bool ValidateConfiguration(HttpContext context, HtmxorEndpointCandidateFormServices formServices, Type componentType, IComponentRenderMode renderMode)
+	{
+		formServices.AssertRenderModeIsConfigured(context, componentType, renderMode);
+		return true;
 	}
 
 	private static string FormatComponentKey(object? key)

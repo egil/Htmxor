@@ -113,6 +113,25 @@ internal sealed class HtmxorEndpointCandidateFormServices
 			: (IComponentRenderMode[])Invoke(getConfiguredRenderModes, metadata, null)!;
 	}
 
+	internal void AssertRenderModeIsConfigured(HttpContext context, Type componentType, IComponentRenderMode renderMode)
+	{
+		var metadata = context.GetEndpoint()?.Metadata.LastOrDefault(renderModesMetadataType.IsInstanceOfType);
+		if (metadata is null)
+		{
+			return;
+		}
+
+		var configured = (IComponentRenderMode[])Invoke(getConfiguredRenderModes, metadata, null)!;
+		if (renderMode is Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode or Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode)
+		{
+			AssertConfigured<Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode>(componentType, renderMode, configured, "AddInteractiveServerRenderMode");
+		}
+		if (renderMode is Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode or Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode)
+		{
+			AssertConfigured<Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode>(componentType, renderMode, configured, "AddInteractiveWebAssemblyRenderMode");
+		}
+	}
+
 	internal string? GetJavaScriptInitializers(RazorComponentsServiceOptions options) => (string?)javaScriptInitializers.GetValue(options);
 
 	internal void InitializeResourceCollection(HttpContext context)
@@ -142,6 +161,17 @@ internal sealed class HtmxorEndpointCandidateFormServices
 		}
 
 		return method;
+	}
+
+	private static void AssertConfigured<TRequiredMode>(Type componentType, IComponentRenderMode specifiedMode, IComponentRenderMode[] configuredModes, string expectedCall)
+		where TRequiredMode : IComponentRenderMode
+	{
+		if (configuredModes.Any(mode => mode is TRequiredMode))
+		{
+			return;
+		}
+
+		throw new InvalidOperationException($"A component of type '{componentType}' has render mode '{specifiedMode.GetType().Name}', but the required endpoints are not mapped on the server. When calling 'MapRazorComponents', add a call to '{expectedCall}'.");
 	}
 
 	private static PropertyInfo RequireProperty(Type type, string name, BindingFlags visibility, Type propertyType)

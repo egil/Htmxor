@@ -277,7 +277,11 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			return component;
 		}
 
-		return new HtmxorEndpointCandidateRenderModeBoundary(componentType, renderMode);
+		return new HtmxorEndpointCandidateRenderModeBoundary(
+			httpContext,
+			services.GetRequiredService<HtmxorEndpointCandidateFormServices>(),
+			componentType,
+			renderMode);
 	}
 
 	protected override void WriteComponentHtml(int componentId, TextWriter output)
@@ -405,9 +409,12 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		output.Write(JsonSerializer.Serialize(marker, HtmxorEndpointCandidateJson.Options));
 		output.Write("-->");
 		base.WriteComponentHtml(componentId, output);
-		output.Write("<!--Blazor:{\"prerenderId\":\"");
-		output.Write(marker.PrerenderId);
-		output.Write("\"}-->");
+		if (marker.PrerenderId is not null)
+		{
+			output.Write("<!--Blazor:{\"prerenderId\":\"");
+			output.Write(marker.PrerenderId);
+			output.Write("\"}-->");
+		}
 	}
 
 	private static Dictionary<string, string> GetWebAssemblyEnvironmentVariables()
