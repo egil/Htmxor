@@ -4,6 +4,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+// Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
+// synchronized 2026-09-06. Exact source inventory: docs/engineering/candidate-form-adapter.md.
+
 using System.Collections;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components;

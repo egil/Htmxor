@@ -1,8 +1,12 @@
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs | reimplements
 // Htmxor upstream dependency: src/Shared/Components/ComponentMarker.cs | reimplements
 // Htmxor upstream dependency: src/Shared/Components/ServerComponentSerializer.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/WebAssemblyComponentSerializer.cs | reimplements
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
+
+// Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
+// synchronized 2026-09-06. Exact source inventory: docs/engineering/candidate-form-adapter.md.
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
