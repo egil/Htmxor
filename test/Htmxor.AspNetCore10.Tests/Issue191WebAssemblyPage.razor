@@ -1,0 +1,23 @@
+@page "/issue-191/webassembly-state"
+@using Microsoft.AspNetCore.Components.Web
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveWebAssembly
+@implements IDisposable
+@inject PersistentComponentState State
+
+<main data-issue-191-webassembly-state="rendered">ordinary output</main>
+
+@code {
+    private PersistingComponentStateSubscription? subscription;
+
+    protected override void OnInitialized()
+    {
+        subscription = State.RegisterOnPersisting(() =>
+        {
+            State.PersistAsJson("issue191-webassembly-probe", "issue191-persisted");
+            return Task.CompletedTask;
+        });
+    }
+
+    public void Dispose() => subscription?.Dispose();
+}

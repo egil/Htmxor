@@ -86,9 +86,14 @@ internal sealed class HtmxorEndpointCandidateFormServices
 	}
 
 	internal bool HasConfiguredRenderModes(Endpoint endpoint)
+		=> GetConfiguredRenderModes(endpoint).Length > 0;
+
+	internal IComponentRenderMode[] GetConfiguredRenderModes(Endpoint endpoint)
 	{
 		var metadata = endpoint.Metadata.LastOrDefault(renderModesMetadataType.IsInstanceOfType);
-		return metadata is not null && ((IComponentRenderMode[])Invoke(getConfiguredRenderModes, metadata, null)!).Length > 0;
+		return metadata is null
+			? []
+			: (IComponentRenderMode[])Invoke(getConfiguredRenderModes, metadata, null)!;
 	}
 
 	private static Type RequireType(string name)

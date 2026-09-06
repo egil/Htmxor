@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace Htmxor.Endpoints;
 
@@ -35,32 +36,63 @@ internal sealed class HtmxorEndpointCandidateRenderModeBoundary(
 		return Task.CompletedTask;
 	}
 
-	public HtmxorEndpointCandidateMarker CreateMarker(HttpContext context, int sequence, object? key)
+	public HtmxorEndpointCandidateMarker CreateMarker(
+		HttpContext context,
+		int locationSequence,
+		object? key,
+		int invocationSequence,
+		Guid invocationId)
 	{
+		var prerender = RenderMode switch
+		{
+			Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode mode => mode.Prerender,
+			Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode mode => mode.Prerender,
+			Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode mode => mode.Prerender,
+			_ => throw new InvalidOperationException($"Unsupported render mode '{RenderMode.GetType().FullName}'."),
+		};
 		var marker = new HtmxorEndpointCandidateMarker
 		{
-			Type = "server",
-			PrerenderId = Guid.NewGuid().ToString("N"),
+			Type = RenderMode switch
+			{
+				Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode => "server",
+				Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode => "webassembly",
+				Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode => "auto",
+				_ => throw new InvalidOperationException($"Unsupported render mode '{RenderMode.GetType().FullName}'."),
+			},
+			PrerenderId = prerender ? Guid.NewGuid().ToString("N") : null,
 			Key = new HtmxorEndpointCandidateMarkerKey(
-				ComputeTypeNameHash(componentType) + ":" + sequence.ToString(CultureInfo.InvariantCulture),
-				key?.ToString() ?? string.Empty),
+				ComputeTypeNameHash(componentType) + ":" + locationSequence.ToString(CultureInfo.InvariantCulture),
+				FormatComponentKey(key)),
 		};
 		var (definitions, values) = HtmxorEndpointCandidateParameter.From(parameters!);
-		var payload = new HtmxorEndpointCandidateServerComponent(
-			sequence,
-			marker.Key,
-			componentType.Assembly.GetName().Name!,
-			componentType.FullName!,
-			definitions,
-			values,
-			Guid.NewGuid());
-		var protector = context.RequestServices.GetRequiredService<IDataProtectionProvider>()
-			.CreateProtector("Microsoft.AspNetCore.Components.ComponentDescriptorSerializer,V1")
-			.ToTimeLimitedDataProtector();
-		marker.Sequence = sequence;
-		marker.Descriptor = Convert.ToBase64String(protector.Protect(JsonSerializer.SerializeToUtf8Bytes(payload), TimeSpan.FromMinutes(5)));
+		if (RenderMode is Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode or Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode)
+		{
+			var payload = new HtmxorEndpointCandidateServerComponent(
+				invocationSequence, marker.Key, componentType.Assembly.GetName().Name!, componentType.FullName!, definitions, values, invocationId);
+			var protector = context.RequestServices.GetRequiredService<IDataProtectionProvider>()
+				.CreateProtector("Microsoft.AspNetCore.Components.ComponentDescriptorSerializer,V1")
+				.ToTimeLimitedDataProtector();
+			marker.Sequence = invocationSequence;
+			marker.Descriptor = Convert.ToBase64String(protector.Protect(JsonSerializer.SerializeToUtf8Bytes(payload), TimeSpan.FromMinutes(5)));
+		}
+
+		if (RenderMode is Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode or Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode)
+		{
+			marker.Assembly = componentType.Assembly.GetName().Name!;
+			marker.TypeName = componentType.FullName!;
+			marker.ParameterDefinitions = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(definitions));
+			marker.ParameterValues = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(values));
+		}
 		return marker;
 	}
+
+	private static string FormatComponentKey(object? key)
+		=> key switch
+		{
+			string value => value,
+			IFormattable value => value.ToString(null, CultureInfo.InvariantCulture),
+			_ => string.Empty,
+		};
 
 	private static string ComputeTypeNameHash(Type type)
 		=> Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(type.FullName!)));
@@ -84,6 +116,10 @@ internal sealed class HtmxorEndpointCandidateMarker
 	public HtmxorEndpointCandidateMarkerKey? Key { get; init; }
 	public int? Sequence { get; set; }
 	public string? Descriptor { get; set; }
+	public string? Assembly { get; set; }
+	public string? TypeName { get; set; }
+	public string? ParameterDefinitions { get; set; }
+	public string? ParameterValues { get; set; }
 }
 
 internal sealed record HtmxorEndpointCandidateMarkerKey(string LocationHash, string? FormattedComponentKey);

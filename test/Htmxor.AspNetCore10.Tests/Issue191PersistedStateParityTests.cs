@@ -23,6 +23,25 @@ public sealed class Issue191PersistedStateParityTests
 		Assert.Equal(HttpStatusCode.OK, stock.StatusCode);
 		Assert.Contains("data-issue-191-state=\"rendered\"", stock.Body, StringComparison.Ordinal);
 		Assert.Contains("<!--Blazor-Server-Component-State:", stock.Body, StringComparison.Ordinal);
+		Assert.Contains("<!--Blazor-WebAssembly-Component-State:", stock.Body, StringComparison.Ordinal);
+		Assert.Equal(stock.StatusCode, candidate.StatusCode);
+		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
+		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
+	}
+
+	[Fact]
+	public async Task Candidate_selected_interactive_webassembly_component_preserves_persisted_state_representation()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync();
+
+		using var stockResponse = await pair.Stock.Client.GetAsync(Issue191HostPair.WebAssemblyPath);
+		using var candidateResponse = await pair.Candidate.Client.GetAsync(Issue191HostPair.WebAssemblyPath);
+		var stock = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidate = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.Equal(HttpStatusCode.OK, stock.StatusCode);
+		Assert.Contains("<!--Blazor-WebAssembly-Component-State:", stock.Body, StringComparison.Ordinal);
+		Assert.Contains("<!--Blazor-Server-Component-State:", stock.Body, StringComparison.Ordinal);
 		Assert.Equal(stock.StatusCode, candidate.StatusCode);
 		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
 		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
@@ -32,7 +51,8 @@ public sealed class Issue191PersistedStateParityTests
 	{
 		var normalized = Regex.Replace(body, "\\\"prerenderId\\\":\\\"[^\\\"]+\\\"", "\\\"prerenderId\\\":\\\"<dynamic>\\\"");
 		normalized = Regex.Replace(normalized, "\\\"descriptor\\\":\\\"[^\\\"]+\\\"", "\\\"descriptor\\\":\\\"<dynamic>\\\"");
-		return Regex.Replace(normalized, "(?<=<!--Blazor-Server-Component-State:)[^-]+(?=-->)", "<dynamic>");
+		normalized = Regex.Replace(normalized, "(?<=<!--Blazor-Server-Component-State:)[^-]+(?=-->)", "<dynamic>");
+		return Regex.Replace(normalized, "(?<=<!--Blazor-WebAssembly-Component-State:)[^-]+(?=-->)", "<dynamic>");
 	}
 
 	private static IReadOnlyDictionary<string, string> NormalizeDynamicHeaders(IReadOnlyDictionary<string, string> headers)
@@ -47,6 +67,7 @@ public sealed class Issue191PersistedStateParityTests
 internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityHost candidate) : IAsyncDisposable
 {
 	public const string Path = "/issue-191/state";
+	public const string WebAssemblyPath = "/issue-191/webassembly-state";
 
 	public Issue187ParityHost Stock { get; } = stock;
 
@@ -57,8 +78,16 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 		var protection = new EphemeralDataProtectionProvider();
 		var options = new Issue187ParityHostOptions
 		{
-			ConfigureRazorComponents = builder => builder.AddInteractiveServerComponents(),
-			ConfigureEndpoints = endpoints => endpoints.AddInteractiveServerRenderMode(),
+			ConfigureRazorComponents = builder =>
+			{
+				builder.AddInteractiveServerComponents();
+				builder.AddInteractiveWebAssemblyComponents();
+			},
+			ConfigureEndpoints = endpoints =>
+			{
+				endpoints.AddInteractiveServerRenderMode();
+				endpoints.AddInteractiveWebAssemblyRenderMode();
+			},
 			ConfigureServices = services => services.AddSingleton<IDataProtectionProvider>(protection),
 		};
 		var stock = await Issue187ParityHost.CreateAsync<Issue191App>(false, options: options);
