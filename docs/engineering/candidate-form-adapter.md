@@ -16,7 +16,7 @@ authorize this replaceable internal boundary. No form runtime is copied.
 All private dependencies come from `Microsoft.AspNetCore.Components.Endpoints.dll`,
 resolved from `typeof(IRazorComponentEndpointInvoker).Assembly`. The baseline is
 ASP.NET Core **v10.0.11**, commit **a5383385245bdacc20ec19f30e46090a8154d8da**,
-synchronized **2026-09-05**. CLR assembly version is not a semantic compatibility
+synchronized **2026-09-06**. CLR assembly version is not a semantic compatibility
 test; a new framework release needs upstream review and renewed paired evidence.
 
 | Declaring type | Exact instance member |

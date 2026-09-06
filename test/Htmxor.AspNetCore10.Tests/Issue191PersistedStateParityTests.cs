@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
@@ -198,6 +199,20 @@ public sealed class Issue191PersistedStateParityTests
 		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
 	}
 
+	[Fact]
+	public async Task Candidate_uses_endpoint_resource_assets_like_stock()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync();
+		using var stockResponse = await pair.Stock.Client.GetAsync(Issue191HostPair.Path);
+		using var candidateResponse = await pair.Candidate.Client.GetAsync(Issue191HostPair.Path);
+		var stock = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidate = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.Contains("data-issue-191-asset=\"assets/issue-191.fingerprint.js\"", stock.Body, StringComparison.Ordinal);
+		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
+		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
+	}
+
 	private static HttpRequestMessage CreateRequest(string user)
 	{
 		var request = new HttpRequestMessage(HttpMethod.Get, Issue191HostPair.Path);
@@ -281,6 +296,11 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 			},
 			ConfigureEndpoints = endpoints =>
 			{
+				endpoints.WithMetadata(new ResourceAssetCollection([
+					new ResourceAsset(
+						"assets/issue-191.fingerprint.js",
+						[new ResourceAssetProperty("label", "issue-191.js")]),
+				]));
 				endpoints.AddInteractiveServerRenderMode();
 				endpoints.AddInteractiveWebAssemblyRenderMode();
 				configureEndpoints?.Invoke(endpoints);

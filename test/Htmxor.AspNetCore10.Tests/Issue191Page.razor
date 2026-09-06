@@ -6,7 +6,7 @@
 @inject PersistentComponentState State
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthenticationState
 
-<main data-issue-191-state="rendered" data-issue-191-user="@userName">ordinary output</main>
+<main data-issue-191-state="rendered" data-issue-191-user="@userName" data-issue-191-asset="@Assets["issue-191.js"]">ordinary output</main>
 
 @code {
     private PersistingComponentStateSubscription? subscription;
