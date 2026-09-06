@@ -31,9 +31,9 @@ public sealed class MonitorOutcomeTests
 		Assert.Equal(new IssueWriteResult(state == "open" ? IssueWriteAction.Updated : IssueWriteAction.ReopenedAndUpdated, 142, null), observation.Result);
 		Assert.Equal(new[] { firstPage, nextPage }, transport.Requests.Where(request => request.Method == HttpMethod.Get).Select(request => request.PathAndQuery));
 		var writes = transport.Requests.Where(request => request.Method != HttpMethod.Get).ToArray();
-		Assert.Equal(state == "open" ? 1 : 2, writes.Length);
+		Assert.Single(writes);
 		Assert.All(writes, request => Assert.Equal((HttpMethod.Patch, "/repos/egil/Htmxor/issues/142"), (request.Method, request.PathAndQuery)));
-		Assert.Equal(UpdateBody(), CanonicalJson(writes.Last().Body));
+		AssertUpdatedIssue(writes[0], state);
 	}
 
 	[Fact]
@@ -110,22 +110,19 @@ public sealed class MonitorOutcomeTests
 	}
 
 	[Fact]
-	public async Task Closed_matching_issue_is_reopened_then_updated()
+	public async Task Closed_matching_issue_is_reopened_with_fresh_content_in_one_write()
 	{
-		var transport = IssueTransport(IssuesWithMatch("closed"));
+		var transport = IssueTransport(Issues(new IssueFixture(42, "closed",
+			$"Identity: {ExpectedMonitorArtifacts.SingleFileIssue().Identity}\nOld drift report.")));
 		transport.AddJson("/repos/egil/Htmxor/issues/42", "{\"number\":42,\"state\":\"open\"}");
 		transport.AddJson("/repos/egil/Htmxor/issues/42", "{\"number\":42,\"state\":\"open\"}");
 
 		var outcome = await UpsertAsync(transport, DriftResult());
 
-		Assert.Equal(
-			new IssueWriteObservation(
-				new IssueWriteResult(IssueWriteAction.ReopenedAndUpdated, 42, null),
-				string.Join('\n',
-					"GET /repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100 ",
-					"PATCH /repos/egil/Htmxor/issues/42 {\"state\":\"open\"}",
-					$"PATCH /repos/egil/Htmxor/issues/42 {UpdateBody()}")),
-			outcome);
+		Assert.Equal(new IssueWriteResult(IssueWriteAction.ReopenedAndUpdated, 42, null), outcome.Result);
+		var write = Assert.Single(transport.Requests.Where(request => request.Method != HttpMethod.Get));
+		Assert.Equal((HttpMethod.Patch, "/repos/egil/Htmxor/issues/42"), (write.Method, write.PathAndQuery));
+		AssertUpdatedIssue(write, "closed");
 	}
 
 	[Theory]
@@ -218,6 +215,19 @@ public sealed class MonitorOutcomeTests
 	private static string CanonicalJson(string? body) =>
 		body is null ? string.Empty : System.Text.Json.JsonSerializer.Serialize(
 			System.Text.Json.JsonDocument.Parse(body).RootElement);
+
+	private static void AssertUpdatedIssue(ObservedRequest request, string previousState)
+	{
+		using var document = System.Text.Json.JsonDocument.Parse(request.Body!);
+		var properties = document.RootElement.EnumerateObject().ToDictionary(property => property.Name, property => property.Value.GetString());
+		var expected = ExpectedMonitorArtifacts.SingleFileIssue();
+		Assert.Equal(expected.Title, properties["title"]);
+		Assert.Equal(expected.Body, properties["body"]);
+		if (previousState == "closed")
+		{
+			Assert.Equal("open", properties["state"]);
+		}
+	}
 
 	private static string CreateBody() => CanonicalJson(System.Text.Json.JsonSerializer.Serialize(new
 	{

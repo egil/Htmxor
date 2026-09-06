@@ -33,9 +33,8 @@ public sealed class ConsoleFailureTests
 	[InlineData("content")]
 	[InlineData("issue-search")]
 	[InlineData("issue-create")]
-	[InlineData("issue-reopen")]
+	[InlineData("issue-reopen-and-update")]
 	[InlineData("issue-update")]
-	[InlineData("issue-update-after-reopen")]
 	public async Task Downstream_provider_failure_reports_infrastructure_and_stops_later_issue_mutation(string boundary)
 	{
 		using var workspace = new TemporaryMonitorWorkspace();
@@ -54,6 +53,7 @@ public sealed class ConsoleFailureTests
 		Assert.Equal(ExpectedMutations(boundary), observation.Requests
 			.Where(request => request.Method != HttpMethod.Get).Select(request => $"{request.Method} {request.PathAndQuery}"));
 		Assert.DoesNotContain("fixture-token", observation.StandardError + observation.StandardOutput + observation.JsonReport + observation.MarkdownReport);
+		AssertReopenedWithFreshContent(boundary, observation.Requests);
 	}
 
 	private static FakeGitHubTransport FailureTransport(string boundary)
@@ -65,22 +65,26 @@ public sealed class ConsoleFailureTests
 		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.Invoker}?ref={Fixture.TargetCommit}",
 			Fixture.GitHubContentText("public abstract class RazorComponentEndpointInvoker { }"));
 		transport.ReplaceWithFailure(FailurePath(boundary));
-		if (boundary == "issue-update-after-reopen")
-		{
-			// Reopening succeeded; the subsequent body update fails at the same provider URL.
-			transport = ReopenThenFailureTransport();
-		}
 
 		return transport;
 	}
 
-	private static FakeGitHubTransport ReopenThenFailureTransport()
+	private static void AssertReopenedWithFreshContent(string boundary, IReadOnlyList<ConsoleRequestObservation> requests)
 	{
-		var transport = SourceChangeTests.DriftTransport("github/compare-watched-files.json");
-		transport.AddJson(Search, Issues("issue-reopen"));
-		transport.AddJson(Issue, "{\"number\":42,\"state\":\"open\"}");
-		transport.AddStatus(Issue, System.Net.HttpStatusCode.ServiceUnavailable);
-		return transport;
+		if (boundary != "issue-reopen-and-update")
+		{
+			return;
+		}
+
+		var write = Assert.Single(requests.Where(request => request.Method == HttpMethod.Patch));
+		using var document = System.Text.Json.JsonDocument.Parse(write.Body!);
+		var properties = document.RootElement.EnumerateObject().ToDictionary(property => property.Name, property => property.Value.GetString());
+		var expected = ExpectedMonitorArtifacts.SingleFileIssue();
+		Assert.Equal("open", properties["state"]);
+		Assert.True(properties.ContainsKey("title"), "The failed reopen PATCH must include the fresh title.");
+		Assert.Equal(expected.Title, properties["title"]);
+		Assert.True(properties.ContainsKey("body"), "The failed reopen PATCH must include the fresh body.");
+		Assert.Equal(expected.Body, properties["body"]);
 	}
 
 	private static void ConfigureAnnotatedTag(FakeGitHubTransport transport, string boundary)
@@ -108,7 +112,7 @@ public sealed class ConsoleFailureTests
 	private static string Issues(string boundary) => boundary switch
 	{
 		"issue-update" => MatchingIssue("open"),
-		"issue-reopen" => MatchingIssue("closed"),
+		"issue-reopen-and-update" => MatchingIssue("closed"),
 		_ => "[]",
 	};
 
@@ -131,8 +135,7 @@ public sealed class ConsoleFailureTests
 	private static IReadOnlyList<string> ExpectedMutations(string boundary) => boundary switch
 	{
 		"issue-create" => ["POST /repos/egil/Htmxor/issues"],
-		"issue-reopen" or "issue-update" => [$"PATCH {Issue}"],
-		"issue-update-after-reopen" => [$"PATCH {Issue}", $"PATCH {Issue}"],
+		"issue-reopen-and-update" or "issue-update" => [$"PATCH {Issue}"],
 		_ => [],
 	};
 
