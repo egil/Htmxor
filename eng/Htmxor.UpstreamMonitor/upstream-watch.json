@@ -98,6 +98,51 @@
       ]
     },
     {
+      "path": "src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/ComponentMarker.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/ServerComponentSerializer.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/PrerenderComponentApplicationStore.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/ProtectedPrerenderComponentApplicationStore.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs"
+      ]
+    },
+    {
       "path": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer",
       "match": "prefix",
       "api": "none",

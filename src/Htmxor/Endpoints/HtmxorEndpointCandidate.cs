@@ -14,6 +14,8 @@
 // Form coordination added for #189; exact dependency inventory: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
 // Issue #184 relationships: reimplements RazorComponentEndpointInvoker, subclasses StaticHtmlRenderer,
 // implements IRazorComponentEndpointInvoker, consumes ComponentState through supported seams, and reimplements
