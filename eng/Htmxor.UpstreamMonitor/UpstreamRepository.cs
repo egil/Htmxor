@@ -36,7 +36,11 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 	public async Task<IReadOnlyList<ChangedFile>> CompareAsync(string baseline, string target, CancellationToken cancellationToken)
 	{
 		var comparison = await api.GetAsync($"/repos/{repository}/compare/{Uri.EscapeDataString(baseline)}...{Uri.EscapeDataString(target)}", cancellationToken);
-		var files = comparison.GetProperty("files");
+		if (comparison.ValueKind != JsonValueKind.Object || !comparison.TryGetProperty("files", out var files) ||
+			files.ValueKind != JsonValueKind.Array)
+		{
+			throw new MonitorFailure("GitHub compare response must contain a files array.");
+		}
 		if (files.GetArrayLength() >= 300)
 		{
 			throw new MonitorFailure("GitHub compare file inventory reached the 300-file limit; completeness is unknown.");

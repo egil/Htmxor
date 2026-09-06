@@ -25,6 +25,10 @@ internal sealed partial class GitHubApi(HttpClient client)
 			}
 			using var response = await client.GetAsync(ValidatePath(next), cancellationToken);
 			var page = await ReadAsync(response, cancellationToken);
+			if (page.ValueKind != JsonValueKind.Array)
+			{
+				throw new MonitorFailure("GitHub pagination response must be an array.");
+			}
 			items.AddRange(page.EnumerateArray());
 			next = NextPage(response);
 		}

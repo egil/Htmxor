@@ -13,7 +13,7 @@ internal static class WatchManifestFile
 			reviewed.GetProperty("commit").GetString()!, manifest.GetProperty("watches").EnumerateArray().Select(ReadWatch).ToArray());
 	}
 
-	internal static WatchRelationship ParseRelationship(string value) => value == "private-accesses"
+	internal static WatchRelationship ParseRelationship(string value) => value.Equals("private-accesses", StringComparison.OrdinalIgnoreCase)
 		? WatchRelationship.PrivateAccesses : Enum.Parse<WatchRelationship>(value, true);
 
 	private static WatchTarget ReadWatch(JsonElement watch) => new(watch.GetProperty("path").GetString()!,
