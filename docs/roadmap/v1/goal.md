@@ -94,9 +94,9 @@ page.
 
 Htmxor should use supported ASP.NET Core and Blazor extension points. Render-tree
 generation remains owned by the framework through supported public/protected
-`Renderer`, `StaticHtmlRenderer`, and `ComponentState` seams. Htmxor must not use
-private reflection or globally replace stock routing state, the navigation
-manager, or the form runtime.
+`Renderer`, `StaticHtmlRenderer`, and `ComponentState` seams. Htmxor must not
+globally replace stock routing state, the navigation manager, or the form runtime.
+Private framework access is limited to the form-service adapter defined below.
 
 An inactive or active global endpoint-invoker/endpoint-renderer adaptation is
 allowed only when it preserves observable stock behavior. The stock endpoint
@@ -116,6 +116,44 @@ activation boundary. This exception does not claim that activation is complete.
 If a public API is intended mainly for framework infrastructure, Htmxor must
 isolate it behind a replaceable internal boundary and test it on every supported
 .NET version.
+
+### Form-service adapter
+
+[The approved #189 decision](https://github.com/egil/Htmxor/issues/189#issuecomment-5554452348)
+permits one replaceable internal adapter to initialize the actual request-scoped
+ASP.NET Core form services. It may access the existing
+`HttpContextFormDataProvider.SetFormData` and
+`EndpointAntiforgeryStateProvider.SetRequestContext` and `DisableTokenGeneration`
+methods, and read the applicable
+`ConfiguredRenderModesMetadata.ConfiguredRenderModes` property getter to decide
+whether completed non-streaming output disables token generation. The installed
+stock mapper, converters, options, form components, and validation runtime remain
+authoritative. General private renderer access and a
+copy of the form runtime remain outside this exception.
+
+The adapter baseline is ASP.NET Core v10.0.11, commit
+`a5383385245bdacc20ec19f30e46090a8154d8da`. Inventory its exact assembly, type,
+member, and signature dependencies alongside initialization and ordering
+assumptions. Validate accessors before the candidate handles requests and fail
+clearly on incompatible framework shapes. Cache accessors, never scoped service
+instances; retain application configuration and supported service customization.
+Use the existing request scope and existing methods rather than private-field
+writes. Do not silently skip required initialization or retry through a second
+renderer after binding or callbacks may have occurred.
+
+Antiforgery validation precedes model binding, component lifecycle, and callbacks;
+validation itself may read the HTTP form. Named-submit coordination belongs to
+the candidate's component instances and supported renderer seams. Preserve stock
+token generation and storage timing without unconditional token generation.
+Record adapted-source licensing and exact provenance, and include private-access
+dependencies in #184 monitoring. Signature checks alone do not prove semantic
+compatibility: upstream changes require review and renewed paired evidence.
+
+Issue #189 covers ordinary non-streaming form requests in the test-selected
+candidate. Production `AddHtmxor` continues resolving the stock invoker until the
+complete #186 activation contract passes. If this adapter requires a broader
+private-access or form-runtime boundary, return for a user decision before
+expanding it.
 
 ## The application owns HTMX
 

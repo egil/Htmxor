@@ -50,7 +50,36 @@
       "relationship": "reimplements",
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs",
-        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
       ]
     },
     {
@@ -62,7 +91,19 @@
         "src/Htmxor/Rendering/HtmxorRenderer.EventDispatch.cs",
         "src/Htmxor/Rendering/HtmxorRenderer.HtmxorEventDispatch.cs",
         "src/Htmxor/Rendering/HtmxorRenderer.Rendering.cs",
-        "src/Htmxor/Rendering/HtmxorRenderer.cs"
+        "src/Htmxor/Rendering/HtmxorRenderer.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.NamedSubmit.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer",
+      "match": "prefix",
+      "api": "none",
+      "relationship": "mirrors",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs"
       ]
     },
     {

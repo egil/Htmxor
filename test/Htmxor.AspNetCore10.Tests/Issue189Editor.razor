@@ -1,0 +1,58 @@
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue189RequestProbe Probe
+
+<section data-editor="@Label" data-instance="@instance" data-request="@Probe.RequestId"
+         data-name="@Model!.Name" data-age="@Model.Age" data-result="@result">
+    <EditForm Model="Model" FormName="save" method="post" OnValidSubmit="ValidAsync" OnInvalidSubmit="Invalid">
+        <DataAnnotationsValidator />
+        <InputText @bind-Value="Model.Name" />
+        <ValidationMessage For="() => Model.Name" />
+        <InputNumber @bind-Value="Model.Age" />
+        <ValidationMessage For="() => Model.Age" />
+        <ValidationSummary />
+        <button type="submit">Save</button>
+    </EditForm>
+</section>
+
+@code {
+    private readonly Guid instance = Guid.NewGuid();
+    private Issue189FormModel? model;
+    private string result = "not-submitted";
+
+    [Parameter] public string Label { get; set; } = string.Empty;
+
+    [SupplyParameterFromForm]
+    private Issue189FormModel? Model
+    {
+        get => model;
+        set
+        {
+            model = value;
+            Probe.Record(Label, instance, "supplied", value?.Name);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        model ??= new();
+        Probe.Record(Label, instance, "initialized", Model!.Name);
+        await Probe.WaitForOverlapAsync();
+        Probe.Record(Label, instance, "initialized-async", Model.Name);
+    }
+
+    protected override void OnParametersSet()
+        => Probe.Record(Label, instance, "parameters-set", Model!.Name);
+
+    private async Task ValidAsync()
+    {
+        await Task.Yield();
+        result = "valid";
+        Probe.Record(Label, instance, result, Model!.Name);
+    }
+
+    private void Invalid()
+    {
+        result = "invalid";
+        Probe.Record(Label, instance, result, Model!.Name);
+    }
+}

@@ -309,12 +309,14 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 
 	public static async Task<Issue187ParityHost> CreateAsync(
 		bool useHtmxor,
-		Action<IServiceCollection>? configureHtmxorServices = null)
+		Action<IServiceCollection>? configureHtmxorServices = null,
+		Issue187ParityHostOptions? options = null)
 	{
+		options ??= new();
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
 			ApplicationName = typeof(Issue187App).Assembly.GetName().Name,
-			EnvironmentName = Environments.Development,
+			EnvironmentName = options.EnvironmentName,
 		});
 		builder.WebHost.UseTestServer();
 		builder.Logging.ClearProviders();
@@ -335,19 +337,20 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 		builder.Services.AddCascadingAuthenticationState();
 		builder.Services.AddScoped<Issue187RequestProbe>();
 		var razorComponents = builder.Services.AddRazorComponents();
+		options.ConfigureRazorComponents(razorComponents);
 		if (useHtmxor)
 		{
 			razorComponents.AddHtmxor();
 			configureHtmxorServices?.Invoke(builder.Services);
 		}
 
+		options.ConfigureBuilder(builder);
+		options.ConfigureServices?.Invoke(builder.Services);
 		var app = builder.Build();
-		app.UseSession();
-		app.UseAuthentication();
-		app.UseAuthorization();
-		app.UseAntiforgery();
+		ConfigurePipeline(app, options);
 		var endpoints = app.MapRazorComponents<Issue187App>()
 			.WithMetadata(Issue187EndpointMetadata.Instance);
+		options.ConfigureEndpoints(endpoints);
 		if (useHtmxor)
 		{
 			endpoints.AddHtmxorEndpoints();
@@ -355,6 +358,16 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 
 		await app.StartAsync();
 		return new Issue187ParityHost(app, app.GetTestClient());
+	}
+
+	private static void ConfigurePipeline(WebApplication app, Issue187ParityHostOptions options)
+	{
+		app.UseSession();
+		app.UseAuthentication();
+		app.UseAuthorization();
+		options.BeforeAntiforgery?.Invoke(app);
+		app.UseAntiforgery();
+		options.AfterAntiforgery?.Invoke(app);
 	}
 
 	public RouteEndpoint GetIssueEndpoint()
@@ -445,4 +458,21 @@ internal sealed record Issue187ResponseSnapshot(
 		var separator = value.IndexOf(';');
 		return cookiePrefix + "<session-id>" + (separator < 0 ? string.Empty : value[separator..]);
 	}
+}
+
+internal sealed class Issue187ParityHostOptions
+{
+	public string EnvironmentName { get; init; } = Environments.Development;
+
+	public Action<WebApplicationBuilder> ConfigureBuilder { get; init; } = _ => { };
+
+	public Action<IRazorComponentsBuilder> ConfigureRazorComponents { get; init; } = _ => { };
+
+	public Action<RazorComponentsEndpointConventionBuilder> ConfigureEndpoints { get; init; } = _ => { };
+
+	public Action<IServiceCollection>? ConfigureServices { get; init; }
+
+	public Action<WebApplication>? BeforeAntiforgery { get; init; }
+
+	public Action<WebApplication>? AfterAntiforgery { get; init; }
 }

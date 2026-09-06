@@ -10,7 +10,7 @@ Keep v1 work within these limits:
 
 - Do not add application-authored controllers or Minimal API endpoints for component routes.
 - Do not replace component instance callbacks with static endpoint handlers.
-- Keep lower-level Blazor render-tree generation framework-owned; do not add private reflection.
+- Keep lower-level Blazor render-tree generation framework-owned. Private framework access is limited to the [approved form-service adapter](docs/roadmap/v1/goal.md#form-service-adapter).
 - Do not treat HTMX headers as authorization evidence.
 - Do not bind Htmxor to one embedded HTMX version.
 - Do not claim framework, browser, package, performance, or security behavior that the recorded command did not exercise.

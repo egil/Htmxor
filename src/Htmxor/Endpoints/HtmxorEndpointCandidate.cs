@@ -11,6 +11,10 @@
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
+// Form coordination added for #189; exact dependency inventory: docs/engineering/candidate-form-adapter.md.
+// Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
 // Issue #184 relationships: reimplements RazorComponentEndpointInvoker, subclasses StaticHtmlRenderer,
 // implements IRazorComponentEndpointInvoker, consumes ComponentState through supported seams, and reimplements
 // the RazorComponentsServiceCollectionExtensions cascading HttpContext registration selection.
@@ -18,6 +22,7 @@
 using System.Buffers;
 using System.Text;
 using Htmxor.DependencyInjection;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Endpoints;
@@ -39,12 +44,7 @@ internal static class HtmxorEndpointCandidateServices
 {
 	public static void Add(IServiceCollection services)
 	{
-		services.AddScoped<HtmxorEndpointCandidateRenderer>();
-		services.AddScoped<HtmxorEndpointCandidateInvoker>();
-		services.RemoveAll<IRazorComponentEndpointInvoker>();
-		services.AddScoped<IRazorComponentEndpointInvoker>(serviceProvider =>
-			serviceProvider.GetRequiredService<HtmxorEndpointCandidateInvoker>());
-
+		var formServices = HtmxorEndpointCandidateFormServices.Create();
 		// AddRazorComponents does not expose a supported replacement hook for its HttpContext cascade.
 		// Issue #184 watches this registration shape so upstream drift is reviewed before candidate adoption.
 		var stockHttpContextSuppliers = services
@@ -56,6 +56,13 @@ internal static class HtmxorEndpointCandidateServices
 			throw new InvalidOperationException(
 				$"Expected exactly one scoped cascading HttpContext supplier registered by AddRazorComponents, but found {stockHttpContextSuppliers.Length}. ASP.NET Core's upstream registration shape may have changed.");
 		}
+
+		services.AddSingleton(formServices);
+		services.AddScoped<HtmxorEndpointCandidateRenderer>();
+		services.AddScoped<HtmxorEndpointCandidateInvoker>();
+		services.RemoveAll<IRazorComponentEndpointInvoker>();
+		services.AddScoped<IRazorComponentEndpointInvoker>(serviceProvider =>
+			serviceProvider.GetRequiredService<HtmxorEndpointCandidateInvoker>());
 
 		services.Remove(stockHttpContextSuppliers[0]);
 		services.AddCascadingValue(serviceProvider =>
@@ -92,8 +99,28 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		var rootComponent = endpoint.Metadata.GetRequiredMetadata<RootComponentMetadata>().Type;
 		var pageComponent = endpoint.Metadata.GetRequiredMetadata<ComponentTypeMetadata>().Type;
 
-		renderer.InitializeStandardComponentServices(context, pageComponent);
+		var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
+		var antiforgeryMetadata = endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>();
+		var request = await HtmxorEndpointCandidateFormRequest.ValidateAsync(
+			context, antiforgeryMetadata?.RequiresValidation == true ? antiforgery : null);
+		if (!request.IsValid)
+		{
+			return;
+		}
+
+		renderer.InitializeStandardComponentServices(context, pageComponent, request.HandlerName, request.Form);
 		var htmlContent = await renderer.RenderEndpointComponentAsync(rootComponent, ParameterView.Empty);
+		if (request.IsPost)
+		{
+			await renderer.DispatchSubmitEventAsync(request.HandlerName, out var isBadRequest);
+			if (isBadRequest)
+			{
+				return;
+			}
+		}
+
+		context.RequestServices.GetRequiredService<HtmxorEndpointCandidateFormServices>()
+			.DisableTokenGenerationForCompletedResponse(context, endpoint);
 
 		const int defaultBufferSize = 16 * 1024;
 		await using var writer = new HttpResponseStreamWriter(
@@ -107,7 +134,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 	}
 }
 
-internal class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
+internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 {
 	private readonly IServiceProvider services;
 	private readonly EndpointRoutingStateProvider routingState;
@@ -130,7 +157,8 @@ internal class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 	internal HttpContext? HttpContext => httpContext;
 
-	internal void InitializeStandardComponentServices(HttpContext context, Type pageComponent)
+	internal void InitializeStandardComponentServices(
+		HttpContext context, Type pageComponent, string? handler = null, IFormCollection? form = null)
 	{
 		httpContext = context;
 		var navigationManager = services.GetRequiredService<NavigationManager>();
@@ -155,6 +183,7 @@ internal class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			}
 		}
 
+		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().Initialize(context, handler, form);
 		SetRouteData(context, pageComponent);
 	}
 
