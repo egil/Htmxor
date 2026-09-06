@@ -1,0 +1,128 @@
+using Htmxor.UpstreamMonitor;
+
+namespace Htmxor.UpstreamMonitor.Tests;
+
+public sealed class ReleaseDiscoveryTests
+{
+	[Fact]
+	public async Task Latest_stable_supported_version_is_selected_semantically_across_release_pages()
+	{
+		const string page1 = "/repos/dotnet/aspnetcore/releases?per_page=100";
+		const string page2 = "/repos/dotnet/aspnetcore/releases?per_page=100&page=2";
+		var transport = new FakeGitHubTransport();
+		transport.AddJson(page1, System.Text.Json.JsonSerializer.Serialize(
+			Enumerable.Range(1, 100).Select(version => new { tag_name = $"v11.0.{version}", draft = false, prerelease = false })), page2);
+		transport.AddJson(page2, """
+			[{"tag_name":"v10.0.9","draft":false,"prerelease":false},
+			 {"tag_name":"v10.0.12","draft":true,"prerelease":false},
+			 {"tag_name":"v10.0.11","draft":false,"prerelease":false},
+			 {"tag_name":"v10.0.13-preview.1","draft":false,"prerelease":true},
+			 {"tag_name":"v10.0.10","draft":false,"prerelease":false}]
+			""");
+		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(Fixture.Manifest(), 10));
+
+		Assert.Equal(new UpstreamRevision("v10.0.11", Fixture.ReviewedCommit), result.Upstream);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.CurrentReport());
+		Assert.Equal([page1, page2, "/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11"], transport.Requests.Select(request => request.PathAndQuery));
+		Assert.All(transport.Requests, request => Assert.Equal(HttpMethod.Get, request.Method));
+	}
+
+	[Fact]
+	public async Task Latest_supported_stable_release_at_the_reviewed_commit_is_discovery_only()
+	{
+		var transport = new FakeGitHubTransport();
+		transport.AddJson(
+			"/repos/dotnet/aspnetcore/releases?per_page=100",
+			Fixture.Read("github/releases.json"));
+		transport.AddJson(
+			"/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11",
+			Fixture.Read("github/ref-v10.0.11-direct.json"));
+		var application = Fixture.Application(transport);
+
+		var result = await application.RunAsync(new MonitorRequest(Fixture.Manifest(), 10));
+
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.CurrentReport());
+		Assert.Equal(MonitorStatus.Current, result.Status);
+		Assert.Equal(new UpstreamRevision("v10.0.11", Fixture.ReviewedCommit), result.Upstream);
+		Assert.Empty(result.SourceChanges);
+		Assert.Empty(result.ApiChanges);
+		Assert.Null(result.Issue);
+		Assert.Equal(
+			[
+				(HttpMethod.Get, "/repos/dotnet/aspnetcore/releases?per_page=100"),
+				(HttpMethod.Get, "/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11"),
+			],
+			transport.Requests.Select(request => (request.Method, request.PathAndQuery)));
+	}
+
+	[Fact]
+	public async Task Newer_release_with_only_unwatched_changes_is_current_without_an_issue()
+	{
+		const string compare = "/repos/dotnet/aspnetcore/compare/" + Fixture.BaselineCommit + "..." + Fixture.TargetCommit;
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(compare, """
+			{
+			  "status": "ahead",
+			  "files": [
+			    {
+			      "filename": "src/Unrelated/Unwatched.cs",
+			      "status": "modified"
+			    }
+			  ]
+			}
+			""");
+		var request = new MonitorRequest(
+			Fixture.Manifest(Fixture.Watch(ExpectedMonitorArtifacts.Invoker)),
+			10,
+			RequestedTag: "v10.0.12",
+			BaselineCommit: Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Equal(MonitorStatus.Current, result.Status);
+		Assert.Equal(new UpstreamRevision("v10.0.12", Fixture.TargetCommit), result.Upstream);
+		Assert.Empty(result.SourceChanges);
+		Assert.Empty(result.ApiChanges);
+		Assert.Null(result.Issue);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.NewerCurrentReport());
+		Assert.Equal(
+			[
+				(HttpMethod.Get, "/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12"),
+				(HttpMethod.Get, compare),
+			],
+			transport.Requests.Select(observed => (observed.Method, observed.PathAndQuery)));
+	}
+
+	[Fact]
+	public async Task Explicit_annotated_tag_resolves_to_its_commit_without_release_discovery()
+	{
+		var transport = new FakeGitHubTransport();
+		transport.AddJson(
+			"/repos/dotnet/aspnetcore/git/ref/tags/v10.0.10",
+			Fixture.Read("github/ref-v10.0.10-annotated.json"));
+		transport.AddJson(
+			"/repos/dotnet/aspnetcore/git/tags/dddddddddddddddddddddddddddddddddddddddd",
+			Fixture.Read("github/tag-v10.0.10.json"));
+		var application = Fixture.Application(transport);
+		var request = new MonitorRequest(
+			Fixture.Manifest(),
+			10,
+			RequestedTag: "v10.0.10",
+			BaselineCommit: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+
+		var result = await application.RunAsync(request);
+
+		Assert.Equal(MonitorStatus.Current, result.Status);
+		Assert.Equal(
+			new UpstreamRevision("v10.0.10", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+			result.Upstream);
+		Assert.Equal(
+			[
+				(HttpMethod.Get, "/repos/dotnet/aspnetcore/git/ref/tags/v10.0.10"),
+				(HttpMethod.Get, "/repos/dotnet/aspnetcore/git/tags/dddddddddddddddddddddddddddddddddddddddd"),
+			],
+			transport.Requests.Select(request => (request.Method, request.PathAndQuery)));
+	}
+}

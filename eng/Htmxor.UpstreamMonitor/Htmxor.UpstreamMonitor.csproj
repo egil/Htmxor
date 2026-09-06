@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<CodeMetricsProfile>production</CodeMetricsProfile>
+		<Description>Detects relevant ASP.NET Core source drift for Htmxor.</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="all" />
+		<InternalsVisibleTo Include="Htmxor.UpstreamMonitor.Tests" />
+	</ItemGroup>
+
+	<!-- Preserve the SDK's target-framework context without configuration or custom DefineConstants. -->
+	<Target Name="CaptureTargetFrameworkSymbols" BeforeTargets="GetAssemblyAttributes"
+		DependsOnTargets="GenerateTargetFrameworkDefineConstants;GenerateNETCompatibleDefineConstants">
+		<Error Condition="'@(_ImplicitDefineConstant)' == ''" Text="SDK target-framework symbols are required for local dependency discovery." />
+		<ItemGroup>
+			<AssemblyMetadata Include="Htmxor.TargetFrameworkSymbols" Value="@(_ImplicitDefineConstant, ',')" />
+		</ItemGroup>
+	</Target>
+
+</Project>

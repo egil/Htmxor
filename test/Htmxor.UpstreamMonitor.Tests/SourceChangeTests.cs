@@ -1,0 +1,110 @@
+using Htmxor.UpstreamMonitor;
+
+namespace Htmxor.UpstreamMonitor.Tests;
+
+public sealed class SourceChangeTests
+{
+	private const string Invoker = "src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs";
+	private const string RendererPrefix = "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer";
+	private const string StaticRenderer = "src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs";
+
+	[Fact]
+	public async Task Watched_files_and_prefixes_report_added_removed_and_changed_paths()
+	{
+		var transport = DriftTransport("github/compare-watched-files.json");
+		var application = Fixture.Application(transport);
+		var manifest = Fixture.Manifest(
+			Fixture.Watch(Invoker),
+			Fixture.Watch(RendererPrefix, WatchMatch.Prefix),
+			Fixture.Watch(StaticRenderer));
+		var request = new MonitorRequest(
+			manifest,
+			10,
+			RequestedTag: "v10.0.12",
+			BaselineCommit: Fixture.BaselineCommit);
+
+		var result = await application.RunAsync(request);
+
+		Assert.Equal(MonitorStatus.Drift, result.Status);
+		Assert.Equal(new UpstreamRevision("v10.0.12", Fixture.TargetCommit), result.Upstream);
+		Assert.Equal(
+			[
+				new SourceChange(Invoker, ChangeKind.Changed, ReviewClassification.ParityRequired),
+				new SourceChange($"{RendererPrefix}.Diagnostics.cs", ChangeKind.Added, ReviewClassification.ParityRequired),
+				new SourceChange($"{RendererPrefix}.PrerenderingState.cs", ChangeKind.Removed, ReviewClassification.ParityRequired),
+				new SourceChange($"{RendererPrefix}.Streaming.cs", ChangeKind.Changed, ReviewClassification.ParityRequired),
+				new SourceChange(StaticRenderer, ChangeKind.Removed, ReviewClassification.ParityRequired),
+			],
+			result.SourceChanges);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.WatchedFilesReport());
+	}
+
+	[Fact]
+	public async Task Watched_base_implementation_change_without_API_change_requires_implementation_review()
+	{
+		const string renderer = "src/Components/Components/src/RenderTree/Renderer.cs";
+		var transport = DriftTransport("github/compare-renderer-implementation.json");
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{renderer}?ref={Fixture.BaselineCommit}",
+			Fixture.GitHubContent("source/baseline/Renderer.cs"));
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{renderer}?ref={Fixture.TargetCommit}",
+			Fixture.GitHubContent("source/target/Renderer.cs"));
+		var application = Fixture.Application(transport);
+		var request = new MonitorRequest(
+			Fixture.Manifest(Fixture.Watch(
+				renderer,
+				apiSurface: ApiSurface.Subclass,
+				relationship: WatchRelationship.Subclasses)),
+			10,
+			RequestedTag: "v10.0.12",
+			BaselineCommit: Fixture.BaselineCommit);
+
+		var result = await application.RunAsync(request);
+
+		Assert.Equal(
+			[new SourceChange(renderer, ChangeKind.Changed, ReviewClassification.ImplementationReview)],
+			result.SourceChanges);
+		Assert.Empty(result.ApiChanges);
+		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.ImplementationReviewReport());
+	}
+
+	[Theory]
+	[InlineData("added", "Added", "added")]
+	[InlineData("modified", "Changed", "changed")]
+	[InlineData("removed", "Removed", "removed")]
+	public async Task Private_access_source_addition_change_or_removal_requires_compatibility_review(
+		string providerStatus, string expectedKind, string reportKind)
+	{
+		const string path = "src/Components/Endpoints/src/Forms/Provider.cs";
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12",
+			Fixture.Read("github/ref-v10.0.12-direct.json"));
+		transport.AddJson($"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			$$"""{"files":[{"filename":"{{path}}","status":"{{providerStatus}}"}]}""");
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(
+			Fixture.Watch(path, relationship: WatchRelationship.PrivateAccesses)));
+
+		Assert.Equal(MonitorStatus.Drift, result.Status);
+		Assert.Null(result.InfrastructureError);
+		Assert.Equal([new SourceChange(path, Enum.Parse<ChangeKind>(expectedKind), ReviewClassification.CompatibilityRisk)], result.SourceChanges);
+		Assert.Empty(result.ApiChanges);
+		ReportAssertions.Equal(result, new ReportExpectation("drift",
+			new("unresolved", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
+			[new(path, reportKind, "compatibility-risk")], [], null));
+		Assert.Contains($"- Compatibility risk | {reportKind} | {path}", Assert.IsType<IssueUpsertInput>(result.Issue).Body);
+	}
+
+	internal static FakeGitHubTransport DriftTransport(string compareFixture)
+	{
+		var transport = new FakeGitHubTransport();
+		transport.AddJson(
+			"/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12",
+			Fixture.Read("github/ref-v10.0.12-direct.json"));
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			Fixture.Read(compareFixture));
+		return transport;
+	}
+}

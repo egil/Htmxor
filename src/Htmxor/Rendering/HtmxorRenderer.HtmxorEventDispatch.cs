@@ -1,3 +1,4 @@
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer | reimplements
 using System.Globalization;
 using System.Text;
 using Htmxor.Http;

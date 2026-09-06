@@ -2,8 +2,15 @@ using System.Text.Json;
 
 namespace Htmxor.Quality;
 
-internal sealed class QualityCommand(string repositoryRoot, IProcessRunner runner)
+internal sealed class QualityCommand(
+	string repositoryRoot,
+	IProcessRunner runner,
+	Func<string, string, QualityOptions, QualityPlan> createPlan)
 {
+	public QualityCommand(string repositoryRoot, IProcessRunner runner)
+		: this(repositoryRoot, runner, QualityPlanFactory.Create)
+	{
+	}
 	public async Task ExecuteAsync(
 		QualityOptions options,
 		CancellationToken cancellationToken = default)
@@ -20,7 +27,7 @@ internal sealed class QualityCommand(string repositoryRoot, IProcessRunner runne
 			? "fix"
 			: options.Profile.ToString().ToLowerInvariant();
 		var output = ArtifactDirectory.Reset(repositoryRoot, profileName);
-		var plan = QualityPlanFactory.Create(repositoryRoot, output, options);
+		var plan = createPlan(repositoryRoot, output, options);
 		await RunPreparationAsync(plan.Preparation, cancellationToken);
 
 		if (options.Action == QualityAction.Fix)
@@ -36,6 +43,24 @@ internal sealed class QualityCommand(string repositoryRoot, IProcessRunner runne
 		}
 
 		await RunTestsAsync(plan.Tests, output, options.Profile, repository, cancellationToken);
+		if (options.Profile == QualityProfile.Upstream)
+		{
+			await RunUpstreamAsync(plan, cancellationToken);
+		}
+	}
+
+	private async Task RunUpstreamAsync(QualityPlan plan, CancellationToken cancellationToken)
+	{
+		var command = plan.UpstreamMonitor
+			?? throw new InvalidOperationException("The upstream profile did not construct a monitor command.");
+		var result = await runner.RunAsync(command, cancellationToken);
+		if (result.ExitCode != 0)
+		{
+			var category = result.ExitCode == 1 ? "drift" : "infrastructure";
+			var error = new InvalidOperationException($"Upstream {category} result: monitor exited with code {result.ExitCode}.");
+			error.Data["ExitCode"] = result.ExitCode;
+			throw error;
+		}
 	}
 
 	private async Task RunPreparationAsync(

@@ -9,7 +9,8 @@ internal sealed record TestCommand(
 internal sealed record QualityPlan(
 	IReadOnlyList<ProcessCommand> Preparation,
 	IReadOnlyList<TestCommand> Tests,
-	ProcessCommand? Mutation);
+	ProcessCommand? Mutation,
+	ProcessCommand? UpstreamMonitor = null);
 
 internal static class QualityPlanFactory
 {
@@ -41,6 +42,7 @@ internal static class QualityPlanFactory
 				htmxorFilter: null,
 				collectCoverage: true),
 			QualityProfile.Mutation => CreateMutation(repositoryRoot, resultsDirectory),
+			QualityProfile.Upstream => CreateUpstream(repositoryRoot, resultsDirectory),
 			_ => throw new ArgumentOutOfRangeException(nameof(options)),
 		};
 	}
@@ -65,11 +67,29 @@ internal static class QualityPlanFactory
 	{
 		var tests = new[]
 		{
+			Test(repositoryRoot, resultsDirectory, "test/Htmxor.UpstreamMonitor.Tests/Htmxor.UpstreamMonitor.Tests.csproj", "upstream-fixtures", null, collectCoverage: false),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj", "quality", qualityFilter, collectCoverage: false),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore10", null, collectCoverage: false),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Tests/Htmxor.Tests.csproj", "htmxor", htmxorFilter, collectCoverage),
 		};
 		return new(CommonPreparation(repositoryRoot), tests, null);
+	}
+
+	private static QualityPlan CreateUpstream(string repositoryRoot, string resultsDirectory)
+	{
+		var reports = Path.Combine(repositoryRoot, "artifacts", "upstream-monitor");
+		var monitor = DotNet(repositoryRoot, "run", "--project",
+			Path.Combine(repositoryRoot, "eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj"), "--",
+			"--json", Path.Combine(reports, "upstream-monitor.json"), "--markdown", Path.Combine(reports, "upstream-monitor.md")) with
+		{
+			EnsureSuccess = false,
+			NetworkAccess = NetworkAccess.Enabled,
+		};
+		return new(CommonPreparation(repositoryRoot),
+			[
+				Test(repositoryRoot, resultsDirectory, "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj", "upstream-policy", "FullyQualifiedName~UpstreamMonitorPolicyTests", collectCoverage: false),
+				Test(repositoryRoot, resultsDirectory, "test/Htmxor.UpstreamMonitor.Tests/Htmxor.UpstreamMonitor.Tests.csproj", "upstream-fixtures", null, collectCoverage: false),
+			], null, monitor);
 	}
 
 	private static QualityPlan CreateMutation(string repositoryRoot, string resultsDirectory)
@@ -149,14 +169,14 @@ internal static class QualityPlanFactory
 		}
 
 		return new(
-			new ProcessCommand("dotnet", repositoryRoot, arguments, EnsureSuccess: false),
+			new ProcessCommand("dotnet", repositoryRoot, arguments, EnsureSuccess: false, NetworkAccess: NetworkAccess.Disabled),
 			project,
 			trxPath,
 			collectCoverage);
 	}
 
 	private static ProcessCommand DotNet(string repositoryRoot, params string[] arguments) =>
-		new("dotnet", repositoryRoot, arguments);
+		new("dotnet", repositoryRoot, arguments, NetworkAccess: NetworkAccess.Disabled);
 
 	private static string Solution(string repositoryRoot) =>
 		Path.Combine(repositoryRoot, "Htmxor.sln");

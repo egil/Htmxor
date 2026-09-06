@@ -86,3 +86,50 @@ Report:
 - whether full-scope mutation was applicable and, if run, whether it produced a valid report and a passing quality result.
 
 A retained report and a passing command are separate facts. Say which one the evidence proves.
+
+## Explicit upstream monitoring
+
+`dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile upstream`
+runs the static gates and deterministic monitor fixtures, then queries GitHub with
+`GH_TOKEN` from the environment. The separate hourly/manual upstream workflow
+uses this profile; ordinary `fast` and `full` run only the local fixtures and
+manifest policy. Package restore remains part of the existing preparation.
+The monitor's `NetworkAccess` classification describes upstream monitoring
+capability, not an operating-system network sandbox.
+
+Reports are written to `artifacts/upstream-monitor/upstream-monitor.json` and
+`artifacts/upstream-monitor/upstream-monitor.md`. Exit 0 means current, 1 means
+drift requiring review, and 2 means infrastructure failure. A drift result
+creates, updates, or reopens the stable upstream review issue. The manifest's
+reviewed baseline changes only after human review and renewed parity evidence.
+
+To reproduce an exact comparison locally, use:
+
+```text
+dotnet run --project eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj -- --tag v10.0.11 --baseline a5383385245bdacc20ec19f30e46090a8154d8da --json artifacts/upstream-monitor/upstream-monitor.json --markdown artifacts/upstream-monitor/upstream-monitor.md
+```
+
+Tokens are accepted only through `GH_TOKEN`, never a command-line argument.
+Downloaded source is inspected as text and is never compiled or executed.
+The independent local policy discovers direct ASP.NET Core bases and interfaces
+from local declarations using type metadata from the installed .NET 10 ASP.NET
+Core framework. It reads that trusted metadata locally and makes no network calls.
+The reviewed source-path map supplies locations, not the discovery inventory:
+a framework identity without a mapped source is reported as `unresolved:<identity>`
+and requires a reviewed canonical path plus manifest coverage.
+
+Source-owned provenance markers have the exact form
+`// Htmxor upstream dependency: <src/...path> | <relationship>`, where the
+relationship is `mirrors`, `reimplements`, or `private-accesses`. Maintain each
+marker alongside its local dependency and matching manifest watch.
+`private-accesses` describes narrow cached, fail-fast access to private provider
+metadata; use `api: none`. Every watched addition, removal, or change is a
+compatibility risk. Mirrored and reimplemented sources still require parity
+review. EndpointHtmlRenderer EventDispatch remains covered by its reimplementation
+prefix watch.
+
+An explicit baseline equal to the reviewed commit retains the reviewed tag.
+A differing explicit baseline is labeled `unresolved` in JSON, Markdown, and the
+review issue while retaining its exact commit.
+A live provider run is separate integration evidence and does not prove hosted
+Actions scheduling, dispatch delivery, issue-write permission, or artifact upload.

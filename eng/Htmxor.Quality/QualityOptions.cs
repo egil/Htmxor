@@ -11,12 +11,13 @@ internal enum QualityProfile
 	Fast,
 	Full,
 	Mutation,
+	Upstream,
 }
 
 internal sealed record QualityOptions(QualityAction Action, QualityProfile Profile)
 {
 	private const string Usage =
-		"Usage: check --profile fast|full|mutation | fix";
+		"Usage: check --profile fast|full|mutation|upstream | fix";
 
 	public static QualityOptions Parse(IReadOnlyList<string> args)
 	{
@@ -37,6 +38,7 @@ internal sealed record QualityOptions(QualityAction Action, QualityProfile Profi
 			"fast" => QualityProfile.Fast,
 			"full" => QualityProfile.Full,
 			"mutation" => QualityProfile.Mutation,
+			"upstream" => QualityProfile.Upstream,
 			_ => throw new ArgumentException($"Unknown quality profile '{args[2]}'. {Usage}"),
 		};
 
