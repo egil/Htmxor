@@ -179,9 +179,15 @@ public sealed class ManifestDependencyPolicyTests
 			new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
 				"src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs", WatchRelationship.PrivateAccesses),
 			new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+				"src/Components/Endpoints/src/Builder/ResourceCollectionUrlMetadata.cs", WatchRelationship.PrivateAccesses),
+			new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+				"src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceOptions.cs", WatchRelationship.PrivateAccesses),
+			new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
 				"src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs", WatchRelationship.PrivateAccesses),
 			new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
 				"src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs", WatchRelationship.PrivateAccesses),
+			new LocalFrameworkDependency("src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+				"src/Components/Shared/src/ResourceCollectionProvider.cs", WatchRelationship.PrivateAccesses),
 		};
 
 		var declared = LocalFrameworkDependencyDiscovery.Discover(repositoryRoot)

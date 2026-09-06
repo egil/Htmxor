@@ -107,6 +107,15 @@
       ]
     },
     {
+      "path": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs"
+      ]
+    },
+    {
       "path": "src/Shared/Components/ComponentMarker.cs",
       "match": "file",
       "api": "none",
@@ -214,7 +223,17 @@
       "relationship": "implements",
       "dependencies": [
         "src/Htmxor/Components/HtmxHeadOutlet.cs",
-        "src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs"
+        "src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/IPersistentComponentStateStore.cs",
+      "match": "file",
+      "api": "interface",
+      "relationship": "implements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs"
       ]
     },
     {

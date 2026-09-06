@@ -1,5 +1,4 @@
 using System.Net;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Builder;
@@ -8,6 +7,7 @@ using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 
 namespace Htmxor.AspNetCore10;
 
@@ -35,7 +35,7 @@ public sealed class Issue191PersistedStateParityTests
 	[Fact]
 	public async Task Candidate_omits_javascript_initializers_for_enhanced_navigation_like_stock()
 	{
-		await using var pair = await Issue191HostPair.CreateAsync("[{\"identifier\":\"issue-191\"}]");
+		await using var pair = await Issue191HostPair.CreateAsync("[\"issue-191\"]");
 		using var stockRequest = CreateEnhancedNavigationRequest();
 		using var candidateRequest = CreateEnhancedNavigationRequest();
 		using var stockResponse = await pair.Stock.Client.SendAsync(stockRequest);
@@ -187,14 +187,14 @@ public sealed class Issue191PersistedStateParityTests
 	[Fact]
 	public async Task Candidate_emits_configured_javascript_initializers_in_stock_order()
 	{
-		const string initializers = "[{\"identifier\":\"issue-191\"}]";
+		const string initializers = "[\"issue-191\"]";
 		await using var pair = await Issue191HostPair.CreateAsync(initializers);
 		using var stockResponse = await pair.Stock.Client.GetAsync(Issue191HostPair.Path);
 		using var candidateResponse = await pair.Candidate.Client.GetAsync(Issue191HostPair.Path);
 		var stock = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
 		var candidate = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
 
-		Assert.Contains("<!--Blazor-Web-Initializers:W3siaWRlbnRpZmllciI6Imlzc3VlLTE5MSJ9XQ==-->", stock.Body, StringComparison.Ordinal);
+		Assert.Contains("<!--Blazor-Web-Initializers:WyJpc3N1ZS0xOTEiXQ==-->", stock.Body, StringComparison.Ordinal);
 		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
 		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
 	}
@@ -246,6 +246,7 @@ public sealed class Issue191PersistedStateParityTests
 
 internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityHost candidate) : IAsyncDisposable
 {
+	private Issue191JavaScriptInitializers? initializerFixture;
 	public const string Path = "/issue-191/state";
 	public const string WebAssemblyPath = "/issue-191/webassembly-state";
 	public const string AutoPath = "/issue-191/auto-state";
@@ -261,6 +262,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 		Action<RazorComponentsEndpointConventionBuilder>? configureEndpoints = null)
 	{
 		var protection = new EphemeralDataProtectionProvider();
+		var fixture = Issue191JavaScriptInitializers.Create(javaScriptInitializers);
 		var options = new Issue187ParityHostOptions
 		{
 			BeforeSession = app =>
@@ -287,13 +289,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 				builder.AddInteractiveServerComponents();
 				builder.AddInteractiveWebAssemblyComponents();
 			},
-			ConfigureRazorComponentOptions = options =>
-			{
-				if (javaScriptInitializers is not null)
-				{
-					ConfigureJavaScriptInitializers(options, javaScriptInitializers);
-				}
-			},
+			ConfigureBuilder = builder => fixture?.Configure(builder),
 			ConfigureEndpoints = endpoints =>
 			{
 				endpoints.WithMetadata(new ResourceAssetCollection([
@@ -312,21 +308,36 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 			true,
 			HtmxorEndpointCandidateServices.Add,
 			options);
-		return new(stock, candidate);
-	}
-
-	private static void ConfigureJavaScriptInitializers(RazorComponentsServiceOptions options, string initializers)
-	{
-		var property = typeof(RazorComponentsServiceOptions).GetProperty(
-			"JavaScriptInitializers",
-			BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-			?? throw new InvalidOperationException("The ASP.NET Core test fixture requires RazorComponentsServiceOptions.JavaScriptInitializers.");
-		property.SetValue(options, initializers);
+		return new(stock, candidate) { initializerFixture = fixture };
 	}
 
 	public async ValueTask DisposeAsync()
 	{
 		await Candidate.DisposeAsync();
 		await Stock.DisposeAsync();
+		initializerFixture?.Dispose();
+	}
+}
+
+internal sealed class Issue191JavaScriptInitializers(string contents) : IDisposable
+{
+	private readonly string directory = Path.Combine(Path.GetTempPath(), $"htmxor-issue-191-{Guid.NewGuid():N}");
+
+	public static Issue191JavaScriptInitializers? Create(string? contents)
+		=> contents is null ? null : new Issue191JavaScriptInitializers(contents);
+
+	public void Configure(WebApplicationBuilder builder)
+	{
+		Directory.CreateDirectory(directory);
+		File.WriteAllText(Path.Combine(directory, $"{builder.Environment.ApplicationName}.modules.json"), contents);
+		builder.Environment.WebRootFileProvider = new PhysicalFileProvider(directory);
+	}
+
+	public void Dispose()
+	{
+		if (Directory.Exists(directory))
+		{
+			Directory.Delete(directory, recursive: true);
+		}
 	}
 }

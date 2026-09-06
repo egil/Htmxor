@@ -59,7 +59,7 @@ internal sealed class HtmxorEndpointCandidateFormServices
 		resourceCollectionUrlMetadataType = RequireType("ResourceCollectionUrlMetadata");
 		resourceCollectionMetadataUrl = RequireProperty(resourceCollectionUrlMetadataType, "Url", BindingFlags.Public, typeof(string));
 		resourceCollectionProviderType = EndpointAssembly.GetType("Microsoft.AspNetCore.Components.ResourceCollectionProvider", true)!;
-		resourceCollectionUrl = RequireProperty(resourceCollectionProviderType, "ResourceCollectionUrl", BindingFlags.Public, typeof(string));
+		resourceCollectionUrl = RequireWritableProperty(resourceCollectionProviderType, "ResourceCollectionUrl", BindingFlags.Public, typeof(string));
 		setResourceCollection = RequireMethod(resourceCollectionProviderType, "SetResourceCollection", BindingFlags.NonPublic, typeof(void), typeof(ResourceAssetCollection));
 		if (javaScriptInitializers.PropertyType != typeof(string) || javaScriptInitializers.GetMethod is not { IsAssembly: true } ||
 			renderModesMetadataType.GetProperty("ConfiguredRenderModes", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)?.GetMethod != getConfiguredRenderModes ||
@@ -150,6 +150,17 @@ internal sealed class HtmxorEndpointCandidateFormServices
 		if (property is null || property.PropertyType != propertyType || property.GetMethod is null)
 		{
 			throw IncompatibleFramework($"{type.FullName}.{name}: {propertyType.FullName}");
+		}
+
+		return property;
+	}
+
+	private static PropertyInfo RequireWritableProperty(Type type, string name, BindingFlags visibility, Type propertyType)
+	{
+		var property = RequireProperty(type, name, visibility, propertyType);
+		if (property.SetMethod is not { IsPublic: true })
+		{
+			throw IncompatibleFramework($"{type.FullName}.{name} writable {propertyType.FullName}");
 		}
 
 		return property;
