@@ -354,6 +354,11 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			base.WriteComponentHtml(componentId, output);
 			return;
 		}
+		if (httpContext.Features.Get<IExceptionHandlerFeature>() is not null)
+		{
+			base.WriteComponentHtml(componentId, output);
+			return;
+		}
 
 		var marker = boundary.CreateMarker(httpContext, sequence, key, ++invocationSequence, invocationId);
 		if (marker.Type is "server" or "auto")

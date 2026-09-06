@@ -136,6 +136,22 @@ public sealed class Issue191PersistedStateParityTests
 		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
 	}
 
+	[Fact]
+	public async Task Candidate_exception_handler_reexecution_suppresses_persisted_state_like_stock()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync();
+		using var stockResponse = await pair.Stock.Client.GetAsync(Issue191HostPair.ExceptionOriginPath);
+		using var candidateResponse = await pair.Candidate.Client.GetAsync(Issue191HostPair.ExceptionOriginPath);
+		var stock = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidate = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.Equal(HttpStatusCode.InternalServerError, stock.StatusCode);
+		Assert.DoesNotContain("Component-State:", stock.Body, StringComparison.Ordinal);
+		Assert.Equal(stock.StatusCode, candidate.StatusCode);
+		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
+		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
+	}
+
 	private static HttpRequestMessage CreateRequest(string user)
 	{
 		var request = new HttpRequestMessage(HttpMethod.Get, Issue191HostPair.Path);
@@ -166,6 +182,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 	public const string WebAssemblyPath = "/issue-191/webassembly-state";
 	public const string AutoPath = "/issue-191/auto-state";
 	public const string StatusOriginPath = "/issue-191/status-origin";
+	public const string ExceptionOriginPath = "/issue-191/exception-origin";
 
 	public Issue187ParityHost Stock { get; } = stock;
 
@@ -178,6 +195,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 		{
 			BeforeSession = app =>
 			{
+				app.UseExceptionHandler(Path);
 				app.UseStatusCodePagesWithReExecute(Path);
 				app.Use(async (context, next) =>
 				{
@@ -185,6 +203,10 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 					{
 						context.Response.StatusCode = StatusCodes.Status404NotFound;
 						return;
+					}
+					if (context.Request.Path == ExceptionOriginPath)
+					{
+						throw new InvalidOperationException("issue-191 exception origin");
 					}
 
 					await next(context);
