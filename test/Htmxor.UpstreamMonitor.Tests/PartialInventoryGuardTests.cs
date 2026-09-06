@@ -53,14 +53,17 @@ public sealed class PartialInventoryGuardTests
 	[Theory]
 	[InlineData("{\"type\":\"file\"}")]
 	[InlineData("{\"path\":null,\"type\":\"file\"}")]
+	[InlineData("{\"path\":42,\"type\":\"file\"}")]
 	[InlineData("{\"path\":\"$directory/Other.cs\"}")]
 	[InlineData("{\"path\":\"$directory/Other.cs\",\"type\":null}")]
-	public async Task Missing_required_entry_data_cannot_establish_a_complete_surface(string entryJson)
+	[InlineData("{\"path\":\"$directory/Other.cs\",\"type\":true}")]
+	public async Task Malformed_required_entry_data_reports_an_actionable_inventory_error(string entryJson)
 	{
 		using var entry = JsonDocument.Parse(entryJson.Replace("$directory", RenderingDirectory, StringComparison.Ordinal));
 		var result = await RunWithExtraEntriesAsync([entry.RootElement]);
 
 		AssertInfrastructureFailure(result);
+		Assert.Equal("GitHub directory inventory is invalid or reached the 1000-entry limit; completeness is unknown.", result.InfrastructureError);
 	}
 
 	private static IEnumerable<object> UnrelatedEntries(int count) =>
