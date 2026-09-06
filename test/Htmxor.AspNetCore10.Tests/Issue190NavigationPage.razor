@@ -1,0 +1,15 @@
+@page "/issue-190/navigate"
+@inject NavigationManager Navigation
+@inject Issue190LifecycleJournal Lifecycle
+
+<main data-issue-190-output>unreachable</main>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Lifecycle.Record("initialized");
+        Navigation.NavigateTo("/issue-190/destination");
+    }
+
+    protected override void OnParametersSet() => Lifecycle.Record("parameters-set");
+}
