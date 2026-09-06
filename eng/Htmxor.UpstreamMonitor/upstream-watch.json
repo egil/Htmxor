@@ -308,6 +308,33 @@
         "src/Htmxor/Builder/ComponentEndpointMatcherPolicy.cs",
         "src/Htmxor/Builder/HtmxorDirectEndpointMatcherPolicy.cs"
       ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceOptions.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Builder/ResourceCollectionUrlMetadata.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Shared/src/ResourceCollectionProvider.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
+      ]
     }
   ]
 }
