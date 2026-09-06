@@ -4,6 +4,8 @@ namespace Htmxor.UpstreamMonitor;
 
 internal sealed partial class UpstreamRepository
 {
+	private const string InvalidInventory = "GitHub directory inventory is invalid or reached the 1000-entry limit; completeness is unknown.";
+
 	public async Task<IReadOnlyList<string>> PrefixSourcePathsAsync(string prefix, string commit, CancellationToken cancellationToken)
 	{
 		var separator = prefix.LastIndexOf('/');
@@ -11,7 +13,7 @@ internal sealed partial class UpstreamRepository
 		var listing = await api.GetAsync(ContentsPath(directory, commit), cancellationToken);
 		if (listing.ValueKind != JsonValueKind.Array || listing.GetArrayLength() >= 1000)
 		{
-			throw new MonitorFailure("GitHub directory inventory is invalid or reached the 1000-entry limit; completeness is unknown.");
+			throw new MonitorFailure(InvalidInventory);
 		}
 		var paths = new SortedSet<string>(StringComparer.Ordinal);
 		var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -32,7 +34,7 @@ internal sealed partial class UpstreamRepository
 
 	private static string EntryPath(JsonElement entry, string directory)
 	{
-		var path = entry.GetProperty("path").GetString();
+		var path = RequiredString(entry, "path");
 		var parent = directory.Length == 0 ? "" : directory + "/";
 		if (string.IsNullOrEmpty(path) || !path.StartsWith(parent, StringComparison.Ordinal) || path[parent.Length..].Contains('/'))
 		{
@@ -41,10 +43,20 @@ internal sealed partial class UpstreamRepository
 		return path;
 	}
 
-	private static bool IsFile(JsonElement entry) => entry.GetProperty("type").GetString() switch
+	private static bool IsFile(JsonElement entry) => RequiredString(entry, "type") switch
 	{
 		"file" => true,
 		"dir" or "symlink" or "submodule" => false,
 		_ => throw new MonitorFailure("GitHub directory inventory contained an unsupported entry type."),
 	};
+
+	private static string RequiredString(JsonElement entry, string name)
+	{
+		if (entry.ValueKind != JsonValueKind.Object || !entry.TryGetProperty(name, out var value) ||
+			value.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(value.GetString()))
+		{
+			throw new MonitorFailure(InvalidInventory);
+		}
+		return value.GetString()!;
+	}
 }
