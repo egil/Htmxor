@@ -85,6 +85,27 @@ public sealed class ConsoleBoundaryTests
 		Assert.Equal("Tokens are accepted only through the GH_TOKEN environment variable.", observation.StandardError);
 	}
 
+	[Theory]
+	[InlineData("--tag")]
+	[InlineData("--baseline")]
+	[InlineData("--json")]
+	[InlineData("--markdown")]
+	public async Task Duplicate_option_is_rejected_with_concrete_usage_error_before_network_access(string option)
+	{
+		using var workspace = new TemporaryMonitorWorkspace();
+		var transport = new FakeGitHubTransport();
+		var arguments = new[] { option, "first-value", option, "second-value" };
+
+		var observation = await RunAsync(workspace, transport, arguments);
+
+		Assert.Equal(2, observation.ExitCode);
+		Assert.Empty(observation.Requests);
+		Assert.Null(observation.JsonReport);
+		Assert.Null(observation.MarkdownReport);
+		Assert.Equal(string.Empty, observation.StandardOutput);
+		Assert.Equal($"Option '{option}' may only be specified once.", observation.StandardError);
+	}
+
 	private static IReadOnlyList<ConsoleRequestObservation> ExpectedDriftRequests() =>
 	[
 		Get("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12"),
