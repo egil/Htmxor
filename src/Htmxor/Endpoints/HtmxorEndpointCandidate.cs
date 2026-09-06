@@ -134,6 +134,12 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 
 		context.RequestServices.GetRequiredService<HtmxorEndpointCandidateFormServices>()
 			.DisableTokenGenerationForCompletedResponse(context, endpoint);
+		if (renderer.NotFoundEventArgs is not null)
+		{
+			context.Response.StatusCode = StatusCodes.Status404NotFound;
+			context.Response.ContentType = null;
+			return;
+		}
 
 		const int defaultBufferSize = 16 * 1024;
 		await using var writer = new HttpResponseStreamWriter(
@@ -152,6 +158,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private readonly IServiceProvider services;
 	private readonly EndpointRoutingStateProvider routingState;
 	private HttpContext httpContext = default!;
+	private NotFoundEventArgs? notFoundEventArgs;
 
 	public HtmxorEndpointCandidateRenderer(IServiceProvider services, ILoggerFactory loggerFactory)
 		: this(services, loggerFactory, new EndpointRoutingStateProvider())
@@ -170,6 +177,8 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 	internal HttpContext? HttpContext => httpContext;
 
+	internal NotFoundEventArgs? NotFoundEventArgs => notFoundEventArgs;
+
 	internal void InitializeStandardComponentServices(
 		HttpContext context, Type pageComponent, string? handler = null, IFormCollection? form = null)
 	{
@@ -179,6 +188,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		{
 			hostNavigationManager.Initialize(GetContextBaseUri(context.Request), GetFullUri(context.Request));
 		}
+		navigationManager.OnNotFound += (_, args) => notFoundEventArgs = args;
 
 		var authenticationStateProvider = services.GetService<AuthenticationStateProvider>();
 		if (authenticationStateProvider is IHostEnvironmentAuthenticationStateProvider hostAuthenticationStateProvider)

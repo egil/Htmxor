@@ -58,11 +58,6 @@ internal sealed class Issue190NotFoundHost(Issue187ParityHost host, Issue190NotF
 	private static async Task ObserveResponseAsync(HttpContext context, RequestDelegate next)
 	{
 		var journal = context.RequestServices.GetRequiredService<Issue190NotFoundJournal>();
-		context.Response.OnStarting(() =>
-		{
-			journal.Record($"response:starting:{context.Response.StatusCode}:{context.Response.ContentType}");
-			return Task.CompletedTask;
-		});
 		await next(context);
 		journal.Record($"response:completed:{context.Response.HasStarted}");
 	}
