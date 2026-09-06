@@ -62,7 +62,8 @@ public sealed class UpstreamMonitorPolicyTests
 		Assert.Equal(
 			[
 				"src/Components/Components/src/ComponentBase.cs|file|subclass|subclasses|src/Htmxor/Components/ConditionalComponentBase.cs,src/Htmxor/Endpoints/HtmxorDirectComponentHost.cs,src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs",
-				"src/Components/Components/src/IComponent.cs|file|interface|implements|src/Htmxor/Components/HtmxHeadOutlet.cs,src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs",
+				"src/Components/Components/src/IComponent.cs|file|interface|implements|src/Htmxor/Components/HtmxHeadOutlet.cs,src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs",
+				"src/Components/Components/src/IPersistentComponentStateStore.cs|file|interface|implements|src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs",
 				"src/Components/Components/src/LayoutComponentBase.cs|file|subclass|subclasses|src/Htmxor/Components/HtmxLayoutComponentBase.cs",
 				"src/Components/Components/src/NavigationException.cs|file|subclass|subclasses|src/Htmxor/DependencyInjection/HtmxorNavigationException.cs",
 				"src/Components/Components/src/NavigationManager.cs|file|subclass|subclasses|src/Htmxor/DependencyInjection/HtmxorNavigationManager.cs",
@@ -80,6 +81,7 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
 				"src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs|file|interface|implements|src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs,src/Htmxor/IHtmxorComponentEndpointInvoker.cs",
 				"src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
+				"src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs",
 				"src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer|prefix|none|mirrors|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs",
 				"src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer|prefix|subclass|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.NamedSubmit.cs,src/Htmxor/Rendering/HtmxorRenderer.EventDispatch.cs,src/Htmxor/Rendering/HtmxorRenderer.HtmxorEventDispatch.cs,src/Htmxor/Rendering/HtmxorRenderer.Rendering.cs,src/Htmxor/Rendering/HtmxorRenderer.cs",
 				"src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs",
