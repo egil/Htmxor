@@ -109,7 +109,16 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 
 		renderer.InitializeStandardComponentServices(context, pageComponent, request.HandlerName, request.Form);
-		var htmlContent = await renderer.RenderEndpointComponentAsync(rootComponent, ParameterView.Empty);
+		HtmlRootComponent htmlContent;
+		try
+		{
+			htmlContent = await renderer.RenderEndpointComponentAsync(rootComponent, ParameterView.Empty);
+		}
+		catch (NavigationException navigationException)
+		{
+			context.Response.Redirect(navigationException.Location);
+			return;
+		}
 		if (request.IsPost)
 		{
 			await renderer.DispatchSubmitEventAsync(request.HandlerName, out var isBadRequest);
