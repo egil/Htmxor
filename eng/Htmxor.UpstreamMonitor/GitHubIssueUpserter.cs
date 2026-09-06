@@ -41,11 +41,10 @@ internal sealed class GitHubIssueUpserter(HttpClient httpClient)
 		var number = existing.GetProperty("number").GetInt64();
 		var closed = existing.GetProperty("state").GetString() == "closed";
 		var path = $"/repos/egil/Htmxor/issues/{number}";
-		if (closed)
-		{
-			await api.WriteAsync(HttpMethod.Patch, path, new { state = "open" }, cancellationToken);
-		}
-		await api.WriteAsync(HttpMethod.Patch, path, new { title = issue.Title, body = issue.Body }, cancellationToken);
+		object payload = closed
+			? new { state = "open", title = issue.Title, body = issue.Body }
+			: new { title = issue.Title, body = issue.Body };
+		await api.WriteAsync(HttpMethod.Patch, path, payload, cancellationToken);
 		return new(closed ? IssueWriteAction.ReopenedAndUpdated : IssueWriteAction.Updated, number, null);
 	}
 }
