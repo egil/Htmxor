@@ -156,7 +156,11 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			ArrayPool<byte>.Shared,
 			ArrayPool<char>.Shared);
 		htmlContent.WriteHtmlTo(writer);
-		await renderer.WritePersistedStateAsync(writer);
+		if (context.RequestServices.GetRequiredService<HtmxorEndpointCandidateFormServices>()
+			.HasConfiguredRenderModes(endpoint))
+		{
+			await renderer.WritePersistedStateAsync(writer);
+		}
 		await writer.FlushAsync();
 	}
 }
