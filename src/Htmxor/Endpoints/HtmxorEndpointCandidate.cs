@@ -183,6 +183,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		HttpContext context, Type pageComponent, string? handler = null, IFormCollection? form = null)
 	{
 		httpContext = context;
+		notFoundEventArgs = null;
 		var navigationManager = services.GetRequiredService<NavigationManager>();
 		if (navigationManager is IHostEnvironmentNavigationManager hostNavigationManager)
 		{
