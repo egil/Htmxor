@@ -46,7 +46,8 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 
 	public async Task<string> SourceAsync(string path, string commit, CancellationToken cancellationToken)
 	{
-		var content = await api.GetAsync($"/repos/{repository}/contents/{path}?ref={Uri.EscapeDataString(commit)}", cancellationToken);
+		var encodedPath = string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
+		var content = await api.GetAsync($"/repos/{repository}/contents/{encodedPath}?ref={Uri.EscapeDataString(commit)}", cancellationToken);
 		if (content.GetProperty("encoding").GetString() != "base64")
 		{
 			throw new MonitorFailure("GitHub source content used an unsupported encoding.");

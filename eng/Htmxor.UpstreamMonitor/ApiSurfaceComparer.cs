@@ -6,24 +6,24 @@ internal static partial class ApiSurfaceComparer
 {
 	public static IReadOnlyList<ApiChange> Compare(string baseline, string target, string watchedType)
 	{
-		var before = FindType(baseline, watchedType);
-		var after = FindType(target, watchedType);
-		if (before is null)
+		var before = FindTypes(baseline, watchedType);
+		var after = FindTypes(target, watchedType);
+		if (before.Length == 0)
 		{
-			return after is null ? [] : [Change(after, ChangeKind.Added, ApiSymbolKind.Type, after.Signature)];
+			return after.Select(type => Change(type, ChangeKind.Added, ApiSymbolKind.Type, type.Signature)).Distinct().ToArray();
 		}
-		if (after is null)
+		if (after.Length == 0)
 		{
-			return [Change(before, ChangeKind.Removed, ApiSymbolKind.Type, before.Signature)];
+			return before.Select(type => Change(type, ChangeKind.Removed, ApiSymbolKind.Type, type.Signature)).Distinct().ToArray();
 		}
-		var oldSymbols = Symbols(before).ToHashSet();
-		var newSymbols = Symbols(after).ToHashSet();
-		return newSymbols.Except(oldSymbols).Select(symbol => Change(after, ChangeKind.Added, symbol.Kind, symbol.Signature))
-			.Concat(oldSymbols.Except(newSymbols).Select(symbol => Change(before, ChangeKind.Removed, symbol.Kind, symbol.Signature))).ToArray();
+		var oldSymbols = before.SelectMany(Symbols).ToHashSet();
+		var newSymbols = after.SelectMany(Symbols).ToHashSet();
+		return newSymbols.Except(oldSymbols).Select(symbol => Change(after[0], ChangeKind.Added, symbol.Kind, symbol.Signature))
+			.Concat(oldSymbols.Except(newSymbols).Select(symbol => Change(before[0], ChangeKind.Removed, symbol.Kind, symbol.Signature))).ToArray();
 	}
 
-	private static SourceType? FindType(string source, string name) => new CSharpSource(source).Types
-		.FirstOrDefault(type => type.Name.Split('<')[0].Trim() == name);
+	private static SourceType[] FindTypes(string source, string name) => new CSharpSource(source).Types
+		.Where(type => type.Name.Split('<')[0].Trim() == name).ToArray();
 
 	private static ApiChange Change(SourceType type, ChangeKind kind, ApiSymbolKind symbolKind, string signature) =>
 		new(type.Name, kind, symbolKind, signature, kind == ChangeKind.Added

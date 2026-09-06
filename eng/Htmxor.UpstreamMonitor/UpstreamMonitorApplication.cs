@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Htmxor.UpstreamMonitor;
 
 internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
@@ -27,7 +29,7 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 		UpstreamRepository repository, IReadOnlyList<ChangedFile> files, CancellationToken cancellationToken)
 	{
 		var sources = new List<SourceChange>();
-		var apis = new List<ApiChange>();
+		var comparisons = await CompareApisAsync(request, upstream, repository, files, cancellationToken);
 		foreach (var file in files.OrderBy(file => file.Path, StringComparer.Ordinal))
 		{
 			var watches = request.Manifest.Targets.Where(watch => Matches(watch, file.Path)).ToArray();
@@ -35,12 +37,11 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			{
 				continue;
 			}
-			var changes = watches.Any(watch => watch.ApiSurface != ApiSurface.None)
-				? await ApiChangesAsync(request, upstream, repository, file, cancellationToken)
-				: [];
-			apis.AddRange(changes);
+			var changes = comparisons.Where(comparison => Matches(comparison.Key, file.Path))
+				.SelectMany(comparison => comparison.Value).ToArray();
 			sources.Add(new(file.Path, file.Kind, Classify(watches, changes)));
 		}
+		var apis = comparisons.Values.SelectMany(changes => changes).ToArray();
 		return MonitorReports.Create(request, sources.Count == 0 ? MonitorStatus.Current : MonitorStatus.Drift, upstream, sources, apis);
 	}
 
@@ -48,13 +49,41 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 		? path.StartsWith(target.Path, StringComparison.Ordinal)
 		: path.Equals(target.Path, StringComparison.Ordinal);
 
-	private static async Task<IReadOnlyList<ApiChange>> ApiChangesAsync(MonitorRequest request, UpstreamRevision upstream,
-		UpstreamRepository repository, ChangedFile file, CancellationToken cancellationToken)
+	private static async Task<Dictionary<WatchTarget, IReadOnlyList<ApiChange>>> CompareApisAsync(MonitorRequest request,
+		UpstreamRevision upstream, UpstreamRepository repository, IReadOnlyList<ChangedFile> files, CancellationToken cancellationToken)
 	{
-		var baseline = file.Kind == ChangeKind.Added ? string.Empty : await repository.SourceAsync(file.Path,
-			request.BaselineCommit ?? request.Manifest.ReviewedCommit, cancellationToken);
-		var target = file.Kind == ChangeKind.Removed ? string.Empty : await repository.SourceAsync(file.Path, upstream.Commit, cancellationToken);
-		return ApiSurfaceComparer.Compare(baseline, target, Path.GetFileName(file.Path).Split('.')[0]);
+		var comparisons = new Dictionary<WatchTarget, IReadOnlyList<ApiChange>>();
+		var watches = request.Manifest.Targets.Where(watch => watch.ApiSurface != ApiSurface.None)
+			.DistinctBy(watch => (watch.Path, watch.Match, watch.ApiSurface))
+			.OrderBy(watch => watch.Path, StringComparer.Ordinal).ThenBy(watch => watch.Match).ThenBy(watch => watch.ApiSurface);
+		foreach (var watch in watches)
+		{
+			var matchingFiles = files.Where(file => Matches(watch, file.Path)).OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
+			if (matchingFiles.Length > 0)
+			{
+				comparisons.Add(watch, await ApiChangesAsync(request, upstream, repository, watch, matchingFiles, cancellationToken));
+			}
+		}
+		return comparisons;
+	}
+
+	private static async Task<IReadOnlyList<ApiChange>> ApiChangesAsync(MonitorRequest request, UpstreamRevision upstream,
+		UpstreamRepository repository, WatchTarget watch, ChangedFile[] files, CancellationToken cancellationToken)
+	{
+		var baseline = new StringBuilder();
+		var target = new StringBuilder();
+		foreach (var file in files)
+		{
+			if (file.Kind != ChangeKind.Added)
+			{
+				baseline.AppendLine(await repository.SourceAsync(file.Path, request.BaselineCommit ?? request.Manifest.ReviewedCommit, cancellationToken));
+			}
+			if (file.Kind != ChangeKind.Removed)
+			{
+				target.AppendLine(await repository.SourceAsync(file.Path, upstream.Commit, cancellationToken));
+			}
+		}
+		return ApiSurfaceComparer.Compare(baseline.ToString(), target.ToString(), Path.GetFileName(watch.Path).Split('.')[0]);
 	}
 
 	private static ReviewClassification Classify(WatchTarget[] watches, IReadOnlyList<ApiChange> changes)
