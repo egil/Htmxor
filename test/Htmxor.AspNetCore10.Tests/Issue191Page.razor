@@ -4,11 +4,19 @@
 @rendermode InteractiveServer
 @implements IDisposable
 @inject PersistentComponentState State
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthenticationState
 
-<main data-issue-191-state="rendered">ordinary output</main>
+<main data-issue-191-state="rendered" data-issue-191-user="@userName">ordinary output</main>
 
 @code {
     private PersistingComponentStateSubscription? subscription;
+    private string userName = "anonymous";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthenticationState.GetAuthenticationStateAsync();
+        userName = state.User.Identity?.Name ?? "anonymous";
+    }
 
     protected override void OnInitialized()
     {

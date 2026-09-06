@@ -95,6 +95,37 @@ public sealed class Issue191PersistedStateParityTests
 		}
 	}
 
+	[Fact]
+	public async Task Candidate_persisted_state_does_not_leak_authenticated_request_state()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync();
+		using var alice = CreateRequest("alice");
+		using var bob = CreateRequest("bob");
+		using var aliceResponse = await pair.Candidate.Client.SendAsync(alice);
+		using var bobResponse = await pair.Candidate.Client.SendAsync(bob);
+
+		Assert.Contains("data-issue-191-user=\"alice\"", await aliceResponse.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+		Assert.Contains("data-issue-191-user=\"bob\"", await bobResponse.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+		var responses = await Task.WhenAll(Enumerable.Range(0, 8).Select(async index =>
+		{
+			using var request = CreateRequest(index % 2 == 0 ? "alice" : "bob");
+			using var response = await pair.Candidate.Client.SendAsync(request);
+			return (index, body: await response.Content.ReadAsStringAsync());
+		}));
+		Assert.All(responses, response => Assert.Contains(
+			$"data-issue-191-user=\"{(response.index % 2 == 0 ? "alice" : "bob")}\"",
+			response.body,
+			StringComparison.Ordinal));
+	}
+
+	private static HttpRequestMessage CreateRequest(string user)
+	{
+		var request = new HttpRequestMessage(HttpMethod.Get, Issue191HostPair.Path);
+		request.Headers.Add(Issue187AuthenticationHandler.UserHeaderName, user);
+		return request;
+	}
+
 	private static string NormalizeDynamicState(string body)
 	{
 		var normalized = Regex.Replace(body, "\\\"prerenderId\\\":\\\"[^\\\"]+\\\"", "\\\"prerenderId\\\":\\\"<dynamic>\\\"");
