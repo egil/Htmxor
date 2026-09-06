@@ -47,6 +47,54 @@ public sealed class Issue191PersistedStateParityTests
 		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
 	}
 
+	[Fact]
+	public async Task Candidate_selected_interactive_auto_component_preserves_persisted_state_representation()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync();
+
+		using var stockResponse = await pair.Stock.Client.GetAsync(Issue191HostPair.AutoPath);
+		using var candidateResponse = await pair.Candidate.Client.GetAsync(Issue191HostPair.AutoPath);
+		var stock = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidate = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.Equal(HttpStatusCode.OK, stock.StatusCode);
+		Assert.Contains("<!--Blazor-WebAssembly:", stock.Body, StringComparison.Ordinal);
+		Assert.Contains("<!--Blazor-Server-Component-State:", stock.Body, StringComparison.Ordinal);
+		Assert.Contains("<!--Blazor-WebAssembly-Component-State:", stock.Body, StringComparison.Ordinal);
+		Assert.Equal(stock.StatusCode, candidate.StatusCode);
+		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
+		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
+	}
+
+	[Fact]
+	public async Task Candidate_persisted_state_remains_request_scoped_during_sequential_and_concurrent_requests()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync();
+
+		var paths = new[] { Issue191HostPair.Path, Issue191HostPair.WebAssemblyPath, Issue191HostPair.AutoPath };
+		foreach (var path in paths)
+		{
+			using var response = await pair.Candidate.Client.GetAsync(path);
+			var snapshot = await Issue187ResponseSnapshot.CreateAsync(response);
+			Assert.Equal(HttpStatusCode.OK, snapshot.StatusCode);
+			Assert.Contains("<!--Blazor-Server-Component-State:", snapshot.Body, StringComparison.Ordinal);
+			Assert.Contains("<!--Blazor-WebAssembly-Component-State:", snapshot.Body, StringComparison.Ordinal);
+		}
+
+		var responses = await Task.WhenAll(paths.SelectMany(path => Enumerable.Repeat(path, 4))
+			.Select(path => pair.Candidate.Client.GetAsync(path)));
+		foreach (var response in responses)
+		{
+			using (response)
+			{
+				var snapshot = await Issue187ResponseSnapshot.CreateAsync(response);
+				Assert.Equal(HttpStatusCode.OK, snapshot.StatusCode);
+				Assert.Contains("<!--Blazor-Server-Component-State:", snapshot.Body, StringComparison.Ordinal);
+				Assert.Contains("<!--Blazor-WebAssembly-Component-State:", snapshot.Body, StringComparison.Ordinal);
+			}
+		}
+	}
+
 	private static string NormalizeDynamicState(string body)
 	{
 		var normalized = Regex.Replace(body, "\\\"prerenderId\\\":\\\"[^\\\"]+\\\"", "\\\"prerenderId\\\":\\\"<dynamic>\\\"");
@@ -68,6 +116,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 {
 	public const string Path = "/issue-191/state";
 	public const string WebAssemblyPath = "/issue-191/webassembly-state";
+	public const string AutoPath = "/issue-191/auto-state";
 
 	public Issue187ParityHost Stock { get; } = stock;
 
