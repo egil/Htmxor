@@ -70,20 +70,29 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 	private static async Task<IReadOnlyList<ApiChange>> ApiChangesAsync(MonitorRequest request, UpstreamRevision upstream,
 		UpstreamRepository repository, WatchTarget watch, ChangedFile[] files, CancellationToken cancellationToken)
 	{
-		var baseline = new StringBuilder();
-		var target = new StringBuilder();
-		foreach (var file in files)
+		var baseline = await ApiSourceAsync(repository, watch, files, request.BaselineCommit ?? request.Manifest.ReviewedCommit,
+			ChangeKind.Added, cancellationToken);
+		var target = await ApiSourceAsync(repository, watch, files, upstream.Commit, ChangeKind.Removed, cancellationToken);
+		return ApiSurfaceComparer.Compare(baseline, target, Path.GetFileName(watch.Path).Split('.')[0]);
+	}
+
+	private static async Task<string> ApiSourceAsync(UpstreamRepository repository, WatchTarget watch, ChangedFile[] files,
+		string commit, ChangeKind absentKind, CancellationToken cancellationToken)
+	{
+		var expected = files.Where(file => file.Kind != absentKind).Select(file => file.Path).ToArray();
+		var paths = watch.Match == WatchMatch.Prefix
+			? await repository.PrefixSourcePathsAsync(watch.Path, commit, cancellationToken)
+			: expected;
+		if (expected.Except(paths, StringComparer.Ordinal).Any())
 		{
-			if (file.Kind != ChangeKind.Added)
-			{
-				baseline.AppendLine(await repository.SourceAsync(file.Path, request.BaselineCommit ?? request.Manifest.ReviewedCommit, cancellationToken));
-			}
-			if (file.Kind != ChangeKind.Removed)
-			{
-				target.AppendLine(await repository.SourceAsync(file.Path, upstream.Commit, cancellationToken));
-			}
+			throw new MonitorFailure("GitHub directory inventory omitted a changed file known to exist at this revision.");
 		}
-		return ApiSurfaceComparer.Compare(baseline.ToString(), target.ToString(), Path.GetFileName(watch.Path).Split('.')[0]);
+		var source = new StringBuilder();
+		foreach (var path in paths)
+		{
+			source.AppendLine(await repository.SourceAsync(path, commit, cancellationToken));
+		}
+		return source.ToString();
 	}
 
 	private static ReviewClassification Classify(WatchTarget[] watches, IReadOnlyList<ApiChange> changes)
