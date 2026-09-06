@@ -78,11 +78,15 @@ internal sealed record MonitorOptions(string? Tag, string? Baseline, string Json
 		var values = new Dictionary<string, string>(StringComparer.Ordinal);
 		for (var index = 0; index < arguments.Count; index += 2)
 		{
-			if (arguments[index] is not ("--tag" or "--baseline" or "--json" or "--markdown") || index + 1 >= arguments.Count)
+			var option = arguments[index];
+			if (option is not ("--tag" or "--baseline" or "--json" or "--markdown") || index + 1 >= arguments.Count)
 			{
 				throw new MonitorFailure("Usage: [--tag TAG --baseline COMMIT] [--json PATH] [--markdown PATH].");
 			}
-			values.Add(arguments[index], arguments[index + 1]);
+			if (!values.TryAdd(option, arguments[index + 1]))
+			{
+				throw new MonitorFailure($"Option '{option}' may only be specified once.");
+			}
 		}
 		return new(values.GetValueOrDefault("--tag"), values.GetValueOrDefault("--baseline"),
 			Path.GetFullPath(values.GetValueOrDefault("--json", "upstream-monitor.json"), root),
