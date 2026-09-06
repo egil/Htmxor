@@ -1,0 +1,25 @@
+@page "/issue-190/status"
+@using Microsoft.AspNetCore.Diagnostics
+@inject Issue190StatusReexecutionJournal Journal
+
+<main data-issue-190-status-page
+      data-original-path="@OriginalPath"
+      data-request-path="@HttpContext.Request.Path"
+      data-original-status="@OriginalStatus">status-output</main>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private string OriginalPath { get; set; } = default!;
+
+    private int OriginalStatus { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var feature = HttpContext.Features.Get<IStatusCodeReExecuteFeature>();
+        OriginalPath = feature?.OriginalPath ?? "missing";
+        OriginalStatus = HttpContext.Response.StatusCode;
+        Journal.Record($"status:{OriginalPath}:{HttpContext.Request.Path}:{OriginalStatus}");
+    }
+}

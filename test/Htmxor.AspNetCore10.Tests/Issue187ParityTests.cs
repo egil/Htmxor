@@ -362,6 +362,7 @@ internal sealed class Issue187ParityHost(WebApplication app, HttpClient client) 
 
 	private static void ConfigurePipeline(WebApplication app, Issue187ParityHostOptions options)
 	{
+		options.BeforeSession?.Invoke(app);
 		app.UseSession();
 		app.UseAuthentication();
 		app.UseAuthorization();
@@ -471,6 +472,8 @@ internal sealed class Issue187ParityHostOptions
 	public Action<RazorComponentsEndpointConventionBuilder> ConfigureEndpoints { get; init; } = _ => { };
 
 	public Action<IServiceCollection>? ConfigureServices { get; init; }
+
+	public Action<WebApplication>? BeforeSession { get; init; }
 
 	public Action<WebApplication>? BeforeAntiforgery { get; init; }
 
