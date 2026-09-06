@@ -21,6 +21,7 @@
 
 using System.Buffers;
 using System.Text;
+using System.Text.Json;
 using Htmxor.DependencyInjection;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
@@ -28,7 +29,11 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure;
 using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Components.Infrastructure;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
+using Microsoft.AspNetCore.Components.RenderTree;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -112,7 +117,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			return;
 		}
 
-		renderer.InitializeStandardComponentServices(context, pageComponent, request.HandlerName, request.Form);
+		await renderer.InitializeStandardComponentServicesAsync(context, pageComponent, request.HandlerName, request.Form);
 		HtmlRootComponent htmlContent;
 		try
 		{
@@ -149,6 +154,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			ArrayPool<byte>.Shared,
 			ArrayPool<char>.Shared);
 		htmlContent.WriteHtmlTo(writer);
+		await renderer.WritePersistedStateAsync(writer);
 		await writer.FlushAsync();
 	}
 }
@@ -179,7 +185,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 	internal NotFoundEventArgs? NotFoundEventArgs => notFoundEventArgs;
 
-	internal void InitializeStandardComponentServices(
+	internal async Task InitializeStandardComponentServicesAsync(
 		HttpContext context, Type pageComponent, string? handler = null, IFormCollection? form = null)
 	{
 		httpContext = context;
@@ -208,6 +214,9 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		}
 
 		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().Initialize(context, handler, form);
+		var stateManager = services.GetRequiredService<ComponentStatePersistenceManager>();
+		stateManager.SetPlatformRenderMode(RenderMode.InteractiveAuto);
+		await stateManager.RestoreStateAsync(new HtmxorEndpointCandidateStateStore());
 		SetRouteData(context, pageComponent);
 	}
 
@@ -218,6 +227,67 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		var result = BeginRenderingComponent(rootComponent, parameters);
 		await result.QuiescenceTask;
 		return result;
+	}
+
+	protected override IComponent ResolveComponentForRenderMode(
+		Type componentType,
+		int? parentComponentId,
+		IComponentActivator componentActivator,
+		IComponentRenderMode renderMode)
+		=> parentComponentId.HasValue &&
+			GetComponentState(parentComponentId.Value).Component is HtmxorEndpointCandidateRenderModeBoundary
+			? componentActivator.CreateInstance(componentType)
+			: new HtmxorEndpointCandidateRenderModeBoundary(componentType, renderMode);
+
+	protected override void WriteComponentHtml(int componentId, TextWriter output)
+		=> WriteComponentHtml(componentId, output, 0, null);
+
+	protected override void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
+		=> WriteComponentHtml(componentFrame.ComponentId, output, componentFrame.Sequence, componentFrame.ComponentKey);
+
+	protected override IComponentRenderMode? GetComponentRenderMode(IComponent component)
+		=> component is HtmxorEndpointCandidateRenderModeBoundary boundary
+			? boundary.RenderMode
+			: null;
+
+	internal async Task WritePersistedStateAsync(TextWriter writer)
+	{
+		var store = new HtmxorEndpointCandidateProtectedStateStore(
+			services.GetRequiredService<IDataProtectionProvider>());
+		await services.GetRequiredService<ComponentStatePersistenceManager>().PersistStateAsync(store, this);
+		if (store.PersistedState is not null)
+		{
+			await writer.WriteAsync("<!--Blazor-Server-Component-State:");
+			await writer.WriteAsync(store.PersistedState);
+			await writer.WriteAsync("-->");
+		}
+	}
+
+	private void WriteComponentHtml(int componentId, TextWriter output, int sequence, object? key)
+	{
+		if (GetComponentState(componentId).Component is not HtmxorEndpointCandidateRenderModeBoundary boundary)
+		{
+			base.WriteComponentHtml(componentId, output);
+			return;
+		}
+
+		var marker = boundary.CreateMarker(httpContext, sequence, key);
+		httpContext.Response.Headers.CacheControl = "no-cache, no-store, max-age=0";
+		output.Write("<!--Blazor:");
+		output.Write(JsonSerializer.Serialize(marker, HtmxorEndpointCandidateJson.Options));
+		output.Write("-->");
+		base.WriteComponentHtml(componentId, output);
+		output.Write("<!--Blazor:{\"prerenderId\":\"");
+		output.Write(marker.PrerenderId);
+		output.Write("\"}-->");
+	}
+
+	private static class HtmxorEndpointCandidateJson
+	{
+		internal static JsonSerializerOptions Options { get; } = new()
+		{
+			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+		};
 	}
 
 	internal void WriteCompletedComponentHtml(int componentId, TextWriter output)

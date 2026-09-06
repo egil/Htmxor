@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components.Endpoints;
@@ -23,9 +24,24 @@ public sealed class Issue191PersistedStateParityTests
 		Assert.Contains("data-issue-191-state=\"rendered\"", stock.Body, StringComparison.Ordinal);
 		Assert.Contains("<!--Blazor-Server-Component-State:", stock.Body, StringComparison.Ordinal);
 		Assert.Equal(stock.StatusCode, candidate.StatusCode);
-		Assert.Equal(stock.Headers, candidate.Headers);
-		Assert.Equal(stock.Body, candidate.Body);
+		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
+		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
 	}
+
+	private static string NormalizeDynamicState(string body)
+	{
+		var normalized = Regex.Replace(body, "\\\"prerenderId\\\":\\\"[^\\\"]+\\\"", "\\\"prerenderId\\\":\\\"<dynamic>\\\"");
+		normalized = Regex.Replace(normalized, "\\\"descriptor\\\":\\\"[^\\\"]+\\\"", "\\\"descriptor\\\":\\\"<dynamic>\\\"");
+		return Regex.Replace(normalized, "(?<=<!--Blazor-Server-Component-State:)[^-]+(?=-->)", "<dynamic>");
+	}
+
+	private static IReadOnlyDictionary<string, string> NormalizeDynamicHeaders(IReadOnlyDictionary<string, string> headers)
+		=> headers.ToDictionary(
+			pair => pair.Key,
+			pair => pair.Key.Equals("Set-Cookie", StringComparison.OrdinalIgnoreCase)
+				? Regex.Replace(pair.Value, "(?<==)[^;]+", "<dynamic>")
+				: pair.Value,
+			StringComparer.OrdinalIgnoreCase);
 }
 
 internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityHost candidate) : IAsyncDisposable
