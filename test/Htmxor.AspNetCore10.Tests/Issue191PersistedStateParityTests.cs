@@ -152,6 +152,20 @@ public sealed class Issue191PersistedStateParityTests
 		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
 	}
 
+	[Fact]
+	public async Task Candidate_duplicate_configured_server_mode_preserves_stock_response()
+	{
+		await using var pair = await Issue191HostPair.CreateAsync(endpoints => endpoints.AddInteractiveServerRenderMode());
+		using var stockResponse = await pair.Stock.Client.GetAsync(Issue191HostPair.Path);
+		using var candidateResponse = await pair.Candidate.Client.GetAsync(Issue191HostPair.Path);
+		var stock = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
+		var candidate = await Issue187ResponseSnapshot.CreateAsync(candidateResponse);
+
+		Assert.Equal(stock.StatusCode, candidate.StatusCode);
+		Assert.Equal(NormalizeDynamicState(stock.Body), NormalizeDynamicState(candidate.Body));
+		Assert.Equal(NormalizeDynamicHeaders(stock.Headers), NormalizeDynamicHeaders(candidate.Headers));
+	}
+
 	private static HttpRequestMessage CreateRequest(string user)
 	{
 		var request = new HttpRequestMessage(HttpMethod.Get, Issue191HostPair.Path);
@@ -188,7 +202,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 
 	public Issue187ParityHost Candidate { get; } = candidate;
 
-	public static async Task<Issue191HostPair> CreateAsync()
+	public static async Task<Issue191HostPair> CreateAsync(Action<RazorComponentsEndpointConventionBuilder>? configureEndpoints = null)
 	{
 		var protection = new EphemeralDataProtectionProvider();
 		var options = new Issue187ParityHostOptions
@@ -221,6 +235,7 @@ internal sealed class Issue191HostPair(Issue187ParityHost stock, Issue187ParityH
 			{
 				endpoints.AddInteractiveServerRenderMode();
 				endpoints.AddInteractiveWebAssemblyRenderMode();
+				configureEndpoints?.Invoke(endpoints);
 			},
 			ConfigureServices = services => services.AddSingleton<IDataProtectionProvider>(protection),
 		};
