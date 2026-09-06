@@ -110,17 +110,25 @@ public sealed class ManifestDependencyPolicyTests
 		Assert.Empty(untracked);
 	}
 
-	[Fact]
-	public void JSON_manifest_reads_private_access_relationship_without_a_public_API_surface()
+	[Theory]
+	[InlineData("private-accesses", "PrivateAccesses", "compatibility-risk")]
+	[InlineData("PRIVATE-ACCESSES", "PrivateAccesses", "compatibility-risk")]
+	[InlineData("Private-Accesses", "PrivateAccesses", "compatibility-risk")]
+	[InlineData("MiRrOrS", "Mirrors", "parity-required")]
+	[InlineData("REIMPLEMENTS", "Reimplements", "parity-required")]
+	[InlineData("SubClasses", "Subclasses", "implementation-review")]
+	[InlineData("IMPLEMENTS", "Implements", "implementation-review")]
+	public async Task JSON_manifest_relationship_is_case_insensitive_and_report_classification_remains_lowercase(
+		string relationship, string expectedRelationship, string classification)
 	{
 		using var repository = new TemporaryRepository();
-		repository.Write("eng/Htmxor.UpstreamMonitor/upstream-watch.json", """
+		repository.Write("eng/Htmxor.UpstreamMonitor/upstream-watch.json", $$"""
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "reviewed": { "tag": "v10.0.11", "commit": "a5383385245bdacc20ec19f30e46090a8154d8da" },
 			  "watches": [{
 			    "path": "src/Components/Endpoints/src/Forms/Provider.cs",
-			    "match": "file", "api": "none", "relationship": "private-accesses",
+			    "match": "file", "api": "none", "relationship": "{{relationship}}",
 			    "dependencies": ["src/Htmxor/Dependency.cs"]
 			  }]
 			}
@@ -135,8 +143,18 @@ public sealed class ManifestDependencyPolicyTests
 		Assert.Equal("src/Components/Endpoints/src/Forms/Provider.cs", watch.Path);
 		Assert.Equal(WatchMatch.File, watch.Match);
 		Assert.Equal(ApiSurface.None, watch.ApiSurface);
-		Assert.Equal(WatchRelationship.PrivateAccesses, watch.Relationship);
+		Assert.Equal(Enum.Parse<WatchRelationship>(expectedRelationship), watch.Relationship);
 		Assert.Equal([LocalPath], watch.LocalDependencies);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson($"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			$$"""{"files":[{"filename":"{{watch.Path}}","status":"modified"}]}""");
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(manifest, 10, "v10.0.12", Fixture.BaselineCommit));
+
+		Assert.Equal(MonitorStatus.Drift, result.Status);
+		ReportAssertions.Equal(result, new ReportExpectation("drift",
+			new("unresolved", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
+			[new(watch.Path, "changed", classification)], [], null));
 	}
 
 	[Fact]
