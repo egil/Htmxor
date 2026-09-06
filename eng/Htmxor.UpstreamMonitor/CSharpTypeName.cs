@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Htmxor.UpstreamMonitor;
 
 internal static class CSharpTypeName
@@ -18,42 +16,6 @@ internal static class CSharpTypeName
 			}
 		}
 		yield return text[start..];
-	}
-
-	public static string MetadataIdentity(string text)
-	{
-		text = Compact(text).Replace("global::", string.Empty, StringComparison.Ordinal);
-		var identity = new StringBuilder();
-		for (var index = 0; index < text.Length && text[index] != '('; index++)
-		{
-			if (text[index] == '<')
-			{
-				var closing = GenericEnd(text, index);
-				identity.Append('`').Append(SplitList(text[(index + 1)..closing]).Count());
-				index = closing;
-			}
-			else
-			{
-				identity.Append(text[index]);
-			}
-		}
-		return identity.ToString();
-	}
-
-	public static string Compact(string text) => string.Concat(text.Where(character => !char.IsWhiteSpace(character)));
-
-	private static int GenericEnd(string text, int opening)
-	{
-		var depth = 1;
-		for (var index = opening + 1; index < text.Length; index++)
-		{
-			depth += text[index] switch { '<' => 1, '>' => -1, _ => 0 };
-			if (depth == 0)
-			{
-				return index;
-			}
-		}
-		throw new MonitorFailure("Source type has unmatched generic arguments.");
 	}
 
 	private sealed class TypeNesting

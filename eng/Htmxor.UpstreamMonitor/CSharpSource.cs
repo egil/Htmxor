@@ -9,13 +9,8 @@ internal sealed partial class CSharpSource
 	{
 		var characters = source.ToCharArray();
 		var declarations = source.ToCharArray();
-		var comments = new List<string>();
 		foreach (Match match in Trivia().Matches(source))
 		{
-			if (match.Value.StartsWith("//", StringComparison.Ordinal))
-			{
-				comments.Add(match.Value);
-			}
 			for (var index = match.Index; index < match.Index + match.Length; index++)
 			{
 				if (characters[index] is not ('\n' or '\r'))
@@ -30,15 +25,11 @@ internal sealed partial class CSharpSource
 		}
 		Text = new string(characters);
 		DeclarationText = new string(declarations);
-		Comments = comments;
-		Imports = new CSharpImports(Text);
 		Types = TypeDeclaration().Matches(Text).Select(ParseType).ToArray();
 	}
 
 	public string Text { get; }
-	public CSharpImports Imports { get; }
 	private string DeclarationText { get; }
-	public IReadOnlyList<string> Comments { get; }
 	public IReadOnlyList<SourceType> Types { get; }
 
 	public static string Normalize(string value) => Whitespace().Replace(value.Trim(), " ");
@@ -86,17 +77,9 @@ internal sealed partial class CSharpSource
 		tail = tail[parameterLength..].Trim();
 		var constraints = Constraint().Matches(tail).Select(value => Normalize(value.Value)).ToArray();
 		var bases = tail.Split("where ", StringSplitOptions.None)[0].Trim();
-		return new(name, ScopeAt(match.Index), Normalize(match.Groups["modifiers"].Value + match.Groups["kind"].Value + " " + name),
+		return new(name, Normalize(match.Groups["modifiers"].Value + match.Groups["kind"].Value + " " + name),
 			match.Groups["kind"].Value == "interface", bases.StartsWith(':') ? CSharpTypeName.SplitList(bases[1..]).Select(Normalize).ToArray() : [],
-			constraints, Text[bodyStart..closing], DeclarationText[bodyStart..closing], parameters, match.Index);
-	}
-
-	private string ScopeAt(int position)
-	{
-		var containingTypes = TypeDeclaration().Matches(Text[..position])
-			.Where(match => match.Value.EndsWith('{') && ClosingBrace(Text, match.Index + match.Length - 1) > position)
-			.Select(match => CSharpTypeName.MetadataIdentity(match.Groups["name"].Value));
-		return string.Join('.', new[] { Imports.NamespaceAt(position) }.Concat(containingTypes).Where(name => name.Length > 0));
+			constraints, Text[bodyStart..closing], DeclarationText[bodyStart..closing], parameters);
 	}
 
 	private static int PrimaryParameterLength(string tail)
@@ -127,5 +110,5 @@ internal sealed partial class CSharpSource
 	private static partial Regex Whitespace();
 }
 
-internal sealed record SourceType(string Name, string Scope, string Signature, bool IsInterface, IReadOnlyList<string> Bases,
-	IReadOnlyList<string> Constraints, string Body, string DeclarationBody, string? PrimaryConstructorParameters, int Position);
+internal sealed record SourceType(string Name, string Signature, bool IsInterface, IReadOnlyList<string> Bases,
+	IReadOnlyList<string> Constraints, string Body, string DeclarationBody, string? PrimaryConstructorParameters);
