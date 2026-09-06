@@ -23,7 +23,8 @@ internal static partial class ApiSurfaceComparer
 	}
 
 	private static SourceType[] FindTypes(string source, string name) => new CSharpSource(source).Types
-		.Where(type => type.Name.Split('<')[0].Trim() == name).ToArray();
+		.Where(type => type.Name.Split('<')[0].Trim() == name)
+		.GroupBy(type => type.Name, StringComparer.Ordinal).SelectMany(PartialTypeDeclarations.Merge).ToArray();
 
 	private static ApiChange Change(SourceType type, ChangeKind kind, ApiSymbolKind symbolKind, string signature) =>
 		new(type.Name, kind, symbolKind, signature, kind == ChangeKind.Added

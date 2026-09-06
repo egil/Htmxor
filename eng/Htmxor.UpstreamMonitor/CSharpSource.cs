@@ -25,7 +25,8 @@ internal sealed partial class CSharpSource
 		}
 		Text = new string(characters);
 		DeclarationText = new string(declarations);
-		Types = TypeDeclaration().Matches(Text).Select(ParseType).ToArray();
+		var typeDeclarations = TypeDeclaration().Matches(Text).ToArray();
+		Types = typeDeclarations.Select(match => ParseType(match, typeDeclarations)).ToArray();
 	}
 
 	public string Text { get; }
@@ -63,7 +64,7 @@ internal sealed partial class CSharpSource
 		throw new MonitorFailure("Source declaration has an unmatched brace.");
 	}
 
-	private SourceType ParseType(Match match)
+	private SourceType ParseType(Match match, Match[] declarations)
 	{
 		var opening = match.Index + match.Length - 1;
 		var closing = Text[opening] == ';' ? opening : ClosingBrace(Text, opening);
@@ -77,9 +78,17 @@ internal sealed partial class CSharpSource
 		tail = tail[parameterLength..].Trim();
 		var constraints = Constraint().Matches(tail).Select(value => Normalize(value.Value)).ToArray();
 		var bases = tail.Split("where ", StringSplitOptions.None)[0].Trim();
-		return new(name, Normalize(match.Groups["modifiers"].Value + match.Groups["kind"].Value + " " + name),
-			match.Groups["kind"].Value == "interface", bases.StartsWith(':') ? CSharpTypeName.SplitList(bases[1..]).Select(Normalize).ToArray() : [],
+		return new(name, match.Groups["kind"].Value, Normalize(match.Groups["modifiers"].Value), DefaultAccessibility(match, declarations),
+			bases.StartsWith(':') ? CSharpTypeName.SplitList(bases[1..]).Select(Normalize).ToArray() : [],
 			constraints, Text[bodyStart..closing], DeclarationText[bodyStart..closing], parameters);
+	}
+
+	private string DefaultAccessibility(Match match, Match[] declarations)
+	{
+		var parent = declarations.LastOrDefault(candidate => candidate.Index < match.Index &&
+			Text[candidate.Index + candidate.Length - 1] == '{' &&
+			ClosingBrace(Text, candidate.Index + candidate.Length - 1) > match.Index);
+		return parent is null ? "internal" : parent.Groups["kind"].Value == "interface" ? "public" : "private";
 	}
 
 	private static int PrimaryParameterLength(string tail)
@@ -110,5 +119,9 @@ internal sealed partial class CSharpSource
 	private static partial Regex Whitespace();
 }
 
-internal sealed record SourceType(string Name, string Signature, bool IsInterface, IReadOnlyList<string> Bases,
-	IReadOnlyList<string> Constraints, string Body, string DeclarationBody, string? PrimaryConstructorParameters);
+internal sealed record SourceType(string Name, string Kind, string Modifiers, string DefaultAccessibility, IReadOnlyList<string> Bases,
+	IReadOnlyList<string> Constraints, string Body, string DeclarationBody, string? PrimaryConstructorParameters)
+{
+	public string Signature => CSharpSource.Normalize($"{Modifiers} {Kind} {Name}");
+	public bool IsInterface => Kind == "interface";
+}
