@@ -1,0 +1,163 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Microsoft.Playwright;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed partial class Issue56BrowserTests(ITestOutputHelper output)
+{
+	[Fact]
+	public async Task Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated()
+	{
+		var probe = new Issue171LifecycleProbe();
+		await using var app = CreateApplication(new Issue56RequestProbe(), issue171Probe: probe);
+		await app.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		output.WriteLine($"Chromium {browser.Version}; .NET {Environment.Version}");
+		await using var context = await browser.NewContextAsync(new() { BaseURL = Assert.Single(app.Urls) });
+		var pageA = await context.NewPageAsync();
+		var pageB = await context.NewPageAsync();
+		await Task.WhenAll(
+			PrepareIssue171PageAsync(pageA, "request-a", "summary"),
+			PrepareIssue171PageAsync(pageB, "request-b", "details"));
+		var runA = probe.For("request-a");
+		var runB = probe.For("request-b");
+		output.WriteLine($"Gates A: summary={runA.Summary.Id}, details={runA.Details.Id}; B: summary={runB.Summary.Id}, details={runB.Details.Id}");
+
+		try
+		{
+			var responseA = WaitForIssue171ResponseAsync(pageA);
+			var responseB = WaitForIssue171ResponseAsync(pageB);
+			await Task.WhenAll(pageA.Locator("#issue-171-select").ClickAsync(), pageB.Locator("#issue-171-select").ClickAsync());
+			await Task.WhenAll(runA.Summary.Rendered.Task, runA.Details.Rendered.Task,
+				runB.Summary.Rendered.Task, runB.Details.Rendered.Task).WaitAsync(TimeSpan.FromSeconds(30));
+			var requestIdA = Assert.Single(runA.Snapshot().Select(item => item.RequestId).Distinct());
+			var requestIdB = Assert.Single(runB.Snapshot().Select(item => item.RequestId).Distinct());
+			Assert.NotEqual(requestIdA, requestIdB);
+			Assert.NotEqual(runA.Id, runB.Id);
+			AssertIssue171Lifecycle(runA, requestIdA, "summary", completed: []);
+			AssertIssue171Lifecycle(runB, requestIdB, "details", completed: []);
+			await AssertIssue171PendingAsync(pageA, responseA, "request-a");
+			await AssertIssue171PendingAsync(pageB, responseB, "request-b");
+
+			runA.Summary.Release.TrySetResult();
+			runB.Details.Release.TrySetResult();
+			await Task.WhenAll(runA.Summary.CompletedRender.Task, runB.Details.CompletedRender.Task)
+				.WaitAsync(TimeSpan.FromSeconds(30));
+			AssertIssue171Lifecycle(runA, requestIdA, "summary", completed: ["summary"]);
+			AssertIssue171Lifecycle(runB, requestIdB, "details", completed: ["details"]);
+			await AssertIssue171PendingAsync(pageA, responseA, "request-a");
+			await AssertIssue171PendingAsync(pageB, responseB, "request-b");
+			var blockedB = runB.Snapshot();
+
+			runA.Details.Release.TrySetResult();
+			await AssertIssue171CompletedAsync(pageA, await responseA, "request-a", requestIdA, "summary");
+			AssertIssue171Lifecycle(runA, requestIdA, "summary", completed: ["summary", "details"]);
+			var completedA = runA.Snapshot();
+			await AssertIssue171PendingAsync(pageB, responseB, "request-b");
+			Assert.False(runB.Summary.Release.Task.IsCompleted);
+			Assert.Equal(blockedB, runB.Snapshot());
+
+			runB.Summary.Release.TrySetResult();
+			await AssertIssue171CompletedAsync(pageB, await responseB, "request-b", requestIdB, "details");
+			AssertIssue171Lifecycle(runB, requestIdB, "details", completed: ["summary", "details"]);
+			Assert.Equal(completedA, runA.Snapshot());
+			await AssertIssue171DomAsync(pageA, "request-a", requestIdA, "summary");
+		}
+		finally
+		{
+			runA.ReleaseAll();
+			runB.ReleaseAll();
+		}
+	}
+
+	private static async Task PrepareIssue171PageAsync(IPage page, string marker, string selection)
+	{
+		await page.GotoAsync($"/issue-171/lifecycle?marker={marker}&selection={selection}");
+		await page.EvaluateAsync("""
+			() => {
+				window.issue171Events = [];
+				for (const name of ['htmx:after:request', 'htmx:after:swap']) {
+					document.addEventListener(name, event => {
+						if (event.detail.ctx.sourceElement.id === 'issue-171-select') {
+							window.issue171Events.push(name);
+						}
+					});
+				}
+			}
+			""");
+	}
+
+	private static Task<IResponse> WaitForIssue171ResponseAsync(IPage page) =>
+		page.WaitForResponseAsync(response => new Uri(response.Url).AbsolutePath == "/issue-171/lifecycle");
+
+	private async Task AssertIssue171PendingAsync(IPage page, Task<IResponse> response, string marker)
+	{
+		// A bounded absence window detects premature HTTP output while real descendant work is held.
+		var window = Task.Delay(TimeSpan.FromMilliseconds(250));
+		Assert.Same(window, await Task.WhenAny(response, window));
+		var html = await page.Locator("#delivery-slot").InnerHTMLAsync();
+		var events = await page.EvaluateAsync<string[]>("() => window.issue171Events");
+		output.WriteLine($"Pending {marker}: 250ms window; response arrived={response.IsCompleted}; DOM={html}; events={JsonSerializer.Serialize(events)}");
+		Assert.Equal($"Waiting {marker}", html);
+		Assert.Empty(events);
+	}
+
+	private async Task AssertIssue171CompletedAsync(
+		IPage page, IResponse response, string marker, string requestId, string selection)
+	{
+		Assert.Equal(200, response.Status);
+		var headers = await response.Request.AllHeadersAsync();
+		Assert.Equal("div#delivery-slot", headers["hx-target"]);
+		Assert.Equal("true", headers["hx-request"]);
+		Assert.Equal("partial", headers["hx-request-type"]);
+		var body = await response.TextAsync();
+		output.WriteLine($"Response {marker}: status={response.Status}; headers={JsonSerializer.Serialize(headers)}; body={body}");
+		Assert.Equal(Issue171ExpectedHtml(marker, requestId, selection),
+			Regex.Replace(body, @">\s+<", "><").Trim());
+		await AssertIssue171DomAsync(page, marker, requestId, selection);
+	}
+
+	private async Task AssertIssue171DomAsync(IPage page, string marker, string requestId, string selection)
+	{
+		await page.Locator($"#delivery-slot [data-issue-171-completed='{marker}:{requestId}:{selection}']").WaitForAsync();
+		await page.WaitForFunctionAsync("() => window.issue171Events.length === 2");
+		var html = await page.Locator("#delivery-slot").InnerHTMLAsync();
+		var events = await page.EvaluateAsync<string[]>("() => window.issue171Events");
+		output.WriteLine($"DOM {marker}: {html}; events={JsonSerializer.Serialize(events)}");
+		Assert.Equal(Issue171ExpectedHtml(marker, requestId, selection),
+			Regex.Replace(html, @">\s+<", "><").Trim());
+		Assert.Equal(new[] { "htmx:after:request", "htmx:after:swap" }, events);
+	}
+
+	private static string Issue171ExpectedHtml(string marker, string requestId, string selection) =>
+		$"<div id=\"{selection}-envelope\"><span data-issue-171-branch=\"{selection}\" data-issue-171-completed=\"{marker}:{requestId}:{selection}\">{marker}:{requestId}:{selection}</span></div>";
+
+	private void AssertIssue171Lifecycle(Issue171RequestRun run, string requestId, string selection, string[] completed)
+	{
+		var expected = new List<Issue171Observation>
+		{
+			new(requestId, run.Id, "owner", "initialized", ""),
+			new(requestId, run.Id, "owner", "parameters-set", selection),
+			new(requestId, run.Id, "owner", "rendered", selection),
+		};
+		foreach (var branch in new[] { "summary", "details" })
+		{
+			expected.AddRange(new[] { "initialized", "parameters-set", "rendered" }
+				.Select(phase => new Issue171Observation(requestId, run.Id, $"fragment:{branch}", phase, selection)));
+			expected.AddRange(new[] { "initialization-entered", "data-entered", "rendered" }
+				.Select(phase => new Issue171Observation(requestId, run.Id, $"descendant:{branch}", phase, selection)));
+		}
+		foreach (var branch in completed)
+		{
+			expected.AddRange(new[] { "data-completed", "initialization-completed", "parameters-set", "rendered" }
+				.Select(phase => new Issue171Observation(requestId, run.Id, $"descendant:{branch}", phase, selection)));
+		}
+		output.WriteLine($"Lifecycle {selection}, completed={string.Join(",", completed)}: {JsonSerializer.Serialize(run.Snapshot())}");
+		Assert.Equal(expected.OrderBy(item => item.Component).ThenBy(item => item.Phase),
+			run.Snapshot().OrderBy(item => item.Component).ThenBy(item => item.Phase));
+	}
+}

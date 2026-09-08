@@ -1,0 +1,26 @@
+using System.Diagnostics.CodeAnalysis;
+using Htmxor.Components;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue171ObservedFragment : HtmxFragment
+{
+	[Inject]
+	public required Issue171RequestWork Work { get; set; }
+
+	protected override void OnInitialized() => Work.Record($"fragment:{Name}", "initialized");
+
+	protected override void OnParametersSet()
+	{
+		base.OnParametersSet();
+		Work.Record($"fragment:{Name}", "parameters-set");
+	}
+
+	protected override void BuildRenderTree([NotNull] RenderTreeBuilder builder)
+	{
+		Work.Record($"fragment:{Name}", "rendered");
+		base.BuildRenderTree(builder);
+	}
+}

@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Htmxor.Htmx4Browser;
 
-public sealed class Issue56BrowserTests
+public sealed partial class Issue56BrowserTests
 {
 	private const string EntryPath = "/issue-56";
 	private const string GetOnlyPath = "/issue-56/get-only";
@@ -2755,7 +2755,8 @@ public sealed class Issue56BrowserTests
 		Issue137LifecycleProbe? issue137Probe = null,
 		Issue139AsyncLifecycleProbe? issue139Probe = null,
 		Issue144ConcurrentLifecycleProbe? issue144Probe = null,
-		bool useHtmxor = true)
+		bool useHtmxor = true,
+		Issue171LifecycleProbe? issue171Probe = null)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
@@ -2794,6 +2795,8 @@ public sealed class Issue56BrowserTests
 		builder.Services.AddSingleton(issue139Probe ?? new Issue139AsyncLifecycleProbe());
 		builder.Services.AddSingleton(issue144Probe ?? new Issue144ConcurrentLifecycleProbe());
 		builder.Services.AddScoped<Issue120RequestScope>();
+		builder.Services.AddSingleton(issue171Probe ?? new Issue171LifecycleProbe());
+		builder.Services.AddScoped<Issue171RequestWork>();
 
 		var app = builder.Build();
 		Assert.True(app.Environment.IsProduction());

@@ -1,0 +1,31 @@
+@inject Issue171RequestWork Work
+
+@{
+	Work.Record($"descendant:{Branch}", "rendered");
+	Gate.Rendered.TrySetResult();
+	if (Completed is not null)
+	{
+		Gate.CompletedRender.TrySetResult();
+	}
+}
+<span data-issue-171-branch="@Branch" data-issue-171-completed="@Completed">@Completed</span>
+
+@code {
+	[Parameter, EditorRequired]
+	public required string Branch { get; set; }
+
+	private string? Completed { get; set; }
+	private Issue171DataGate Gate => Branch == "summary" ? Work.Run.Summary : Work.Run.Details;
+
+	protected override async Task OnInitializedAsync()
+	{
+		Work.Record($"descendant:{Branch}", "initialization-entered");
+		Work.Record($"descendant:{Branch}", "data-entered");
+		await Gate.Release.Task;
+		Completed = $"{Work.Marker}:{Work.RequestId}:{Branch}";
+		Work.Record($"descendant:{Branch}", "data-completed");
+		Work.Record($"descendant:{Branch}", "initialization-completed");
+	}
+
+	protected override void OnParametersSet() => Work.Record($"descendant:{Branch}", "parameters-set");
+}
