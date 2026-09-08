@@ -1,0 +1,23 @@
+@page "/selection"
+@namespace Htmxor.PackageConsumer
+@using Htmxor
+@using Htmxor.Components
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Http
+<main><p>before</p><HtmxFragment Name="first"><strong>first</strong><Issue168Child /></HtmxFragment><p>between</p><HtmxFragment Name="second"><em>second</em></HtmxFragment><HtmxFragment Name="element" Element="aside"><b>element</b></HtmxFragment><HtmxFragment Name="identified" Id="box"><b>identified</b></HtmxFragment><HtmxFragment Name="attributes" data-kind="extra"><b>attributes</b></HtmxFragment><HtmxFragment Name="First"><i>distinct-case</i></HtmxFragment><p>after</p></main>
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromQuery] public string? Selection { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        var response = HttpContext.GetHtmxContext().Response;
+        switch (Selection)
+        {
+            case null: break;
+            case "whole": response.SelectFragment("first").SelectWholeComponent(); break;
+            case "multi": response.SelectFragments("second", "first"); break;
+            default: response.SelectFragment(Selection); break;
+        }
+    }
+}

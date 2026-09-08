@@ -84,6 +84,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 
 	protected override Task UpdateDisplayAsync(in RenderBatch renderBatch)
 	{
+		RemoveDisposedFragments(in renderBatch);
 		UpdateNamedSubmitEvents(in renderBatch);
 		for (var index = 0; !waitForQuiescence && index < renderBatch.UpdatedComponents.Count; index++)
 		{

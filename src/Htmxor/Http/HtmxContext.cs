@@ -8,6 +8,8 @@ public sealed class HtmxContext
 
 	public HtmxResponse Response { get; }
 
+	internal bool UsesCompletedFragmentSelection { get; set; }
+
 	public HtmxContext(HttpContext context)
 	{
 		Request = new HtmxRequest(context);

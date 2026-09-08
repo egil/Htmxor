@@ -1,6 +1,10 @@
 @page "/issue-139/async-fragment"
+@using Htmxor.Http
+@inject HtmxContext Htmx
 
-<HtmxFragment Match="@(_ => false)">
+
+@if (Htmx.Request.RoutingMode is not RoutingMode.Direct)
+{
 	<section data-issue-139-stock-control>
 		<button id="issue-139-select"
 				type="button"
@@ -10,12 +14,25 @@
 		<div id="issue-139-selected" data-issue-139-placeholder="selected">Selected placeholder</div>
 		<div id="issue-139-excluded" data-issue-139-placeholder="excluded">Excluded placeholder</div>
 	</section>
-</HtmxFragment>
+}
 
-<HtmxFragment Id="issue-139-selected" RenderDuringStandardRequest="false">
-	<Issue139AsyncDescendant Branch="selected" />
-</HtmxFragment>
+@if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+{
+	<HtmxFragment Name="selected" Id="issue-139-selected">
+		<Issue139AsyncDescendant Branch="selected" />
+	</HtmxFragment>
 
-<HtmxFragment Id="issue-139-excluded" RenderDuringStandardRequest="false">
-	<Issue139AsyncDescendant Branch="excluded" />
-</HtmxFragment>
+	<HtmxFragment Name="excluded" Id="issue-139-excluded">
+		<Issue139AsyncDescendant Branch="excluded" />
+	</HtmxFragment>
+}
+
+@code {
+	protected override void OnParametersSet()
+	{
+		if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+		{
+			Htmx.Response.SelectFragment("selected");
+		}
+	}
+}

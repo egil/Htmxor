@@ -1,20 +1,24 @@
 @page "/issue-137/fragment-lifecycle"
+@using Htmxor.Http
 @inject Issue137LifecycleProbe Probe
 @inject IHttpContextAccessor HttpContextAccessor
+@inject HtmxContext Htmx
 
-<HtmxFragment Match="@(_ => false)">
+
+@if (Htmx.Request.RoutingMode is not RoutingMode.Direct)
+{
 	<button id="issue-137-select"
 			type="button"
 			hx-get="/issue-137/fragment-lifecycle"
 			hx-target="#issue-137-selected"
 			hx-swap="outerHTML">Select fragment</button>
-</HtmxFragment>
+}
 
 <Issue137LifecycleWrapper>
-	<HtmxFragment Id="issue-137-selected">
+	<HtmxFragment Name="selected" Id="issue-137-selected">
 		<Issue137ObservedDescendant Branch="selected" />
 	</HtmxFragment>
-	<HtmxFragment Id="issue-137-excluded">
+	<HtmxFragment Name="excluded" Id="issue-137-excluded">
 		<Issue137ObservedDescendant Branch="excluded" />
 	</HtmxFragment>
 </Issue137LifecycleWrapper>
@@ -22,7 +26,14 @@
 @code {
 	protected override void OnInitialized() => Record("initialized");
 
-	protected override void OnParametersSet() => Record("parameters-set");
+	protected override void OnParametersSet()
+	{
+		Record("parameters-set");
+		if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+		{
+			Htmx.Response.SelectFragment("selected");
+		}
+	}
 
 	private void Record(string phase) =>
 		Probe.Record(HttpContextAccessor.HttpContext!.TraceIdentifier, "page", phase);

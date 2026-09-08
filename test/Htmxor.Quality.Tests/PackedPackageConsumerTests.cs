@@ -241,6 +241,21 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 		return await BuildAsync();
 	}
 
+	public void UseIssue168SelectionScenario()
+	{
+		foreach (var path in Directory.EnumerateFiles(consumerDirectory).Where(path =>
+			path.EndsWith(".cs", StringComparison.Ordinal) || path.EndsWith(".razor", StringComparison.Ordinal)))
+		{
+			File.Delete(path);
+		}
+
+		var assets = Path.Combine(repositoryRoot, "test", "Htmxor.Quality.Tests", "PackageConsumer");
+		foreach (var path in Directory.EnumerateFiles(assets, "Issue168*.scenario"))
+		{
+			File.Copy(path, Path.Combine(consumerDirectory, Path.GetFileNameWithoutExtension(path)));
+		}
+	}
+
 	public void UseComputedPutHandler()
 	{
 		var componentPath = Path.Combine(
@@ -948,6 +963,12 @@ internal static class PackageConsumerEvidence
 
 	public static void AssertConsumer(string consumerDirectory, string packageVersion)
 	{
+		AssertConsumerPackageBoundary(consumerDirectory, packageVersion);
+		AssertSourceBoundary(consumerDirectory);
+	}
+
+	public static void AssertConsumerPackageBoundary(string consumerDirectory, string packageVersion)
+	{
 		var project = XDocument.Load(Path.Combine(consumerDirectory, "Htmxor.PackageConsumer.csproj"));
 		var targetFramework = Assert.Single(
 			project.Descendants(),
@@ -961,7 +982,6 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(packageVersion, htmxor.Attribute("Version")?.Value);
 		Assert.Empty(project.Descendants().Where(element => element.Name.LocalName == "ProjectReference"));
 		Assert.Empty(project.Descendants().Where(element => element.Name.LocalName == "InternalsVisibleTo"));
-		AssertSourceBoundary(consumerDirectory);
 		AssertRuntimeDependencies(consumerDirectory);
 	}
 
