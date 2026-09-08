@@ -1148,7 +1148,7 @@ public sealed class Issue56BrowserTests
 	}
 
 	[Fact]
-	public async Task Selected_fragment_skips_excluded_descendant_lifecycle_and_render_work()
+	public async Task Selected_fragment_excludes_sibling_markup_after_running_sibling_lifecycle()
 	{
 		var probe = new Issue137LifecycleProbe();
 		await using var app = CreateApplication(
@@ -1170,7 +1170,7 @@ public sealed class Issue56BrowserTests
 		Assert.Contains("data-issue-137-descendant=\"selected\"", normalBody, StringComparison.Ordinal);
 		Assert.Contains("data-issue-137-descendant=\"excluded\"", normalBody, StringComparison.Ordinal);
 		var normalObservations = probe.Snapshot();
-		AssertIssue137Lifecycle(normalObservations, expectedExcludedCount: 1);
+		AssertIssue137Lifecycle(normalObservations);
 		var normalRequestId = Assert.Single(
 			normalObservations.Select(observation => observation.RequestId).Distinct());
 		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
@@ -1194,7 +1194,7 @@ public sealed class Issue56BrowserTests
 		Assert.DoesNotContain("<button", directBody, StringComparison.OrdinalIgnoreCase);
 
 		var directObservations = probe.Snapshot().Skip(beforeDirectRequest.Count).ToArray();
-		AssertIssue137Lifecycle(directObservations, expectedExcludedCount: 0);
+		AssertIssue137Lifecycle(directObservations);
 		var directRequestId = Assert.Single(
 			directObservations.Select(observation => observation.RequestId).Distinct());
 		Assert.NotEqual(normalRequestId, directRequestId);
@@ -1382,9 +1382,6 @@ public sealed class Issue56BrowserTests
 			Assert.Equal("Selected placeholder", await page.Locator("#issue-139-selected").TextContentAsync());
 			Assert.Equal(0, await page.EvaluateAsync<int>("() => window.issue139ResponseEvents"));
 			Assert.Equal(0, await page.EvaluateAsync<int>("() => window.issue139SwapEvents"));
-			Assert.DoesNotContain(
-				probe.Snapshot(),
-				observation => string.Equals(observation.Component, "excluded", StringComparison.Ordinal));
 		}
 		finally
 		{
@@ -1431,14 +1428,14 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(1, await page.Locator("#issue-139-excluded").CountAsync());
 
 		var directObservations = probe.Snapshot();
-		Assert.DoesNotContain(
-			directObservations,
-			observation => string.Equals(observation.Component, "excluded", StringComparison.Ordinal));
+		var excludedCompletion = Assert.Single(directObservations, observation =>
+			observation is { Component: "excluded", Phase: "initialization-completed" });
 		var selectedCompletion = Assert.Single(directObservations, observation =>
 			observation is { Component: "selected", Phase: "initialization-completed" });
 		var browserObservation = Assert.Single(directObservations, observation =>
 			observation is { Component: "browser", Phase: "response-observed" });
 		Assert.True(selectedCompletion.Sequence < browserObservation.Sequence);
+		Assert.True(excludedCompletion.Sequence < browserObservation.Sequence);
 	}
 
 	[Fact]
@@ -2387,11 +2384,10 @@ public sealed class Issue56BrowserTests
 		string requestIdB,
 		Guid gateIdB)
 	{
-		Assert.DoesNotContain(
-			observations,
-			observation => string.Equals(observation.Component, "excluded", StringComparison.Ordinal));
 		AssertIssue144RequestObservations(observations, markerA, requestIdA, gateIdA);
 		AssertIssue144RequestObservations(observations, markerB, requestIdB, gateIdB);
+		AssertIssue144ExcludedObservations(observations, markerA, requestIdA, gateIdA);
+		AssertIssue144ExcludedObservations(observations, markerB, requestIdB, gateIdB);
 		Assert.Equal(
 			observations.Count,
 			observations.Count(observation =>
@@ -2408,19 +2404,21 @@ public sealed class Issue56BrowserTests
 		var requestObservations = observations
 			.Where(observation => string.Equals(observation.RequestMarker, requestMarker, StringComparison.Ordinal))
 			.ToArray();
-		Assert.Single(requestObservations, observation => observation.Phase == "parameters-entered");
-		Assert.Single(requestObservations, observation => observation.Phase == "initialization-entered");
+		var selectedObservations = requestObservations
+			.Where(observation => string.Equals(observation.Component, "selected", StringComparison.Ordinal))
+			.ToArray();
+		Assert.Single(selectedObservations, observation => observation.Phase == "parameters-entered");
+		Assert.Single(selectedObservations, observation => observation.Phase == "initialization-entered");
 		Assert.DoesNotContain(
-			requestObservations,
+			selectedObservations,
 			observation => observation.Phase is
 				"initialization-completed" or "parameters-completed");
-		Assert.All(requestObservations, observation =>
+		Assert.All(selectedObservations, observation =>
 		{
 			Assert.Equal(requestId, observation.RequestId);
 			Assert.Equal(gateId, observation.GateId);
-			Assert.Equal("selected", observation.Component);
 		});
-		return requestObservations;
+		return selectedObservations;
 	}
 
 	private static Issue144ConcurrentObservation[] AssertIssue144RequestObservations(
@@ -2432,19 +2430,44 @@ public sealed class Issue56BrowserTests
 		var requestObservations = observations
 			.Where(observation => string.Equals(observation.RequestMarker, requestMarker, StringComparison.Ordinal))
 			.ToArray();
-		Assert.NotEmpty(requestObservations);
-		Assert.All(requestObservations, observation =>
+		var selectedObservations = requestObservations
+			.Where(observation => string.Equals(observation.Component, "selected", StringComparison.Ordinal))
+			.ToArray();
+		Assert.NotEmpty(selectedObservations);
+		Assert.All(selectedObservations, observation =>
 		{
 			Assert.Equal(requestId, observation.RequestId);
 			Assert.Equal(gateId, observation.GateId);
-			Assert.Equal("selected", observation.Component);
 		});
-		Assert.Single(requestObservations, observation => observation.Phase == "parameters-entered");
-		Assert.Single(requestObservations, observation => observation.Phase == "initialization-entered");
-		Assert.Single(requestObservations, observation => observation.Phase == "initialization-completed");
-		Assert.Single(requestObservations, observation => observation.Phase == "parameters-completed");
-		Assert.Contains(requestObservations, observation => observation.Phase == "rendered");
-		return requestObservations;
+		Assert.Single(selectedObservations, observation => observation.Phase == "parameters-entered");
+		Assert.Single(selectedObservations, observation => observation.Phase == "initialization-entered");
+		Assert.Single(selectedObservations, observation => observation.Phase == "initialization-completed");
+		Assert.Single(selectedObservations, observation => observation.Phase == "parameters-completed");
+		Assert.Contains(selectedObservations, observation => observation.Phase == "rendered");
+		return selectedObservations;
+	}
+
+	private static void AssertIssue144ExcludedObservations(
+		IReadOnlyList<Issue144ConcurrentObservation> observations,
+		string requestMarker,
+		string requestId,
+		Guid gateId)
+	{
+		var excludedObservations = observations
+			.Where(observation =>
+				string.Equals(observation.RequestMarker, requestMarker, StringComparison.Ordinal) &&
+				string.Equals(observation.Component, "excluded", StringComparison.Ordinal))
+			.ToArray();
+		Assert.All(excludedObservations, observation =>
+		{
+			Assert.Equal(requestId, observation.RequestId);
+			Assert.Equal(gateId, observation.GateId);
+		});
+		Assert.Single(excludedObservations, observation => observation.Phase == "parameters-entered");
+		Assert.Single(excludedObservations, observation => observation.Phase == "initialization-entered");
+		Assert.Single(excludedObservations, observation => observation.Phase == "initialization-completed");
+		Assert.Single(excludedObservations, observation => observation.Phase == "parameters-completed");
+		Assert.Contains(excludedObservations, observation => observation.Phase == "rendered");
 	}
 
 	private static HttpRequestMessage CreateForgedRequest(
@@ -2835,9 +2858,7 @@ public sealed class Issue56BrowserTests
 			new Uri(response.Url).AbsolutePath == Issue135Path &&
 			string.Equals(response.Request.Method, "PUT", StringComparison.Ordinal));
 
-	private static void AssertIssue137Lifecycle(
-		IReadOnlyList<Issue137Observation> observations,
-		int expectedExcludedCount)
+	private static void AssertIssue137Lifecycle(IReadOnlyList<Issue137Observation> observations)
 	{
 		Assert.NotEmpty(observations);
 		Assert.Single(observations.Select(observation => observation.RequestId).Distinct());
@@ -2850,7 +2871,7 @@ public sealed class Issue56BrowserTests
 		Assert.Equal(1, observations.Count(observation =>
 			observation is { Component: "wrapper", Phase: "parameters-set" }));
 		AssertDescendantLifecycle(observations, "selected", expectedCount: 1);
-		AssertDescendantLifecycle(observations, "excluded", expectedExcludedCount);
+		AssertDescendantLifecycle(observations, "excluded", expectedCount: 1);
 	}
 
 	private static void AssertDescendantLifecycle(

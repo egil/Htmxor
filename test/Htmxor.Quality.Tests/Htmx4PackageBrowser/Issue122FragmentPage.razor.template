@@ -1,6 +1,10 @@
 @page "/issue-122/fragments"
+@using Htmxor.Http
+@inject HtmxContext Htmx
 
-<HtmxFragment Match="@(_ => false)">
+
+@if (Htmx.Request.RoutingMode is not RoutingMode.Direct)
+{
 	<section data-issue-122-page>
 		<h1>Issue 122 fragment delivery</h1>
 		<button id="issue-122-load"
@@ -14,19 +18,31 @@
 		<div id="issue-122-first" data-state="first-original">First original</div>
 		<div id="issue-122-second" data-state="second-original">Second original</div>
 	</section>
-</HtmxFragment>
+}
 
-<HtmxFragment Match="@(_ => true)"
-		RenderDuringStandardRequest="false"
+@if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+{
+	<HtmxFragment Name="first"
 		Element="hx-partial"
 		Id="issue-122-first"
 		hx-target="#issue-122-first"
 		hx-swap="innerHTML">
 	<span data-state="first-updated">First updated</span>
-</HtmxFragment>
+	</HtmxFragment>
 
-<HtmxFragment RenderDuringStandardRequest="false">
-	<hx-partial hx-target="#issue-122-second" hx-swap="outerHTML">
-		<div id="issue-122-second" data-state="second-updated">Second updated</div>
-	</hx-partial>
-</HtmxFragment>
+	<HtmxFragment Name="second">
+		<hx-partial hx-target="#issue-122-second" hx-swap="outerHTML">
+			<div id="issue-122-second" data-state="second-updated">Second updated</div>
+		</hx-partial>
+	</HtmxFragment>
+}
+
+@code {
+	protected override void OnParametersSet()
+	{
+		if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+		{
+			Htmx.Response.SelectFragments("first", "second");
+		}
+	}
+}

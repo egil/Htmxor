@@ -64,8 +64,20 @@ query value and added distinct-case selection, bringing that boundary to 12
 cases. Focused red is retained in `artifacts/issue168/red/issue168-red.trx`;
 packed red and green output are retained under `artifacts/issue168/package/`.
 
+The routine full profile also found four existing packaged browser fixtures
+whose `Match`, `RenderDuringStandardRequest`, implicit ID selection, and
+skipped-descendant expectations belonged to the legacy renderer. The #122,
+#137, #139, and #144 fixtures now select explicit names. Application-authored
+Razor conditions retain their normal-page controls and direct-request async
+gates. Their assertions retain exact selected response content, browser
+completion ordering, and request isolation, while recording completed excluded
+descendant work. The existing published-package Chromium suite passed all 39
+cases after this fixture-only migration. Its preceding four failures are retained
+in `artifacts/issue168/full-before-fixture-migration.log` and the matching TRX.
+
 Nested selection, complete invalid-name validation and diagnostics, overlapping
 sets, concurrent requests, cancellation, browser delivery, caching, and
-skipped-work optimization remain separately owned. These tests make no browser,
-non-Linux, other-framework, or release-candidate package claim. Full-scope
-mutation is not part of this ordinary issue check.
+skipped-work optimization retain their separately owned acceptance contracts.
+The migrated conformance fixtures do not establish those complete contracts.
+No non-Linux, other-framework, other-browser, or release-candidate package claim
+is made. Full-scope mutation is not part of this ordinary issue check.
