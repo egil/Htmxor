@@ -29,7 +29,7 @@ public class HtmxFragment : ConditionalComponentBase
 	public IDictionary<string, object>? AdditionalAttributes { get; set; }
 
 	/// <summary>
-	/// Gets or sets the child content that should be rendered if the <see cref="Match"/> predicate returns <see langword="true"/>.
+	/// Gets or sets the fragment's child content.
 	/// </summary>
 	[Parameter, EditorRequired]
 	public required RenderFragment ChildContent { get; set; }
@@ -51,13 +51,13 @@ public class HtmxFragment : ConditionalComponentBase
 	public string? Id { get; set; }
 
 	/// <summary>
-	/// Gets or sets the predicate to determine if the <see cref="ChildContent"/> should be rendered.
+	/// Gets or sets the legacy conditional renderer's child-content predicate.
 	/// </summary>
 	[Parameter]
 	public Func<HtmxRequest, bool>? Match { get; set; }
 
 	/// <summary>
-	/// Gets or sets whether or not to render during a standard request.
+	/// Gets or sets whether the legacy conditional renderer emits this fragment during a standard request.
 	/// </summary>
 	/// <remarks>Default is <see langword="true"/>.</remarks>
 	[Parameter]

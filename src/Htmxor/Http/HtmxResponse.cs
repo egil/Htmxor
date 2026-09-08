@@ -16,7 +16,7 @@ namespace Htmxor.Http;
 /// <remarks>
 /// Navigation operations validate their arguments before checking the htmx request marker,
 /// replace any earlier core htmx navigation operation, and do not change the HTTP status code.
-/// Swap and selection operations also validate before the marker guard, preserve the exact
+/// Swap and browser-selection header operations also validate before the marker guard, preserve the exact
 /// ASCII HTTP-header-safe application-authored value, and replace only an earlier value for
 /// the same response header.
 /// Trigger operations merge exact, case-sensitive event names into one compact JSON object;
