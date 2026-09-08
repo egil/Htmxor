@@ -72,7 +72,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Ordinary_AddHtmxor_host_retains_the_stock_endpoint_invoker()
+	public async Task AddHtmxor_replaces_the_global_endpoint_invoker()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var htmxor = await Issue187ParityHost.CreateAsync(useHtmxor: true);
@@ -82,7 +82,8 @@ public sealed class Issue187ParityTests
 		var stockInvoker = stockScope.ServiceProvider.GetRequiredService<IRazorComponentEndpointInvoker>();
 		var htmxorInvoker = htmxorScope.ServiceProvider.GetRequiredService<IRazorComponentEndpointInvoker>();
 
-		Assert.Equal(stockInvoker.GetType(), htmxorInvoker.GetType());
+		Assert.NotEqual(stockInvoker.GetType(), htmxorInvoker.GetType());
+		Assert.IsType<HtmxorEndpointCandidateInvoker>(htmxorInvoker);
 	}
 
 	[Fact]
@@ -105,7 +106,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Inactive_candidate_has_byte_exact_paired_response_parity()
+	public async Task Candidate_has_byte_exact_paired_response_parity()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await CreateInternalCandidateHostAsync();
@@ -127,7 +128,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Inactive_candidate_initializes_endpoint_selected_route_state()
+	public async Task Candidate_initializes_endpoint_selected_route_state()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await CreateInternalCandidateHostAsync();
@@ -149,7 +150,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Inactive_candidate_preserves_component_route_and_authorization_metadata()
+	public async Task Candidate_preserves_component_route_and_authorization_metadata()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await CreateInternalCandidateHostAsync();
@@ -158,7 +159,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Inactive_candidate_has_paired_unauthorized_rejection()
+	public async Task Candidate_has_paired_unauthorized_rejection()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await CreateInternalCandidateHostAsync();
@@ -166,11 +167,15 @@ public sealed class Issue187ParityTests
 		await AssertUnauthorizedParityAsync(stock, candidate);
 	}
 
-	[Fact]
-	public async Task Inactive_candidate_retains_the_stock_routing_state_provider()
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task Candidate_retains_the_stock_routing_state_provider(bool useInternalRegistration)
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
-		await using var candidate = await CreateInternalCandidateHostAsync();
+		await using var candidate = useInternalRegistration
+			? await CreateInternalCandidateHostAsync()
+			: await Issue187ParityHost.CreateAsync(useHtmxor: true);
 		await using var stockScope = stock.App.Services.CreateAsyncScope();
 		await using var candidateScope = candidate.App.Services.CreateAsyncScope();
 

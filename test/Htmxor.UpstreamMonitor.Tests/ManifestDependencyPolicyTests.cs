@@ -224,6 +224,7 @@ public sealed class ManifestDependencyPolicyTests
 			"src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs",
 			"src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
 			"src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.NamedSubmit.cs",
+			"src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.Streaming.cs",
 		};
 
 		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repositoryRoot, manifest)

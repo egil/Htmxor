@@ -40,6 +40,7 @@ public static class HtmxorApplicationBuilderExtensions
 		services.AddScoped<IHtmxorGeneratedComponentActionRequest>(serviceProvider =>
 			serviceProvider.GetRequiredService<HtmxorComponentActionRequest>());
 		services.TryAddEnumerable(ServiceDescriptor.Singleton<MatcherPolicy, HtmxorDirectEndpointMatcherPolicy>());
+		HtmxorEndpointCandidateServices.Add(services);
 
 		return razorComponentsBuilder;
 	}

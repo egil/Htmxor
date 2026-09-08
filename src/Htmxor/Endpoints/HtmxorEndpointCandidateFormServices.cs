@@ -203,7 +203,7 @@ internal sealed class HtmxorEndpointCandidateFormServices
 	}
 
 	private static InvalidOperationException IncompatibleFramework(string dependency)
-		=> new($"The inactive Htmxor form-service adapter is incompatible with installed '{EndpointAssembly.FullName}': expected {dependency}. Baseline: ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da. Review the upstream dependency and renew paired parity evidence before using this candidate.");
+		=> new($"The Htmxor form-service adapter is incompatible with installed '{EndpointAssembly.FullName}': expected {dependency}. Baseline: ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da. Review the upstream dependency and renew paired parity evidence before using this candidate.");
 
 	private static object? Invoke(MethodInfo method, object target, object?[]? arguments)
 		=> method.Invoke(target, BindingFlags.DoNotWrapExceptions, binder: null, arguments, culture: null);
