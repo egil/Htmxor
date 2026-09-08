@@ -67,12 +67,6 @@ internal partial class HtmxorEndpointCandidateRenderer
 			: Task.CompletedTask;
 	}
 
-	protected override Task UpdateDisplayAsync(in RenderBatch renderBatch)
-	{
-		UpdateNamedSubmitEvents(in renderBatch);
-		return base.UpdateDisplayAsync(in renderBatch);
-	}
-
 	private void UpdateNamedSubmitEvents(in RenderBatch renderBatch)
 	{
 		if (renderBatch.NamedEventChanges is { } changes)

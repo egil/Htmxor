@@ -44,6 +44,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.WebUtilities;
@@ -80,6 +81,10 @@ internal static class HtmxorEndpointCandidateServices
 		services.AddSingleton(formServices);
 		services.AddScoped<HtmxorEndpointCandidateRenderer>();
 		services.AddScoped<HtmxorEndpointCandidateInvoker>();
+		services.RemoveAll<IRoutingStateProvider>();
+		services.AddScoped<EndpointRoutingStateProvider>();
+		services.AddScoped<IRoutingStateProvider>(serviceProvider =>
+			serviceProvider.GetRequiredService<EndpointRoutingStateProvider>());
 		services.RemoveAll<IRazorComponentEndpointInvoker>();
 		services.AddScoped<IRazorComponentEndpointInvoker>(serviceProvider =>
 			serviceProvider.GetRequiredService<HtmxorEndpointCandidateInvoker>());
@@ -112,7 +117,10 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 	private async Task RenderComponentCore(HttpContext context)
 	{
 		context.Response.ContentType = DefaultContentType;
-		if (context.Features.Get<IStatusCodeReExecuteFeature>() is null)
+		var isErrorHandler = context.Features.Get<IExceptionHandlerFeature>() is not null;
+		var isReexecuted = context.Features.Get<IStatusCodeReExecuteFeature>() is not null;
+		renderer.InitializeStreamingRenderingFraming(context, isErrorHandler || isReexecuted);
+		if (!isReexecuted)
 		{
 			context.Response.Headers[EnhancedNavigationHeader] = "allow";
 		}
@@ -135,29 +143,51 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		HtmlRootComponent htmlContent;
 		try
 		{
-			htmlContent = await renderer.RenderEndpointComponentAsync(rootComponent, ParameterView.Empty);
+			htmlContent = renderer.BeginRenderEndpointComponent(rootComponent, ParameterView.Empty);
 		}
 		catch (NavigationException navigationException)
 		{
 			context.Response.Redirect(navigationException.Location);
 			return;
 		}
-		if (request.IsPost)
+		Task quiesceTask;
+		bool? hasPendingInitialRenderWork = null;
+		if (!request.IsPost || isReexecuted)
 		{
-			await renderer.DispatchSubmitEventAsync(request.HandlerName, out var isBadRequest);
+			quiesceTask = htmlContent.QuiescenceTask;
+			await renderer.WaitForNonStreamingPendingTasks();
+			hasPendingInitialRenderWork = !quiesceTask.IsCompleted && renderer.HasStreamingComponent;
+		}
+		else
+		{
+			await htmlContent.QuiescenceTask;
+			quiesceTask = renderer.DispatchSubmitEventAsync(request.HandlerName, out var isBadRequest);
 			if (isBadRequest)
 			{
 				return;
 			}
 		}
+		if (!renderer.HasStreamingComponent)
+		{
+			await quiesceTask;
+		}
 
-		context.RequestServices.GetRequiredService<HtmxorEndpointCandidateFormServices>()
-			.DisableTokenGenerationForCompletedResponse(context, endpoint);
 		if (renderer.NotFoundEventArgs is not null)
 		{
 			context.Response.StatusCode = StatusCodes.Status404NotFound;
 			context.Response.ContentType = null;
 			return;
+		}
+		if (hasPendingInitialRenderWork ?? !quiesceTask.IsCompleted)
+		{
+			context.Features.GetRequiredFeature<IHttpResponseBodyFeature>().DisableBuffering();
+			antiforgery.GetAndStoreTokens(context);
+			context.Response.Headers.ContentEncoding = "identity";
+		}
+		else
+		{
+			context.RequestServices.GetRequiredService<HtmxorEndpointCandidateFormServices>()
+				.DisableTokenGenerationForCompletedResponse(context, endpoint);
 		}
 
 		const int defaultBufferSize = 16 * 1024;
@@ -168,9 +198,19 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			ArrayPool<byte>.Shared,
 			ArrayPool<char>.Shared);
 		htmlContent.WriteHtmlTo(writer);
-		renderer.EmitInitializersIfNecessary(context, writer);
-		if (context.Features.Get<IExceptionHandlerFeature>() is null &&
-			context.Features.Get<IStatusCodeReExecuteFeature>() is null)
+		if (hasPendingInitialRenderWork ?? !quiesceTask.IsCompletedSuccessfully)
+		{
+			await renderer.SendStreamingUpdatesAsync(context, quiesceTask, writer);
+			if (renderer.NotFoundEventArgs is not null)
+			{
+				renderer.WriteNotFoundAfterResponseStarted(context, writer);
+			}
+		}
+		else
+		{
+			renderer.EmitInitializersIfNecessary(context, writer);
+		}
+		if (!isErrorHandler && !isReexecuted)
 		{
 			var modes = context.RequestServices.GetRequiredService<HtmxorEndpointCandidateFormServices>()
 				.GetConfiguredRenderModes(endpoint);
@@ -200,7 +240,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 	}
 
-	private HtmxorEndpointCandidateRenderer(
+	public HtmxorEndpointCandidateRenderer(
 		IServiceProvider services,
 		ILoggerFactory loggerFactory,
 		EndpointRoutingStateProvider routingState)
@@ -254,11 +294,16 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		SetRouteData(context, pageComponent);
 	}
 
+	internal HtmlRootComponent BeginRenderEndpointComponent(
+		Type rootComponent,
+		ParameterView parameters)
+		=> BeginRenderingComponent(rootComponent, parameters);
+
 	internal async Task<HtmlRootComponent> RenderEndpointComponentAsync(
 		Type rootComponent,
 		ParameterView parameters)
 	{
-		var result = BeginRenderingComponent(rootComponent, parameters);
+		var result = BeginRenderEndpointComponent(rootComponent, parameters);
 		await result.QuiescenceTask;
 		return result;
 	}
@@ -285,10 +330,10 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	}
 
 	protected override void WriteComponentHtml(int componentId, TextWriter output)
-		=> WriteComponentHtml(componentId, output, 0, null);
+		=> WriteComponentHtml(componentId, output, 0, null, allowStreamingMarkers: true);
 
 	protected override void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
-		=> WriteComponentHtml(componentFrame.ComponentId, output, componentFrame.Sequence, componentFrame.ComponentKey);
+		=> WriteComponentHtml(componentFrame.ComponentId, output, componentFrame.Sequence, componentFrame.ComponentKey, allowStreamingMarkers: true);
 
 	protected override IComponentRenderMode? GetComponentRenderMode(IComponent component)
 		=> component is HtmxorEndpointCandidateRenderModeBoundary boundary
@@ -370,16 +415,17 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		}
 	}
 
-	private void WriteComponentHtml(int componentId, TextWriter output, int sequence, object? key)
+	private void WriteComponentHtml(int componentId, TextWriter output, int sequence, object? key, bool allowStreamingMarkers = true)
 	{
+		visitedComponentIdsInCurrentStreamingBatch.Add(componentId);
 		if (GetComponentState(componentId).Component is not HtmxorEndpointCandidateRenderModeBoundary boundary)
 		{
-			base.WriteComponentHtml(componentId, output);
+			WriteStaticComponentHtml(componentId, output, allowStreamingMarkers);
 			return;
 		}
 		if (httpContext.Features.Get<IExceptionHandlerFeature>() is not null)
 		{
-			base.WriteComponentHtml(componentId, output);
+			WriteStaticComponentHtml(componentId, output, allowStreamingMarkers);
 			return;
 		}
 
@@ -402,12 +448,30 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		output.Write("<!--Blazor:");
 		output.Write(JsonSerializer.Serialize(marker, HtmxorEndpointCandidateJson.Options));
 		output.Write("-->");
-		base.WriteComponentHtml(componentId, output);
+		WriteStaticComponentHtml(componentId, output, allowStreamingMarkers);
 		if (marker.PrerenderId is not null)
 		{
 			output.Write("<!--Blazor:{\"prerenderId\":\"");
 			output.Write(marker.PrerenderId);
 			output.Write("\"}-->");
+		}
+	}
+
+	private void WriteStaticComponentHtml(int componentId, TextWriter output, bool allowStreamingMarkers)
+	{
+		var streaming = allowStreamingMarkers && IsStreamingComponent(componentId);
+		if (streaming)
+		{
+			output.Write("<!--bl:");
+			output.Write(componentId);
+			output.Write("-->");
+		}
+		base.WriteComponentHtml(componentId, output);
+		if (streaming)
+		{
+			output.Write("<!--/bl:");
+			output.Write(componentId);
+			output.Write("-->");
 		}
 	}
 

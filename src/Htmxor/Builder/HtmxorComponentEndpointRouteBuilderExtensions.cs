@@ -411,7 +411,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			return;
 		}
 
-		// Present the generated processor only to the stock invoker and Router; the selected endpoint keeps owning reachability.
+		// Present the generated processor only to the endpoint invoker and Router; the selected endpoint keeps owning reachability.
 		context.SetEndpoint(CreateDirectEndpoint(
 			selectedEndpoint,
 			PageRouteDirectRoot,
@@ -472,7 +472,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	{
 		var selectedEndpoint = context.GetEndpoint() as RouteEndpoint
 			?? throw new InvalidOperationException("A routed Razor component endpoint must be selected before invocation.");
-		// The stock invoker reads its root component from the selected endpoint.
+		// The endpoint invoker reads its root component from the selected endpoint.
 		// Change only this request's view of that endpoint.
 		context.SetEndpoint(CreateDirectEndpoint(
 			selectedEndpoint,

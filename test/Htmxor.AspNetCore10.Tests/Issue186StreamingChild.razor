@@ -1,0 +1,15 @@
+@attribute [StreamRendering]
+@inject Issue186MixedStreamingProbe Probe
+
+<p data-issue-186-streaming-child="@state">@state</p>
+
+@code {
+    private string state = "streaming-initial";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Probe.MarkStreamingInitialRenderReached();
+        await Probe.WaitForStreamingCompletionAsync();
+        state = "streaming-completed";
+    }
+}

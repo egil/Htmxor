@@ -56,6 +56,15 @@
       ]
     },
     {
+      "path": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.Streaming.cs"
+      ]
+    },
+    {
       "path": "src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs",
       "match": "file",
       "api": "none",

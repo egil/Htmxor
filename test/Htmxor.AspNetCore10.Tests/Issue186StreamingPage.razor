@@ -1,0 +1,24 @@
+@page "/issue-186/streaming"
+@attribute [StreamRendering]
+@inject Issue186StreamingProbe Probe
+@inject NavigationManager Navigation
+
+<main data-issue-186-streaming="@state">@state</main>
+
+@code {
+    private string state = "initial";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Probe.MarkInitialRenderReached();
+		await Probe.WaitForUpdateAsync();
+		state = "updated";
+		await InvokeAsync(StateHasChanged);
+		if (Probe.NavigateAfterUpdate)
+		{
+			Navigation.NavigateTo("/issue-186/redirected-after-response-started");
+		}
+        await Probe.WaitForCompletionAsync();
+        state = "completed";
+    }
+}

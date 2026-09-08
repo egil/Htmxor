@@ -1,11 +1,12 @@
-# Inactive candidate form-service adapter
+# Endpoint candidate form-service adapter
 
-When an ordinary stock static SSR component POST runs through the inactive
+When an ordinary stock static SSR component POST runs through the endpoint
 candidate, Htmxor honors effective antiforgery policy before binding, lifecycle,
 and callbacks, and preserves stock form, validation, lifecycle, and HTTP output.
 The paired TestServer suite is the compatibility boundary: it runs the installed
 Razor endpoint factory, middleware, mapper, converters, options, validation, and
-component callbacks. Public `AddHtmxor` still selects the stock invoker.
+component callbacks. Public `AddHtmxor` registers the candidate as the global
+endpoint invoker after the paired parity boundary passes.
 
 [Issue #189](https://github.com/egil/Htmxor/issues/189) and its
 [approved adapter decision](https://github.com/egil/Htmxor/issues/189#issuecomment-5554452348)
@@ -73,11 +74,10 @@ the installed endpoint provider (including subclasses); replacement public
    Initialization never eagerly generates tokens. Stock AntiforgeryToken/provider
    code retains token creation, caching, cookie and storage timing.
 
-Streaming, interactive execution, navigation/failure re-execution parity,
-persisted-state parity (#191), other verbs, fragment selection, generated actions,
-and public activation (#186) remain separate obligations. The configured-mode
-supplemental test observes late public provider availability only; it does not
-claim full configured-mode response or persistence parity.
+Interactive execution, other verbs, fragment selection, and generated actions
+remain separate obligations. The configured-mode supplemental test observes late
+public provider availability only; it does not claim full configured-mode
+response or persistence parity.
 
 ## Exact upstream provenance and monitoring inventory
 
@@ -85,15 +85,15 @@ Each source below is pinned by both release tag and immutable commit. Local owne
 are under `src/Htmxor/Endpoints/`. Source markers record the relationships for the
 #184 upstream monitor. Private invocation is `private-accesses`; copied endpoint
 coordination is `reimplements`, and the small error-detail policy is `mirrors`.
-The #184 canonical inventory must contain these exact relationships before #189
-acceptance; candidate inactivity does not waive monitoring.
+The #184 canonical inventory must contain these exact relationships before active
+invoker acceptance; public activation does not waive monitoring.
 
 | Upstream source (tag / immutable commit) | Local owner and relationship |
 | --- | --- |
 | [RazorComponentEndpointInvoker.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs) | `HtmxorEndpointCandidate.cs`, `HtmxorEndpointCandidateFormRequest.cs`, `HtmxorEndpointCandidateFormServices.cs`: reimplements |
 | [EndpointHtmlRenderer.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs) | `HtmxorEndpointCandidate.cs`, `HtmxorEndpointCandidateFormServices.cs`: reimplements |
 | [EndpointHtmlRenderer.EventDispatch.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs) | `HtmxorEndpointCandidateRenderer.NamedSubmit.cs`: reimplements (named-submit portions only) |
-| [EndpointHtmlRenderer.Streaming.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs) | `HtmxorEndpointCandidateFormRequest.cs`: mirrors (ShouldShowDetailedErrors policy only) |
+| [EndpointHtmlRenderer.Streaming.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs) | `HtmxorEndpointCandidateFormRequest.cs`: mirrors (ShouldShowDetailedErrors policy only); `HtmxorEndpointCandidateRenderer.Streaming.cs`: reimplements |
 | [HttpContextFormDataProvider.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs) | `HtmxorEndpointCandidateFormServices.cs`: private-accesses |
 | [EndpointAntiforgeryStateProvider.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs) | `HtmxorEndpointCandidateFormServices.cs`: private-accesses |
 | [ConfiguredRenderModesMetadata.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs) | `HtmxorEndpointCandidateFormServices.cs`: private-accesses |

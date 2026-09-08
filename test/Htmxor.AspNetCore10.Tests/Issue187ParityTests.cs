@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Htmxor;
+using Htmxor.DependencyInjection;
 using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -72,7 +73,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Ordinary_AddHtmxor_host_retains_the_stock_endpoint_invoker()
+	public async Task AddHtmxor_replaces_the_global_endpoint_invoker()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var htmxor = await Issue187ParityHost.CreateAsync(useHtmxor: true);
@@ -82,7 +83,8 @@ public sealed class Issue187ParityTests
 		var stockInvoker = stockScope.ServiceProvider.GetRequiredService<IRazorComponentEndpointInvoker>();
 		var htmxorInvoker = htmxorScope.ServiceProvider.GetRequiredService<IRazorComponentEndpointInvoker>();
 
-		Assert.Equal(stockInvoker.GetType(), htmxorInvoker.GetType());
+		Assert.NotEqual(stockInvoker.GetType(), htmxorInvoker.GetType());
+		Assert.IsType<HtmxorEndpointCandidateInvoker>(htmxorInvoker);
 	}
 
 	[Fact]
@@ -167,17 +169,14 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Inactive_candidate_retains_the_stock_routing_state_provider()
+	public async Task Candidate_provides_the_routing_state_required_by_Htmxor_endpoints()
 	{
-		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await CreateInternalCandidateHostAsync();
-		await using var stockScope = stock.App.Services.CreateAsyncScope();
 		await using var candidateScope = candidate.App.Services.CreateAsyncScope();
 
-		var stockProvider = stockScope.ServiceProvider.GetRequiredService<IRoutingStateProvider>();
 		var candidateProvider = candidateScope.ServiceProvider.GetRequiredService<IRoutingStateProvider>();
 
-		Assert.Equal(stockProvider.GetType(), candidateProvider.GetType());
+		Assert.IsType<EndpointRoutingStateProvider>(candidateProvider);
 	}
 
 	private static Task<Issue187ParityHost> CreateInternalCandidateHostAsync()

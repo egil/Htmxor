@@ -113,14 +113,11 @@ commit, and synchronization date. [The upstream monitor](https://github.com/egil
 must track these relationships; a detected change requires review and renewed
 parity evidence before adoption.
 
-[Issue #188](https://github.com/egil/Htmxor/issues/188) establishes only an inactive
-candidate selected by a paired test host for ordinary non-form, non-streaming
-requests. Public `AddHtmxor` registration continues using the stock invoker until
-[the complete parity work](https://github.com/egil/Htmxor/issues/186) proves the
-activation boundary. This exception does not claim that activation is complete.
-If a public API is intended mainly for framework infrastructure, Htmxor must
-isolate it behind a replaceable internal boundary and test it on every supported
-.NET version.
+[Issue #186](https://github.com/egil/Htmxor/issues/186) activates the monitored
+candidate through public `AddHtmxor` registration after paired hosted parity
+coverage proved the activation boundary. If a public API is intended mainly for
+framework infrastructure, Htmxor must isolate it behind a replaceable internal
+boundary and test it on every supported .NET version.
 
 ### Framework adapter
 
@@ -154,9 +151,8 @@ Record adapted-source licensing and exact provenance, and include private-access
 dependencies in #184 monitoring. Signature checks alone do not prove semantic
 compatibility: upstream changes require review and renewed paired evidence.
 
-Issue #189 covers ordinary non-streaming form requests in the test-selected
-candidate. Production `AddHtmxor` continues resolving the stock invoker until the
-complete #186 activation contract passes. If this adapter requires a broader
+Issue #189 covers ordinary non-streaming form requests through the monitored
+candidate now activated by `AddHtmxor`. If this adapter requires a broader
 private-access or form-runtime boundary, return for a user decision before
 expanding it.
 

@@ -1,0 +1,14 @@
+@inject Issue186MixedStreamingProbe Probe
+
+<p data-issue-186-non-streaming-child="@state">@state</p>
+
+@code {
+    private string state = "non-streaming-initial";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Probe.MarkNonStreamingInitialRenderReached();
+        await Probe.WaitForNonStreamingCompletionAsync();
+        state = "non-streaming-completed";
+    }
+}
