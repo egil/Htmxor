@@ -112,6 +112,7 @@
       "api": "none",
       "relationship": "reimplements",
       "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs"
       ]
     },
@@ -339,24 +340,6 @@
     },
     {
       "path": "src/Components/Endpoints/src/Builder/ResourceCollectionUrlMetadata.cs",
-      "match": "file",
-      "api": "none",
-      "relationship": "private-accesses",
-      "dependencies": [
-        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
-      ]
-    },
-    {
-      "path": "src/Components/Endpoints/src/Builder/ResourcePreloadCollection.cs",
-      "match": "file",
-      "api": "none",
-      "relationship": "private-accesses",
-      "dependencies": [
-        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
-      ]
-    },
-    {
-      "path": "src/Components/Endpoints/src/Rendering/ResourcePreloadService.cs",
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",

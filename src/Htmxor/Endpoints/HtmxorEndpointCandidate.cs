@@ -18,7 +18,7 @@
 // Form coordination added for #189; exact dependency inventory: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
-// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
 // Issue #184 relationships: reimplements RazorComponentEndpointInvoker, subclasses StaticHtmlRenderer,
@@ -302,18 +302,12 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 		var initializers = services.GetRequiredService<HtmxorEndpointCandidateFormServices>().GetJavaScriptInitializers(
 			services.GetRequiredService<IOptions<RazorComponentsServiceOptions>>().Value);
-		if (initializers is not null && !IsProgressivelyEnhancedNavigation(context.Request))
+		if (initializers is not null && !HtmxorEndpointCandidateFormServices.IsProgressivelyEnhancedNavigation(context.Request))
 		{
 			writer.Write("<!--Blazor-Web-Initializers:");
 			writer.Write(Convert.ToBase64String(Encoding.UTF8.GetBytes(initializers)));
 			writer.Write("-->");
 		}
-	}
-
-	private static bool IsProgressivelyEnhancedNavigation(HttpRequest request)
-	{
-		var accept = request.Headers.Accept;
-		return accept.Count == 1 && string.Equals(accept[0]!, "text/html; blazor-enhanced-nav=on", StringComparison.Ordinal);
 	}
 
 	internal async Task WritePersistedStateAsync(TextWriter writer, IComponentRenderMode[] configuredModes)

@@ -11,8 +11,6 @@
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceOptions.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/Builder/ResourceCollectionUrlMetadata.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Shared/src/ResourceCollectionProvider.cs | private-accesses
-// Htmxor upstream dependency: src/Components/Endpoints/src/Builder/ResourcePreloadCollection.cs | private-accesses
-// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/ResourcePreloadService.cs | private-accesses
 
 using System.Collections;
 using System.Reflection;
@@ -42,10 +40,6 @@ internal sealed class HtmxorEndpointCandidateFormServices
 	private readonly PropertyInfo resourceCollectionMetadataUrl;
 	private readonly PropertyInfo resourceCollectionUrl;
 	private readonly MethodInfo setResourceCollection;
-	private readonly Type resourcePreloadCollectionType;
-	private readonly Type resourcePreloadServiceType;
-	private readonly MethodInfo tryGetPreloadAssets;
-	private readonly MethodInfo preload;
 
 	private HtmxorEndpointCandidateFormServices()
 	{
@@ -67,12 +61,6 @@ internal sealed class HtmxorEndpointCandidateFormServices
 		resourceCollectionProviderType = EndpointAssembly.GetType("Microsoft.AspNetCore.Components.ResourceCollectionProvider", true)!;
 		resourceCollectionUrl = RequireWritableProperty(resourceCollectionProviderType, "ResourceCollectionUrl", BindingFlags.Public, typeof(string));
 		setResourceCollection = RequireMethod(resourceCollectionProviderType, "SetResourceCollection", BindingFlags.NonPublic, typeof(void), typeof(ResourceAssetCollection));
-		var preloadAssetType = RequireType("PreloadAsset");
-		var preloadAssetsType = typeof(List<>).MakeGenericType(preloadAssetType);
-		resourcePreloadCollectionType = RequireType("ResourcePreloadCollection");
-		resourcePreloadServiceType = RequireType("ResourcePreloadService");
-		tryGetPreloadAssets = RequireMethod(resourcePreloadCollectionType, "TryGetAssets", BindingFlags.Public, typeof(bool), typeof(string), preloadAssetsType.MakeByRefType());
-		preload = RequireMethod(resourcePreloadServiceType, "Preload", BindingFlags.Public, typeof(void), preloadAssetsType);
 		if (javaScriptInitializers.PropertyType != typeof(string) || javaScriptInitializers.GetMethod is not { IsAssembly: true } ||
 			renderModesMetadataType.GetProperty("ConfiguredRenderModes", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)?.GetMethod != getConfiguredRenderModes ||
 			!setRequestContext.IsAssembly || !disableTokenGeneration.IsAssembly ||
@@ -157,26 +145,10 @@ internal sealed class HtmxorEndpointCandidateFormServices
 		}
 	}
 
-	internal void PreloadWebAssemblyAssets(HttpContext context)
+	internal static bool IsProgressivelyEnhancedNavigation(HttpRequest request)
 	{
-		var accept = context.Request.Headers.Accept;
-		if (accept.Count == 1 && string.Equals(accept[0]!, "text/html; blazor-enhanced-nav=on", StringComparison.Ordinal))
-		{
-			return;
-		}
-
-		var metadata = context.GetEndpoint()?.Metadata.LastOrDefault(resourcePreloadCollectionType.IsInstanceOfType);
-		if (metadata is null)
-		{
-			return;
-		}
-
-		object?[] arguments = ["webassembly", null];
-		if ((bool)Invoke(tryGetPreloadAssets, metadata, arguments)! &&
-			context.RequestServices.GetService(resourcePreloadServiceType) is { } service)
-		{
-			Invoke(preload, service, [arguments[1]]);
-		}
+		var accept = request.Headers.Accept;
+		return accept.Count == 1 && string.Equals(accept[0]!, "text/html; blazor-enhanced-nav=on", StringComparison.Ordinal);
 	}
 
 	private static Type RequireType(string name)

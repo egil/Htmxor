@@ -41,10 +41,6 @@ internal sealed class HtmxorEndpointCandidateRenderModeBoundary(
 	public Task SetParametersAsync(ParameterView parameters)
 	{
 		this.parameters = parameters.ToDictionary();
-		if (RenderMode is Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode)
-		{
-			formServices.PreloadWebAssemblyAssets(context);
-		}
 		if (prerender)
 		{
 			renderHandle.Render(Render);
