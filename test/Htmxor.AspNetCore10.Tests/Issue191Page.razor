@@ -1,0 +1,31 @@
+@page "/issue-191/state"
+@using Microsoft.AspNetCore.Components.Web
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+@implements IDisposable
+@inject PersistentComponentState State
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthenticationState
+
+<main data-issue-191-state="rendered" data-issue-191-user="@userName" data-issue-191-asset="@Assets["issue-191.js"]">ordinary output</main>
+
+@code {
+    private PersistingComponentStateSubscription? subscription;
+    private string userName = "anonymous";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthenticationState.GetAuthenticationStateAsync();
+        userName = state.User.Identity?.Name ?? "anonymous";
+    }
+
+    protected override void OnInitialized()
+    {
+        subscription = State.RegisterOnPersisting(() =>
+        {
+            State.PersistAsJson("issue191-probe", "issue191-persisted");
+            return Task.CompletedTask;
+        });
+    }
+
+    public void Dispose() => subscription?.Dispose();
+}

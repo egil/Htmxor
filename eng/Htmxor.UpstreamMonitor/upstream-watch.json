@@ -98,6 +98,79 @@
       ]
     },
     {
+      "path": "src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/ComponentMarker.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/ServerComponentSerializer.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/DependencyInjection/WebAssemblyComponentSerializer.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/PrerenderComponentApplicationStore.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/ProtectedPrerenderComponentApplicationStore.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs"
+      ]
+    },
+    {
       "path": "src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer",
       "match": "prefix",
       "api": "none",
@@ -151,7 +224,17 @@
       "relationship": "implements",
       "dependencies": [
         "src/Htmxor/Components/HtmxHeadOutlet.cs",
-        "src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs"
+        "src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/IPersistentComponentStateStore.cs",
+      "match": "file",
+      "api": "interface",
+      "relationship": "implements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs"
       ]
     },
     {
@@ -244,6 +327,33 @@
       "dependencies": [
         "src/Htmxor/Builder/ComponentEndpointMatcherPolicy.cs",
         "src/Htmxor/Builder/HtmxorDirectEndpointMatcherPolicy.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceOptions.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Builder/ResourceCollectionUrlMetadata.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Shared/src/ResourceCollectionProvider.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
       ]
     }
   ]

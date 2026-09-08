@@ -23,6 +23,7 @@ internal static partial class LocalFrameworkDependencyDiscovery
 		["Microsoft.AspNetCore.Components.Forms.AntiforgeryStateProvider"] = "src/Components/Web/src/Forms/AntiforgeryStateProvider.cs",
 		["Microsoft.AspNetCore.Components.Forms.InputBase`1"] = "src/Components/Web/src/Forms/InputBase.cs",
 		["Microsoft.AspNetCore.Components.IComponent"] = "src/Components/Components/src/IComponent.cs",
+		["Microsoft.AspNetCore.Components.IPersistentComponentStateStore"] = "src/Components/Components/src/IPersistentComponentStateStore.cs",
 		["Microsoft.AspNetCore.Components.LayoutComponentBase"] = "src/Components/Components/src/LayoutComponentBase.cs",
 		["Microsoft.AspNetCore.Components.NavigationException"] = "src/Components/Components/src/NavigationException.cs",
 		["Microsoft.AspNetCore.Components.NavigationManager"] = "src/Components/Components/src/NavigationManager.cs",

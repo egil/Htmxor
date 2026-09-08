@@ -11,9 +11,15 @@
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
 // Form coordination added for #189; exact dependency inventory: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
 // Issue #184 relationships: reimplements RazorComponentEndpointInvoker, subclasses StaticHtmlRenderer,
 // implements IRazorComponentEndpointInvoker, consumes ComponentState through supported seams, and reimplements
@@ -21,6 +27,8 @@
 
 using System.Buffers;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Htmxor.DependencyInjection;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
@@ -28,18 +36,29 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Components.HtmlRendering.Infrastructure;
 using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Components.Infrastructure;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
+using Microsoft.AspNetCore.Components.RenderTree;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using static Microsoft.AspNetCore.Components.Web.RenderMode;
 using RouteData = Microsoft.AspNetCore.Components.RouteData;
 
 namespace Htmxor.Endpoints;
+
+internal sealed record HtmxorEndpointCandidateWebAssemblySettings(
+	string EnvironmentName,
+	Dictionary<string, string> EnvironmentVariables);
 
 internal static class HtmxorEndpointCandidateServices
 {
@@ -112,7 +131,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			return;
 		}
 
-		renderer.InitializeStandardComponentServices(context, pageComponent, request.HandlerName, request.Form);
+		await renderer.InitializeStandardComponentServicesAsync(context, pageComponent, request.HandlerName, request.Form);
 		HtmlRootComponent htmlContent;
 		try
 		{
@@ -149,6 +168,17 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			ArrayPool<byte>.Shared,
 			ArrayPool<char>.Shared);
 		htmlContent.WriteHtmlTo(writer);
+		renderer.EmitInitializersIfNecessary(context, writer);
+		if (context.Features.Get<IExceptionHandlerFeature>() is null &&
+			context.Features.Get<IStatusCodeReExecuteFeature>() is null)
+		{
+			var modes = context.RequestServices.GetRequiredService<HtmxorEndpointCandidateFormServices>()
+				.GetConfiguredRenderModes(endpoint);
+			if (modes.Length > 0)
+			{
+				await renderer.WritePersistedStateAsync(writer, modes);
+			}
+		}
 		await writer.FlushAsync();
 	}
 }
@@ -159,6 +189,11 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private readonly EndpointRoutingStateProvider routingState;
 	private HttpContext httpContext = default!;
 	private NotFoundEventArgs? notFoundEventArgs;
+	private int invocationSequence;
+	private Guid invocationId;
+	private bool webAssemblySettingsEmitted;
+	private ResourceAssetCollection? resourceCollection;
+	private readonly Dictionary<IComponent, IComponentRenderMode> componentRenderModes = new(ReferenceEqualityComparer.Instance);
 
 	public HtmxorEndpointCandidateRenderer(IServiceProvider services, ILoggerFactory loggerFactory)
 		: this(services, loggerFactory, new EndpointRoutingStateProvider())
@@ -179,11 +214,16 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 	internal NotFoundEventArgs? NotFoundEventArgs => notFoundEventArgs;
 
-	internal void InitializeStandardComponentServices(
+	internal async Task InitializeStandardComponentServicesAsync(
 		HttpContext context, Type pageComponent, string? handler = null, IFormCollection? form = null)
 	{
 		httpContext = context;
 		notFoundEventArgs = null;
+		invocationSequence = -1;
+		invocationId = Guid.NewGuid();
+		webAssemblySettingsEmitted = false;
+		componentRenderModes.Clear();
+		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().InitializeResourceCollection(context);
 		var navigationManager = services.GetRequiredService<NavigationManager>();
 		if (navigationManager is IHostEnvironmentNavigationManager hostNavigationManager)
 		{
@@ -208,6 +248,9 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		}
 
 		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().Initialize(context, handler, form);
+		var stateManager = services.GetRequiredService<ComponentStatePersistenceManager>();
+		stateManager.SetPlatformRenderMode(RenderMode.InteractiveAuto);
+		await stateManager.RestoreStateAsync(new HtmxorEndpointCandidateStateStore());
 		SetRouteData(context, pageComponent);
 	}
 
@@ -218,6 +261,179 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		var result = BeginRenderingComponent(rootComponent, parameters);
 		await result.QuiescenceTask;
 		return result;
+	}
+
+	protected override IComponent ResolveComponentForRenderMode(
+		Type componentType,
+		int? parentComponentId,
+		IComponentActivator componentActivator,
+		IComponentRenderMode renderMode)
+	{
+		if (parentComponentId.HasValue &&
+			GetComponentState(parentComponentId.Value).Component is HtmxorEndpointCandidateRenderModeBoundary boundary)
+		{
+			var component = componentActivator.CreateInstance(componentType);
+			componentRenderModes.Add(component, boundary.RenderMode);
+			return component;
+		}
+
+		return new HtmxorEndpointCandidateRenderModeBoundary(
+			httpContext,
+			services.GetRequiredService<HtmxorEndpointCandidateFormServices>(),
+			componentType,
+			renderMode);
+	}
+
+	protected override void WriteComponentHtml(int componentId, TextWriter output)
+		=> WriteComponentHtml(componentId, output, 0, null);
+
+	protected override void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
+		=> WriteComponentHtml(componentFrame.ComponentId, output, componentFrame.Sequence, componentFrame.ComponentKey);
+
+	protected override IComponentRenderMode? GetComponentRenderMode(IComponent component)
+		=> component is HtmxorEndpointCandidateRenderModeBoundary boundary
+			? boundary.RenderMode
+			: componentRenderModes.GetValueOrDefault(component);
+
+	protected override ResourceAssetCollection Assets
+		=> resourceCollection ??= httpContext.GetEndpoint()?.Metadata.GetMetadata<ResourceAssetCollection>() ?? base.Assets;
+
+	internal void EmitInitializersIfNecessary(HttpContext context, TextWriter writer)
+	{
+		var initializers = services.GetRequiredService<HtmxorEndpointCandidateFormServices>().GetJavaScriptInitializers(
+			services.GetRequiredService<IOptions<RazorComponentsServiceOptions>>().Value);
+		if (initializers is not null && !HtmxorEndpointCandidateFormServices.IsProgressivelyEnhancedNavigation(context.Request))
+		{
+			writer.Write("<!--Blazor-Web-Initializers:");
+			writer.Write(Convert.ToBase64String(Encoding.UTF8.GetBytes(initializers)));
+			writer.Write("-->");
+		}
+	}
+
+	internal async Task WritePersistedStateAsync(TextWriter writer, IComponentRenderMode[] configuredModes)
+	{
+		var manager = services.GetRequiredService<ComponentStatePersistenceManager>();
+		if (configuredModes.Length == 1)
+		{
+			switch (configuredModes[0])
+			{
+				case Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode:
+					var server = new HtmxorEndpointCandidateProtectedStateStore(services.GetRequiredService<IDataProtectionProvider>());
+					await manager.PersistStateAsync(server, this);
+					await WritePersistedStateMarkersAsync(writer, server, null);
+					return;
+				case Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode:
+					var webAssembly = new HtmxorEndpointCandidateStateStore();
+					await manager.PersistStateAsync(webAssembly, this);
+					await WritePersistedStateMarkersAsync(writer, null, webAssembly);
+					return;
+				default:
+					throw new InvalidOperationException("Invalid configured render mode.");
+			}
+		}
+
+		var composite = new HtmxorEndpointCandidateCompositeStateStore();
+		await manager.PersistStateAsync(composite, this);
+		foreach (var entry in composite.Auto.Saved)
+		{
+			composite.Server.Saved.Add(entry.Key, entry.Value);
+			composite.WebAssembly.Saved.Add(entry.Key, entry.Value);
+		}
+
+		var protectedStore = new HtmxorEndpointCandidateProtectedStateStore(services.GetRequiredService<IDataProtectionProvider>());
+		var plainStore = new HtmxorEndpointCandidateStateStore();
+		await Task.WhenAll(
+			composite.Server.Saved.Count == 0 ? Task.CompletedTask : protectedStore.PersistStateAsync(composite.Server.Saved),
+			composite.WebAssembly.Saved.Count == 0 ? Task.CompletedTask : plainStore.PersistStateAsync(composite.WebAssembly.Saved));
+		await WritePersistedStateMarkersAsync(
+			writer,
+			composite.Server.Saved.Count == 0 ? null : protectedStore,
+			composite.WebAssembly.Saved.Count == 0 ? null : plainStore);
+	}
+
+	private static async Task WritePersistedStateMarkersAsync(
+		TextWriter writer,
+		HtmxorEndpointCandidateProtectedStateStore? server,
+		HtmxorEndpointCandidateStateStore? webAssembly)
+	{
+		if (server?.PersistedState is not null)
+		{
+			await writer.WriteAsync("<!--Blazor-Server-Component-State:");
+			await writer.WriteAsync(server.PersistedState);
+			await writer.WriteAsync("-->");
+		}
+		if (webAssembly?.PersistedState is not null)
+		{
+			await writer.WriteAsync("<!--Blazor-WebAssembly-Component-State:");
+			await writer.WriteAsync(webAssembly.PersistedState);
+			await writer.WriteAsync("-->");
+		}
+	}
+
+	private void WriteComponentHtml(int componentId, TextWriter output, int sequence, object? key)
+	{
+		if (GetComponentState(componentId).Component is not HtmxorEndpointCandidateRenderModeBoundary boundary)
+		{
+			base.WriteComponentHtml(componentId, output);
+			return;
+		}
+		if (httpContext.Features.Get<IExceptionHandlerFeature>() is not null)
+		{
+			base.WriteComponentHtml(componentId, output);
+			return;
+		}
+
+		var marker = boundary.CreateMarker(httpContext, sequence, key, ++invocationSequence, invocationId);
+		if (marker.Type is "server" or "auto")
+		{
+			httpContext.Response.Headers.CacheControl = "no-cache, no-store, max-age=0";
+		}
+		if (marker.Type is "webassembly" or "auto" && !webAssemblySettingsEmitted)
+		{
+			webAssemblySettingsEmitted = true;
+			var environment = services.GetRequiredService<IWebHostEnvironment>();
+			var settings = new HtmxorEndpointCandidateWebAssemblySettings(
+				environment.EnvironmentName,
+				GetWebAssemblyEnvironmentVariables());
+			output.Write("<!--Blazor-WebAssembly:");
+			output.Write(JsonSerializer.Serialize(settings, HtmxorEndpointCandidateJson.Options));
+			output.Write("-->");
+		}
+		output.Write("<!--Blazor:");
+		output.Write(JsonSerializer.Serialize(marker, HtmxorEndpointCandidateJson.Options));
+		output.Write("-->");
+		base.WriteComponentHtml(componentId, output);
+		if (marker.PrerenderId is not null)
+		{
+			output.Write("<!--Blazor:{\"prerenderId\":\"");
+			output.Write(marker.PrerenderId);
+			output.Write("\"}-->");
+		}
+	}
+
+	private static Dictionary<string, string> GetWebAssemblyEnvironmentVariables()
+	{
+		var result = new Dictionary<string, string>();
+		AddEnvironmentVariable("DOTNET_MODIFIABLE_ASSEMBLIES", result);
+		AddEnvironmentVariable("__ASPNETCORE_BROWSER_TOOLS", result);
+		return result;
+	}
+
+	private static void AddEnvironmentVariable(string name, Dictionary<string, string> target)
+	{
+		if (Environment.GetEnvironmentVariable(name) is { Length: > 0 } value)
+		{
+			target.Add(name, value);
+		}
+	}
+
+	private static class HtmxorEndpointCandidateJson
+	{
+		internal static JsonSerializerOptions Options { get; } = new()
+		{
+			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+			DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+		};
 	}
 
 	internal void WriteCompletedComponentHtml(int componentId, TextWriter output)

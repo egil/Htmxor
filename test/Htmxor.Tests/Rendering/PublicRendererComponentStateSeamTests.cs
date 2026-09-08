@@ -73,8 +73,8 @@ public sealed class PublicRendererComponentStateSeamTests
 
 		rootMarkup.Should().Be("<main data-root=\"\"><div><section data-selected=\"\">selected:ready</section></div><aside data-root-sibling=\"\">sibling</aside></main>");
 		selectedMarkup.Should().Be("<section data-selected=\"\">selected:ready</section>");
-		renderer.SelectedComponentWriterOwner.Should().Be(typeof(StaticHtmlRenderer),
-			"selected output must bind to the inherited framework writer, not a Htmxor copy or shadow");
+		renderer.SelectedComponentWriterOwner.Should().Be(typeof(HtmxorEndpointCandidateRenderer),
+			"interactive boundaries need the candidate's monitored adapter before it delegates ordinary component HTML to StaticHtmlRenderer");
 	}
 
 	private static async Task<string> WriteHtmlAsync(StaticHtmlRenderer renderer, HtmlRootComponent content)

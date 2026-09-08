@@ -2,12 +2,15 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
-// synchronized 2026-09-05. Exact sources and license: docs/engineering/candidate-form-adapter.md.
+// synchronized 2026-09-06. Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceOptions.cs | private-accesses
+// Htmxor upstream dependency: src/Components/Endpoints/src/Builder/ResourceCollectionUrlMetadata.cs | private-accesses
+// Htmxor upstream dependency: src/Components/Shared/src/ResourceCollectionProvider.cs | private-accesses
 
 using System.Collections;
 using System.Reflection;
@@ -31,6 +34,12 @@ internal sealed class HtmxorEndpointCandidateFormServices
 	private readonly MethodInfo setRequestContext;
 	private readonly MethodInfo disableTokenGeneration;
 	private readonly MethodInfo getConfiguredRenderModes;
+	private readonly PropertyInfo javaScriptInitializers;
+	private readonly Type resourceCollectionUrlMetadataType;
+	private readonly Type resourceCollectionProviderType;
+	private readonly PropertyInfo resourceCollectionMetadataUrl;
+	private readonly PropertyInfo resourceCollectionUrl;
+	private readonly MethodInfo setResourceCollection;
 
 	private HtmxorEndpointCandidateFormServices()
 	{
@@ -45,11 +54,19 @@ internal sealed class HtmxorEndpointCandidateFormServices
 			typeof(void));
 		getConfiguredRenderModes = RequireMethod(renderModesMetadataType, "get_ConfiguredRenderModes", BindingFlags.Public,
 			typeof(IComponentRenderMode[]));
-		if (renderModesMetadataType.GetProperty("ConfiguredRenderModes", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)?.GetMethod != getConfiguredRenderModes ||
+		javaScriptInitializers = typeof(RazorComponentsServiceOptions).GetProperty("JavaScriptInitializers", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+			?? throw IncompatibleFramework("RazorComponentsServiceOptions.JavaScriptInitializers");
+		resourceCollectionUrlMetadataType = RequireType("ResourceCollectionUrlMetadata");
+		resourceCollectionMetadataUrl = RequireProperty(resourceCollectionUrlMetadataType, "Url", BindingFlags.Public, typeof(string));
+		resourceCollectionProviderType = EndpointAssembly.GetType("Microsoft.AspNetCore.Components.ResourceCollectionProvider", true)!;
+		resourceCollectionUrl = RequireWritableProperty(resourceCollectionProviderType, "ResourceCollectionUrl", BindingFlags.Public, typeof(string));
+		setResourceCollection = RequireMethod(resourceCollectionProviderType, "SetResourceCollection", BindingFlags.NonPublic, typeof(void), typeof(ResourceAssetCollection));
+		if (javaScriptInitializers.PropertyType != typeof(string) || javaScriptInitializers.GetMethod is not { IsAssembly: true } ||
+			renderModesMetadataType.GetProperty("ConfiguredRenderModes", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)?.GetMethod != getConfiguredRenderModes ||
 			!setRequestContext.IsAssembly || !disableTokenGeneration.IsAssembly ||
 			!typeof(AntiforgeryStateProvider).IsAssignableFrom(antiforgeryProviderType))
 		{
-			throw IncompatibleFramework("ConfiguredRenderModes property getter, internal antiforgery methods, or AntiforgeryStateProvider base type");
+			throw IncompatibleFramework("initializer/configured-mode property getters, internal antiforgery methods, or AntiforgeryStateProvider base type");
 		}
 	}
 
@@ -85,6 +102,55 @@ internal sealed class HtmxorEndpointCandidateFormServices
 		}
 	}
 
+	internal bool HasConfiguredRenderModes(Endpoint endpoint)
+		=> GetConfiguredRenderModes(endpoint).Length > 0;
+
+	internal IComponentRenderMode[] GetConfiguredRenderModes(Endpoint endpoint)
+	{
+		var metadata = endpoint.Metadata.LastOrDefault(renderModesMetadataType.IsInstanceOfType);
+		return metadata is null
+			? []
+			: (IComponentRenderMode[])Invoke(getConfiguredRenderModes, metadata, null)!;
+	}
+
+	internal void AssertRenderModeIsConfigured(HttpContext context, Type componentType, IComponentRenderMode renderMode)
+	{
+		var metadata = context.GetEndpoint()?.Metadata.LastOrDefault(renderModesMetadataType.IsInstanceOfType);
+		if (metadata is null)
+		{
+			return;
+		}
+
+		var configured = (IComponentRenderMode[])Invoke(getConfiguredRenderModes, metadata, null)!;
+		if (renderMode is Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode or Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode)
+		{
+			AssertConfigured<Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode>(componentType, renderMode, configured, "AddInteractiveServerRenderMode");
+		}
+		if (renderMode is Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode or Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode)
+		{
+			AssertConfigured<Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode>(componentType, renderMode, configured, "AddInteractiveWebAssemblyRenderMode");
+		}
+	}
+
+	internal string? GetJavaScriptInitializers(RazorComponentsServiceOptions options) => (string?)javaScriptInitializers.GetValue(options);
+
+	internal void InitializeResourceCollection(HttpContext context)
+	{
+		var collection = context.GetEndpoint()?.Metadata.GetMetadata<ResourceAssetCollection>();
+		var metadata = collection is null ? null : context.GetEndpoint()?.Metadata.LastOrDefault(resourceCollectionUrlMetadataType.IsInstanceOfType);
+		if (metadata is not null && context.RequestServices.GetService(resourceCollectionProviderType) is { } provider)
+		{
+			resourceCollectionUrl.SetValue(provider, resourceCollectionMetadataUrl.GetValue(metadata));
+			Invoke(setResourceCollection, provider, [collection]);
+		}
+	}
+
+	internal static bool IsProgressivelyEnhancedNavigation(HttpRequest request)
+	{
+		var accept = request.Headers.Accept;
+		return accept.Count == 1 && string.Equals(accept[0]!, "text/html; blazor-enhanced-nav=on", StringComparison.Ordinal);
+	}
+
 	private static Type RequireType(string name)
 		=> EndpointAssembly.GetType(EndpointNamespace + name, throwOnError: false)
 			?? throw IncompatibleFramework(EndpointNamespace + name);
@@ -101,6 +167,39 @@ internal sealed class HtmxorEndpointCandidateFormServices
 		}
 
 		return method;
+	}
+
+	private static void AssertConfigured<TRequiredMode>(Type componentType, IComponentRenderMode specifiedMode, IComponentRenderMode[] configuredModes, string expectedCall)
+		where TRequiredMode : IComponentRenderMode
+	{
+		if (configuredModes.Any(mode => mode is TRequiredMode))
+		{
+			return;
+		}
+
+		throw new InvalidOperationException($"A component of type '{componentType}' has render mode '{specifiedMode.GetType().Name}', but the required endpoints are not mapped on the server. When calling 'MapRazorComponents', add a call to '{expectedCall}'.");
+	}
+
+	private static PropertyInfo RequireProperty(Type type, string name, BindingFlags visibility, Type propertyType)
+	{
+		var property = type.GetProperty(name, visibility | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+		if (property is null || property.PropertyType != propertyType || property.GetMethod is null)
+		{
+			throw IncompatibleFramework($"{type.FullName}.{name}: {propertyType.FullName}");
+		}
+
+		return property;
+	}
+
+	private static PropertyInfo RequireWritableProperty(Type type, string name, BindingFlags visibility, Type propertyType)
+	{
+		var property = RequireProperty(type, name, visibility, propertyType);
+		if (property.SetMethod is not { IsPublic: true })
+		{
+			throw IncompatibleFramework($"{type.FullName}.{name} writable {propertyType.FullName}");
+		}
+
+		return property;
 	}
 
 	private static InvalidOperationException IncompatibleFramework(string dependency)
