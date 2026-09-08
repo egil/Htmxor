@@ -3,7 +3,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted for the inactive issue #188 candidate from ASP.NET Core v10.0.11 at
+// Adapted for the endpoint candidate introduced in #188 from ASP.NET Core v10.0.11 at
 // commit a5383385245bdacc20ec19f30e46090a8154d8da, synchronized 2026-09-05:
 // https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs
@@ -67,7 +67,7 @@ internal static class HtmxorEndpointCandidateServices
 	{
 		var formServices = HtmxorEndpointCandidateFormServices.Create();
 		// AddRazorComponents does not expose a supported replacement hook for its HttpContext cascade.
-		// Issue #184 watches this registration shape so upstream drift is reviewed before candidate adoption.
+		// Issue #184 watches this registration shape so upstream drift is reviewed before adopting framework changes.
 		var stockHttpContextSuppliers = services
 			.Where(IsScopedFactory)
 			.Where(IsCascadingHttpContextSupplier)

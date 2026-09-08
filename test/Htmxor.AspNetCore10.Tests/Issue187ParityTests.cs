@@ -106,7 +106,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Inactive_candidate_has_byte_exact_paired_response_parity()
+	public async Task Candidate_has_byte_exact_paired_response_parity()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await CreateInternalCandidateHostAsync();
@@ -128,7 +128,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Inactive_candidate_initializes_endpoint_selected_route_state()
+	public async Task Candidate_initializes_endpoint_selected_route_state()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await CreateInternalCandidateHostAsync();
@@ -150,7 +150,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Inactive_candidate_preserves_component_route_and_authorization_metadata()
+	public async Task Candidate_preserves_component_route_and_authorization_metadata()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await CreateInternalCandidateHostAsync();
@@ -159,7 +159,7 @@ public sealed class Issue187ParityTests
 	}
 
 	[Fact]
-	public async Task Inactive_candidate_has_paired_unauthorized_rejection()
+	public async Task Candidate_has_paired_unauthorized_rejection()
 	{
 		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
 		await using var candidate = await CreateInternalCandidateHostAsync();
