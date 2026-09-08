@@ -6,13 +6,21 @@ using Microsoft.AspNetCore.Components.Rendering;
 namespace Htmxor.Components;
 
 /// <summary>
-/// Represents a component that will only render its <see cref="ChildContent"/> if
-/// its <see cref="Match"/> predicate returns <see langword="true"/> or
-/// if the request is a standard request and <see cref="RenderDuringStandardRequest"/>
-/// is <see langword="true"/>.
+/// Defines a server-selectable fragment with optional wrapper markup.
 /// </summary>
+/// <remarks>
+/// The v1 endpoint renderer completes the component tree before selecting response output by
+/// <see cref="Name"/>. <see cref="Match"/> and <see cref="RenderDuringStandardRequest"/>
+/// apply only to the legacy conditional renderer.
+/// </remarks>
 public class HtmxFragment : ConditionalComponentBase
 {
+	/// <summary>
+	/// Gets or sets the stable, case-sensitive server selection name. This does not emit markup or request a wrapper.
+	/// </summary>
+	[Parameter]
+	public string? Name { get; set; }
+
 	/// <summary>
 	/// Gets or sets additional attributes for the optional wrapper element.
 	/// </summary>
@@ -58,7 +66,7 @@ public class HtmxFragment : ConditionalComponentBase
 	/// <inheritdoc/>
 	protected override void BuildRenderTree([NotNull] RenderTreeBuilder builder)
 	{
-		if (!ShouldOutput(Context, 0, 0))
+		if (!Context.UsesCompletedFragmentSelection && !ShouldOutput(Context, 0, 0))
 		{
 			return;
 		}

@@ -23,7 +23,7 @@ namespace Htmxor.Http;
 /// a later duplicate replaces its detail without moving the event from its first position.
 /// Htmx does not process response headers on HTTP 3xx responses.
 /// </remarks>
-public sealed class HtmxResponse(HttpContext context)
+public sealed partial class HtmxResponse(HttpContext context)
 {
 	private static readonly object TriggerEventsItemsKey = new();
 	private static readonly string[] NavigationHeaderNames =

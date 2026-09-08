@@ -30,6 +30,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Htmxor.DependencyInjection;
+using Htmxor.Http;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -115,7 +116,8 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		context.Response.ContentType = DefaultContentType;
 		var isErrorHandler = context.Features.Get<IExceptionHandlerFeature>() is not null;
 		var isReexecuted = context.Features.Get<IStatusCodeReExecuteFeature>() is not null;
-		renderer.InitializeStreamingRenderingFraming(context, isErrorHandler || isReexecuted);
+		renderer.InitializeStreamingRenderingFraming(context,
+			isErrorHandler || isReexecuted || context.GetHtmxContext().Request.RoutingMode is RoutingMode.Direct);
 		if (!isReexecuted)
 		{
 			context.Response.Headers[EnhancedNavigationHeader] = "allow";
@@ -193,7 +195,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			defaultBufferSize,
 			ArrayPool<byte>.Shared,
 			ArrayPool<char>.Shared);
-		htmlContent.WriteHtmlTo(writer);
+		renderer.WriteResponseHtml(htmlContent, context.GetHtmxContext(), writer);
 		if (hasPendingInitialRenderWork ?? !quiesceTask.IsCompletedSuccessfully)
 		{
 			await renderer.SendStreamingUpdatesAsync(context, quiesceTask, writer);
@@ -254,6 +256,8 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		HttpContext context, Type pageComponent, string? handler = null, IFormCollection? form = null)
 	{
 		httpContext = context;
+		context.GetHtmxContext().UsesCompletedFragmentSelection = true;
+		renderedFragments.Clear();
 		notFoundEventArgs = null;
 		invocationSequence = -1;
 		invocationId = Guid.NewGuid();

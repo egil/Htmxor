@@ -42,18 +42,21 @@ TYPE Htmxor.Components.HtmxFragment [kind=class;abstract=False;sealed=False;gene
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Element()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Id()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean] get_Match()
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Name()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Boolean get_RenderDuringStandardRequest()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_AdditionalAttributes(System.Collections.Generic.IDictionary`2[System.String,System.Object])
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_ChildContent(Microsoft.AspNetCore.Components.RenderFragment)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Element(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Id(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Match(System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean])
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Name(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_RenderDuringStandardRequest(Boolean)
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.Collections.Generic.IDictionary`2[System.String,System.Object] AdditionalAttributes
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Microsoft.AspNetCore.Components.RenderFragment ChildContent
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Element
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Id
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean] Match
+  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Name
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Boolean RenderDuringStandardRequest
 TYPE Htmxor.Components.HtmxHeadOutlet [kind=class;abstract=False;sealed=False;genericArity=0;base=System.Object]
   Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Void .ctor()
@@ -164,10 +167,15 @@ TYPE Htmxor.Http.HtmxResponse [kind=class;abstract=False;sealed=True;genericArit
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Reselect(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Reswap(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Retarget(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse SelectFragment(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse SelectFragments(System.String[])
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse SelectWholeComponent()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=2] Htmxor.Http.HtmxResponse SetExtensionHeader(System.String, System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse StatusCode(System.Net.HttpStatusCode)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Trigger(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=1;parameters=3] Htmxor.Http.HtmxResponse Trigger[TEventDetail](System.String, TEventDetail, System.Text.Json.JsonSerializerOptions)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Collections.Generic.IReadOnlyList`1[System.String] get_SelectedFragmentNames()
+  Property [visibility=public|none;static=False;get=public,instance;set=none] System.Collections.Generic.IReadOnlyList`1[System.String] SelectedFragmentNames
 TYPE Htmxor.Http.HtmxResponseHeaderNames [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
   Field [visibility=public;static=True;literal=True;readonly=False] System.String Location
   Field [visibility=public;static=True;literal=True;readonly=False] System.String PushUrl

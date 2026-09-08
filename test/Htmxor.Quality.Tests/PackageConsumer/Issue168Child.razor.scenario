@@ -1,0 +1,11 @@
+@namespace Htmxor.PackageConsumer
+@inject Issue168Service Service
+<span>@value</span>
+@code {
+    private string value = "not-initialized";
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Yield();
+        value = Service.Value;
+    }
+}
