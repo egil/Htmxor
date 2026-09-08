@@ -2,7 +2,6 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Htmxor;
-using Htmxor.DependencyInjection;
 using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -168,15 +167,22 @@ public sealed class Issue187ParityTests
 		await AssertUnauthorizedParityAsync(stock, candidate);
 	}
 
-	[Fact]
-	public async Task Candidate_provides_the_routing_state_required_by_Htmxor_endpoints()
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task Candidate_retains_the_stock_routing_state_provider(bool useInternalRegistration)
 	{
-		await using var candidate = await CreateInternalCandidateHostAsync();
+		await using var stock = await Issue187ParityHost.CreateAsync(useHtmxor: false);
+		await using var candidate = useInternalRegistration
+			? await CreateInternalCandidateHostAsync()
+			: await Issue187ParityHost.CreateAsync(useHtmxor: true);
+		await using var stockScope = stock.App.Services.CreateAsyncScope();
 		await using var candidateScope = candidate.App.Services.CreateAsyncScope();
 
+		var stockProvider = stockScope.ServiceProvider.GetRequiredService<IRoutingStateProvider>();
 		var candidateProvider = candidateScope.ServiceProvider.GetRequiredService<IRoutingStateProvider>();
 
-		Assert.IsType<EndpointRoutingStateProvider>(candidateProvider);
+		Assert.Equal(stockProvider.GetType(), candidateProvider.GetType());
 	}
 
 	private static Task<Issue187ParityHost> CreateInternalCandidateHostAsync()

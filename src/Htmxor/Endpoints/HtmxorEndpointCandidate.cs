@@ -81,10 +81,6 @@ internal static class HtmxorEndpointCandidateServices
 		services.AddSingleton(formServices);
 		services.AddScoped<HtmxorEndpointCandidateRenderer>();
 		services.AddScoped<HtmxorEndpointCandidateInvoker>();
-		services.RemoveAll<IRoutingStateProvider>();
-		services.AddScoped<EndpointRoutingStateProvider>();
-		services.AddScoped<IRoutingStateProvider>(serviceProvider =>
-			serviceProvider.GetRequiredService<EndpointRoutingStateProvider>());
 		services.RemoveAll<IRazorComponentEndpointInvoker>();
 		services.AddScoped<IRazorComponentEndpointInvoker>(serviceProvider =>
 			serviceProvider.GetRequiredService<HtmxorEndpointCandidateInvoker>());
@@ -240,7 +236,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 	}
 
-	public HtmxorEndpointCandidateRenderer(
+	private HtmxorEndpointCandidateRenderer(
 		IServiceProvider services,
 		ILoggerFactory loggerFactory,
 		EndpointRoutingStateProvider routingState)
@@ -533,9 +529,11 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		: IServiceProvider, IServiceProviderIsService, IKeyedServiceProvider, IServiceProviderIsKeyedService
 	{
 		public object? GetService(Type serviceType)
-			=> serviceType == typeof(IRoutingStateProvider)
-				? routingState
-				: services.GetService(serviceType);
+			=> serviceType == typeof(IServiceProvider)
+				? this
+				: serviceType == typeof(IRoutingStateProvider)
+					? routingState
+					: services.GetService(serviceType);
 
 		public bool IsService(Type serviceType)
 			=> serviceType == typeof(IRoutingStateProvider) ||
