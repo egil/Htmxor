@@ -1,0 +1,131 @@
+using System.Net;
+using Htmxor;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+public sealed class Issue169SelectionTests : IAsyncLifetime
+{
+    private const string Child = "<hx-partial target=\"#elsewhere\"><b hx-swap-oob=\"true\">child</b></hx-partial>";
+    private const string Parent = "<section id=\"parent\"><i>before</i>" + Child + "<i>after</i></section>";
+    private const string Sibling = "<aside>sibling</aside>";
+    private readonly Issue169RenderObservation observation = new();
+    private WebApplication app = default!;
+    private HttpClient client = default!;
+    private Exception? failure;
+    private bool responseStarted;
+
+    public async Task InitializeAsync()
+    {
+        var builder = WebApplication.CreateBuilder();
+        // Large writes must cross the response buffer to expose premature output.
+        // The current endpoint writer flushes synchronously; default-host compatibility is separate.
+        builder.WebHost.UseTestServer(options => options.AllowSynchronousIO = true);
+        builder.Services.AddSingleton(observation);
+        builder.Services.AddRazorComponents().AddHtmxor();
+        app = builder.Build();
+        app.Use(async (context, next) =>
+        {
+            try { await next(context); }
+            catch (Exception exception)
+            {
+                failure = exception;
+                responseStarted = context.Response.HasStarted;
+                if (responseStarted) throw;
+                context.Response.Clear();
+                context.Response.StatusCode = 500;
+                await context.Response.WriteAsync("test-host-handled-selection-error");
+            }
+        });
+        app.UseAntiforgery();
+        app.MapRazorComponents<Issue169App>().AddHtmxorEndpoints();
+        await app.StartAsync();
+        client = app.GetTestClient();
+    }
+
+    [Theory]
+    [InlineData("Child", Child)]
+    [InlineData("Parent", Parent)]
+    [InlineData("Sibling", Sibling)]
+    [InlineData("Sibling,Child", Sibling + Child)]
+    [InlineData("Child,Sibling", Child + Sibling)]
+    public async Task Nested_output_uses_server_names_despite_client_delivery_markup(string selection, string expected)
+    {
+        using var request = DirectRequest(selection);
+        using var response = await client.SendAsync(request);
+        Assert.True(failure is null, failure?.ToString());
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(expected, await response.Content.ReadAsStringAsync());
+        Assert.True(observation.ChildInitialized);
+        Assert.Null(failure);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Whole_output_retains_unnamed_fragment_and_nested_subtree(bool direct)
+    {
+        using var request = direct ? DirectRequest(null) : new HttpRequestMessage(HttpMethod.Get, "/nested-selection");
+        using var response = await client.SendAsync(request);
+        var whole = "<main>" + new string('x', 32768) + Parent + Sibling + "<u>unnamed</u></main>";
+        var expected = direct ? whole : "<!DOCTYPE html><html lang=\"en\"><body>" + whole + "</body></html>";
+        Assert.True(failure is null, failure?.ToString());
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(expected, await response.Content.ReadAsStringAsync());
+        Assert.True(observation.ChildInitialized);
+    }
+
+    [Theory]
+    [InlineData("Large,Parent,Child", null)]
+    [InlineData("Large,Child,Parent", null)]
+    [InlineData("Large,Child,Child", null)]
+    [InlineData("Large,Missing", null)]
+    [InlineData("Large,child", null)]
+    [InlineData("Large,1Invalid", "1Invalid")]
+    [InlineData("Large, ", null)]
+    [InlineData("Large,", null)]
+    [InlineData("Large,Child", "Child")]
+    [InlineData(null, "Child")]
+    [InlineData(null, "1Invalid")]
+    public async Task Invalid_selection_is_reported_before_any_response_output(string? selection, string? declaration)
+    {
+        using var request = DirectRequest(selection, declaration);
+        using var response = await client.SendAsync(request);
+        Assert.NotNull(failure);
+        Assert.True(failure is InvalidOperationException or ArgumentException, failure.ToString());
+        Assert.False(string.IsNullOrWhiteSpace(failure.Message));
+        Assert.False(responseStarted);
+        Assert.Equal("test-host-handled-selection-error", await response.Content.ReadAsStringAsync());
+    }
+
+    private static HttpRequestMessage DirectRequest(string? selection, string? declaration = null)
+    {
+        var query = new List<string>();
+        if (selection is not null) query.Add("selection=" + Uri.EscapeDataString(selection));
+        if (declaration is not null) query.Add("declaration=" + Uri.EscapeDataString(declaration));
+        var request = new HttpRequestMessage(HttpMethod.Get, "/nested-selection?" + string.Join("&", query));
+        request.Headers.Add("HX-Request", "true");
+        request.Headers.Add("HX-Request-Type", "partial");
+        request.Headers.Add("HX-Target", "section#parent");
+        request.Headers.Add("HX-Source", "button#Sibling");
+        request.Headers.Add("HX-Select", "#parent");
+        request.Headers.Add("HX-Select-OOB", "#parent");
+        return request;
+    }
+
+    public async Task DisposeAsync()
+    {
+        client.Dispose();
+        await app.DisposeAsync();
+    }
+}
+
+public sealed class Issue169RenderObservation
+{
+    public bool ChildInitialized { get; set; }
+}

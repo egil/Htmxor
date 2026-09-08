@@ -1,0 +1,7 @@
+@namespace Htmxor.PackageConsumer
+@using Htmxor.Components
+@inject Issue169RenderObservation Observation
+<HtmxFragment Name="Child"><hx-partial target="#elsewhere"><b hx-swap-oob="true">child</b></hx-partial></HtmxFragment>
+@code {
+    protected override void OnInitialized() => Observation.ChildInitialized = true;
+}

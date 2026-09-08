@@ -28,6 +28,11 @@ public sealed partial class HtmxResponse
 	/// Selects stable server fragment names in caller order, replacing any previous selection.
 	/// The caller's array is copied so later mutations cannot change this request's selection.
 	/// </summary>
+	/// <remarks>
+	/// Names follow the identifier rules of <see cref="Htmxor.Components.HtmxFragment.Name"/>.
+	/// Invalid, repeated, unknown, or overlapping ancestor/descendant selections are rejected against
+	/// the completed direct-request render before response HTML is written.
+	/// </remarks>
 	public HtmxResponse SelectFragments(params string[] names)
 	{
 		ArgumentNullException.ThrowIfNull(names);

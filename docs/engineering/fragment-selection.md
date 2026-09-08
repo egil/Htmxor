@@ -3,6 +3,8 @@
 Issue [#168](https://github.com/egil/Htmxor/issues/168) implements the valid flat
 selection portion of the approved
 [#167 contract](https://github.com/egil/Htmxor/issues/167#issuecomment-5531911245).
+Issue [#169](https://github.com/egil/Htmxor/issues/169) completes its nested and
+invalid-selection rules.
 
 When application code selects whole, one stable fragment name, or an ordered
 valid flat set during a direct request, Htmxor completes normal rendering and
@@ -28,6 +30,23 @@ an empty list means whole-component selection. The response copies the caller's
 array. Selection operations can run in normal lifecycle code on either request
 path. Normal requests always emit the complete page; direct requests default to
 the whole routed component, without the page shell.
+
+Names start with an ASCII letter, continue with ASCII letters, digits, hyphens,
+or underscores, and contain at most 64 characters. No trimming or case
+normalization occurs. A null declaration is unnamed; an empty or malformed
+declaration is invalid. Before writing a direct response, Htmxor validates every
+rendered named declaration, including declarations outside the selection and
+declarations in whole-component output. Invalid names and duplicate declarations
+raise a diagnostic `InvalidOperationException` before response HTML is written.
+The application's normal error handling remains responsible for the HTTP error
+response.
+
+Every selected name must exist exactly once and may appear only once in the
+selection. Selecting a nested child emits that child's optional wrapper and
+subtree, excluding its ancestors' wrappers and siblings. Selecting a parent
+emits its whole rendered subtree. A selection containing both an ancestor and
+its descendant fails before output, in either caller order. The renderer uses
+Blazor's completed component-state parent links to detect that overlap.
 
 The active endpoint renderer records real `HtmxFragment` component states while
 Blazor constructs the tree. It reads their final names and resolves all selected
@@ -75,9 +94,25 @@ descendant work. The existing published-package Chromium suite passed all 39
 cases after this fixture-only migration. Its preceding four failures are retained
 in `artifacts/issue168/full-before-fixture-migration.log` and the matching TRX.
 
-Nested selection, complete invalid-name validation and diagnostics, overlapping
-sets, concurrent requests, cancellation, browser delivery, caching, and
-skipped-work optimization retain their separately owned acceptance contracts.
+The #169 focused renderer matrix records meaningful red at test checkpoint
+`d5f263f6f60bff5a81298e428333a6fb123f940e`, against unchanged production at
+`b2bb028f6d5b5e611fdbf27d83decd4ba96150b3`: 37 executed, 12 baseline passes,
+and 25 failures. The packed HTTP consumer executed 18 cases, with 12 baseline
+passes and six failures. In both nested-overlap orders, the old writer emitted
+the child twice. Malformed declarations, unselected duplicate declarations,
+and repeated selections supplied the other missing-behavior evidence. Existing
+valid nested output was retained as baseline coverage.
+
+The packed timing probe places a 32 KiB fragment before invalid selections,
+exceeding the response writer's 16 KiB buffer. Test middleware observes the real
+response-start state and emits a sentinel only when no response has started.
+This probe enables TestServer synchronous I/O because the existing writer
+flushes large output synchronously; it does not establish default-host
+large-output compatibility. Initial synchronous-I/O and 128 KiB pipe-backpressure
+failures are recorded separately from meaningful red.
+
+Concurrent requests, cancellation, browser delivery, caching, and skipped-work
+optimization retain their separately owned acceptance contracts.
 The migrated conformance fixtures do not establish those complete contracts.
 No non-Linux, other-framework, other-browser, or release-candidate package claim
 is made. Full-scope mutation is not part of this ordinary issue check.

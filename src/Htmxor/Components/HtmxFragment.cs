@@ -18,6 +18,12 @@ public class HtmxFragment : ConditionalComponentBase
 	/// <summary>
 	/// Gets or sets the stable, case-sensitive server selection name. This does not emit markup or request a wrapper.
 	/// </summary>
+	/// <remarks>
+	/// A name starts with an ASCII letter, followed by ASCII letters, digits, hyphens, or underscores,
+	/// and has at most 64 characters. A null name leaves the fragment unnamed. Invalid or duplicate
+	/// declarations fail before direct-response output. Selecting a named fragment includes its own
+	/// optional wrapper and rendered subtree, without its ancestors' output.
+	/// </remarks>
 	[Parameter]
 	public string? Name { get; set; }
 

@@ -241,7 +241,11 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 		return await BuildAsync();
 	}
 
-	public void UseIssue168SelectionScenario()
+	public void UseIssue168SelectionScenario() => UseSelectionScenario("Issue168");
+
+	public void UseIssue169SelectionScenario() => UseSelectionScenario("Issue169");
+
+	private void UseSelectionScenario(string issue)
 	{
 		foreach (var path in Directory.EnumerateFiles(consumerDirectory).Where(path =>
 			path.EndsWith(".cs", StringComparison.Ordinal) || path.EndsWith(".razor", StringComparison.Ordinal)))
@@ -250,7 +254,7 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 		}
 
 		var assets = Path.Combine(repositoryRoot, "test", "Htmxor.Quality.Tests", "PackageConsumer");
-		foreach (var path in Directory.EnumerateFiles(assets, "Issue168*.scenario"))
+		foreach (var path in Directory.EnumerateFiles(assets, issue + "*.scenario"))
 		{
 			File.Copy(path, Path.Combine(consumerDirectory, Path.GetFileNameWithoutExtension(path)));
 		}
