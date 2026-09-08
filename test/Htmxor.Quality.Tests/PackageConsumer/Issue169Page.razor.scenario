@@ -1,0 +1,18 @@
+@page "/nested-selection"
+@namespace Htmxor.PackageConsumer
+@using Htmxor
+@using Htmxor.Components
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Http
+<main><HtmxFragment Name="Large">@(new string('x', 32768))</HtmxFragment><HtmxFragment Name="Parent" Element="section" Id="parent"><i>before</i><Issue169Child /><i>after</i></HtmxFragment><HtmxFragment Name="Sibling"><aside>sibling</aside></HtmxFragment><HtmxFragment Name="@Declaration"><u>unnamed</u></HtmxFragment></main>
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromQuery] public string? Selection { get; set; }
+    [SupplyParameterFromQuery] public string? Declaration { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Selection is not null)
+            HttpContext.GetHtmxContext().Response.SelectFragments(Selection.Split(','));
+    }
+}
