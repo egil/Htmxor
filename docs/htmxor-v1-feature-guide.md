@@ -302,13 +302,11 @@ fragments. The component and required ancestors may run, but excluded child
 branches below a known selection boundary must not render or execute their own
 lifecycle work.
 
-The current API uses `Id`, request target matching, `Match`, and
-`RenderDuringStandardRequest` for selection. That makes a DOM delivery detail
-double as a server execution key and makes multi-fragment responses difficult to
-read. The DX review proposes a stable fragment name that is independent of the
-wrapper `Id`, plus one explicit response-level way to select multiple names.
-The exact names remain to be decided; examples must not present a proposed
-`Name` or `RenderFragments` member as shipped API.
+Select a stable name with `Htmx.Response.SelectFragment(...)` or
+`SelectFragments(...)`. The name is independent of the wrapper `Id` and browser
+delivery details. `Match` and `RenderDuringStandardRequest` remain legacy
+conditional-renderer options; do not use request target matching as the server
+selection key.
 
 Keep server execution separate from browser delivery:
 
@@ -323,6 +321,30 @@ Keep server execution separate from browser delivery:
 Do not route capabilities by `HX-Target` or `HX-Source`. Those headers are
 useful representation hints but are optional, forgeable, and unable to encode
 all extended-selector cases.
+
+### Cache a selected representation safely
+
+Output caching is application policy. Cache only safe requests, and make the
+cache key include every input that can change the component output. For example,
+this component chooses a named fragment from the `representation` query value:
+
+```razor
+@attribute [OutputCache(
+    VaryByHeaderNames = ["HX-Request", "HX-Request-Type"],
+    VaryByQueryKeys = ["representation"])]
+```
+
+`HX-Request` separates normal routing from a direct htmx response. Add every
+other request-mode input that the component uses, such as `HX-Request-Type`,
+boost, or history state, and each route value, query value, or request header
+that selects an output. Include culture, tenant, authentication and
+authorization-dependent identity, and any other application state in the cache
+policy whenever it affects the representation. If a safe per-representation key
+cannot be defined, do not place that response in a shared output cache.
+
+HTMX headers describe an untrusted request representation; they do not authorize
+the request. The application retains responsibility for authorization and for
+choosing a cache policy that matches its own selection logic.
 
 ### Multiple targets
 

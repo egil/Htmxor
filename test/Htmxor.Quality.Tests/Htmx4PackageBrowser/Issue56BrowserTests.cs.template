@@ -21,6 +21,14 @@ public sealed partial class Issue56BrowserTests
 	private const string ApplicationHtmxPath = "/htmx-4.0.0.min.js";
 	private const string Issue111Path = "/issue-111";
 	private const string Issue50Path = "/issue-50/cache";
+	private static readonly CacheRepresentation[] Issue50Representations =
+	[
+		new("normal", "normal", RequestType: null),
+		new("whole-partial", "whole", "partial"),
+		new("alpha-partial", "alpha", "partial"),
+		new("beta-partial", "beta", "partial"),
+		new("alpha-full", "alpha", "full"),
+	];
 	private const string Issue18Path = "/issue-18/headers";
 	private const string Issue116Path = "/issue-116/trigger";
 	private const string Issue118Path = "/issue-118/request-context";
@@ -123,8 +131,9 @@ public sealed partial class Issue56BrowserTests
 		await app.StartAsync();
 		using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
 
-		using var first = await SendCacheRequestAsync(client, htmx: false);
-		using var second = await SendCacheRequestAsync(client, htmx: false);
+		var normal = Issue50Representations.Single(representation => representation.Label == "normal");
+		using var first = await SendCacheRequestAsync(client, normal);
+		using var second = await SendCacheRequestAsync(client, normal);
 		Assert.Equal(HttpStatusCode.OK, first.StatusCode);
 		Assert.Equal(HttpStatusCode.OK, second.StatusCode);
 		Assert.Equal(
@@ -134,20 +143,22 @@ public sealed partial class Issue56BrowserTests
 	}
 
 	[Fact]
-	public async Task Output_cache_keeps_full_and_direct_get_representations_distinct()
+	public async Task Output_cache_keeps_normal_direct_whole_and_named_fragment_representations_distinct()
 	{
-		foreach (var htmxFirst in new[] { false, true })
+		foreach (var alphaFirst in new[] { "alpha-full", "alpha-partial" })
 		{
 			var probe = new Issue50CacheProbe();
 			await using var app = CreateApplication(new Issue56RequestProbe(), cacheProbe: probe);
 			await app.StartAsync();
 			using var client = new HttpClient { BaseAddress = new Uri(Assert.Single(app.Urls)) };
 
-			var firstBody = await AssertCachedRepresentationAsync(client, htmxFirst);
-			Assert.Equal(1, probe.RenderCount);
-			var secondBody = await AssertCachedRepresentationAsync(client, !htmxFirst);
-			Assert.Equal(2, probe.RenderCount);
-			Assert.NotEqual(firstBody, secondBody);
+			foreach (var representation in Issue50Representations
+				.OrderBy(representation => representation.Label == alphaFirst ? 0 : 1))
+			{
+				await AssertCachedRepresentationAsync(client, representation);
+			}
+
+			Assert.Equal(Issue50Representations.Length, probe.RenderCount);
 		}
 	}
 
@@ -2962,10 +2973,10 @@ public sealed partial class Issue56BrowserTests
 		return await client.SendAsync(request);
 	}
 
-	private static async Task<string> AssertCachedRepresentationAsync(HttpClient client, bool htmx)
+	private static async Task AssertCachedRepresentationAsync(HttpClient client, CacheRepresentation representation)
 	{
-		using var first = await SendCacheRequestAsync(client, htmx);
-		using var second = await SendCacheRequestAsync(client, htmx);
+		using var first = await SendCacheRequestAsync(client, representation);
+		using var second = await SendCacheRequestAsync(client, representation);
 		Assert.Equal(HttpStatusCode.OK, first.StatusCode);
 		Assert.Equal(HttpStatusCode.OK, second.StatusCode);
 		Assert.False(first.Headers.Contains("Set-Cookie"));
@@ -2973,22 +2984,40 @@ public sealed partial class Issue56BrowserTests
 		var firstBody = await first.Content.ReadAsStringAsync();
 		var secondBody = await second.Content.ReadAsStringAsync();
 		Assert.Equal(firstBody, secondBody);
-		Assert.Equal(!htmx, firstBody.Contains("data-stock-shell", StringComparison.Ordinal));
-		Assert.Contains("data-issue-50-cache", firstBody, StringComparison.Ordinal);
-		return firstBody;
+		Assert.Equal(
+			representation.RequestType is not "partial",
+			firstBody.Contains("data-stock-shell", StringComparison.Ordinal));
+		Assert.Contains($"data-representation=\"{representation.Selection}\"", firstBody, StringComparison.Ordinal);
+		if (representation is { RequestType: "partial", Selection: "alpha" or "beta" })
+		{
+			Assert.Contains(
+				$"data-issue-50-fragment=\"{representation.Selection}\"",
+				firstBody,
+				StringComparison.Ordinal);
+		}
+		else
+		{
+			Assert.Contains("data-issue-50-cache", firstBody, StringComparison.Ordinal);
+		}
 	}
 
-	private static async Task<HttpResponseMessage> SendCacheRequestAsync(HttpClient client, bool htmx)
+	private static async Task<HttpResponseMessage> SendCacheRequestAsync(
+		HttpClient client,
+		CacheRepresentation representation)
 	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, Issue50Path);
-		if (htmx)
+		using var request = new HttpRequestMessage(
+			HttpMethod.Get,
+			$"{Issue50Path}?representation={representation.Selection}");
+		if (representation.RequestType is not null)
 		{
 			request.Headers.Add("HX-Request", "true");
-			request.Headers.Add("HX-Request-Type", "partial");
+			request.Headers.Add("HX-Request-Type", representation.RequestType);
 		}
 
 		return await client.SendAsync(request);
 	}
+
+	private sealed record CacheRepresentation(string Label, string Selection, string? RequestType);
 
 	private static async Task<IResponse> SubmitQueryAsync(
 		IPage page,
