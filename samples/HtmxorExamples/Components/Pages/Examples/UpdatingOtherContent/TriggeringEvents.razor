@@ -1,5 +1,5 @@
-@inherits ConditionalComponentBase
 @page "/examples/updating-other-content/triggering-events"
+@inject HtmxContext Htmx
 <PageTitle>Htmxor - Examples - Updating Other Content - Triggering Events</PageTitle>
 <h1>Updating Other Content - Triggering Events</h1>
 <p>This is a Htmxor version of the <a href="https://htmx.org/examples/update-other-content/#events" title="Updating Other Content article">Updating Other Content - Solution 3: Triggering Events</a> example at htmx.org.</p>
@@ -13,7 +13,7 @@
                 <th>Email</th>
             </tr>
         </thead>
-        <HtmxFragment Match=@(req => req.Target == "contacts-table")>
+        <HtmxFragment Name="contacts">
             <tbody id="contacts-table" hx-get hx-trigger="newContact from:body" hx-swap="outerHTML">
                 @foreach (var contact in Contacts.Data.Values.OrderBy(x => x.Modified).Take(20))
                 {
@@ -28,8 +28,18 @@
     </table>
     <div class="w-50 p-3 border">
         <h5>Create new contact</h5>
-        <HtmxFragment Match=@(req => req.Method == HttpMethods.Post)>
-            <ContactEditForm hx-post OnContactSave=@(() => Context.Response.Trigger("newContact")) />
+        <HtmxFragment Name="contact-form">
+            <ContactEditForm hx-post OnContactSave=@(() => Htmx.Response.Trigger("newContact")) />
         </HtmxFragment>
     </div>
 </div>
+
+@code {
+    protected override void OnParametersSet()
+    {
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        {
+            Htmx.Response.SelectFragment(Htmx.Request.Method == HttpMethods.Post ? "contact-form" : "contacts");
+        }
+    }
+}

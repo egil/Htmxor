@@ -1,5 +1,5 @@
-@inherits ConditionalComponentBase
 @page "/examples/updating-other-content/triggering-events-indirectly"
+@inject HtmxContext Htmx
 <PageTitle>Htmxor - Examples - Updating Other Content - Triggering Events Indirectly</PageTitle>
 <h1>Updating Other Content - Triggering Events</h1>
 <p>This is a Htmxor version of the <a href="https://htmx.org/examples/update-other-content/#events" title="Updating Other Content article">Updating Other Content - Solution 3: Triggering Events</a> example at htmx.org.</p>
@@ -13,7 +13,7 @@
                 <th>Email</th>
             </tr>
         </thead>
-        <HtmxFragment Match=@(req => req.Target == "contacts-table")>
+        <HtmxFragment Name="contacts">
             <tbody id="contacts-table" hx-get hx-trigger="newContact from:body" hx-swap="outerHTML">
                 @foreach (var contact in Contacts.Data.Values.OrderBy(x => x.Modified).Take(20))
                 {
@@ -31,3 +31,13 @@
         <ContactEditFormPage />
     </div>
 </div>
+
+@code {
+    protected override void OnParametersSet()
+    {
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        {
+            Htmx.Response.SelectFragment("contacts");
+        }
+    }
+}

@@ -1,6 +1,4 @@
 @page "/bulk-update-1"
-@implements IConditionalRender
-@inject HtmxContext hxContext
 @code {
     private string? toast;
 
@@ -38,13 +36,11 @@
         }
     }
 
-    public virtual bool ShouldOutput([NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren)
-        => context.Request.RoutingMode is RoutingMode.Standard;
 }
 <form id="checked-contacts"
       hx-post="/bulk-update-1"
       hx-swap="outerHTML settle:3s"
-      hx-target="#toast">
+      hx-target="#checked-contacts">
     <AntiforgeryToken />
     <table>
         <thead>
@@ -66,7 +62,5 @@
         </tbody>
     </table>
     <input type="submit" value="Bulk Update">
-    <HtmxFragment>
-        <span id="toast" aria-live="polite">@toast</span>
-    </HtmxFragment>
+    <span id="toast" aria-live="polite">@toast</span>
 </form>

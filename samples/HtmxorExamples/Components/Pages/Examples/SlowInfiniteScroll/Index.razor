@@ -1,5 +1,5 @@
-@inherits ConditionalComponentBase
 @page "/examples/slow-infinite-scroll"
+@inject HtmxContext Htmx
 @code {
     private const int PageSize = 20;
     private IEnumerable<Contact> contacts = Enumerable.Empty<Contact>();
@@ -11,9 +11,17 @@
     {
         // Only load contact data during a direct request, since the loading
         // is slow it would prevent the page from rendering initially.
-        contacts = Context.Request.RoutingMode == RoutingMode.Direct
+        contacts = Htmx.Request.RoutingMode == RoutingMode.Direct
             ? await GetContactsAsync(Page)
             : Enumerable.Empty<Contact>();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        {
+            Htmx.Response.SelectFragment("contacts");
+        }
     }
 
     private static async Task<IEnumerable<Contact>> GetContactsAsync(int pageNumber)
@@ -36,8 +44,9 @@
         </tr>
     </thead>
     <tbody>
-        <HtmxFragment>
-            <HtmxFragment RenderDuringStandardRequest="false">
+        <HtmxFragment Name="contacts">
+            @if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+            {
                 @foreach (var contact in contacts)
                 {
                     <tr>
@@ -47,7 +56,7 @@
                         <td>@contact.Email</td>
                     </tr>
                 }
-            </HtmxFragment>
+            }
             <tr hx-get="/examples/slow-infinite-scroll?page=@(Page + 1)" hx-trigger="revealed" hx-swap="outerHTML">
                 <td colspan="4" class="text-center htmx-indicator">
                     Loading data <span class="spinner-grow spinner-grow-sm" role="status"></span>

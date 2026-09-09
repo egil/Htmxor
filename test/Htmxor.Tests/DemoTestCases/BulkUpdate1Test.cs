@@ -12,7 +12,7 @@ public class BulkUpdate1Test : TestAppTestBase
 	}
 
 	[Fact]
-	public async Task Hx_post_with_partial_return()
+	public async Task Hx_post_returns_the_updated_form()
 	{
 		var users = Enumerable.Range(1, 10)
 			.Select(num => DataStore.Store(new ActivatableUser
@@ -29,12 +29,13 @@ public class BulkUpdate1Test : TestAppTestBase
 			s.WithFormData(("Active", users[1].Id.ToString()), ("Active", users[3].Id.ToString()));
 			s.WithAntiforgeryTokensFrom(Host);
 			s.WithHxHeaders(
-				target: "span#toast",
+				target: "form#checked-contacts",
 				source: "form#checked-contacts",
 				currentUrl: $"{Host.Server.BaseAddress}bulk-update-1");
 
 			s.StatusCodeShouldBe(HttpStatusCode.OK);
-			s.ContentShouldBeHtml($"""
+			s.ContentShouldHaveSingleRootElement("form#checked-contacts");
+			s.ContentShouldHaveElementsEqualTo("#toast", $"""
                 <span id="toast" aria-live="polite">Activated 2 and deactivated 0 users.</span>
                 """);
 		});

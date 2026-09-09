@@ -1,6 +1,7 @@
 @page "/edit-row-1/edit-row"
 @page "/edit-row-1/edit-row/{id:guid}"
 @page "/edit-row-1/edit-row/{id:guid}/edit"
+@inject HtmxContext Htmx
 @code {
     [SupplyParameterFromForm]
     public Contact? Contact { get; set; }
@@ -8,10 +9,19 @@
     [Parameter]
     public Guid Id { get; set; }
 
-    private bool RenderCondition(HtmxRequest request, Guid id)
+    private bool IsEditing => Id != Guid.Empty && Htmx.Request.Path.ToUriComponent().EndsWith("/edit", StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnParametersSet()
     {
-        return Id == Guid.Empty || (id == Id && !request.Path.ToUriComponent().EndsWith("/edit"));
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct && Id != Guid.Empty)
+        {
+            Htmx.Response.SelectFragment(IsEditing ? EditFragmentName(Id) : DisplayFragmentName(Id));
+        }
     }
+
+    private static string DisplayFragmentName(Guid id) => $"row-{id:N}";
+
+    private static string EditFragmentName(Guid id) => $"edit-row-{id:N}";
 }
 <AntiforgeryToken />
 <table class="table">
@@ -25,7 +35,9 @@
     <tbody hx-target="closest tr" hx-swap="outerHTML">
         @foreach (var contact in DataStore.OfType<Contact>())
         {
-            <HtmxFragment Match=@(req => RenderCondition(req, contact.Id))>
+            @if (Id == Guid.Empty || (contact.Id == Id && !IsEditing))
+            {
+            <HtmxFragment Name="@DisplayFragmentName(contact.Id)">
                 <tr>
                     <td>@contact.FirstName</td>
                     <td>@contact.Email</td>
@@ -37,7 +49,10 @@
                     </td>
                 </tr>
             </HtmxFragment>
-            <HtmxFragment Match=@(req => req.Path.ToUriComponent().EndsWith($"/{contact.Id}/edit"))>
+            }
+            @if (contact.Id == Id && IsEditing)
+            {
+            <HtmxFragment Name="@EditFragmentName(contact.Id)">
                 <tr hx-trigger='cancel' class='editing' hx-get="/edit-row-1/edit-row/@(contact.Id)">
                     <td><input name='Contact.Name' value=@contact.FirstName></td>
                     <td><input name='Contact.Email' value=@contact.Email></td>
@@ -53,6 +68,7 @@
                     </td>
                 </tr>
             </HtmxFragment>
+            }
         }
     </tbody>
 </table>

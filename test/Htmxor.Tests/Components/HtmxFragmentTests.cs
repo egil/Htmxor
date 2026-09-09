@@ -42,23 +42,17 @@ public sealed class HtmxFragmentTests : BunitContext
 			""");
 	}
 
-	[Theory]
-	[InlineData("form#sidebar", true)]
-	[InlineData("FORM#sidebar", true)]
-	[InlineData("form#Sidebar", false)]
-	[InlineData("div#sidebar", false)]
-	public void Direct_request_uses_complete_target_identity_for_default_selection(
-		string target,
-		bool expectedChild)
+	[Fact]
+	public void Direct_request_does_not_let_target_choose_fragment_output()
 	{
-		AddContext(target);
+		AddContext("aside#unrelated");
 
 		var component = Render<HtmxFragment>(parameters => parameters
 			.Add(fragment => fragment.Element, "form")
 			.Add(fragment => fragment.Id, "sidebar")
 			.AddChildContent("<span data-fragment>content</span>"));
 
-		Assert.Equal(expectedChild ? 1 : 0, component.FindAll("[data-fragment]").Count);
+		component.MarkupMatches("<form id=\"sidebar\"><span data-fragment>content</span></form>");
 	}
 
 	private void AddContext(string? target = null)
