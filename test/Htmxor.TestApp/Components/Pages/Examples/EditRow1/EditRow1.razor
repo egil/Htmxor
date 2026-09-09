@@ -9,7 +9,7 @@
     [Parameter]
     public Guid Id { get; set; }
 
-    private bool IsEditing => Id != Guid.Empty && Htmx.Request.Path.ToUriComponent().EndsWith("/edit");
+    private bool IsEditing => Id != Guid.Empty && Htmx.Request.Path.ToUriComponent().EndsWith("/edit", StringComparison.OrdinalIgnoreCase);
 
     protected override void OnParametersSet()
     {
