@@ -1,0 +1,55 @@
+using System.Collections.Concurrent;
+using Htmxor.Http;
+using Microsoft.AspNetCore.Http;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue171LifecycleProbe
+{
+	private readonly ConcurrentDictionary<string, Issue171RequestRun> requests = new(StringComparer.Ordinal);
+
+	public Issue171RequestRun For(string marker) => requests.GetOrAdd(marker, static _ => new());
+}
+
+public sealed class Issue171RequestRun
+{
+	private readonly ConcurrentQueue<Issue171Observation> observations = new();
+
+	public Guid Id { get; } = Guid.NewGuid();
+	public Issue171DataGate Summary { get; } = new();
+	public Issue171DataGate Details { get; } = new();
+
+	public void Record(Issue171Observation observation) => observations.Enqueue(observation);
+	public Issue171Observation[] Snapshot() => observations.ToArray();
+	public void ReleaseAll()
+	{
+		Summary.Release.TrySetResult();
+		Details.Release.TrySetResult();
+	}
+}
+
+public sealed class Issue171DataGate
+{
+	public Guid Id { get; } = Guid.NewGuid();
+	public TaskCompletionSource Rendered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+	public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+	public TaskCompletionSource CompletedRender { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+}
+
+public sealed class Issue171RequestWork(HtmxContext htmx, IHttpContextAccessor accessor, Issue171LifecycleProbe probe)
+{
+	public string RequestId { get; } = accessor.HttpContext!.TraceIdentifier;
+	public string Marker { get; } = accessor.HttpContext!.Request.Query["marker"].ToString();
+	public bool IsDirect => htmx.Request.RoutingMode is RoutingMode.Direct;
+	public Issue171RequestRun Run => probe.For(Marker);
+
+	public void Record(string component, string phase)
+	{
+		if (IsDirect)
+		{
+			Run.Record(new(RequestId, Run.Id, component, phase, string.Join(",", htmx.Response.SelectedFragmentNames)));
+		}
+	}
+}
+
+public sealed record Issue171Observation(string RequestId, Guid RunId, string Component, string Phase, string Selection);

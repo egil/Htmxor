@@ -1,0 +1,42 @@
+@page "/issue-171/lifecycle"
+@using Htmxor.Http
+@inject HtmxContext Htmx
+@inject Issue171RequestWork Work
+
+@{
+	Work.Record("owner", "rendered");
+}
+@if (Work.IsDirect)
+{
+	<section data-issue-171-owner>
+		<Issue171ObservedFragment Name="summary" Id="summary-envelope">
+			<Issue171Descendant Branch="summary" />
+		</Issue171ObservedFragment>
+		<Issue171ObservedFragment Name="details" Id="details-envelope">
+			<Issue171Descendant Branch="details" />
+		</Issue171ObservedFragment>
+	</section>
+}
+else
+{
+	<button id="issue-171-select" type="button"
+			hx-get="@($"/issue-171/lifecycle?marker={Work.Marker}&selection={Selection}")"
+			hx-target="#delivery-slot" hx-swap="innerHTML">Select @Selection</button>
+	<div id="delivery-slot">Waiting @Work.Marker</div>
+}
+
+@code {
+	[SupplyParameterFromQuery]
+	private string Selection { get; set; } = "summary";
+
+	protected override void OnInitialized() => Work.Record("owner", "initialized");
+
+	protected override void OnParametersSet()
+	{
+		if (Work.IsDirect)
+		{
+			Htmx.Response.SelectFragment(Selection);
+		}
+		Work.Record("owner", "parameters-set");
+	}
+}
