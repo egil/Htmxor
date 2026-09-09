@@ -1,0 +1,35 @@
+@page "/issue-174/native-delivery"
+@using Htmxor.Http
+@inject HtmxContext Htmx
+
+@if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+{
+	<section data-unselected-shell>
+		<HtmxFragment Name="main-alpha"><p>Wrong alpha fragment</p></HtmxFragment>
+		@* Additional deliveries precede main markup to distinguish declaration order from browser delivery order. *@
+		<HtmxFragment Name="server-bundle" Id="@($"envelope-{Delivery}")"><aside id="@($"oob-{Delivery}")" hx-swap-oob="true" data-delivery="native-oob">OOB updated</aside><hx-partial hx-target="@($"#partial-{Delivery}")" hx-swap="innerHTML" data-delivery="raw-partial"><strong>Partial updated</strong></hx-partial><section data-delivery="main">Main updated</section></HtmxFragment>
+		<HtmxFragment Name="main-beta"><p>Wrong beta fragment</p></HtmxFragment>
+	</section>
+}
+else
+{
+	<button id="@($"source-{Delivery}")" type="button"
+			hx-get="@($"/issue-174/native-delivery?delivery={Delivery}")"
+			hx-target="@($"#main-{Delivery}")" hx-swap="innerHTML">Load native deliveries</button>
+	<main id="@($"main-{Delivery}")">Main original</main>
+	<aside id="@($"oob-{Delivery}")">OOB original</aside>
+	<div id="@($"partial-{Delivery}")">Partial original</div>
+}
+
+@code {
+	[SupplyParameterFromQuery]
+	private string Delivery { get; set; } = "alpha";
+
+	protected override void OnParametersSet()
+	{
+		if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+		{
+			Htmx.Response.SelectFragment("server-bundle");
+		}
+	}
+}

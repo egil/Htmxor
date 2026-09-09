@@ -1,0 +1,71 @@
+using System.Text;
+using System.Text.Json;
+using Microsoft.Playwright;
+using Xunit;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed partial class Issue56BrowserTests
+{
+	[Theory]
+	[InlineData("alpha")]
+	[InlineData("beta")]
+	public async Task Named_fragment_preserves_native_deliveries_independently_of_client_identities(string delivery)
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		output.WriteLine($"Chromium {browser.Version}; .NET {Environment.Version}; delivery={delivery}");
+		await using var context = await browser.NewContextAsync(new() { BaseURL = Assert.Single(app.Urls) });
+		var page = await context.NewPageAsync();
+		await page.GotoAsync($"/issue-174/native-delivery?delivery={delivery}");
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		await page.EvaluateAsync("""
+			delivery => {
+				window.issue174Deliveries = [];
+				const targets = [`main-${delivery}`, `oob-${delivery}`, `partial-${delivery}`];
+				document.addEventListener('htmx:before:settle', event => {
+					if (targets.includes(event.target.id)) {
+						window.issue174Deliveries.push(event.target.id);
+					}
+				});
+			}
+			""", delivery);
+
+		var responseTask = page.WaitForResponseAsync(response =>
+			new Uri(response.Url).AbsolutePath == "/issue-174/native-delivery");
+		await page.Locator($"#source-{delivery}").ClickAsync();
+		var response = await responseTask;
+		var headers = await response.Request.AllHeadersAsync();
+		output.WriteLine($"Status={response.Status}; request headers={JsonSerializer.Serialize(headers)}");
+		Assert.Equal(
+			new[] { "200", "true", "partial", $"button#source-{delivery}", $"main#main-{delivery}" },
+			new[] { response.Status.ToString(), headers["hx-request"], headers["hx-request-type"], headers["hx-source"], headers["hx-target"] });
+		var body = await response.BodyAsync();
+		output.WriteLine($"Response UTF-8: {Encoding.UTF8.GetString(body)}");
+		Assert.Equal(Encoding.UTF8.GetBytes(
+			$"<div id=\"envelope-{delivery}\"><aside id=\"oob-{delivery}\" hx-swap-oob=\"true\" data-delivery=\"native-oob\">OOB updated</aside>" +
+			$"<hx-partial hx-target=\"#partial-{delivery}\" hx-swap=\"innerHTML\" data-delivery=\"raw-partial\"><strong>Partial updated</strong></hx-partial>" +
+			"<section data-delivery=\"main\">Main updated</section></div>"), body);
+
+		await page.WaitForFunctionAsync("() => window.issue174Deliveries.length >= 3");
+		var events = await page.EvaluateAsync<string[]>("() => window.issue174Deliveries");
+		output.WriteLine($"Delivery events: {JsonSerializer.Serialize(events)}");
+		Assert.Equal($"main-{delivery}", events[0]);
+		Assert.Equal(new[] { $"main-{delivery}", $"oob-{delivery}", $"partial-{delivery}" }, events.Order());
+		var dom = new[]
+		{
+			await page.Locator($"#main-{delivery}").InnerHTMLAsync(),
+			await page.Locator($"#oob-{delivery}").TextContentAsync(),
+			await page.Locator($"#partial-{delivery}").InnerHTMLAsync(),
+		};
+		output.WriteLine($"Final DOM: {JsonSerializer.Serialize(dom)}");
+		Assert.Equal(new[]
+		{
+			$"<div id=\"envelope-{delivery}\"><section data-delivery=\"main\">Main updated</section></div>",
+			"OOB updated",
+			"<strong>Partial updated</strong>",
+		}, dom);
+	}
+}
