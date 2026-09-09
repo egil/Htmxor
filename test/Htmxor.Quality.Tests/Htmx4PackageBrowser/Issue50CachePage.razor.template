@@ -1,14 +1,46 @@
 @page "/issue-50/cache"
-@attribute [OutputCache(VaryByHeaderNames = ["HX-Request"])]
+@attribute [OutputCache(VaryByHeaderNames = ["HX-Request", "HX-Request-Type"], VaryByQueryKeys = ["representation"])]
+@using Htmxor.Http
 @using Microsoft.AspNetCore.OutputCaching
+@inject HtmxContext Htmx
 @inject Issue50CacheProbe Probe
 
-<main data-issue-50-cache data-render-count="@renderCount">
+<main data-issue-50-cache data-representation="@Representation" data-render-count="@renderCount">
 	<h1>Output cache representation</h1>
+	<HtmxFragment Name="alpha">
+		<section data-issue-50-fragment="alpha" data-representation="@Representation">Alpha fragment</section>
+	</HtmxFragment>
+	<HtmxFragment Name="beta">
+		<section data-issue-50-fragment="beta" data-representation="@Representation">Beta fragment</section>
+	</HtmxFragment>
 </main>
 
 @code {
 	private int renderCount;
 
+	[SupplyParameterFromQuery(Name = "representation")]
+	private string Representation { get; set; } = "whole";
+
 	protected override void OnInitialized() => renderCount = Probe.RecordRender();
+
+	protected override void OnParametersSet()
+	{
+		if (Htmx.Request.RoutingMode is not RoutingMode.Direct)
+		{
+			return;
+		}
+
+		if (string.Equals(Representation, "alpha", StringComparison.Ordinal))
+		{
+			Htmx.Response.SelectFragment("alpha");
+		}
+		else if (string.Equals(Representation, "beta", StringComparison.Ordinal))
+		{
+			Htmx.Response.SelectFragment("beta");
+		}
+		else
+		{
+			Htmx.Response.SelectWholeComponent();
+		}
+	}
 }
