@@ -222,6 +222,7 @@
       "relationship": "subclasses",
       "dependencies": [
         "src/Htmxor/Components/ConditionalComponentBase.cs",
+        "src/Htmxor/Components/HtmxFragment.cs",
         "src/Htmxor/Endpoints/HtmxorDirectComponentHost.cs",
         "src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs"
       ]

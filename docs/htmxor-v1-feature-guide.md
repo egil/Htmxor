@@ -288,7 +288,7 @@ wrapperless, or it may emit a wrapper when `Element`, `Id`, or additional HTML
 attributes are supplied:
 
 ```razor
-<HtmxFragment Id="product-list" Element="ul" class="products">
+<HtmxFragment Name="Products" Id="product-list" Element="ul" class="products">
     @foreach (var product in products)
     {
         <li>@product.Name</li>
@@ -297,15 +297,24 @@ attributes are supplied:
 ```
 
 For a normal request the fragment participates in the full component output. A
-direct request can select the whole component, one fragment, or several
-fragments. The component and required ancestors may run, but excluded child
-branches below a known selection boundary must not render or execute their own
-lifecycle work.
+direct request defaults to the whole component; component-instance code can
+select the whole component, one fragment, or several fragments in caller order:
 
-Select a stable name with `Htmx.Response.SelectFragment(...)` or
-`SelectFragments(...)`. The name is independent of the wrapper `Id` and browser
-delivery details. `Match` and `RenderDuringStandardRequest` remain legacy
-conditional-renderer options; do not use request target matching as the server
+```csharp
+Htmx.Response.SelectWholeComponent();
+Htmx.Response.SelectFragment("Products");
+Htmx.Response.SelectFragments("Products", "Totals");
+```
+
+Names are case-sensitive. Every selected name must be declared exactly once;
+duplicate, missing, malformed, or ancestor-and-descendant selections fail before
+response HTML is written. Selecting a nested name emits that boundary and its
+subtree without its ancestors. The renderer completes the component tree before
+serializing selected HTML. Lifecycle, rendering, data work, and quiescence can
+therefore occur in branches outside the selected response.
+
+The name is independent of the wrapper `Id` and browser delivery details. Do
+not use a request target, source, predicate, or request flag as the server
 selection key.
 
 Keep server execution separate from browser delivery:
@@ -1257,8 +1266,8 @@ the public API do not yet match this guide:
 
 - direct method inference and diagnostics cover only a limited set of Razor
   syntax;
-- fragment selection currently couples `Id`, request-target matching, `Match`,
-  and rendering flags rather than a clear named-selection model;
+- fragment selection uses stable component-owned names; its renderer completes
+  the tree before serializing whole or selected response HTML;
 - some infrastructure/prototype types are public because of current assembly
   boundaries rather than an intentional stable developer contract; and
 - several client compositions in this guide are not yet browser-conformance

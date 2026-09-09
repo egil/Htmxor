@@ -56,10 +56,10 @@ response or invoke application render fragments to discover topology. Direct
 responses wait for complete rendering. Excluded branches may perform lifecycle,
 rendering, and data work; selection makes no skipped-work claim.
 
-The legacy conditional renderer retains `Match`, `RenderDuringStandardRequest`,
-and implicit ID matching pending the separately owned legacy removal work. The
-active v1 endpoint renderer ignores those legacy filters and constructs all
-fragment content before choosing response output.
+`HtmxFragment` has no request predicate or direct-request rendering flag.
+`Id`, `HX-Target`, and `HX-Source` never choose server output. Application code
+chooses a whole response or named boundaries from the component instance; the
+renderer constructs the full tree and serializes the resulting selected HTML.
 
 ## Verification scope
 
@@ -84,9 +84,9 @@ cases. Focused red is retained in `artifacts/issue168/red/issue168-red.trx`;
 packed red and green output are retained under `artifacts/issue168/package/`.
 
 The routine full profile also found four existing packaged browser fixtures
-whose `Match`, `RenderDuringStandardRequest`, implicit ID selection, and
-skipped-descendant expectations belonged to the legacy renderer. The #122,
-#137, #139, and #144 fixtures now select explicit names. Application-authored
+whose legacy predicates, implicit ID selection, and skipped-descendant
+expectations did not describe the v1 renderer. The #122, #137, #139, and #144
+fixtures now select explicit names. Application-authored
 Razor conditions retain their normal-page controls and direct-request async
 gates. Their assertions retain exact selected response content, browser
 completion ordering, and request isolation, while recording completed excluded

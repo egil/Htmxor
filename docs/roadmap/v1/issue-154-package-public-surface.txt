@@ -34,30 +34,23 @@ TYPE Htmxor.Components.HtmxAsyncLoad [kind=class;abstract=False;sealed=True;gene
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Element
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Id
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Microsoft.AspNetCore.Components.RenderFragment Loading
-TYPE Htmxor.Components.HtmxFragment [kind=class;abstract=False;sealed=False;genericArity=0;base=Htmxor.Components.ConditionalComponentBase]
+TYPE Htmxor.Components.HtmxFragment [kind=class;abstract=False;sealed=False;genericArity=0;base=Microsoft.AspNetCore.Components.ComponentBase]
   Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Void .ctor()
-  Method [visibility=public;static=False;abstract=False;virtual=True;final=False;genericArity=0;parameters=3] Boolean ShouldOutput(Htmxor.Http.HtmxContext, Int32, Int32)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Collections.Generic.IDictionary`2[System.String,System.Object] get_AdditionalAttributes()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Microsoft.AspNetCore.Components.RenderFragment get_ChildContent()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Element()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Id()
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean] get_Match()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Name()
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Boolean get_RenderDuringStandardRequest()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_AdditionalAttributes(System.Collections.Generic.IDictionary`2[System.String,System.Object])
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_ChildContent(Microsoft.AspNetCore.Components.RenderFragment)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Element(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Id(System.String)
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Match(System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean])
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_Name(System.String)
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Void set_RenderDuringStandardRequest(Boolean)
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.Collections.Generic.IDictionary`2[System.String,System.Object] AdditionalAttributes
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Microsoft.AspNetCore.Components.RenderFragment ChildContent
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Element
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Id
-  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.Func`2[Htmxor.Http.HtmxRequest,System.Boolean] Match
   Property [visibility=public|public;static=False;get=public,instance;set=public,instance] System.String Name
-  Property [visibility=public|public;static=False;get=public,instance;set=public,instance] Boolean RenderDuringStandardRequest
 TYPE Htmxor.Components.HtmxHeadOutlet [kind=class;abstract=False;sealed=False;genericArity=0;base=System.Object]
   Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Void .ctor()
   Method [visibility=public;static=False;abstract=False;virtual=True;final=True;genericArity=0;parameters=1] Void Attach(Microsoft.AspNetCore.Components.RenderHandle)

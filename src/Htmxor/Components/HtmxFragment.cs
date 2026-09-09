@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
@@ -8,12 +7,8 @@ namespace Htmxor.Components;
 /// <summary>
 /// Defines a server-selectable fragment with optional wrapper markup.
 /// </summary>
-/// <remarks>
-/// The v1 endpoint renderer completes the component tree before selecting response output by
-/// <see cref="Name"/>. <see cref="Match"/> and <see cref="RenderDuringStandardRequest"/>
-/// apply only to the legacy conditional renderer.
-/// </remarks>
-public class HtmxFragment : ConditionalComponentBase
+/// <remarks>The v1 endpoint renderer completes the component tree before selecting response output by <see cref="Name"/>.</remarks>
+public class HtmxFragment : ComponentBase
 {
 	/// <summary>
 	/// Gets or sets the stable, case-sensitive server selection name. This does not emit markup or request a wrapper.
@@ -56,27 +51,9 @@ public class HtmxFragment : ConditionalComponentBase
 	[Parameter]
 	public string? Id { get; set; }
 
-	/// <summary>
-	/// Gets or sets the legacy conditional renderer's child-content predicate.
-	/// </summary>
-	[Parameter]
-	public Func<HtmxRequest, bool>? Match { get; set; }
-
-	/// <summary>
-	/// Gets or sets whether the legacy conditional renderer emits this fragment during a standard request.
-	/// </summary>
-	/// <remarks>Default is <see langword="true"/>.</remarks>
-	[Parameter]
-	public bool RenderDuringStandardRequest { get; set; } = true;
-
 	/// <inheritdoc/>
 	protected override void BuildRenderTree([NotNull] RenderTreeBuilder builder)
 	{
-		if (!Context.UsesCompletedFragmentSelection && !ShouldOutput(Context, 0, 0))
-		{
-			return;
-		}
-
 		var wrapper = Element;
 		if (wrapper is null && (Id is not null || AdditionalAttributes?.Count > 0))
 		{
@@ -105,17 +82,6 @@ public class HtmxFragment : ConditionalComponentBase
 		Element = Normalize(Element);
 		Id = Normalize(Id);
 	}
-
-	/// <inheritdoc/>
-	public override bool ShouldOutput([NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren)
-		=> (RenderDuringStandardRequest && context.Request.RoutingMode is RoutingMode.Standard)
-		|| (context.Request.RoutingMode is RoutingMode.Direct &&
-			(Match?.Invoke(context.Request) ?? MatchesTarget(context.Request.Target)));
-
-	private bool MatchesTarget(string? target)
-		=> Id is null
-		|| string.Equals(Id, target, StringComparison.Ordinal)
-		|| HtmxElementIdentity.Matches(Element ?? "div", Id, target);
 
 	private static string? Normalize(string? value)
 		=> string.IsNullOrWhiteSpace(value) ? null : value.Trim();
