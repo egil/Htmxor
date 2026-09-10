@@ -35,8 +35,6 @@ public sealed class TargetFrameworkDeclarationPolicyTests
 
 	[Theory]
 	[InlineData("NET9_0")]
-	[InlineData("NET11_0")]
-	[InlineData("NET11_0_OR_GREATER")]
 	[InlineData("NETCOREAPP3_1")]
 	[InlineData("NETSTANDARD")]
 	[InlineData("NETFRAMEWORK")]
@@ -47,6 +45,18 @@ public sealed class TargetFrameworkDeclarationPolicyTests
 		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, Fixture.Manifest());
 
 		Assert.Empty(untracked);
+	}
+
+	[Theory]
+	[InlineData("NET11_0")]
+	[InlineData("NET11_0_OR_GREATER")]
+	public void Net11_target_symbol_requires_the_framework_source_watch(string symbol)
+	{
+		using var repository = new ConditionalRepository("active-symbol", symbol);
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, Fixture.Manifest());
+
+		Assert.Equal([new LocalFrameworkDependency(LocalPath, ComponentPath, WatchRelationship.Subclasses)], untracked);
 	}
 
 	public static TheoryData<string, string, string> ActiveDeclarations => new()
