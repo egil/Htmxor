@@ -33,6 +33,10 @@ internal static class Program
 			{
 				throw new MonitorFailure("The requested target framework is not configured for upstream monitoring.");
 			}
+			if (options.TargetFramework is null && manifest.Frameworks.Count > 1 && (options.Tag is not null || options.Baseline is not null))
+			{
+				throw new MonitorFailure("An explicit tag or baseline requires selecting one configured target framework.");
+			}
 			var results = new List<(FrameworkBaseline Framework, MonitorResult Result)>();
 			foreach (var framework in frameworks)
 			{
