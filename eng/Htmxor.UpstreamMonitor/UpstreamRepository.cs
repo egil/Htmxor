@@ -74,10 +74,10 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 	}
 
 	private static bool SupportedTag(string tag, FrameworkBaseline framework) =>
-		tag.StartsWith('v') && (framework.AllowsPrerelease || StableTag().IsMatch(tag)) && MajorVersion(tag) == framework.MajorVersion;
+		(framework.AllowsPrerelease ? ReleaseTag() : StableTag()).IsMatch(tag) && MajorVersion(tag) == framework.MajorVersion;
 
 	private static int? MajorVersion(string tag) =>
-		Version.TryParse(tag.TrimStart('v').Split('-', 2)[0], out var version) ? version.Major : null;
+		Version.TryParse(tag[1..].Split('-', 2)[0], out var version) ? version.Major : null;
 
 	private static Version? StableVersion(string tag) =>
 		StableTag().IsMatch(tag) && Version.TryParse(tag[1..], out var version) ? version : null;
@@ -101,6 +101,9 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 
 	[GeneratedRegex(@"^v\d+\.\d+\.\d+$")]
 	private static partial Regex StableTag();
+
+	[GeneratedRegex(@"^v\d+\.\d+\.\d+-[0-9A-Za-z][0-9A-Za-z.-]*$")]
+	private static partial Regex ReleaseTag();
 }
 
 internal sealed record ChangedFile(string Path, ChangeKind Kind);
