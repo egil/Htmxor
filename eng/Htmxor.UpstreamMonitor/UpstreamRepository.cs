@@ -8,7 +8,9 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 {
 	public async Task<UpstreamRevision> ResolveAsync(MonitorRequest request, CancellationToken cancellationToken)
 	{
-		var tag = request.RequestedTag ?? await LatestTagAsync(request.Framework, cancellationToken);
+		var tag = request.RequestedTag ?? (request.Framework.AllowsPrerelease
+			? request.Framework.ReviewedTag
+			: await LatestTagAsync(request.Framework, cancellationToken));
 		if (!SupportedTag(tag, request.Framework))
 		{
 			throw new MonitorFailure("The requested tag is not in the configured ASP.NET Core release channel.");

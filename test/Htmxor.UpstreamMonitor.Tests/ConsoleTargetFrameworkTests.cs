@@ -12,7 +12,6 @@ public sealed class ConsoleTargetFrameworkTests
 		using var workspace = MultiTargetWorkspace();
 		var transport = new FakeGitHubTransport();
 		transport.AddJson(Releases, Fixture.Read("github/releases.json"));
-		transport.AddJson(Releases, """[{"tag_name":"v11.0.0-rc.1.26425.128","draft":false,"prerelease":true}]""");
 		transport.AddJson(Tag("v10.0.11"), Fixture.Read("github/ref-v10.0.11-direct.json"));
 		transport.AddJson(Tag(Fixture.Net11ReviewedTag), Commit(Fixture.Net11ReviewedCommit));
 
@@ -20,6 +19,7 @@ public sealed class ConsoleTargetFrameworkTests
 
 		Assert.Equal(0, observation.ExitCode);
 		Assert.Equal("Current", observation.StandardOutput);
+		Assert.Equal([Request(Releases), Request(Tag("v10.0.11")), Request(Tag(Fixture.Net11ReviewedTag))], observation.Requests);
 		Assert.Equal(
 			[
 				("net10.0", "v10.0.11", Fixture.ReviewedCommit),
@@ -71,12 +71,12 @@ public sealed class ConsoleTargetFrameworkTests
 		using var workspace = MultiTargetWorkspace();
 		var transport = new FakeGitHubTransport();
 		transport.AddStatus(Releases, System.Net.HttpStatusCode.ServiceUnavailable);
-		transport.AddStatus(Releases, System.Net.HttpStatusCode.ServiceUnavailable);
+		transport.AddStatus(Tag(Fixture.Net11ReviewedTag), System.Net.HttpStatusCode.ServiceUnavailable);
 
 		var observation = await RunAsync(workspace, transport, []);
 
 		Assert.Equal(2, observation.ExitCode);
-		Assert.Equal(2, observation.Requests.Count);
+		Assert.Equal([Request(Releases), Request(Tag(Fixture.Net11ReviewedTag))], observation.Requests);
 		Assert.All(Reports(observation.JsonReport!), result =>
 		{
 			var report = result.Report;
@@ -121,6 +121,7 @@ public sealed class ConsoleTargetFrameworkTests
 	}
 
 	private const string Releases = "/repos/dotnet/aspnetcore/releases?per_page=100";
+	private static ConsoleRequestObservation Request(string path) => new(HttpMethod.Get, path, null, "Bearer fixture-token");
 	private static string Tag(string tag) => $"/repos/dotnet/aspnetcore/git/ref/tags/{tag}";
 	private static string Compare(string baseline) => $"/repos/dotnet/aspnetcore/compare/{baseline}...{Fixture.TargetCommit}";
 	private static string Commit(string commit) => JsonSerializer.Serialize(new { @object = new { type = "commit", sha = commit } });
