@@ -102,7 +102,7 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 	[GeneratedRegex(@"^v\d+\.\d+\.\d+$")]
 	private static partial Regex StableTag();
 
-	[GeneratedRegex(@"^v\d+\.\d+\.\d+-(?:[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)$")]
+	[GeneratedRegex(@"^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-(?:(?:0|[1-9]\d*)|(?:[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))(?:\.(?:(?:0|[1-9]\d*)|(?:[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)))*$")]
 	private static partial Regex ReleaseTag();
 }
 
