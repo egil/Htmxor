@@ -4,6 +4,15 @@ namespace Htmxor.Quality.Tests;
 
 internal static class WorkflowPolicyProjection
 {
+	public static IReadOnlyList<string> DotnetVersionsForJob(string yaml, string jobName)
+	{
+		var workflow = ParseRoot(yaml);
+		var job = Child(Mapping(Child(workflow, "jobs")), jobName) as YamlMappingNode ?? new YamlMappingNode();
+		var setupDotnet = SingleStep(Steps(job), "uses", "actions/setup-dotnet@");
+
+		return BlockLines(Child(Mapping(Child(setupDotnet, "with")), "dotnet-version")).ToArray();
+	}
+
 	public static UpstreamMonitorPolicyTests.WorkflowPolicy Parse(string yaml)
 	{
 		var workflow = ParseRoot(yaml);

@@ -121,6 +121,18 @@ public sealed class UpstreamMonitorPolicyTests
 		Assert.Equal(ExpectedWorkflow(), WorkflowPolicyProjection.Parse(File.ReadAllText(path)));
 	}
 
+	[Fact]
+	public void Ordinary_CI_provisions_the_exact_RC_reference_pack_required_by_target_discovery()
+	{
+		var root = RepositoryLocator.Find();
+		var path = Path.Combine(root, ".github", "workflows", "ci.yml");
+
+		Assert.True(File.Exists(path), "The ordinary CI workflow must be committed.");
+		Assert.Equal(
+			["10.0.x", "11.0.100-rc.1.26425.128"],
+			WorkflowPolicyProjection.DotnetVersionsForJob(File.ReadAllText(path), "run-test"));
+	}
+
 	[Theory]
 	[InlineData("workflow trigger")]
 	[InlineData("inline workflow trigger")]

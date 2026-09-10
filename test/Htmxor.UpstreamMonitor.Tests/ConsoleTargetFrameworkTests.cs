@@ -65,6 +65,22 @@ public sealed class ConsoleTargetFrameworkTests
 		Assert.Null(observation.MarkdownReport);
 	}
 
+	[Theory]
+	[InlineData("--tag", "v10.0.12")]
+	[InlineData("--baseline", Fixture.BaselineCommit)]
+	public async Task Target_specific_revision_without_a_target_fails_before_network_or_report_writes(string option, string value)
+	{
+		using var workspace = MultiTargetWorkspace();
+
+		var observation = await RunAsync(workspace, new FakeGitHubTransport(), [option, value]);
+
+		Assert.Equal(2, observation.ExitCode);
+		Assert.Equal("An explicit tag or baseline requires selecting one configured target framework.", observation.StandardError);
+		Assert.Empty(observation.Requests);
+		Assert.Null(observation.JsonReport);
+		Assert.Null(observation.MarkdownReport);
+	}
+
 	[Fact]
 	public async Task Provider_failure_is_recorded_for_each_configured_target()
 	{
