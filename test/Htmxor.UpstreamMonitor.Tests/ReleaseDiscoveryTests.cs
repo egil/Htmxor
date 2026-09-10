@@ -125,4 +125,26 @@ public sealed class ReleaseDiscoveryTests
 			],
 			transport.Requests.Select(request => (request.Method, request.PathAndQuery)));
 	}
+
+	[Fact]
+	public async Task Net11_prerelease_release_uses_its_exact_tag_and_reviewed_commit()
+	{
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/dotnet/aspnetcore/releases?per_page=100", $$"""
+			[{"tag_name":"v11.0.0-rc.1.26425.128","draft":false,"prerelease":true},
+			 {"tag_name":"v11.0.0-preview.7","draft":false,"prerelease":true},
+			 {"tag_name":"v11.0.0","draft":true,"prerelease":false}]
+			""");
+		transport.AddJson($"/repos/dotnet/aspnetcore/git/ref/tags/{Fixture.Net11ReviewedTag}",
+			System.Text.Json.JsonSerializer.Serialize(new { @object = new { type = "commit", sha = Fixture.Net11ReviewedCommit } }));
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(
+			Fixture.ManifestFor(Fixture.Net11Framework()), Fixture.Net11Framework()));
+
+		Assert.Equal(MonitorStatus.Current, result.Status);
+		Assert.Equal(new UpstreamRevision(Fixture.Net11ReviewedTag, Fixture.Net11ReviewedCommit), result.Upstream);
+		ReportAssertions.Equal(result, new ReportExpectation("current",
+			new(Fixture.Net11ReviewedTag, Fixture.Net11ReviewedCommit),
+			new(Fixture.Net11ReviewedTag, Fixture.Net11ReviewedCommit), [], [], null));
+	}
 }

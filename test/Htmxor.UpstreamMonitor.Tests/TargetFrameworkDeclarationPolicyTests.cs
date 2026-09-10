@@ -33,6 +33,19 @@ public sealed class TargetFrameworkDeclarationPolicyTests
 		Assert.Equal([new LocalFrameworkDependency(LocalPath, ComponentPath, WatchRelationship.Subclasses)], untracked);
 	}
 
+	[Fact]
+	public void A_net10_watch_cannot_mask_a_distinct_net11_framework_dependency()
+	{
+		using var repository = new ConditionalRepository("per-target-symbols");
+		var manifest = Fixture.MultiTargetManifest(Fixture.Watch(ComponentPath,
+			relationship: WatchRelationship.Subclasses, dependencies: [LocalPath]));
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		Assert.Equal([new LocalFrameworkDependency(LocalPath,
+			"src/Components/Components/src/NavigationManager.cs", WatchRelationship.Subclasses)], untracked);
+	}
+
 	[Theory]
 	[InlineData("NET9_0")]
 	[InlineData("NETCOREAPP3_1")]
@@ -54,7 +67,7 @@ public sealed class TargetFrameworkDeclarationPolicyTests
 	{
 		using var repository = new ConditionalRepository("active-symbol", symbol);
 
-		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, Fixture.Manifest());
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, Fixture.ManifestFor(Fixture.Net11Framework()));
 
 		Assert.Equal([new LocalFrameworkDependency(LocalPath, ComponentPath, WatchRelationship.Subclasses)], untracked);
 	}
