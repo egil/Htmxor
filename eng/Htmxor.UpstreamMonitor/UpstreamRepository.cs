@@ -8,10 +8,10 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 {
 	public async Task<UpstreamRevision> ResolveAsync(MonitorRequest request, CancellationToken cancellationToken)
 	{
-		var tag = request.RequestedTag ?? await LatestTagAsync(request.SupportedMajorVersion, cancellationToken);
-		if (StableVersion(tag)?.Major != request.SupportedMajorVersion)
+		var tag = request.RequestedTag ?? await LatestTagAsync(request.Framework, cancellationToken);
+		if (!SupportedTag(tag, request.Framework))
 		{
-			throw new MonitorFailure("The requested tag is not a stable supported ASP.NET Core release.");
+			throw new MonitorFailure("The requested tag is not in the configured ASP.NET Core release channel.");
 		}
 		var reference = await api.GetAsync($"/repos/{repository}/git/ref/tags/{Uri.EscapeDataString(tag)}", cancellationToken);
 		var target = reference.GetProperty("object");
@@ -61,16 +61,23 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 	private string ContentsPath(string path, string commit) =>
 		$"/repos/{repository}/contents/{string.Join('/', path.Split('/').Select(Uri.EscapeDataString))}?ref={Uri.EscapeDataString(commit)}";
 
-	private async Task<string> LatestTagAsync(int major, CancellationToken cancellationToken)
+	private async Task<string> LatestTagAsync(FrameworkBaseline framework, CancellationToken cancellationToken)
 	{
 		var releases = await api.GetPagesAsync($"/repos/{repository}/releases?per_page=100", cancellationToken);
-		return releases.Where(IsStable).Select(release => release.GetProperty("tag_name").GetString()!)
-			.Where(tag => StableVersion(tag)?.Major == major).OrderByDescending(StableVersion).FirstOrDefault()
-			?? throw new MonitorFailure("No stable supported ASP.NET Core release was found.");
+		var candidates = releases.Where(release => !release.GetProperty("draft").GetBoolean())
+			.Where(release => framework.AllowsPrerelease || !release.GetProperty("prerelease").GetBoolean())
+			.Select(release => release.GetProperty("tag_name").GetString()!)
+			.Where(tag => SupportedTag(tag, framework));
+		return framework.AllowsPrerelease
+			? candidates.FirstOrDefault() ?? throw new MonitorFailure("No supported ASP.NET Core prerelease was found.")
+			: candidates.OrderByDescending(StableVersion).FirstOrDefault() ?? throw new MonitorFailure("No stable supported ASP.NET Core release was found.");
 	}
 
-	private static bool IsStable(JsonElement release) =>
-		!release.GetProperty("draft").GetBoolean() && !release.GetProperty("prerelease").GetBoolean();
+	private static bool SupportedTag(string tag, FrameworkBaseline framework) =>
+		(framework.AllowsPrerelease || StableTag().IsMatch(tag)) && MajorVersion(tag) == framework.MajorVersion;
+
+	private static int? MajorVersion(string tag) =>
+		Version.TryParse(tag.TrimStart('v').Split('-', 2)[0], out var version) ? version.Major : null;
 
 	private static Version? StableVersion(string tag) =>
 		StableTag().IsMatch(tag) && Version.TryParse(tag[1..], out var version) ? version : null;

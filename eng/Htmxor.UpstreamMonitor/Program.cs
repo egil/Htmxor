@@ -1,4 +1,6 @@
 using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Htmxor.UpstreamMonitor;
 
@@ -23,19 +25,32 @@ internal static class Program
 		try
 		{
 			var options = MonitorOptions.Parse(arguments, workingDirectory);
-			var request = new MonitorRequest(WatchManifestFile.Read(workingDirectory), 10, options.Tag, options.Baseline);
-			var result = await RunMonitorAsync(request, getEnvironmentVariable("GH_TOKEN"), httpClient, cancellationToken);
-			await WriteReportAsync(options.JsonPath, result.JsonReport, cancellationToken);
-			await WriteReportAsync(options.MarkdownPath, result.MarkdownReport, cancellationToken);
-			if (result.InfrastructureError is not null)
+			var manifest = WatchManifestFile.Read(workingDirectory);
+			var frameworks = options.TargetFramework is null
+				? manifest.Frameworks
+				: manifest.Frameworks.Where(framework => framework.TargetFramework == options.TargetFramework).ToArray();
+			if (!frameworks.Any())
 			{
-				await standardError.WriteLineAsync(result.InfrastructureError);
+				throw new MonitorFailure("The requested target framework is not configured for upstream monitoring.");
+			}
+			var results = new List<(FrameworkBaseline Framework, MonitorResult Result)>();
+			foreach (var framework in frameworks)
+			{
+				results.Add((framework, await RunMonitorAsync(new MonitorRequest(manifest, framework, options.Tag, options.Baseline),
+					getEnvironmentVariable("GH_TOKEN"), httpClient, cancellationToken)));
+			}
+			await WriteReportAsync(options.JsonPath, CombinedJson(results), cancellationToken);
+			await WriteReportAsync(options.MarkdownPath, CombinedMarkdown(results), cancellationToken);
+			var status = results.Max(result => result.Result.Status);
+			if (status == MonitorStatus.InfrastructureError)
+			{
+				await standardError.WriteLineAsync(results.First(result => result.Result.InfrastructureError is not null).Result.InfrastructureError);
 			}
 			else
 			{
-				await standardOutput.WriteLineAsync(result.Status.ToString());
+				await standardOutput.WriteLineAsync(status.ToString());
 			}
-			return (int)result.Status;
+			return (int)status;
 		}
 		catch (Exception exception)
 		{
@@ -65,9 +80,19 @@ internal static class Program
 		Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 		await File.WriteAllTextAsync(path, report, cancellationToken);
 	}
+
+	private static string CombinedJson(IReadOnlyList<(FrameworkBaseline Framework, MonitorResult Result)> results) => results.Count == 1
+		? results[0].Result.JsonReport
+		: new JsonObject { ["frameworks"] = new JsonArray(results.Select(result => new JsonObject
+			{ ["targetFramework"] = result.Framework.TargetFramework, ["report"] = JsonNode.Parse(result.Result.JsonReport) }).ToArray()) }
+			.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+
+	private static string CombinedMarkdown(IReadOnlyList<(FrameworkBaseline Framework, MonitorResult Result)> results) => results.Count == 1
+		? results[0].Result.MarkdownReport
+		: string.Join("\n\n", results.Select(result => $"# {result.Framework.TargetFramework}\n\n{result.Result.MarkdownReport}"));
 }
 
-internal sealed record MonitorOptions(string? Tag, string? Baseline, string JsonPath, string MarkdownPath)
+internal sealed record MonitorOptions(string? TargetFramework, string? Tag, string? Baseline, string JsonPath, string MarkdownPath)
 {
 	public static MonitorOptions Parse(IReadOnlyList<string> arguments, string root)
 	{
@@ -79,16 +104,16 @@ internal sealed record MonitorOptions(string? Tag, string? Baseline, string Json
 		for (var index = 0; index < arguments.Count; index += 2)
 		{
 			var option = arguments[index];
-			if (option is not ("--tag" or "--baseline" or "--json" or "--markdown") || index + 1 >= arguments.Count)
+			if (option is not ("--framework" or "--tag" or "--baseline" or "--json" or "--markdown") || index + 1 >= arguments.Count)
 			{
-				throw new MonitorFailure("Usage: [--tag TAG --baseline COMMIT] [--json PATH] [--markdown PATH].");
+				throw new MonitorFailure("Usage: [--framework TFM] [--tag TAG --baseline COMMIT] [--json PATH] [--markdown PATH].");
 			}
 			if (!values.TryAdd(option, arguments[index + 1]))
 			{
 				throw new MonitorFailure($"Option '{option}' may only be specified once.");
 			}
 		}
-		return new(values.GetValueOrDefault("--tag"), values.GetValueOrDefault("--baseline"),
+		return new(values.GetValueOrDefault("--framework"), values.GetValueOrDefault("--tag"), values.GetValueOrDefault("--baseline"),
 			Path.GetFullPath(values.GetValueOrDefault("--json", "upstream-monitor.json"), root),
 			Path.GetFullPath(values.GetValueOrDefault("--markdown", "upstream-monitor.md"), root));
 	}
