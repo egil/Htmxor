@@ -54,10 +54,18 @@ public sealed class UpstreamMonitorPolicyTests
 		using var document = JsonDocument.Parse(File.ReadAllText(path));
 		var manifest = document.RootElement;
 		Assert.Equal("dotnet/aspnetcore", manifest.GetProperty("repository").GetString());
-		Assert.Equal("v10.0.11", manifest.GetProperty("reviewed").GetProperty("tag").GetString());
 		Assert.Equal(
-			"a5383385245bdacc20ec19f30e46090a8154d8da",
-			manifest.GetProperty("reviewed").GetProperty("commit").GetString());
+			[
+				"net10.0|10|False|10.0.11|v10.0.11|a5383385245bdacc20ec19f30e46090a8154d8da",
+				"net11.0|11|True|11.0.0-rc.1.26425.128|v11.0.0-rc.1.26425.128|c3325eeb6b47bc6383c127d4f4827dc9642a2b6e",
+			],
+			manifest.GetProperty("frameworks").EnumerateArray().Select(framework =>
+			{
+				var reviewed = framework.GetProperty("reviewed");
+				return $"{framework.GetProperty("targetFramework").GetString()}|{framework.GetProperty("majorVersion").GetInt32()}|" +
+					$"{framework.GetProperty("allowsPrerelease").GetBoolean()}|{framework.GetProperty("referencePackVersion").GetString()}|" +
+					$"{reviewed.GetProperty("tag").GetString()}|{reviewed.GetProperty("commit").GetString()}";
+			}));
 
 		Assert.Equal(
 			[
