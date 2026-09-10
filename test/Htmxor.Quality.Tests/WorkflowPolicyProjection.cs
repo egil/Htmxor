@@ -14,6 +14,7 @@ internal static class WorkflowPolicyProjection
 		var permissions = Child(job, "permissions") ?? Child(workflow, "permissions");
 		var steps = Steps(job).ToArray();
 		var monitor = SingleStep(steps, "run", "check --profile upstream");
+		var setupDotnet = SingleStep(steps, "uses", "actions/setup-dotnet@");
 		var upload = SingleStep(steps, "uses", "actions/upload-artifact@");
 
 		return new UpstreamMonitorPolicyTests.WorkflowPolicy(
@@ -21,6 +22,7 @@ internal static class WorkflowPolicyProjection
 			Cron(triggers),
 			string.Join(',', Values(Child(Mapping(Child(triggers, "repository_dispatch")), "types")).Order(StringComparer.Ordinal)),
 			PermissionEntries(permissions),
+			Scalar(Child(Mapping(Child(setupDotnet, "with")), "dotnet-version")),
 			MonitorCommand(monitor),
 			string.Join(',', Entries(Mapping(Child(monitor, "env"))).Order(StringComparer.Ordinal)),
 			EffectiveContinueOnError(Child(job, "continue-on-error")),

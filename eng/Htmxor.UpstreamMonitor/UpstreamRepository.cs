@@ -66,13 +66,11 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 	private async Task<string> LatestTagAsync(FrameworkBaseline framework, CancellationToken cancellationToken)
 	{
 		var releases = await api.GetPagesAsync($"/repos/{repository}/releases?per_page=100", cancellationToken);
-		var candidates = releases.Where(release => !release.GetProperty("draft").GetBoolean())
-			.Where(release => framework.AllowsPrerelease || !release.GetProperty("prerelease").GetBoolean())
+		var candidates = releases.Where(release => !release.GetProperty("draft").GetBoolean() && !release.GetProperty("prerelease").GetBoolean())
 			.Select(release => release.GetProperty("tag_name").GetString()!)
 			.Where(tag => SupportedTag(tag, framework));
-		return framework.AllowsPrerelease
-			? candidates.FirstOrDefault() ?? throw new MonitorFailure("No supported ASP.NET Core prerelease was found.")
-			: candidates.OrderByDescending(StableVersion).FirstOrDefault() ?? throw new MonitorFailure("No stable supported ASP.NET Core release was found.");
+		return candidates.OrderByDescending(StableVersion).FirstOrDefault()
+			?? throw new MonitorFailure("No stable supported ASP.NET Core release was found.");
 	}
 
 	private static bool SupportedTag(string tag, FrameworkBaseline framework) =>

@@ -112,8 +112,8 @@ dotnet run --project eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj --
 Tokens are accepted only through `GH_TOKEN`, never a command-line argument.
 Downloaded source is inspected as text and is never compiled or executed.
 The independent local policy discovers direct ASP.NET Core bases and interfaces
-from local declarations using type metadata from the installed .NET 10 ASP.NET
-Core framework. It reads that trusted metadata locally and makes no network calls.
+from local declarations using trusted reference metadata for each configured
+target framework. It reads that metadata locally and makes no network calls.
 The reviewed source-path map supplies locations, not the discovery inventory:
 a framework identity without a mapped source is reported as `unresolved:<identity>`
 and requires a reviewed canonical path plus manifest coverage.
