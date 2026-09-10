@@ -74,7 +74,7 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 	}
 
 	private static bool SupportedTag(string tag, FrameworkBaseline framework) =>
-		(framework.AllowsPrerelease || StableTag().IsMatch(tag)) && MajorVersion(tag) == framework.MajorVersion;
+		tag.StartsWith('v') && (framework.AllowsPrerelease || StableTag().IsMatch(tag)) && MajorVersion(tag) == framework.MajorVersion;
 
 	private static int? MajorVersion(string tag) =>
 		Version.TryParse(tag.TrimStart('v').Split('-', 2)[0], out var version) ? version.Major : null;
