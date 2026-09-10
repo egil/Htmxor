@@ -66,6 +66,20 @@ public sealed class ConsoleTargetFrameworkTests
 	}
 
 	[Theory]
+	[InlineData("v11.0.0-rc.01")]
+	[InlineData("v011.0.0-rc.1")]
+	public async Task Non_SemVer_prerelease_tag_fails_before_network_access(string tag)
+	{
+		using var workspace = MultiTargetWorkspace();
+
+		var observation = await RunAsync(workspace, new FakeGitHubTransport(), ["--framework", "net11.0", "--tag", tag]);
+
+		Assert.Equal(2, observation.ExitCode);
+		Assert.Equal("The requested tag is not in the configured ASP.NET Core release channel.", observation.StandardError);
+		Assert.Empty(observation.Requests);
+	}
+
+	[Theory]
 	[InlineData("--tag", "v10.0.12")]
 	[InlineData("--baseline", Fixture.BaselineCommit)]
 	public async Task Target_specific_revision_without_a_target_fails_before_network_or_report_writes(string option, string value)
