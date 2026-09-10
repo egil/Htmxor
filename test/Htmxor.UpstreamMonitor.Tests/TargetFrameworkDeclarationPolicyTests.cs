@@ -72,6 +72,18 @@ public sealed class TargetFrameworkDeclarationPolicyTests
 		Assert.Equal([new LocalFrameworkDependency(LocalPath, ComponentPath, WatchRelationship.Subclasses)], untracked);
 	}
 
+	[Fact]
+	public void Net11_conditional_unknown_framework_identity_is_reported_as_unresolved()
+	{
+		using var repository = new ConditionalRepository("net11-unmapped");
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path,
+			Fixture.ManifestFor(Fixture.Net11Framework()));
+
+		Assert.Equal([new LocalFrameworkDependency(LocalPath,
+			"unresolved:Microsoft.AspNetCore.SignalR.IHubContext`1", WatchRelationship.Implements)], untracked);
+	}
+
 	public static TheoryData<string, string, string> ActiveDeclarations => new()
 	{
 		{ "global-import", ComponentPath, "Subclasses" },
