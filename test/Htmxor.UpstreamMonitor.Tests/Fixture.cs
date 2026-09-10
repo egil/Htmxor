@@ -8,6 +8,8 @@ internal static class Fixture
 {
 	public const string Repository = "dotnet/aspnetcore";
 	public const string ReviewedCommit = "a5383385245bdacc20ec19f30e46090a8154d8da";
+	public const string Net11ReviewedTag = "v11.0.0-rc.1.26425.128";
+	public const string Net11ReviewedCommit = "c3325eeb6b47bc6383c127d4f4827dc9642a2b6e";
 	public const string TargetCommit = "cccccccccccccccccccccccccccccccccccccccc";
 	public const string BaselineCommit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
@@ -29,6 +31,18 @@ internal static class Fixture
 
 	public static WatchManifest Manifest(params WatchTarget[] targets) =>
 		new(Repository, "v10.0.11", ReviewedCommit, targets);
+
+	public static WatchManifest ManifestFor(FrameworkBaseline framework, params WatchTarget[] targets) =>
+		new(Repository, [framework], targets);
+
+	public static WatchManifest MultiTargetManifest(params WatchTarget[] targets) =>
+		new(Repository, [Net10Framework(), Net11Framework()], targets);
+
+	public static FrameworkBaseline Net10Framework() =>
+		new("net10.0", 10, false, "10.0.11", "v10.0.11", ReviewedCommit);
+
+	public static FrameworkBaseline Net11Framework() =>
+		new("net11.0", 11, true, "11.0.0-rc.1.26425.128", Net11ReviewedTag, Net11ReviewedCommit);
 
 	public static WatchTarget Watch(
 		string path,
