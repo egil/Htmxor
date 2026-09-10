@@ -1,6 +1,4 @@
-using System.Reflection;
 using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Components;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,8 +7,6 @@ namespace Htmxor.UpstreamMonitor;
 
 internal static partial class LocalFrameworkDependencyDiscovery
 {
-	private static readonly Lazy<PortableExecutableReference[]> frameworkReferences = new(ReadFrameworkReferences);
-	private static readonly Lazy<CSharpParseOptions> parseOptions = new(ReadParseOptions);
 
 	// This map supplies reviewed source locations only. Trusted framework metadata independently determines which local relationships require coverage.
 	private static readonly IReadOnlyDictionary<string, string> frameworkSources = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -35,48 +31,57 @@ internal static partial class LocalFrameworkDependencyDiscovery
 		["Microsoft.AspNetCore.Routing.Matching.IEndpointSelectorPolicy"] = "src/Http/Routing/src/Matching/IEndpointSelectorPolicy.cs",
 	};
 
-	public static IEnumerable<LocalFrameworkDependency> Discover(string repositoryRoot)
+	public static IEnumerable<LocalFrameworkDependency> Discover(string repositoryRoot, FrameworkBaseline framework)
 	{
 		var root = Path.Combine(repositoryRoot, "src", "Htmxor");
 		if (!Directory.Exists(root))
 		{
 			return [];
 		}
-		var sources = ReadLocalSources(repositoryRoot, root);
+		var sources = ReadLocalSources(repositoryRoot, root, framework);
 		// This compilation binds local declarations only. It is never emitted; fetched upstream source stays in the separate text comparer.
-		var compilation = CSharpCompilation.Create("Htmxor.LocalDependencies", sources, frameworkReferences.Value,
+		var compilation = CSharpCompilation.Create("Htmxor.LocalDependencies", sources, ReadFrameworkReferences(framework),
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		return sources.SelectMany(source => ReadProvenance(source).Concat(ReadBases(source, compilation.GetSemanticModel(source))));
 	}
 
-	private static SyntaxTree[] ReadLocalSources(string repositoryRoot, string root) =>
+	public static IEnumerable<LocalFrameworkDependency> Discover(string repositoryRoot) =>
+		Discover(repositoryRoot, new FrameworkBaseline("net10.0", 10, false, "10.0.11", "v10.0.11", "a5383385245bdacc20ec19f30e46090a8154d8da"));
+
+	private static SyntaxTree[] ReadLocalSources(string repositoryRoot, string root, FrameworkBaseline framework) =>
 		Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
 			.Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin"))
 			.Order(StringComparer.Ordinal)
-			.Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path), parseOptions.Value,
+			.Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path), ReadParseOptions(framework),
 				Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'))).ToArray();
 
-	private static CSharpParseOptions ReadParseOptions()
+	private static CSharpParseOptions ReadParseOptions(FrameworkBaseline framework) =>
+		new(LanguageVersion.Preview, preprocessorSymbols: TargetSymbols(framework));
+
+	private static string[] TargetSymbols(FrameworkBaseline framework)
 	{
-		var symbols = typeof(LocalFrameworkDependencyDiscovery).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-			.Where(attribute => attribute.Key == "Htmxor.TargetFrameworkSymbols")
-			.SelectMany(attribute => attribute.Value?.Split(',') ?? []).Distinct(StringComparer.Ordinal).ToArray();
-		if (symbols.Length == 0 || symbols.Any(symbol => !SyntaxFacts.IsValidIdentifier(symbol)))
+		if (framework.MajorVersion is < 5 or > 11)
 		{
-			throw new MonitorFailure("The monitor's SDK target-framework symbols are missing or invalid.");
+			throw new MonitorFailure("The monitor target framework version is unsupported.");
 		}
-		return new(LanguageVersion.Preview, preprocessorSymbols: symbols);
+		return ["NET", "NETCOREAPP", "NETCOREAPP1_0_OR_GREATER", "NETCOREAPP1_1_OR_GREATER", "NETCOREAPP2_0_OR_GREATER",
+			"NETCOREAPP2_1_OR_GREATER", "NETCOREAPP2_2_OR_GREATER", "NETCOREAPP3_0_OR_GREATER", "NETCOREAPP3_1_OR_GREATER",
+			.. Enumerable.Range(5, framework.MajorVersion - 4).Select(version => $"NET{version}_0_OR_GREATER"), $"NET{framework.MajorVersion}_0"];
 	}
 
-	private static PortableExecutableReference[] ReadFrameworkReferences()
+	private static PortableExecutableReference[] ReadFrameworkReferences(FrameworkBaseline framework)
 	{
-		// Assembly paths come only from the installed platform and ASP.NET framework, never local source, manifests or provider responses.
+		var dotnetRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(typeof(object).Assembly.Location)!, "../../.."));
 		var directories = new[]
 		{
-			Path.GetDirectoryName(typeof(object).Assembly.Location)!,
-			Path.GetDirectoryName(typeof(ComponentBase).Assembly.Location)!,
+			Path.Combine(dotnetRoot, "packs", "Microsoft.NETCore.App.Ref", framework.ReferencePackVersion, "ref", framework.TargetFramework),
+			Path.Combine(dotnetRoot, "packs", "Microsoft.AspNetCore.App.Ref", framework.ReferencePackVersion, "ref", framework.TargetFramework),
 		};
-		return directories.Distinct(StringComparer.Ordinal).SelectMany(directory => Directory.EnumerateFiles(directory, "*.dll"))
+		if (directories.Any(directory => !Directory.Exists(directory)))
+		{
+			throw new MonitorFailure($"Trusted reference metadata is unavailable for {framework.TargetFramework} ({framework.ReferencePackVersion}).");
+		}
+		return directories.SelectMany(directory => Directory.EnumerateFiles(directory, "*.dll"))
 			.Order(StringComparer.Ordinal).Select(path => MetadataReference.CreateFromFile(path)).ToArray();
 	}
 

@@ -62,9 +62,25 @@ internal sealed record WatchTarget(
 
 internal sealed record WatchManifest(
 	string Repository,
+	IReadOnlyList<FrameworkBaseline> Frameworks,
+	IReadOnlyList<WatchTarget> Targets)
+{
+	public WatchManifest(string repository, string reviewedTag, string reviewedCommit, IReadOnlyList<WatchTarget> targets)
+		: this(repository, [new("net10.0", 10, false, "10.0.11", reviewedTag, reviewedCommit)], targets)
+	{
+	}
+
+	public string ReviewedTag => Frameworks.Single(framework => framework.MajorVersion == 10).ReviewedTag;
+	public string ReviewedCommit => Frameworks.Single(framework => framework.MajorVersion == 10).ReviewedCommit;
+}
+
+internal sealed record FrameworkBaseline(
+	string TargetFramework,
+	int MajorVersion,
+	bool AllowsPrerelease,
+	string ReferencePackVersion,
 	string ReviewedTag,
-	string ReviewedCommit,
-	IReadOnlyList<WatchTarget> Targets);
+	string ReviewedCommit);
 
 internal sealed record LocalFrameworkDependency(
 	string LocalPath,
@@ -73,9 +89,17 @@ internal sealed record LocalFrameworkDependency(
 
 internal sealed record MonitorRequest(
 	WatchManifest Manifest,
-	int SupportedMajorVersion,
+	FrameworkBaseline Framework,
 	string? RequestedTag = null,
-	string? BaselineCommit = null);
+	string? BaselineCommit = null)
+{
+	public MonitorRequest(WatchManifest manifest, int SupportedMajorVersion, string? RequestedTag = null, string? BaselineCommit = null)
+		: this(manifest, manifest.Frameworks.Single(framework => framework.MajorVersion == SupportedMajorVersion), RequestedTag, BaselineCommit)
+	{
+	}
+
+	public int SupportedMajorVersion => Framework.MajorVersion;
+}
 
 internal sealed record UpstreamRevision(string Tag, string Commit);
 

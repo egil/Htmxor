@@ -19,6 +19,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+          dotnet-version: 11.0.100-rc.1.26425.128
       - name: Run upstream profile
         run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile upstream
         env:

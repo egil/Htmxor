@@ -11,7 +11,7 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 		{
 			var repository = new UpstreamRepository(new GitHubApi(httpClient), request.Manifest.Repository);
 			upstream = await repository.ResolveAsync(request, cancellationToken);
-			var baseline = request.BaselineCommit ?? request.Manifest.ReviewedCommit;
+			var baseline = request.BaselineCommit ?? request.Framework.ReviewedCommit;
 			if (upstream.Commit == baseline)
 			{
 				return MonitorReports.Create(request, MonitorStatus.Current, upstream, [], []);
@@ -70,7 +70,7 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 	private static async Task<IReadOnlyList<ApiChange>> ApiChangesAsync(MonitorRequest request, UpstreamRevision upstream,
 		UpstreamRepository repository, WatchTarget watch, ChangedFile[] files, CancellationToken cancellationToken)
 	{
-		var baseline = await ApiSourceAsync(repository, watch, files, request.BaselineCommit ?? request.Manifest.ReviewedCommit,
+		var baseline = await ApiSourceAsync(repository, watch, files, request.BaselineCommit ?? request.Framework.ReviewedCommit,
 			ChangeKind.Added, cancellationToken);
 		var target = await ApiSourceAsync(repository, watch, files, upstream.Commit, ChangeKind.Removed, cancellationToken);
 		return ApiSurfaceComparer.Compare(baseline, target, Path.GetFileName(watch.Path).Split('.')[0]);

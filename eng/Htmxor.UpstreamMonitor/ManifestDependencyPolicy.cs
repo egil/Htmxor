@@ -7,7 +7,7 @@ internal static class ManifestDependencyPolicy
 			.Where(path => !File.Exists(Path.Combine(repositoryRoot, path))).Order(StringComparer.Ordinal).ToArray();
 
 	public static IReadOnlyList<LocalFrameworkDependency> FindUntrackedDependencies(string repositoryRoot, WatchManifest manifest) =>
-		LocalFrameworkDependencyDiscovery.Discover(repositoryRoot).Distinct().Where(dependency => !Covered(manifest, dependency))
+		manifest.Frameworks.SelectMany(framework => LocalFrameworkDependencyDiscovery.Discover(repositoryRoot, framework)).Distinct().Where(dependency => !Covered(manifest, dependency))
 			.OrderBy(dependency => dependency.LocalPath, StringComparer.Ordinal).ThenBy(dependency => dependency.UpstreamPath, StringComparer.Ordinal)
 			.ThenBy(dependency => dependency.Relationship).ToArray();
 
