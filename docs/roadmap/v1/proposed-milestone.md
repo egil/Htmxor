@@ -1,4 +1,12 @@
-# Proposed milestone: Htmxor v1
+# Proposed milestone: Htmxor v1 — historical archive
+
+> Archived in place on 2026-09-10. Everything below is historical, non-operative
+> material: old status, publication gates, architecture proposals, and "current"
+> or "next" work are not instructions. Evidence applies only to its recorded
+> commit, command, and environment. Use the [roadmap index](./README.md), live
+> GitHub issues, and the [delivery contract](../../agents/delivery.md) for
+> current requirements and delivery. Preserve this history; record new run
+> checkpoints on the owning GitHub issue or pull request.
 
 Status: review draft only.
 

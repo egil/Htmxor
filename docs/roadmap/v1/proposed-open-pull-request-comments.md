@@ -1,4 +1,12 @@
-# Proposed comments for open pull requests
+# Proposed comments for open pull requests — historical archive
+
+> Archived in place on 2026-09-10. Everything below is historical, non-operative
+> material: old status, publication gates, architecture proposals, and "current"
+> or "next" work are not instructions. Evidence applies only to its recorded
+> commit, command, and environment. Use the [roadmap index](./README.md), live
+> GitHub issues, and the [delivery contract](../../agents/delivery.md) for
+> current requirements and delivery. Preserve this history; record new run
+> checkpoints on the owning GitHub issue or pull request.
 
 Status: review draft only. Both pull requests were still open when checked on
 2026-08-26. Do not post, close, rebase, or otherwise modify them without explicit

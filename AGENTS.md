@@ -6,6 +6,8 @@ Apply instructions in this order: the user's current directions, this repository
 
 Read [the v1 goal](docs/roadmap/v1/goal.md) before changing product behavior. State the protected behavior as `When <observable scenario>, Htmxor <observable outcome>.` Choose the narrowest real boundary that retains the risk, and record a meaningful behavioral failure before changing behavior. A compilation error, broken setup, missing dependency, or zero discovered tests is not meaningful red evidence.
 
+Before starting or recovering milestone or issue delivery with `$orchestrate-milestone-delivery`, load [the repository delivery contract](docs/agents/delivery.md). GitHub owns the live delivery graph and checkpoints; [the roadmap index](docs/roadmap/v1/README.md) distinguishes active requirements from historical planning and evidence.
+
 Keep v1 work within these limits:
 
 - Do not add application-authored controllers or Minimal API endpoints for component routes.
@@ -48,7 +50,7 @@ subagents to take that issue to completion. This includes making and committing
 the scoped change, pushing its feature branch, creating and updating its pull
 request, waiting for required CI and automated review, addressing in-scope
 findings, merging the approved pull request, and updating the linked issue and
-progress record with final evidence. Keep the issue's approved protected
+GitHub delivery checkpoint with final evidence. Keep the issue's approved protected
 behavior and acceptance criteria as the target.
 
 Stop for a user decision before proceeding only when new evidence requires a

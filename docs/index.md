@@ -18,12 +18,15 @@ page. It does not compile against the currently published beta package.
 
 To create a minimal Blazor + htmx app with various examples, download the [Minimal Htmxor App template](https://github.com/egil/Htmxor/tree/main/samples/MinimalHtmxorApp).
 
-Htmxor v1 requires .NET 10. It does not support .NET 8, and it does not yet claim .NET 11 compatibility.
+The current setup requires .NET 10. V1 also includes approved .NET 11 work in
+[#207](https://github.com/egil/Htmxor/issues/207), but does not yet claim .NET 11
+compatibility. It does not support .NET 8.
 
 The application supplies and configures the htmx runtime; Htmxor does not
-distribute one. The [v1 progress record](roadmap/v1/progress.md) identifies the
-exact application-owned htmx 4.0.0 request, navigation, and polling operations exercised
-by current browser evidence and the dimensions that remain unproved.
+distribute one. The [v1 roadmap index](roadmap/v1/README.md) links live delivery
+issues and their exact-head evidence. The [progress archive](roadmap/v1/progress.md)
+retains historical htmx 4.0.0 request, navigation, and polling evidence and its
+limitations; it does not establish current implementation or verification status.
 
 To start fresh from a (new) Blazor Web App project, follow these steps:
 

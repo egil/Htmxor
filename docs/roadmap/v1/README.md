@@ -1,82 +1,58 @@
-# Htmxor stable v1 tracker proposal
+# Htmxor v1 roadmap
 
-Status: review draft only. Nothing in this directory has been published to GitHub.
+Status: GitHub owns delivery scope, dependencies, ownership, and current state.
+This directory retains the product goal and historical planning and evidence.
 
-The agreed product and engineering target is [the Htmxor v1 goal](./goal.md).
-The remaining files are tracker drafts and must stay consistent with that goal.
-Use the v1 goal, progress record, live issue state, and active delivery agents
-to track proved progress and select one implementation slice at a time.
+## Active guidance
 
-This packet prepares the first tracker changes for a stable Htmxor v1 without
-prematurely turning architecture hypotheses into implementation tickets.
+- [V1 goal](./goal.md): agreed product and engineering requirements, not a claim
+  that every requirement is implemented or verified.
+- [Htmxor v1 milestone](https://github.com/egil/Htmxor/milestone/1) and
+  [parent #77](https://github.com/egil/Htmxor/issues/77): live delivery scope.
+  Read each issue's approved contract, comments, native sub-issues and blocking
+  relationships, linked pull requests, and exact-head verification evidence.
+  Native GitHub relationships govern the dependency graph; flag contradictory
+  prose instead of silently scheduling from it.
+- `$orchestrate-milestone-delivery`: delivery coordination and supervision mode.
+  Before starting a run, load the [repository delivery contract](../../agents/delivery.md)
+  and resolve its readiness requirements. A roadmap link does not launch a run
+  or grant mutation authority.
+- [Testing and verification](../../agents/testing.md) and
+  [code-review standards](../../agents/code-review.md): executable evidence and
+  independent Standards/Spec gates.
 
-## Proposed first publication
+The user's current directions and repository instructions retain their authority
+over issue text. When an approved issue decision and the goal disagree, reconcile
+that disagreement before implementation. Use the live graph and saved delivery
+mandate to select work, rather than a numbered plan or historical "next slice."
 
-After review and explicit approval, publish only:
+## Historical material
 
-1. the `Htmxor v1` milestone;
-2. the stable-v1 parent issue;
-3. issue 01, which proves the stock Blazor execution seam and captures its
-   executable compatibility baseline;
-4. issue 02, which proves or bounds lifecycle-preserving unsafe-verb dispatch; and
-5. the approved migration comments on existing open issues.
+These files are archived in place to preserve links and evidence. Their old
+publication gates, architecture hypotheses, API proposals, scheduling directions,
+and status claims are non-operative. Read them only to investigate historical
+context or an exact recorded verification result; use the active sources above
+for current decisions. New delivery checkpoints belong on the owning GitHub
+issue or pull request, not in this archive.
 
-Do not publish the later implementation slices until issues 01 and 02 record the
-target-framework, execution, and custom-action decisions. Their boundaries depend
-on whether Htmxor can delegate through the stock component endpoint invoker, how
-much .NET 11 is used, and which gaps require generated code or an upstream
-ASP.NET Core change.
-
-## Draft files
-
-| Draft | Purpose |
+| File | Retained purpose |
 | --- | --- |
-| [V1 goal](./goal.md) | Agreed product and engineering target |
-| [Progress record](./progress.md) | Last reviewed evidence, active work, and next candidate |
-| [Milestone](./proposed-milestone.md) | Stable-v1 outcome and release gates |
-| [Parent issue](./proposed-parent-issue.md) | Product contract, scope, sequencing, and later issue map |
-| [Issue 01](./proposed-issue-01-stock-invoker-spike.md) | Executable stock-invoker and target-framework decision |
-| [Issue 02](./proposed-issue-02-unsafe-verbs-spike.md) | Lifecycle-preserving unsafe-verb decision |
-| [Existing issue comments](./proposed-existing-issue-comments.md) | Proposed disposition without losing issue history or ownership |
-| [Open pull request comments](./proposed-open-pull-request-comments.md) | Proposed disposition for stale PRs #41 and #74 |
+| [Progress archive](./progress.md) | Historical commands, exact commits, counts, and limitations |
+| [Proposed milestone](./proposed-milestone.md) | Original milestone draft |
+| [Proposed parent](./proposed-parent-issue.md) | Original product and sequencing proposal |
+| [Proposed issue 01](./proposed-issue-01-stock-invoker-spike.md) | Initial execution-seam hypothesis |
+| [Proposed issue 02](./proposed-issue-02-unsafe-verbs-spike.md) | Initial unsafe-verb hypothesis |
+| [Proposed issue comments](./proposed-existing-issue-comments.md) | Original tracker migration drafts |
+| [Proposed PR comments](./proposed-open-pull-request-comments.md) | Historical PR-disposition drafts |
 
-## Inputs
+Research linked from those documents describes its recorded baseline, not
+current implementation instructions. The former `orchestrator-brief.md` was
+retired; use the delivery skill and repository contract, not an older checkout's
+copy. Existing issue text referring to that brief needs reconciliation during
+readiness checking, not restoration of the retired file.
 
-- [Stable v1 gap analysis](../../research/stable-v1-gap-analysis.md)
-- [Blazor static SSR progressive enhancement](../../research/blazor-static-ssr-progressive-enhancement.md)
-- [.NET 11 Blazor and ASP.NET Core opportunities](../../research/dotnet-11-blazor-aspnetcore-opportunities.md)
-- [HTMX backend framework comparison](../../research/htmx-backend-framework-comparison.md)
-- [Htmxor v1 interface sketch](../../research/htmxor-v1-interface-sketch.md)
+## Executable baseline
 
-## Provisional implementation slices
-
-These are deliberately titles and outcomes, not ready-for-agent issues. Issues 01
-and 02 must settle their shared execution and action boundaries first.
-
-| ID | Type | Proposed outcome | Blocked by |
-| --- | --- | --- | --- |
-| 03 | HITL | Prove .NET 11 static-SSR validation when the first validatable form arrives in an HTMX swap | 01 |
-| 04 | HITL | Prove request-safe fragment caching with .NET 11 `CacheView` | 01 |
-| 05 | HITL | Freeze the convention-first route, action, fragment, and extension contract | 01-04 |
-| 06 | AFK | Preserve stock Blazor behavior when Htmxor is installed | 05 |
-| 07 | AFK | Generate normal-only, HTMX-only, and dual component GET routes | 06 |
-| 08 | AFK | Return one selected component fragment without rendering excluded branches | 07 |
-| 09 | AFK | Progressively enhance a stock `EditForm` POST | 03, 08 |
-| 10 | AFK | Generate secure PUT, PATCH, and DELETE component actions | 02, 08 |
-| 11 | AFK | Support caller-owned HTMX runtimes and a bounded protocol/analyzer extension seam | 06-08 |
-| 12 | AFK | Make full/fragment caching, history, errors, redirects, and authentication flows correct | 04, 09-11 |
-| 13 | AFK | Coexist with Interactive Server, WebAssembly, Auto, and enhanced navigation | 07, 09, 11 |
-| 14 | HITL | Set the v1 request-cost budget from repeatable measurements | 09-13 |
-| 15 | HITL | Prove the exact NuGet release candidate in clean and ForTheLeague consumers | 14 |
-
-## Review questions
-
-1. Is a decision gate before implementation the right publication boundary?
-2. Is unsafe-verb lifecycle dispatch the correct second architecture gate, or
-   should it be deferred until the stock GET/POST path is accepted?
-3. Does the provisional slicing keep each later issue narrow enough to be
-   independently assigned?
-4. Should ForTheLeague validation block Htmxor v1, or only block adopting it in
-   ForTheLeague?
-5. Are any existing issues separately owned and therefore inappropriate to fold
-   under the parent issue?
+[The #154 package public-surface allow-list](./issue-154-package-public-surface.txt)
+is an active test input used by `PackedPackageConsumerTests`, not an archived
+proposal. Preserve it here unless a reviewed change also updates its consumer.

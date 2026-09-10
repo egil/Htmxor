@@ -2,6 +2,10 @@
 
 Status: agreed product and engineering target.
 
+This goal records requirements, not implementation status. Use the
+[roadmap index](./README.md) for live GitHub scope, delivery instructions, and
+the distinction between current evidence and historical records.
+
 Htmxor v1 lets a developer add HTMX behavior to static server-rendered Blazor
 components without creating a parallel controller or Minimal API layer. The
 component type owns its route, request handling, lifecycle, and output, whether
@@ -15,12 +19,14 @@ HTMX one component or one interaction at a time.
 
 ## Developer model
 
-A component can be available through normal Blazor routing, only to HTMX
-requests, or through both paths.
+A component can be available only through an HTMX route or through both normal
+Blazor routing and direct HTMX requests. A normal-only opt-out remains a deferred
+developer-model question in [#170](https://github.com/egil/Htmxor/issues/170),
+not an implementation requirement until its reopen criteria and goal
+reconciliation are approved.
 
 - `@page` owns the normal Blazor route. By convention, it also makes the same
-  component available to a direct HTMX GET. A component can opt out and remain
-  normal-only.
+  component available to a direct HTMX GET.
 - A component without `@page` can declare an HTMX-only route by applying
   `HtmxRoute` to that component: through `@attribute` in `.razor`, on its
   matching `.razor.cs` partial, or on a component authored entirely in C#.
@@ -28,7 +34,8 @@ requests, or through both paths.
   `_Imports.razor`. Application code does not add a matching endpoint elsewhere.
 - GET is the only implicit HTTP method. Htmxor infers POST from stock Blazor form
   declarations and infers POST, PUT, PATCH, or DELETE from statically
-  discoverable `@onpost`, `@onput`, `@onpatch`, or `@ondelete` bindings. `hx-*`
+  discoverable `@onpost`, `@onput`, `@onpatch`, or `@ondelete` bindings. Explicit
+  `@onquery` bindings declare QUERY actions. `hx-*`
   attributes describe how requests are initiated and may be checked for
   consistency, but they do not expose server methods. Ambiguous or dynamic
   handler bindings require a narrow explicit declaration and should produce a
@@ -43,14 +50,18 @@ Explicit configuration exists for exceptions, not as routine ceremony.
 
 ## Supported framework
 
-Htmxor v1 targets .NET 10 and the supported ASP.NET Core 10 component-endpoint
-APIs required by this model. It does not support .NET 8. Existing .NET 8
+Htmxor v1 targets .NET 10 and .NET 11 under the
+[approved #207 contract](https://github.com/egil/Htmxor/issues/207), retaining
+the .NET 10 behavior while adding a separately verified .NET 11 target. It does
+not support .NET 8. Existing .NET 8
 applications can remain on the previous beta package rather than carrying a
 compatibility surface into v1.
 
-.NET 11 is not a v1 compatibility claim yet. It may be added later through a
-separate target and executable framework matrix that retains the .NET 10
-contract.
+.NET 11 is approved scope, not a compatibility claim yet. The #207 child issues
+own the runtime package's `net10.0;net11.0` matrix, framework-specific adapter
+evidence, and clean package consumers. Retain the generator's compiler-compatible
+target. Claim support only for framework versions exercised by the recorded
+matrix; prerelease evidence does not certify a later release.
 
 ## Full pages and fragments
 
@@ -70,10 +81,11 @@ fragment and must reach the response unchanged. Any future typed convenience
 helper remains an explicit, optional markup adapter rather than a second
 fragment-selection concept.
 
-Fragment selection must have clear execution semantics. The component and any
-required ancestors may run their normal lifecycle, but Htmxor should not render
-excluded child branches below a known selection boundary. Tests and benchmarks
-must verify every claim that fragment selection avoids work.
+Fragment selection follows the [approved completed-tree contract](../../engineering/fragment-selection.md):
+Blazor completes normal rendering, then Htmxor emits the selected component-owned
+HTML. Excluded branches may perform lifecycle, rendering, and data work. Selection
+makes no skipped-work claim. Tests and benchmarks must verify any separately
+approved optimization before claiming that it avoids work.
 
 ## Blazor remains in charge
 
@@ -185,10 +197,10 @@ must test any behavior it builds on instead of carrying forward htmx 1 or 2
 assumptions. Client-side declarations such as `hx-action`, `hx-method`, and
 `hx-query` still do not grant server methods.
 
-The established v1 server-method model remains implicit GET plus POST, PUT,
-PATCH, and DELETE inferred from component intent. For future QUERY support, the
-accepted server declaration is `@onquery`; it must be application-authored
-component intent and requires separate implementation and executable evidence.
+The established v1 server-method model is implicit GET plus POST, PUT,
+PATCH, DELETE, and QUERY declared by component intent. The
+[#111 QUERY contract](https://github.com/egil/Htmxor/issues/111) uses
+application-authored `@onquery` bindings and component-instance callbacks.
 No client attribute, including `hx-query`, `hx-action`, or `hx-method`, ever
 grants QUERY reachability.
 
@@ -207,8 +219,17 @@ route. Unsafe methods fail closed. The normalized route, HTTP method, and action
 identity are bound together, so information captured for one action cannot
 invoke another action or another method.
 
-Antiforgery validation runs before body binding or component callbacks for every
-unsafe method. Full-page and fragment responses must set correct cache variation,
+For protected unsafe requests, honor the application's effective ASP.NET Core
+CSRF or token-antiforgery verdict and middleware precedence before body binding,
+component lifecycle, or callbacks. As approved in #207, Htmxor adds no separate
+security-mode hook, origin policy, or token requirement that overrides successful
+configured protection. A missing validation feature is not permission: preserve
+framework-required middleware/configuration checks and the necessary .NET 10
+fallback behavior. Headerless requests explicitly allowed by native policy are
+distinct from misconfigured protection. Retain effective endpoint protection
+metadata and application configuration on both request paths.
+
+Full-page and fragment responses must set correct cache variation,
 including HTMX and authentication-dependent inputs. Redirects, errors, history
 restoration, boosted requests, and response headers must retain their HTTP and
 browser meaning.
@@ -217,7 +238,8 @@ browser meaning.
 
 Htmxor must publish repeatable cold, warm, and concurrent request measurements
 against stock Blazor static SSR. The measurements must include elapsed time,
-allocations, response bytes, and work skipped by fragment selection. V1 needs an
+allocations, response bytes, and executed component work. Output selection alone
+does not establish skipped rendering work. V1 needs an
 explicit request-cost budget based on those results.
 
 The exact release-candidate package must pass the supported .NET compatibility

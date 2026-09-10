@@ -5,8 +5,10 @@ The registration names and client-helper decision are current; other proposed
 APIs remain labeled as proposals.
 
 The [v1 goal](roadmap/v1/goal.md) is the authority when this guide and the
-current code differ. The [v1 progress record](roadmap/v1/progress.md) says which
-parts have executable evidence.
+current code differ. The [roadmap index](roadmap/v1/README.md) points to live
+GitHub contracts and exact-head verification. The
+[progress archive](roadmap/v1/progress.md) retains historical evidence only;
+its scheduling directions and status claims are non-operative.
 
 This guide uses application-supplied htmx 4.0.0 with its default configuration.
 The application owns the htmx runtime, extensions, content security policy, and
@@ -618,7 +620,7 @@ For htmx 4 polling, return replacement markup without polling attributes; the
 general `StatusCode(HttpStatusCode)` operation remains available and does not
 give numeric 286 special polling meaning. The final #154 audit records the
 request/response header inventory, public surface, trust policy, and evidence
-boundaries in the progress record.
+boundaries in the historical [progress archive](roadmap/v1/progress.md).
 
 ## Htmx 4 attribute reference
 
@@ -1236,7 +1238,7 @@ Use these claim labels in documentation and issues:
 | Label | Meaning |
 | --- | --- |
 | Accepted v1 contract | Required by the agreed goal but not necessarily implemented |
-| Proved slice | Exercised by the exact command and artifact in the progress record |
+| Proved slice | Exercised by exact-head commands and artifacts linked from the owning GitHub issue or PR; historical evidence proves only its recorded revision |
 | Client composition | Htmxor passes markup/protocol through; the application owns the htmx feature |
 | DX proposal | Review recommendation requiring an approved API issue |
 | Outside v1 | Deliberately excluded from the v1 release contract |
