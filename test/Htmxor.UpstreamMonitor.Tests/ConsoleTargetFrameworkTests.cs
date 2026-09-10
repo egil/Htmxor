@@ -25,7 +25,7 @@ public sealed class ConsoleTargetFrameworkTests
 				("net10.0", "v10.0.11", Fixture.ReviewedCommit),
 				("net11.0", Fixture.Net11ReviewedTag, Fixture.Net11ReviewedCommit),
 			],
-			Reports(observation.JsonReport!).Select(Identity));
+			Reports(observation.JsonReport!).Select(result => Identity(result.Target, result.Report)));
 	}
 
 	[Fact]
@@ -77,8 +77,9 @@ public sealed class ConsoleTargetFrameworkTests
 
 		Assert.Equal(2, observation.ExitCode);
 		Assert.Equal(2, observation.Requests.Count);
-		Assert.All(Reports(observation.JsonReport!), report =>
+		Assert.All(Reports(observation.JsonReport!), result =>
 		{
+			var report = result.Report;
 			Assert.Equal("infrastructure-error", report.GetProperty("status").GetString());
 			Assert.Equal(ExpectedMonitorArtifacts.InfrastructureError, report.GetProperty("infrastructureError").GetString());
 		});
@@ -101,16 +102,15 @@ public sealed class ConsoleTargetFrameworkTests
 		return workspace;
 	}
 
-	private static IEnumerable<JsonElement> Reports(string json)
+	private static IEnumerable<(string Target, JsonElement Report)> Reports(string json)
 	{
 		using var document = JsonDocument.Parse(json);
 		return document.RootElement.GetProperty("frameworks").EnumerateArray()
-			.Select(result => result.GetProperty("report").Clone()).ToArray();
+			.Select(result => (result.GetProperty("targetFramework").GetString()!, result.GetProperty("report").Clone())).ToArray();
 	}
 
-	private static (string Target, string Tag, string Commit) Identity(JsonElement report) =>
-		(report.GetProperty("baseline").GetProperty("tag").GetString() == "v10.0.11" ? "net10.0" : "net11.0",
-		 report.GetProperty("upstream").GetProperty("tag").GetString()!, report.GetProperty("upstream").GetProperty("commit").GetString()!);
+	private static (string Target, string Tag, string Commit) Identity(string target, JsonElement report) =>
+		(target, report.GetProperty("upstream").GetProperty("tag").GetString()!, report.GetProperty("upstream").GetProperty("commit").GetString()!);
 
 	private static void AddApiSources(FakeGitHubTransport transport, string path)
 	{

@@ -106,7 +106,7 @@ reviewed baseline changes only after human review and renewed parity evidence.
 To reproduce an exact comparison locally, use:
 
 ```text
-dotnet run --project eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj -- --tag v10.0.11 --baseline a5383385245bdacc20ec19f30e46090a8154d8da --json artifacts/upstream-monitor/upstream-monitor.json --markdown artifacts/upstream-monitor/upstream-monitor.md
+dotnet run --project eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj -- --framework net10.0 --tag v10.0.11 --baseline a5383385245bdacc20ec19f30e46090a8154d8da --json artifacts/upstream-monitor/upstream-monitor.json --markdown artifacts/upstream-monitor/upstream-monitor.md
 ```
 
 Tokens are accepted only through `GH_TOKEN`, never a command-line argument.
