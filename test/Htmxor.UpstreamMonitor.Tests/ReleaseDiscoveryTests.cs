@@ -173,6 +173,22 @@ public sealed class ReleaseDiscoveryTests
 		Assert.Empty(transport.Requests);
 	}
 
+	[Theory]
+	[InlineData("v11.0.0-rc..1")]
+	[InlineData("v11.0.0-rc.")]
+	public async Task Explicit_net11_prerelease_tag_with_an_empty_identifier_is_rejected_before_a_GitHub_request(string tag)
+	{
+		var transport = new FakeGitHubTransport();
+		var framework = Fixture.Net11Framework();
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(
+			Fixture.ManifestFor(framework), framework, RequestedTag: tag));
+
+		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
+		Assert.Equal("The requested tag is not in the configured ASP.NET Core release channel.", result.InfrastructureError);
+		Assert.Empty(transport.Requests);
+	}
+
 	[Fact]
 	public async Task Explicit_v_prefixed_net11_prerelease_tag_is_resolved()
 	{
