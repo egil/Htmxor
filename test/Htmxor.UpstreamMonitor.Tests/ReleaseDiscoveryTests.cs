@@ -144,4 +144,34 @@ public sealed class ReleaseDiscoveryTests
 			new(Fixture.Net11ReviewedTag, Fixture.Net11ReviewedCommit),
 			new(Fixture.Net11ReviewedTag, Fixture.Net11ReviewedCommit), [], [], null));
 	}
+
+	[Fact]
+	public async Task Explicit_net11_prerelease_tag_without_v_prefix_is_rejected_before_a_GitHub_request()
+	{
+		var transport = new FakeGitHubTransport();
+		var framework = Fixture.Net11Framework();
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(
+			Fixture.ManifestFor(framework), framework, RequestedTag: Fixture.Net11ReviewedTag[1..]));
+
+		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
+		Assert.Equal("The requested tag is not in the configured ASP.NET Core release channel.", result.InfrastructureError);
+		Assert.Empty(transport.Requests);
+	}
+
+	[Fact]
+	public async Task Explicit_v_prefixed_net11_prerelease_tag_is_resolved()
+	{
+		var transport = new FakeGitHubTransport();
+		var framework = Fixture.Net11Framework();
+		transport.AddJson($"/repos/dotnet/aspnetcore/git/ref/tags/{Fixture.Net11ReviewedTag}",
+			System.Text.Json.JsonSerializer.Serialize(new { @object = new { type = "commit", sha = Fixture.Net11ReviewedCommit } }));
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(
+			Fixture.ManifestFor(framework), framework, RequestedTag: Fixture.Net11ReviewedTag));
+
+		Assert.Equal(new UpstreamRevision(Fixture.Net11ReviewedTag, Fixture.Net11ReviewedCommit), result.Upstream);
+		Assert.Equal([("GET", $"/repos/dotnet/aspnetcore/git/ref/tags/{Fixture.Net11ReviewedTag}")],
+			transport.Requests.Select(request => (request.Method.Method, request.PathAndQuery)));
+	}
 }
