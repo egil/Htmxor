@@ -1,7 +1,6 @@
 # Repository delivery contract
 
-Status: repository bindings with explicit readiness decisions still required.
-This document does not yet supply a complete launch contract.
+Status: approved delivery bindings.
 
 Load this document before starting or recovering delivery with
 `$orchestrate-milestone-delivery`. The skill owns generic coordination, role
@@ -55,27 +54,38 @@ contract before code-bearing work starts. Carry the chosen real boundary,
 meaningful-red or justified alternate evidence, exact commands/counts, and
 unexercised dependencies through the handoff. A planning draft is not readiness.
 
-## Decisions required before delivery launch
+## Delivery bindings
 
-The existing repository rules do not establish all values required by the skill.
-Resolve each item in an approved task assignment or update this contract with an
-explicit decision; record `not applicable` only when that choice is confirmed.
+### Linked branches and pull requests
 
-| Binding | Required decision or verified configuration |
-| --- | --- |
-| Linked branch | Branch naming rule, branch-point rule, and native issue-linked-branch creation procedure; select the permitted non-merge-commit PR strategy |
-| Codex ownership | Repository project identity, deterministic issue/task naming, managed worktree conventions, and upward status-signal delivery route |
-| GitHub projection | Whether a Project is required; if so, its identity and exact fields/options; milestone and label rules beyond the V1 binding above |
-| Checkpoint | Concrete mandate and phase-checkpoint location and schema; ignored review-artifact location and lifecycle |
-| CI completion | Required workflow/check contexts, proof for the current PR head, bounded wait budgets, and queued/stuck/cancelled/unavailable handling |
-| Automated PR review | Configured provider and trigger, current-head coverage proof, wait budget, unavailable/non-response handling, and comment/thread-resolution protocol |
+- Create issue branches with GitHub's native `gh issue develop` flow from a freshly fetched `origin/main`. Name them `egil/issue-<number>-<short-slug>`. Before edits, read back the native issue linkage and require matching local, remote, and linked-branch OIDs.
+- Each issue receives one independently mergeable pull request. Use GitHub's merge-commit strategy with an exact pull-request-head guard; never create a local merge commit or rewrite `main`.
+- Immediately before merge, fetch `main` and require the reviewed comparison base and current pull-request head to remain current. A changed base requires the delivery skill's rebase, verification, and review recovery path.
 
-Use the skill's `blocked` or `human-action` path with the missing binding and
-durable issue context while these are unresolved. Read-only discovery may
-continue; planning or mutating delivery work must wait for a complete contract.
-Never interpret missing automation, a timeout, or absent checks as a pass.
+### Codex ownership and worktrees
 
-These readiness decisions do not prevent a separately authorized, bounded
-documentation edit. They do prevent presenting this file as a fully configured
-milestone-delivery workflow. Package publication, releases, deployments, and
-other excluded actions still require their own current authority.
+- Use one owner task named `issue_<number>_implementor` per issue. Its isolated worktree is `/home/egil/src/worktrees/Htmxor/milestone-1-issue-<number>` and must remain outside any repository worktree to avoid nested-source discovery.
+- The owner verifies its path, branch, upstream, `HEAD`, and remote OID, sends one `provisioned` receipt, and makes no edits until the Supervisor returns an exact-OID `proceed` receipt.
+- Owners report only `completed`, `decomposed`, `planning-checkpoint`, `blocked`, or `human-action` to their Supervisor. `provisioned` is the setup handshake, not a progress signal.
+
+### Durable checkpoints and review artifacts
+
+- Record a new `## Delivery checkpoint` comment on the owning GitHub issue at each durable phase boundary. Do not edit history. The comment records the mandate reference, supervision mode, branch, comparison base and candidate OIDs, owner/worktree, phase, exact verification and review receipts, pending gates, and next deadline or wake-up condition.
+- Keep exact-snapshot Tester, Standards, and Spec receipts as ignored files at `artifacts/reviews/issue-<number>/...` in the issue worktree until the pull request merges. A receipt is valid only for its recorded candidate OID.
+
+### Verification and pull-request checks
+
+- Require the repository-owned `fast` and `full` profiles plus the issue's focused verification boundary. Record exact HEAD, commands, counts, and unexercised dependencies. Full-scope mutation remains scheduled or manually requested evidence, not an ordinary pull-request gate.
+- For the exact current pull-request head, require green applicable CI contexts: `run-test`, package creation and validation, dependency review, Infer#, and CodeQL. `deploy` and scheduled Stryker are not merge gates.
+- A required check that is queued, stuck, cancelled, or unavailable for 45 minutes is blocked. Recover by a documented rerun or infrastructure diagnosis; never treat absence, timeout, or a stale-head result as a pass.
+
+### Automated pull-request review
+
+- Trigger Copilot with `@copilot review` after the pull request is ready and its current-head CI is green. A normal qualifying review identifies the current head. Address every finding with a recorded disposition and resolve every addressed thread.
+- Wait up to 30 minutes for the review. If GitHub's timeline shows a Copilot session started and finished for the current head but no review result was published, record that exact evidence and treat it as no new findings. Other unavailable or non-response cases are blocked.
+
+### Projection, authority, and guided cadence
+
+- No GitHub Project projection is required unless one is subsequently configured. Milestone 1, existing labels, and native parent/dependency relationships remain authoritative.
+- The active milestone mandate authorizes in-scope branches, pushes, pull requests, review replies, rebases, and merges. It excludes deployment, releases, package publication, protection bypasses, unrelated work, and another owner's branch.
+- Guided delivery pauses after the user-designated parent's complete child set. For the current #207 parent, its child issues continue without an intermediate user planning pause.
