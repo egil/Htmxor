@@ -31,7 +31,7 @@ internal static class WorkflowPolicyProjection
 			Cron(triggers),
 			string.Join(',', Values(Child(Mapping(Child(triggers, "repository_dispatch")), "types")).Order(StringComparer.Ordinal)),
 			PermissionEntries(permissions),
-			Scalar(Child(Mapping(Child(setupDotnet, "with")), "dotnet-version")),
+			string.Join('\n', BlockLines(Child(Mapping(Child(setupDotnet, "with")), "dotnet-version"))),
 			MonitorCommand(monitor),
 			string.Join(',', Entries(Mapping(Child(monitor, "env"))).Order(StringComparer.Ordinal)),
 			EffectiveContinueOnError(Child(job, "continue-on-error")),

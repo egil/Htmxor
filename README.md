@@ -1,9 +1,9 @@
 # Htmxor - supercharging Blazor Static SSR with Htmx
 ![Htmxor logo](https://github.com/egil/Htmxor/blob/main/docs/htmxor-x.svg)
 
-This package enables Blazor Static SSR on .NET 10 to be used seamlessly with Htmx.
+This package integrates HTMX requests with Blazor static SSR components.
 
-Htmxor v1 targets .NET 10 only. Existing .NET 8 applications can continue to use the previous beta package; .NET 11 support will be added only after a separate compatibility matrix is executed.
+Htmxor v1 targets .NET 10 and .NET 11 under the approved [compatibility work](https://github.com/egil/Htmxor/issues/207). The runtime package contains both target assets; .NET 11 compatibility remains limited to the scenarios and exact prerelease versions exercised by that work. Existing .NET 8 applications can continue to use the previous beta package.
 
 The application supplies and configures the htmx runtime. The unreleased v1 API
 in this repository registers only Htmxor's server integration and component

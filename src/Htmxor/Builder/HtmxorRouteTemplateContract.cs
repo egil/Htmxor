@@ -47,8 +47,8 @@ internal static class HtmxorRouteTemplateContract
 		HashSet<string> parameterNames,
 		ref bool hasConstrainedParameter)
 	{
-		var openingBrace = template.IndexOf('{', start, length);
-		var closingBrace = template.IndexOf('}', start, length);
+		var openingBrace = IndexOfOrdinal(template, '{', start, length);
+		var closingBrace = IndexOfOrdinal(template, '}', start, length);
 		if (openingBrace < 0 && closingBrace < 0)
 		{
 			return IsSupportedLiteral(template, start, length);
@@ -84,8 +84,15 @@ internal static class HtmxorRouteTemplateContract
 		int closingBrace)
 		=> openingBrace == start &&
 			closingBrace == start + length - 1 &&
-			template.IndexOf('{', openingBrace + 1, length - 1) < 0 &&
-			template.IndexOf('}', start, length - 1) < 0;
+			IndexOfOrdinal(template, '{', openingBrace + 1, length - 1) < 0 &&
+			IndexOfOrdinal(template, '}', start, length - 1) < 0;
+
+	private static int IndexOfOrdinal(string value, char character, int start, int count)
+#if NET11_0_OR_GREATER
+		=> value.IndexOf(character, start, count, StringComparison.Ordinal);
+#else
+		=> value.IndexOf(character, start, count);
+#endif
 
 	private static bool TrySplitParameter(
 		string parameter,

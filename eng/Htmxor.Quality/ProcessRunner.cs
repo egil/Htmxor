@@ -41,6 +41,15 @@ internal sealed class ProcessRunner : IProcessRunner
 		};
 		startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
 		startInfo.Environment["DOTNET_NOLOGO"] = "1";
+		if (command.FileName == "dotnet")
+		{
+			// VSTest inherits SDK paths from its build. Child workspaces select their own SDK through global.json.
+			startInfo.Environment.Remove("MSBuildSDKsPath");
+			startInfo.Environment.Remove("MSBUILD_EXE_PATH");
+			startInfo.Environment.Remove("MSBuildExtensionsPath");
+			// Reusable MSBuild nodes can outlive the command while retaining its redirected output pipes.
+			startInfo.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+		}
 		foreach (var argument in command.Arguments)
 		{
 			startInfo.ArgumentList.Add(argument);
