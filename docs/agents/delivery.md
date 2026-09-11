@@ -59,7 +59,7 @@ unexercised dependencies through the handoff. A planning draft is not readiness.
 ### Linked branches and pull requests
 
 - Create issue branches with GitHub's native `gh issue develop` flow from a freshly fetched `origin/main`. Name them `egil/issue-<number>-<short-slug>`. Before edits, read back the native issue linkage and require matching local, remote, and linked-branch OIDs.
-- Each issue receives one independently mergeable pull request. Use GitHub's merge-commit strategy with an exact pull-request-head guard; never create a local merge commit or rewrite `main`.
+- Each issue receives one independently mergeable pull request. Preserve a clean Conventional Commit history: use GitHub's rebase strategy by default, with an exact pull-request-head guard. Squash is permitted when it is needed to make the issue history coherent. Never create a local merge commit or rewrite `main`.
 - Immediately before merge, fetch `main` and require the reviewed comparison base and current pull-request head to remain current. A changed base requires the delivery skill's rebase, verification, and review recovery path.
 
 ### Codex ownership and worktrees
