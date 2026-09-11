@@ -481,6 +481,9 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 		}
 
 		File.WriteAllText(nugetConfigPath, CreateNugetConfig());
+		File.Copy(
+			Path.Combine(repositoryRoot, "global.json"),
+			Path.Combine(consumerDirectory, "global.json"));
 	}
 
 	private string CreateNugetConfig() =>
