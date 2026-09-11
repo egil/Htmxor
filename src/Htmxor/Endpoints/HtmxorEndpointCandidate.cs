@@ -524,7 +524,11 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private static string GetContextBaseUri(HttpRequest request)
 	{
 		var result = UriHelper.BuildAbsolute(request.Scheme, request.Host, request.PathBase);
+#if NET11_0_OR_GREATER
+		return result.EndsWith('/', StringComparison.Ordinal) ? result : result += "/";
+#else
 		return result.EndsWith('/') ? result : result += "/";
+#endif
 	}
 
 	private sealed class CandidateComponentServiceProvider(

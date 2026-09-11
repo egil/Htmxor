@@ -186,7 +186,11 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			generatedRoute.ComponentType,
 			generatedRoute.NormalizedRoute,
 			generatedActions);
-		AddRouteProcessorMetadata(endpointBuilder, generatedRoute, endpointActions);
+		AddRouteProcessorMetadata(
+			endpointBuilder,
+			generatedRoute,
+			endpointActions,
+			routeEndpointBuilder.RoutePattern.RawText!);
 		AddActionMetadata(endpointBuilder, endpointActions.ToArray());
 		var renderDelegate = endpointBuilder.RequestDelegate
 			?? throw new InvalidOperationException("An HTMX-only component endpoint must have a request delegate.");
@@ -202,7 +206,8 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	private static void AddRouteProcessorMetadata(
 		EndpointBuilder endpointBuilder,
 		HtmxorComponentRouteDescriptor generatedRoute,
-		IReadOnlyList<HtmxorComponentActionDescriptor> endpointActions)
+		IReadOnlyList<HtmxorComponentActionDescriptor> endpointActions,
+		string effectiveRouteTemplate)
 	{
 		var routeProcessors = endpointActions
 			.Select(static action => action.GeneratedAction?.RouteProcessorType)
@@ -214,12 +219,12 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			throw new InvalidOperationException(
 				$"Component route '{generatedRoute.NormalizedRoute}' has conflicting route processors.");
 		}
-		if (routeProcessors.Length == 1)
-		{
-			endpointBuilder.Metadata.Add(new HtmxorRouteProcessorMetadata(
-				generatedRoute.ComponentType,
-				routeProcessors[0]!));
-		}
+		var processor = HtmxorRouteProcessorFactory.GetOrCreate(
+			effectiveRouteTemplate,
+			routeProcessors.SingleOrDefault());
+		endpointBuilder.Metadata.Add(new HtmxorRouteProcessorMetadata(
+			generatedRoute.ComponentType,
+			processor));
 	}
 
 	private static HtmxorComponentActionDescriptor[] GetEndpointActions(

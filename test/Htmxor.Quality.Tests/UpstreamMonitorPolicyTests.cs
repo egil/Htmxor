@@ -129,7 +129,7 @@ public sealed class UpstreamMonitorPolicyTests
 
 		Assert.True(File.Exists(path), "The ordinary CI workflow must be committed.");
 		Assert.Equal(
-			["10.0.x", "11.0.100-rc.1.26425.128"],
+			["10.0.400", "11.0.100-rc.1.26425.128"],
 			WorkflowPolicyProjection.DotnetVersionsForJob(File.ReadAllText(path), "run-test"));
 	}
 
@@ -140,6 +140,7 @@ public sealed class UpstreamMonitorPolicyTests
 	[InlineData("dispatch type")]
 	[InlineData("sdk version")]
 	[InlineData("missing sdk version")]
+	[InlineData("missing net10 sdk version")]
 	[InlineData("upload condition")]
 	[InlineData("retention")]
 	[InlineData("report paths")]
@@ -152,8 +153,9 @@ public sealed class UpstreamMonitorPolicyTests
 			"inline workflow trigger" => workflow.Replace("  workflow_dispatch:\n", "  pull_request: {}\n  workflow_dispatch:\n", StringComparison.Ordinal),
 			"permission" => workflow.Replace("  issues: write\n", "  issues: write\n  packages: write\n", StringComparison.Ordinal),
 			"dispatch type" => workflow.Replace("types: [aspnetcore-release-published]\n", "types: [something-else]\n", StringComparison.Ordinal),
-			"sdk version" => workflow.Replace("dotnet-version: 11.0.100-rc.1.26425.128\n", "dotnet-version: 11.0.100\n", StringComparison.Ordinal),
-			"missing sdk version" => workflow.Replace("dotnet-version: 11.0.100-rc.1.26425.128", string.Empty, StringComparison.Ordinal),
+			"sdk version" => workflow.Replace("11.0.100-rc.1.26425.128", "11.0.100", StringComparison.Ordinal),
+			"missing sdk version" => workflow.Replace("            11.0.100-rc.1.26425.128\n", string.Empty, StringComparison.Ordinal),
+			"missing net10 sdk version" => workflow.Replace("            10.0.400\n", string.Empty, StringComparison.Ordinal),
 			"upload condition" => workflow.Replace("if: always()\n", "if: success()\n", StringComparison.Ordinal),
 			"retention" => workflow.Replace("retention-days: 14", "retention-days: 0", StringComparison.Ordinal),
 			"report paths" => workflow.Replace("path: |\n            artifacts/upstream-monitor/*.json\n            artifacts/upstream-monitor/*.md\n", "path: reports/*.json\n", StringComparison.Ordinal),
@@ -245,7 +247,7 @@ public sealed class UpstreamMonitorPolicyTests
 		"17 * * * *",
 		"aspnetcore-release-published",
 		"contents=read,issues=write",
-		"11.0.100-rc.1.26425.128",
+		"10.0.400\n11.0.100-rc.1.26425.128",
 		"dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile upstream",
 		"GH_TOKEN=${{ github.token }}",
 		"false",
@@ -275,7 +277,9 @@ public sealed class UpstreamMonitorPolicyTests
 		      - uses: actions/setup-dotnet@v4
 		        with:
 		          global-json-file: global.json
-		          dotnet-version: 11.0.100-rc.1.26425.128
+		          dotnet-version: |
+		            10.0.400
+		            11.0.100-rc.1.26425.128
 		      - name: Run upstream profile
 		        run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile upstream
 		        env:

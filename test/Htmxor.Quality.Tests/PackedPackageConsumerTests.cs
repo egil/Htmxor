@@ -168,7 +168,7 @@ public sealed class PackedPackageConsumerTests
 	}
 }
 
-internal sealed class PackageConsumerWorkspace : IDisposable
+internal sealed partial class PackageConsumerWorkspace : IDisposable
 {
 	private const string PackageVersionToken = "__HTMXOR_PACKAGE_VERSION__";
 	private readonly TemporaryDirectory temporaryDirectory = new();
@@ -208,7 +208,7 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 
 	public string PackagePath => Assert.Single(Directory.EnumerateFiles(packageDirectory, "*.nupkg"));
 
-	public string PackageVersion { get; } = $"0.0.0-issue97-{Guid.NewGuid():N}";
+	public string PackageVersion { get; private set; } = $"0.0.0-issue97-{Guid.NewGuid():N}";
 
 	public string TrxPath => Path.Combine(resultsDirectory, "package-consumer.trx");
 
@@ -224,7 +224,10 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 
 	public async Task<ProcessResult> RunAsync()
 	{
-		await PackAsync();
+		if (!usesSharedPackage)
+		{
+			await PackAsync();
+		}
 		await RestoreAsync();
 		await BuildRequiredAsync();
 
@@ -573,7 +576,7 @@ internal sealed class PackageConsumerWorkspace : IDisposable
 	{
 		var result = await runner.RunAsync(new(
 			"dotnet",
-			repositoryRoot,
+			arguments[0] == "pack" ? repositoryRoot : consumerDirectory,
 			arguments,
 			EnsureSuccess: false));
 		if (result.ExitCode != 0)

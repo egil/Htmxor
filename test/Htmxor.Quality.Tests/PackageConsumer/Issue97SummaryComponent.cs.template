@@ -20,7 +20,7 @@ public sealed class Issue97SummaryComponent : ComponentBase
 	private bool lifecycleReady;
 
 	[Parameter]
-	public string? SummaryId { get; set; }
+	public int SummaryId { get; set; }
 
 #if ISSUE103_ACTIONLESS_UNSAFE
 	[Parameter]

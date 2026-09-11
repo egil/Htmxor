@@ -16,7 +16,7 @@
 
 @code {
     [Parameter]
-    public string? AuditId { get; set; }
+    public int AuditId { get; set; }
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;

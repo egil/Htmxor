@@ -29,7 +29,7 @@
     private string? callbackObservation;
 
     [Parameter]
-    public string? ReportId { get; set; }
+    public int ReportId { get; set; }
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "source")]

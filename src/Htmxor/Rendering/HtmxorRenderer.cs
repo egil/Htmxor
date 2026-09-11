@@ -202,7 +202,11 @@ internal partial class HtmxorRenderer : Renderer
 
 		// PathBase may be "/" or "/some/thing", but to be a well-formed base URI
 		// it has to end with a trailing slash
+#if NET11_0_OR_GREATER
+		return result.EndsWith('/', StringComparison.Ordinal) ? result : result += "/";
+#else
 		return result.EndsWith('/') ? result : result += "/";
+#endif
 	}
 
 	private sealed class FormCollectionReadOnlyDictionary : IReadOnlyDictionary<string, StringValues>
