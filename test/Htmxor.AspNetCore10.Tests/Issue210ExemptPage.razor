@@ -1,0 +1,17 @@
+@page "/issue-210/exempt"
+@attribute [Microsoft.AspNetCore.Antiforgery.RequireAntiforgeryToken(required: false)]
+@using Htmxor
+@inject Issue210Probe Probe
+
+<button hx-delete="/issue-210/exempt" @ondelete="Delete">Delete</button>
+<p data-exempt="@completed">Exempt</p>
+
+@code {
+    private bool completed;
+    protected override void OnInitialized() => Probe.Initialize();
+    private void Delete(HtmxEventArgs _)
+    {
+        completed = true;
+        Probe.Callback();
+    }
+}

@@ -107,6 +107,7 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Shared/Components/PrerenderComponentApplicationStore.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs",
 				"src/Shared/Components/ProtectedPrerenderComponentApplicationStore.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs",
 				"src/Shared/Components/ServerComponentSerializer.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs",
+				"src/Shared/MiddlewareInvokedKeys.cs|file|none|mirrors|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
 			],
 			ProjectWatches(manifest, root));
 	}

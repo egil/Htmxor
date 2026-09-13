@@ -6,6 +6,8 @@ internal sealed class HtmxorComponentActionRequest : IHtmxorGeneratedComponentAc
 {
 	private HtmxorComponentActionDescriptor? activeDescriptor;
 
+	internal bool HasActiveAction => Volatile.Read(ref activeDescriptor) is not null;
+
 	public void Activate(HtmxorComponentActionDescriptor descriptor)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);

@@ -12,6 +12,43 @@ endpoint invoker after the paired parity boundary passes.
 [approved adapter decision](https://github.com/egil/Htmxor/issues/189#issuecomment-5554452348)
 authorize this replaceable internal boundary. No form runtime is copied.
 
+## .NET 11 configured protection
+
+Under the [approved #207 contract](https://github.com/egil/Htmxor/issues/207),
+the .NET 11 adapter consumes the effective `IAntiforgeryValidationFeature` rather
+than adding direct token validation when the feature is absent. The installed
+`EndpointMiddleware` checks required protection middleware before invoking the
+component endpoint. Generated unsafe callbacks reject a failed verdict before
+activation; an activated callback bypasses ordinary POST named-form dispatch.
+Actionless POST retains its ordinary named-form behavior after successful
+protection. Effective metadata opt-outs are preserved instead of overwritten
+by generated endpoint defaults. The .NET 10 direct token fallback is retained.
+
+Streaming token preparation follows the .NET 11 invoker: it generates tokens
+only when `HttpContext.Items` contains
+`__AntiforgeryMiddlewareWithEndpointInvoked`. This reads the framework's
+request-local invocation marker through the public items collection; it adds
+no reflection or private member accessor. The exact marker value is mirrored
+from `MiddlewareInvokedKeys.Antiforgery` and monitored as source, alongside the
+existing invoker reimplementation watch. The shared key file is .NET 11 source;
+the new conditional use does not change .NET 10 token timing.
+
+Protection/token timing was synchronized on **2026-09-13** against ASP.NET Core
+**v11.0.0-rc.1.26425.128**, commit
+**c3325eeb6b47bc6383c127d4f4827dc9642a2b6e**. Exact sources:
+
+- [RazorComponentEndpointInvoker.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs): effective verdict and conditional streaming token generation.
+- [MiddlewareInvokedKeys.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Shared/MiddlewareInvokedKeys.cs): mirrored antiforgery invocation key in `HtmxorEndpointCandidate.cs`.
+- [EndpointMiddleware.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Http/Routing/src/EndpointMiddleware.cs): required-middleware checks.
+- [CsrfProtectionMiddleware.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/DefaultBuilder/src/Internal/CsrfProtectionMiddleware.cs) and [AntiforgeryMiddleware.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Antiforgery/src/AntiforgeryMiddleware.cs): configured validation and precedence.
+
+The Issue210 real hosted security matrix and paired stock/Htmxor streaming
+controls own this parity boundary. Their exact commands, per-target counts and
+limitations belong to the issue's delivery receipts. Browser credential
+transport and later framework releases require their own evidence. See the
+[developer protection guide](../htmxor-v1-feature-guide.md#application-owned-request-protection)
+for the POST/PUT/PATCH-only token middleware warning and explicit DELETE setup.
+
 ## Installed-service access
 
 All private dependencies come from `Microsoft.AspNetCore.Components.Endpoints.dll`,

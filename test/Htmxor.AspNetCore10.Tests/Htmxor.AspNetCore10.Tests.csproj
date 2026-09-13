@@ -1,7 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+		<RuntimeFrameworkVersion Condition="'$(TargetFramework)' == 'net10.0'">10.0.11</RuntimeFrameworkVersion>
+		<RuntimeFrameworkVersion Condition="'$(TargetFramework)' == 'net11.0'">11.0.0-rc.1.26425.128</RuntimeFrameworkVersion>
+		<RollForward>Disable</RollForward>
+		<AspNetCoreTestVersion Condition="'$(TargetFramework)' == 'net10.0'">10.0.11</AspNetCoreTestVersion>
+		<AspNetCoreTestVersion Condition="'$(TargetFramework)' == 'net11.0'">11.0.0-rc.1.26425.128</AspNetCoreTestVersion>
+		<EnableDefaultRazorComponentItems Condition="'$(TargetFramework)' == 'net11.0'">false</EnableDefaultRazorComponentItems>
 		<CodeMetricsProfile>tests</CodeMetricsProfile>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
@@ -10,10 +16,17 @@
 		<RootNamespace>Htmxor.AspNetCore10</RootNamespace>
 	</PropertyGroup>
 
+	<!-- Existing parity fixtures remain on .NET 10; issue #210 owns the .NET 11 security boundary. -->
+	<ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+		<Compile Remove="Issue*.cs" />
+		<Compile Include="Issue210*.cs;Issue83AuthorizationTests.cs" />
+		<RazorComponent Include="Issue210*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
-		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.11" />
-		<PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.11" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="$(AspNetCoreTestVersion)" />
+		<PackageReference Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetCoreTestVersion)" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
 		<PackageReference Include="xunit" Version="2.8.0" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="2.8.0">

@@ -1,0 +1,14 @@
+@page "/issue-210/streaming"
+@attribute [StreamRendering]
+@inject Issue210StreamGate Gate
+
+<p data-stream="@state">Streaming</p>
+
+@code {
+    private string state = "initial";
+    protected override async Task OnInitializedAsync()
+    {
+        await Gate.Completion.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        state = "complete";
+    }
+}

@@ -286,7 +286,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 	private static void RequireAntiforgery(EndpointBuilder endpointBuilder)
 	{
-		if (endpointBuilder.Metadata.OfType<IAntiforgeryMetadata>().LastOrDefault()?.RequiresValidation != true)
+		if (!endpointBuilder.Metadata.OfType<IAntiforgeryMetadata>().Any())
 		{
 			endpointBuilder.Metadata.Add(new RequireAntiforgeryTokenAttribute());
 		}
@@ -444,34 +444,44 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		return true;
 	}
 
-	private static async Task<bool> ValidateAntiforgery(HttpContext context)
+	private static Task<bool> ValidateAntiforgery(HttpContext context)
 	{
 		if (context.Features.Get<IAntiforgeryValidationFeature>() is { } validationFeature)
 		{
 			if (!validationFeature.IsValid)
 			{
 				context.Response.StatusCode = StatusCodes.Status400BadRequest;
-				return false;
 			}
+			return Task.FromResult(validationFeature.IsValid);
 		}
-		else
+
+#if NET11_0_OR_GREATER
+		// EndpointMiddleware enforces configured protection; .NET 11 owns the effective verdict and method scope.
+		return Task.FromResult(true);
+#else
+		return context.GetEndpoint()?.Metadata.GetMetadata<IAntiforgeryMetadata>()?.RequiresValidation == false
+			? Task.FromResult(true)
+			: ValidateAntiforgeryToken(context);
+#endif
+	}
+
+#if !NET11_0_OR_GREATER
+	private static async Task<bool> ValidateAntiforgeryToken(HttpContext context)
+	{
+		try
 		{
-			try
-			{
-				// Use one fail-closed path because ASP.NET Core antiforgery middleware skips DELETE.
-				await context.RequestServices
-					.GetRequiredService<IAntiforgery>()
-					.ValidateRequestAsync(context);
-			}
-			catch (AntiforgeryValidationException)
-			{
-				context.Response.StatusCode = StatusCodes.Status400BadRequest;
-				return false;
-			}
+			// Retain the .NET 10 fallback for methods skipped by token middleware, including DELETE.
+			await context.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(context);
+		}
+		catch (AntiforgeryValidationException)
+		{
+			context.Response.StatusCode = StatusCodes.Status400BadRequest;
+			return false;
 		}
 
 		return true;
 	}
+#endif
 
 	private static async Task InvokeDirectEndpoint(HttpContext context, RequestDelegate stockRequestDelegate)
 	{

@@ -1,0 +1,30 @@
+@page "/issue-210/form"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@inject Issue210Probe Probe
+
+<form method="post" @formname="save" @onsubmit="Save">
+    <AntiforgeryToken />
+    <input name="Value" value="@Value" />
+    <button type="submit">Save</button>
+</form>
+<p data-saved="@saved.ToString()">@Value</p>
+
+@code {
+    private bool saved;
+    private string? value;
+
+    [SupplyParameterFromForm]
+    private string? Value
+    {
+        get => value;
+        set { this.value = value; Probe.Binding(); }
+    }
+
+    protected override void OnInitialized() => Probe.Initialize();
+    private void Save()
+    {
+        saved = true;
+        Probe.Callback();
+    }
+}

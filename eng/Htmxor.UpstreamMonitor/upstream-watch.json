@@ -24,6 +24,15 @@
   ],
   "watches": [
     {
+      "path": "src/Shared/MiddlewareInvokedKeys.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "mirrors",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
+      ]
+    },
+    {
       "path": "src/Components/Components/src/RenderTree/Renderer.cs",
       "match": "file",
       "api": "subclass",
