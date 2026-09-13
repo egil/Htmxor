@@ -5,20 +5,25 @@ namespace Htmxor.Quality.Tests;
 [Collection(PackageConsumerCollection.Name)]
 public sealed class PackedNestedSelectionConsumerTests
 {
-	[Fact]
-	public async Task Package_only_application_resolves_nested_and_invalid_selections_before_output()
+	[Theory]
+	[InlineData("net10.0", "10.0.400", "10.0.11")]
+	[InlineData("net11.0", "11.0.100-rc.1.26425.128", "11.0.0-rc.1.26425.128")]
+	public async Task Package_only_application_resolves_nested_and_invalid_selections_before_output(string framework, string sdk, string runtime)
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		workspace.UseIssue169SelectionScenario();
+		workspace.UseFramework(framework, sdk, runtime);
 
 		var result = await workspace.RunAsync();
 		var testRun = TrxTestRun.Read(workspace.TrxPath);
+		NamedSelectionEvidence.Retain(workspace.ConsumerDirectory, workspace.TrxPath, result, "nested-selection", framework);
 
 		Assert.True(result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
 		Assert.Equal(new TrxTestRun(18, 18, 18, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
+		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
+		NamedSelectionEvidence.AssertPackageTarget(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
 	}
 }

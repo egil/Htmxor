@@ -58,6 +58,11 @@ internal sealed partial class PackageConsumerWorkspace
 	public void UseGetScenario(string framework, string sdk, string runtime)
 	{
 		UseSelectionScenario("Issue209");
+		UseFramework(framework, sdk, runtime);
+	}
+
+	public void UseFramework(string framework, string sdk, string runtime)
+	{
 		var source = File.ReadAllText(projectPath).Replace("net10.0", framework, StringComparison.Ordinal);
 		source = source.Replace("<TargetFramework>" + framework + "</TargetFramework>",
 			$"<TargetFramework>{framework}</TargetFramework><RuntimeFrameworkVersion>{runtime}</RuntimeFrameworkVersion><RollForward>Disable</RollForward>", StringComparison.Ordinal);
