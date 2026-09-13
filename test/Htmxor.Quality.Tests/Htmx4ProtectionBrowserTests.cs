@@ -43,6 +43,11 @@ internal sealed partial class Htmx4PackageBrowserWorkspace
 	public void UseProtectionScenario(string framework, string sdk, string runtime)
 	{
 		testFilter = "FullyQualifiedName~Issue211BrowserTests";
+		UseFramework(framework, sdk, runtime);
+	}
+
+	public void UseFramework(string framework, string sdk, string runtime)
+	{
 		var source = File.ReadAllText(projectPath).Replace("<TargetFramework>net10.0</TargetFramework>",
 			$"<TargetFramework>{framework}</TargetFramework><RuntimeFrameworkVersion>{runtime}</RuntimeFrameworkVersion><RollForward>Disable</RollForward>", StringComparison.Ordinal);
 		File.WriteAllText(projectPath, source);

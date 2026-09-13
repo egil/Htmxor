@@ -977,7 +977,7 @@ internal static class PackageConsumerEvidence
 		AssertSourceBoundary(consumerDirectory);
 	}
 
-	public static void AssertConsumerPackageBoundary(string consumerDirectory, string packageVersion)
+	public static void AssertConsumerPackageBoundary(string consumerDirectory, string packageVersion, string framework = "net10.0")
 	{
 		var project = XDocument.Load(Path.Combine(consumerDirectory, "Htmxor.PackageConsumer.csproj"));
 		var targetFramework = Assert.Single(
@@ -988,11 +988,11 @@ internal static class PackageConsumerEvidence
 			.ToArray();
 		var htmxor = Assert.Single(references, IsHtmxorPackageReference);
 
-		Assert.Equal("net10.0", targetFramework.Value);
+		Assert.Equal(framework, targetFramework.Value);
 		Assert.Equal(packageVersion, htmxor.Attribute("Version")?.Value);
 		Assert.Empty(project.Descendants().Where(element => element.Name.LocalName == "ProjectReference"));
 		Assert.Empty(project.Descendants().Where(element => element.Name.LocalName == "InternalsVisibleTo"));
-		AssertRuntimeDependencies(consumerDirectory);
+		AssertRuntimeDependencies(consumerDirectory, framework);
 	}
 
 	private static void AssertNuspecDependencies(ZipArchive package)
@@ -1112,9 +1112,9 @@ internal static class PackageConsumerEvidence
 		Assert.DoesNotContain("MapMethods(", applicationSource, StringComparison.Ordinal);
 	}
 
-	private static void AssertRuntimeDependencies(string consumerDirectory)
+	private static void AssertRuntimeDependencies(string consumerDirectory, string framework)
 	{
-		var output = Path.Combine(consumerDirectory, "bin", "Release", "net10.0");
+		var output = Path.Combine(consumerDirectory, "bin", "Release", framework);
 		var dependencies = File.ReadAllText(Path.Combine(output, "Htmxor.PackageConsumer.deps.json"));
 		var files = Directory.EnumerateFiles(output, "*", SearchOption.AllDirectories)
 			.Select(Path.GetFileName)
