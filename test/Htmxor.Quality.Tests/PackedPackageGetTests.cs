@@ -45,7 +45,7 @@ public sealed class PackedPackageGetTests
 		Assert.Empty(project.Descendants("InternalsVisibleTo"));
 		Assert.Contains(assets.RootElement.GetProperty("libraries").GetProperty("Htmxor/" + workspace.PackageVersion).GetProperty("files").EnumerateArray(),
 			file => file.GetString() == "analyzers/dotnet/cs/Htmxor.Generators.dll");
-		return result.ExitCode == 0 && tests == new TrxTestRun(8, 8, 8, 0, 0, 0, 0)
+		return result.ExitCode == 0 && tests == new TrxTestRun(12, 12, 12, 0, 0, 0, 0)
 			? string.Empty
 			: framework + ": " + tests + Environment.NewLine + result.StandardOutput + result.StandardError;
 	}

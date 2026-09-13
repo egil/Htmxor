@@ -1,0 +1,56 @@
+@page "/issue-216/form"
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue216Journal Journal
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Accessor
+
+<EditForm EditContext="editContext" FormName="save" method="post" OnValidSubmit="Valid" OnInvalidSubmit="Invalid">
+    <DataAnnotationsValidator />
+    <InputText @bind-Value="Model!.Name" />
+    <ValidationMessage For="() => Model!.Name" />
+    <button type="submit">Save</button>
+</EditForm>
+<p data-result="@result" data-name="@Model!.Name" data-instance="@instance">@result</p>
+
+@code {
+    private readonly Guid instance = Guid.NewGuid();
+    private Issue216Model? model;
+    private EditContext editContext = default!;
+    private string result = "not-submitted";
+    private Issue216Submission Observation => Journal.For(Accessor.HttpContext!.Request.Headers["X-Issue-216"].ToString());
+
+    [SupplyParameterFromForm]
+    private Issue216Model? Model
+    {
+        get => model;
+        set { model = value; Observation.Record(instance, "binding"); }
+    }
+
+    protected override void OnInitialized()
+    {
+        model ??= new();
+        Observation.Record(instance, "initialized");
+        editContext = new(Model!);
+        var messages = new ValidationMessageStore(editContext);
+        editContext.OnValidationRequested += (_, args) => args.AddAsyncValidator(async cancellation =>
+        {
+            Observation.Record(instance, "validation-started");
+            Observation.Entered.TrySetResult();
+            await Observation.Release.Task.WaitAsync(cancellation);
+            if (Model!.Name == "taken")
+            {
+                messages.Add(() => Model.Name, "This name is already taken.");
+            }
+
+            editContext.NotifyValidationStateChanged();
+            Observation.Record(instance, "validation-completed");
+        });
+    }
+
+    private void Valid() => Submit("valid");
+    private void Invalid() => Submit("invalid");
+    private void Submit(string outcome)
+    {
+        result = outcome;
+        Observation.Record(instance, outcome);
+    }
+}

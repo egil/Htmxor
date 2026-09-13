@@ -1,6 +1,7 @@
 using System.Net;
 using System.Reflection;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Htmxor;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
@@ -89,6 +90,35 @@ public sealed class Issue209GetTests
         request.Headers.Add("HX-Request", "true");
         request.Headers.Add("HX-Request-Type", "partial");
         return request;
+    }
+
+    [Theory]
+    [InlineData(false, "Ada", "valid")]
+    [InlineData(false, "", "invalid")]
+    [InlineData(true, "Ada", "valid")]
+    [InlineData(true, "", "invalid")]
+    public async Task Existing_named_EditForm_binds_validates_and_submits_from_the_package(bool direct, string name, string result)
+    {
+        await using var app = await StartAsync(true);
+        using var client = app.GetTestClient();
+        using var get = await client.GetAsync("/form");
+        var form = await get.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, get.StatusCode);
+        var token = Regex.Match(form, "name=\"__RequestVerificationToken\" value=\"([^\"]+)\"");
+        Assert.True(token.Success, form);
+        using var request = direct ? DirectRequest("/form") : new HttpRequestMessage(HttpMethod.Post, "/form");
+        request.Method = HttpMethod.Post;
+        request.Headers.Add("Cookie", Assert.Single(get.Headers.GetValues("Set-Cookie"), value => value.StartsWith(".AspNetCore.Antiforgery.")).Split(';')[0]);
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["_handler"] = "save", ["Model.Name"] = name,
+            ["__RequestVerificationToken"] = WebUtility.HtmlDecode(token.Groups[1].Value),
+        });
+        using var response = await client.SendAsync(request);
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, html);
+        Assert.Contains($"data-result=\"{result}\">{name}</output>", html);
+        Assert.Equal(result == "invalid", html.Contains(">The Name field is required.</div>"));
     }
 
     private static async Task<WebApplication> StartAsync(bool useHtmxor)

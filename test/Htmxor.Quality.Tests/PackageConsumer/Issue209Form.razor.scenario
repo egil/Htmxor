@@ -1,0 +1,23 @@
+@page "/form"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+
+<EditForm Model="Model" FormName="save" method="post" OnValidSubmit="Valid" OnInvalidSubmit="Invalid">
+    <DataAnnotationsValidator />
+    <InputText @bind-Value="Model!.Name" />
+    <ValidationMessage For="() => Model!.Name" />
+    <button type="submit">Save</button>
+</EditForm>
+<output data-result="@result">@Model!.Name</output>
+
+@code {
+    private string result = "not-submitted";
+    [SupplyParameterFromForm] private FormModel? Model { get; set; }
+    protected override void OnInitialized() => Model ??= new();
+    private void Valid() => result = "valid";
+    private void Invalid() => result = "invalid";
+    public sealed class FormModel
+    {
+        [Required] public string Name { get; set; } = "";
+    }
+}
