@@ -1,5 +1,6 @@
 #if NET11_0_OR_GREATER
 using System.Net;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.AspNetCore10;
@@ -7,13 +8,21 @@ namespace Htmxor.AspNetCore10;
 public sealed class Issue216AsyncValidationTests
 {
 	[Theory]
-	[InlineData(false, false, "Ada", "valid")]
-	[InlineData(false, false, "taken", "invalid")]
-	[InlineData(true, false, "Ada", "valid")]
-	[InlineData(true, false, "taken", "invalid")]
-	[InlineData(true, true, "Ada", "valid")]
-	[InlineData(true, true, "taken", "invalid")]
+	[InlineData(false, "Ada", "valid")]
+	[InlineData(false, "taken", "invalid")]
+	[InlineData(true, "Ada", "valid")]
+	[InlineData(true, "taken", "invalid")]
 	public async Task Named_submit_awaits_validation_and_dispatches_once_on_the_request_instance(
+		bool direct, string name, string expected)
+	{
+		var stock = await SubmitAsync(false, false, name, expected);
+		var candidate = await SubmitAsync(true, direct, name, expected);
+
+		Assert.Equal(stock.Messages, candidate.Messages);
+		Assert.Equal(stock.Trace, candidate.Trace);
+	}
+
+	private static async Task<(string Messages, string[] Trace)> SubmitAsync(
 		bool htmxor, bool direct, string name, string expected)
 	{
 		var journal = new Issue216Journal();
@@ -35,6 +44,10 @@ public sealed class Issue216AsyncValidationTests
 
 		using var response = await pending.WaitAsync(TimeSpan.FromSeconds(20));
 		await AssertResultAsync(response, observation, name, expected);
+		var html = await response.Content.ReadAsStringAsync();
+		var messages = Assert.Single(Regex.Matches(html,
+			"<section data-validation-messages>(.*?)</section>", RegexOptions.Singleline | RegexOptions.CultureInvariant));
+		return (messages.Groups[1].Value, observation.Events.Select(item => item.Phase).ToArray());
 	}
 
 	[Theory]

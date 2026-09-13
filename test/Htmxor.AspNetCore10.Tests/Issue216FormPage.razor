@@ -6,7 +6,7 @@
 <EditForm EditContext="editContext" FormName="save" method="post" OnValidSubmit="Valid" OnInvalidSubmit="Invalid">
     <DataAnnotationsValidator />
     <InputText @bind-Value="Model!.Name" />
-    <ValidationMessage For="() => Model!.Name" />
+    <section data-validation-messages><ValidationMessage For="() => Model!.Name" /></section>
     <button type="submit">Save</button>
 </EditForm>
 <p data-result="@result" data-name="@Model!.Name" data-instance="@instance">@result</p>
