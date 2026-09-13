@@ -71,9 +71,50 @@ the issue's delivery receipts. This boundary does not certify browser boot,
 authentication refresh, detached hydration, incremental streaming, or a later
 framework release.
 
-## Installed-service access
+## .NET 11 Session parameter persistence
 
-All private dependencies come from `Microsoft.AspNetCore.Components.Endpoints.dll`,
+The [approved #212 decision](https://github.com/egil/Htmxor/issues/212#issuecomment-5654425948)
+extends the isolated adapter to two internal instance members on
+`Microsoft.AspNetCore.Components.Endpoints.SessionCascadingValueSupplier` in
+`Microsoft.AspNetCore.Components.Endpoints.dll`:
+
+- `void SetRequestContext(Microsoft.AspNetCore.Http.HttpContext)` initializes the
+  actual scoped supplier after request protection succeeds and before rendering.
+- `System.Threading.Tasks.Task PersistAllValues()` captures completed component
+  values after rendering and callbacks, before final response flush. Selecting a
+  fragment changes emitted HTML, not the component values written back.
+
+Completed non-streaming `NotFound()` responses also persist values from surviving
+root components before the early 404 return suppresses output. That early path
+does not capture values while rendering work is still pending.
+
+`HtmxorEndpointCandidateSessionServices` validates the internal nongeneric type
+and declared internal nongeneric instance methods, exact parameters and return
+types during registration. It caches only type/member metadata, resolves the
+existing supplier from each request scope, and preserves underlying exceptions
+without retrying callbacks. Missing optional supplier registration remains a no-op
+as in stock. The framework still owns Session parameter supply, serialization,
+cookie establishment, middleware and storage; no Htmxor Session option is added.
+The adapter and its calls are excluded from the .NET 10 target.
+
+Synchronized **2026-09-13**, ASP.NET Core **v11.0.0-rc.1.26425.128**, commit
+**c3325eeb6b47bc6383c127d4f4827dc9642a2b6e**. Exact monitored sources:
+
+- [SessionCascadingValueSupplier.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/SessionCascadingValueSupplier.cs): the two private-access dependencies in the Session adapter, explicitly watched with `api: none`.
+- [EndpointHtmlRenderer.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs): request initialization order under the existing renderer watch.
+- [RazorComponentEndpointInvoker.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs): post-render persistence under the existing invoker watch.
+
+The Issue212 hosted contract observes fresh same-cookie and distinct-cookie reads,
+normal and selected responses, awaited work and actions, rejected requests with
+existing data, and overlapping independent sessions. Streaming ordering belongs
+to #215; this slice does not establish distributed-store deployment, same-session
+conflict policy, first-cookie creation through the attribute alone, or browser
+cookie transport. Exact verification belongs to delivery receipts. The existing
+package-retained ASP.NET Core MIT license covers adapted coordination.
+
+## Installed form-service access
+
+The form-service private dependencies come from `Microsoft.AspNetCore.Components.Endpoints.dll`,
 resolved from `typeof(IRazorComponentEndpointInvoker).Assembly`. The baseline is
 ASP.NET Core **v10.0.11**, commit **a5383385245bdacc20ec19f30e46090a8154d8da**,
 synchronized **2026-09-06**. CLR assembly version is not a semantic compatibility

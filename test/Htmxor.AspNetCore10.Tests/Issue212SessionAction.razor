@@ -1,0 +1,24 @@
+@page "/issue-212/action"
+@using Htmxor
+@using Htmxor.Components
+@using Microsoft.AspNetCore.Components.Web
+
+<button @onput="SaveActionAsync">Save</button>
+<HtmxFragment Name="session">
+    <p data-session="@(Value ?? "missing")">@(Value ?? "missing")</p>
+</HtmxFragment>
+
+@code {
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromSession(Name = "issue212-value")] public string? Value { get; set; }
+    [SupplyParameterFromQuery] public string? ActionValue { get; set; }
+
+    protected override void OnInitialized()
+        => HttpContext.GetHtmxContext().Response.SelectFragment("session");
+
+    private async Task SaveActionAsync(HtmxEventArgs _)
+    {
+        await Task.Yield();
+        Value = ActionValue;
+    }
+}

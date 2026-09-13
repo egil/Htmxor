@@ -1,0 +1,16 @@
+@page "/issue-212/not-found"
+@using Htmxor
+@using Htmxor.Components
+@inject NavigationManager Navigation
+
+<HtmxFragment Name="session"><p>Not found</p></HtmxFragment>
+
+@code {
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        HttpContext.GetHtmxContext().Response.SelectFragment("session");
+        Navigation.NotFound();
+    }
+}

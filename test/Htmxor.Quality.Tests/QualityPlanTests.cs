@@ -13,9 +13,9 @@ public sealed class QualityPlanTests
 		var plan = Create(QualityAction.Check, QualityProfile.Fast);
 
 		AssertCommonPreparation(plan.Preparation);
-		Assert.Equal(4, plan.Tests.Count);
+		Assert.Equal(5, plan.Tests.Count);
 		AssertUpstreamMonitorBoundary(plan);
-		AssertAspNetCore10Boundary(plan);
+		AssertAspNetCoreBoundaries(plan);
 		var quality = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj");
 		Assert.Equal(
 			["--filter", "Category!=Browser"],
@@ -50,9 +50,9 @@ public sealed class QualityPlanTests
 		var plan = Create(QualityAction.Check, QualityProfile.Full);
 
 		AssertCommonPreparation(plan.Preparation);
-		Assert.Equal(4, plan.Tests.Count);
+		Assert.Equal(5, plan.Tests.Count);
 		AssertUpstreamMonitorBoundary(plan);
-		AssertAspNetCore10Boundary(plan);
+		AssertAspNetCoreBoundaries(plan);
 		var htmxor = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Tests/Htmxor.Tests.csproj");
 		Assert.Equal(
 			[
@@ -122,9 +122,21 @@ public sealed class QualityPlanTests
 	private QualityPlan Create(QualityAction action, QualityProfile profile) =>
 		QualityPlanFactory.Create(repositoryRoot, resultsDirectory, new(action, profile));
 
-	private void AssertAspNetCore10Boundary(QualityPlan plan)
+	private void AssertAspNetCoreBoundaries(QualityPlan plan)
 	{
-		var test = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj");
+		var tests = plan.Tests.Where(test => test.Project == "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj").ToArray();
+		Assert.Collection(tests,
+			test => AssertAspNetCoreBoundary(test, "net10.0", "aspnetcore10"),
+			test => AssertAspNetCoreBoundary(test, "net11.0", "aspnetcore11"));
+	}
+
+	private void AssertAspNetCoreBoundary(TestCommand test, string framework, string artifactName)
+	{
+		var arguments = test.Command.Arguments.ToArray();
+		Assert.Equal(framework, arguments[Array.IndexOf(arguments, "--framework") + 1]);
+		Assert.Equal($"trx;LogFileName={artifactName}.trx", arguments[Array.IndexOf(arguments, "--logger") + 1]);
+		Assert.Equal(Path.Combine(resultsDirectory, artifactName), arguments[Array.IndexOf(arguments, "--results-directory") + 1]);
+		Assert.Equal(Path.Combine(resultsDirectory, artifactName, $"{artifactName}.trx"), test.TrxPath);
 		Assert.DoesNotContain("--collect", test.Command.Arguments);
 		Assert.DoesNotContain("--filter", test.Command.Arguments);
 		Assert.False(test.RequiresCoverage);

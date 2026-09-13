@@ -168,6 +168,14 @@ candidate now activated by `AddHtmxor`. If this adapter requires a broader
 private-access or form-runtime boundary, return for a user decision before
 expanding it.
 
+The [approved #212 decision](https://github.com/egil/Htmxor/issues/212#issuecomment-5654425948)
+also permits the .NET 11 adapter to invoke the existing scoped
+`SessionCascadingValueSupplier.SetRequestContext(HttpContext)` and
+`PersistAllValues()` methods for Session-supplied parameters. Retain stock
+Session services, serialization and storage, validate and cache only accessor
+metadata, and monitor the exact upstream dependencies. No Htmxor Session
+configuration API or replacement store is authorized by this exception.
+
 ## The application owns HTMX
 
 Htmxor v1 targets application-supplied htmx 4.0.0 for its documentation,

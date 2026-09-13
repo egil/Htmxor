@@ -1,0 +1,37 @@
+@page "/issue-212/session"
+@using Htmxor
+@using Htmxor.Components
+@using Microsoft.AspNetCore.Components.Web
+@inject Issue212Gate Gate
+
+<p data-outside="true">outside</p>
+<HtmxFragment Name="session">
+    <p data-session="@(Value ?? "missing")">@(Value ?? "missing")</p>
+</HtmxFragment>
+<form method="post" @formname="save" @onsubmit="SaveAsync"></form>
+
+@code {
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromSession(Name = "issue212-value")] public string? Value { get; set; }
+    [SupplyParameterFromQuery] public string? Change { get; set; }
+    [SupplyParameterFromQuery] public string? ActionValue { get; set; }
+    [SupplyParameterFromQuery] public bool Hold { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        HttpContext.GetHtmxContext().Response.SelectFragment("session");
+        // Establish the cookie independently so subsequent reads isolate parameter write-back.
+        HttpContext.Session.SetString("issue212-cookie-establishment", "established");
+        if (Change is not null)
+        {
+            await Gate.CompleteAsync(Hold);
+            Value = Change;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        await Task.Yield();
+        Value = ActionValue;
+    }
+}

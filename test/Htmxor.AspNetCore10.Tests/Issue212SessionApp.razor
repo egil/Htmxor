@@ -1,0 +1,28 @@
+@using Microsoft.AspNetCore.Components.Web
+
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    <p data-root-session="@(Value ?? "missing")"></p>
+    <Router AppAssembly="typeof(Issue212SessionApp).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" />
+        </Found>
+    </Router>
+</body>
+</html>
+
+@code {
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromSession(Name = "issue212-root-value")] public string? Value { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var change = HttpContext.Request.Query["RootChange"].ToString();
+        if (change.Length > 0)
+        {
+            await Task.Yield();
+            Value = change;
+        }
+    }
+}
