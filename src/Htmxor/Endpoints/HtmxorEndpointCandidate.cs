@@ -72,6 +72,9 @@ internal static class HtmxorEndpointCandidateServices
 	public static void Add(IServiceCollection services)
 	{
 		var formServices = HtmxorEndpointCandidateFormServices.Create();
+#if NET11_0_OR_GREATER
+		var sessionServices = HtmxorEndpointCandidateSessionServices.Create();
+#endif
 		// AddRazorComponents does not expose a supported replacement hook for its HttpContext cascade.
 		// Issue #184 watches this registration shape so upstream drift is reviewed before adopting framework changes.
 		var stockHttpContextSuppliers = services
@@ -85,6 +88,9 @@ internal static class HtmxorEndpointCandidateServices
 		}
 
 		services.AddSingleton(formServices);
+#if NET11_0_OR_GREATER
+		services.AddSingleton(sessionServices);
+#endif
 		services.AddScoped<HtmxorEndpointCandidateRenderer>();
 		services.AddScoped<HtmxorEndpointCandidateInvoker>();
 		services.RemoveAll<IRazorComponentEndpointInvoker>();
@@ -179,6 +185,13 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		{
 			context.Response.StatusCode = StatusCodes.Status404NotFound;
 			context.Response.ContentType = null;
+#if NET11_0_OR_GREATER
+			// Completed root components retain Session updates even when the 404 suppresses output.
+			if (quiesceTask.IsCompletedSuccessfully)
+			{
+				await context.RequestServices.GetRequiredService<HtmxorEndpointCandidateSessionServices>().PersistAsync(context);
+			}
+#endif
 			return;
 		}
 		if (hasPendingInitialRenderWork ?? !quiesceTask.IsCompleted)
@@ -211,6 +224,10 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		{
 			renderer.EmitInitializersIfNecessary(context, writer);
 		}
+#if NET11_0_OR_GREATER
+		// Selection must not suppress write-back from completed component work outside the selected HTML.
+		await context.RequestServices.GetRequiredService<HtmxorEndpointCandidateSessionServices>().PersistAsync(context);
+#endif
 		if (!isErrorHandler
 #if !NET11_0_OR_GREATER
 			&& !isReexecuted
@@ -307,6 +324,9 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		}
 
 		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().Initialize(context, handler, form);
+#if NET11_0_OR_GREATER
+		services.GetRequiredService<HtmxorEndpointCandidateSessionServices>().Initialize(context);
+#endif
 		var stateManager = services.GetRequiredService<ComponentStatePersistenceManager>();
 		stateManager.SetPlatformRenderMode(RenderMode.InteractiveAuto);
 		await stateManager.RestoreStateAsync(new HtmxorEndpointCandidateStateStore());

@@ -69,7 +69,8 @@ internal static class QualityPlanFactory
 		{
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.UpstreamMonitor.Tests/Htmxor.UpstreamMonitor.Tests.csproj", "upstream-fixtures", null, collectCoverage: false),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj", "quality", qualityFilter, collectCoverage: false),
-			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore10", null, collectCoverage: false),
+			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore10", null, collectCoverage: false, framework: "net10.0"),
+			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore11", null, collectCoverage: false, framework: "net11.0"),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Tests/Htmxor.Tests.csproj", "htmxor", htmxorFilter, collectCoverage),
 		};
 		return new(CommonPreparation(repositoryRoot), tests, null);
@@ -137,7 +138,8 @@ internal static class QualityPlanFactory
 		string project,
 		string artifactName,
 		string? filter,
-		bool collectCoverage)
+		bool collectCoverage,
+		string? framework = null)
 	{
 		var projectResults = Path.Combine(resultsDirectory, artifactName);
 		var trxPath = Path.Combine(projectResults, $"{artifactName}.trx");
@@ -157,6 +159,11 @@ internal static class QualityPlanFactory
 			"--results-directory",
 			projectResults,
 		};
+		if (framework is not null)
+		{
+			arguments.Add("--framework");
+			arguments.Add(framework);
+		}
 		if (collectCoverage)
 		{
 			arguments.Add("--collect");

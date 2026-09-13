@@ -7,7 +7,7 @@
 		<RollForward>Disable</RollForward>
 		<AspNetCoreTestVersion Condition="'$(TargetFramework)' == 'net10.0'">10.0.11</AspNetCoreTestVersion>
 		<AspNetCoreTestVersion Condition="'$(TargetFramework)' == 'net11.0'">11.0.0-rc.1.26425.128</AspNetCoreTestVersion>
-		<EnableDefaultRazorComponentItems Condition="'$(TargetFramework)' == 'net11.0'">false</EnableDefaultRazorComponentItems>
+		<EnableDefaultRazorComponentItems>false</EnableDefaultRazorComponentItems>
 		<CodeMetricsProfile>tests</CodeMetricsProfile>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
@@ -18,8 +18,11 @@
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
 		<Compile Remove="Issue*.cs" />
-		<Compile Include="Issue210*.cs;Issue214*.cs;Issue83AuthorizationTests.cs" />
-		<RazorComponent Include="Issue210*.razor;Issue214*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
+		<Compile Include="Issue210*.cs;Issue212*.cs;Issue214*.cs;Issue83AuthorizationTests.cs" />
+		<RazorComponent Include="Issue210*.razor;Issue212*.razor;Issue214*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+		<RazorComponent Include="**/*.razor" Exclude="Issue212*.razor;$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 	</ItemGroup>
 
 	<ItemGroup>

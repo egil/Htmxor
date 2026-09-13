@@ -24,6 +24,15 @@
   ],
   "watches": [
     {
+      "path": "src/Components/Endpoints/src/SessionCascadingValueSupplier.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateSessionServices.cs"
+      ]
+    },
+    {
       "path": "src/Shared/MiddlewareInvokedKeys.cs",
       "match": "file",
       "api": "none",

@@ -94,6 +94,7 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer|prefix|none|mirrors|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs",
 				"src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer|prefix|subclass|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.NamedSubmit.cs,src/Htmxor/Rendering/HtmxorRenderer.EventDispatch.cs,src/Htmxor/Rendering/HtmxorRenderer.HtmxorEventDispatch.cs,src/Htmxor/Rendering/HtmxorRenderer.Rendering.cs,src/Htmxor/Rendering/HtmxorRenderer.cs",
 				"src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs",
+				"src/Components/Endpoints/src/SessionCascadingValueSupplier.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateSessionServices.cs",
 				"src/Components/Shared/src/ResourceCollectionProvider.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
 				"src/Components/Web/src/Forms/AntiforgeryStateProvider.cs|file|subclass|subclasses|src/Htmxor/DependencyInjection/DefaultAntiforgeryStateProvider.cs",
 				"src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.HtmlWriting.cs|file|subclass|mirrors|src/Htmxor/Rendering/HtmxorRenderer.HtmlWriting.cs",
