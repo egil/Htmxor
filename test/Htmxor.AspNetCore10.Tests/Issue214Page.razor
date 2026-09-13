@@ -1,0 +1,15 @@
+@page "/issue-214/state"
+@using Microsoft.AspNetCore.Components.Web
+
+<Issue214State @rendermode="SelectedMode" />
+
+@code {
+    [CascadingParameter] public HttpContext Context { get; set; } = default!;
+
+    private IComponentRenderMode SelectedMode => Context.Request.Headers["X-Issue-214-Mode"].ToString() switch
+    {
+        "wasm" => RenderMode.InteractiveWebAssembly,
+        "auto" => RenderMode.InteractiveAuto,
+        _ => RenderMode.InteractiveServer,
+    };
+}

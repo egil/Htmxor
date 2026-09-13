@@ -1,0 +1,27 @@
+@implements IDisposable
+@inject PersistentComponentState State
+@inject IHttpContextAccessor ContextAccessor
+@inject Issue214OverlapGate Overlap
+
+<main data-user="@user" data-value="@value" data-asset="@Assets["issue-214.js"]">persisted response</main>
+
+@code {
+    [CascadingParameter] public Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState> Authentication { get; set; } = default!;
+    private PersistingComponentStateSubscription subscription;
+    private string user = "";
+    private string value = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = (await Authentication).User.Identity?.Name ?? "anonymous";
+        value = ContextAccessor.HttpContext!.Request.Headers["X-Issue-214-Value"].ToString();
+        await Overlap.ArriveAsync(user, value);
+        subscription = State.RegisterOnPersisting(() =>
+        {
+            State.PersistAsJson("issue214", new { User = user, Value = value });
+            return Task.CompletedTask;
+        });
+    }
+
+    public void Dispose() => subscription.Dispose();
+}

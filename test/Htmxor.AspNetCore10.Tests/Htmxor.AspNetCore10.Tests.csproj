@@ -16,11 +16,10 @@
 		<RootNamespace>Htmxor.AspNetCore10</RootNamespace>
 	</PropertyGroup>
 
-	<!-- Existing parity fixtures remain on .NET 10; issue #210 owns the .NET 11 security boundary. -->
 	<ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
 		<Compile Remove="Issue*.cs" />
-		<Compile Include="Issue210*.cs;Issue83AuthorizationTests.cs" />
-		<RazorComponent Include="Issue210*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
+		<Compile Include="Issue210*.cs;Issue214*.cs;Issue83AuthorizationTests.cs" />
+		<RazorComponent Include="Issue210*.razor;Issue214*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
 	</ItemGroup>
 
 	<ItemGroup>

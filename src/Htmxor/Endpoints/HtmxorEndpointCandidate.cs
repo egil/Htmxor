@@ -16,11 +16,12 @@
 // https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
 // Form coordination added for #189; exact dependency inventory: docs/engineering/candidate-form-adapter.md.
-// .NET 11 protection/token timing follows v11.0.0-rc.1.26425.128 at
+// .NET 11 protection, persisted state, and browser configuration follow v11.0.0-rc.1.26425.128 at
 // c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13; see that inventory.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
 // Htmxor upstream dependency: src/Shared/MiddlewareInvokedKeys.cs | mirrors
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
@@ -43,6 +44,7 @@ using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Infrastructure;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.AspNetCore.Components.RenderTree;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
@@ -209,7 +211,11 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		{
 			renderer.EmitInitializersIfNecessary(context, writer);
 		}
-		if (!isErrorHandler && !isReexecuted)
+		if (!isErrorHandler
+#if !NET11_0_OR_GREATER
+			&& !isReexecuted
+#endif
+			)
 		{
 			var modes = context.RequestServices.GetRequiredService<HtmxorEndpointCandidateFormServices>()
 				.GetConfiguredRenderModes(endpoint);
@@ -242,7 +248,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private NotFoundEventArgs? notFoundEventArgs;
 	private int invocationSequence;
 	private Guid invocationId;
-	private bool webAssemblySettingsEmitted;
+	private bool browserSettingsEmitted;
 	private ResourceAssetCollection? resourceCollection;
 	private readonly Dictionary<IComponent, IComponentRenderMode> componentRenderModes = new(ReferenceEqualityComparer.Instance);
 
@@ -274,7 +280,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		notFoundEventArgs = null;
 		invocationSequence = -1;
 		invocationId = Guid.NewGuid();
-		webAssemblySettingsEmitted = false;
+		browserSettingsEmitted = false;
 		componentRenderModes.Clear();
 		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().InitializeResourceCollection(context);
 		var navigationManager = services.GetRequiredService<NavigationManager>();
@@ -327,6 +333,13 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		IComponentActivator componentActivator,
 		IComponentRenderMode renderMode)
 	{
+#if NET11_0_OR_GREATER
+		if (parentComponentId.HasValue &&
+			FindRenderModeBoundary(GetComponentState(parentComponentId.Value)) is not null)
+		{
+			return componentActivator.CreateInstance(componentType);
+		}
+#else
 		if (parentComponentId.HasValue &&
 			GetComponentState(parentComponentId.Value).Component is HtmxorEndpointCandidateRenderModeBoundary boundary)
 		{
@@ -334,6 +347,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			componentRenderModes.Add(component, boundary.RenderMode);
 			return component;
 		}
+#endif
 
 		return new HtmxorEndpointCandidateRenderModeBoundary(
 			httpContext,
@@ -349,9 +363,28 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		=> WriteComponentHtml(componentFrame.ComponentId, output, componentFrame.Sequence, componentFrame.ComponentKey, allowStreamingMarkers: true);
 
 	protected override IComponentRenderMode? GetComponentRenderMode(IComponent component)
+#if NET11_0_OR_GREATER
+		=> FindRenderModeBoundary(GetComponentState(component))?.RenderMode;
+#else
 		=> component is HtmxorEndpointCandidateRenderModeBoundary boundary
 			? boundary.RenderMode
 			: componentRenderModes.GetValueOrDefault(component);
+#endif
+
+#if NET11_0_OR_GREATER
+	private static HtmxorEndpointCandidateRenderModeBoundary? FindRenderModeBoundary(ComponentState state)
+	{
+		for (ComponentState? current = state; current is not null; current = current.ParentComponentState)
+		{
+			if (current.Component is HtmxorEndpointCandidateRenderModeBoundary boundary)
+			{
+				return boundary;
+			}
+		}
+
+		return null;
+	}
+#endif
 
 	protected override ResourceAssetCollection Assets
 		=> resourceCollection ??= httpContext.GetEndpoint()?.Metadata.GetMetadata<ResourceAssetCollection>() ?? base.Assets;
@@ -447,9 +480,12 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		{
 			httpContext.Response.Headers.CacheControl = "no-cache, no-store, max-age=0";
 		}
-		if (marker.Type is "webassembly" or "auto" && !webAssemblySettingsEmitted)
+#if NET11_0_OR_GREATER
+		EmitBrowserConfigurationOnce(output);
+#else
+		if (marker.Type is "webassembly" or "auto" && !browserSettingsEmitted)
 		{
-			webAssemblySettingsEmitted = true;
+			browserSettingsEmitted = true;
 			var environment = services.GetRequiredService<IWebHostEnvironment>();
 			var settings = new HtmxorEndpointCandidateWebAssemblySettings(
 				environment.EnvironmentName,
@@ -458,6 +494,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			output.Write(JsonSerializer.Serialize(settings, HtmxorEndpointCandidateJson.Options));
 			output.Write("-->");
 		}
+#endif
 		output.Write("<!--Blazor:");
 		output.Write(JsonSerializer.Serialize(marker, HtmxorEndpointCandidateJson.Options));
 		output.Write("-->");

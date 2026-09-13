@@ -49,6 +49,28 @@ transport and later framework releases require their own evidence. See the
 [developer protection guide](../htmxor-v1-feature-guide.md#application-owned-request-protection)
 for the POST/PUT/PATCH-only token middleware warning and explicit DELETE setup.
 
+## .NET 11 ordinary response representation
+
+[Issue #214](https://github.com/egil/Htmxor/issues/214) aligns the non-streaming
+response adapter with ASP.NET Core **v11.0.0-rc.1.26425.128**, commit
+**c3325eeb6b47bc6383c127d4f4827dc9642a2b6e**, synchronized **2026-09-13**.
+The .NET 10 branches retain their existing representation.
+
+- [EndpointHtmlRenderer.Streaming.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs): emit one `Blazor-Configuration` comment before the first interactive boundary, including Server. Read public `BrowserOptions.GetBrowserOptions`, retain application configuration and its serialization attributes, fill only absent environment defaults, and encode camel-case, null-omitting JSON as base64. `HtmxorEndpointCandidateRenderer.BrowserConfiguration.cs` owns this coordination and has an explicit source watch. Enhanced exception responses retain the framing header even though error rendering waits for quiescence; status re-execution and direct HTMX responses retain their separate framing decisions.
+- [EndpointHtmlRenderer.Prerendering.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs): resolve nested explicit modes and infer persistence mode from the closest render-mode boundary through supported `GetComponentState` and `ParentComponentState`, so descendants retain their ancestor's marker boundary and persisted-state store routing. This coordination stays in `HtmxorEndpointCandidate.cs` under the existing renderer-prefix watch.
+- [RazorComponentEndpointInvoker.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs): emit final persisted state after status-code re-execution while suppressing it for exception handling. The existing invoker watch covers this conditional change.
+
+These changes add no private accessor or public authoring API. Framework options,
+JSON converters, persistence services and render-tree generation remain real
+framework dependencies. The existing package-retained MIT license applies to the
+adapted coordination. The Issue214 paired TestServer contract compares decoded
+configuration/state and full response ordering, retains scoped authentication and
+initializer/resource metadata, and holds distinct requests inside real component
+initialization to establish overlap. Exact green commands and counts belong to
+the issue's delivery receipts. This boundary does not certify browser boot,
+authentication refresh, detached hydration, incremental streaming, or a later
+framework release.
+
 ## Installed-service access
 
 All private dependencies come from `Microsoft.AspNetCore.Components.Endpoints.dll`,

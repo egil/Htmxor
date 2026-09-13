@@ -3,6 +3,8 @@
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
 // synchronized 2026-09-08. Exact sources and license: docs/engineering/candidate-form-adapter.md.
+// .NET 11 enhanced-exception framing follows v11.0.0-rc.1.26425.128,
+// commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
 
 using System.Runtime.InteropServices;
@@ -17,6 +19,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+#if NET11_0_OR_GREATER
+using Htmxor.Http;
+using Microsoft.AspNetCore.Diagnostics;
+#endif
 
 namespace Htmxor.Endpoints;
 
@@ -36,7 +42,13 @@ internal partial class HtmxorEndpointCandidateRenderer
 		hasStreamingComponent = false;
 		nonStreamingPendingTasks.Clear();
 		this.waitForQuiescence = waitForQuiescence;
-		if (!waitForQuiescence && HtmxorEndpointCandidateFormServices.IsProgressivelyEnhancedNavigation(context.Request))
+#if NET11_0_OR_GREATER
+		var allowFraming = context.Features.Get<IStatusCodeReExecuteFeature>() is null &&
+			context.GetHtmxContext().Request.RoutingMode is not RoutingMode.Direct;
+#else
+		var allowFraming = !waitForQuiescence;
+#endif
+		if (allowFraming && HtmxorEndpointCandidateFormServices.IsProgressivelyEnhancedNavigation(context.Request))
 		{
 			var identifier = Guid.NewGuid().ToString();
 			context.Response.Headers[StreamingRenderingFramingHeaderName] = identifier;
