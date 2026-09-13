@@ -27,7 +27,8 @@ internal sealed class Issue210SecurityHost(WebApplication app, HttpClient client
 		string? cors = null,
 		bool groupAuthorization = false,
 		bool htmxor = true,
-		string groupPrefix = "/group")
+		string groupPrefix = "/group",
+		Action<IServiceCollection>? configureServices = null)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
@@ -37,7 +38,7 @@ internal sealed class Issue210SecurityHost(WebApplication app, HttpClient client
 		builder.Configuration["DisableCsrfProtection"] = disableNative.ToString();
 		builder.WebHost.UseTestServer();
 		builder.Logging.ClearProviders();
-		ConfigureServices(builder.Services, htmxor);
+		ConfigureServices(builder.Services, htmxor, configureServices);
 		var app = builder.Build();
 		app.UseRouting();
 		app.UseCors();
@@ -72,7 +73,7 @@ internal sealed class Issue210SecurityHost(WebApplication app, HttpClient client
 		return new(app, client);
 	}
 
-	private static void ConfigureServices(IServiceCollection services, bool htmxor)
+	private static void ConfigureServices(IServiceCollection services, bool htmxor, Action<IServiceCollection>? configureServices)
 	{
 		services.AddDataProtection().UseEphemeralDataProtectionProvider();
 		services.AddAuthentication(Issue83AuthenticationHandler.SchemeName)
@@ -101,6 +102,7 @@ internal sealed class Issue210SecurityHost(WebApplication app, HttpClient client
 
 		services.AddSingleton<Issue210Probe>();
 		services.AddSingleton<Issue210StreamGate>();
+		configureServices?.Invoke(services);
 	}
 
 	public static HttpRequestMessage Request(string method, string page = "actions", bool form = false, bool direct = true)
@@ -130,9 +132,10 @@ internal sealed class Issue210SecurityHost(WebApplication app, HttpClient client
 		return request;
 	}
 
-	public async Task AddCredentialsAsync(HttpRequestMessage request)
+	public async Task AddCredentialsAsync(HttpRequestMessage request, string path = "/group/issue-210/form")
 	{
 		using var get = Request("GET", "form", direct: false);
+		get.RequestUri = new Uri(path, UriKind.Relative);
 		using var response = await Client.SendAsync(get);
 		var html = await response.Content.ReadAsStringAsync();
 		Assert.True(response.StatusCode == HttpStatusCode.OK, html);
