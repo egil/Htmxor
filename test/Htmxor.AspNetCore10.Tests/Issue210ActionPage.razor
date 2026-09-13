@@ -1,0 +1,36 @@
+@page "/issue-210/actions"
+@using Htmxor
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue210Probe Probe
+
+<button @onpost="Post" @onput="Put" @onpatch="Patch" @ondelete="Delete">Act</button>
+<AntiforgeryToken />
+<p data-action="@action">@Value</p>
+<p data-callback-value="@callbackValue"></p>
+
+@code {
+    private string action = "none";
+    private string? value;
+    private string? callbackValue;
+
+    [SupplyParameterFromForm]
+    private string? Value
+    {
+        get => value;
+        set { this.value = value; Probe.Binding(); }
+    }
+
+    protected override void OnInitialized() => Probe.Initialize();
+
+    private void Post(HtmxEventArgs _) => Complete("POST");
+    private void Put(HtmxEventArgs _) => Complete("PUT");
+    private void Patch(HtmxEventArgs _) => Complete("PATCH");
+    private void Delete(HtmxEventArgs _) => Complete("DELETE");
+
+    private void Complete(string method)
+    {
+        action = method;
+        callbackValue = Value;
+        Probe.Callback();
+    }
+}

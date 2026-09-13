@@ -1,0 +1,11 @@
+@attribute [Htmxor.HtmxRoute("/issue-210/actionless/{Id:int}", Methods = new[] { "POST", "PUT", "PATCH", "DELETE" })]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "custom")]
+@inject Issue210Probe Probe
+
+<p data-actionless>Rendered</p>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    protected override void OnInitialized() => Probe.Initialize();
+    protected override void OnParametersSet() => Probe.Binding();
+}

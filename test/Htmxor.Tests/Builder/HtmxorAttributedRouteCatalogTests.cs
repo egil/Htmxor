@@ -449,7 +449,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
-	public async Task Unsafe_generated_route_requires_effective_antiforgery_after_prior_disabling_metadata()
+	public async Task Unsafe_generated_route_preserves_effective_antiforgery_opt_out()
 	{
 		await using var app = CreateApplication(out var group, out _, out _);
 		var descriptor = new HtmxorComponentRouteDescriptor(
@@ -464,7 +464,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		group.MapHtmxorComponentEndpoint(descriptor, []);
 
 		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
-		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
+		Assert.False(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 	}
 
 	[Fact]

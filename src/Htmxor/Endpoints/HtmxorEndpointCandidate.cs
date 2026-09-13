@@ -16,10 +16,13 @@
 // https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
 // Form coordination added for #189; exact dependency inventory: docs/engineering/candidate-form-adapter.md.
+// .NET 11 protection/token timing follows v11.0.0-rc.1.26425.128 at
+// c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13; see that inventory.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
+// Htmxor upstream dependency: src/Shared/MiddlewareInvokedKeys.cs | mirrors
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
 // Issue #184 relationships: reimplements RazorComponentEndpointInvoker, subclasses StaticHtmlRenderer,
 // implements IRazorComponentEndpointInvoker, consumes ComponentState through supported seams, and reimplements
@@ -178,9 +181,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 		if (hasPendingInitialRenderWork ?? !quiesceTask.IsCompleted)
 		{
-			context.Features.GetRequiredFeature<IHttpResponseBodyFeature>().DisableBuffering();
-			antiforgery.GetAndStoreTokens(context);
-			context.Response.Headers.ContentEncoding = "identity";
+			PrepareStreamingResponse(context, antiforgery);
 		}
 		else
 		{
@@ -218,6 +219,18 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			}
 		}
 		await writer.FlushAsync();
+	}
+
+	private static void PrepareStreamingResponse(HttpContext context, IAntiforgery antiforgery)
+	{
+		context.Features.GetRequiredFeature<IHttpResponseBodyFeature>().DisableBuffering();
+#if NET11_0_OR_GREATER
+		if (context.Items.ContainsKey("__AntiforgeryMiddlewareWithEndpointInvoked"))
+#endif
+		{
+			antiforgery.GetAndStoreTokens(context);
+		}
+		context.Response.Headers.ContentEncoding = "identity";
 	}
 }
 

@@ -275,13 +275,46 @@ Keep the stock Blazor form and add htmx behavior:
 The normal form submission remains meaningful without JavaScript. Named-form
 dispatch, `[SupplyParameterFromForm]`, `Input*`, validation, antiforgery,
 authentication state, and lifecycle callbacks are Blazor features and must
-behave the same on the enhanced path. All unsafe methods fail closed before
-body binding or component callbacks. Do not change state on GET.
+behave the same on the enhanced path. Requests that fail configured protection
+are rejected before body binding or component callbacks. Do not change state on GET.
 
-For a PUT, PATCH, or DELETE that is not expressed by an HTML form method, render
-stock antiforgery credentials with an `EditForm` or `<AntiforgeryToken />`; the
-adapter carries the request token. In htmx 4, DELETE request values are not sent
-in the body by default, so do not treat body transport as proof of antiforgery.
+For a PUT, PATCH, or DELETE using token protection, render stock antiforgery
+credentials with an `EditForm` or `<AntiforgeryToken />`; the adapter carries an
+available request token. In htmx 4, DELETE request values are not sent in the
+body by default. Sending a token does not establish that middleware validates it.
+
+### Application-owned request protection
+
+Configure protection through ASP.NET Core. Htmxor has no security-mode option,
+origin allow-list, or independent browser-header trust policy. It consumes the
+effective framework validation result before binding, lifecycle work, or unsafe
+component callbacks; authentication and authorization remain separate checks.
+Effective endpoint protection metadata, including explicit opt-outs, remains
+authoritative. A missing required middleware configuration is an error.
+
+On .NET 11, `WebApplication` supplies native CSRF protection unless the
+application disables it. A request allowed by that configured policy does not
+need an additional Htmxor token check. If the application adds
+`UseAntiforgery()`, its token validation replaces the earlier native verdict for
+the methods it validates. Htmxor's streaming preparation generates tokens only
+when that token middleware has run; native-only responses do not eagerly issue unused
+antiforgery cookies. Retain the standard token pipeline on .NET 10.
+
+`UseAntiforgery()` automatically validates tokens only for POST, PUT, and PATCH.
+DELETE is outside that middleware's automatic token validation. On .NET 11,
+Htmxor preserves the effective DELETE verdict: native protection still applies
+when enabled, and Htmxor adds no DELETE token fallback when native protection is
+disabled. The existing .NET 10 fallback continues to validate protected DELETE
+requests.
+
+If your application requires token validation for DELETE, configure or perform
+it explicitly before component execution, such as by resolving `IAntiforgery`
+in application middleware and calling `ValidateRequestAsync`. Token generation,
+token transport, and a `UseAntiforgery()` call alone do not prove DELETE token
+validation. Microsoft's [method-limitations guidance](https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery?view=aspnetcore-11.0#http-method-limitations-and-httpmethodoverridemiddleware-interaction)
+also warns that form-field HTTP method override can turn POST into a method
+the token middleware does not validate. Review middleware order and explicit
+validation when using method override.
 
 ## Select response fragments
 
@@ -660,9 +693,9 @@ server. Htmx still owns all DOM behavior.
 | --- | --- | --- |
 | `hx-get` | Issue GET | Use an `@page` or `HtmxRoute` GET. Keep GET side-effect free. |
 | `hx-post` | Issue POST | Use a stock form or `@onpost`; render antiforgery credentials. |
-| `hx-put` | Issue PUT | Declare `@onput`; unsafe and antiforgery-protected. |
-| `hx-patch` | Issue PATCH | Declare `@onpatch`; unsafe and antiforgery-protected. |
-| `hx-delete` | Issue DELETE | Declare `@ondelete`; unsafe and antiforgery-protected. DELETE values are not body data by default in htmx 4. |
+| `hx-put` | Issue PUT | Declare `@onput`; configure application-owned request protection. |
+| `hx-patch` | Issue PATCH | Declare `@onpatch`; configure application-owned request protection. |
+| `hx-delete` | Issue DELETE | Declare `@ondelete`; configure application-owned request protection and explicitly arrange token validation if required. DELETE values are not body data by default in htmx 4. |
 | `hx-query` | Issue QUERY | Requires application-authored `@onquery`. Issue #111 proves one form-encoded binding per route owner; the client never grants the method. |
 | `hx-action` | Set the request URL | Pair with `hx-method`. When present, `hx-action` takes precedence over verb-specific htmx attributes. It never grants the server route. |
 | `hx-method` | Select GET, POST, PUT, PATCH, DELETE, or QUERY | The component declaration must independently allow the method. Useful for progressive markup resembling form `action`/`method`. |
@@ -1181,8 +1214,9 @@ methods.
   values as attacker-controlled.
 - Re-evaluate authentication and authorization on every request and preserve the
   effective endpoint metadata on every generated representation.
-- Validate antiforgery before binding or callbacks for POST, PUT, PATCH, DELETE,
-  and every other unsafe method.
+- Enforce the application's configured CSRF or token validation before binding
+  or callbacks for unsafe methods. Configure explicit DELETE token validation
+  when required; see [application-owned request protection](#application-owned-request-protection).
 - Escape untrusted output. Isolate intentional raw HTML and consider
   `hx-ignore` where untrusted and trusted markup meet.
 - Keep htmx's same-origin default. If the application deliberately changes the

@@ -3,6 +3,8 @@
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
 // synchronized 2026-09-05. Exact sources and license: docs/engineering/candidate-form-adapter.md.
+// .NET 11 validation follows v11.0.0-rc.1.26425.128 at
+// c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13; see that inventory.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | mirrors
 
@@ -26,7 +28,15 @@ internal readonly record struct HtmxorEndpointCandidateFormRequest(
 		HttpContext context, IAntiforgery? antiforgery)
 	{
 		// Exception middleware preserves POST; its error page must not bind or submit the failed form.
-		if (!HttpMethods.IsPost(context.Request.Method) || context.Features.Get<IExceptionHandlerFeature>() is not null)
+		if (!HttpMethods.IsPost(context.Request.Method) ||
+			context.Features.Get<IExceptionHandlerFeature>() is not null)
+		{
+			return new(true, false, null, null);
+		}
+
+		// Activated callbacks need form state when present, but must not also dispatch a named form.
+		var dispatchForm = !context.RequestServices.GetRequiredService<HtmxorComponentActionRequest>().HasActiveAction;
+		if (!dispatchForm && !context.Request.HasFormContentType)
 		{
 			return new(true, false, null, null);
 		}
@@ -37,9 +47,13 @@ internal readonly record struct HtmxorEndpointCandidateFormRequest(
 		}
 
 		// The middleware result is authoritative even when endpoint validation is disabled.
+#if NET11_0_OR_GREATER
+		var valid = context.Features.Get<IAntiforgeryValidationFeature>() is not { IsValid: false };
+#else
 		var valid = context.Features.Get<IAntiforgeryValidationFeature>() is { } validation
 			? validation.IsValid
 			: antiforgery is null || await antiforgery.IsRequestValidAsync(context);
+#endif
 		if (!valid)
 		{
 			return await RejectAsync(context, "A valid antiforgery token was not provided with the request. Add an antiforgery token, or disable antiforgery validation for this endpoint.");
@@ -48,12 +62,12 @@ internal readonly record struct HtmxorEndpointCandidateFormRequest(
 		var form = await context.Request.ReadFormAsync();
 		if (!form.TryGetValue("_handler", out var handler))
 		{
-			return new(true, true, null, form);
+			return new(true, dispatchForm, null, form);
 		}
 
 		if (handler.Count == 1)
 		{
-			return new(true, true, handler[0], form);
+			return new(true, dispatchForm, handler[0], form);
 		}
 
 		context.Response.StatusCode = StatusCodes.Status400BadRequest;

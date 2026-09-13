@@ -100,11 +100,21 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
    records the source archive, license, and exact asset used by current
    browser evidence.
 
-   Unsafe components render stock Blazor antiforgery credentials through an
-   `EditForm` or `<AntiforgeryToken />`. The adapter sends that request token
-   through htmx 4's request context; ASP.NET Core owns the antiforgery cookie
-   and validates the request before component callbacks run. Htmxor does not
-   require a separate antiforgery middleware or readable request-token cookie.
+   The application owns ASP.NET Core protection configuration. The example
+   keeps `UseAntiforgery()` for token protection. In that configuration, render
+   stock credentials through an `EditForm` or `<AntiforgeryToken />`; the adapter
+   sends the request token through htmx 4's request context. On .NET 11, Htmxor
+   also honors native CSRF protection configured by `WebApplication`, without
+   adding a token requirement to a successful framework verdict.
+
+   Token middleware automatically validates POST, PUT, and PATCH only. It does
+   not automatically validate DELETE tokens. Applications requiring DELETE
+   token validation must configure or perform it explicitly, for example with
+   `IAntiforgery.ValidateRequestAsync` in application middleware before component
+   execution. Htmxor preserves .NET 11's effective DELETE verdict; its existing
+   .NET 10 token fallback remains. See Microsoft's
+   [HTTP method limitations and warning](https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery?view=aspnetcore-11.0#http-method-limitations-and-httpmethodoverridemiddleware-interaction)
+   and the [protection configuration guide](htmxor-v1-feature-guide.md#application-owned-request-protection).
 
 4. **Update App.razor**
 
