@@ -20,6 +20,8 @@ internal static class NamedSelectionEvidence
 		File.Copy(trxPath, Path.Combine(evidence, "consumer.trx"), overwrite: true);
 		File.Copy(Path.Combine(consumerDirectory, "obj", "project.assets.json"), Path.Combine(evidence, "project.assets.json"), overwrite: true);
 		File.Copy(Path.Combine(consumerDirectory, "global.json"), Path.Combine(evidence, "global.json"), overwrite: true);
+		var projectPath = Directory.EnumerateFiles(consumerDirectory, "*.csproj").Single();
+		File.Copy(projectPath, Path.Combine(evidence, Path.GetFileName(projectPath)), overwrite: true);
 		File.WriteAllText(Path.Combine(evidence, "test.log"), result.StandardOutput + Environment.NewLine + result.StandardError);
 	}
 }
