@@ -32,7 +32,7 @@ public sealed class PackageConsumerCollection
 	public const string Name = "Package consumers";
 }
 
-internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
+internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 {
 	private const string PackageVersionToken = "__HTMXOR_PACKAGE_VERSION__";
 	private const string TemplateSuffix = ".template";
@@ -66,7 +66,7 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 
 	public string PackagePath => Assert.Single(Directory.EnumerateFiles(packageDirectory, "*.nupkg"));
 
-	public string PackageVersion { get; } = $"0.0.0-issue56-{Guid.NewGuid():N}";
+	public string PackageVersion { get; private set; } = $"0.0.0-issue56-{Guid.NewGuid():N}";
 
 	public string ProjectPath => projectPath;
 
@@ -74,7 +74,10 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 
 	public async Task<ProcessResult> RunAsync()
 	{
-		await PackAsync();
+		if (!usesSharedPackage)
+		{
+			await PackAsync();
+		}
 		await RestoreAsync();
 		await PublishAsync();
 
@@ -178,6 +181,8 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 				"--no-build",
 				"--no-restore",
 				$"-p:OutputPath={publishDirectory}",
+				"--filter",
+				testFilter,
 				"--environment",
 				"ASPNETCORE_ENVIRONMENT=Production",
 				"--blame-hang",
@@ -194,7 +199,7 @@ internal sealed class Htmx4PackageBrowserWorkspace : IDisposable
 	{
 		var result = await runner.RunAsync(new(
 			"dotnet",
-			repositoryRoot,
+			arguments[0] == "pack" ? repositoryRoot : consumerDirectory,
 			arguments,
 			EnsureSuccess: false));
 		if (result.ExitCode != 0)

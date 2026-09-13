@@ -1,0 +1,173 @@
+using Microsoft.Playwright;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue211BrowserTests(ITestOutputHelper output)
+{
+	[Theory]
+	[InlineData("POST", true)]
+	[InlineData("PUT", true)]
+	[InlineData("PATCH", true)]
+	[InlineData("DELETE", true)]
+#if NET11_0_OR_GREATER
+	[InlineData("POST", false)]
+	[InlineData("PUT", false)]
+	[InlineData("PATCH", false)]
+	[InlineData("DELETE", false)]
+#endif
+	public async Task Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback(string method, bool tokens)
+	{
+		var probe = new Issue211Probe(tokens);
+		await using var app = Issue211Host.Create(probe);
+		await app.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		output.WriteLine($"Browser: Chromium {browser.Version}; runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}; OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
+		await using var context = await browser.NewContextAsync();
+		var page = await context.NewPageAsync();
+		var address = Assert.Single(app.Urls);
+		var navigation = await page.GotoAsync(address + "/issue-211");
+		Assert.Equal(200, navigation!.Status);
+		var initialInstance = await page.Locator("#result").GetAttributeAsync("data-instance");
+		Assert.Equal(tokens ? 1 : 0, await page.Locator("input[name='__RequestVerificationToken']").CountAsync());
+		Assert.Equal(tokens, (await context.CookiesAsync()).Any(cookie => cookie.Name.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal)));
+		await SelectAsync(page, method, address);
+		var response = await page.RunAndWaitForResponseAsync(
+			() => page.GetByRole(AriaRole.Button, new() { Name = "Action", Exact = true }).ClickAsync(),
+			response => response.Request.Method == method);
+		Assert.Equal(200, response.Status);
+		var headers = await response.Request.AllHeadersAsync();
+		Assert.Equal("same-origin", headers["sec-fetch-site"]);
+		Assert.Equal("true", headers["hx-request"]);
+		Assert.Equal("/issue-211", new Uri(response.Url).AbsolutePath);
+		Assert.Equal(tokens, headers.ContainsKey("requestverificationtoken"));
+		Assert.Equal(tokens, headers.ContainsKey("cookie"));
+		await Assertions.Expect(page.Locator("#result")).ToHaveTextAsync(method);
+		var callback = Assert.Single(probe.Callbacks);
+		Assert.Equal(method, callback.Method);
+		Assert.Equal(callback.Instance, await page.Locator("#result").GetAttributeAsync("data-instance"));
+		Assert.NotEqual(initialInstance, callback.Instance);
+		if (!tokens)
+		{
+			Assert.Empty(await context.CookiesAsync());
+			Assert.False(response.Headers.ContainsKey("set-cookie"));
+		}
+	}
+
+	[Theory]
+	[InlineData("POST", false)]
+	[InlineData("PUT", false)]
+	[InlineData("PATCH", false)]
+	[InlineData("DELETE", false)]
+	[InlineData("POST", true)]
+	[InlineData("PUT", true)]
+	[InlineData("PATCH", true)]
+	[InlineData("DELETE", true)]
+	public async Task Explicit_tokens_reject_missing_or_invalid_browser_credentials_without_callback(string method, bool invalid)
+	{
+		var probe = new Issue211Probe(true);
+		await using var app = Issue211Host.Create(probe);
+		await app.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		var page = await browser.NewPageAsync();
+		var address = Assert.Single(app.Urls);
+		await page.GotoAsync(address + "/issue-211");
+		await page.Locator("input[name='__RequestVerificationToken']").EvaluateAsync(
+			invalid ? "element => element.value = 'invalid-token'" : "element => element.remove()");
+		await SelectAsync(page, method, address);
+		var response = await page.RunAndWaitForResponseAsync(
+			() => page.GetByRole(AriaRole.Button, new() { Name = "Action", Exact = true }).ClickAsync(),
+			response => response.Request.Method == method);
+		Assert.Equal(400, response.Status);
+		var headers = await response.Request.AllHeadersAsync();
+		Assert.Equal(invalid, headers.ContainsKey("requestverificationtoken"));
+		Assert.Empty(probe.Callbacks);
+	}
+
+	[Fact]
+	public async Task Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution()
+	{
+		var sourceProbe = new Issue211Probe(true);
+		var targetProbe = new Issue211Probe(true);
+		await using var source = Issue211Host.Create(sourceProbe);
+		await using var target = Issue211Host.Create(targetProbe);
+		await source.StartAsync();
+		await target.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		var page = await browser.NewPageAsync();
+		await page.GotoAsync(Assert.Single(source.Urls) + "/issue-211");
+		await SelectAsync(page, "POST", Assert.Single(target.Urls));
+		await page.EvaluateAsync("""
+			() => {
+				window.issue211Error = null;
+				document.addEventListener('htmx:error', event => window.issue211Error = String(event.detail.error ?? event.detail));
+			}
+			""");
+		await page.GetByRole(AriaRole.Button, new() { Name = "Action", Exact = true }).ClickAsync();
+		await page.WaitForFunctionAsync("() => window.issue211Error !== null");
+		output.WriteLine(await page.EvaluateAsync<string>("() => window.issue211Error"));
+		Assert.Empty(targetProbe.Requests);
+		Assert.Empty(targetProbe.Callbacks);
+		Assert.Empty(sourceProbe.Callbacks);
+		await Assertions.Expect(page.Locator("#result")).ToHaveTextAsync("initial");
+		output.WriteLine("Classification: browser same-origin fetch mode prevented the htmx request before Kestrel.");
+	}
+
+#if NET11_0_OR_GREATER
+	[Theory]
+	[InlineData("untrusted", 0)]
+	[InlineData("wildcard", 400)]
+	[InlineData("trusted", 200)]
+	public async Task Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust(string policy, int expectedStatus)
+	{
+		await using var source = Issue211Host.Create(new Issue211Probe(false));
+		await source.StartAsync();
+		var sourceOrigin = Assert.Single(source.Urls);
+		var probe = new Issue211Probe(false);
+		await using var target = Issue211Host.Create(probe, policy == "trusted" ? sourceOrigin : null, policy == "wildcard");
+		await target.StartAsync();
+		var targetOrigin = Assert.Single(target.Urls);
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		var page = await browser.NewPageAsync();
+		await page.GotoAsync(sourceOrigin + "/issue-211");
+		var status = await page.EvaluateAsync<int>("""
+			async url => {
+				try {
+					const response = await fetch(url, {method: 'POST', mode: 'cors', headers: {
+						'HX-Request': 'true', 'HX-Request-Type': 'partial'
+					}});
+					return response.status;
+				} catch { return 0; }
+			}
+			""", targetOrigin + "/issue-211");
+		Assert.Equal(expectedStatus, status);
+		Assert.Contains("OPTIONS", probe.Requests);
+		Assert.Equal(expectedStatus != 0, probe.Requests.Contains("POST"));
+		Assert.Equal(expectedStatus == 200 ? 1 : 0, probe.Callbacks.Count);
+		if (expectedStatus != 0)
+		{
+			var origin = Assert.Single(probe.Origins);
+			Assert.Equal(sourceOrigin, origin.Origin);
+			Assert.Equal("same-site", origin.FetchSite);
+		}
+		output.WriteLine($"Auxiliary browser fetch CORS control (not htmx defaults): {policy}, observed status {status}.");
+	}
+#endif
+
+	private static async Task SelectAsync(IPage page, string method, string address)
+	{
+		await page.WaitForFunctionAsync("() => window.htmx?.version === '4.0.0'");
+		Assert.Equal("same-origin", await page.EvaluateAsync<string>("() => htmx.config.mode"));
+		await page.Locator("#actions").EvaluateAsync("""
+			(element, selection) => {
+				for (const method of ['post', 'put', 'patch', 'delete']) element.removeAttribute(`hx-${method}`);
+				element.setAttribute(`hx-${selection.method.toLowerCase()}`, selection.address + '/issue-211');
+			}
+			""", new { method, address });
+	}
+}

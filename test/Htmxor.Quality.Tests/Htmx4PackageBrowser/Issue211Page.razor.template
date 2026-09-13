@@ -1,0 +1,26 @@
+@page "/issue-211"
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue211Probe Probe
+
+<form id="actions" hx-post="/issue-211" @onpost="Post" @onput="Put" @onpatch="Patch" @ondelete="Delete" @formname="issue-211" hx-target="body">
+	@if (Probe.Tokens)
+	{
+		<AntiforgeryToken />
+	}
+	<button type="submit">Action</button>
+</form>
+<output id="result" data-instance="@instance">@result</output>
+
+@code {
+	private readonly string instance = Guid.NewGuid().ToString("N");
+	private string result = "initial";
+	private void Post(HtmxEventArgs _) => Complete("POST");
+	private void Put(HtmxEventArgs _) => Complete("PUT");
+	private void Patch(HtmxEventArgs _) => Complete("PATCH");
+	private void Delete(HtmxEventArgs _) => Complete("DELETE");
+	private void Complete(string method)
+	{
+		result = method;
+		Probe.Callbacks.Enqueue(new(method, instance));
+	}
+}
