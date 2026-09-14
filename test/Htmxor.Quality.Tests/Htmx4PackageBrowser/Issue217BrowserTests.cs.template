@@ -65,6 +65,25 @@ public sealed class Issue217BrowserTests(ITestOutputHelper output)
 		Assert.True(await page.EvaluateAsync<bool>("() => window.issue217Shell === document.querySelector('#ownership')"));
 	}
 
+	[Fact]
+	public async Task Enhanced_navigation_to_first_form_preserves_validation_and_shell_ownership()
+	{
+		var probe = new Issue217Probe();
+		await using var app = Issue217Host.Create(probe);
+		await app.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		var page = await browser.NewPageAsync();
+		await OpenAsync(page, Assert.Single(app.Urls) + "/issue-217", browser.Version);
+		Assert.Equal(0, await page.Locator("form").CountAsync());
+
+		await page.GetByRole(AriaRole.Link, new() { Name = "Open stock form" }).ClickAsync();
+		await Assertions.Expect(page.Locator("form")).ToBeVisibleAsync();
+		Assert.True(await page.EvaluateAsync<bool>("() => window.issue217Shell === document.querySelector('#ownership')"));
+		await InvalidThenValidAsync(page, probe);
+		Assert.True(await page.EvaluateAsync<bool>("() => window.issue217Shell === document.querySelector('#ownership')"));
+	}
+
 	private async Task OpenAsync(IPage page, string url, string version)
 	{
 		output.WriteLine($"Chromium {version}; {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}; {System.Runtime.InteropServices.RuntimeInformation.OSDescription}; htmx 4.0.0; Production Kestrel; native CSRF");

@@ -17,7 +17,7 @@ public sealed class Htmx4ClientValidationBrowserTests
 		File.Copy(workspace.TrxPath, Path.Combine(evidence, "browser.trx"), overwrite: true);
 		File.WriteAllText(Path.Combine(evidence, "test.log"), result.StandardOutput + Environment.NewLine + result.StandardError);
 		Assert.True(result.ExitCode == 0, result.StandardOutput + result.StandardError);
-		Assert.Equal(new TrxTestRun(4, 4, 4, 0, 0, 0, 0), TrxTestRun.Read(workspace.TrxPath));
+		Assert.Equal(new TrxTestRun(5, 5, 5, 0, 0, 0, 0), TrxTestRun.Read(workspace.TrxPath));
 	}
 }
 

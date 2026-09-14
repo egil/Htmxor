@@ -1,4 +1,5 @@
 @page "/issue-217"
 
+<a href="/issue-217/form?mode=enhanced">Open stock form</a>
 <button hx-get="/issue-217/form?mode=htmx" hx-target="#form-slot">Insert form</button>
 <div id="form-slot"></div>
