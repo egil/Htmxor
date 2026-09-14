@@ -1,0 +1,4 @@
+@page "/issue-217"
+
+<button hx-get="/issue-217/form?mode=htmx" hx-target="#form-slot">Insert form</button>
+<div id="form-slot"></div>

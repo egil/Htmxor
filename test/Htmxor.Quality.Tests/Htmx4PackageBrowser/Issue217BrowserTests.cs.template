@@ -1,0 +1,104 @@
+#if NET11_0_OR_GREATER
+using System.Collections.Concurrent;
+using Microsoft.Playwright;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue217BrowserTests(ITestOutputHelper output)
+{
+	private readonly ConcurrentQueue<string> browserPosts = new();
+
+	[Theory]
+	[InlineData("ordinary")]
+	[InlineData("enhanced")]
+	public async Task Stock_form_keeps_localized_validation_and_one_submission(string mode)
+	{
+		var probe = new Issue217Probe();
+		await using var app = Issue217Host.Create(probe);
+		await app.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		var page = await browser.NewPageAsync();
+		await OpenAsync(page, Assert.Single(app.Urls) + "/issue-217/form?mode=" + mode, browser.Version);
+		await InvalidThenValidAsync(page, probe);
+		Assert.Equal(mode == "enhanced", await page.EvaluateAsync<bool>("() => window.issue217Shell === document.querySelector('#ownership')"));
+	}
+
+	[Fact]
+	public async Task First_form_inserted_by_htmx_keeps_localized_validation_and_one_submission()
+	{
+		var probe = new Issue217Probe();
+		await using var app = Issue217Host.Create(probe);
+		await app.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		var page = await browser.NewPageAsync();
+		await OpenAsync(page, Assert.Single(app.Urls) + "/issue-217", browser.Version);
+		Assert.Equal(0, await page.Locator("form").CountAsync());
+		await page.GetByRole(AriaRole.Button, new() { Name = "Insert form" }).ClickAsync();
+		await Assertions.Expect(page.Locator("#form-slot form")).ToBeVisibleAsync();
+		await LogValidationAsync(page, "after first insertion");
+		await InvalidThenValidAsync(page, probe);
+		Assert.True(await page.EvaluateAsync<bool>("() => window.issue217Shell === document.querySelector('#ownership')"));
+	}
+
+	[Fact]
+	public async Task Replacing_and_removing_a_form_keeps_validation_and_single_submission()
+	{
+		var probe = new Issue217Probe();
+		await using var app = Issue217Host.Create(probe);
+		await app.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		var page = await browser.NewPageAsync();
+		await OpenAsync(page, Assert.Single(app.Urls) + "/issue-217/form?mode=htmx", browser.Version);
+		await page.GetByLabel("Name", new() { Exact = true }).FillAsync("replaced");
+		await page.GetByRole(AriaRole.Button, new() { Name = "Insert form" }).ClickAsync();
+		await Assertions.Expect(page.GetByLabel("Name", new() { Exact = true })).ToHaveValueAsync("");
+		await page.GetByRole(AriaRole.Button, new() { Name = "Remove form" }).ClickAsync();
+		await Assertions.Expect(page.Locator("form")).ToHaveCountAsync(0);
+		await page.GetByRole(AriaRole.Button, new() { Name = "Insert form" }).ClickAsync();
+		await Assertions.Expect(page.Locator("form")).ToBeVisibleAsync();
+		await InvalidThenValidAsync(page, probe);
+		Assert.True(await page.EvaluateAsync<bool>("() => window.issue217Shell === document.querySelector('#ownership')"));
+	}
+
+	private async Task OpenAsync(IPage page, string url, string version)
+	{
+		output.WriteLine($"Chromium {version}; {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}; {System.Runtime.InteropServices.RuntimeInformation.OSDescription}; htmx 4.0.0; Production Kestrel; native CSRF");
+		page.PageError += (_, error) => output.WriteLine(error);
+		page.Console += (_, message) => output.WriteLine(message.Text);
+		page.Request += (_, request) => { if (request.Method == "POST") browserPosts.Enqueue(request.Url); };
+		var response = await page.GotoAsync(url);
+		Assert.Equal(200, response!.Status);
+		await page.WaitForFunctionAsync("() => window.issue217Started === true && window.htmx?.version === '4.0.0'");
+		await page.EvaluateAsync("() => window.issue217Shell = document.querySelector('#ownership')");
+		await LogValidationAsync(page, "startup");
+	}
+
+	private async Task LogValidationAsync(IPage page, string phase) => output.WriteLine(phase + ": " + await page.EvaluateAsync<string>("""
+		() => JSON.stringify({carriers: document.querySelectorAll('blazor-client-validation-data').length,
+			rules: document.querySelector('blazor-client-validation-data')?.getAttribute('data-rules'),
+			service: typeof Blazor.formValidation, element: typeof customElements.get('blazor-client-validation-data')})
+		"""));
+
+	private async Task InvalidThenValidAsync(IPage page, Issue217Probe probe)
+	{
+		await page.GetByRole(AriaRole.Button, new() { Name = "Save", Exact = true }).ClickAsync();
+		await Assertions.Expect(page.Locator("#messages")).ToHaveTextAsync("Nafn er nauðsynlegt.");
+		await Assertions.Expect(page.Locator("#messages .validation-message")).ToBeVisibleAsync();
+		output.WriteLine($"After invalid submit: browser POSTs={browserPosts.Count}; Kestrel POSTs={probe.Posts.Count}; valid callbacks={probe.Callbacks.Count}.");
+		Assert.Empty(probe.Posts);
+		Assert.Empty(browserPosts);
+		Assert.Empty(probe.Callbacks);
+		await page.GetByLabel("Name", new() { Exact = true }).FillAsync("Ada");
+		await page.GetByRole(AriaRole.Button, new() { Name = "Save", Exact = true }).ClickAsync();
+		await Assertions.Expect(page.Locator("#result")).ToHaveTextAsync("saved:Ada");
+		Assert.Single(probe.Posts);
+		Assert.Single(browserPosts);
+		Assert.Equal("Ada", Assert.Single(probe.Callbacks));
+	}
+}
+#endif

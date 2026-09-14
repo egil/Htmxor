@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+	<base href="/" />
+	<script src="/htmx-4.0.0.min.js"></script>
+</head>
+<body>
+	<div id="ownership">Application shell</div>
+	<Router AppAssembly="typeof(Issue217App).Assembly">
+		<Found Context="routeData"><RouteView RouteData="routeData" /></Found>
+	</Router>
+	<script src="@Assets["_framework/blazor.web.js"]" autostart="false"></script>
+	<script>Blazor.start().then(() => window.issue217Started = true);</script>
+</body>
+</html>

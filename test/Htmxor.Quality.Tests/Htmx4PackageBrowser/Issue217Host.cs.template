@@ -1,0 +1,52 @@
+using System.Collections.Concurrent;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Htmxor.Htmx4Browser;
+
+public sealed class Issue217Model
+{
+	[Required(ErrorMessageResourceType = typeof(Issue217Messages), ErrorMessageResourceName = nameof(Issue217Messages.Required))]
+	public string? Name { get; set; }
+}
+
+public static class Issue217Messages
+{
+	public static string Required => System.Globalization.CultureInfo.CurrentUICulture.Name == "is-IS" ? "Nafn er nauðsynlegt." : "Name is required.";
+}
+
+public sealed class Issue217Probe
+{
+	public ConcurrentQueue<string> Callbacks { get; } = new();
+	public ConcurrentQueue<string> Posts { get; } = new();
+}
+
+internal static class Issue217Host
+{
+	public static WebApplication Create(Issue217Probe probe)
+	{
+		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+		{
+			ApplicationName = typeof(Issue217Host).Assembly.GetName().Name,
+			ContentRootPath = AppContext.BaseDirectory,
+		});
+		builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
+		builder.Logging.ClearProviders();
+		builder.Services.AddRazorComponents().AddHtmxor();
+		builder.Services.AddSingleton(probe);
+		var app = builder.Build();
+		app.UseRequestLocalization("is-IS");
+		app.UseRouting();
+		app.Use(async (context, next) =>
+		{
+			if (context.Request.Method == "POST") probe.Posts.Enqueue(context.Request.Path);
+			await next(context);
+		});
+		app.MapStaticAssets();
+		app.MapRazorComponents<Issue217App>().AddHtmxorEndpoints();
+		return app;
+	}
+}
