@@ -84,6 +84,45 @@ public sealed class Issue217BrowserTests(ITestOutputHelper output)
 		Assert.True(await page.EvaluateAsync<bool>("() => window.issue217Shell === document.querySelector('#ownership')"));
 	}
 
+	[Fact]
+	public async Task Replacement_and_reinsertion_discard_rules_that_rejected_the_now_valid_value()
+	{
+		var probe = new Issue217Probe();
+		await using var app = Issue217Host.Create(probe);
+		await app.StartAsync();
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+		var page = await browser.NewPageAsync();
+		await OpenAsync(page, Assert.Single(app.Urls) + "/issue-217/form?mode=htmx", browser.Version);
+		await page.GetByLabel("Name", new() { Exact = true }).FillAsync("Al");
+		await page.GetByRole(AriaRole.Button, new() { Name = "Save", Exact = true }).ClickAsync();
+		await Assertions.Expect(page.Locator("#messages")).ToHaveTextAsync("Nafn þarf þrjá stafi.");
+		await Assertions.Expect(page.Locator("#messages .validation-message")).ToBeVisibleAsync();
+		Assert.Empty(probe.Posts);
+		Assert.Empty(browserPosts);
+		Assert.Empty(probe.Callbacks);
+
+		await SubmitReplacementAsync(page, probe, 1);
+		await page.GetByRole(AriaRole.Button, new() { Name = "Remove form" }).ClickAsync();
+		await Assertions.Expect(page.Locator("form")).ToHaveCountAsync(0);
+		await SubmitReplacementAsync(page, probe, 2);
+		Assert.Equal(new[] { "Al", "Al" }, probe.Callbacks.ToArray());
+		Assert.True(await page.EvaluateAsync<bool>("() => window.issue217Shell === document.querySelector('#ownership')"));
+	}
+
+	private async Task SubmitReplacementAsync(IPage page, Issue217Probe probe, int expectedPosts)
+	{
+		await page.GetByRole(AriaRole.Button, new() { Name = "Replace rules" }).ClickAsync();
+		await Assertions.Expect(page.Locator("#result")).ToHaveTextAsync("not-submitted");
+		await Assertions.Expect(page.GetByLabel("Name", new() { Exact = true })).ToHaveValueAsync("Al");
+		await Assertions.Expect(page.Locator("#messages")).ToHaveTextAsync("");
+		await page.GetByRole(AriaRole.Button, new() { Name = "Save", Exact = true }).ClickAsync();
+		await Assertions.Expect(page.Locator("#result")).ToHaveTextAsync("saved:Al");
+		Assert.Equal(expectedPosts, probe.Posts.Count);
+		Assert.Equal(expectedPosts, browserPosts.Count);
+		Assert.Equal(expectedPosts, probe.Callbacks.Count);
+	}
+
 	private async Task OpenAsync(IPage page, string url, string version)
 	{
 		output.WriteLine($"Chromium {version}; {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}; {System.Runtime.InteropServices.RuntimeInformation.OSDescription}; htmx 4.0.0; Production Kestrel; native CSRF");

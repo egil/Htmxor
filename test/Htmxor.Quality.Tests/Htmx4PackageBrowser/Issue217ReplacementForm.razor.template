@@ -1,19 +1,13 @@
-@page "/issue-217/form"
+@page "/issue-217/replacement"
 @using Microsoft.AspNetCore.Components.Forms
 @using Htmxor.Http
 @inject Issue217Probe Probe
 @inject HtmxContext Htmx
 
-<a href="/issue-217">Form-free page</a>
-<button hx-get="/issue-217/form?mode=htmx" hx-target="#form-slot">Insert form</button>
-<button hx-get="/issue-217/replacement" hx-target="#form-slot">Replace rules</button>
-<button hx-get="/issue-217/form?mode=htmx" hx-target="#form-content" hx-swap="delete">Remove form</button>
-<div id="form-slot">
 <HtmxFragment Name="form">
 	<section id="form-content">
-		<EditForm Model="Model" FormName="save" method="post" Enhance="@(Mode == "enhanced")"
-			OnValidSubmit="Save" hx-post="@(Mode == "htmx" ? "/issue-217/form?mode=htmx" : null)"
-			hx-target="#form-slot">
+		<EditForm Model="Model" FormName="save" method="post" OnValidSubmit="Save"
+			hx-post="/issue-217/replacement" hx-target="#form-slot">
 			<DataAnnotationsValidator />
 			<label for="name">Name</label>
 			<InputText id="name" @bind-Value="Model!.Name" />
@@ -23,11 +17,9 @@
 		<p id="result">@result</p>
 	</section>
 </HtmxFragment>
-</div>
 
 @code {
-	[SupplyParameterFromQuery] public string? Mode { get; set; }
-	[SupplyParameterFromForm] private Issue217Model? Model { get; set; }
+	[SupplyParameterFromForm] private Issue217ReplacementModel? Model { get; set; }
 	private string result = "not-submitted";
 	protected override void OnInitialized() => Model ??= new();
 	protected override void OnParametersSet()

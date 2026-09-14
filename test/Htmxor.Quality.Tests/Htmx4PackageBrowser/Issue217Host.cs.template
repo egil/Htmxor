@@ -10,12 +10,21 @@ namespace Htmxor.Htmx4Browser;
 public sealed class Issue217Model
 {
 	[Required(ErrorMessageResourceType = typeof(Issue217Messages), ErrorMessageResourceName = nameof(Issue217Messages.Required))]
+	[MinLength(3, ErrorMessageResourceType = typeof(Issue217Messages), ErrorMessageResourceName = nameof(Issue217Messages.MinimumLength))]
 	public string? Name { get; set; }
+}
+
+public sealed class Issue217ReplacementModel
+{
+	[Required]
+	[MinLength(2)]
+	public string? Name { get; set; } = "Al";
 }
 
 public static class Issue217Messages
 {
 	public static string Required => System.Globalization.CultureInfo.CurrentUICulture.Name == "is-IS" ? "Nafn er nauðsynlegt." : "Name is required.";
+	public static string MinimumLength => System.Globalization.CultureInfo.CurrentUICulture.Name == "is-IS" ? "Nafn þarf þrjá stafi." : "Name needs three characters.";
 }
 
 public sealed class Issue217Probe
