@@ -25,6 +25,7 @@
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
 // Htmxor upstream dependency: src/Shared/MiddlewareInvokedKeys.cs | mirrors
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/TempData/TempDataProviderServiceCollectionExtensions.cs | reimplements
 // Issue #184 relationships: reimplements RazorComponentEndpointInvoker, subclasses StaticHtmlRenderer,
 // implements IRazorComponentEndpointInvoker, consumes ComponentState through supported seams, and reimplements
 // the RazorComponentsServiceCollectionExtensions cascading HttpContext registration selection.
@@ -35,6 +36,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Htmxor.DependencyInjection;
 using Htmxor.Http;
+using Htmxor.Rendering;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -74,6 +76,7 @@ internal static class HtmxorEndpointCandidateServices
 		var formServices = HtmxorEndpointCandidateFormServices.Create();
 #if NET11_0_OR_GREATER
 		var sessionServices = HtmxorEndpointCandidateSessionServices.Create();
+		var tempDataServices = HtmxorEndpointCandidateTempDataServices.Create();
 #endif
 		// AddRazorComponents does not expose a supported replacement hook for its HttpContext cascade.
 		// Issue #184 watches this registration shape so upstream drift is reviewed before adopting framework changes.
@@ -87,9 +90,24 @@ internal static class HtmxorEndpointCandidateServices
 				$"Expected exactly one scoped cascading HttpContext supplier registered by AddRazorComponents, but found {stockHttpContextSuppliers.Length}. ASP.NET Core's upstream registration shape may have changed.");
 		}
 
+#if NET11_0_OR_GREATER
+		// AddTempData cascades ITempData through the stock EndpointHtmlRenderer's request, which the candidate
+		// replaces. Issue #184 watches this registration shape so upstream drift is reviewed before adopting it.
+		var stockTempDataSuppliers = services
+			.Where(IsScopedFactory)
+			.Where(IsCascadingTempDataSupplier)
+			.ToArray();
+		if (stockTempDataSuppliers.Length is not 1)
+		{
+			throw new InvalidOperationException(
+				$"Expected exactly one scoped cascading {nameof(ITempData)} supplier registered by AddRazorComponents, but found {stockTempDataSuppliers.Length}. ASP.NET Core's upstream registration shape may have changed.");
+		}
+#endif
+
 		services.AddSingleton(formServices);
 #if NET11_0_OR_GREATER
 		services.AddSingleton(sessionServices);
+		services.AddSingleton(tempDataServices);
 #endif
 		services.AddScoped<HtmxorEndpointCandidateRenderer>();
 		services.AddScoped<HtmxorEndpointCandidateInvoker>();
@@ -100,6 +118,14 @@ internal static class HtmxorEndpointCandidateServices
 		services.Remove(stockHttpContextSuppliers[0]);
 		services.AddCascadingValue(serviceProvider =>
 			serviceProvider.GetRequiredService<HtmxorEndpointCandidateRenderer>().HttpContext);
+#if NET11_0_OR_GREATER
+		services.Remove(stockTempDataSuppliers[0]);
+		services.AddCascadingValue(serviceProvider =>
+		{
+			var httpContext = serviceProvider.GetRequiredService<HtmxorEndpointCandidateRenderer>().HttpContext;
+			return httpContext is null ? null : tempDataServices.GetOrCreate(httpContext);
+		});
+#endif
 	}
 
 	private static bool IsScopedFactory(ServiceDescriptor service)
@@ -111,6 +137,13 @@ internal static class HtmxorEndpointCandidateServices
 		=> service.ImplementationFactory?.Target?.ToString()?.Contains(
 			typeof(HttpContext).FullName!,
 			StringComparison.Ordinal) == true;
+
+#if NET11_0_OR_GREATER
+	private static bool IsCascadingTempDataSupplier(ServiceDescriptor service)
+		=> service.ImplementationFactory?.Target?.ToString()?.Contains(
+			typeof(ITempData).FullName!,
+			StringComparison.Ordinal) == true;
+#endif
 }
 
 internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRenderer renderer)
@@ -156,6 +189,9 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 		catch (NavigationException navigationException)
 		{
+			// Deliberately still the bare stock redirect, and deliberately still before write-back: unifying this
+			// with the submit path also has to stop discarding Session and TempData values, which needs its own
+			// protected behavior and evidence. Tracked by #230.
 			context.Response.Redirect(navigationException.Location);
 			return;
 		}
@@ -170,10 +206,22 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		else
 		{
 			await htmlContent.QuiescenceTask;
-			quiesceTask = renderer.DispatchSubmitEventAsync(request.HandlerName, out var isBadRequest);
-			if (isBadRequest)
+			try
 			{
-				return;
+				quiesceTask = renderer.DispatchSubmitEventAsync(request.HandlerName, out var isBadRequest);
+				if (isBadRequest)
+				{
+					return;
+				}
+
+				await renderer.WaitForNonStreamingPendingTasks();
+			}
+			catch (NavigationException navigationException)
+			{
+				// Stock redirects a completed submit and still runs TempData and Session write-back, so a
+				// post-redirect-get message survives.
+				HandleNavigationBeforeResponseStarted(context, navigationException);
+				quiesceTask = Task.CompletedTask;
 			}
 		}
 		if (!renderer.HasStreamingComponent)
@@ -186,10 +234,11 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			context.Response.StatusCode = StatusCodes.Status404NotFound;
 			context.Response.ContentType = null;
 #if NET11_0_OR_GREATER
-			// Completed root components retain Session updates even when the 404 suppresses output.
+			// Completed root components retain Session and TempData updates even when the 404 suppresses output.
 			if (quiesceTask.IsCompletedSuccessfully)
 			{
 				await context.RequestServices.GetRequiredService<HtmxorEndpointCandidateSessionServices>().PersistAsync(context);
+				context.RequestServices.GetRequiredService<HtmxorEndpointCandidateTempDataServices>().Persist(context);
 			}
 #endif
 			return;
@@ -227,6 +276,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 #if NET11_0_OR_GREATER
 		// Selection must not suppress write-back from completed component work outside the selected HTML.
 		await context.RequestServices.GetRequiredService<HtmxorEndpointCandidateSessionServices>().PersistAsync(context);
+		context.RequestServices.GetRequiredService<HtmxorEndpointCandidateTempDataServices>().Persist(context);
 #endif
 		if (!isErrorHandler
 #if !NET11_0_OR_GREATER
@@ -243,6 +293,52 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 		await writer.FlushAsync();
 	}
+
+	// Mirrors stock EndpointHtmlRenderer.HandleNavigationBeforeResponseStarted, adding only the htmx branch:
+	// an htmx request cannot follow a 302 for a partial response, so Htmxor asks the client to navigate instead.
+	private static void HandleNavigationBeforeResponseStarted(HttpContext context, NavigationException navigationException)
+	{
+		var destination = navigationException.Location;
+		var htmxContext = context.GetHtmxContext();
+		if (htmxContext.Request.IsHtmxRequest && IsHttpDestination(destination))
+		{
+			htmxContext.Response.Redirect(new Uri(ToClientDestination(context.Request, destination), UriKind.RelativeOrAbsolute));
+			return;
+		}
+
+		if (IsPossibleExternalDestination(context.Request, destination) &&
+			HtmxorEndpointCandidateFormServices.IsProgressivelyEnhancedNavigation(context.Request))
+		{
+			// Enhanced navigation prefers an opaque redirection for an external URL, so post-redirect-get keeps
+			// working without forcing the request to be retried.
+			context.Response.Headers.Append(
+				"blazor-enhanced-nav-redirect-location",
+				OpaqueRedirection.CreateProtectedRedirectionUrl(context, destination));
+			return;
+		}
+
+		context.Response.Redirect(destination);
+	}
+
+	// Prefer the request-relative form, which the absolute location's path and query already carry complete
+	// with the path base. A relative reference carrying a fragment is not a well-formed URI, so a destination
+	// with one keeps its absolute form rather than losing the anchor.
+	private static string ToClientDestination(HttpRequest request, string destination)
+		=> IsPossibleExternalDestination(request, destination) ||
+			!Uri.TryCreate(destination, UriKind.Absolute, out var absolute) ||
+			absolute.Fragment.Length > 0
+				? destination
+				: absolute.PathAndQuery;
+
+	// HX-Redirect only accepts http(s); any other scheme keeps the stock representation instead of failing.
+	private static bool IsHttpDestination(string destination)
+		=> !Uri.TryCreate(destination, UriKind.Absolute, out var absolute) ||
+			absolute.Scheme is "http" or "https";
+
+	private static bool IsPossibleExternalDestination(HttpRequest request, string destination)
+		=> Uri.TryCreate(destination, UriKind.Absolute, out var absolute) &&
+			(!string.Equals(absolute.Scheme, request.Scheme, StringComparison.OrdinalIgnoreCase) ||
+				!string.Equals(absolute.Authority, request.Host.Value, StringComparison.OrdinalIgnoreCase));
 
 	private static void PrepareStreamingResponse(HttpContext context, IAntiforgery antiforgery)
 	{
@@ -326,6 +422,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().Initialize(context, handler, form);
 #if NET11_0_OR_GREATER
 		services.GetRequiredService<HtmxorEndpointCandidateSessionServices>().Initialize(context);
+		services.GetRequiredService<HtmxorEndpointCandidateTempDataServices>().Initialize(context);
 #endif
 		var stateManager = services.GetRequiredService<ComponentStatePersistenceManager>();
 		stateManager.SetPlatformRenderMode(RenderMode.InteractiveAuto);

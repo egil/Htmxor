@@ -33,6 +33,42 @@
       ]
     },
     {
+      "path": "src/Components/Endpoints/src/TempData/TempDataCascadingValueSupplier.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateTempDataServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/TempData/TempDataProviderServiceCollectionExtensions.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateTempDataServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/TempData/TempDataProviderServiceCollectionExtensions.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/DependencyInjection/TempDataService.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateTempDataServices.cs"
+      ]
+    },
+    {
       "path": "src/Shared/MiddlewareInvokedKeys.cs",
       "match": "file",
       "api": "none",

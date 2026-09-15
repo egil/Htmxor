@@ -176,6 +176,20 @@ Session services, serialization and storage, validate and cache only accessor
 metadata, and monitor the exact upstream dependencies. No Htmxor Session
 configuration API or replacement store is authorized by this exception.
 
+The [approved #213 decision](https://github.com/egil/Htmxor/issues/213#issuecomment-5686489846)
+extends the same .NET 11 adapter to TempData, which stock reaches only through
+the endpoint renderer the candidate replaces. It permits invoking
+`TempDataCascadingValueSupplier.SetRequestContext(HttpContext)`,
+`TempDataProviderServiceCollectionExtensions.GetOrCreateTempData(HttpContext)`
+and `TempDataService.Persist(HttpContext)`, and reimplementing that type's
+cascading registration so the public `ITempData` cascade resolves against the
+candidate renderer's request. The framework keeps the dictionary, supplier,
+provider, serializer, data protection and request scope, and keeps deciding
+availability, consumption and retention. Validate and cache only accessor
+metadata, validate the stock registration shape, and monitor the exact upstream
+dependencies. No Htmxor TempData configuration API or replacement provider is
+authorized by this exception.
+
 ## The application owns HTMX
 
 Htmxor v1 targets application-supplied htmx 4.0.0 for its documentation,
