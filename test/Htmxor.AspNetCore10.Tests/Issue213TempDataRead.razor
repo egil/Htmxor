@@ -1,0 +1,25 @@
+@page "/issue-213/read"
+@using Htmxor
+@using Htmxor.Components
+
+<p data-outside="true">outside</p>
+<HtmxFragment Name="message">
+    <p data-message="@message">@message</p>
+</HtmxFragment>
+
+@code {
+    private string message = "missing";
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+    [CascadingParameter] public ITempData? TempData { get; set; }
+    [SupplyParameterFromQuery] public string? Mode { get; set; }
+
+    protected override void OnInitialized()
+    {
+        HttpContext.GetHtmxContext().Response.SelectFragment("message");
+        message = (Mode == "peek" ? TempData?.Peek("issue213-message") : TempData?.Get("issue213-message")) as string ?? "missing";
+        if (Mode == "keep")
+        {
+            TempData?.Keep("issue213-message");
+        }
+    }
+}
