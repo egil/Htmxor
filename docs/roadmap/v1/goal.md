@@ -190,6 +190,20 @@ metadata, validate the stock registration shape, and monitor the exact upstream
 dependencies. No Htmxor TempData configuration API or replacement provider is
 authorized by this exception.
 
+The [approved #219 decision](https://github.com/egil/Htmxor/issues/219#issuecomment-5686491999)
+extends the same .NET 11 adapter to `CacheView`, which stock drives from
+`EndpointComponentState` and the endpoint renderer that the candidate replaces.
+It permits reading `CacheView.RenderState`, setting `CacheView.IsInStreamingContext`
+and `CacheView.TreePositionKeyFactory`, and invoking
+`CacheViewService.ThrowIfNestedInsideCapturingCacheView`, `TryBeginWrite` and
+`EndCapture`, plus mirroring the shared `ComponentKeyHelper` key formatting and the
+tree-position key computation. The framework keeps the cache store, key derivation,
+serialization, invalidation and variation. Scope is ordinary read-only `CacheView`
+on static-SSR pages; no public API or named-fragment contract changes, and a named
+fragment inside a cached subtree, cached interactive content and distributed
+deployments remain unestablished. Validate and cache only accessor metadata and
+monitor the exact upstream dependencies.
+
 ## The application owns HTMX
 
 Htmxor v1 targets application-supplied htmx 4.0.0 for its documentation,

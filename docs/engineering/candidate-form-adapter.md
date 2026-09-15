@@ -210,6 +210,68 @@ provider deployments, an asynchronous redirect after streaming has started, or
 browser cookie transport. Exact verification belongs to delivery receipts. The
 existing package-retained ASP.NET Core MIT license covers adapted coordination.
 
+## .NET 11 CacheView coordination
+
+The [approved #219 decision](https://github.com/egil/Htmxor/issues/219#issuecomment-5686491999)
+extends the isolated adapter to `CacheView`. Stock drives it from two places the
+candidate replaces — `EndpointComponentState`, which supplies the streaming flag
+and the tree-position key as component state is created, and
+`EndpointHtmlRenderer.WriteComponentHtml`, which performs the capture. Without
+both, a cached subtree is never stored and never reused, so every request
+re-renders it.
+
+Authorized dependencies in `Microsoft.AspNetCore.Components.Endpoints.dll`:
+
+- internal `CacheView.RenderState` getter, to read the per-render coordination
+  state the component produced.
+- internal `CacheView.IsInStreamingContext` setter, so the framework can suppress
+  caching inside a streaming subtree exactly as stock does.
+- internal `CacheView.TreePositionKeyFactory` setter. The tree position always
+  contributes to the computed key, even when `CacheKey` is set, so omitting it
+  would make Htmxor derive different keys than stock for the same page.
+- public `CacheViewService.ThrowIfNestedInsideCapturingCacheView(TextWriter)`,
+  `CacheViewService.TryBeginWrite(...)` and `CacheViewService.EndCapture(...)` on
+  the internal service type, resolved through existing DI.
+- public `CacheViewRenderState.IsCacheHit` getter on the internal state type.
+
+`HtmxorEndpointCandidateCacheViewServices` validates each internal nongeneric type
+and every member's name, accessibility, exact parameters and return type during
+registration, caching only accessor metadata. The framework retains the cache
+store, key derivation, serialization, invalidation, variation and the component's
+own resolution; no cache implementation is copied and no private field is written.
+
+Two upstream sources are mirrored rather than accessed, both with provenance and a
+watch. `ComponentKeyHelper.FormatSerializableKey` is a pure shared function, and
+`EndpointComponentState`'s tree-position key computation is reproduced in
+`HtmxorEndpointCandidateRenderer.FragmentSelection.cs` so an identical component
+tree yields an identical key under Htmxor and stock. The candidate reads the
+parent's frames through the supported protected `GetCurrentRenderTreeFrames` seam
+and takes the component key from the frame, rather than reaching for
+`ComponentState.GetComponentKey`. The candidate also tracks inherited stream
+rendering per component id, because stock propagates that from the logical parent
+on `EndpointComponentState` and `CacheView` needs the inherited value.
+
+Synchronized **2026-09-15**, ASP.NET Core **v11.0.0-rc.1.26425.128**, commit
+**c3325eeb6b47bc6383c127d4f4827dc9642a2b6e**. Exact monitored sources:
+
+- [CacheView.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/CacheView/CacheView.cs): the three component dependencies, watched with `api: none`.
+- [CacheViewService.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/CacheView/CacheViewService.cs): the capture coordination and render state, watched with `api: none`.
+- [EndpointComponentState.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs): the reimplemented tree-position key and streaming propagation.
+- [ComponentKeyHelper.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Shared/src/ComponentKeyHelper.cs): the mirrored key formatting.
+- [EndpointHtmlRenderer.Streaming.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs): the write-path branch, under the existing renderer watch.
+
+The Issue219 hosted contract pairs every case against a stock host: a miss then a
+hit across an application data change, configured query variation keeping two
+tenants isolated, a cached component invoked exactly once across repeated hits,
+and a not-yet-cached variant observing current data as a cache-observation
+negative control. The live-cached-component capture path, `CacheViewTextWriter`
+pausing and validation-only writers are **not** adapted; that boundary is reached
+only by cached interactive content, which this slice excludes. A named
+`HtmxFragment` inside a cached subtree remains a separately tracked composition
+question, since a hit reuses stored output without constructing the component.
+Distributed cache deployment, cached form content and performance are unclaimed.
+The existing package-retained ASP.NET Core MIT license covers adapted coordination.
+
 ## Installed form-service access
 
 The form-service private dependencies come from `Microsoft.AspNetCore.Components.Endpoints.dll`,
