@@ -24,6 +24,42 @@
   ],
   "watches": [
     {
+      "path": "src/Components/Endpoints/src/CacheView/CacheView.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/CacheView/CacheViewService.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Rendering/EndpointComponentState.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.FragmentSelection.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Shared/src/ComponentKeyHelper.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "mirrors",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
+      ]
+    },
+    {
       "path": "src/Components/Endpoints/src/SessionCascadingValueSupplier.cs",
       "match": "file",
       "api": "none",

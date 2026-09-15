@@ -1208,6 +1208,25 @@ application headers may also matter. Unavailable variation is not equivalent to
 one cached representation being safe for all requests. Do not cache unsafe
 methods.
 
+### .NET 11 `CacheView`
+
+On .NET 11, a stock `CacheView` boundary on an ordinary static-SSR page behaves
+under Htmxor as it does without Htmxor: the first request renders and stores the
+subtree, a later request reuses the stored output instead of invoking the cached
+component again, and `CacheKey`, `VaryBy`, `VaryByQuery`, `VaryByRoute`,
+`VaryByCulture` and `VaryByUser` keep distinct representations isolated. The
+framework owns the store, key derivation, serialization and invalidation; Htmxor
+only restores the renderer coordination that its endpoint candidate would
+otherwise skip. Caching stays suppressed inside a streaming render context and
+for non-GET requests, exactly as stock decides.
+
+Two compositions are **not** established. A named `HtmxFragment` inside a cached
+subtree is a separately tracked question: a cache hit reuses stored output without
+constructing the component, so the fragment is not registered for selection on
+that request. Cached interactive or form content, and distributed cache
+deployments, are likewise unproved. Treat all three as unsupported rather than as
+an advertised optimization until their own evidence exists.
+
 ### Security
 
 - Treat `HX-*`, callback identifiers, selectors, URLs, and all form/query/header
