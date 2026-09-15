@@ -112,6 +112,104 @@ conflict policy, first-cookie creation through the attribute alone, or browser
 cookie transport. Exact verification belongs to delivery receipts. The existing
 package-retained ASP.NET Core MIT license covers adapted coordination.
 
+## .NET 11 TempData availability and write-back
+
+The [approved #213 decision](https://github.com/egil/Htmxor/issues/213#issuecomment-5686489846)
+extends the isolated adapter to three framework-owned members in
+`Microsoft.AspNetCore.Components.Endpoints.dll`:
+
+- internal `void TempDataCascadingValueSupplier.SetRequestContext(Microsoft.AspNetCore.Http.HttpContext)`
+  initializes the existing scoped supplier after request protection succeeds and
+  before rendering, so `[SupplyParameterFromTempData]` reads the actual request.
+- internal static `Microsoft.AspNetCore.Components.ITempData TempDataProviderServiceCollectionExtensions.GetOrCreateTempData(Microsoft.AspNetCore.Http.HttpContext)`
+  returns the framework-owned request-local dictionary for the public `ITempData`
+  cascade.
+- public `void TempDataService.Persist(Microsoft.AspNetCore.Http.HttpContext)`,
+  resolved through existing DI, runs stock callbacks, consumption and retention
+  and the provider write-back before the final response flush.
+
+Stock reaches all three through `EndpointHtmlRenderer`, which the candidate
+replaces, so none of them runs under Htmxor without this coordination. The public
+`ITempData` surface offers dictionary, `Get`, `Peek` and `Keep` but no
+initialization or persistence operation; the provider interface and the dictionary
+`Save` operation are internal, and enumerating the framework dictionary consumes
+retained keys rather than saving them. Invoking the framework members keeps that
+state machine framework-owned instead of reimplementing it.
+
+`AddTempData` cascades `ITempData` from the stock renderer's request.
+`HtmxorEndpointCandidateServices` validates that exactly one such scoped supplier
+is registered, removes it, and re-adds the same public cascade bound to the
+candidate renderer's current request, reimplementing that upstream registration.
+Unlike stock's `TryAddCascadingValue`, the replacement adds unconditionally: a
+second registered `ITempData` cascade fails the exactly-one check with a named
+error rather than being silently dropped or duplicated. Application customization through
+`RazorComponentsServiceOptions` is untouched, and a changed upstream registration
+shape fails fast instead of silently losing the cascade.
+
+`HtmxorEndpointCandidateTempDataServices` validates each internal nongeneric type
+and the declared member name, accessibility, exact parameters and return type
+during registration. It caches only type and member metadata, resolves the
+supplier and service from each request scope, and preserves underlying exceptions.
+A missing optional supplier registration remains a no-op as in stock. The
+framework retains the dictionary, supplier, provider, serializer, data protection
+and request scope; no TempData implementation is copied, no private field is
+written, and no Htmxor TempData option is added. The adapter and its calls are
+excluded from the .NET 10 target.
+
+Write-back runs where stock runs it: after every component, including streaming,
+has finished, and alongside Session persistence. Selecting a fragment changes
+emitted HTML, not the values written back. The completed non-streaming `NotFound()`
+path also runs write-back, mirroring the Session behavior #212 established, and is
+covered by its own hosted case: a component that writes a message and then reports
+not found returns 404 with suppressed output while a later request still consumes
+the message once.
+
+A `NavigationException` raised by a completed form submit now redirects instead of
+escaping the candidate invoker, matching the stock invoker, which redirects and
+still runs write-back so a post-redirect-get message survives. The handler mirrors
+stock `EndpointHtmlRenderer.HandleNavigationBeforeResponseStarted`, retaining its
+enhanced-navigation opaque redirection for external destinations, and adds one
+branch: an htmx request cannot follow a 302 for a partial response, so it receives
+`HX-Redirect` instead. That destination is taken from the absolute location's path
+and query, which keeps the request's path base rather than dropping it as a
+base-relative path would; a destination carrying a fragment keeps its absolute form,
+because a relative reference with a fragment is not a well-formed URI and Htmxor's
+own destination validator rejects it. A destination whose scheme htmx cannot act on
+keeps the stock representation rather than failing the request. The awaited pending
+work is inside the guarded region, as upstream has it, so a navigation that only
+surfaces after an `await` is handled rather than escaping.
+
+This repair is not .NET 11 only and is covered on both target frameworks by
+`Issue213SubmitRedirectTests`: stock-parity for a synchronous and an awaited submit
+navigation, the enhanced-navigation opaque redirection for an external destination,
+the htmx representation, a preserved fragment, a non-HTTP destination, and body parity
+with the stock host, which writes the body it had already rendered before the submit
+rather than replacing it.
+
+The initial-render navigation path is deliberately unchanged. It still returns the
+bare stock redirect before write-back, which also discards Session values, so
+unifying it needs its own protected behavior and evidence; #230 owns that, together
+with the generated-action redirect, which is not a POST and therefore takes the same
+unchanged path.
+
+Synchronized **2026-09-15**, ASP.NET Core **v11.0.0-rc.1.26425.128**, commit
+**c3325eeb6b47bc6383c127d4f4827dc9642a2b6e**. Exact monitored sources:
+
+- [TempDataCascadingValueSupplier.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/TempData/TempDataCascadingValueSupplier.cs): the request-context dependency, explicitly watched with `api: none`.
+- [TempDataProviderServiceCollectionExtensions.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/TempData/TempDataProviderServiceCollectionExtensions.cs): the dictionary accessor and the cascade registration shape, explicitly watched with `api: none`.
+- [TempDataService.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/DependencyInjection/TempDataService.cs): the write-back dependency, explicitly watched with `api: none`.
+- [EndpointHtmlRenderer.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs): request initialization order under the existing renderer watch.
+- [RazorComponentEndpointInvoker.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs): post-render persistence order and submit navigation handling under the existing invoker watch.
+
+The Issue213 hosted contract observes cookie issue and next-request availability,
+read, keep and peek controls against stock, supplied-parameter reads isolated
+between users, a synchronous component redirect in both representations, and a
+rejected request that neither writes nor consumes. Streaming completion belongs to
+#215. This slice does not establish the session-storage provider, alternative
+provider deployments, an asynchronous redirect after streaming has started, or
+browser cookie transport. Exact verification belongs to delivery receipts. The
+existing package-retained ASP.NET Core MIT license covers adapted coordination.
+
 ## Installed form-service access
 
 The form-service private dependencies come from `Microsoft.AspNetCore.Components.Endpoints.dll`,
