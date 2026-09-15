@@ -18,7 +18,7 @@
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
 		<Compile Remove="Issue*.cs" />
-		<Compile Include="Issue210*.cs;Issue212*.cs;Issue213*.cs;Issue214*.cs;Issue216*.cs;Issue83AuthorizationTests.cs" />
+		<Compile Include="Issue210*.cs;Issue212*.cs;Issue213*.cs;Issue214*.cs;Issue216*.cs;Issue219*.cs;Issue83AuthorizationTests.cs" />
 		<RazorComponent Include="Issue210*.razor;Issue212*.razor;Issue213*.razor;Issue214*.razor;Issue216*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">

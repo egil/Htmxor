@@ -77,6 +77,7 @@ internal static class HtmxorEndpointCandidateServices
 #if NET11_0_OR_GREATER
 		var sessionServices = HtmxorEndpointCandidateSessionServices.Create();
 		var tempDataServices = HtmxorEndpointCandidateTempDataServices.Create();
+		var cacheViewServices = HtmxorEndpointCandidateCacheViewServices.Create();
 #endif
 		// AddRazorComponents does not expose a supported replacement hook for its HttpContext cascade.
 		// Issue #184 watches this registration shape so upstream drift is reviewed before adopting framework changes.
@@ -108,6 +109,7 @@ internal static class HtmxorEndpointCandidateServices
 #if NET11_0_OR_GREATER
 		services.AddSingleton(sessionServices);
 		services.AddSingleton(tempDataServices);
+		services.AddSingleton(cacheViewServices);
 #endif
 		services.AddScoped<HtmxorEndpointCandidateRenderer>();
 		services.AddScoped<HtmxorEndpointCandidateInvoker>();
@@ -581,6 +583,14 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private void WriteComponentHtml(int componentId, TextWriter output, int sequence, object? key, bool allowStreamingMarkers = true)
 	{
 		visitedComponentIdsInCurrentStreamingBatch.Add(componentId);
+#if NET11_0_OR_GREATER
+		if (GetComponentState(componentId).Component is CacheView cacheView &&
+			services.GetRequiredService<HtmxorEndpointCandidateCacheViewServices>().TryWrite(
+				services, cacheView, output, target => base.WriteComponentHtml(componentId, target)))
+		{
+			return;
+		}
+#endif
 		if (GetComponentState(componentId).Component is not HtmxorEndpointCandidateRenderModeBoundary boundary)
 		{
 			WriteStaticComponentHtml(componentId, output, allowStreamingMarkers);

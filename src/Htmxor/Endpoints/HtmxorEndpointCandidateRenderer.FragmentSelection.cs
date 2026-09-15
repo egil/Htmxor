@@ -1,9 +1,18 @@
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+// CacheView component-state coordination adapted from ASP.NET Core v11.0.0-rc.1.26425.128 at
+// commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-15; see
+// docs/engineering/candidate-form-adapter.md for the approved #219 dependency inventory.
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointComponentState.cs | reimplements
+
 using Htmxor.Components;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Endpoints;
 
@@ -18,8 +27,56 @@ internal partial class HtmxorEndpointCandidateRenderer
 		{
 			renderedFragments.Add(componentId, fragment);
 		}
+#if NET11_0_OR_GREATER
+		// Stock propagates this from the logical parent on EndpointComponentState; CacheView needs the inherited
+		// value, not just its own attribute, because caching is suppressed inside a streaming subtree.
+		streamRenderingByComponentId[componentId] =
+			GetStreamRenderingAttribute(component) ?? IsInheritedStreamRendering(parentComponentState);
+		if (component is CacheView cacheView && parentComponentState is not null)
+		{
+			var ancestorTypeName = parentComponentState.Component?.GetType().FullName ?? "";
+			services.GetRequiredService<HtmxorEndpointCandidateCacheViewServices>().Initialize(
+				cacheView,
+				streamRenderingByComponentId[componentId],
+				() => ComputeCacheViewTreePositionKey(parentComponentState, cacheView, ancestorTypeName));
+		}
+#endif
 		return state;
 	}
+
+#if NET11_0_OR_GREATER
+	private readonly Dictionary<int, bool> streamRenderingByComponentId = [];
+
+	private bool IsInheritedStreamRendering(ComponentState? parentComponentState)
+		=> parentComponentState is not null &&
+			streamRenderingByComponentId.TryGetValue(parentComponentState.ComponentId, out var streaming) &&
+			streaming;
+
+	private static bool? GetStreamRenderingAttribute(IComponent component)
+		=> component.GetType()
+			.GetCustomAttributes(typeof(StreamRenderingAttribute), inherit: true)
+			.OfType<StreamRenderingAttribute>()
+			.Select(attribute => (bool?)attribute.Enabled)
+			.FirstOrDefault();
+
+	// Mirrors stock EndpointComponentState: multiple CacheView components under one parent must not share a key.
+	private string ComputeCacheViewTreePositionKey(ComponentState parentComponentState, CacheView target, string ancestorTypeName)
+	{
+		var frames = GetCurrentRenderTreeFrames(parentComponentState.ComponentId);
+		for (var index = 0; index < frames.Count; index++)
+		{
+			ref var frame = ref frames.Array[index];
+			if (frame.FrameType is RenderTreeFrameType.Component && ReferenceEquals(frame.Component, target))
+			{
+				return HtmxorEndpointCandidateCacheViewServices.ComputeTreePositionKey(
+					ancestorTypeName, frame.Sequence, frame.ComponentKey);
+			}
+		}
+
+		throw new InvalidOperationException(
+			$"Could not locate the CacheView in the render tree of its parent component '{parentComponentState.Component?.GetType().FullName}' while computing its cache key.");
+	}
+#endif
 
 	private void RemoveDisposedFragments(in RenderBatch renderBatch)
 	{
