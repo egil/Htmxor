@@ -24,6 +24,75 @@ public sealed class Issue219CacheViewTests
 		Assert.Equal(expected, actual);
 	}
 
+	[Fact]
+	public async Task Configured_query_variation_keeps_distinct_responses_isolated()
+	{
+		await using var stock = await CreateHostAsync(false);
+		await using var candidate = await CreateHostAsync(true);
+
+		var expected = await ReadVariantsAsync(stock);
+		var actual = await ReadVariantsAsync(candidate);
+
+		Assert.Equal(expected, actual);
+	}
+
+	[Fact]
+	public async Task Cached_subtree_runs_its_component_once_and_is_reused_afterwards()
+	{
+		await using var candidate = await CreateHostAsync(true);
+		using var client = candidate.GetTestClient();
+		var data = candidate.Services.GetRequiredService<Issue219Data>();
+
+		await client.GetAsync("/issue-219/cache");
+		var afterMiss = data.Renders;
+		await client.GetAsync("/issue-219/cache");
+		await client.GetAsync("/issue-219/cache");
+
+		// A hit must reuse stored output rather than invoking the cached component again.
+		Assert.Equal(1, afterMiss);
+		Assert.Equal(1, data.Renders);
+	}
+
+	[Fact]
+	public async Task A_variant_not_yet_cached_observes_the_current_data()
+	{
+		await using var stock = await CreateHostAsync(false);
+		await using var candidate = await CreateHostAsync(true);
+
+		// Negative control: the reuse assertions must not pass merely because the page never re-renders.
+		var expected = await ReadFreshVariantAsync(stock);
+		var actual = await ReadFreshVariantAsync(candidate);
+
+		Assert.Contains("data-version=\"2\"", actual, StringComparison.Ordinal);
+		Assert.Equal(expected, actual);
+	}
+
+	private static async Task<string> ReadFreshVariantAsync(WebApplication app)
+	{
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+		await ReadAsync(client, "/issue-219/cache?tenant=alpha");
+		data.Version = 2;
+		return await ReadAsync(client, "/issue-219/cache?tenant=gamma");
+	}
+
+	private static async Task<string[]> ReadVariantsAsync(WebApplication app)
+	{
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+		var alpha = await ReadAsync(client, "/issue-219/cache?tenant=alpha");
+		var beta = await ReadAsync(client, "/issue-219/cache?tenant=beta");
+		data.Version = 2;
+		return [alpha, beta, await ReadAsync(client, "/issue-219/cache?tenant=alpha"), await ReadAsync(client, "/issue-219/cache?tenant=beta")];
+	}
+
+	private static async Task<string> ReadAsync(HttpClient client, string path)
+	{
+		using var response = await client.GetAsync(path);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
+
 	private static async Task<string[]> ReadMissAndHitAsync(WebApplication app)
 	{
 		using var client = app.GetTestClient();
@@ -72,6 +141,8 @@ public sealed class Issue219CacheViewTests
 internal sealed class Issue219Data
 {
 	public int Version { get; set; } = 1;
+
+	public int Renders { get; set; }
 }
 
 [Route("/issue-219/cache")]
@@ -81,7 +152,8 @@ public sealed class Issue219CachePage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219");
-		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(content =>
+		builder.AddAttribute(2, nameof(CacheView.VaryByQuery), "tenant");
+		builder.AddAttribute(3, nameof(CacheView.ChildContent), (RenderFragment)(content =>
 		{
 			content.OpenComponent<Issue219CachedContent>(0);
 			content.CloseComponent();
@@ -97,6 +169,7 @@ public sealed class Issue219CachedContent : ComponentBase
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{
 		builder.OpenElement(0, "p");
+		Data.Renders++;
 		builder.AddAttribute(1, "data-version", Data.Version);
 		builder.AddContent(2, "cached application data");
 		builder.CloseElement();
