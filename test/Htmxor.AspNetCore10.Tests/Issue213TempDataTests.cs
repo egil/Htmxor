@@ -117,6 +117,25 @@ public sealed class Issue213TempDataTests
 		AssertMessage(await stock.SendAsync(cookies, false, "/issue-213/read"), "original");
 	}
 
+	[Theory]
+	[InlineData(false, false)]
+	[InlineData(true, false)]
+	[InlineData(true, true)]
+	public async Task Completed_component_that_reports_not_found_still_persists_its_message(bool htmxor, bool fragment)
+	{
+		var protection = new EphemeralDataProtectionProvider();
+		await using var host = await Issue213TempDataHost.StartAsync(htmxor, protection);
+		await using var stock = await Issue213TempDataHost.StartAsync(false, protection);
+		var cookies = new CookieContainer();
+
+		// The 404 suppresses output, but a root component that finished still had its write-back run.
+		var notFound = await host.SendAsync(cookies, fragment, "/issue-213/notfound?Change=kept");
+
+		Assert.Equal(HttpStatusCode.NotFound, notFound.Status);
+		AssertMessage(await stock.SendAsync(cookies, false, "/issue-213/read"), "kept");
+		AssertMessage(await stock.SendAsync(cookies, false, "/issue-213/read"), "missing");
+	}
+
 	private static void AssertMessage(Issue213Response response, string message)
 	{
 		Assert.Equal(HttpStatusCode.OK, response.Status);

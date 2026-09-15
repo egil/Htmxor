@@ -22,7 +22,7 @@
 		<RazorComponent Include="Issue210*.razor;Issue212*.razor;Issue213*.razor;Issue214*.razor;Issue216*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-		<RazorComponent Include="**/*.razor" Exclude="Issue212*.razor;Issue213*.razor;Issue216*.razor;$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+		<RazorComponent Include="**/*.razor" Exclude="Issue212*.razor;Issue213TempData*.razor;Issue216*.razor;$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 	</ItemGroup>
 
 	<ItemGroup>
