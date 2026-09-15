@@ -1,0 +1,16 @@
+@page "/issue-213/notfound"
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
+
+<p data-outside="true">outside</p>
+
+@code {
+    [SupplyParameterFromTempData(Name = "issue213-message")] public string? Value { get; set; }
+    [SupplyParameterFromQuery] public string? Change { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Value = Change;
+        Navigation.NotFound();
+    }
+}

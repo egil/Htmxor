@@ -12,7 +12,6 @@
 
 @code {
     [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
-    [CascadingParameter] public ITempData? TempData { get; set; }
     [SupplyParameterFromTempData(Name = "issue213-message")] public string? Value { get; set; }
     [SupplyParameterFromQuery] public string? Change { get; set; }
     [SupplyParameterFromQuery] public string? ActionValue { get; set; }
@@ -30,14 +29,11 @@
 
     private void Save()
     {
+        // Only the [SupplyParameterFromTempData] write, so the redirect rows prove supplier write-back
+        // rather than a direct dictionary write that would persist on its own.
         Value = ActionValue;
         if (Redirect)
         {
-            if (TempData is not null)
-            {
-                TempData["issue213-message"] = ActionValue;
-            }
-
             Navigation.NavigateTo("/issue-213/read");
         }
     }

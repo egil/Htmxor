@@ -1,0 +1,27 @@
+@page "/issue-213/submit-redirect"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
+
+<main data-issue-213-output>form</main>
+<form method="post" @formname="issue-213-go" @onsubmit="Go">
+    <AntiforgeryToken />
+    <button type="submit">Go</button>
+</form>
+<form method="post" @formname="issue-213-go-awaited" @onsubmit="GoAwaitedAsync">
+    <AntiforgeryToken />
+    <button type="submit">Go awaited</button>
+</form>
+
+@code {
+    [SupplyParameterFromQuery] public string? Destination { get; set; }
+
+    private void Go() => Navigation.NavigateTo(Destination ?? "/issue-213/after-submit");
+
+    private async Task GoAwaitedAsync()
+    {
+        // The navigation then surfaces on the dispatch task rather than from the dispatch call.
+        await Task.Yield();
+        Navigation.NavigateTo(Destination ?? "/issue-213/after-submit");
+    }
+}
