@@ -33,9 +33,11 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) with subjects i
 Before any GitHub mutation, run both identity checks and require both to report the `egil` account:
 
 ```powershell
-gh auth status --hostname github.com --active
+gh auth status --hostname github.com
 gh api --hostname github.com user --jq .login
 ```
+
+Read the `Active account` line from the first command; not every installed `gh` accepts an `--active` flag. The second reports the account a mutation would act as.
 
 Do not run `gh auth setup-git` or change Git credential helpers. A published feature branch may be rewritten only with current user authority and an exact lease tied to the remote SHA observed immediately before the push:
 
