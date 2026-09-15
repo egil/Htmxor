@@ -1,0 +1,44 @@
+@page "/issue-213/tempdata"
+@using Htmxor
+@using Htmxor.Components
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
+
+<p data-outside="true">outside</p>
+<HtmxFragment Name="message">
+    <p data-message="@(Value ?? "missing")">@(Value ?? "missing")</p>
+</HtmxFragment>
+<form method="post" @formname="save" @onsubmit="Save"></form>
+
+@code {
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+    [CascadingParameter] public ITempData? TempData { get; set; }
+    [SupplyParameterFromTempData(Name = "issue213-message")] public string? Value { get; set; }
+    [SupplyParameterFromQuery] public string? Change { get; set; }
+    [SupplyParameterFromQuery] public string? ActionValue { get; set; }
+    [SupplyParameterFromQuery] public bool Redirect { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        HttpContext.GetHtmxContext().Response.SelectFragment("message");
+        if (Change is not null)
+        {
+            await Task.Yield();
+            Value = Change;
+        }
+    }
+
+    private void Save()
+    {
+        Value = ActionValue;
+        if (Redirect)
+        {
+            if (TempData is not null)
+            {
+                TempData["issue213-message"] = ActionValue;
+            }
+
+            Navigation.NavigateTo("/issue-213/read");
+        }
+    }
+}
