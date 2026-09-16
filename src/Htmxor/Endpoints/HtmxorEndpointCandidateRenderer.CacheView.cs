@@ -33,8 +33,20 @@ internal partial class HtmxorEndpointCandidateRenderer
 		// opted in and decides whether to emit that component's streaming markers.
 		streamRenderingByComponentId[componentId] =
 			GetStreamRenderingAttribute(component) ?? IsInheritedStreamRendering(state.LogicalParentComponentState);
-		if (component is CacheView cacheView && parentComponentState is not null)
+		if (component is CacheView cacheView)
 		{
+			// Every other shape mismatch in this adapter fails loudly. A parentless boundary would otherwise
+			// skip Initialize and fall back to a key carrying neither the representation nor the ancestor
+			// flag -- precisely the state in which an ordinary and an htmx response share an entry. Stock
+			// always has a parent here, so this is unreachable rather than merely unlikely; degrade the wrong
+			// way and it degrades silently.
+			if (parentComponentState is null)
+			{
+				throw new InvalidOperationException(
+					$"A {nameof(CacheView)} was created with no parent component state, so Htmxor cannot supply the " +
+					"tree position its cache key requires. Report this with the page that produced it.");
+			}
+
 			var ancestorTypeName = parentComponentState.Component?.GetType().FullName ?? "";
 			services.GetRequiredService<HtmxorEndpointCandidateCacheViewServices>().Initialize(
 				cacheView,
@@ -96,18 +108,25 @@ internal partial class HtmxorEndpointCandidateRenderer
 		// declaring a dimension whose value is equal across the two, which HX-Request is, would otherwise serve
 		// one routing mode's body for the other. Measured. It is a closed enum, so unlike a header value it
 		// cannot be extended by a client and adds no unbounded dimension.
-		var declared = DeclaresRequestVariation(cacheView) ? "declared" : "undeclared";
+		var declared = DeclaresHtmxVariation(cacheView) ? "declared" : "undeclared";
 		return $"htmx.{request.RoutingMode}.{declared}";
 	}
 
-	// An htmx request is cached only where the application said what its content varies by. Undeclared, the
-	// boundary is suppressed through the framework's own switch -- PrepareAsync returns null, so there is no
-	// store and no hit -- rather than cached against a key that does not describe the request. Htmxor cannot
-	// know what a subtree read, and guessing wrongly serves one request another's markup; guessing broadly
-	// makes the key attacker-controlled. Declaring is the only answer that is both safe and bounded, and it
-	// is the answer stock already gives for every other per-request input.
-	internal static bool DeclaresRequestVariation(CacheView cacheView)
-		=> !string.IsNullOrEmpty(cacheView.VaryByHeader) || !string.IsNullOrEmpty(cacheView.VaryBy);
+	// An htmx request is cached only where the application named the htmx dimensions its content varies by.
+	// Undeclared, the boundary is suppressed -- it stores nothing, and the representation keeps it in a key
+	// space nothing writes to, so it can be served nothing either. Htmxor cannot know what a subtree read,
+	// and guessing wrongly serves one request another's markup while guessing broadly makes the key
+	// attacker-controlled; declaring is the only answer that is both safe and bounded.
+	//
+	// VaryByHeader alone, because it is the only parameter that can name an HX-* dimension. VaryBy was
+	// admitted here and should not have been: stock appends it to the key as a literal, so it contributes no
+	// request dimension at all -- measured, identical key hashes with and without an HX-Target header -- and
+	// an author using it for its documented purpose, a static discriminator, would have silently opted into
+	// htmx caching while saying nothing about the request. The other VaryBy* parameters name real request
+	// dimensions but cannot name an htmx one, and admitting VaryByQuery was measured serving one target's
+	// body to a request asking for another.
+	internal static bool DeclaresHtmxVariation(CacheView cacheView)
+		=> !string.IsNullOrEmpty(cacheView.VaryByHeader);
 
 	// Mirrors stock EndpointComponentState's position computation: multiple CacheView components under one
 	// parent must not share a key. The result is deliberately not equal to stock's, because the representation
