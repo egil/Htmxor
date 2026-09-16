@@ -401,8 +401,8 @@ component runs:
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
 
 Seven of the eight cases in the first two groups were confirmed to redden when their
-guard is disabled, and all seven inversions are recorded in this slice's current
-verification receipt. The eighth,
+guard is disabled, and all seven results are recorded in this slice's current
+verification receipt, from four distinct inversions. The eighth,
 `Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache`, is a negative
 control: it reddens when the guard is *widened* to every fragment rather than when it is
 disabled, which is the discrimination it exists to provide. The probe has no guard to
