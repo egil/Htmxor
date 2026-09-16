@@ -18,6 +18,9 @@
 // Form coordination added for #189; exact dependency inventory: docs/engineering/candidate-form-adapter.md.
 // .NET 11 protection, persisted state, and browser configuration follow v11.0.0-rc.1.26425.128 at
 // c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13; see that inventory.
+// CacheView write-path coordination follows the same commit, synchronized 2026-09-16: the capture and
+// descendant-guard branches reimplement EndpointHtmlRenderer.WriteComponentHtml; approved #219 dependencies
+// and their exact sources are in docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
@@ -665,6 +668,13 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	// state back to the outer one that already met content it refused to store.
 	private bool TryWriteCacheView(CacheView cacheView, int componentId, TextWriter output)
 	{
+		// Every scope statement covers an interactive boundary inside a CacheView. The opposite nesting would
+		// capture prerendered interactive content and key it more weakly than stock, so it caches nothing.
+		if (HasRenderModeBoundaryAncestor(GetComponentState(componentId)))
+		{
+			return false;
+		}
+
 		var enclosing = captureAbandoned;
 		captureAbandoned = false;
 		try
@@ -680,6 +690,19 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		{
 			captureAbandoned = enclosing;
 		}
+	}
+
+	private static bool HasRenderModeBoundaryAncestor(ComponentState componentState)
+	{
+		for (var ancestor = componentState.ParentComponentState; ancestor is not null; ancestor = ancestor.ParentComponentState)
+		{
+			if (ancestor.Component is HtmxorEndpointCandidateRenderModeBoundary)
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	// Mirrors stock's second CacheView block: during an active capture, a component whose output depends on
@@ -703,8 +726,10 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			return null;
 		}
 
-		var streaming = IsStreamingComponent(componentId);
-		if (CacheViewServices.IsCacheable(writer, component.GetType()) && !streaming)
+		// Upstream pauses on the inherited value, not this component's own attribute. Using the own-type answer
+		// descended into a subtree stock had already paused, and validated content stock never validates, so a
+		// streaming page carrying an AuthorizeView under an ordinary wrapper failed where stock renders it.
+		if (CacheViewServices.IsCacheable(writer, component.GetType()) && !IsInStreamingContext(componentId))
 		{
 			return null;
 		}
