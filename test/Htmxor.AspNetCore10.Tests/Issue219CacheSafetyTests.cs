@@ -17,16 +17,17 @@ namespace Htmxor.AspNetCore10;
 public sealed class Issue219CacheSafetyTests
 {
 	[Fact]
-	public async Task Named_fragment_inside_a_cached_subtree_survives_a_hit()
+	public async Task Named_fragment_inside_a_cached_subtree_stops_the_boundary_storing_anything()
 	{
 		await using var app = await StartAsync();
 		using var client = app.GetTestClient();
 		var data = app.Services.GetRequiredService<Issue219Data>();
 
-		// Two htmx requests to the same URL and the same representation (RoutingMode.Standard, since neither
-		// selects a fragment), so both belong to the same cache entry and a real hit is actually observable
-		// between them. Selecting a fragment would instead write straight from that component's own live render
-		// tree regardless of caching, which cannot exercise the boundary's stored-or-abandoned decision at all.
+		// Two htmx requests to the same URL at the same representation: both omit HX-Request-Type, so both are
+		// RoutingMode.Standard and would share one cache entry. The page's SelectFragment call is inert at that
+		// routing mode, which is deliberate — a fragment-selecting request writes straight from the selected
+		// component's own live render tree and never revisits its CacheView ancestor, so it cannot exercise the
+		// boundary's store-or-abandon decision at all.
 		var first = await ReadAsync(client);
 		Assert.Equal(HttpStatusCode.OK, first.Status);
 		Assert.Contains("data-version=\"1\"", first.Body, StringComparison.Ordinal);
@@ -34,9 +35,10 @@ public sealed class Issue219CacheSafetyTests
 		data.Version = 2;
 		var second = await ReadAsync(client);
 
-		// A stored entry would still read version 1 here. The boundary must instead have abandoned its capture,
-		// because the fragment it holds is registered only when its component is constructed, which serving
-		// stored output never does.
+		// A stored entry would still read version 1 here. The boundary must instead have abandoned its capture on
+		// both requests, because the fragment it holds is registered only when its component is constructed,
+		// which serving stored output never does. That is what this case proves: not that a hit occurred, but
+		// that the boundary never stores an entry for the fragment to be replayed from.
 		Assert.Equal(HttpStatusCode.OK, second.Status);
 		Assert.Contains("data-inner", second.Body, StringComparison.Ordinal);
 		Assert.Contains("data-version=\"2\"", second.Body, StringComparison.Ordinal);
