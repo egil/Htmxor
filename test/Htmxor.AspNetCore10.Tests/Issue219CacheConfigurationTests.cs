@@ -152,24 +152,52 @@ public sealed class Issue219CacheConfigurationTests
 	}
 
 	[Fact]
-	public async Task A_nested_boundary_beneath_a_named_fragment_refuses_like_stock()
+	public async Task A_nested_boundary_beneath_an_async_load_refuses_like_stock()
 	{
-		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219NestedFragmentBoundaryPage>(htmxor: false);
-		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219NestedFragmentBoundaryPage>(htmxor: true);
+		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219NestedAsyncBoundaryPage>(htmxor: true);
 
-		// A withdrawn divergence, kept as the parity case it turned into. While a named fragment made Htmxor
-		// pause the capture, this composition rendered where stock refused it, on htmx requests; with that kind
-		// gone nothing pauses and stock's guard fires on both hosts, on both kinds of request. Measured.
-		// It stays because it is the tripwire for that pause returning: reintroduce a kind here and Htmxor
-		// starts swallowing a framework refusal again, which is how the divergence arrived unnoticed before.
-		var stockOrdinary = await ReadRootCauseAsync(stock, "/issue-219/nested-fragment-boundary");
-		var candidateOrdinary = await ReadRootCauseAsync(candidate, "/issue-219/nested-fragment-boundary");
-		Assert.Contains("cannot be nested inside another CacheView", stockOrdinary.Message, StringComparison.Ordinal);
-		Assert.Equal(stockOrdinary.Message, candidateOrdinary.Message);
+		// The tripwire for the capture pause, recomposed on a kind that is live. Its previous form composed an
+		// HtmxFragment, which stopped being request-varying one commit after the tripwire was written, so it
+		// passed for an unrelated reason and measured nothing while a pause was reintroduced beneath it.
+		// HtmxAsyncLoad is the live kind. The framework refuses a CacheView nested inside a capturing one, so
+		// if the kind's subtree is paused rather than left to validate, the refusal is skipped and this renders.
+		//
+		// No stock arm exists: HtmxAsyncLoad needs Htmxor's own scoped context and a stock host cannot
+		// construct it. The paired equivalent without it is the ordinary-wrapper case above.
+		var thrown = await Assert.ThrowsAnyAsync<Exception>(async () =>
+		{
+			using var client = candidate.GetTestClient();
+			using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/nested-async-boundary");
+			request.Headers.Add("HX-Request", "true");
+			request.Headers.Add("HX-Request-Type", "partial");
+			request.Headers.Add("HX-Source", "div#lazy");
+			request.Headers.Add("HX-Target", "div#lazy");
+			using var response = await client.SendAsync(request);
+			_ = await response.Content.ReadAsStringAsync();
+		});
 
-		var stockHtmx = await ReadRootCauseAsync(stock, "/issue-219/nested-fragment-boundary", htmx: true);
-		var candidateHtmx = await ReadRootCauseAsync(candidate, "/issue-219/nested-fragment-boundary", htmx: true);
-		Assert.Equal(stockHtmx.Message, candidateHtmx.Message);
+		// The matching source and target are what make HtmxAsyncLoad render ChildContent rather than Loading,
+		// so the inner boundary is constructed at all.
+		var refusal = Assert.IsType<InvalidOperationException>(thrown.GetBaseException());
+		Assert.Contains("cannot be nested inside another CacheView", refusal.Message, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task A_sibling_of_a_boundary_that_stores_nothing_still_caches()
+	{
+		await using var app = await Issue219CacheInteractiveTests.StartAsync<Issue219SiblingOfAbandoningPage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+		var first = await ReadAsync(client, "/issue-219/configured");
+		data.Version = 2;
+		var candidate = new[] { first, await ReadAsync(client, "/issue-219/configured") };
+
+		// Two boundaries on one page, one holding an interactive render-mode boundary and therefore storing
+		// nothing. Abandoning that one must not disable the other. The claim that any sibling boundary stays
+		// cacheable ships in two documents and lost its case when the htmx fixtures went: every remaining
+		// abandoning fixture holds exactly one CacheView.
+		Assert.Equal("2", Slot(candidate[1], "abandoning"));
+		Assert.Equal("1", Slot(candidate[1], "sibling"));
 	}
 
 	// Stock raises these while the response body is written, so the exception can arrive wrapped rather than
@@ -496,5 +524,61 @@ public sealed class Issue219LayoutHostPage : ComponentBase
 
 public sealed class Issue219Layout : Htmxor.Components.HtmxLayoutComponentBase
 {
+}
+// A CacheView nested inside another, with a live request-varying kind between them.
+[Route("/issue-219/nested-async-boundary")]
+public sealed class Issue219NestedAsyncBoundaryPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-nested-async-outer");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Htmxor.Components.HtmxAsyncLoad>(0);
+			cached.AddAttribute(1, nameof(Htmxor.Components.HtmxAsyncLoad.Id), "lazy");
+			cached.AddAttribute(2, nameof(Htmxor.Components.HtmxAsyncLoad.ChildContent), (RenderFragment)(inner =>
+			{
+				inner.OpenComponent<CacheView>(0);
+				inner.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-nested-async-inner");
+				inner.AddAttribute(2, nameof(CacheView.ChildContent), Issue219Slot.Render("inner"));
+				inner.CloseComponent();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// One boundary that stores nothing beside one that caches.
+public sealed class Issue219SiblingOfAbandoningPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-abandoning-sibling");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219SiblingInteractive>(0);
+			cached.AddComponentRenderMode(Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer);
+			cached.CloseComponent();
+			cached.AddContent(1, Issue219Slot.Render("abandoning"));
+		}));
+		builder.CloseComponent();
+		builder.OpenComponent<CacheView>(3);
+		builder.AddAttribute(4, nameof(CacheView.CacheKey), "issue-219-abandoning-sibling-other");
+		builder.AddAttribute(5, nameof(CacheView.ChildContent), Issue219Slot.Render("sibling"));
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219SiblingInteractive : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "p");
+		builder.AddAttribute(1, "data-interactive", "true");
+		builder.CloseElement();
+	}
 }
 #endif

@@ -39,6 +39,25 @@ public sealed class Issue219CacheAsyncLoadTests
 		// way, and stays true if a narrower mechanism arrives later.
 	}
 
+	[Fact]
+	public async Task A_boundary_inside_an_async_loads_loading_content_stores_nothing()
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219AsyncLoadingHostPage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		Assert.Contains("data-version=\"1\"", await ReadAsync(client, "/issue-219/async-loading"), StringComparison.Ordinal);
+		data.Version = 2;
+
+		// The boundary is authored in the page and passed into HtmxAsyncLoad as Loading content, which renders
+		// on every ordinary request, so this is the shape in which the physical and authoring ancestor chains
+		// were expected to disagree. They do not: swapping HasUncacheableAncestor to walk
+		// LogicalParentComponentState leaves this case green, so whatever stops the boundary caching here is
+		// not the choice of chain. The case is kept for the behaviour it does pin -- a boundary beneath an
+		// async load stores nothing -- and not as evidence about the walk.
+		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/async-loading"), StringComparison.Ordinal);
+	}
+
 	private static async Task<string> ReadAsync(HttpClient client, string path)
 	{
 		using var response = await client.GetAsync(path);
@@ -68,6 +87,35 @@ public sealed class Issue219AsyncLoadRoutePage : ComponentBase
 				loaded.CloseElement();
 			}));
 			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+// A CacheView authored in the page and passed into HtmxAsyncLoad as its Loading content, so the physical and
+// authoring ancestor chains disagree about what stands above it.
+[Route("/issue-219/async-loading")]
+public sealed class Issue219AsyncLoadingHostPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<HtmxAsyncLoad>(0);
+		builder.AddAttribute(1, nameof(HtmxAsyncLoad.Id), "lazy");
+		builder.AddAttribute(2, nameof(HtmxAsyncLoad.ChildContent), (RenderFragment)(loaded =>
+		{
+			loaded.OpenElement(0, "p");
+			loaded.AddAttribute(1, "data-async-child", "true");
+			loaded.CloseElement();
+		}));
+		builder.AddAttribute(3, nameof(HtmxAsyncLoad.Loading), (RenderFragment)(loading =>
+		{
+			loading.OpenComponent<CacheView>(0);
+			loading.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-async-loading");
+			loading.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+			{
+				cached.OpenComponent<Issue219CachedContent>(0);
+				cached.CloseComponent();
+			}));
+			loading.CloseComponent();
 		}));
 		builder.CloseComponent();
 	}

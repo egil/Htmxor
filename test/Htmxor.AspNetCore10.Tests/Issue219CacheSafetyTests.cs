@@ -40,15 +40,6 @@ public sealed class Issue219CacheSafetyTests
 		Assert.Contains("data-version=\"2\"", second.Body, StringComparison.Ordinal);
 	}
 
-	private static async Task<(HttpStatusCode Status, string? Redirect, string Body)> InstructAsync(HttpClient client, string instruction)
-	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, $"/issue-219/header-writing?instruction={instruction}");
-		request.Headers.Add("HX-Request", "true");
-		using var response = await client.SendAsync(request);
-		var redirect = response.Headers.TryGetValues("HX-Redirect", out var values) ? string.Join(",", values) : null;
-		return (response.StatusCode, redirect, await response.Content.ReadAsStringAsync());
-	}
-
 	private static async Task<(string? Retarget, string Body)> RetargetAsync(HttpClient client)
 	{
 		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/header-writing");
@@ -70,13 +61,11 @@ public sealed class Issue219CacheSafetyTests
 		return (response.StatusCode, await response.Content.ReadAsStringAsync());
 	}
 
-	private static Task<WebApplication> StartAsync() => StartAsync<Issue219FragmentPage>(true);
-
 	internal static async Task<WebApplication> StartAsync<TRoot>(bool htmxor) where TRoot : IComponent
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
-			ApplicationName = typeof(Issue219FragmentPage).Assembly.GetName().Name,
+			ApplicationName = typeof(Issue219CachedContent).Assembly.GetName().Name,
 		});
 		builder.WebHost.UseTestServer();
 		builder.Logging.ClearProviders();
@@ -326,38 +315,6 @@ public sealed class Issue219TokenPage : ComponentBase
 	}
 }
 
-[Route("/issue-219/fragment")]
-public sealed class Issue219FragmentPage : ComponentBase
-{
-	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
-
-	[Inject] internal Issue219Data Data { get; set; } = default!;
-
-	protected override void OnInitialized()
-		=> HttpContext.GetHtmxContext().Response.SelectFragment("inner");
-
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment");
-		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
-		{
-			cached.OpenComponent<HtmxFragment>(0);
-			cached.AddAttribute(1, nameof(HtmxFragment.Name), "inner");
-			cached.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
-			{
-				inner.OpenElement(0, "p");
-				inner.AddAttribute(1, "data-inner", "true");
-				inner.AddAttribute(2, "data-version", Data.Version);
-				inner.AddContent(3, "inner");
-				inner.CloseElement();
-			}));
-			cached.CloseComponent();
-		}));
-		builder.CloseComponent();
-	}
-}
-
 // A component inside a declared boundary that writes an htmx response header while it renders. Declared, so
 // the boundary is otherwise eligible to cache: the header is the only reason it must not.
 [Route("/issue-219/header-writing")]
@@ -382,32 +339,7 @@ public sealed class Issue219HeaderWritingContent : ComponentBase
 
 	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
 
-	protected override void OnInitialized() => Apply(HttpContext);
-
-	private static void Apply(HttpContext context)
-	{
-		var response = context.GetHtmxContext().Response;
-		var instruction = context.Request.Query["instruction"].ToString();
-		if (instruction is "status")
-		{
-			response.StatusCode(System.Net.HttpStatusCode.Accepted);
-			return;
-		}
-
-		if (instruction is "empty")
-		{
-			response.EmptyBody();
-			return;
-		}
-
-		if (instruction is "redirect")
-		{
-			response.Redirect("/issue-219/elsewhere");
-			return;
-		}
-
-		response.Retarget("#panel");
-	}
+	protected override void OnInitialized() => HttpContext.GetHtmxContext().Response.Retarget("#panel");
 
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{

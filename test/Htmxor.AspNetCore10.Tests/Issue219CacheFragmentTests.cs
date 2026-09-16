@@ -93,15 +93,6 @@ public sealed class Issue219CacheFragmentTests
 		return await response.Content.ReadAsStringAsync();
 	}
 
-	private static async Task<string> HtmxAsync(HttpClient client)
-	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/htmx-cache");
-		request.Headers.Add("HX-Request", "true");
-		using var response = await client.SendAsync(request);
-		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-		return await response.Content.ReadAsStringAsync();
-	}
-
 	private static async Task<string> ReadAsync(HttpClient client, string path)
 	{
 		using var response = await client.GetAsync(path);
