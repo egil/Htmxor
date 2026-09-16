@@ -724,11 +724,26 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	// markup from the request itself -- HtmxAsyncLoad varies on the trigger and target elements, which no cache
 	// key carries. An interactive boundary is outside this slice. A boundary that holds one of these, or that
 	// stands beneath one, stores nothing; either way the content renders normally.
-	// Only the render-mode boundary remains. A named HtmxFragment and an IConditionalRender vary by what a
-	// request selects and by its trigger and target elements, none of which an ordinary request carries -- and
-	// an htmx request no longer caches at all, so there is nothing left for them to protect.
+	// The render-mode boundary, and HtmxAsyncLoad by name.
+	//
+	// A named HtmxFragment does not belong here: nothing selects a fragment on an ordinary request, and an
+	// htmx request no longer caches at all. IConditionalRender does not belong here either, and naming the
+	// interface was measured to cost ordinary-request parity -- HtmxLayoutComponentBase implements it with a
+	// constant ShouldOutput, and docs/index.md teaches that type as the layout, so every boundary beneath a
+	// layout would stop caching.
+	//
+	// HtmxAsyncLoad is named concretely because it writes the current request path into hx-get on the
+	// ordinary branch, and no path reaches a cache key unless the application declared VaryByRoute. A page
+	// reachable at two routes otherwise serves the first request's placeholder to the second, whose load
+	// trigger then fetches the wrong resource -- a well-formed 200 with nothing visibly wrong.
+	//
+	// The narrow mechanism for this is stock's own CacheBehavior.Rerender, which excludes one component
+	// rather than the whole boundary. It is unavailable: Rerender asks for a live cached component, and
+	// HtmxAsyncLoad has a required RenderFragment parameter that stock refuses to capture, so applying it
+	// makes every such page throw on its first request. Abandoning the boundary is therefore the wider but
+	// only available answer, and content beside an HtmxAsyncLoad stops caching with it.
 	private static bool IsRequestVarying(IComponent component)
-		=> component is HtmxorEndpointCandidateRenderModeBoundary;
+		=> component is HtmxorEndpointCandidateRenderModeBoundary or HtmxAsyncLoad;
 
 	// Mirrors stock's second CacheView block: during an active capture, a component whose output depends on
 	// per-request state is excluded from the entry and recorded so a later hit renders it live instead.
