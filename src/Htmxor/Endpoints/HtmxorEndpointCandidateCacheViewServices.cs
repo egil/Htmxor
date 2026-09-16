@@ -42,7 +42,12 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 	private readonly MethodInfo startCapture;
 	private readonly MethodInfo createLiveCachedComponent;
 	private readonly MethodInfo isCacheableComponent;
-	private readonly string serializerCategory;
+	// EndpointHtmlRenderer.GetRenderFragmentSerializationLogger builds this category from typeof(
+	// RenderFragmentSerializer).FullName, an internal static class in src/Components/Shared/src. It is written
+	// out rather than looked up: a log category is not behavior, and resolving a private type for it would add
+	// an unapproved dependency whose only failure mode -- and a fail-fast one, at AddHtmxor -- would be a
+	// renamed logger. If upstream renames the type, Htmxor's serialization logs land under the old category.
+	private const string SerializerCategory = "Microsoft.AspNetCore.Components.RenderFragmentSerializer";
 	private readonly MethodInfo throwIfNested;
 	private readonly MethodInfo tryBeginWrite;
 	private readonly MethodInfo endCapture;
@@ -78,13 +83,13 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 		isCacheableComponent = RequireMethod(serviceType, "IsCacheableComponent",
 			BindingFlags.Public | BindingFlags.Static, typeof(bool), typeof(Type), typeof(CacheVaryBy));
 
-		// Taken from the type rather than written out, so the log category cannot drift from stock's.
-		serializerCategory = RequireInternalClass("RenderFragmentSerializer", "Microsoft.AspNetCore.Components").FullName!;
-
-		if (captureType.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+		// The pinned accessibility, not merely the pinned signature: the activation below asks for exactly this
+		// shape, so a constructor that became non-public upstream must fail registration rather than be taken
+		// through a looser binding than the approved contract describes.
+		if (captureType.GetConstructor(BindingFlags.Public | BindingFlags.Instance,
 			null, [typeof(RenderTreeFrame[])], null) is null)
 		{
-			throw IncompatibleFramework("RenderFragmentCapture(RenderTreeFrame[]) constructor");
+			throw IncompatibleFramework("public RenderFragmentCapture(RenderTreeFrame[]) constructor");
 		}
 	}
 
@@ -112,8 +117,8 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 		IServiceProvider services, object writer, Type componentType, IComponentRenderMode? renderMode, RenderTreeFrame[] frames)
 	{
 		var capture = Activator.CreateInstance(
-			captureType, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, [frames], null);
-		var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(serializerCategory);
+			captureType, BindingFlags.Public | BindingFlags.Instance, null, [frames], null);
+		var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(SerializerCategory);
 		createLiveCachedComponent.Invoke(writer, BindingFlags.DoNotWrapExceptions, null,
 			[componentType, renderMode, capture, logger], null);
 	}
