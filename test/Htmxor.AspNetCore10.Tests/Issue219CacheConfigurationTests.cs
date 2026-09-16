@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.AspNetCore10;
 
-// Each case pairs Htmxor against a stock host, so the framework decides the outcome and Htmxor only has to
+// Most cases pair Htmxor against a stock host, so the framework decides the outcome and Htmxor only has to
 // match it. That keeps these honest even where the stock answer is not obvious in advance.
 public sealed class Issue219CacheConfigurationTests
 {
@@ -152,7 +152,7 @@ public sealed class Issue219CacheConfigurationTests
 	}
 
 	[Fact]
-	public async Task A_nested_boundary_beneath_an_async_load_refuses_like_stock()
+	public async Task A_nested_boundary_beneath_an_async_load_raises_the_frameworks_refusal()
 	{
 		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219NestedAsyncBoundaryPage>(htmxor: true);
 
@@ -475,36 +475,6 @@ internal static class Issue219Configured
 		builder.CloseComponent();
 	}
 }
-// A CacheView nested inside another, with a named fragment between them. Stock refuses the nesting; Htmxor
-// pauses at the fragment, so the outer region is paused rather than capturing when the inner one is reached.
-[Route("/issue-219/nested-fragment-boundary")]
-public sealed class Issue219NestedFragmentBoundaryPage : ComponentBase
-{
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-nested-outer");
-		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
-		{
-			cached.OpenComponent<Htmxor.Components.HtmxFragment>(0);
-			cached.AddAttribute(1, nameof(Htmxor.Components.HtmxFragment.Name), "nested");
-			cached.AddAttribute(2, nameof(Htmxor.Components.HtmxFragment.ChildContent), (RenderFragment)(inner =>
-			{
-				inner.OpenComponent<CacheView>(0);
-				inner.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-nested-inner");
-				inner.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(deep =>
-				{
-					deep.OpenComponent<Issue219CachedContent>(0);
-					deep.CloseComponent();
-				}));
-				inner.CloseComponent();
-			}));
-			cached.CloseComponent();
-		}));
-		builder.CloseComponent();
-	}
-}
-
 // A boundary beneath a component deriving from the layout base the documentation teaches.
 public sealed class Issue219LayoutHostPage : ComponentBase
 {

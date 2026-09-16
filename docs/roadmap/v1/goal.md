@@ -213,9 +213,10 @@ variation. Htmxor appends the response representation to the tree position it al
 supplies, because one Htmxor URL serves representations the framework's key cannot
 distinguish; cached keys are therefore deliberately not equal to stock's.
 
-An **ordinary** request caches exactly as it does under stock, including beneath a named
-fragment. The one exception is an `HtmxAsyncLoad`, which writes the request path into its
-placeholder and is excluded by name. An **htmx** request caches nothing and is never
+An **ordinary** request caches as it does under stock, including beneath a named
+fragment, except in the compositions listed below: an `HtmxAsyncLoad`, which writes the
+request path into its placeholder, and an interactive render-mode boundary held or stood
+beneath. An **htmx** request caches nothing and is never
 served what an ordinary request stored; Htmxor cannot determine what a subtree read from
 an htmx request, and four attempts to decide it produced defects rather than a design.
 Caching htmx responses is #236, which owns the variation model, the interaction with

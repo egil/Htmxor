@@ -18,7 +18,7 @@ namespace Htmxor.AspNetCore10;
 // Both nestings of a CacheView and an interactive render-mode boundary are covered here, because both need a
 // genuinely interactive-server-capable host rather than the plain static host the other Issue219 fixtures
 // share. The boundary holding one is the only composition that reaches the discard a capture performs over
-// content it must not store, now that the request-varying kinds are down to this one.
+// content it must not store, one of the two request-varying kinds.
 public sealed class Issue219CacheInteractiveTests
 {
 	[Fact]

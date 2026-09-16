@@ -12,9 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.AspNetCore10;
 
-// The inverse of the nesting Issue219CacheRepresentationTests covers: a CacheView *beneath* a named fragment
-// rather than around one. The response representation the key carries says whether a request is an htmx one,
-// not which fragment it selected, so two selections reach the same tree position with the same representation.
+// Compositions where an Htmxor component sits inside or above a cached boundary. Named fragments were once
+// the subject here and are no longer excluded at all: selection is honoured only for htmx requests, which
+// cache nothing, so on an ordinary request a fragment is ordinary content.
 public sealed class Issue219CacheFragmentTests
 {
 	[Fact]

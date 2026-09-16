@@ -272,10 +272,9 @@ ordinary body rather than to hold two entries.
 Selected fragment names were tried in that value and removed. Selection is permitted
 from ordinary lifecycle code, so the names are not reliably populated when the
 framework asks for the key, and they added nothing: a boundary holding a named
-fragment abandons its capture regardless of how it is keyed. A boundary standing *beneath*
-a named fragment abandons it too: the representation says whether a request is an htmx one,
-not which fragment it selected, so two selections otherwise reach one entry and the second
-is served the first's markup.
+fragment is ordinary content on an ordinary request and caches normally; selection is
+honoured only in `RoutingMode.Direct`, which requires an htmx request, and those cache
+nothing.
 
 Two hosts hold separate stores, so no test can
 observe cross-host key equality; what is observed is that two sibling boundaries under
@@ -361,10 +360,9 @@ where stock renders it. Both were measured.
 
 Discarding alone is not sufficient, because it governs only what is written. The tree
 position therefore also records whether the boundary stands beneath a request-varying
-ancestor, so the two states cannot share an entry. An `HtmxFragment`'s `Name` is a
-parameter and may be absent on one request and present on the next at one representation,
-which would otherwise let a position store an entry while ordinary content and be served
-it once selectable.
+ancestor, so the two states cannot share an entry. The reachable case is a render-mode ancestor: a component's render mode can be decided
+per request, so one position stands beneath an interactive boundary on one request and
+not on the next, and the two states must not share an entry.
 
 ### Executed boundary
 
@@ -390,7 +388,7 @@ enumeration has gone stale repeatedly, every time because that reconciliation wa
 - `A_boundary_inside_an_async_loads_loading_content_stores_nothing`
 - `A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing`
 - `A_keyed_boundary_is_not_served_another_keys_entry`
-- `A_nested_boundary_beneath_an_async_load_refuses_like_stock`
+- `A_nested_boundary_beneath_an_async_load_raises_the_frameworks_refusal`
 - `A_sibling_of_a_boundary_that_stores_nothing_still_caches`
 - `An_async_load_placeholder_carries_the_path_of_the_request_that_asked_for_it`
 - `An_htmx_request_does_not_reuse_an_entry_stored_for_the_ordinary_representation`
@@ -412,17 +410,19 @@ verification evidence attached to the pull request; receipts live under `artifac
 which is ignored, so they do not ship with a clone and are cited through the pull request
 rather than by path.
 
-Four production branches have no case that reddens them, recorded rather than implied. The
-**pause** is unobservable: the only kind that now reaches it also abandons the whole
-capture, so nothing is stored either way. The **physical-versus-logical ancestor walk** is
-unobservable in principle at this revision, because the divergence between the two chains
-came from content passed as child content into a fragment and no reachable composition
-distinguishes them now. The **refusal ordering** no longer changes an outcome, because
-nothing pre-empts the framework's refusal. The **`captureAbandoned` save and restore**
-needs nested boundaries to observe, which stock refuses, and the only route past that
-refusal was the fragment pause; a signal suggesting otherwise was measured against an
-already-red baseline and does not hold against a green one. All four become observable
-again if #236 restores the request-varying kinds, and #236 will have to re-derive them.
+Three production branches have no case that reddens them, recorded rather than implied.
+The **physical-versus-logical ancestor walk** is unobservable: two rounds of proposed
+distinguishing compositions were built and neither divided the chains, and for a component
+passed as a `RenderFragment` parameter the two parents are the same object. The **refusal
+ordering** cannot change an outcome, because the cacheable decision is taken before the
+kind is marked and neither kind carries `[CacheBehavior(Throw)]`. The **`captureAbandoned`
+save and restore** has likewise resisted two proposed compositions. All three become
+observable again if #236 restores the request-varying kinds, and #236 will have to
+re-derive them.
+
+The Htmxor-specific pause was removed rather than left unobservable: a request-varying
+kind is marked and falls through, and the render-mode boundary pauses through its own
+branch, so the one remaining mirrored pause is stock's and is measured.
 
 The probe has no guard to
 disable; it evidences that a hit reuses stored output rather than recording a divergence.

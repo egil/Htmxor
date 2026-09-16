@@ -54,12 +54,6 @@ public sealed class Issue219BranchingPage : ComponentBase
 		var htmx = HttpContext.GetHtmxContext().Request.IsHtmxRequest;
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-branching");
-		// A header absent from both of this case's requests, deliberately, and not "HX-Request". HX-Request
-		// is present on an htmx request and absent on an ordinary one, so declaring it hands stock's own
-		// resolver the very ordinary-from-htmx separation this case exists to prove Htmxor makes: measured,
-		// with that form, collapsing CurrentRepresentation to a constant left every test in the suite green.
-		// A header neither request carries opts the boundary in while contributing the same nothing to both
-		// keys, so only Htmxor's representation can separate them.
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			if (!htmx)
