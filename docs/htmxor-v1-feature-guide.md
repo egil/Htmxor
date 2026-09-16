@@ -1242,6 +1242,26 @@ vary by user is the case to know, and varying by user is the fix. A component ca
 `[CacheBehavior(CacheBehavior.Rerender)]`, such as `AntiforgeryToken`, is excluded from
 the entry and rendered live on a later hit instead of being replayed.
 
+**An htmx request is cached only where you say what it varies by.** An ordinary request
+caches exactly as it does under stock. For an htmx request, Htmxor cannot know what a
+subtree read — the trigger element, the target, an extension header — and it will not
+guess: guessing broadly would put client-chosen values in the cache key, letting anyone
+force unlimited entries, and guessing narrowly would serve one request another's markup.
+
+So declare it, with the parameter stock already provides:
+
+```razor
+<CacheView CacheKey="panel" VaryByHeader="HX-Target">
+    ...
+</CacheView>
+```
+
+A boundary that declares nothing stores nothing on an htmx request and renders afresh
+every time. It is never served an ordinary request's body either, because htmx and
+ordinary responses occupy separate key spaces. Declaring incompletely — naming one header
+when the content varies by another — caches against a key that does not describe the
+request, exactly as it would under stock for an undeclared query value.
+
 These compositions cause Htmxor to store nothing for that boundary, so the subtree
 renders normally on every request:
 
