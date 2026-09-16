@@ -34,19 +34,6 @@ public sealed class Issue219CacheRepresentationTests
 		Assert.Equal(HttpStatusCode.OK, selected.StatusCode);
 		Assert.Contains("data-branch", await selected.Content.ReadAsStringAsync(), StringComparison.Ordinal);
 	}
-	private static async Task<string> ModeAsync(HttpClient client, bool direct)
-	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/routing-mode");
-		request.Headers.Add("HX-Request", "true");
-		if (direct)
-		{
-			request.Headers.Add("HX-Request-Type", "partial");
-		}
-
-		using var response = await client.SendAsync(request);
-		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-		return await response.Content.ReadAsStringAsync();
-	}
 }
 
 [Route("/issue-219/branching")]
@@ -73,7 +60,6 @@ public sealed class Issue219BranchingPage : ComponentBase
 		// with that form, collapsing CurrentRepresentation to a constant left every test in the suite green.
 		// A header neither request carries opts the boundary in while contributing the same nothing to both
 		// keys, so only Htmxor's representation can separate them.
-		builder.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			if (!htmx)

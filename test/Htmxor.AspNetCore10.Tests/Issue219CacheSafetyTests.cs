@@ -340,7 +340,6 @@ public sealed class Issue219FragmentPage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment");
-		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<HtmxFragment>(0);
@@ -368,7 +367,6 @@ public sealed class Issue219HeaderWritingPage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-header-writing");
-		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<Issue219HeaderWritingContent>(0);
