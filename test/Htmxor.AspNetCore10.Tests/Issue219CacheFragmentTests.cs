@@ -103,6 +103,32 @@ public sealed class Issue219CacheFragmentTests
 		Assert.DoesNotContain("data-plain", fragment, StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task An_undeclared_boundary_does_not_cache_an_htmx_request_at_all()
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219UndeclaredHtmxPage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		Assert.Contains("data-version=\"1\"", await HtmxAsync(client), StringComparison.Ordinal);
+		data.Version = 2;
+
+		// Nothing declared what this boundary varies by, and Htmxor cannot know what its subtree read. Guessing
+		// broadly would put attacker-chosen header values in the key; guessing narrowly serves one request
+		// another's markup. It therefore stores nothing and renders afresh, and because the representation puts
+		// htmx requests in their own key space, there is no entry from an ordinary request for it to be served.
+		Assert.Contains("data-version=\"2\"", await HtmxAsync(client), StringComparison.Ordinal);
+	}
+
+	private static async Task<string> HtmxAsync(HttpClient client)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/undeclared");
+		request.Headers.Add("HX-Request", "true");
+		using var response = await client.SendAsync(request);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
+
 	private static async Task<string> TargetAsync(HttpClient client, string target)
 	{
 		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/conditional-child");
@@ -186,6 +212,7 @@ public sealed class Issue219NameableFragmentPage : ComponentBase
 		builder.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
 		{
 			inner.OpenComponent<CacheView>(0);
+			inner.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Request");
 			inner.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 			{
 				cached.OpenComponent<Issue219CachedContent>(0);
@@ -216,6 +243,7 @@ public sealed class Issue219ConditionalAncestor : ComponentBase, IConditionalRen
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{
 		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Request");
 		builder.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<Issue219CachedContent>(0);
@@ -237,6 +265,10 @@ public sealed class Issue219ConditionalChildPage : ComponentBase
 		var wantsFragment = HttpContext.GetHtmxContext().Request.Target == "#a";
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-conditional-child");
+		// Declares the header its content actually varies by. Declaring HX-Request alone would enable caching
+		// without separating the two targets, and the boundary would be served the other target's body -- the
+		// same incomplete-declaration exposure stock has for any undeclared input, tracked as #235.
+		builder.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			if (!wantsFragment)
@@ -255,6 +287,23 @@ public sealed class Issue219ConditionalChildPage : ComponentBase
 				inner.AddAttribute(1, "data-fragment-a", "true");
 				inner.CloseElement();
 			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// Declares no variation, so an htmx request must not be cached at all.
+[Route("/issue-219/undeclared")]
+public sealed class Issue219UndeclaredHtmxPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-undeclared");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219CachedContent>(0);
 			cached.CloseComponent();
 		}));
 		builder.CloseComponent();
@@ -288,6 +337,7 @@ public sealed class Issue219SelectableFragmentPage : ComponentBase
 		builder.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
 		{
 			inner.OpenComponent<CacheView>(0);
+			inner.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Request");
 			inner.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 			{
 				cached.OpenElement(0, "p");
