@@ -64,16 +64,22 @@ public sealed class Issue219CacheInteractiveTests
 		var candidate = await MeasureAsync(htmxor: true);
 
 		// Stock's own behavior, asserted to pin it rather than to guard Htmxor: no Htmxor code runs in this
-		// host, so these two lines cannot detect any change under src/. They fail only if ASP.NET Core changes
-		// how it keys a CacheView -- worth failing loudly, because the comparison below is stated against it.
-		// Stock replays in both orderings: its SSRRenderModeBoundary GetComponentKey override applies to the
-		// boundary's own child and not to a CacheView further down, so one entry serves both states.
+		// host, so these two lines cannot detect any change under src/ -- measured, across every inversion run
+		// against this suite. They fail only if ASP.NET Core changes how it keys a CacheView, which is worth
+		// failing loudly because the contrast below is only meaningful in light of it. Nothing here couples the
+		// two hosts; both pairs are absolute. Stock replays in both orderings.
 		Assert.Equal(("1", "1"), stock.StaticFirst);
 		Assert.Equal(("1", "1"), stock.BoundaryFirst);
 
-		// Htmxor keys the two states apart, so neither ordering is served the other's body. Stored without the
-		// boundary and read beneath one, the read misses; stored beneath it, nothing was stored at all. The
-		// discard alone would only have covered the second: it governs what is written, never what is served.
+		// Htmxor keys the two states apart, so neither ordering is served the other's body.
+		//
+		// Only the first of these detects that alone: remove the discriminator and this position is handed the
+		// body stored before it had a render-mode ancestor. The second states the other half of the property
+		// but cannot report it on its own -- with the discriminator present it stores under one key and reads
+		// under another, so it misses whether or not the capture was abandoned, and in the ordering below the
+		// line above fails first in the only case that would redden it. Whether the boundary stores anything
+		// while beneath the ancestor is owned by
+		// A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing, which the discard reddens.
 		Assert.Equal(("1", "2"), candidate.StaticFirst);
 		Assert.Equal(("1", "2"), candidate.BoundaryFirst);
 	}
