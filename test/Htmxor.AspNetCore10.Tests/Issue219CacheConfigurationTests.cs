@@ -139,6 +139,84 @@ public sealed class Issue219CacheConfigurationTests
 		Assert.Contains("authorized: alice", actual.Body, StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task A_nested_boundary_beneath_a_named_fragment_renders_where_stock_refuses()
+	{
+		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219NestedFragmentBoundaryPage>(htmxor: false);
+		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219NestedFragmentBoundaryPage>(htmxor: true);
+
+		// A recorded decision, not an accident. Stock refuses a CacheView nested inside a capturing one because
+		// the inner boundary's output would be frozen into the outer entry and replayed. Htmxor pauses the
+		// capture at the named fragment, so the region is paused rather than capturing and stock's guard does
+		// not fire; the outer boundary then abandons its capture and stores nothing at all, so the hazard the
+		// refusal names cannot arise. Rendering is the better outcome and is accepted.
+		var refusal = await ReadRootCauseAsync(stock, "/issue-219/nested-fragment-boundary");
+		Assert.Contains("cannot be nested inside another CacheView", refusal.Message, StringComparison.Ordinal);
+
+		using var client = candidate.GetTestClient();
+		var data = candidate.Services.GetRequiredService<Issue219Data>();
+		var first = await ReadAsync(client, "/issue-219/nested-fragment-boundary");
+		Assert.Contains("data-version=\"1\"", first, StringComparison.Ordinal);
+
+		data.Version = 2;
+
+		// The load-bearing assertion. It pins *why* rendering instead of refusing is safe: nothing was stored,
+		// so nothing can be replayed. If Htmxor ever starts storing in this composition this fails, and the
+		// decision above has to be revisited rather than silently outlived.
+		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/nested-fragment-boundary"), StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task A_rerender_conditional_holding_child_content_renders_where_stock_refuses()
+	{
+		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219RerenderConditionalPage>(htmxor: false);
+		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219RerenderConditionalPage>(htmxor: true);
+
+		// The same decision in its non-streaming form. Stock's refusal here is mechanical: to replay a
+		// CacheBehavior.Rerender component on a hit it must capture that component's parameters, and a
+		// RenderFragment cannot be captured. Htmxor discards the whole capture for an IConditionalRender and
+		// stores nothing, so it never needs to replay the component and the limitation does not apply.
+		var refusal = await ReadRootCauseAsync(stock, "/issue-219/rerender-conditional", "alice");
+		Assert.Contains("RenderFragment parameter", refusal.Message, StringComparison.Ordinal);
+
+		using var client = candidate.GetTestClient();
+		var data = candidate.Services.GetRequiredService<Issue219Data>();
+		var first = await ReadAuthenticatedAsync(client, "/issue-219/rerender-conditional", "alice");
+		Assert.Contains("authorized: alice", first, StringComparison.Ordinal);
+		Assert.Contains("data-version=\"1\"", first, StringComparison.Ordinal);
+
+		data.Version = 2;
+
+		// As above: current on the second request is what proves nothing was stored.
+		var second = await ReadAuthenticatedAsync(client, "/issue-219/rerender-conditional", "alice");
+		Assert.Contains("authorized: alice", second, StringComparison.Ordinal);
+		Assert.Contains("data-version=\"2\"", second, StringComparison.Ordinal);
+	}
+
+	// Stock raises these while the response body is written, so the exception can arrive wrapped rather than
+	// thrown from SendAsync. GetBaseException unwraps to the framework's own InvalidOperationException.
+	private static async Task<InvalidOperationException> ReadRootCauseAsync(WebApplication app, string path, string? user = null)
+	{
+		var thrown = await Assert.ThrowsAnyAsync<Exception>(async () =>
+		{
+			using var client = app.GetTestClient();
+			_ = user is null
+				? await ReadAsync(client, path)
+				: await ReadAuthenticatedAsync(client, path, user);
+		});
+
+		return Assert.IsType<InvalidOperationException>(thrown.GetBaseException());
+	}
+
+	private static async Task<string> ReadAuthenticatedAsync(HttpClient client, string path, string user)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		request.Headers.Add("X-Issue-219-User", user);
+		using var response = await client.SendAsync(request);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
+
 	private static async Task<(HttpStatusCode Status, string Body)> ReadAsAuthenticatedAsync(WebApplication app, string user)
 	{
 		using var client = app.GetTestClient();
@@ -381,5 +459,75 @@ internal static class Issue219Configured
 		}));
 		builder.CloseComponent();
 	}
+}
+// A CacheView nested inside another, with a named fragment between them. Stock refuses the nesting; Htmxor
+// pauses at the fragment, so the outer region is paused rather than capturing when the inner one is reached.
+[Route("/issue-219/nested-fragment-boundary")]
+public sealed class Issue219NestedFragmentBoundaryPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-nested-outer");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Htmxor.Components.HtmxFragment>(0);
+			cached.AddAttribute(1, nameof(Htmxor.Components.HtmxFragment.Name), "nested");
+			cached.AddAttribute(2, nameof(Htmxor.Components.HtmxFragment.ChildContent), (RenderFragment)(inner =>
+			{
+				inner.OpenComponent<CacheView>(0);
+				inner.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-nested-inner");
+				inner.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(deep =>
+				{
+					deep.OpenComponent<Issue219CachedContent>(0);
+					deep.CloseComponent();
+				}));
+				inner.CloseComponent();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// An application type that is both an IConditionalRender and a CacheBehavior.Rerender component holding child
+// content. Stock cannot capture the RenderFragment parameter it would need to replay; Htmxor stores nothing.
+[Route("/issue-219/rerender-conditional")]
+public sealed class Issue219RerenderConditionalPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-rerender-conditional");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219RerenderConditional>(0);
+			cached.AddAttribute(1, nameof(Issue219RerenderConditional.ChildContent), (RenderFragment)(wrapped =>
+			{
+				wrapped.OpenComponent<Microsoft.AspNetCore.Components.Authorization.AuthorizeView>(0);
+				wrapped.AddAttribute(1, "Authorized", (RenderFragment<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>)(state => inner =>
+				{
+					inner.OpenElement(0, "p");
+					inner.AddContent(1, $"authorized: {state.User.Identity?.Name}");
+					inner.CloseElement();
+					inner.OpenComponent<Issue219CachedContent>(2);
+					inner.CloseComponent();
+				}));
+				wrapped.CloseComponent();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+[CacheBehavior(CacheBehavior.Rerender)]
+public sealed class Issue219RerenderConditional : ComponentBase, Htmxor.Components.IConditionalRender
+{
+	[Parameter] public RenderFragment? ChildContent { get; set; }
+
+	public bool ShouldOutput([System.Diagnostics.CodeAnalysis.NotNull] Htmxor.Http.HtmxContext context, int directConditionalChildren, int conditionalChildren) => true;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => builder.AddContent(0, ChildContent);
 }
 #endif

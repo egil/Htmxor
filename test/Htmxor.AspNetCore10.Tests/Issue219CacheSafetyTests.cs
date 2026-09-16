@@ -70,6 +70,32 @@ public sealed class Issue219CacheSafetyTests
 		Assert.Contains("data-version=\"1\"", second.Body, StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task Content_beside_a_named_fragment_is_not_kept_without_it()
+	{
+		await using var app = await StartAsync<Issue219FragmentSiblingPage>(true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		var first = await ReadAsync(client, "/issue-219/fragment-sibling");
+		Assert.Equal(HttpStatusCode.OK, first.Status);
+		Assert.Contains("data-shell=\"1\"", first.Body, StringComparison.Ordinal);
+		Assert.Contains("data-version=\"1\"", first.Body, StringComparison.Ordinal);
+
+		data.Version = 2;
+		var second = await ReadAsync(client, "/issue-219/fragment-sibling");
+
+		// This boundary holds markup of its own beside the fragment, which the case above does not: there the
+		// fragment is the whole cached body. Excluding only the fragment's subtree from the capture and storing
+		// the rest leaves an entry with a hole nothing fills, because no live cached component is recorded for
+		// it -- the second response then carries a stale shell and loses the fragment's content altogether.
+		// Measured: that is exactly what happens when the boundary keeps its capture instead of abandoning it.
+		// Both must be current, and both must still be present.
+		Assert.Equal(HttpStatusCode.OK, second.Status);
+		Assert.Contains("data-shell=\"2\"", second.Body, StringComparison.Ordinal);
+		Assert.Contains("data-version=\"2\"", second.Body, StringComparison.Ordinal);
+	}
+
 	private static Task<(HttpStatusCode Status, string Body)> ReadAsync(HttpClient client)
 		=> ReadAsync(client, "/issue-219/fragment");
 
@@ -351,7 +377,7 @@ public sealed class Issue219FragmentPage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment");
-		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Request");
+		builder.AddAttribute(4, nameof(CacheView.VaryBy), "issue-219-fragment");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<HtmxFragment>(0);
@@ -379,7 +405,7 @@ public sealed class Issue219UnnamedFragmentPage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment-unnamed");
-		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Request");
+		builder.AddAttribute(4, nameof(CacheView.VaryBy), "issue-219-fragment-unnamed");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			// No Name is set: this HtmxFragment is unnamed and therefore never registered for selection.
@@ -391,6 +417,34 @@ public sealed class Issue219UnnamedFragmentPage : ComponentBase
 				inner.AddAttribute(2, "data-version", Data.Version);
 				inner.AddContent(3, "inner");
 				inner.CloseElement();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+// Markup of the boundary's own beside a named fragment, rather than a fragment that is the whole cached body.
+[Route("/issue-219/fragment-sibling")]
+public sealed class Issue219FragmentSiblingPage : ComponentBase
+{
+	[Inject] internal Issue219Data Data { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment-sibling");
+		builder.AddAttribute(4, nameof(CacheView.VaryBy), "issue-219-fragment-sibling");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenElement(0, "p");
+			cached.AddAttribute(1, "data-shell", Data.Version);
+			cached.CloseElement();
+			cached.OpenComponent<HtmxFragment>(2);
+			cached.AddAttribute(3, nameof(HtmxFragment.Name), "sibling");
+			cached.AddAttribute(4, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
+			{
+				inner.OpenComponent<Issue219CachedContent>(0);
+				inner.CloseComponent();
 			}));
 			cached.CloseComponent();
 		}));
