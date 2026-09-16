@@ -126,7 +126,26 @@ internal partial class HtmxorEndpointCandidateRenderer
 	// dimensions but cannot name an htmx one, and admitting VaryByQuery was measured serving one target's
 	// body to a request asking for another.
 	internal static bool DeclaresHtmxVariation(CacheView cacheView)
-		=> !string.IsNullOrEmpty(cacheView.VaryByHeader);
+	{
+		// Parsed the way stock parses it, not merely non-empty. Stock splits the list and drops blank entries,
+		// so " " and "," name no header at all and contribute nothing to its key -- measured against the pinned
+		// framework. Accepting them would open htmx caching on a declaration that declares nothing, which is
+		// the defect that removed VaryBy from this gate, reached through the parameter that replaced it.
+		if (cacheView.VaryByHeader is not { Length: > 0 } declaration)
+		{
+			return false;
+		}
+
+		foreach (var name in declaration.Split(','))
+		{
+			if (!string.IsNullOrWhiteSpace(name))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
 
 	// Mirrors stock EndpointComponentState's position computation: multiple CacheView components under one
 	// parent must not share a key. The result is deliberately not equal to stock's, because the representation

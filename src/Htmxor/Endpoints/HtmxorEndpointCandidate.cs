@@ -684,6 +684,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		// VaryByHeader has a value.
 		captureAbandoned = HasUncacheableAncestor(GetComponentState(componentId)) ||
 			(httpContext.GetHtmxContext().Request.IsHtmxRequest && !DeclaresHtmxVariation(cacheView));
+
 		try
 		{
 			return CacheViewServices.TryWrite(
@@ -691,7 +692,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 				cacheView,
 				output,
 				target => base.WriteComponentHtml(componentId, target),
-				() => !captureAbandoned);
+				() => !captureAbandoned && !HtmxResponseCarriesInstructions());
 		}
 		finally
 		{
@@ -702,7 +703,38 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	// The physical parent chain, not the logical one: content authored in a page but passed as child content
 	// into a fragment has the page as its logical parent, and only the physical chain shows the fragment that
 	// decides whether the content is produced at all.
-	private static bool HasUncacheableAncestor(ComponentState componentState)
+	// A cache entry is body content, so a hit re-emits markup and nothing else. Everything else a component
+	// did while rendering happens on the request that stores the entry and on no request served from it, and
+	// the failures are silent and varied: a lost Retarget swaps correct markup into the wrong element, a lost
+	// Redirect leaves the client on the page with stale markup instead of navigating, a lost StatusCode turns
+	// 286 into 200 so a polling client never stops. General output caching drops render-time side effects
+	// too, but stock never caches an htmx response at all, so there is no stock behavior this would match --
+	// and every operation below asserts it is on an htmx request, so this surface exists only where Htmxor
+	// caches and stock does not.
+	//
+	// Asked at the end of the capture rather than compared across it. Lifecycle code runs in the render pass,
+	// which completes before any of this is written, so a before-and-after pair around the write brackets the
+	// wrong phase and sees nothing -- measured, on a page whose OnInitialized retargets.
+	private bool HtmxResponseCarriesInstructions()
+	{
+		if (httpContext.GetHtmxContext().Response.EmptyResponseBodyRequested ||
+			httpContext.Response.StatusCode != StatusCodes.Status200OK)
+		{
+			return true;
+		}
+
+		foreach (var header in httpContext.Response.Headers)
+		{
+			if (header.Key.StartsWith("HX-", StringComparison.OrdinalIgnoreCase))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private bool HasUncacheableAncestor(ComponentState componentState)
 	{
 		for (var ancestor = componentState.ParentComponentState; ancestor is not null; ancestor = ancestor.ParentComponentState)
 		{
@@ -721,8 +753,17 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	// markup from the request itself -- HtmxAsyncLoad varies on the trigger and target elements, which no cache
 	// key carries. An interactive boundary is outside this slice. A boundary that holds one of these, or that
 	// stands beneath one, stores nothing; either way the content renders normally.
-	private static bool IsRequestVarying(IComponent component)
-		=> component is HtmxFragment { Name: not null } or IConditionalRender or HtmxorEndpointCandidateRenderModeBoundary;
+	// The first two kinds vary by something only an htmx request carries: a named fragment is selected, and an
+	// IConditionalRender decides from the request -- HtmxAsyncLoad from the trigger and target elements. On an
+	// ordinary request nothing selects and those elements are absent, so both render deterministically and the
+	// boundary caches as stock does. Classifying them unconditionally cost ordinary-request parity on the most
+	// idiomatic Htmxor page there is: HtmxLayoutComponentBase implements IConditionalRender with a constant
+	// ShouldOutput, so every CacheView beneath a layout stopped caching. Measured, two ordinary GETs: stock
+	// reused, Htmxor re-rendered. An interactive render-mode boundary is request-independent and stays.
+	private bool IsRequestVarying(IComponent component)
+		=> component is HtmxorEndpointCandidateRenderModeBoundary ||
+			(httpContext.GetHtmxContext().Request.IsHtmxRequest &&
+				component is HtmxFragment { Name: not null } or IConditionalRender);
 
 	// Mirrors stock's second CacheView block: during an active capture, a component whose output depends on
 	// per-request state is excluded from the entry and recorded so a later hit renders it live instead.
