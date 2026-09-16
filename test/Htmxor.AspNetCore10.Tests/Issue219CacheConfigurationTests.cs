@@ -119,6 +119,26 @@ public sealed class Issue219CacheConfigurationTests
 		Assert.Contains("authorized: alice", actual.Body, StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task An_authorize_view_under_a_named_fragment_on_a_streaming_page_renders_like_stock()
+	{
+		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219StreamingFragmentAuthPage>(htmxor: false);
+		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219StreamingFragmentAuthPage>(htmxor: true);
+
+		// The sibling case above puts a plain wrapper between the boundary and the AuthorizeView; this one puts a
+		// named fragment there, which is a kind Htmxor discards the capture for. Discarding must still pause the
+		// capture as stock pauses for anything it will not store -- returning without pausing left the capture
+		// active over a subtree stock stops validating at that point, and the framework's refusal fired on every
+		// request rather than none. Measured before the fix: stock 200, candidate threw.
+		var expected = await ReadAsAuthenticatedAsync(stock, "alice");
+		var actual = await ReadAsAuthenticatedAsync(candidate, "alice");
+
+		Assert.Equal(HttpStatusCode.OK, expected.Status);
+		Assert.Contains("authorized: alice", expected.Body, StringComparison.Ordinal);
+		Assert.Equal(expected.Status, actual.Status);
+		Assert.Contains("authorized: alice", actual.Body, StringComparison.Ordinal);
+	}
+
 	private static async Task<(HttpStatusCode Status, string Body)> ReadAsAuthenticatedAsync(WebApplication app, string user)
 	{
 		using var client = app.GetTestClient();
@@ -256,6 +276,36 @@ public sealed class Issue219StreamingWrappedAuthPage : ComponentBase
 		{
 			cached.OpenComponent<Issue219PlainWrapper>(0);
 			cached.AddAttribute(1, nameof(Issue219PlainWrapper.ChildContent), (RenderFragment)(wrapped =>
+			{
+				wrapped.OpenComponent<Microsoft.AspNetCore.Components.Authorization.AuthorizeView>(0);
+				wrapped.AddAttribute(1, "Authorized", (RenderFragment<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>)(state => inner =>
+				{
+					inner.OpenElement(0, "p");
+					inner.AddContent(1, $"authorized: {state.User.Identity?.Name}");
+					inner.CloseElement();
+				}));
+				wrapped.CloseComponent();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// The same shape as Issue219StreamingWrappedAuthPage with a named fragment where the plain wrapper sits, so the
+// discard path is the one under test rather than the ordinary pause path.
+[StreamRendering]
+public sealed class Issue219StreamingFragmentAuthPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-streaming-fragment-auth");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Htmxor.Components.HtmxFragment>(0);
+			cached.AddAttribute(1, nameof(Htmxor.Components.HtmxFragment.Name), "probe");
+			cached.AddAttribute(2, nameof(Htmxor.Components.HtmxFragment.ChildContent), (RenderFragment)(wrapped =>
 			{
 				wrapped.OpenComponent<Microsoft.AspNetCore.Components.Authorization.AuthorizeView>(0);
 				wrapped.AddAttribute(1, "Authorized", (RenderFragment<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>)(state => inner =>
