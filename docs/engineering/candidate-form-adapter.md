@@ -376,74 +376,43 @@ position disambiguating siblings, and render-mode ancestry. This names the kinds
 every case: the cases themselves are in the suite, and any count of them belongs to the
 reconciliation below rather than to this sentence.
 
-The cases listed below run against the candidate alone, for three different reasons. The
-list is a fact about the suite, not about this code, so re-derive it from the suite
-whenever the `Issue219` tests change rather than editing it by hand. A case belongs here
-when no host it constructs is built with the htmxor flag false. The flag usually reaches
-`AddHtmxor` through a shared helper rather than the test body — `StartAsync`,
-`MeasureAsync`, `OrderAsync`, `ReadPairAsync`, `ReadHeadersPairAsync`, `CreateHostAsync` —
-and some call sites pass it positionally, so searching for `htmxor: false` alone
-under-counts. Check the derivation by reconciling it: the cases below, plus the paired
-cases above, must account for every test that
-`dotnet test … --filter "FullyQualifiedName~Issue219"` discovers. This enumeration has
-gone stale more than once, and each time because that reconciliation was skipped.
+The cases listed below run against the candidate alone. The list is a fact about the
+suite, not about this code, so re-derive it from the suite whenever the `Issue219` tests
+change rather than editing it by hand. A case belongs here when no host it constructs is
+built with the htmxor flag false; the flag usually reaches `AddHtmxor` through a shared
+helper rather than the test body, and some call sites pass it positionally. Check the
+derivation by reconciling it: these cases plus the paired cases must account for every
+test that `dotnet test … --filter "FullyQualifiedName~Issue219"` discovers. This
+enumeration has gone stale repeatedly, every time because that reconciliation was skipped.
 
-No stock equivalent exists, so there is nothing to pair against — `HtmxFragment` and
-`HtmxAsyncLoad` are Htmxor's own components, and the representation is Htmxor's concept:
-
-- `Named_fragment_inside_a_cached_subtree_stops_the_boundary_storing_anything`
-- `Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache`
-- `A_cached_async_load_boundary_never_replays_another_requests_element_identity_decision`
-- `An_htmx_request_does_not_reuse_an_entry_stored_for_the_ordinary_representation`
-- `Selecting_a_second_fragment_does_not_replay_the_first_fragments_markup`
-- `A_boundary_is_not_served_what_it_stored_before_its_fragment_ancestor_was_named`
-- `A_boundary_beneath_a_conditional_component_stores_nothing`
-- `A_boundary_whose_request_varying_child_is_conditional_is_not_shared_across_targets`
-- `An_undeclared_boundary_does_not_cache_an_htmx_request_at_all`
-- `A_direct_request_is_not_served_what_a_standard_one_stored`
-- `Content_beside_a_named_fragment_is_not_kept_without_it`
-- `A_declared_boundary_caches_and_reuses_across_htmx_requests`
-- `A_keyed_boundary_is_not_served_another_keys_entry`
-- `An_htmx_response_header_set_during_render_reaches_every_request`
-- `An_empty_body_requested_during_render_reaches_every_request`
-- `A_status_code_set_during_render_reaches_every_request`
-- `A_redirect_requested_during_render_reaches_every_request`
-- `A_declaration_naming_no_header_does_not_open_the_htmx_gate`
-- `An_ordinary_request_caches_a_named_fragments_boundary_like_stock`
-
-Htmxor deliberately caches less than stock, so a parity assertion would assert the wrong
-thing:
-
+- `A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing`
 - `A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing`
-
-An observation probe rather than a behavioral comparison, counting how often the cached
-component runs:
-
+- `A_keyed_boundary_is_not_served_another_keys_entry`
+- `An_htmx_request_does_not_reuse_an_entry_stored_for_the_ordinary_representation`
+- `An_htmx_request_is_not_cached_and_is_not_served_an_ordinary_entry`
+- `An_htmx_response_header_set_during_render_reaches_every_request`
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
 
-Eighteen of the twenty cases in the first two groups were confirmed to redden when their
-guard is disabled, from nineteen distinct inversions, all recorded in the verification
-evidence attached to the pull request. Receipts live under `artifacts/`, which is ignored,
-so they do not ship with a clone and are cited through the pull request rather than by
-path. A nineteenth,
-`Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache`, is a negative
-control: it reddens when the guard is *widened* to every fragment rather than when it is
-disabled, and also when the declaration gate is forced to suppress everything. The
-twentieth,
-`A_boundary_whose_request_varying_child_is_conditional_is_not_shared_across_targets`,
-reddens under no inversion: it declares the header its content actually varies by, which
-is correct for the fixture, so stock's own resolver separates its two requests and no
-Htmxor guard is exercised. It is an end-to-end case for the declared path rather than
-evidence for a guard, and is recorded as such.
+Every case above was confirmed to redden when its guard is disabled, except
+`Cached_subtree_runs_its_component_once_and_is_reused_afterwards`, which is an
+observation probe with no guard to disable, and
+`An_htmx_response_header_set_during_render_reaches_every_request`, which is retained as a
+tripwire for #236: it holds today because an htmx request is not cached at all, not
+because anything guards the header. All inversion results are recorded in the
+verification evidence attached to the pull request; receipts live under `artifacts/`,
+which is ignored, so they do not ship with a clone and are cited through the pull request
+rather than by path.
 
-The redirect case is retained but is not counted above: `Redirect` both sets a header and
-suppresses the body, so either condition of the response-state guard catches it and it
-reddens only when both are removed. It pins the worst outcome rather than one guard.
+Three production branches have no case that reddens them, recorded rather than implied.
+The **pause** is unobservable: the only kind that now reaches it also abandons the whole
+capture, so nothing is stored either way. The **physical-versus-logical ancestor walk** is
+unobservable in principle at this revision, because the divergence between the two chains
+came from content passed as child content into a fragment and no reachable composition
+distinguishes them now. The **refusal ordering** no longer changes an outcome, because
+nothing pre-empts the framework's refusal. All three become observable again if #236
+restores the request-varying kinds, and #236 will have to re-derive them.
 
-Two production branches are deliberately unguarded and recorded rather than implied: the
-declared-ness component of the representation, which cannot collide because setting
-`VaryByHeader` at all changes the framework's own hashed variation flag, and the
-parentless-`CacheView` throw, which is unreachable by construction. The probe has no guard to
+The probe has no guard to
 disable; it evidences that a hit reuses stored output rather than recording a divergence.
 
 `VaryByRoute`, `VaryByCookie` and `VaryByCulture` are framework-owned, unchanged, and

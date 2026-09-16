@@ -213,21 +213,17 @@ variation. Htmxor appends the response representation to the tree position it al
 supplies, because one Htmxor URL serves representations the framework's key cannot
 distinguish; cached keys are therefore deliberately not equal to stock's.
 
-An **ordinary** request caches as it does under stock, including beneath a named fragment
-or an `IConditionalRender`: neither varies on a request that selects nothing and carries
-no trigger or target element. An **htmx** request caches
-only where the boundary named the htmx dimensions it varies by, through stock's
-`VaryByHeader`; without one it stores nothing and can be served nothing, and the
-representation records which of the two states the request is in. Htmxor infers no
-variation of its own: inferring broadly makes the key attacker-controlled, inferring
-narrowly serves one request another's markup, and both were measured before this shape
-was settled. The decision to cover htmx responses at all, rather than defer them, is
-recorded on #219; ergonomic opt-in is #236 and adds public surface #151 owns.
+An **ordinary** request caches exactly as it does under stock, including beneath a named
+fragment or an `IConditionalRender`. An **htmx** request caches nothing and is never
+served what an ordinary request stored; Htmxor cannot determine what a subtree read from
+an htmx request, and four attempts to decide it produced defects rather than a design.
+Caching htmx responses is #236, which owns the variation model, the interaction with
+`HtmxLayoutComponentBase`, and the performance evidence this issue never claimed.
 
 Scope is otherwise ordinary read-only `CacheView` on static-SSR pages; no public API
-or named-fragment contract changes. A *named* fragment, an `IConditionalRender`
-component or an interactive boundary inside a cached subtree, and a cached boundary
-beneath any of those same three, each cause Htmxor to store nothing for that one boundary,
+or named-fragment contract changes. An interactive render-mode boundary inside a cached
+subtree, and a cached boundary beneath one, each cause Htmxor to store nothing for that
+one boundary,
 leaving any sibling boundary cacheable, rather than replaying content that would be
 wrong. That
 is deliberately less caching than stock performs. Distributed deployments remain
