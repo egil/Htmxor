@@ -67,20 +67,6 @@ public sealed class Issue219CacheConfigurationTests
 	}
 
 	[Fact]
-	public async Task A_sibling_of_an_abandoning_boundary_still_caches()
-	{
-		var candidate = await ReadPairAsync<Issue219AbandonSiblingPage>(htmxor: true, htmx: true);
-
-		// On an htmx request the boundary holding the named fragment stores nothing: a named fragment is
-		// registered for selection only when its component is constructed, which serving stored output never
-		// does.
-		Assert.Equal("2", Slot(candidate[1], "fragment"));
-
-		// The point of the case: abandoning that boundary must not disable the ordinary one beside it.
-		Assert.Equal("1", Slot(candidate[1], "ordinary"));
-	}
-
-	[Fact]
 	public async Task An_ordinary_request_caches_a_named_fragments_boundary_like_stock()
 	{
 		var stock = await ReadPairAsync<Issue219AbandonSiblingPage>(htmxor: false);
@@ -152,75 +138,37 @@ public sealed class Issue219CacheConfigurationTests
 	}
 
 	[Fact]
-	public async Task An_htmx_request_renders_a_nested_boundary_beneath_a_named_fragment_where_stock_refuses()
+	public async Task A_nested_boundary_beneath_a_named_fragment_refuses_like_stock()
 	{
 		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219NestedFragmentBoundaryPage>(htmxor: false);
 		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219NestedFragmentBoundaryPage>(htmxor: true);
 
-		// A recorded decision, and it is narrower than it first appeared. Stock refuses a CacheView nested
-		// inside a capturing one because the inner boundary's output would be frozen into the outer entry.
-		// Htmxor pauses the capture at the named fragment, so the region is paused rather than capturing and
-		// the guard does not fire -- but only on an htmx request, because that is the only kind of request a
-		// named fragment is consequential on. On an ordinary request both hosts raise the refusal, which is the
-		// first thing this case asserts.
-		var ordinaryRefusal = await ReadRootCauseAsync(candidate, "/issue-219/nested-fragment-boundary");
-		var stockRefusal = await ReadRootCauseAsync(stock, "/issue-219/nested-fragment-boundary");
-		Assert.Contains("cannot be nested inside another CacheView", stockRefusal.Message, StringComparison.Ordinal);
-		Assert.Equal(stockRefusal.Message, ordinaryRefusal.Message);
+		// A withdrawn divergence, kept as the parity case it turned into. While a named fragment made Htmxor
+		// pause the capture, this composition rendered where stock refused it, on htmx requests; with that kind
+		// gone nothing pauses and stock's guard fires on both hosts, on both kinds of request. Measured.
+		// It stays because it is the tripwire for that pause returning: reintroduce a kind here and Htmxor
+		// starts swallowing a framework refusal again, which is how the divergence arrived unnoticed before.
+		var stockOrdinary = await ReadRootCauseAsync(stock, "/issue-219/nested-fragment-boundary");
+		var candidateOrdinary = await ReadRootCauseAsync(candidate, "/issue-219/nested-fragment-boundary");
+		Assert.Contains("cannot be nested inside another CacheView", stockOrdinary.Message, StringComparison.Ordinal);
+		Assert.Equal(stockOrdinary.Message, candidateOrdinary.Message);
 
-		using var client = candidate.GetTestClient();
-		var data = candidate.Services.GetRequiredService<Issue219Data>();
-		var first = await ReadAsync(client, "/issue-219/nested-fragment-boundary", htmx: true);
-		Assert.Contains("data-version=\"1\"", first, StringComparison.Ordinal);
-
-		data.Version = 2;
-
-		// The load-bearing assertion. It pins *why* rendering instead of refusing is safe: nothing was stored,
-		// so nothing can be replayed. If Htmxor ever starts storing in this composition this fails, and the
-		// decision above has to be revisited rather than silently outlived.
-		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/nested-fragment-boundary", htmx: true), StringComparison.Ordinal);
-	}
-
-	[Fact]
-	public async Task An_htmx_request_renders_a_rerender_conditional_holding_child_content_where_stock_refuses()
-	{
-		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219RerenderConditionalPage>(htmxor: false);
-		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219RerenderConditionalPage>(htmxor: true);
-
-		// The same decision in its non-streaming form, and the same narrowing. Stock's refusal here is
-		// mechanical: to replay a CacheBehavior.Rerender component on a hit it must capture that component's
-		// parameters, and a RenderFragment cannot be captured. Htmxor discards the whole capture for an
-		// IConditionalRender on an htmx request and stores nothing, so it never needs to replay the component.
-		// On an ordinary request it does not discard, and both hosts raise the same refusal.
-		var stockRefusal = await ReadRootCauseAsync(stock, "/issue-219/rerender-conditional", "alice");
-		var ordinaryRefusal = await ReadRootCauseAsync(candidate, "/issue-219/rerender-conditional", "alice");
-		Assert.Contains("RenderFragment parameter", stockRefusal.Message, StringComparison.Ordinal);
-		Assert.Equal(stockRefusal.Message, ordinaryRefusal.Message);
-
-		using var client = candidate.GetTestClient();
-		var data = candidate.Services.GetRequiredService<Issue219Data>();
-		var first = await ReadAuthenticatedAsync(client, "/issue-219/rerender-conditional", "alice", htmx: true);
-		Assert.Contains("authorized: alice", first, StringComparison.Ordinal);
-		Assert.Contains("data-version=\"1\"", first, StringComparison.Ordinal);
-
-		data.Version = 2;
-
-		// As above: current on the second request is what proves nothing was stored.
-		var second = await ReadAuthenticatedAsync(client, "/issue-219/rerender-conditional", "alice", htmx: true);
-		Assert.Contains("authorized: alice", second, StringComparison.Ordinal);
-		Assert.Contains("data-version=\"2\"", second, StringComparison.Ordinal);
+		var stockHtmx = await ReadRootCauseAsync(stock, "/issue-219/nested-fragment-boundary", htmx: true);
+		var candidateHtmx = await ReadRootCauseAsync(candidate, "/issue-219/nested-fragment-boundary", htmx: true);
+		Assert.Equal(stockHtmx.Message, candidateHtmx.Message);
 	}
 
 	// Stock raises these while the response body is written, so the exception can arrive wrapped rather than
 	// thrown from SendAsync. GetBaseException unwraps to the framework's own InvalidOperationException.
-	private static async Task<InvalidOperationException> ReadRootCauseAsync(WebApplication app, string path, string? user = null)
+	private static async Task<InvalidOperationException> ReadRootCauseAsync(
+		WebApplication app, string path, string? user = null, bool htmx = false)
 	{
 		var thrown = await Assert.ThrowsAnyAsync<Exception>(async () =>
 		{
 			using var client = app.GetTestClient();
 			_ = user is null
-				? await ReadAsync(client, path)
-				: await ReadAuthenticatedAsync(client, path, user);
+				? await ReadAsync(client, path, htmx)
+				: await ReadAuthenticatedAsync(client, path, user, htmx);
 		});
 
 		return Assert.IsType<InvalidOperationException>(thrown.GetBaseException());
@@ -521,44 +469,4 @@ public sealed class Issue219NestedFragmentBoundaryPage : ComponentBase
 	}
 }
 
-// An application type that is both an IConditionalRender and a CacheBehavior.Rerender component holding child
-// content. Stock cannot capture the RenderFragment parameter it would need to replay; Htmxor stores nothing.
-[Route("/issue-219/rerender-conditional")]
-public sealed class Issue219RerenderConditionalPage : ComponentBase
-{
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-rerender-conditional");
-		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
-		{
-			cached.OpenComponent<Issue219RerenderConditional>(0);
-			cached.AddAttribute(1, nameof(Issue219RerenderConditional.ChildContent), (RenderFragment)(wrapped =>
-			{
-				wrapped.OpenComponent<Microsoft.AspNetCore.Components.Authorization.AuthorizeView>(0);
-				wrapped.AddAttribute(1, "Authorized", (RenderFragment<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>)(state => inner =>
-				{
-					inner.OpenElement(0, "p");
-					inner.AddContent(1, $"authorized: {state.User.Identity?.Name}");
-					inner.CloseElement();
-					inner.OpenComponent<Issue219CachedContent>(2);
-					inner.CloseComponent();
-				}));
-				wrapped.CloseComponent();
-			}));
-			cached.CloseComponent();
-		}));
-		builder.CloseComponent();
-	}
-}
-
-[CacheBehavior(CacheBehavior.Rerender)]
-public sealed class Issue219RerenderConditional : ComponentBase, Htmxor.Components.IConditionalRender
-{
-	[Parameter] public RenderFragment? ChildContent { get; set; }
-
-	public bool ShouldOutput([System.Diagnostics.CodeAnalysis.NotNull] Htmxor.Http.HtmxContext context, int directConditionalChildren, int conditionalChildren) => true;
-
-	protected override void BuildRenderTree(RenderTreeBuilder builder) => builder.AddContent(0, ChildContent);
-}
 #endif

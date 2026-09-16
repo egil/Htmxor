@@ -22,6 +22,32 @@ namespace Htmxor.AspNetCore10;
 public sealed class Issue219CacheInteractiveTests
 {
 	[Fact]
+	public async Task A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing()
+	{
+		await using var app = await StartAsync<Issue219InteractiveInsidePage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		var first = await ReadAsync(client, "/issue-219/interactive-inside");
+		Assert.Contains("data-version=\"1\"", first, StringComparison.Ordinal);
+
+		data.Version = 2;
+
+		// The reverse of the nesting the case above covers, and the only composition that reaches the discard
+		// and the pause a capture performs over a render-mode boundary it *holds*. A stored entry would freeze
+		// prerendered interactive markup and a component id with it, so the boundary keeps nothing and the
+		// content beside it renders afresh too.
+		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/interactive-inside"), StringComparison.Ordinal);
+	}
+
+	private static async Task<string> ReadAsync(HttpClient client, string path)
+	{
+		using var response = await client.GetAsync(path);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
+
+	[Fact]
 	public async Task A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing()
 	{
 		await using var app = await StartAsync<Issue219InteractiveCachePage>(htmxor: true);
@@ -140,7 +166,7 @@ public sealed class Issue219CacheInteractiveTests
 		return await response.Content.ReadAsStringAsync();
 	}
 
-	private static async Task<WebApplication> StartAsync<TRoot>(bool htmxor) where TRoot : IComponent
+	internal static async Task<WebApplication> StartAsync<TRoot>(bool htmxor) where TRoot : IComponent
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
@@ -260,5 +286,34 @@ public sealed class Issue219InteractiveAuthPage : ComponentBase
 public sealed class Issue219InteractiveAuthBoundary : ComponentBase
 {
 	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue219Auth.Build(builder, varyByUser: false);
+}
+// A CacheView *holding* an interactive render-mode boundary, rather than standing beneath one.
+[Route("/issue-219/interactive-inside")]
+public sealed class Issue219InteractiveInsidePage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-interactive-inside");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219CachedContent>(0);
+			cached.CloseComponent();
+			cached.OpenComponent<Issue219InteractiveInsideContent>(1);
+			cached.AddComponentRenderMode(RenderMode.InteractiveServer);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219InteractiveInsideContent : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "p");
+		builder.AddAttribute(1, "data-interactive", "true");
+		builder.CloseElement();
+	}
 }
 #endif
