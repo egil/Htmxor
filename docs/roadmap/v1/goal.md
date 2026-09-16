@@ -211,7 +211,18 @@ the framework refuses to cache must keep raising the framework's own error.
 The framework keeps the cache store, key derivation, serialization, expiry and
 variation. Htmxor appends the response representation to the tree position it already
 supplies, because one Htmxor URL serves representations the framework's key cannot
-distinguish; cached keys are therefore deliberately not equal to stock's. Scope is ordinary read-only `CacheView` on static-SSR pages; no public API
+distinguish; cached keys are therefore deliberately not equal to stock's.
+
+An **ordinary** request caches exactly as it does under stock. An **htmx** request caches
+only where the boundary named the htmx dimensions it varies by, through stock's
+`VaryByHeader`; without one it stores nothing and can be served nothing, and the
+representation records which of the two states the request is in. Htmxor infers no
+variation of its own: inferring broadly makes the key attacker-controlled, inferring
+narrowly serves one request another's markup, and both were measured before this shape
+was settled. The decision to cover htmx responses at all, rather than defer them, is
+recorded on #219; ergonomic opt-in is #236 and adds public surface #151 owns.
+
+Scope is otherwise ordinary read-only `CacheView` on static-SSR pages; no public API
 or named-fragment contract changes. A *named* fragment, an `IConditionalRender`
 component or an interactive boundary inside a cached subtree, and a cached boundary
 beneath any of those same three, each cause Htmxor to store nothing for that one boundary,
