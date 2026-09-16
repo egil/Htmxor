@@ -95,7 +95,6 @@ public sealed class Issue219CacheBehaviourTests
 		var candidateTokens = await ReadTokensAsync(candidate);
 
 		// AntiforgeryToken is [CacheBehavior(Rerender)]: stock re-renders it on a hit rather than replaying it.
-		// AntiforgeryToken is [CacheBehavior(Rerender)]: stock re-renders it on a hit rather than replaying it.
 		Assert.NotEqual(stockTokens[0], stockTokens[1]);
 		Assert.NotEqual(candidateTokens[0], candidateTokens[1]);
 	}
@@ -142,19 +141,32 @@ public sealed class Issue219CacheAuthorizationTests
 		var expected = await ReadPairAsync(stock);
 		var actual = await ReadPairAsync(candidate);
 
+		// Each principal is read twice across an application data change, so a green result requires the entry
+		// to have been stored and reused per principal rather than merely re-rendered correctly.
 		Assert.Contains("alice", expected[0], StringComparison.Ordinal);
 		Assert.Contains("bob", expected[1], StringComparison.Ordinal);
+		Assert.Equal(["1", "1"], expected.Select(DataVersion));
 		Assert.Equal(expected, actual);
 	}
 
 	private static async Task<string[]> ReadPairAsync(WebApplication app)
 	{
+		var data = app.Services.GetRequiredService<Issue219Data>();
+		var warmAlice = await ReadAsAsync(app, "alice");
+		var warmBob = await ReadAsAsync(app, "bob");
+		Assert.Equal(HttpStatusCode.OK, warmAlice.Status);
+		Assert.Equal(HttpStatusCode.OK, warmBob.Status);
+
+		data.Version = 2;
 		var alice = await ReadAsAsync(app, "alice");
 		var bob = await ReadAsAsync(app, "bob");
 		Assert.Equal(HttpStatusCode.OK, alice.Status);
 		Assert.Equal(HttpStatusCode.OK, bob.Status);
 		return [alice.Body, bob.Body];
 	}
+
+	private static string DataVersion(string body)
+		=> System.Text.RegularExpressions.Regex.Match(body, "data-version=\"([^\"]+)\"").Groups[1].Value;
 
 	private static async Task<(HttpStatusCode Status, string Body)> ReadAsAsync(WebApplication app, string user)
 	{
@@ -197,6 +209,10 @@ internal static class Issue219Auth
 				inner.AddAttribute(1, "data-user", state.User.Identity?.Name);
 				inner.AddContent(2, $"authorized: {state.User.Identity?.Name}");
 				inner.CloseElement();
+
+				// Carries the application data version, so a green result needs real reuse per principal.
+				inner.OpenComponent<Issue219CachedContent>(3);
+				inner.CloseComponent();
 			}));
 			cached.CloseComponent();
 		}));
