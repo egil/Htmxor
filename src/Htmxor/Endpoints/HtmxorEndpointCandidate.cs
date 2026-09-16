@@ -34,6 +34,7 @@ using System.Buffers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Htmxor.Components;
 using Htmxor.DependencyInjection;
 using Htmxor.Http;
 using Htmxor.Rendering;
@@ -584,12 +585,21 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 		visitedComponentIdsInCurrentStreamingBatch.Add(componentId);
 #if NET11_0_OR_GREATER
+		var cacheViewServices = services.GetRequiredService<HtmxorEndpointCandidateCacheViewServices>();
 		if (GetComponentState(componentId).Component is CacheView cacheView &&
-			services.GetRequiredService<HtmxorEndpointCandidateCacheViewServices>().TryWrite(
-				services, cacheView, output, target => base.WriteComponentHtml(componentId, target)))
+			cacheViewServices.TryWrite(
+				services,
+				cacheView,
+				output,
+				target => base.WriteComponentHtml(componentId, target),
+				() => !captureAbandoned))
 		{
 			return;
 		}
+
+		var pausedCapture = TryPauseCaptureForUncacheableComponent(cacheViewServices, componentId, output);
+		try
+		{
 #endif
 		if (GetComponentState(componentId).Component is not HtmxorEndpointCandidateRenderModeBoundary boundary)
 		{
@@ -632,7 +642,82 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			output.Write(marker.PrerenderId);
 			output.Write("\"}-->");
 		}
+#if NET11_0_OR_GREATER
+		}
+		finally
+		{
+			if (pausedCapture is { } paused)
+			{
+				cacheViewServices.ResumeCapture(paused);
+			}
+		}
+#endif
 	}
+
+#if NET11_0_OR_GREATER
+	// True once a capture has met content it must not store, so the CacheView discards the entry instead of
+	// caching something that would be wrong to replay.
+	private bool captureAbandoned;
+
+	// Mirrors stock's second CacheView block: during an active capture, a component whose output depends on
+	// per-request state is excluded from the entry and recorded so a later hit renders it live instead.
+	private object? TryPauseCaptureForUncacheableComponent(
+		HtmxorEndpointCandidateCacheViewServices cacheViewServices, int componentId, TextWriter output)
+	{
+		if (!cacheViewServices.IsActiveCapture(output, out var writer) || writer is null)
+		{
+			return null;
+		}
+
+		var componentState = GetComponentState(componentId);
+		var component = componentState.Component;
+
+		// A named fragment is registered when its component is constructed, which a cache hit never does, and an
+		// interactive boundary is outside this slice's scope. Either way the subtree renders normally and is
+		// never stored, rather than being replayed in a form that would be wrong.
+		if (component is HtmxFragment or HtmxorEndpointCandidateRenderModeBoundary)
+		{
+			captureAbandoned = true;
+			return null;
+		}
+
+		var streaming = IsStreamingComponent(componentId);
+		if (cacheViewServices.IsCacheable(writer, component.GetType()) && !streaming)
+		{
+			return null;
+		}
+
+		cacheViewServices.PauseCapture(writer);
+		if (!cacheViewServices.IsValidationOnlyCapture(writer))
+		{
+			cacheViewServices.CreateLiveCachedComponent(
+				services, writer, component.GetType(), null, CaptureParameterFrames(componentState));
+		}
+
+		return writer;
+	}
+
+	private RenderTreeFrame[] CaptureParameterFrames(ComponentState componentState)
+	{
+		if (componentState.ParentComponentState is { } parent)
+		{
+			var frames = GetCurrentRenderTreeFrames(parent.ComponentId);
+			for (var index = 0; index < frames.Count; index++)
+			{
+				ref readonly var frame = ref frames.Array[index];
+				if (frame.FrameType is RenderTreeFrameType.Component && ReferenceEquals(frame.Component, componentState.Component))
+				{
+					var slice = new RenderTreeFrame[frame.ComponentSubtreeLength];
+					Array.Copy(frames.Array, index, slice, 0, slice.Length);
+					return slice;
+				}
+			}
+		}
+
+		throw new InvalidOperationException(
+			$"CacheView could not locate the live cached component '{componentState.Component.GetType().FullName}' in its parent's render tree.");
+	}
+#endif
 
 	private void WriteStaticComponentHtml(int componentId, TextWriter output, bool allowStreamingMarkers)
 	{
