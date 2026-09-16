@@ -272,7 +272,10 @@ the cost of not serving one representation's body for the other.
 Selected fragment names were tried in that value and removed. Selection is permitted
 from ordinary lifecycle code, so the names are not reliably populated when the
 framework asks for the key, and they added nothing: a boundary holding a named
-fragment abandons its capture regardless of how it is keyed.
+fragment abandons its capture regardless of how it is keyed. A boundary standing *beneath*
+a named fragment abandons it too: the representation says whether a request is an htmx one,
+not which fragment it selected, so two selections otherwise reach one entry and the second
+is served the first's markup.
 
 Two hosts hold separate stores, so no test can
 observe cross-host key equality; what is observed is that two sibling boundaries under
@@ -285,7 +288,7 @@ and takes the component key from the frame, rather than reaching for
 rendering per component id, because stock propagates that from the logical parent
 on `EndpointComponentState` and `CacheView` needs the inherited value.
 
-Synchronized **2026-09-15**, ASP.NET Core **v11.0.0-rc.1.26425.128**, commit
+Synchronized **2026-09-16**, ASP.NET Core **v11.0.0-rc.1.26425.128**, commit
 **c3325eeb6b47bc6383c127d4f4827dc9642a2b6e**. Exact monitored sources:
 
 - [CacheView.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/CacheView/CacheView.cs): the three component dependencies, watched with `api: none`.

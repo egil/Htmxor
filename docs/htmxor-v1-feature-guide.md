@@ -1257,6 +1257,10 @@ renders normally on every request:
   content is outside the executed boundary and no command exercised this path.
 - A cached boundary **beneath** an interactive render-mode boundary. It would otherwise
   store prerendered interactive content, keyed more weakly than stock keys it.
+- A cached boundary **beneath** a named `HtmxFragment` or an `IConditionalRender`. The
+  representation in the key says whether a request is an htmx one, not which fragment it
+  selected, so two selections would otherwise reach one entry and the second be served
+  the first's markup.
 
 A component of your own that is **not** one of these, but still varies its output by the
 request — by injecting `HtmxContext` and reading the triggering element, say — is cached
