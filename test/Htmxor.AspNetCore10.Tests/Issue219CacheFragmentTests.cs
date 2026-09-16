@@ -120,6 +120,69 @@ public sealed class Issue219CacheFragmentTests
 		Assert.Contains("data-version=\"2\"", await HtmxAsync(client), StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task A_declared_boundary_caches_and_reuses_across_htmx_requests()
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219DeclaredHtmxPage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// The other arm of the declaration gate, and the documented consumer path: a boundary that named the
+		// header its content varies by is cached on htmx requests like any ordinary one. Without a case here the
+		// gate could suppress everything and the suite would still be green, because every other htmx case
+		// asserts that something is *not* replayed.
+		var first = await DeclaredAsync(client, target: null);
+		Assert.Contains("data-version=\"1\"", first, StringComparison.Ordinal);
+
+		data.Version = 2;
+		var second = await DeclaredAsync(client, target: null);
+		Assert.Contains("data-version=\"1\"", second, StringComparison.Ordinal);
+
+		// And the declaration is honoured rather than merely permitting the cache: a request carrying a
+		// different value for the declared header resolves a different entry and renders afresh.
+		var retargeted = await DeclaredAsync(client, target: "#panel");
+		Assert.Contains("data-version=\"2\"", retargeted, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task A_keyed_boundary_is_not_served_another_keys_entry()
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219KeyedBoundaryPage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// One CacheView per request at one tree position, so the @key value is the only thing telling two items
+		// apart: same frame sequence, same parent component type, no CacheKey. Htmxor formats that value into
+		// the tree position key itself, and nothing else in the suite exercises it.
+		var itemA = await ReadAsync(client, "/issue-219/keyed?id=a");
+		Assert.Contains("data-item=\"a\" data-version=\"1\"", itemA, StringComparison.Ordinal);
+
+		data.Version = 2;
+
+		// Item b must render itself rather than replay item a. Losing the key discriminator is silent here,
+		// which is what makes it worth a case: the response is a well-formed 200 carrying the wrong item.
+		var itemB = await ReadAsync(client, "/issue-219/keyed?id=b");
+		Assert.Contains("data-item=\"b\" data-version=\"2\"", itemB, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-item=\"a\"", itemB, StringComparison.Ordinal);
+
+		// And the entries are real rather than merely absent: item a still reads its stored body.
+		Assert.Contains("data-item=\"a\" data-version=\"1\"", await ReadAsync(client, "/issue-219/keyed?id=a"), StringComparison.Ordinal);
+	}
+
+	private static async Task<string> DeclaredAsync(HttpClient client, string? target)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/declared");
+		request.Headers.Add("HX-Request", "true");
+		if (target is not null)
+		{
+			request.Headers.Add("HX-Target", target);
+		}
+
+		using var response = await client.SendAsync(request);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
+
 	private static async Task<string> HtmxAsync(HttpClient client)
 	{
 		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/undeclared");
@@ -212,7 +275,7 @@ public sealed class Issue219NameableFragmentPage : ComponentBase
 		builder.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
 		{
 			inner.OpenComponent<CacheView>(0);
-			inner.AddAttribute(5, nameof(CacheView.VaryBy), "issue-219-nameable");
+			inner.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Target");
 			inner.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 			{
 				cached.OpenComponent<Issue219CachedContent>(0);
@@ -243,7 +306,7 @@ public sealed class Issue219ConditionalAncestor : ComponentBase, IConditionalRen
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{
 		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(5, nameof(CacheView.VaryBy), "issue-219-conditional-ancestor");
+		builder.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<Issue219CachedContent>(0);
@@ -337,7 +400,7 @@ public sealed class Issue219SelectableFragmentPage : ComponentBase
 		builder.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
 		{
 			inner.OpenComponent<CacheView>(0);
-			inner.AddAttribute(5, nameof(CacheView.VaryBy), "issue-219-selectable");
+			inner.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Target");
 			inner.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 			{
 				cached.OpenElement(0, "p");
@@ -349,4 +412,48 @@ public sealed class Issue219SelectableFragmentPage : ComponentBase
 		builder.CloseComponent();
 	}
 }
+// Declares the htmx dimension its content varies by, so htmx requests are cached like ordinary ones.
+[Route("/issue-219/declared")]
+public sealed class Issue219DeclaredHtmxPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-declared");
+		builder.AddAttribute(3, nameof(CacheView.VaryByHeader), "HX-Target");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219CachedContent>(0);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// One boundary per request at one tree position, told apart only by @key. This is the shape in which losing
+// the key discriminator is silent: same frame sequence, same parent type, so the key value is the entire
+// discriminator and the second item would be served the first's markup rather than raising anything.
+[Route("/issue-219/keyed")]
+public sealed class Issue219KeyedBoundaryPage : ComponentBase
+{
+	[Inject] internal Issue219Data Data { get; set; } = default!;
+
+	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		var item = HttpContext.Request.Query["id"].ToString();
+		builder.OpenComponent<CacheView>(0);
+		builder.SetKey(item);
+		builder.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenElement(0, "p");
+			cached.AddAttribute(1, "data-item", item);
+			cached.AddAttribute(2, "data-version", Data.Version);
+			cached.CloseElement();
+		}));
+		builder.CloseComponent();
+	}
+}
+
 #endif

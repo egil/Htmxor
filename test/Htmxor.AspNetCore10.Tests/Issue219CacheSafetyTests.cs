@@ -377,7 +377,7 @@ public sealed class Issue219FragmentPage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment");
-		builder.AddAttribute(4, nameof(CacheView.VaryBy), "issue-219-fragment");
+		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<HtmxFragment>(0);
@@ -405,7 +405,7 @@ public sealed class Issue219UnnamedFragmentPage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment-unnamed");
-		builder.AddAttribute(4, nameof(CacheView.VaryBy), "issue-219-fragment-unnamed");
+		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			// No Name is set: this HtmxFragment is unnamed and therefore never registered for selection.
@@ -433,7 +433,7 @@ public sealed class Issue219FragmentSiblingPage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment-sibling");
-		builder.AddAttribute(4, nameof(CacheView.VaryBy), "issue-219-fragment-sibling");
+		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenElement(0, "p");

@@ -38,7 +38,7 @@ public sealed class Issue219CacheConfigurationTests
 	}
 
 	[Fact]
-	public async Task A_cache_hit_does_not_mutate_the_response_headers()
+	public async Task A_cache_hit_produces_the_same_headers_stock_does()
 	{
 		var expected = await ReadHeadersPairAsync(htmxor: false);
 		var actual = await ReadHeadersPairAsync(htmxor: true);
