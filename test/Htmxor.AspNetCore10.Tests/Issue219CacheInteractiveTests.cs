@@ -8,15 +8,17 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Htmxor.AspNetCore10;
 
-// A CacheView living beneath an interactive render-mode boundary (not the reverse, which the sibling streaming
-// case already covers) is covered here on its own, because it needs a genuinely interactive-server-capable host
-// rather than the plain static host the other Issue219 fixtures share.
+// A CacheView living beneath an interactive render-mode boundary is covered here on its own, because it needs
+// a genuinely interactive-server-capable host rather than the plain static host the other Issue219 fixtures
+// share. The reverse nesting -- a CacheView *holding* a render-mode boundary -- is untested; no case here or
+// elsewhere exercises it.
 public sealed class Issue219CacheInteractiveTests
 {
 	[Fact]
@@ -53,6 +55,57 @@ public sealed class Issue219CacheInteractiveTests
 
 		Assert.Contains("cannot be used inside a CacheView", expected.Message, StringComparison.Ordinal);
 		Assert.Equal(expected.Message, actual.Message);
+	}
+
+	[Fact]
+	public async Task A_position_that_gains_a_render_mode_boundary_is_never_staler_than_stock()
+	{
+		// Htmxor discards a capture beneath a render-mode boundary; stock stores one. Stock does not key that
+		// position differently either, because its SSRRenderModeBoundary GetComponentKey override applies to
+		// the boundary's own child and not to a CacheView further down. So the two hosts share one entry per
+		// position, and the only divergence is which requests fill it.
+		var stock = await MeasureAsync(htmxor: false);
+		var candidate = await MeasureAsync(htmxor: true);
+
+		// Stored without the boundary, then read beneath one: both replay the stored body. Htmxor's discard
+		// governs what is written, never what is served, so the hit path stays stock's.
+		Assert.Equal(("1", "1"), stock.StaticFirst);
+		Assert.Equal(stock.StaticFirst, candidate.StaticFirst);
+
+		// Stored beneath the boundary, then read without one: stock replays its stored body, Htmxor stored
+		// nothing and renders the current data. Htmxor caches less here and is never the staler of the two.
+		Assert.Equal(("1", "1"), stock.BoundaryFirst);
+		Assert.Equal(("1", "2"), candidate.BoundaryFirst);
+	}
+
+	private static async Task<((string, string) StaticFirst, (string, string) BoundaryFirst)> MeasureAsync(bool htmxor)
+	{
+		return (await OrderAsync(htmxor, "static-first", boundaryFirst: false),
+			await OrderAsync(htmxor, "boundary-first", boundaryFirst: true));
+	}
+
+	// A fresh host per ordering: one cache store must not carry an entry into the other measurement.
+	private static async Task<(string, string)> OrderAsync(bool htmxor, string key, bool boundaryFirst)
+	{
+		await using var app = await StartAsync<Issue219ConditionalModePage>(htmxor);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		var first = await ReadVersionAsync(client, key, boundaryFirst);
+		data.Version = 2;
+		var second = await ReadVersionAsync(client, key, !boundaryFirst);
+		return (first, second);
+	}
+
+	private static async Task<string> ReadVersionAsync(HttpClient client, string key, bool interactive)
+	{
+		var suffix = interactive ? "&interactive=1" : "";
+		using var response = await client.GetAsync($"/issue-219/conditional-mode?key={key}{suffix}");
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		var html = await response.Content.ReadAsStringAsync();
+		var index = html.IndexOf("data-version=\"", StringComparison.Ordinal);
+		Assert.True(index >= 0, "the cached content did not reach the response");
+		return html.Substring(index + 14, 1);
 	}
 
 	private static async Task<string> ReadAsync(HttpClient client)
@@ -135,6 +188,43 @@ public sealed class Issue219InteractiveBoundary : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-interactive");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219CachedContent>(0);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// One page whose render mode is decided per request, so the same CacheView position is sometimes beneath a
+// render-mode boundary and sometimes not. The key is taken from the query so each ordering starts clean.
+[Route("/issue-219/conditional-mode")]
+public sealed class Issue219ConditionalModePage : ComponentBase
+{
+	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<Issue219ConditionalModeBoundary>(0);
+		builder.AddAttribute(1, nameof(Issue219ConditionalModeBoundary.CacheKey), HttpContext.Request.Query["key"].ToString());
+		if (HttpContext.Request.Query.ContainsKey("interactive"))
+		{
+			builder.AddComponentRenderMode(RenderMode.InteractiveServer);
+		}
+
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219ConditionalModeBoundary : ComponentBase
+{
+	[Parameter] public string CacheKey { get; set; } = "";
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), CacheKey);
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<Issue219CachedContent>(0);

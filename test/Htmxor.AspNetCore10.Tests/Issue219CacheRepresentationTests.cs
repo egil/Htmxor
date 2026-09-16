@@ -21,7 +21,8 @@ public sealed class Issue219CacheRepresentationTests
 		using var ordinary = await client.GetAsync("/issue-219/branching");
 		Assert.Equal(HttpStatusCode.OK, ordinary.StatusCode);
 
-		// The htmx request hits that entry and never constructs the fragment it wants to select.
+		// The htmx request must miss that entry and construct the fragment it selects. Sharing it is what this
+		// case guards against, not what it expects.
 		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/branching");
 		request.Headers.Add("HX-Request", "true");
 		request.Headers.Add("HX-Request-Type", "partial");
