@@ -398,6 +398,10 @@ No stock equivalent exists, so there is nothing to pair against — `HtmxFragmen
 - `Selecting_a_second_fragment_does_not_replay_the_first_fragments_markup`
 - `A_boundary_is_not_served_what_it_stored_before_its_fragment_ancestor_was_named`
 - `A_boundary_beneath_a_conditional_component_stores_nothing`
+- `A_boundary_whose_request_varying_child_is_conditional_is_not_shared_across_targets`
+- `An_undeclared_boundary_does_not_cache_an_htmx_request_at_all`
+- `A_direct_request_is_not_served_what_a_standard_one_stored`
+- `Content_beside_a_named_fragment_is_not_kept_without_it`
 
 Htmxor deliberately caches less than stock, so a parity assertion would assert the wrong
 thing:
@@ -409,13 +413,17 @@ component runs:
 
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
 
-Seven of the eight cases in the first two groups were confirmed to redden when their
-guard is disabled, from four distinct inversions. All seven results are recorded in the
-verification receipt for `97b4240a212f7749f10ff86bb686a52a1634b481`, where they were
-measured. The eighth,
+Ten of the twelve cases in the first two groups were confirmed to redden when their
+guard is disabled, from eleven distinct inversions, all recorded in the verification
+receipt for `c7c6aa72d64989d76d0ace7806515101867f5d66`. An eleventh,
 `Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache`, is a negative
 control: it reddens when the guard is *widened* to every fragment rather than when it is
-disabled, which is the discrimination it exists to provide. The probe has no guard to
+disabled. The twelfth,
+`A_boundary_whose_request_varying_child_is_conditional_is_not_shared_across_targets`,
+reddens under no inversion: it declares the header its content actually varies by, which
+is correct for the fixture, so stock's own resolver separates its two requests and no
+Htmxor guard is exercised. It is an end-to-end case for the declared path rather than
+evidence for a guard, and is recorded as such. The probe has no guard to
 disable; it evidences that a hit reuses stored output rather than recording a divergence.
 
 `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and `VaryByCulture` are
