@@ -76,9 +76,9 @@ internal partial class HtmxorEndpointCandidateRenderer
 	{
 		// Only the request's own immutable properties. Selected fragment names were tried and removed: selection
 		// is permitted from ordinary lifecycle code, so the value is not yet stable when the framework asks for
-		// the key, and it added nothing in either nesting. A boundary holding a named fragment discards its
-		// capture regardless of the key; a boundary inside a selected fragment is written from that fragment's
-		// own render tree, which never revisits the boundary.
+		// the key, and it added nothing. A boundary holding a named fragment discards its capture whatever the
+		// key says, and a fragment-selecting request writes from the selected component's own render tree
+		// without revisiting the CacheView ancestor above it, so selection never reaches that decision.
 		var request = httpContext.GetHtmxContext().Request;
 		return $"{request.IsHtmxRequest}.{request.RoutingMode}";
 	}
