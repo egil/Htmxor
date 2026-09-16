@@ -1217,6 +1217,10 @@ cached component again, and the framework owns the store, key derivation,
 serialization, expiry and variation. Htmxor only restores the renderer coordination
 that its endpoint candidate would otherwise skip.
 
+Because one Htmxor URL serves more than one representation, each representation caches
+separately: an ordinary response and an htmx response never share an entry, and neither
+do two different fragment selections. Nothing needs configuring for that.
+
 Executed evidence covers `CacheKey`, `VaryByQuery`, `VaryByUser`, an expired boundary
 beside a still-reusing one, suppression inside a streaming subtree, response headers
 unchanged across a hit, a boundary that stores nothing beside one that still caches,

@@ -252,8 +252,19 @@ own resolution; no cache implementation is copied and no private field is writte
 Two upstream sources are mirrored rather than accessed, both with provenance and a
 watch. `ComponentKeyHelper.FormatSerializableKey` is a pure shared function, and
 `EndpointComponentState`'s tree-position key computation is reproduced in
-`HtmxorEndpointCandidateRenderer.FragmentSelection.cs`, line for line, so the key
-derivation stays the framework's. Two hosts hold separate stores, so no test can
+`HtmxorEndpointCandidateRenderer.FragmentSelection.cs`, line for line, and the response
+representation is then appended to it.
+
+That last part is deliberate and is not what stock does. Stock serves one
+representation per URL; Htmxor serves an ordinary response and one or more htmx
+responses from the same URL, and the framework's key has no dimension for the
+difference. Sharing one entry served an ordinary body to an htmx request, and a named
+fragment that the cached markup was stored around was never reconstructed, failing the
+request. The representation Htmxor already knows — whether the request is htmx, its
+routing mode, and any selected fragment names — therefore joins the position Htmxor
+already supplies, through the same approved `TreePositionKeyFactory`. Keys are
+consequently not equal to stock's for the same component tree; the derivation itself
+stays the framework's. Two hosts hold separate stores, so no test can
 observe cross-host key equality; what is observed is that two sibling boundaries under
 one parent with no explicit key are disambiguated, which is what the tree position is
 for. Stock's `GetComponentKey()` override for an `SSRRenderModeBoundary` parent is not
