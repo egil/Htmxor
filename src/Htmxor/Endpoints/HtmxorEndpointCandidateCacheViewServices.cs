@@ -6,12 +6,16 @@
 // synchronized 2026-09-15. Approved #219 dependencies and exact sources: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheView.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheViewService.cs | private-accesses
+// Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheViewTextWriter.cs | private-accesses
+// Htmxor upstream dependency: src/Components/Endpoints/src/RenderFragmentCapture.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Shared/src/ComponentKeyHelper.cs | mirrors
 
 using System.Globalization;
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
+using Microsoft.AspNetCore.Components.RenderTree;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.Endpoints;
@@ -27,6 +31,15 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 	private readonly PropertyInfo isInStreamingContext;
 	private readonly PropertyInfo treePositionKeyFactory;
 	private readonly PropertyInfo isCacheHit;
+	private readonly Type writerType;
+	private readonly Type captureType;
+	private readonly PropertyInfo isCapturing;
+	private readonly PropertyInfo isValidationOnly;
+	private readonly PropertyInfo varyBy;
+	private readonly MethodInfo pauseCapture;
+	private readonly MethodInfo startCapture;
+	private readonly MethodInfo createLiveCachedComponent;
+	private readonly MethodInfo isCacheableComponent;
 	private readonly MethodInfo throwIfNested;
 	private readonly MethodInfo tryBeginWrite;
 	private readonly MethodInfo endCapture;
@@ -48,6 +61,56 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 			renderStateType, typeof(CacheView), typeof(TextWriter), typeof(TextWriter).MakeByRefType());
 		endCapture = RequireMethod(serviceType, "EndCapture",
 			BindingFlags.Public | BindingFlags.Instance, typeof(void), renderStateType, typeof(bool));
+
+		writerType = RequireInternalClass("CacheViewTextWriter");
+		captureType = RequireInternalClass("RenderFragmentCapture", "Microsoft.AspNetCore.Components");
+		isCapturing = RequireProperty(writerType, "IsCapturing", typeof(bool), read: true);
+		isValidationOnly = RequireProperty(writerType, "IsValidationOnly", typeof(bool), read: true);
+		varyBy = RequireProperty(writerType, "VaryBy", typeof(CacheVaryBy), read: true);
+		pauseCapture = RequireMethod(writerType, "PauseCapture", BindingFlags.Public | BindingFlags.Instance, typeof(void));
+		startCapture = RequireMethod(writerType, "StartCapture", BindingFlags.Public | BindingFlags.Instance, typeof(void));
+		createLiveCachedComponent = RequireMethod(writerType, "CreateLiveCachedComponent",
+			BindingFlags.Public | BindingFlags.Instance, typeof(void),
+			typeof(Type), typeof(IComponentRenderMode), captureType, typeof(ILogger));
+		isCacheableComponent = RequireMethod(serviceType, "IsCacheableComponent",
+			BindingFlags.Public | BindingFlags.Static, typeof(bool), typeof(Type), typeof(CacheVaryBy));
+
+		if (captureType.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+			null, [typeof(RenderTreeFrame[])], null) is null)
+		{
+			throw IncompatibleFramework("RenderFragmentCapture(RenderTreeFrame[]) constructor");
+		}
+	}
+
+	// Stock consults this for every component written during an active capture. A component whose output
+	// depends on per-request state either raises stock's descriptive error or is excluded from the entry, so
+	// nothing per-user or per-request is frozen into cached markup.
+	internal bool IsActiveCapture(TextWriter output, out object? writer)
+	{
+		writer = writerType.IsInstanceOfType(output) ? output : null;
+		return writer is not null && (bool)isCapturing.GetValue(writer)!;
+	}
+
+	internal bool IsCacheable(object writer, Type componentType)
+		=> (bool)isCacheableComponent.Invoke(null, BindingFlags.DoNotWrapExceptions, null,
+			[componentType, varyBy.GetValue(writer)!], null)!;
+
+	internal void PauseCapture(object writer) => pauseCapture.Invoke(writer, BindingFlags.DoNotWrapExceptions, null, null, null);
+
+	internal void ResumeCapture(object writer) => startCapture.Invoke(writer, BindingFlags.DoNotWrapExceptions, null, null, null);
+
+	internal bool IsValidationOnlyCapture(object writer) => (bool)isValidationOnly.GetValue(writer)!;
+
+	// Stock records the excluded component so a later cache hit re-renders it live instead of replaying markup.
+	internal void CreateLiveCachedComponent(
+		IServiceProvider services, object writer, Type componentType, IComponentRenderMode? renderMode, RenderTreeFrame[] frames)
+	{
+		var capture = Activator.CreateInstance(
+			captureType, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, [frames], null);
+		var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(
+			"Microsoft.AspNetCore.Components.Endpoints.RenderFragmentSerializer");
+		createLiveCachedComponent.Invoke(writer, BindingFlags.DoNotWrapExceptions, null,
+			[componentType, renderMode, capture, logger], null);
 	}
 
 	internal static HtmxorEndpointCandidateCacheViewServices Create() => new();
@@ -62,7 +125,8 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 
 	// Mirrors stock EndpointHtmlRenderer.WriteComponentHtml's CacheView branch. Returns false when the caller
 	// should write the component the ordinary way.
-	internal bool TryWrite(IServiceProvider services, CacheView cacheView, TextWriter output, Action<TextWriter> write)
+	internal bool TryWrite(
+		IServiceProvider services, CacheView cacheView, TextWriter output, Action<TextWriter> write, Func<bool> captureUsable)
 	{
 		throwIfNested.Invoke(null, BindingFlags.DoNotWrapExceptions, null, [output], null);
 		var state = renderState.GetValue(cacheView);
@@ -84,16 +148,17 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 			return false;
 		}
 
+		// Resolved before the try so a failure here cannot replace an in-flight exception from the write.
+		var service = services.GetRequiredService(serviceType);
 		var captured = false;
 		try
 		{
 			write((TextWriter)arguments[3]!);
-			captured = true;
+			captured = captureUsable();
 		}
 		finally
 		{
-			endCapture.Invoke(services.GetRequiredService(serviceType),
-				BindingFlags.DoNotWrapExceptions, null, [state, captured], null);
+			endCapture.Invoke(service, BindingFlags.DoNotWrapExceptions, null, [state, captured], null);
 		}
 
 		return true;
@@ -136,9 +201,9 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 		};
 	}
 
-	private static Type RequireInternalClass(string name)
+	private static Type RequireInternalClass(string name, string namespaceName = "Microsoft.AspNetCore.Components.Endpoints")
 	{
-		var type = EndpointAssembly.GetType($"Microsoft.AspNetCore.Components.Endpoints.{name}")
+		var type = EndpointAssembly.GetType($"{namespaceName}.{name}")
 			?? throw IncompatibleFramework(name);
 		return type.IsNotPublic && type.IsClass && !type.IsGenericType
 			? type

@@ -194,6 +194,8 @@ internal partial class HtmxorEndpointCandidateRenderer
 		return depth;
 	}
 
+	// Whether this component's own type opted into streaming, which decides its streaming markers. The
+	// inherited "is inside a streaming subtree" question that CacheView needs is tracked separately.
 	private bool IsStreamingComponent(int componentId)
 		=> GetComponentState(componentId).Component.GetType()
 			.GetCustomAttributes(typeof(StreamRenderingAttribute), inherit: true)

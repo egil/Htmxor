@@ -6,6 +6,7 @@
 // docs/engineering/candidate-form-adapter.md for the approved #219 dependency inventory.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointComponentState.cs | reimplements
 
+using System.Collections.Concurrent;
 using Htmxor.Components;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
@@ -28,10 +29,12 @@ internal partial class HtmxorEndpointCandidateRenderer
 			renderedFragments.Add(componentId, fragment);
 		}
 #if NET11_0_OR_GREATER
-		// Stock propagates this from the logical parent on EndpointComponentState; CacheView needs the inherited
-		// value, not just its own attribute, because caching is suppressed inside a streaming subtree.
+		// This is the inherited notion stock keeps on EndpointComponentState.StreamRendering, which CacheView
+		// needs: a component inside a streaming subtree is itself in a streaming context. It is deliberately
+		// not the same question as IsStreamingComponent, which asks only whether this component's own type
+		// opted in and decides whether to emit that component's streaming markers.
 		streamRenderingByComponentId[componentId] =
-			GetStreamRenderingAttribute(component) ?? IsInheritedStreamRendering(parentComponentState);
+			GetStreamRenderingAttribute(component) ?? IsInheritedStreamRendering(state.LogicalParentComponentState);
 		if (component is CacheView cacheView && parentComponentState is not null)
 		{
 			var ancestorTypeName = parentComponentState.Component?.GetType().FullName ?? "";
@@ -52,12 +55,14 @@ internal partial class HtmxorEndpointCandidateRenderer
 			streamRenderingByComponentId.TryGetValue(parentComponentState.ComponentId, out var streaming) &&
 			streaming;
 
+	private static readonly ConcurrentDictionary<Type, bool?> StreamRenderingByComponentType = new();
+
 	private static bool? GetStreamRenderingAttribute(IComponent component)
-		=> component.GetType()
+		=> StreamRenderingByComponentType.GetOrAdd(component.GetType(), static type => type
 			.GetCustomAttributes(typeof(StreamRenderingAttribute), inherit: true)
 			.OfType<StreamRenderingAttribute>()
 			.Select(attribute => (bool?)attribute.Enabled)
-			.FirstOrDefault();
+			.FirstOrDefault());
 
 	// Mirrors stock EndpointComponentState: multiple CacheView components under one parent must not share a key.
 	private string ComputeCacheViewTreePositionKey(ComponentState parentComponentState, CacheView target, string ancestorTypeName)
