@@ -51,6 +51,9 @@ internal partial class HtmxorEndpointCandidateRenderer
 #if NET11_0_OR_GREATER
 	private readonly Dictionary<int, bool> streamRenderingByComponentId = [];
 
+	internal bool IsInStreamingContext(int componentId)
+		=> streamRenderingByComponentId.TryGetValue(componentId, out var streaming) && streaming;
+
 	private bool IsInheritedStreamRendering(ComponentState? parentComponentState)
 		=> parentComponentState is not null &&
 			streamRenderingByComponentId.TryGetValue(parentComponentState.ComponentId, out var streaming) &&
@@ -71,11 +74,11 @@ internal partial class HtmxorEndpointCandidateRenderer
 	// which fails the request. The representation therefore joins the position Htmxor already supplies.
 	private string CurrentRepresentation()
 	{
-		var htmxContext = httpContext.GetHtmxContext();
-		var selected = htmxContext.Response.SelectedFragmentNames;
-		return selected.Count is 0
-			? $"{htmxContext.Request.IsHtmxRequest}.{htmxContext.Request.RoutingMode}"
-			: $"{htmxContext.Request.IsHtmxRequest}.{htmxContext.Request.RoutingMode}.{string.Join(",", selected)}";
+		// Only the request's own immutable properties. Selected fragment names were tried and removed: selection
+		// is permitted from ordinary lifecycle code, so the value is not yet stable when the framework asks for
+		// the key, and it added nothing — a boundary holding a fragment abandons its capture regardless.
+		var request = httpContext.GetHtmxContext().Request;
+		return $"{request.IsHtmxRequest}.{request.RoutingMode}";
 	}
 
 	// Mirrors stock EndpointComponentState's position computation: multiple CacheView components under one
