@@ -1225,17 +1225,17 @@ than one in total.
 
 Executed evidence covers `CacheKey`, `VaryByQuery`, `VaryByUser`, an expired boundary
 beside a still-reusing one, suppression inside a streaming subtree, response headers matching
-between a miss and a hit and between hosts, a boundary that stores nothing beside one
-that still caches,
+between a miss and a hit and between hosts, an async-load boundary never replaying another
+request's element-identity decision, a boundary that stores nothing beside one that still
+caches,
 and two sibling boundaries under one parent with no explicit key. The remaining
 variation parameters — `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and
 `VaryByCulture` — are framework-owned and unchanged by Htmxor, but no Htmxor command
 has exercised them.
 
 Content that must not be cached is refused exactly as stock refuses it, including in a
-boundary that is disabled or otherwise storing nothing, which stock still validates. The
-one exception is a boundary beneath an interactive render-mode boundary, described
-below. A component
+boundary that is disabled or otherwise storing nothing, which stock still validates. A
+component
 carrying `[CacheBehavior(CacheBehavior.Throw)]` raises the framework's own descriptive
 error rather than being cached — `AuthorizeView` inside a `CacheView` that does not
 vary by user is the case to know, and varying by user is the fix. A component carrying
@@ -1251,7 +1251,15 @@ renders normally on every request:
 - Any component implementing `IConditionalRender` inside a cached subtree, such as
   `HtmxAsyncLoad`. These decide whether to produce markup from the request itself —
   `HtmxAsyncLoad` from the triggering and target elements — which no cache key carries,
-  so replaying stored output would hand one request another's markup.
+  so replaying stored output would hand one request another's markup. The interface is
+  public, so this covers your own components too.
+
+A component of your own that is **not** one of these, but still varies its output by the
+request — by injecting `HtmxContext` and reading the triggering element, say — is cached
+and replayed like any other content, because nothing in the cache key describes what it
+read. Mark such a component `[CacheBehavior(CacheBehavior.Throw)]` or
+`[CacheBehavior(CacheBehavior.Rerender)]`, exactly as you would for a framework component
+whose output depends on per-request state; Htmxor honours those the same way stock does.
 - An interactive render-mode boundary inside a cached subtree. Cached interactive
   content is outside the executed boundary and no command exercised this path.
 - A cached boundary **beneath** an interactive render-mode boundary. It would otherwise
