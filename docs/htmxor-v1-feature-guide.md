@@ -1248,76 +1248,38 @@ vary by user is the case to know, and varying by user is the fix. A component ca
 `[CacheBehavior(CacheBehavior.Rerender)]`, such as `AntiforgeryToken`, is excluded from
 the entry and rendered live on a later hit instead of being replayed.
 
-**An htmx request is cached only where you say what it varies by.** An ordinary request
-caches as it does under stock, including a boundary holding or beneath a named
-`HtmxFragment` or an `IConditionalRender`: on an ordinary request nothing selects a
-fragment and the trigger and target elements those components read are absent, so they
-render deterministically and the boundary caches normally. For an htmx request, Htmxor cannot know what a
-subtree read — the trigger element, the target, an extension header — and it will not
-guess: guessing broadly would put client-chosen values in the cache key, letting anyone
-force unlimited entries, and guessing narrowly would serve one request another's markup.
+**An htmx request is never cached.** `CacheView` works on an ordinary static-SSR page
+exactly as it does under stock ASP.NET Core — miss, hit, expiry and every configured
+`VaryBy*` dimension. On an htmx request the boundary renders every time and stores
+nothing, and it is never served what an ordinary request stored, because the two occupy
+separate key spaces.
 
-So declare it, with the parameter stock already provides:
+That is a deliberate v1 boundary rather than an oversight. Htmxor cannot tell what a
+subtree read from an htmx request — the triggering element, the target, an extension
+header — and four attempts to decide it for you each produced a defect: inferring the
+dimensions was incomplete, keying on every `HX-*` header made the key unbounded
+attacker-controlled input, and letting you declare the dimensions was sound but silently
+did nothing beneath `HtmxLayoutComponentBase`, which is the layout this documentation
+teaches. Caching htmx responses is tracked as its own feature in #236, where the
+variation model and its performance evidence belong together.
 
-```razor
-<CacheView CacheKey="panel" VaryByHeader="HX-Target">
-    ...
-</CacheView>
-```
+Two consequences worth knowing while that is outstanding. A component that sets htmx
+response state while rendering — `Retarget`, `Redirect`, `StatusCode`, `EmptyBody` and
+the rest — is unaffected, because its boundary is never serving a cache hit on an htmx
+request. And a page that is only ever reached over htmx gains nothing from a `CacheView`
+today; put the boundary where ordinary requests reach it, or wait for #236.
 
-A boundary that declares nothing stores nothing on an htmx request and renders afresh
-every time.
+One composition causes Htmxor to store nothing for that boundary, so the subtree renders
+normally on every request: an **interactive render-mode boundary**, whether the cached
+boundary holds one or stands beneath one. Cached prerendered interactive content would be
+keyed more weakly than stock keys it, because stock's `SSRRenderModeBoundary` component
+key is not mirrored. Any sibling boundary stays cacheable.
 
-**On an htmx request only**, two compositions render under Htmxor where stock raises an
-error instead: a `CacheView` nested beneath a named `HtmxFragment` inside another
-`CacheView`, and a `[CacheBehavior(CacheBehavior.Rerender)]` component taking child
-content. On an ordinary request both hosts raise the identical refusal. Stock's refusal
-protects a replay mechanism Htmxor does not use in these shapes, and Htmxor stores nothing
-for them, so the page renders rather than failing. The trade is silence: the boundary
-looks cached and is not. If you need the caching, restructure so the boundary holds
-neither.
-
-**A cache hit does not re-run the components in the boundary, so anything they did
-besides producing markup does not happen again.** Htmxor therefore stores nothing for a boundary whose render left htmx response state
-behind — any `HX-*` response header, a suppressed body, or a status code. That covers
-`Retarget`, `Reswap`, `Reselect`, `Trigger` and its extension overload, `Location`,
-`Redirect`, `Refresh`, `StopPolling`, `StatusCode` and `EmptyBody`. The boundary renders
-every time instead, so the instruction reaches every request.
-
-Without that, the failures are silent and varied: a lost `HX-Retarget` swaps correct
-markup into the wrong element, a lost `HX-Redirect` leaves the client on the page with
-stale content instead of navigating, and a lost `286` becomes a `200` so a polling client
-never stops. An ordinary response header — a cookie, say — is **not** covered, because
-losing it on a hit is what stock does too. It is never served an ordinary request's body either, because htmx and
-ordinary responses occupy separate key spaces. Declaring incompletely — naming one header
-when the content varies by another — caches against a key that does not describe the
-request, exactly as it would under stock for an undeclared query value.
-
-These compositions cause Htmxor to store nothing for that boundary, so the subtree
-renders normally on every request:
-
-- A named `HtmxFragment` inside a cached subtree. A fragment is registered for
-  selection when its component is constructed, which serving stored output never does,
-  so caching it would break selection rather than merely skip work.
-- Any component implementing `IConditionalRender` inside a cached subtree, such as
-  `HtmxAsyncLoad`. These decide whether to produce markup from the request itself —
-  `HtmxAsyncLoad` from the triggering and target elements — which no cache key carries,
-  so replaying stored output would hand one request another's markup. The interface is
-  public, so this covers your own components too.
-- An interactive render-mode boundary inside a cached subtree. Cached interactive
-  content is outside the executed boundary and no command exercised this path.
-- A cached boundary **beneath** an interactive render-mode boundary. It would otherwise
-  store prerendered interactive content, keyed more weakly than stock keys it.
-- A cached boundary **beneath** a named `HtmxFragment` or an `IConditionalRender`. The
-  representation in the key says whether a request is an htmx one, not which fragment it
-  selected, so two selections would otherwise reach one entry and the second be served
-  the first's markup.
-
-A boundary standing beneath any of these also caches separately from the same boundary
-standing outside them, rather than merely declining to store. `Name` is an ordinary
-parameter, so one position can be plain content on one request and a selectable fragment
-on the next; without that separation the second request would be handed what the first
-stored.
+Earlier revisions also refused to cache a boundary holding or beneath a named
+`HtmxFragment` or an `IConditionalRender`. Those guards existed for cached htmx
+responses; with htmx requests no longer cached, neither varies on an ordinary request —
+nothing selects a fragment, and the triggering and target elements an `IConditionalRender`
+reads are absent — so both cache normally now.
 
 A component of your own that is **not** one of these, but still varies its output by the
 request — by injecting `HtmxContext` and reading the triggering element, say — is cached
