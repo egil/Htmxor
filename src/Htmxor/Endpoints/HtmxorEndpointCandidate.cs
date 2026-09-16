@@ -683,7 +683,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		// IsInStreamingContext switch would be more direct, but that is read during parameter binding, before
 		// VaryByHeader has a value.
 		captureAbandoned = HasUncacheableAncestor(GetComponentState(componentId)) ||
-			(httpContext.GetHtmxContext().Request.IsHtmxRequest && !DeclaresRequestVariation(cacheView));
+			(httpContext.GetHtmxContext().Request.IsHtmxRequest && !DeclaresHtmxVariation(cacheView));
 		try
 		{
 			return CacheViewServices.TryWrite(
