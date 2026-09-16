@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.AspNetCore10;
 
@@ -46,6 +47,48 @@ public sealed class Issue219CacheFragmentTests
 
 		Assert.Contains("cannot be used inside a CacheView", expected.Message, StringComparison.Ordinal);
 		Assert.Equal(expected.Message, actual.Message);
+	}
+
+	[Fact]
+	public async Task A_boundary_is_not_served_what_it_stored_before_its_fragment_ancestor_was_named()
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219NameableFragmentPage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// An HtmxFragment's Name is a parameter, so one position can be unnamed on one request and named on the
+		// next at the same representation. Unnamed, the boundary beneath it is ordinary content and caches.
+		var unnamed = await ReadAsync(client, "/issue-219/nameable");
+		Assert.Contains("data-version=\"1\"", unnamed, StringComparison.Ordinal);
+
+		data.Version = 2;
+
+		// Named, the same position must not be handed the body stored while it was ordinary content. Abandoning
+		// the capture cannot achieve that on its own, because abandonment governs the store and not the serve.
+		var named = await ReadAsync(client, "/issue-219/nameable?name=details");
+		Assert.Contains("data-version=\"2\"", named, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task A_boundary_beneath_a_conditional_component_stores_nothing()
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219ConditionalAncestorPage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		Assert.Contains("data-version=\"1\"", await ReadAsync(client, "/issue-219/conditional-ancestor"), StringComparison.Ordinal);
+		data.Version = 2;
+
+		// The ancestor decides from the request whether to produce markup at all, which no cache key carries,
+		// so a boundary underneath it renders afresh every time rather than replaying an earlier decision.
+		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/conditional-ancestor"), StringComparison.Ordinal);
+	}
+
+	private static async Task<string> ReadAsync(HttpClient client, string path)
+	{
+		using var response = await client.GetAsync(path);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
 	}
 
 	private static async Task<string> ReadAsync(WebApplication app)
@@ -96,6 +139,59 @@ public sealed class Issue219ConditionalRefusedContent : ComponentBase, IConditio
 		builder.OpenElement(0, "p");
 		builder.AddContent(1, "refused");
 		builder.CloseElement();
+	}
+}
+
+// One position whose HtmxFragment ancestor is unnamed on one request and named on the next.
+[Route("/issue-219/nameable")]
+public sealed class Issue219NameableFragmentPage : ComponentBase
+{
+	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		var name = HttpContext.Request.Query["name"].ToString();
+		builder.OpenComponent<HtmxFragment>(0);
+		builder.AddAttribute(1, nameof(HtmxFragment.Name), string.IsNullOrEmpty(name) ? null : name);
+		builder.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
+		{
+			inner.OpenComponent<CacheView>(0);
+			inner.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+			{
+				cached.OpenComponent<Issue219CachedContent>(0);
+				cached.CloseComponent();
+			}));
+			inner.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// An IConditionalRender standing above a boundary, rather than inside one. ConditionalComponentBase is the
+// public base an application derives from, so this is the shape a consumer reaches, not an internal one.
+[Route("/issue-219/conditional-ancestor")]
+public sealed class Issue219ConditionalAncestorPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<Issue219ConditionalAncestor>(0);
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219ConditionalAncestor : ComponentBase, IConditionalRender
+{
+	public bool ShouldOutput([System.Diagnostics.CodeAnalysis.NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren) => true;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219CachedContent>(0);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
 	}
 }
 
