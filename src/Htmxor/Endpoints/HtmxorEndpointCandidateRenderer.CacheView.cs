@@ -78,21 +78,6 @@ internal partial class HtmxorEndpointCandidateRenderer
 			.Select(attribute => (bool?)attribute.Enabled)
 			.FirstOrDefault());
 
-	// One URL serves more than one representation under Htmxor, and the framework's key has no dimension for
-	// that, so an ordinary response and an htmx one would share an entry. They do not contain the same thing:
-	// a body cached for one is wrong for the other, and a named fragment stored around is never reconstructed,
-	// which fails the request. The representation therefore joins the position Htmxor already supplies.
-	// One bounded bit: whether this is an htmx request. It exists only so that an ordinary response and an
-	// htmx response can never share an entry, since the same URL serves both and their bodies differ.
-	//
-	// Nothing else about the request enters the key. An earlier revision put every HX-* header here, which
-	// closed a real hole and opened two worse ones: the key became unbounded attacker-controlled input, so a
-	// client could force an entry per request, and the name=value encoding was forgeable, so a crafted single
-	// header impersonated two and was served another client's stored body. Both were measured.
-	//
-	// Variation beyond this bit is the application's to declare, exactly as it is under stock. VaryByHeader
-	// takes a header list and reaches stock's own length-prefixed resolver, so <CacheView VaryByHeader=
-	// "HX-Target"> keys correctly with no Htmxor encoding involved and a cardinality the author chose.
 	// One bit, and only because an htmx request must never be served an entry an ordinary request stored:
 	// the same URL serves both and their bodies differ. Nothing writes into the htmx key space, since an htmx
 	// request caches nothing, so the bit is what makes "stores nothing" also mean "is served nothing".

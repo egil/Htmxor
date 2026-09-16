@@ -262,12 +262,12 @@ representation per URL; Htmxor serves an ordinary response and one or more htmx
 responses from the same URL, and the framework's key has no dimension for the
 difference. Sharing one entry served an ordinary body to an htmx request, and a named
 fragment that the cached markup was stored around was never reconstructed, failing the
-request. The representation Htmxor already knows — whether the request is htmx and its
-routing mode — therefore joins the position Htmxor already supplies, through the same
-approved `TreePositionKeyFactory`. Keys are consequently not equal to stock's for the
-same component tree; the derivation itself stays the framework's. A page serving both
-representations holds one entry per representation rather than one in total, which is
-the cost of not serving one representation's body for the other.
+request. One bit — whether the request is an htmx one — therefore joins the position Htmxor
+already supplies, through the same approved `TreePositionKeyFactory`. Keys are
+consequently not equal to stock's for the same component tree; the derivation itself
+stays the framework's. Only the ordinary representation is ever stored, because an htmx
+request caches nothing, so the bit exists to keep an htmx request from being served an
+ordinary body rather than to hold two entries.
 
 Selected fragment names were tried in that value and removed. Selection is permitted
 from ordinary lifecycle code, so the names are not reliably populated when the
@@ -328,35 +328,36 @@ mirrors that rather than returning early on a null state, and
 `A_disabled_boundary_still_refuses_content_stock_refuses` asserts the message equals
 stock's.
 
-Several compositions discard the capture instead, so the boundary stores nothing and the
-subtree renders normally on every request. A named `HtmxFragment` is registered for
-selection only when its component is constructed, which serving stored output never
-does, so replaying it would break the selection #218 delivered. An unnamed one cannot be
-selected and is treated as ordinary content. Any `IConditionalRender`
-component decides whether to produce markup from the request — `HtmxAsyncLoad` from the
-triggering and target elements — and no cache key carries that, so replaying it would
-hand one request another's markup. An interactive render-mode boundary is treated the
-same way, because Htmxor's own boundary does not expose the inner component type a live
-cached component would need; that path is outside this slice's scope and no command
-exercised it.
+Two compositions discard the capture instead, so the boundary stores nothing and the
+subtree renders normally on every request. An `HtmxAsyncLoad` writes the current request
+path into its placeholder, and no path reaches a cache key unless the application
+declared `VaryByRoute`, so a page at two routes would otherwise serve the first request's
+placeholder to the second. It is named concretely rather than through
+`IConditionalRender`, because `HtmxLayoutComponentBase` implements that interface with a
+constant and refusing the interface stopped every boundary beneath the documented layout
+from caching. An interactive render-mode boundary is discarded because Htmxor's own
+boundary does not expose the inner component type a live cached component would need.
+
+A named `HtmxFragment` is **not** discarded. It was, while htmx responses were cached;
+selection is honoured only in `RoutingMode.Direct`, which requires an htmx request, and
+those cache nothing, so on an ordinary request the fragment is ordinary content.
 
 A consumer component that is none of these but still varies by the request — one that
 injects the scoped `HtmxContext` and reads the triggering or target element, say — is
 captured and replayed, because no cache key describes what it read. No `HX-*` header
-enters any key unless the application named it through `VaryByHeader`. This is newly reachable, since before this change
+enters any key at all. This is newly reachable, since before this change
 nothing was stored at all. `IsCacheableComponent` is consulted *before* the discard, so
 stock's `[CacheBehavior]` opt-out applies to every component and is the documented
 remedy. No command exercises that composition; it is filed as #235
 rather than left as narration here.
 
-A cached boundary **beneath** any of the three request-varying kinds is discarded too.
-Beneath an interactive render-mode boundary the reason differs: it would store
-prerendered interactive content keyed more weakly than stock keys it, since stock's
-`SSRRenderModeBoundary` component-key override is not mirrored. Beneath a *named*
-`HtmxFragment` or an `IConditionalRender` the reason is the one above — the content is
-chosen per request by something the key does not carry. In every case the boundary
-discards its capture rather than skipping one, so stock's refusal guard still runs over
-what it holds.
+A cached boundary **beneath** either kind is discarded too. Beneath an interactive
+render-mode boundary it would store prerendered interactive content keyed more weakly
+than stock keys it, since stock's `SSRRenderModeBoundary` component-key override is not
+mirrored. Beneath an `HtmxAsyncLoad` the reason is the one above. The boundary is marked
+rather than paused, so the framework's refusals still run over what it holds — pausing
+hid the subtree from them, and abandoning without marking left a streaming page throwing
+where stock renders it. Both were measured.
 
 Discarding alone is not sufficient, because it governs only what is written. The tree
 position therefore also records whether the boundary stands beneath a request-varying
@@ -386,14 +387,20 @@ test that `dotnet test … --filter "FullyQualifiedName~Issue219"` discovers. Th
 enumeration has gone stale repeatedly, every time because that reconciliation was skipped.
 
 - `A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing`
-- `A_boundary_beneath_an_htmx_layout_caches_like_stock`
+- `A_boundary_inside_an_async_loads_loading_content_stores_nothing`
 - `A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing`
 - `A_keyed_boundary_is_not_served_another_keys_entry`
-- `An_async_load_placeholder_carries_each_requests_own_path`
+- `A_nested_boundary_beneath_an_async_load_refuses_like_stock`
+- `A_sibling_of_a_boundary_that_stores_nothing_still_caches`
+- `An_async_load_placeholder_carries_the_path_of_the_request_that_asked_for_it`
 - `An_htmx_request_does_not_reuse_an_entry_stored_for_the_ordinary_representation`
 - `An_htmx_request_is_not_cached_and_is_not_served_an_ordinary_entry`
 - `An_htmx_response_header_set_during_render_reaches_every_request`
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
+
+Several of these are candidate-only by necessity rather than by choice: a stock host
+cannot construct a composition containing `HtmxAsyncLoad` at all, so there is no arm to
+pair against.
 
 Every case above was confirmed to redden when its guard is disabled, except
 `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`, which is an
@@ -421,11 +428,10 @@ The probe has no guard to
 disable; it evidences that a hit reuses stored output rather than recording a divergence.
 
 `VaryByRoute`, `VaryByCookie` and `VaryByCulture` are framework-owned, unchanged, and
-exercised by no command. `VaryByHeader` is neither: production reads it, because naming a
-header there is what opens htmx caching for a boundary, and the suite exercises it
-candidate-only, with no paired stock coverage. `VaryBy` is read by no Htmxor code as of
-this revision -- it opened the gate briefly and should not have, since stock appends it
-as a literal that carries no request dimension. Distributed cache
+exercised by no command. So are `VaryBy` and `VaryByHeader`: no Htmxor code reads either
+at this revision. `VaryByHeader` briefly opened htmx caching for a boundary and `VaryBy`
+briefly did too, which was a defect — stock appends `VaryBy` to its key as a literal that
+names no request dimension — and both were withdrawn with htmx caching itself. Distributed cache
 deployment, cached form content and performance are unclaimed. Streaming boundary
 markers for a component that did not itself opt into streaming already differ from
 stock; that is pre-existing and owned by #192. The existing package-retained ASP.NET
