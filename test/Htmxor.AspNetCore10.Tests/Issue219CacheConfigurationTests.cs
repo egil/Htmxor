@@ -43,6 +43,12 @@ public sealed class Issue219CacheConfigurationTests
 		var expected = await ReadHeadersPairAsync(htmxor: false);
 		var actual = await ReadHeadersPairAsync(htmxor: true);
 
+		// The name's own claim: within one host, the second (hit) response's headers equal the first (miss)
+		// response's headers.
+		Assert.Equal(expected[0], expected[1]);
+		Assert.Equal(actual[0], actual[1]);
+
+		// Parity: Htmxor produces the same header set stock does, for both the miss and the hit.
 		Assert.Equal(expected, actual);
 	}
 
@@ -90,6 +96,36 @@ public sealed class Issue219CacheConfigurationTests
 
 		Assert.Contains("cannot be used inside a CacheView", expected.Message, StringComparison.Ordinal);
 		Assert.Equal(expected.Message, actual.Message);
+	}
+
+	[Fact]
+	public async Task An_authorize_view_under_an_ordinary_wrapper_on_a_streaming_page_renders_like_stock()
+	{
+		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219StreamingWrappedAuthPage>(htmxor: false);
+		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219StreamingWrappedAuthPage>(htmxor: true);
+
+		// The wrapper carries no [StreamRendering] of its own, so the descendant guard must consult the inherited
+		// streaming state rather than the wrapper's own type, exactly as it does for the CacheView boundary itself.
+		// Measured before the fix: stock returned 200 here while the candidate threw. Streaming boundary markers
+		// are compared elsewhere (A_boundary_inside_a_streaming_subtree_is_not_cached) and are pre-existing,
+		// #192-owned noise for a component that never opted into streaming itself, so only the authorized content
+		// is compared here.
+		var expected = await ReadAsAuthenticatedAsync(stock, "alice");
+		var actual = await ReadAsAuthenticatedAsync(candidate, "alice");
+
+		Assert.Equal(HttpStatusCode.OK, expected.Status);
+		Assert.Contains("authorized: alice", expected.Body, StringComparison.Ordinal);
+		Assert.Equal(expected.Status, actual.Status);
+		Assert.Contains("authorized: alice", actual.Body, StringComparison.Ordinal);
+	}
+
+	private static async Task<(HttpStatusCode Status, string Body)> ReadAsAuthenticatedAsync(WebApplication app, string user)
+	{
+		using var client = app.GetTestClient();
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/auth");
+		request.Headers.Add("X-Issue-219-User", user);
+		using var response = await client.SendAsync(request);
+		return (response.StatusCode, await response.Content.ReadAsStringAsync());
 	}
 
 	private static string Slot(string body, string slot)
@@ -204,6 +240,45 @@ public sealed class Issue219DisabledAuthPage : ComponentBase
 		}));
 		builder.CloseComponent();
 	}
+}
+
+// Reached as the root component through the shared route, like the other fixtures in this file. Streaming and a
+// plain (non-streaming) wrapper both sit between the page and the AuthorizeView on purpose: the guard must read
+// the inherited streaming state through the wrapper rather than the wrapper's own (absent) attribute.
+[StreamRendering]
+public sealed class Issue219StreamingWrappedAuthPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-streaming-wrapped-auth");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219PlainWrapper>(0);
+			cached.AddAttribute(1, nameof(Issue219PlainWrapper.ChildContent), (RenderFragment)(wrapped =>
+			{
+				wrapped.OpenComponent<Microsoft.AspNetCore.Components.Authorization.AuthorizeView>(0);
+				wrapped.AddAttribute(1, "Authorized", (RenderFragment<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>)(state => inner =>
+				{
+					inner.OpenElement(0, "p");
+					inner.AddContent(1, $"authorized: {state.User.Identity?.Name}");
+					inner.CloseElement();
+				}));
+				wrapped.CloseComponent();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// Carries no render-mode or streaming attribute of its own, so any streaming state it exposes to its content must
+// come from its parent.
+public sealed class Issue219PlainWrapper : ComponentBase
+{
+	[Parameter] public RenderFragment? ChildContent { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => builder.AddContent(0, ChildContent);
 }
 
 internal static class Issue219Slot
