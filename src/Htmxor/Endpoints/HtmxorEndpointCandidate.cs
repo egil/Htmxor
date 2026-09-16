@@ -677,7 +677,13 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		// or conditional one its content is chosen per request by something no key carries. It still begins and
 		// discards a capture rather than skipping one, because that is what makes stock's refusal guard run
 		// over what it holds.
-		captureAbandoned = HasUncacheableAncestor(GetComponentState(componentId));
+		// An htmx request whose boundary declared nothing stores nothing. Combined with the representation bit,
+		// which keeps the three states in separate key spaces, that means such a boundary can never be served an
+		// entry either: nothing writes into the space it reads from. Suppressing through the framework's own
+		// IsInStreamingContext switch would be more direct, but that is read during parameter binding, before
+		// VaryByHeader has a value.
+		captureAbandoned = HasUncacheableAncestor(GetComponentState(componentId)) ||
+			(httpContext.GetHtmxContext().Request.IsHtmxRequest && !DeclaresRequestVariation(cacheView));
 		try
 		{
 			return CacheViewServices.TryWrite(
