@@ -93,59 +93,16 @@ internal partial class HtmxorEndpointCandidateRenderer
 	// Variation beyond this bit is the application's to declare, exactly as it is under stock. VaryByHeader
 	// takes a header list and reaches stock's own length-prefixed resolver, so <CacheView VaryByHeader=
 	// "HX-Target"> keys correctly with no Htmxor encoding involved and a cardinality the author chose.
-	// Read through the lazy key factory and the write path, both of which run after parameter binding, because
-	// component state is created before VaryByHeader has a value.
-	internal string CurrentRepresentation(CacheView cacheView)
-	{
-		var request = httpContext.GetHtmxContext().Request;
-		if (!request.IsHtmxRequest)
-		{
-			return "ordinary";
-		}
-
-		// RoutingMode belongs here and was briefly dropped when this method was reduced. Standard and Direct
-		// are different response representations -- WriteResponseHtml takes different paths -- and a boundary
-		// declaring a dimension whose value is equal across the two, which HX-Request is, would otherwise serve
-		// one routing mode's body for the other. Measured. It is a closed enum, so unlike a header value it
-		// cannot be extended by a client and adds no unbounded dimension.
-		var declared = DeclaresHtmxVariation(cacheView) ? "declared" : "undeclared";
-		return $"htmx.{request.RoutingMode}.{declared}";
-	}
-
-	// An htmx request is cached only where the application named the htmx dimensions its content varies by.
-	// Undeclared, the boundary is suppressed -- it stores nothing, and the representation keeps it in a key
-	// space nothing writes to, so it can be served nothing either. Htmxor cannot know what a subtree read,
-	// and guessing wrongly serves one request another's markup while guessing broadly makes the key
-	// attacker-controlled; declaring is the only answer that is both safe and bounded.
+	// One bit, and only because an htmx request must never be served an entry an ordinary request stored:
+	// the same URL serves both and their bodies differ. Nothing writes into the htmx key space, since an htmx
+	// request caches nothing, so the bit is what makes "stores nothing" also mean "is served nothing".
 	//
-	// VaryByHeader alone, because it is the only parameter that can name an HX-* dimension. VaryBy was
-	// admitted here and should not have been: stock appends it to the key as a literal, so it contributes no
-	// request dimension at all -- measured, identical key hashes with and without an HX-Target header -- and
-	// an author using it for its documented purpose, a static discriminator, would have silently opted into
-	// htmx caching while saying nothing about the request. The other VaryBy* parameters name real request
-	// dimensions but cannot name an htmx one, and admitting VaryByQuery was measured serving one target's
-	// body to a request asking for another.
-	internal static bool DeclaresHtmxVariation(CacheView cacheView)
-	{
-		// Parsed the way stock parses it, not merely non-empty. Stock splits the list and drops blank entries,
-		// so " " and "," name no header at all and contribute nothing to its key -- measured against the pinned
-		// framework. Accepting them would open htmx caching on a declaration that declares nothing, which is
-		// the defect that removed VaryBy from this gate, reached through the parameter that replaced it.
-		if (cacheView.VaryByHeader is not { Length: > 0 } declaration)
-		{
-			return false;
-		}
-
-		foreach (var name in declaration.Split(','))
-		{
-			if (!string.IsNullOrWhiteSpace(name))
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
+	// Nothing else about the request belongs here. Naming individual dimensions was incomplete; keying on
+	// every HX-* header made the key unbounded attacker-controlled input with a forgeable encoding; letting
+	// the author declare it was sound but left the feature inert beneath the documented layout. Caching htmx
+	// responses is #236's problem, not a dimension to be guessed at here.
+	internal string CurrentRepresentation()
+		=> httpContext.GetHtmxContext().Request.IsHtmxRequest ? "htmx" : "ordinary";
 
 	// Mirrors stock EndpointComponentState's position computation: multiple CacheView components under one
 	// parent must not share a key. The result is deliberately not equal to stock's, because the representation
@@ -164,7 +121,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 			if (frame.FrameType is RenderTreeFrameType.Component && ReferenceEquals(frame.Component, target))
 			{
 				return HtmxorEndpointCandidateCacheViewServices.ComputeTreePositionKey(
-					ancestorTypeName, frame.Sequence, frame.ComponentKey, CurrentRepresentation(target), beneathRequestVarying);
+					ancestorTypeName, frame.Sequence, frame.ComponentKey, CurrentRepresentation(), beneathRequestVarying);
 			}
 		}
 
