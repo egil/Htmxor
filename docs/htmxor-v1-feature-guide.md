@@ -1213,17 +1213,20 @@ methods.
 On .NET 11, a stock `CacheView` boundary on an ordinary static-SSR page reuses its
 stored output under Htmxor as it does without Htmxor: the first request renders and
 stores the subtree, a later request serves the stored output instead of invoking the
-cached component again, and the framework owns the store, key derivation,
-serialization, expiry and variation. Htmxor only restores the renderer coordination
+cached component again, and the framework owns the store,
+serialization, expiry and variation. Htmxor contributes one part of the key, below. Htmxor only restores the renderer coordination
 that its endpoint candidate would otherwise skip.
 
-Because one Htmxor URL serves more than one representation, each representation caches
-separately: an ordinary response and an htmx response never share an entry, and neither
-do two different fragment selections. Nothing needs configuring for that.
+Because one Htmxor URL serves more than one representation, an ordinary response and an
+htmx response never share a cache entry: Htmxor adds the request's representation to the
+key the framework derives, so the two are stored apart. Nothing needs configuring for
+that, and it means a boundary on such a page holds one entry per representation rather
+than one in total.
 
 Executed evidence covers `CacheKey`, `VaryByQuery`, `VaryByUser`, an expired boundary
-beside a still-reusing one, suppression inside a streaming subtree, response headers
-unchanged across a hit, a boundary that stores nothing beside one that still caches,
+beside a still-reusing one, suppression inside a streaming subtree, response headers matching
+between a miss and a hit and between hosts, a boundary that stores nothing beside one
+that still caches,
 and two sibling boundaries under one parent with no explicit key. The remaining
 variation parameters — `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and
 `VaryByCulture` — are framework-owned and unchanged by Htmxor, but no Htmxor command
