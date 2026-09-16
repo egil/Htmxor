@@ -212,7 +212,7 @@ public sealed class Issue219NameableFragmentPage : ComponentBase
 		builder.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
 		{
 			inner.OpenComponent<CacheView>(0);
-			inner.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Request");
+			inner.AddAttribute(5, nameof(CacheView.VaryBy), "issue-219-nameable");
 			inner.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 			{
 				cached.OpenComponent<Issue219CachedContent>(0);
@@ -243,7 +243,7 @@ public sealed class Issue219ConditionalAncestor : ComponentBase, IConditionalRen
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{
 		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Request");
+		builder.AddAttribute(5, nameof(CacheView.VaryBy), "issue-219-conditional-ancestor");
 		builder.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<Issue219CachedContent>(0);
@@ -337,7 +337,7 @@ public sealed class Issue219SelectableFragmentPage : ComponentBase
 		builder.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
 		{
 			inner.OpenComponent<CacheView>(0);
-			inner.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Request");
+			inner.AddAttribute(5, nameof(CacheView.VaryBy), "issue-219-selectable");
 			inner.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 			{
 				cached.OpenElement(0, "p");

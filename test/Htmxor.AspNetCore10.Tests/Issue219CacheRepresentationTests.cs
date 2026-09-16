@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.AspNetCore10;
 
@@ -33,6 +34,43 @@ public sealed class Issue219CacheRepresentationTests
 		Assert.Equal(HttpStatusCode.OK, selected.StatusCode);
 		Assert.Contains("data-branch", await selected.Content.ReadAsStringAsync(), StringComparison.Ordinal);
 	}
+	[Fact]
+	public async Task A_direct_request_is_not_served_what_a_standard_one_stored()
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219RoutingModePage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// Both requests are htmx requests at one URL, and the boundary declares a constant, so every dimension
+		// stock keys by is equal between them. Only the routing mode differs, and it differs because of
+		// HX-Request-Type alone.
+		var standard = await ModeAsync(client, direct: false);
+		Assert.Contains("data-mode=\"Standard\"", standard, StringComparison.Ordinal);
+		Assert.Contains("data-version=\"1\"", standard, StringComparison.Ordinal);
+
+		data.Version = 2;
+		var direct = await ModeAsync(client, direct: true);
+
+		// Standard and Direct are different response representations -- WriteResponseHtml takes a different
+		// path for each -- so an entry stored for one must not be served for the other. Measured before the
+		// representation carried the routing mode: this returned the Standard body, stale and mislabelled.
+		Assert.Contains("data-mode=\"Direct\"", direct, StringComparison.Ordinal);
+		Assert.Contains("data-version=\"2\"", direct, StringComparison.Ordinal);
+	}
+
+	private static async Task<string> ModeAsync(HttpClient client, bool direct)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/routing-mode");
+		request.Headers.Add("HX-Request", "true");
+		if (direct)
+		{
+			request.Headers.Add("HX-Request-Type", "partial");
+		}
+
+		using var response = await client.SendAsync(request);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
 }
 
 [Route("/issue-219/branching")]
@@ -53,7 +91,12 @@ public sealed class Issue219BranchingPage : ComponentBase
 		var htmx = HttpContext.GetHtmxContext().Request.IsHtmxRequest;
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-branching");
-		builder.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Request");
+		// A constant, deliberately, and not VaryByHeader "HX-Request". That header is present on an htmx
+		// request and absent on an ordinary one, so declaring it hands stock's own resolver the very
+		// ordinary-from-htmx separation this case exists to prove Htmxor makes. Measured: with the header
+		// form, collapsing CurrentRepresentation to a constant left every test in the suite green. A constant
+		// declares "this boundary may cache on htmx requests" and contributes the same value to every key.
+		builder.AddAttribute(5, nameof(CacheView.VaryBy), "issue-219-branching");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			if (!htmx)
@@ -73,6 +116,30 @@ public sealed class Issue219BranchingPage : ComponentBase
 				inner.CloseElement();
 			}));
 			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+// One URL whose cached content records the routing mode it was rendered for. Declares a constant so that every
+// dimension stock keys by is equal across the two requests and only Htmxor's representation separates them.
+[Route("/issue-219/routing-mode")]
+public sealed class Issue219RoutingModePage : ComponentBase
+{
+	[Inject] internal Issue219Data Data { get; set; } = default!;
+
+	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-routing-mode");
+		builder.AddAttribute(3, nameof(CacheView.VaryBy), "issue-219-routing-mode");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenElement(0, "p");
+			cached.AddAttribute(1, "data-version", Data.Version);
+			cached.AddAttribute(2, "data-mode", HttpContext.GetHtmxContext().Request.RoutingMode.ToString());
+			cached.CloseElement();
 		}));
 		builder.CloseComponent();
 	}
