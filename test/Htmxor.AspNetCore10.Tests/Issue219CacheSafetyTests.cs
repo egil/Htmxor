@@ -1,0 +1,305 @@
+#if NET11_0_OR_GREATER
+using System.Net;
+using Htmxor;
+using Htmxor.Components;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Hosting;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Htmxor.AspNetCore10;
+
+public sealed class Issue219CacheSafetyTests
+{
+	[Fact]
+	public async Task Named_fragment_inside_a_cached_subtree_survives_a_hit()
+	{
+		await using var app = await StartAsync();
+		using var client = app.GetTestClient();
+
+		// An ordinary request populates the cache for the subtree that holds the fragment.
+		using var ordinary = await client.GetAsync("/issue-219/fragment");
+		Assert.Equal(HttpStatusCode.OK, ordinary.StatusCode);
+
+		// A later htmx request then selects a fragment the cache hit never constructed.
+		var selected = await SelectAsync(client);
+
+		Assert.Equal(HttpStatusCode.OK, selected.Status);
+		Assert.Contains("data-inner", selected.Body, StringComparison.Ordinal);
+	}
+
+	private static async Task<(HttpStatusCode Status, string Body)> SelectAsync(HttpClient client)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/fragment");
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		using var response = await client.SendAsync(request);
+		return (response.StatusCode, await response.Content.ReadAsStringAsync());
+	}
+
+	private static Task<WebApplication> StartAsync() => StartAsync<Issue219FragmentPage>(true);
+
+	internal static async Task<WebApplication> StartAsync<TRoot>(bool htmxor) where TRoot : IComponent
+	{
+		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+		{
+			ApplicationName = typeof(Issue219FragmentPage).Assembly.GetName().Name,
+		});
+		builder.WebHost.UseTestServer();
+		builder.Logging.ClearProviders();
+		builder.Services.AddSingleton<Issue219Data>();
+		builder.Services.AddAuthorization();
+		builder.Services.AddCascadingAuthenticationState();
+		var components = builder.Services.AddRazorComponents();
+		if (htmxor)
+		{
+			components.AddHtmxor();
+		}
+
+		var app = builder.Build();
+		app.Use(async (context, next) =>
+		{
+			if (context.Request.Headers.TryGetValue("X-Issue-219-User", out var user))
+			{
+				context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, user.ToString())], "issue-219"));
+			}
+
+			await next(context);
+		});
+		app.UseAntiforgery();
+		var endpoints = app.MapRazorComponents<TRoot>();
+		if (htmxor)
+		{
+			endpoints.AddHtmxorEndpoints();
+		}
+
+		await app.StartAsync();
+		return app;
+	}
+}
+
+public sealed class Issue219CacheBehaviourTests
+{
+	[Fact]
+	public async Task Rerender_component_inside_a_cached_subtree_is_not_frozen()
+	{
+		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219TokenPage>(htmxor: false);
+		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219TokenPage>(htmxor: true);
+
+		var stockTokens = await ReadTokensAsync(stock);
+		var candidateTokens = await ReadTokensAsync(candidate);
+
+		// AntiforgeryToken is [CacheBehavior(Rerender)]: stock re-renders it on a hit rather than replaying it.
+		// AntiforgeryToken is [CacheBehavior(Rerender)]: stock re-renders it on a hit rather than replaying it.
+		Assert.NotEqual(stockTokens[0], stockTokens[1]);
+		Assert.NotEqual(candidateTokens[0], candidateTokens[1]);
+	}
+
+	private static async Task<string[]> ReadTokensAsync(WebApplication app)
+	{
+		using var client = app.GetTestClient();
+		return [await ReadTokenAsync(client), await ReadTokenAsync(client)];
+	}
+
+	private static async Task<string> ReadTokenAsync(HttpClient client)
+	{
+		using var response = await client.GetAsync("/issue-219/token");
+		var body = await response.Content.ReadAsStringAsync();
+		var match = System.Text.RegularExpressions.Regex.Match(body, "value=\"([^\"]+)\"");
+		Assert.True(match.Success, $"expected a token in: {body}");
+		return match.Groups[1].Value;
+	}
+}
+
+public sealed class Issue219CacheAuthorizationTests
+{
+	[Fact]
+	public async Task Authorized_content_in_a_non_user_varying_cache_is_refused_like_stock()
+	{
+		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219AuthPage>(htmxor: false);
+		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219AuthPage>(htmxor: true);
+
+		// AuthorizeViewCore is [CacheBehavior(Throw)] with [CacheCondition(CacheVaryBy.User)]. Stock refuses to
+		// cache it; Htmxor must refuse identically rather than replay one principal's markup to another.
+		var expected = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadAsAsync(stock, "alice"));
+		var actual = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadAsAsync(candidate, "alice"));
+
+		Assert.Contains("cannot be used inside a CacheView", expected.Message, StringComparison.Ordinal);
+		Assert.Equal(expected.Message, actual.Message);
+	}
+
+	[Fact]
+	public async Task Authorized_content_varying_by_user_stays_isolated_between_principals()
+	{
+		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219AuthByUserPage>(htmxor: false);
+		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219AuthByUserPage>(htmxor: true);
+
+		var expected = await ReadPairAsync(stock);
+		var actual = await ReadPairAsync(candidate);
+
+		Assert.Contains("alice", expected[0], StringComparison.Ordinal);
+		Assert.Contains("bob", expected[1], StringComparison.Ordinal);
+		Assert.Equal(expected, actual);
+	}
+
+	private static async Task<string[]> ReadPairAsync(WebApplication app)
+	{
+		var alice = await ReadAsAsync(app, "alice");
+		var bob = await ReadAsAsync(app, "bob");
+		Assert.Equal(HttpStatusCode.OK, alice.Status);
+		Assert.Equal(HttpStatusCode.OK, bob.Status);
+		return [alice.Body, bob.Body];
+	}
+
+	private static async Task<(HttpStatusCode Status, string Body)> ReadAsAsync(WebApplication app, string user)
+	{
+		using var client = app.GetTestClient();
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/auth");
+		request.Headers.Add("X-Issue-219-User", user);
+		using var response = await client.SendAsync(request);
+		return (response.StatusCode, await response.Content.ReadAsStringAsync());
+	}
+}
+
+[Route("/issue-219/auth")]
+public sealed class Issue219AuthPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue219Auth.Build(builder, varyByUser: false);
+}
+
+public sealed class Issue219AuthByUserPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue219Auth.Build(builder, varyByUser: true);
+}
+
+internal static class Issue219Auth
+{
+	public static void Build(RenderTreeBuilder builder, bool varyByUser)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), varyByUser ? "issue-219-auth-user" : "issue-219-auth");
+		if (varyByUser)
+		{
+			builder.AddAttribute(2, nameof(CacheView.VaryByUser), true);
+		}
+
+		builder.AddAttribute(3, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Microsoft.AspNetCore.Components.Authorization.AuthorizeView>(0);
+			cached.AddAttribute(1, "Authorized", (RenderFragment<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>)(state => inner =>
+			{
+				inner.OpenElement(0, "p");
+				inner.AddAttribute(1, "data-user", state.User.Identity?.Name);
+				inner.AddContent(2, $"authorized: {state.User.Identity?.Name}");
+				inner.CloseElement();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219CacheKeyTests
+{
+	[Fact]
+	public async Task Sibling_boundaries_without_explicit_keys_do_not_share_one_entry()
+	{
+		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219SiblingPage>(htmxor: false);
+		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219SiblingPage>(htmxor: true);
+
+		// Two CacheView components under one parent with no CacheKey are disambiguated only by their tree
+		// position, so this is what proves the mirrored key computation, within a single host and cache.
+		var expected = await ReadAsync(stock);
+		var actual = await ReadAsync(candidate);
+
+		Assert.Contains("data-slot=\"first\"", expected, StringComparison.Ordinal);
+		Assert.Contains("data-slot=\"second\"", expected, StringComparison.Ordinal);
+		Assert.Equal(expected, actual);
+	}
+
+	private static async Task<string> ReadAsync(WebApplication app)
+	{
+		using var client = app.GetTestClient();
+		using var first = await client.GetAsync("/issue-219/siblings");
+		Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+		using var second = await client.GetAsync("/issue-219/siblings");
+		Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+		return await second.Content.ReadAsStringAsync();
+	}
+}
+
+[Route("/issue-219/siblings")]
+public sealed class Issue219SiblingPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.ChildContent), Slot("first"));
+		builder.CloseComponent();
+		builder.OpenComponent<CacheView>(2);
+		builder.AddAttribute(3, nameof(CacheView.ChildContent), Slot("second"));
+		builder.CloseComponent();
+	}
+
+	private static RenderFragment Slot(string slot) => cached =>
+	{
+		cached.OpenElement(0, "p");
+		cached.AddAttribute(1, "data-slot", slot);
+		cached.AddContent(2, slot);
+		cached.CloseElement();
+	};
+}
+
+[Route("/issue-219/token")]
+public sealed class Issue219TokenPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-token");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Microsoft.AspNetCore.Components.Forms.AntiforgeryToken>(0);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+[Route("/issue-219/fragment")]
+public sealed class Issue219FragmentPage : ComponentBase
+{
+	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+	[Inject] internal Issue219Data Data { get; set; } = default!;
+
+	protected override void OnInitialized()
+		=> HttpContext.GetHtmxContext().Response.SelectFragment("inner");
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<HtmxFragment>(0);
+			cached.AddAttribute(1, nameof(HtmxFragment.Name), "inner");
+			cached.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
+			{
+				inner.OpenElement(0, "p");
+				inner.AddAttribute(1, "data-inner", "true");
+				inner.AddAttribute(2, "data-version", Data.Version);
+				inner.AddContent(3, "inner");
+				inner.CloseElement();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+#endif
