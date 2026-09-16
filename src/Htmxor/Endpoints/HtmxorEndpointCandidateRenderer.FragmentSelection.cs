@@ -16,6 +16,8 @@ using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.Extensions.DependencyInjection;
 
+[assembly: System.Reflection.Metadata.MetadataUpdateHandler(typeof(Htmxor.Endpoints.HtmxorEndpointCandidateRenderer))]
+
 namespace Htmxor.Endpoints;
 
 internal partial class HtmxorEndpointCandidateRenderer
@@ -60,6 +62,10 @@ internal partial class HtmxorEndpointCandidateRenderer
 			streaming;
 
 	private static readonly ConcurrentDictionary<Type, bool?> StreamRenderingByComponentType = new();
+
+	// Upstream registers EndpointComponentState as a metadata update handler so this cache cannot outlive the
+	// attributes it describes. Invoked by the hot reload host through reflection.
+	internal static void ClearCache(Type[]? _) => StreamRenderingByComponentType.Clear();
 
 	private static bool? GetStreamRenderingAttribute(IComponent component)
 		=> StreamRenderingByComponentType.GetOrAdd(component.GetType(), static type => type

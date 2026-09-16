@@ -74,6 +74,7 @@
       "api": "none",
       "relationship": "reimplements",
       "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs",
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.FragmentSelection.cs"
       ]
     },

@@ -9,6 +9,7 @@
 // Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheViewRenderState.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/CacheViewTextWriter.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Shared/src/RenderFragmentCapture.cs | private-accesses
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointComponentState.cs | reimplements
 // Htmxor upstream dependency: src/Components/Shared/src/ComponentKeyHelper.cs | mirrors
 
 using System.Globalization;
