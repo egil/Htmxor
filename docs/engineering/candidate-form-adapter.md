@@ -374,10 +374,17 @@ a streaming page, response headers equal between a miss and a hit and between ho
 sibling boundaries under one parent with no explicit key, `VaryByUser` isolation between
 principals, and the refusal cases above.
 
-Nine cases run against the candidate alone, for three different reasons. Derive this list
-from the suite when it changes rather than counting by hand; ask which `Issue219` tests
-construct only one host, and follow the shared helpers, some of which pass the flag
-positionally. This enumeration has gone stale more than once.
+The cases listed below run against the candidate alone, for three different reasons. The
+list is a fact about the suite, not about this code, so re-derive it from the suite
+whenever the `Issue219` tests change rather than editing it by hand. A case belongs here
+when no host it constructs is built with the htmxor flag false. The flag usually reaches
+`AddHtmxor` through a shared helper rather than the test body — `StartAsync`,
+`MeasureAsync`, `OrderAsync`, `ReadPairAsync`, `ReadHeadersPairAsync`, `CreateHostAsync` —
+and some call sites pass it positionally, so searching for `htmxor: false` alone
+under-counts. Check the derivation by reconciling it: the cases below, plus the paired
+cases above, must account for every test that
+`dotnet test … --filter "FullyQualifiedName~Issue219"` discovers. This enumeration has
+gone stale more than once, and each time because that reconciliation was skipped.
 
 No stock equivalent exists, so there is nothing to pair against — `HtmxFragment` and
 `HtmxAsyncLoad` are Htmxor's own components, and the representation is Htmxor's concept:
@@ -401,8 +408,9 @@ component runs:
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
 
 Seven of the eight cases in the first two groups were confirmed to redden when their
-guard is disabled, and all seven results are recorded in this slice's current
-verification receipt, from four distinct inversions. The eighth,
+guard is disabled, from four distinct inversions. All seven results are recorded in the
+verification receipt for `97b4240a212f7749f10ff86bb686a52a1634b481`, where they were
+measured. The eighth,
 `Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache`, is a negative
 control: it reddens when the guard is *widened* to every fragment rather than when it is
 disabled, which is the discrimination it exists to provide. The probe has no guard to
