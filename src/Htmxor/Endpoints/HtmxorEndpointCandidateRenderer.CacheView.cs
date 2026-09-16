@@ -1,3 +1,4 @@
+#if NET11_0_OR_GREATER
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -15,15 +16,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
-#if NET11_0_OR_GREATER
 [assembly: System.Reflection.Metadata.MetadataUpdateHandler(typeof(Htmxor.Endpoints.HtmxorEndpointCandidateRenderer))]
-#endif
 
 namespace Htmxor.Endpoints;
 
 internal partial class HtmxorEndpointCandidateRenderer
 {
-#if NET11_0_OR_GREATER
 	// Supplies the two inputs stock gives CacheView from EndpointComponentState as component state is created:
 	// whether the boundary sits in a streaming context, and the tree position that contributes to its key.
 	private void TrackForCacheView(
@@ -74,14 +72,40 @@ internal partial class HtmxorEndpointCandidateRenderer
 	// which fails the request. The representation therefore joins the position Htmxor already supplies.
 	private string CurrentRepresentation()
 	{
-		// Only the request's own immutable properties. Selected fragment names were tried and removed: selection
-		// is permitted from ordinary lifecycle code, so the value is not yet stable when the framework asks for
-		// the key, and it added nothing. A boundary holding a named fragment discards its capture whatever the
-		// key says, and a request that actually applies selection is RoutingMode.Direct, which writes from the
-		// selected component's own render tree without revisiting the CacheView ancestor above it. A Standard
-		// request that called SelectFragment applies no selection, so its boundaries behave as any other.
-		var request = httpContext.GetHtmxContext().Request;
-		return $"{request.IsHtmxRequest}.{request.RoutingMode}";
+		// Every HX-* request header, by name and value. Naming individual dimensions was tried and was wrong
+		// twice: the first version carried IsHtmxRequest and RoutingMode, and content varying by HX-Target was
+		// served to a request that asked for a different target. The prefix is not a convention here -- an
+		// extension header is unreadable unless it starts with HX- (HtmxExtensionHeaderPolicy.IsAllowedName)
+		// -- so the whole surface a component can read is the set gathered below, including htmx headers this
+		// version does not model and extensions written later. IsHtmxRequest and RoutingMode are subsumed:
+		// they derive from HX-Request and HX-Request-Type.
+		//
+		// The selected fragment is deliberately not here. SelectFragment is permitted from ordinary lifecycle
+		// code, so a boundary above the selecting component would ask for its key before that code has run.
+		// The header selection is derived from is carried instead, which is stable for the whole request.
+		//
+		// The cost is cache fragmentation on high-cardinality headers, HX-Current-URL and HX-Trigger most of
+		// all: a page keyed this way holds one entry per distinct header set. That is a hit-rate cost on
+		// requests that do not vary, and it is the safe direction -- the alternative failed by serving one
+		// request another's markup.
+		var headers = httpContext.Request.Headers;
+		var representation = new List<string>();
+		foreach (var header in headers)
+		{
+			if (header.Key.StartsWith("HX-", StringComparison.OrdinalIgnoreCase))
+			{
+				representation.Add($"{header.Key.ToUpperInvariant()}={header.Value}");
+			}
+		}
+
+		if (representation.Count == 0)
+		{
+			return "ordinary";
+		}
+
+		// Ordered so that header order on the wire cannot split one representation into two entries.
+		representation.Sort(StringComparer.Ordinal);
+		return string.Join("&", representation);
 	}
 
 	// Mirrors stock EndpointComponentState's position computation: multiple CacheView components under one
@@ -108,5 +132,5 @@ internal partial class HtmxorEndpointCandidateRenderer
 		throw new InvalidOperationException(
 			$"Could not locate the CacheView in the render tree of its parent component '{parentComponentState.Component?.GetType().FullName}' while computing its cache key.");
 	}
-#endif
 }
+#endif
