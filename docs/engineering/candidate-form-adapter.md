@@ -404,6 +404,12 @@ No stock equivalent exists, so there is nothing to pair against — `HtmxFragmen
 - `Content_beside_a_named_fragment_is_not_kept_without_it`
 - `A_declared_boundary_caches_and_reuses_across_htmx_requests`
 - `A_keyed_boundary_is_not_served_another_keys_entry`
+- `An_htmx_response_header_set_during_render_reaches_every_request`
+- `An_empty_body_requested_during_render_reaches_every_request`
+- `A_status_code_set_during_render_reaches_every_request`
+- `A_redirect_requested_during_render_reaches_every_request`
+- `A_declaration_naming_no_header_does_not_open_the_htmx_gate`
+- `An_ordinary_request_caches_a_named_fragments_boundary_like_stock`
 
 Htmxor deliberately caches less than stock, so a parity assertion would assert the wrong
 thing:
@@ -415,23 +421,29 @@ component runs:
 
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
 
-Twelve of the fourteen cases in the first two groups were confirmed to redden when their
-guard is disabled, from thirteen distinct inversions, all recorded in the verification
-receipt for `9af29e07304d64f2b45a6f62e5be55cfb531c3e0`. A thirteenth,
+Eighteen of the twenty cases in the first two groups were confirmed to redden when their
+guard is disabled, from nineteen distinct inversions, all recorded in the verification
+evidence attached to the pull request. Receipts live under `artifacts/`, which is ignored,
+so they do not ship with a clone and are cited through the pull request rather than by
+path. A nineteenth,
 `Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache`, is a negative
 control: it reddens when the guard is *widened* to every fragment rather than when it is
 disabled, and also when the declaration gate is forced to suppress everything. The
-fourteenth,
+twentieth,
 `A_boundary_whose_request_varying_child_is_conditional_is_not_shared_across_targets`,
 reddens under no inversion: it declares the header its content actually varies by, which
 is correct for the fixture, so stock's own resolver separates its two requests and no
 Htmxor guard is exercised. It is an end-to-end case for the declared path rather than
 evidence for a guard, and is recorded as such.
 
+The redirect case is retained but is not counted above: `Redirect` both sets a header and
+suppresses the body, so either condition of the response-state guard catches it and it
+reddens only when both are removed. It pins the worst outcome rather than one guard.
+
 Two production branches are deliberately unguarded and recorded rather than implied: the
-declared-ness component of the representation, which three rounds of attempts failed to
-defeat and so has nothing honest to assert, and the parentless-`CacheView` throw, which is
-unreachable by construction and would need a fabricated renderer to reach. The probe has no guard to
+declared-ness component of the representation, which cannot collide because setting
+`VaryByHeader` at all changes the framework's own hashed variation flag, and the
+parentless-`CacheView` throw, which is unreachable by construction. The probe has no guard to
 disable; it evidences that a hit reuses stored output rather than recording a divergence.
 
 `VaryByRoute`, `VaryByCookie` and `VaryByCulture` are framework-owned, unchanged, and
