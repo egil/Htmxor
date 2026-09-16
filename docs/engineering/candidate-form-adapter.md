@@ -342,10 +342,12 @@ exercised it.
 
 A consumer component that is none of these but still varies by the request — one that
 injects the scoped `HtmxContext` and reads the triggering or target element, say — is
-captured and replayed, because no cache key describes what it read. This is newly
-reachable, since before this change nothing was stored at all. The discard check runs
-before `IsCacheableComponent`, so stock's `[CacheBehavior]` opt-out still applies and is
-the documented remedy. No command exercises that composition.
+captured and replayed, because no cache key describes what it read beyond the HX-*
+headers the representation carries. This is newly reachable, since before this change
+nothing was stored at all. `IsCacheableComponent` is consulted *before* the discard, so
+stock's `[CacheBehavior]` opt-out applies to every component and is the documented
+remedy. No command exercises that composition; it is filed as #235
+rather than left as narration here.
 
 A cached boundary **beneath** any of the three request-varying kinds is discarded too.
 Beneath an interactive render-mode boundary the reason differs: it would store
@@ -366,13 +368,13 @@ it once selectable.
 ### Executed boundary
 
 The Issue219 hosted contract pairs most cases against a stock host, so the framework
-decides the outcome and Htmxor only has to match it: a miss then a hit across an
-application data change, configured query variation keeping two tenants isolated, a not-yet-cached variant as
-a cache-observation negative control, an already-expired boundary beside a kept one,
-suppression inside a streaming subtree, an `AuthorizeView` under an ordinary wrapper on
-a streaming page, response headers equal between a miss and a hit and between hosts, two
-sibling boundaries under one parent with no explicit key, `VaryByUser` isolation between
-principals, and the refusal cases above.
+decides the outcome and Htmxor only has to match it. The kinds paired this way are a
+miss then a hit across an application data change, configured variation keeping two
+values isolated, cache-observation negative controls, expiry, suppression inside a
+streaming subtree, refusal of content stock refuses, response-header equality, tree
+position disambiguating siblings, and render-mode ancestry. This names the kinds, not
+every case: the cases themselves are in the suite, and any count of them belongs to the
+reconciliation below rather than to this sentence.
 
 The cases listed below run against the candidate alone, for three different reasons. The
 list is a fact about the suite, not about this code, so re-derive it from the suite
