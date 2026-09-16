@@ -1,0 +1,75 @@
+#if NET11_0_OR_GREATER
+using System.Net;
+using Htmxor.Components;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Htmxor.AspNetCore10;
+
+public sealed class Issue219CacheAsyncLoadTests
+{
+	[Fact]
+	public async Task An_async_load_placeholder_carries_the_path_of_the_request_that_asked_for_it()
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219AsyncLoadRoutePage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// Ordinary requests, one page, two routes. HtmxAsyncLoad writes hx-get="{request path}" into its
+		// placeholder while rendering, and no path reaches a cache key unless the application declared
+		// VaryByRoute. Replaying the placeholder therefore points the load trigger at the other route: the
+		// response is a well-formed 200 and htmx swaps the first route's content into the second page.
+		var first = await ReadAsync(client, "/issue-219/async-route/a");
+		Assert.Contains("hx-get=\"/issue-219/async-route/a\"", first, StringComparison.Ordinal);
+
+		data.Version = 2;
+		var second = await ReadAsync(client, "/issue-219/async-route/b");
+
+		Assert.Contains("hx-get=\"/issue-219/async-route/b\"", second, StringComparison.Ordinal);
+		Assert.DoesNotContain("hx-get=\"/issue-219/async-route/a\"", second, StringComparison.Ordinal);
+
+		// Deliberately no assertion about the content beside it. Whether the surrounding boundary still caches
+		// depends on which mechanism excludes HtmxAsyncLoad, and the narrow one is unavailable: marking the
+		// component CacheBehavior.Rerender makes the framework refuse it outright, because its required
+		// ChildContent is a RenderFragment a live cached component cannot capture -- measured, every request
+		// 500s. Classifying the component as request-varying works and stores nothing for the boundary, which
+		// is less caching and the safe direction. This case pins the outcome an application depends on either
+		// way, and stays true if a narrower mechanism arrives later.
+	}
+
+	private static async Task<string> ReadAsync(HttpClient client, string path)
+	{
+		using var response = await client.GetAsync(path);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
+}
+
+// One page at two routes, holding an HtmxAsyncLoad beside ordinary cached content.
+[Route("/issue-219/async-route/{slug}")]
+public sealed class Issue219AsyncLoadRoutePage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-async-route");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219CachedContent>(0);
+			cached.CloseComponent();
+			cached.OpenComponent<HtmxAsyncLoad>(1);
+			cached.AddAttribute(2, nameof(HtmxAsyncLoad.Id), "lazy");
+			cached.AddAttribute(3, nameof(HtmxAsyncLoad.ChildContent), (RenderFragment)(loaded =>
+			{
+				loaded.OpenElement(0, "p");
+				loaded.AddAttribute(1, "data-async-child", "true");
+				loaded.CloseElement();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+#endif

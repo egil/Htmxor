@@ -67,18 +67,32 @@ public sealed class Issue219CacheConfigurationTests
 	}
 
 	[Fact]
+	public async Task A_boundary_beneath_an_htmx_layout_caches_like_stock()
+	{
+		var stock = await ReadPairAsync<Issue219LayoutHostPage>(htmxor: false);
+		var candidate = await ReadPairAsync<Issue219LayoutHostPage>(htmxor: true);
+
+		// HtmxLayoutComponentBase is the layout the documentation teaches, and it implements IConditionalRender
+		// with a constant ShouldOutput. Classifying that interface as request-varying therefore stopped every
+		// boundary beneath the documented layout from caching, on ordinary requests, which is the parity defect
+		// the scope reversal repaired. Nothing measured the repair in this direction until this case: re-adding
+		// the interface to the request-varying kinds leaves it as the only thing that reddens.
+		Assert.Equal("1", Slot(stock[1], "layout"));
+		Assert.Equal(Slot(stock[1], "layout"), Slot(candidate[1], "layout"));
+	}
+
+	[Fact]
 	public async Task An_ordinary_request_caches_a_named_fragments_boundary_like_stock()
 	{
-		var stock = await ReadPairAsync<Issue219AbandonSiblingPage>(htmxor: false);
-		var candidate = await ReadPairAsync<Issue219AbandonSiblingPage>(htmxor: true);
+		var stock = await ReadPairAsync<Issue219FragmentBoundaryPage>(htmxor: false);
+		var candidate = await ReadPairAsync<Issue219FragmentBoundaryPage>(htmxor: true);
 
 		// Nothing selects a fragment on an ordinary request, so a boundary holding one is ordinary content and
-		// must cache exactly as stock does. Htmxor classified the kind by type and abandoned here too, which
-		// cost parity on every page using an Htmxor layout, since HtmxLayoutComponentBase is an
-		// IConditionalRender: measured before the repair, stock reused and Htmxor re-rendered.
+		// must cache exactly as stock does. While a named fragment was classified as request-varying by type,
+		// this boundary abandoned its capture on ordinary requests too. The layout case above covers the other
+		// half of that classification; this one covers the fragment half, and the two are not interchangeable.
 		Assert.Equal("1", Slot(stock[1], "fragment"));
 		Assert.Equal(Slot(stock[1], "fragment"), Slot(candidate[1], "fragment"));
-		Assert.Equal(Slot(stock[1], "ordinary"), Slot(candidate[1], "ordinary"));
 	}
 
 	[Fact]
@@ -273,25 +287,19 @@ public sealed class Issue219MixedExpiryPage : ComponentBase
 	}
 }
 
-public sealed class Issue219AbandonSiblingPage : ComponentBase
+public sealed class Issue219FragmentBoundaryPage : ComponentBase
 {
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{
 		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-abandoning");
-		builder.AddAttribute(6, nameof(CacheView.VaryByHeader), "HX-Target");
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment-boundary");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<Htmxor.Components.HtmxFragment>(0);
-			cached.AddAttribute(1, nameof(Htmxor.Components.HtmxFragment.Name), "abandon");
+			cached.AddAttribute(1, nameof(Htmxor.Components.HtmxFragment.Name), "named");
 			cached.AddAttribute(2, nameof(Htmxor.Components.HtmxFragment.ChildContent), Issue219Slot.Render("fragment"));
 			cached.CloseComponent();
 		}));
-		builder.CloseComponent();
-		builder.OpenComponent<CacheView>(3);
-		builder.AddAttribute(4, nameof(CacheView.CacheKey), "issue-219-ordinary");
-		builder.AddAttribute(7, nameof(CacheView.VaryByHeader), "HX-Target");
-		builder.AddAttribute(5, nameof(CacheView.ChildContent), Issue219Slot.Render("ordinary"));
 		builder.CloseComponent();
 	}
 }
@@ -469,4 +477,24 @@ public sealed class Issue219NestedFragmentBoundaryPage : ComponentBase
 	}
 }
 
+// A boundary beneath a component deriving from the layout base the documentation teaches.
+public sealed class Issue219LayoutHostPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<Issue219Layout>(0);
+		builder.AddAttribute(1, nameof(Issue219Layout.Body), (RenderFragment)(body =>
+		{
+			body.OpenComponent<CacheView>(0);
+			body.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-layout");
+			body.AddAttribute(2, nameof(CacheView.ChildContent), Issue219Slot.Render("layout"));
+			body.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219Layout : Htmxor.Components.HtmxLayoutComponentBase
+{
+}
 #endif

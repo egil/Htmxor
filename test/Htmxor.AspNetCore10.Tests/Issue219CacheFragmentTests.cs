@@ -63,7 +63,7 @@ public sealed class Issue219CacheFragmentTests
 	[Fact]
 	public async Task An_htmx_request_is_not_cached_and_is_not_served_an_ordinary_entry()
 	{
-		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219UndeclaredHtmxPage>(htmxor: true);
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219HtmxCachePage>(htmxor: true);
 		using var client = app.GetTestClient();
 		var data = app.Services.GetRequiredService<Issue219Data>();
 
@@ -71,17 +71,17 @@ public sealed class Issue219CacheFragmentTests
 		// a subtree read from the request, guessing wrongly serves one request another's markup, and every
 		// narrower rule tried against that produced a further instance of the same defect. Caching htmx
 		// responses is deferred whole rather than shipped partly working.
-		Assert.Contains("data-version=\"1\"", await HtmxAsync(client, "/issue-219/undeclared"), StringComparison.Ordinal);
+		Assert.Contains("data-version=\"1\"", await HtmxAsync(client, "/issue-219/htmx-cache"), StringComparison.Ordinal);
 		data.Version = 2;
-		Assert.Contains("data-version=\"2\"", await HtmxAsync(client, "/issue-219/undeclared"), StringComparison.Ordinal);
+		Assert.Contains("data-version=\"2\"", await HtmxAsync(client, "/issue-219/htmx-cache"), StringComparison.Ordinal);
 
 		// And the other half, which storing nothing does not give on its own: an ordinary request does store,
 		// so the representation must keep the two apart or the htmx request is served what it left behind.
 		data.Version = 3;
-		Assert.Contains("data-version=\"3\"", await ReadAsync(client, "/issue-219/undeclared"), StringComparison.Ordinal);
+		Assert.Contains("data-version=\"3\"", await ReadAsync(client, "/issue-219/htmx-cache"), StringComparison.Ordinal);
 		data.Version = 4;
-		Assert.Contains("data-version=\"3\"", await ReadAsync(client, "/issue-219/undeclared"), StringComparison.Ordinal);
-		Assert.Contains("data-version=\"4\"", await HtmxAsync(client, "/issue-219/undeclared"), StringComparison.Ordinal);
+		Assert.Contains("data-version=\"3\"", await ReadAsync(client, "/issue-219/htmx-cache"), StringComparison.Ordinal);
+		Assert.Contains("data-version=\"4\"", await HtmxAsync(client, "/issue-219/htmx-cache"), StringComparison.Ordinal);
 	}
 
 	private static async Task<string> HtmxAsync(HttpClient client, string path)
@@ -95,19 +95,8 @@ public sealed class Issue219CacheFragmentTests
 
 	private static async Task<string> HtmxAsync(HttpClient client)
 	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/undeclared");
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/htmx-cache");
 		request.Headers.Add("HX-Request", "true");
-		using var response = await client.SendAsync(request);
-		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-		return await response.Content.ReadAsStringAsync();
-	}
-
-	private static async Task<string> TargetAsync(HttpClient client, string target)
-	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/conditional-child");
-		request.Headers.Add("HX-Request", "true");
-		request.Headers.Add("HX-Request-Type", "partial");
-		request.Headers.Add("HX-Target", target);
 		using var response = await client.SendAsync(request);
 		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		return await response.Content.ReadAsStringAsync();
@@ -127,15 +116,6 @@ public sealed class Issue219CacheFragmentTests
 		return await response.Content.ReadAsStringAsync();
 	}
 
-	private static async Task<string> SelectAsync(HttpClient client, string fragment)
-	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, $"/issue-219/selectable?f={fragment}");
-		request.Headers.Add("HX-Request", "true");
-		request.Headers.Add("HX-Request-Type", "partial");
-		using var response = await client.SendAsync(request);
-		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-		return await response.Content.ReadAsStringAsync();
-	}
 }
 
 // An application component may be both an IConditionalRender and one the framework refuses to cache. Nothing
@@ -171,9 +151,9 @@ public sealed class Issue219ConditionalRefusedContent : ComponentBase, IConditio
 	}
 }
 
-// Declares no variation, so an htmx request must not be cached at all.
-[Route("/issue-219/undeclared")]
-public sealed class Issue219UndeclaredHtmxPage : ComponentBase
+// An ordinary boundary on a page reachable by both kinds of request.
+[Route("/issue-219/htmx-cache")]
+public sealed class Issue219HtmxCachePage : ComponentBase
 {
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{

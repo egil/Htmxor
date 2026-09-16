@@ -15,10 +15,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Htmxor.AspNetCore10;
 
-// A CacheView living beneath an interactive render-mode boundary is covered here on its own, because it needs
-// a genuinely interactive-server-capable host rather than the plain static host the other Issue219 fixtures
-// share. The reverse nesting -- a CacheView *holding* a render-mode boundary -- is untested; no case here or
-// elsewhere exercises it.
+// Both nestings of a CacheView and an interactive render-mode boundary are covered here, because both need a
+// genuinely interactive-server-capable host rather than the plain static host the other Issue219 fixtures
+// share. The boundary holding one is the only composition that reaches the discard a capture performs over
+// content it must not store, now that the request-varying kinds are down to this one.
 public sealed class Issue219CacheInteractiveTests
 {
 	[Fact]
