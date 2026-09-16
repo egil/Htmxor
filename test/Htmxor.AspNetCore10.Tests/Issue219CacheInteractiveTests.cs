@@ -22,6 +22,51 @@ namespace Htmxor.AspNetCore10;
 public sealed class Issue219CacheInteractiveTests
 {
 	[Fact]
+	public async Task Content_beneath_an_interactive_boundary_is_validated_like_stock()
+	{
+		await using var stock = await StartAsync<Issue219InteractiveAuthInsidePage>(htmxor: false);
+		await using var candidate = await StartAsync<Issue219InteractiveAuthInsidePage>(htmxor: true);
+
+		// Stock pauses its capture at a render-mode boundary -- SSRRenderModeBoundary carries
+		// CacheBehavior.Rerender, so IsCacheableComponent answers false for it -- and therefore never validates
+		// the prerendered subtree below. Htmxor's boundary carries no such attribute, so leaving the kind to
+		// fall through to the ordinary cacheable test validates content stock never looks at, and an
+		// AuthorizeView beneath an interactive boundary is refused where stock renders the page.
+		var expected = await ReadAuthorizedAsync(stock, "/issue-219/interactive-auth-inside");
+		var actual = await ReadAuthorizedAsync(candidate, "/issue-219/interactive-auth-inside");
+
+		Assert.Contains("authorized: alice", expected, StringComparison.Ordinal);
+		Assert.Equal(expected, actual);
+	}
+
+	[Fact]
+	public async Task A_boundary_beneath_an_interactive_boundary_inside_a_boundary_renders_like_stock()
+	{
+		await using var stock = await StartAsync<Issue219InteractiveNestedBoundaryPage>(htmxor: false);
+		await using var candidate = await StartAsync<Issue219InteractiveNestedBoundaryPage>(htmxor: true);
+
+		// The same property observed through the nesting refusal rather than the descendant one: stock's pause
+		// means the inner boundary is not reached by a capturing writer, so it renders; validating instead
+		// raises "cannot be nested inside another CacheView" where stock renders the page.
+		var expected = await ReadAuthorizedAsync(stock, "/issue-219/interactive-nested-boundary");
+		var actual = await ReadAuthorizedAsync(candidate, "/issue-219/interactive-nested-boundary");
+
+		Assert.Contains("data-version=\"1\"", expected, StringComparison.Ordinal);
+		Assert.Equal(expected, actual);
+	}
+
+	private static async Task<string> ReadAuthorizedAsync(WebApplication app, string path)
+	{
+		using var client = app.GetTestClient();
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		request.Headers.Add("X-Issue-219-User", "alice");
+		using var response = await client.SendAsync(request);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		var body = await response.Content.ReadAsStringAsync();
+		return System.Text.RegularExpressions.Regex.Replace(body, "<!--.*?-->", "");
+	}
+
+	[Fact]
 	public async Task A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing()
 	{
 		await using var app = await StartAsync<Issue219InteractiveInsidePage>(htmxor: true);
@@ -314,6 +359,71 @@ public sealed class Issue219InteractiveInsideContent : ComponentBase
 		builder.OpenElement(0, "p");
 		builder.AddAttribute(1, "data-interactive", "true");
 		builder.CloseElement();
+	}
+}
+// An AuthorizeView beneath an interactive render-mode boundary that a CacheView holds.
+[Route("/issue-219/interactive-auth-inside")]
+public sealed class Issue219InteractiveAuthInsidePage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-interactive-auth-inside");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219InteractiveAuthInner>(0);
+			cached.AddComponentRenderMode(RenderMode.InteractiveServer);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219InteractiveAuthInner : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<Microsoft.AspNetCore.Components.Authorization.AuthorizeView>(0);
+		builder.AddAttribute(1, "Authorized", (RenderFragment<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>)(state => a =>
+		{
+			a.OpenElement(0, "p");
+			a.AddContent(1, $"authorized: {state.User.Identity?.Name}");
+			a.CloseElement();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// A CacheView beneath an interactive render-mode boundary that another CacheView holds.
+[Route("/issue-219/interactive-nested-boundary")]
+public sealed class Issue219InteractiveNestedBoundaryPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-interactive-nested-outer");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219InteractiveNestedInner>(0);
+			cached.AddComponentRenderMode(RenderMode.InteractiveServer);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219InteractiveNestedInner : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-interactive-nested-inner");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(deep =>
+		{
+			deep.OpenComponent<Issue219CachedContent>(0);
+			deep.CloseComponent();
+		}));
+		builder.CloseComponent();
 	}
 }
 #endif
