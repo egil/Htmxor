@@ -672,10 +672,12 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 		var enclosing = captureAbandoned;
 
-		// A boundary beneath an interactive one would capture prerendered interactive content and key it more
-		// weakly than stock, so it stores nothing. It still begins and discards a capture rather than skipping
-		// one, because that is what makes stock's refusal guard run over what it holds.
-		captureAbandoned = HasRenderModeBoundaryAncestor(GetComponentState(componentId));
+		// A boundary standing beneath one of the request-varying kinds stores nothing: beneath an interactive
+		// one it would capture prerendered content and key it more weakly than stock, and beneath a selectable
+		// or conditional one its content is chosen per request by something no key carries. It still begins and
+		// discards a capture rather than skipping one, because that is what makes stock's refusal guard run
+		// over what it holds.
+		captureAbandoned = HasUncacheableAncestor(GetComponentState(componentId));
 		try
 		{
 			return CacheViewServices.TryWrite(
@@ -691,11 +693,14 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		}
 	}
 
-	private static bool HasRenderModeBoundaryAncestor(ComponentState componentState)
+	// The physical parent chain, not the logical one: content authored in a page but passed as child content
+	// into a fragment has the page as its logical parent, and only the physical chain shows the fragment that
+	// decides whether the content is produced at all.
+	private static bool HasUncacheableAncestor(ComponentState componentState)
 	{
 		for (var ancestor = componentState.ParentComponentState; ancestor is not null; ancestor = ancestor.ParentComponentState)
 		{
-			if (ancestor.Component is HtmxorEndpointCandidateRenderModeBoundary)
+			if (IsRequestVarying(ancestor.Component))
 			{
 				return true;
 			}
@@ -703,6 +708,15 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 		return false;
 	}
+
+	// Three kinds whose subtree is chosen by the request rather than by the component tree. A *named* fragment
+	// is registered for selection when its component is constructed, which serving stored output never does; an
+	// unnamed one cannot be selected and is ordinary content. An IConditionalRender decides whether to produce
+	// markup from the request itself -- HtmxAsyncLoad varies on the trigger and target elements, which no cache
+	// key carries. An interactive boundary is outside this slice. A boundary that holds one of these, or that
+	// stands beneath one, stores nothing; either way the content renders normally.
+	private static bool IsRequestVarying(IComponent component)
+		=> component is HtmxFragment { Name: not null } or IConditionalRender or HtmxorEndpointCandidateRenderModeBoundary;
 
 	// Mirrors stock's second CacheView block: during an active capture, a component whose output depends on
 	// per-request state is excluded from the entry and recorded so a later hit renders it live instead.
@@ -716,25 +730,26 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		var componentState = GetComponentState(componentId);
 		var component = componentState.Component;
 
-		// Three reasons a subtree must not be stored. A *named* fragment is registered for selection when its
-		// component is constructed, which serving stored output never does; an unnamed one cannot be selected
-		// and is ordinary content. An IConditionalRender decides whether to produce markup from the request
-		// itself — HtmxAsyncLoad varies on the trigger and target elements, which no cache key carries — so
-		// replaying it would hand one request another's markup. An interactive boundary is outside this slice.
-		// Each renders normally and is never stored.
-		if (component is HtmxFragment { Name: not null } or IConditionalRender or HtmxorEndpointCandidateRenderModeBoundary)
+		// Stock's refusal guard is consulted first, and deliberately before Htmxor's own discard: it raises for
+		// a component that opted out with CacheBehavior.Throw whose vary dimensions do not match, and that
+		// refusal must still happen for a component Htmxor would have discarded anyway, since an application
+		// type can be both an IConditionalRender and CacheBehavior.Throw.
+		//
+		// Upstream also conjoins allowBoundaryMarkers. The only caller passing it false writes to the
+		// streaming-update writer, never a capture writer, so the term cannot change this decision today; it is
+		// left out rather than carried as a condition that is always true at this point. Upstream pauses on the
+		// inherited streaming value, not this component's own attribute: using the own-type answer descended
+		// into a subtree stock had already paused, and validated content stock never validates, so a streaming
+		// page carrying an AuthorizeView under an ordinary wrapper failed where stock renders it.
+		var cacheable = CacheViewServices.IsCacheable(writer, component.GetType()) && !IsInStreamingContext(componentId);
+
+		if (IsRequestVarying(component))
 		{
 			captureAbandoned = true;
 			return null;
 		}
 
-		// Upstream also conjoins allowBoundaryMarkers here. The only caller passing it false writes to the
-		// streaming-update writer, never a capture writer, so the term cannot change this decision today; it is
-		// left out rather than carried as a condition that is always true at this point.
-		// Upstream pauses on the inherited value, not this component's own attribute. Using the own-type answer
-		// descended into a subtree stock had already paused, and validated content stock never validates, so a
-		// streaming page carrying an AuthorizeView under an ordinary wrapper failed where stock renders it.
-		if (CacheViewServices.IsCacheable(writer, component.GetType()) && !IsInStreamingContext(componentId))
+		if (cacheable)
 		{
 			return null;
 		}
