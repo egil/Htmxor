@@ -1233,21 +1233,32 @@ variation parameters — `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie`
 has exercised them.
 
 Content that must not be cached is refused exactly as stock refuses it, including in a
-boundary that is disabled or otherwise storing nothing, which stock still validates. A component
+boundary that is disabled or otherwise storing nothing, which stock still validates. The
+one exception is a boundary beneath an interactive render-mode boundary, described
+below. A component
 carrying `[CacheBehavior(CacheBehavior.Throw)]` raises the framework's own descriptive
 error rather than being cached — `AuthorizeView` inside a `CacheView` that does not
 vary by user is the case to know, and varying by user is the fix. A component carrying
 `[CacheBehavior(CacheBehavior.Rerender)]`, such as `AntiforgeryToken`, is excluded from
 the entry and rendered live on a later hit instead of being replayed.
 
-Two compositions cause Htmxor to store nothing for that boundary, so the subtree
+These compositions cause Htmxor to store nothing for that boundary, so the subtree
 renders normally on every request:
 
 - A named `HtmxFragment` inside a cached subtree. A fragment is registered for
   selection when its component is constructed, which serving stored output never does,
   so caching it would break selection rather than merely skip work.
+- Any component implementing `IConditionalRender` inside a cached subtree, such as
+  `HtmxAsyncLoad`. These decide whether to produce markup from the request itself —
+  `HtmxAsyncLoad` from the triggering and target elements — which no cache key carries,
+  so replaying stored output would hand one request another's markup.
 - An interactive render-mode boundary inside a cached subtree. Cached interactive
   content is outside the executed boundary and no command exercised this path.
+- A cached boundary **beneath** an interactive render-mode boundary. It would otherwise
+  store prerendered interactive content, keyed more weakly than stock keys it.
+
+Keys are also deliberately not equal to stock's for the same component tree, because of
+the representation described above.
 
 Distributed cache deployments and performance are unestablished.
 
