@@ -69,18 +69,30 @@ public sealed class Issue219CacheConfigurationTests
 	[Fact]
 	public async Task A_sibling_of_an_abandoning_boundary_still_caches()
 	{
-		var stock = await ReadPairAsync<Issue219AbandonSiblingPage>(htmxor: false);
-		var candidate = await ReadPairAsync<Issue219AbandonSiblingPage>(htmxor: true);
+		var candidate = await ReadPairAsync<Issue219AbandonSiblingPage>(htmxor: true, htmx: true);
 
-		// Htmxor deliberately caches less than stock here. A named fragment is registered only when its
-		// component is constructed, which serving stored output never does, so Htmxor stores nothing for the
-		// boundary holding it while stock happily caches it.
-		Assert.Equal("1", Slot(stock[1], "fragment"));
+		// On an htmx request the boundary holding the named fragment stores nothing: a named fragment is
+		// registered for selection only when its component is constructed, which serving stored output never
+		// does.
 		Assert.Equal("2", Slot(candidate[1], "fragment"));
 
 		// The point of the case: abandoning that boundary must not disable the ordinary one beside it.
-		Assert.Equal("1", Slot(stock[1], "ordinary"));
 		Assert.Equal("1", Slot(candidate[1], "ordinary"));
+	}
+
+	[Fact]
+	public async Task An_ordinary_request_caches_a_named_fragments_boundary_like_stock()
+	{
+		var stock = await ReadPairAsync<Issue219AbandonSiblingPage>(htmxor: false);
+		var candidate = await ReadPairAsync<Issue219AbandonSiblingPage>(htmxor: true);
+
+		// Nothing selects a fragment on an ordinary request, so a boundary holding one is ordinary content and
+		// must cache exactly as stock does. Htmxor classified the kind by type and abandoned here too, which
+		// cost parity on every page using an Htmxor layout, since HtmxLayoutComponentBase is an
+		// IConditionalRender: measured before the repair, stock reused and Htmxor re-rendered.
+		Assert.Equal("1", Slot(stock[1], "fragment"));
+		Assert.Equal(Slot(stock[1], "fragment"), Slot(candidate[1], "fragment"));
+		Assert.Equal(Slot(stock[1], "ordinary"), Slot(candidate[1], "ordinary"));
 	}
 
 	[Fact]
@@ -140,22 +152,25 @@ public sealed class Issue219CacheConfigurationTests
 	}
 
 	[Fact]
-	public async Task A_nested_boundary_beneath_a_named_fragment_renders_where_stock_refuses()
+	public async Task An_htmx_request_renders_a_nested_boundary_beneath_a_named_fragment_where_stock_refuses()
 	{
 		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219NestedFragmentBoundaryPage>(htmxor: false);
 		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219NestedFragmentBoundaryPage>(htmxor: true);
 
-		// A recorded decision, not an accident. Stock refuses a CacheView nested inside a capturing one because
-		// the inner boundary's output would be frozen into the outer entry and replayed. Htmxor pauses the
-		// capture at the named fragment, so the region is paused rather than capturing and stock's guard does
-		// not fire; the outer boundary then abandons its capture and stores nothing at all, so the hazard the
-		// refusal names cannot arise. Rendering is the better outcome and is accepted.
-		var refusal = await ReadRootCauseAsync(stock, "/issue-219/nested-fragment-boundary");
-		Assert.Contains("cannot be nested inside another CacheView", refusal.Message, StringComparison.Ordinal);
+		// A recorded decision, and it is narrower than it first appeared. Stock refuses a CacheView nested
+		// inside a capturing one because the inner boundary's output would be frozen into the outer entry.
+		// Htmxor pauses the capture at the named fragment, so the region is paused rather than capturing and
+		// the guard does not fire -- but only on an htmx request, because that is the only kind of request a
+		// named fragment is consequential on. On an ordinary request both hosts raise the refusal, which is the
+		// first thing this case asserts.
+		var ordinaryRefusal = await ReadRootCauseAsync(candidate, "/issue-219/nested-fragment-boundary");
+		var stockRefusal = await ReadRootCauseAsync(stock, "/issue-219/nested-fragment-boundary");
+		Assert.Contains("cannot be nested inside another CacheView", stockRefusal.Message, StringComparison.Ordinal);
+		Assert.Equal(stockRefusal.Message, ordinaryRefusal.Message);
 
 		using var client = candidate.GetTestClient();
 		var data = candidate.Services.GetRequiredService<Issue219Data>();
-		var first = await ReadAsync(client, "/issue-219/nested-fragment-boundary");
+		var first = await ReadAsync(client, "/issue-219/nested-fragment-boundary", htmx: true);
 		Assert.Contains("data-version=\"1\"", first, StringComparison.Ordinal);
 
 		data.Version = 2;
@@ -163,32 +178,35 @@ public sealed class Issue219CacheConfigurationTests
 		// The load-bearing assertion. It pins *why* rendering instead of refusing is safe: nothing was stored,
 		// so nothing can be replayed. If Htmxor ever starts storing in this composition this fails, and the
 		// decision above has to be revisited rather than silently outlived.
-		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/nested-fragment-boundary"), StringComparison.Ordinal);
+		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/nested-fragment-boundary", htmx: true), StringComparison.Ordinal);
 	}
 
 	[Fact]
-	public async Task A_rerender_conditional_holding_child_content_renders_where_stock_refuses()
+	public async Task An_htmx_request_renders_a_rerender_conditional_holding_child_content_where_stock_refuses()
 	{
 		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219RerenderConditionalPage>(htmxor: false);
 		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219RerenderConditionalPage>(htmxor: true);
 
-		// The same decision in its non-streaming form. Stock's refusal here is mechanical: to replay a
-		// CacheBehavior.Rerender component on a hit it must capture that component's parameters, and a
-		// RenderFragment cannot be captured. Htmxor discards the whole capture for an IConditionalRender and
-		// stores nothing, so it never needs to replay the component and the limitation does not apply.
-		var refusal = await ReadRootCauseAsync(stock, "/issue-219/rerender-conditional", "alice");
-		Assert.Contains("RenderFragment parameter", refusal.Message, StringComparison.Ordinal);
+		// The same decision in its non-streaming form, and the same narrowing. Stock's refusal here is
+		// mechanical: to replay a CacheBehavior.Rerender component on a hit it must capture that component's
+		// parameters, and a RenderFragment cannot be captured. Htmxor discards the whole capture for an
+		// IConditionalRender on an htmx request and stores nothing, so it never needs to replay the component.
+		// On an ordinary request it does not discard, and both hosts raise the same refusal.
+		var stockRefusal = await ReadRootCauseAsync(stock, "/issue-219/rerender-conditional", "alice");
+		var ordinaryRefusal = await ReadRootCauseAsync(candidate, "/issue-219/rerender-conditional", "alice");
+		Assert.Contains("RenderFragment parameter", stockRefusal.Message, StringComparison.Ordinal);
+		Assert.Equal(stockRefusal.Message, ordinaryRefusal.Message);
 
 		using var client = candidate.GetTestClient();
 		var data = candidate.Services.GetRequiredService<Issue219Data>();
-		var first = await ReadAuthenticatedAsync(client, "/issue-219/rerender-conditional", "alice");
+		var first = await ReadAuthenticatedAsync(client, "/issue-219/rerender-conditional", "alice", htmx: true);
 		Assert.Contains("authorized: alice", first, StringComparison.Ordinal);
 		Assert.Contains("data-version=\"1\"", first, StringComparison.Ordinal);
 
 		data.Version = 2;
 
 		// As above: current on the second request is what proves nothing was stored.
-		var second = await ReadAuthenticatedAsync(client, "/issue-219/rerender-conditional", "alice");
+		var second = await ReadAuthenticatedAsync(client, "/issue-219/rerender-conditional", "alice", htmx: true);
 		Assert.Contains("authorized: alice", second, StringComparison.Ordinal);
 		Assert.Contains("data-version=\"2\"", second, StringComparison.Ordinal);
 	}
@@ -208,10 +226,15 @@ public sealed class Issue219CacheConfigurationTests
 		return Assert.IsType<InvalidOperationException>(thrown.GetBaseException());
 	}
 
-	private static async Task<string> ReadAuthenticatedAsync(HttpClient client, string path, string user)
+	private static async Task<string> ReadAuthenticatedAsync(HttpClient client, string path, string user, bool htmx = false)
 	{
 		using var request = new HttpRequestMessage(HttpMethod.Get, path);
 		request.Headers.Add("X-Issue-219-User", user);
+		if (htmx)
+		{
+			request.Headers.Add("HX-Request", "true");
+		}
+
 		using var response = await client.SendAsync(request);
 		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		return await response.Content.ReadAsStringAsync();
@@ -229,14 +252,14 @@ public sealed class Issue219CacheConfigurationTests
 	private static string Slot(string body, string slot)
 		=> System.Text.RegularExpressions.Regex.Match(body, $"data-slot=\"{slot}\" data-version=\"([^\"]+)\"").Groups[1].Value;
 
-	private static async Task<string[]> ReadPairAsync<TRoot>(bool htmxor) where TRoot : IComponent
+	private static async Task<string[]> ReadPairAsync<TRoot>(bool htmxor, bool htmx = false) where TRoot : IComponent
 	{
 		await using var app = await Issue219CacheSafetyTests.StartAsync<TRoot>(htmxor);
 		using var client = app.GetTestClient();
 		var data = app.Services.GetRequiredService<Issue219Data>();
-		var first = await ReadAsync(client, "/issue-219/configured");
+		var first = await ReadAsync(client, "/issue-219/configured", htmx);
 		data.Version = 2;
-		return [first, await ReadAsync(client, "/issue-219/configured")];
+		return [first, await ReadAsync(client, "/issue-219/configured", htmx)];
 	}
 
 	private static async Task<string[]> ReadHeadersPairAsync(bool htmxor)
@@ -259,9 +282,15 @@ public sealed class Issue219CacheConfigurationTests
 	private static string DataVersion(string body)
 		=> System.Text.RegularExpressions.Regex.Match(body, "data-version=\"([^\"]+)\"").Groups[1].Value;
 
-	private static async Task<string> ReadAsync(HttpClient client, string path)
+	private static async Task<string> ReadAsync(HttpClient client, string path, bool htmx = false)
 	{
-		using var response = await client.GetAsync(path);
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		if (htmx)
+		{
+			request.Headers.Add("HX-Request", "true");
+		}
+
+		using var response = await client.SendAsync(request);
 		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		return await response.Content.ReadAsStringAsync();
 	}
@@ -302,6 +331,7 @@ public sealed class Issue219AbandonSiblingPage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-abandoning");
+		builder.AddAttribute(6, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<Htmxor.Components.HtmxFragment>(0);
@@ -312,6 +342,7 @@ public sealed class Issue219AbandonSiblingPage : ComponentBase
 		builder.CloseComponent();
 		builder.OpenComponent<CacheView>(3);
 		builder.AddAttribute(4, nameof(CacheView.CacheKey), "issue-219-ordinary");
+		builder.AddAttribute(7, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(5, nameof(CacheView.ChildContent), Issue219Slot.Render("ordinary"));
 		builder.CloseComponent();
 	}

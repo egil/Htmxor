@@ -71,6 +71,97 @@ public sealed class Issue219CacheSafetyTests
 	}
 
 	[Fact]
+	public async Task An_htmx_response_header_set_during_render_reaches_every_request()
+	{
+		await using var app = await StartAsync<Issue219HeaderWritingPage>(true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// HtmxResponse.Retarget is advertised v1 behaviour and it is set while the component renders, which a
+		// cache hit never does. The body would be correct and the client would swap it into the wrong element,
+		// so the failure is silent at the protocol level rather than visible in the markup.
+		var first = await RetargetAsync(client);
+		Assert.Equal("#panel", first.Retarget);
+
+		data.Version = 2;
+		var second = await RetargetAsync(client);
+
+		// Not a parity case: stock never caches an htmx response, so there is no stock behaviour to match here.
+		// The boundary must keep nothing once its subtree has written an htmx response header, because a stored
+		// entry can carry the body and not the header.
+		Assert.Equal("#panel", second.Retarget);
+		Assert.Contains("data-version=\"2\"", second.Body, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task An_htmx_status_code_set_during_render_reaches_every_request()
+	{
+		await using var app = await StartAsync<Issue219HeaderWritingPage>(true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// A status code is not a header, so a rule written over response headers cannot see it. A lost 202 on a
+		// polling client reads as "stop polling" turning into "carry on", and nothing in the markup shows it.
+		Assert.Equal(HttpStatusCode.Accepted, (await InstructAsync(client, "status")).Status);
+
+		data.Version = 2;
+		Assert.Equal(HttpStatusCode.Accepted, (await InstructAsync(client, "status")).Status);
+	}
+
+	[Fact]
+	public async Task An_htmx_empty_body_request_during_render_reaches_every_request()
+	{
+		await using var app = await StartAsync<Issue219HeaderWritingPage>(true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// EmptyBody sets no header at all: it is renderer state. Replaying a stored entry puts the markup back
+		// that the component asked to suppress, which is the one outcome the call exists to prevent.
+		Assert.Equal("", (await InstructAsync(client, "empty")).Body);
+
+		data.Version = 2;
+		Assert.Equal("", (await InstructAsync(client, "empty")).Body);
+	}
+
+	[Fact]
+	public async Task An_htmx_redirect_issued_during_render_reaches_every_request()
+	{
+		await using var app = await StartAsync<Issue219HeaderWritingPage>(true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// The most damaging of the family: losing this leaves the client on the page it asked to leave, holding
+		// stale markup, with no error anywhere.
+		var first = await InstructAsync(client, "redirect");
+		Assert.Equal("/issue-219/elsewhere", first.Redirect);
+		Assert.Equal("", first.Body);
+
+		data.Version = 2;
+		var second = await InstructAsync(client, "redirect");
+		Assert.Equal("/issue-219/elsewhere", second.Redirect);
+		Assert.Equal("", second.Body);
+	}
+
+	private static async Task<(HttpStatusCode Status, string? Redirect, string Body)> InstructAsync(HttpClient client, string instruction)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, $"/issue-219/header-writing?instruction={instruction}");
+		request.Headers.Add("HX-Request", "true");
+		using var response = await client.SendAsync(request);
+		var redirect = response.Headers.TryGetValues("HX-Redirect", out var values) ? string.Join(",", values) : null;
+		return (response.StatusCode, redirect, await response.Content.ReadAsStringAsync());
+	}
+
+	private static async Task<(string? Retarget, string Body)> RetargetAsync(HttpClient client)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/header-writing");
+		request.Headers.Add("HX-Request", "true");
+		using var response = await client.SendAsync(request);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		var retarget = response.Headers.TryGetValues("HX-Retarget", out var values) ? string.Join(",", values) : null;
+		return (retarget, await response.Content.ReadAsStringAsync());
+	}
+
+	[Fact]
 	public async Task Content_beside_a_named_fragment_is_not_kept_without_it()
 	{
 		await using var app = await StartAsync<Issue219FragmentSiblingPage>(true);
@@ -449,6 +540,65 @@ public sealed class Issue219FragmentSiblingPage : ComponentBase
 			cached.CloseComponent();
 		}));
 		builder.CloseComponent();
+	}
+}
+// A component inside a declared boundary that writes an htmx response header while it renders. Declared, so
+// the boundary is otherwise eligible to cache: the header is the only reason it must not.
+[Route("/issue-219/header-writing")]
+public sealed class Issue219HeaderWritingPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-header-writing");
+		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Target");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219HeaderWritingContent>(0);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219HeaderWritingContent : ComponentBase
+{
+	[Inject] internal Issue219Data Data { get; set; } = default!;
+
+	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+	protected override void OnInitialized() => Apply(HttpContext);
+
+	private static void Apply(HttpContext context)
+	{
+		var response = context.GetHtmxContext().Response;
+		var instruction = context.Request.Query["instruction"].ToString();
+		if (instruction is "status")
+		{
+			response.StatusCode(System.Net.HttpStatusCode.Accepted);
+			return;
+		}
+
+		if (instruction is "empty")
+		{
+			response.EmptyBody();
+			return;
+		}
+
+		if (instruction is "redirect")
+		{
+			response.Redirect("/issue-219/elsewhere");
+			return;
+		}
+
+		response.Retarget("#panel");
+	}
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "p");
+		builder.AddAttribute(1, "data-version", Data.Version);
+		builder.CloseElement();
 	}
 }
 #endif
