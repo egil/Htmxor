@@ -386,8 +386,10 @@ test that `dotnet test … --filter "FullyQualifiedName~Issue219"` discovers. Th
 enumeration has gone stale repeatedly, every time because that reconciliation was skipped.
 
 - `A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing`
+- `A_boundary_beneath_an_htmx_layout_caches_like_stock`
 - `A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing`
 - `A_keyed_boundary_is_not_served_another_keys_entry`
+- `An_async_load_placeholder_carries_each_requests_own_path`
 - `An_htmx_request_does_not_reuse_an_entry_stored_for_the_ordinary_representation`
 - `An_htmx_request_is_not_cached_and_is_not_served_an_ordinary_entry`
 - `An_htmx_response_header_set_during_render_reaches_every_request`
@@ -403,14 +405,17 @@ verification evidence attached to the pull request; receipts live under `artifac
 which is ignored, so they do not ship with a clone and are cited through the pull request
 rather than by path.
 
-Three production branches have no case that reddens them, recorded rather than implied.
-The **pause** is unobservable: the only kind that now reaches it also abandons the whole
+Four production branches have no case that reddens them, recorded rather than implied. The
+**pause** is unobservable: the only kind that now reaches it also abandons the whole
 capture, so nothing is stored either way. The **physical-versus-logical ancestor walk** is
 unobservable in principle at this revision, because the divergence between the two chains
 came from content passed as child content into a fragment and no reachable composition
 distinguishes them now. The **refusal ordering** no longer changes an outcome, because
-nothing pre-empts the framework's refusal. All three become observable again if #236
-restores the request-varying kinds, and #236 will have to re-derive them.
+nothing pre-empts the framework's refusal. The **`captureAbandoned` save and restore**
+needs nested boundaries to observe, which stock refuses, and the only route past that
+refusal was the fragment pause; a signal suggesting otherwise was measured against an
+already-red baseline and does not hold against a green one. All four become observable
+again if #236 restores the request-varying kinds, and #236 will have to re-derive them.
 
 The probe has no guard to
 disable; it evidences that a hit reuses stored output rather than recording a divergence.

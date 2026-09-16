@@ -220,10 +220,20 @@ an htmx request, and four attempts to decide it produced defects rather than a d
 Caching htmx responses is #236, which owns the variation model, the interaction with
 `HtmxLayoutComponentBase`, and the performance evidence this issue never claimed.
 
+#219's Work item 3 asked that a named `HtmxFragment` inside cached content be kept out of
+the implementation unless separately selected, because a cache hit can bypass the
+fragment's construction and registration. It is in, and the exclusion is satisfied
+vacuously rather than ignored: selection applies only in `RoutingMode.Direct`, which
+requires an htmx request, and an htmx request is not cached, so no cache hit can bypass a
+registration that no ordinary request performs. The boundary therefore caches as stock
+caches it, which is what the Outcome requires. Repository owner's decision, recorded
+because the instruction and the Outcome pulled in opposite directions once htmx caching
+was withdrawn.
+
 Scope is otherwise ordinary read-only `CacheView` on static-SSR pages; no public API
-or named-fragment contract changes. An interactive render-mode boundary inside a cached
-subtree, and a cached boundary beneath one, each cause Htmxor to store nothing for that
-one boundary,
+or named-fragment contract changes. An `HtmxAsyncLoad` inside a cached subtree, an interactive render-mode boundary inside
+one, and a cached boundary beneath such a boundary, each cause Htmxor to store nothing for
+that one boundary,
 leaving any sibling boundary cacheable, rather than replaying content that would be
 wrong. That
 is deliberately less caching than stock performs. Distributed deployments remain
