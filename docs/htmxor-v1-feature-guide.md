@@ -1220,27 +1220,22 @@ that its endpoint candidate would otherwise skip.
 Because one Htmxor URL serves more than one representation, an ordinary response and an
 htmx response never share a cache entry: Htmxor adds the request's representation to the
 key the framework derives, so the two are stored apart. Nothing needs configuring for
-that, and it means a boundary on such a page holds one entry per representation rather
-than one in total.
+that. Only the ordinary representation is ever stored, since an htmx request is not
+cached, so the separation exists to keep an htmx request from being served an ordinary
+one's body rather than to hold two entries.
 
 Executed evidence covers `CacheKey`, `VaryByQuery`, `VaryByUser`, an expired boundary
-beside a still-reusing one, suppression inside a streaming subtree, response headers matching
-between a miss and a hit and between hosts, an async-load boundary never replaying another
-request's element-identity decision, a boundary that stores nothing beside one that still
-caches,
-and two sibling boundaries under one parent with no explicit key. The remaining
+beside a still-reusing one, suppression inside a streaming subtree, response headers
+matching between a miss and a hit and between hosts, an async-load placeholder carrying
+each request's own path, a boundary beneath an Htmxor layout caching as stock does, and
+two sibling boundaries under one parent with no explicit key. The remaining
 variation parameters — `VaryByRoute`, `VaryByCookie` and `VaryByCulture` — are
-framework-owned, unchanged by Htmxor, and exercised by no Htmxor command. Two are not.
-`VaryByHeader` is read by Htmxor, because naming a header there is what permits an htmx
-response to be cached at all. `VaryBy` is the one to know about: it is a static
-discriminator that stock appends to the key as a literal, so it names no request
-dimension, and it does **not** permit htmx caching. A boundary declaring only `VaryBy`
-simply never caches on an htmx request.
+framework-owned, unchanged by Htmxor, and exercised by no Htmxor command. So are `VaryBy`
+and `VaryByHeader`: no Htmxor code reads any of them, and they behave exactly as they do
+under stock. An htmx request is not cached whatever is declared.
 
-Content that must not be cached is refused as stock refuses it, including in a boundary
-that is disabled or otherwise storing nothing, which stock still validates. The two
-compositions described below are the exceptions, and they are exceptions in the safe
-direction: Htmxor renders where stock raises, and stores nothing. A
+Content that must not be cached is refused exactly as stock refuses it, including in a
+boundary that is disabled or otherwise storing nothing, which stock still validates. A
 component
 carrying `[CacheBehavior(CacheBehavior.Throw)]` raises the framework's own descriptive
 error rather than being cached — `AuthorizeView` inside a `CacheView` that does not
@@ -1269,8 +1264,19 @@ the rest — is unaffected, because its boundary is never serving a cache hit on
 request. And a page that is only ever reached over htmx gains nothing from a `CacheView`
 today; put the boundary where ordinary requests reach it, or wait for #236.
 
-One composition causes Htmxor to store nothing for that boundary, so the subtree renders
-normally on every request: an **interactive render-mode boundary**, whether the cached
+Two compositions cause Htmxor to store nothing for that boundary, so the subtree renders
+normally on every request.
+
+An **`HtmxAsyncLoad`** inside the boundary. It writes the current request's path into its
+`hx-get`, and no path reaches a cache key unless you declared `VaryByRoute`, so a page
+reachable at two routes would otherwise serve the first request's placeholder to the
+second and the load trigger would fetch the wrong resource. Stock's own narrow mechanism
+for this, `CacheBehavior.Rerender`, cannot be used — it requires capturing the component's
+`RenderFragment` parameter, which the framework refuses — so the whole boundary is
+abandoned, and **content beside an `HtmxAsyncLoad` stops caching with it**. Put the
+boundary inside the async-loaded content rather than around it.
+
+An **interactive render-mode boundary**, whether the cached
 boundary holds one or stands beneath one. Cached prerendered interactive content would be
 keyed more weakly than stock keys it, because stock's `SSRRenderModeBoundary` component
 key is not mirrored. Any sibling boundary stays cacheable.
