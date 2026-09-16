@@ -1257,7 +1257,15 @@ So declare it, with the parameter stock already provides:
 ```
 
 A boundary that declares nothing stores nothing on an htmx request and renders afresh
-every time. It is never served an ordinary request's body either, because htmx and
+every time.
+
+Two compositions render under Htmxor where stock raises an error instead: a `CacheView`
+nested beneath a named `HtmxFragment` inside another `CacheView`, and a
+`[CacheBehavior(CacheBehavior.Rerender)]` component taking child content. Stock's refusal
+protects a replay mechanism Htmxor does not use in these shapes, and Htmxor stores nothing
+for them, so the page renders rather than failing. The trade is silence: the boundary
+looks cached and is not. If you need the caching, restructure so the boundary holds
+neither. It is never served an ordinary request's body either, because htmx and
 ordinary responses occupy separate key spaces. Declaring incompletely — naming one header
 when the content varies by another — caches against a key that does not describe the
 request, exactly as it would under stock for an undeclared query value.
