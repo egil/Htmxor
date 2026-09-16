@@ -21,23 +21,31 @@ public sealed class Issue219CacheSafetyTests
 	{
 		await using var app = await StartAsync();
 		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
 
-		// An ordinary request populates the cache for the subtree that holds the fragment.
-		using var ordinary = await client.GetAsync("/issue-219/fragment");
-		Assert.Equal(HttpStatusCode.OK, ordinary.StatusCode);
+		// Two htmx requests to the same URL and the same representation (RoutingMode.Standard, since neither
+		// selects a fragment), so both belong to the same cache entry and a real hit is actually observable
+		// between them. Selecting a fragment would instead write straight from that component's own live render
+		// tree regardless of caching, which cannot exercise the boundary's stored-or-abandoned decision at all.
+		var first = await ReadAsync(client);
+		Assert.Equal(HttpStatusCode.OK, first.Status);
+		Assert.Contains("data-version=\"1\"", first.Body, StringComparison.Ordinal);
 
-		// A later htmx request then selects a fragment the cache hit never constructed.
-		var selected = await SelectAsync(client);
+		data.Version = 2;
+		var second = await ReadAsync(client);
 
-		Assert.Equal(HttpStatusCode.OK, selected.Status);
-		Assert.Contains("data-inner", selected.Body, StringComparison.Ordinal);
+		// A stored entry would still read version 1 here. The boundary must instead have abandoned its capture,
+		// because the fragment it holds is registered only when its component is constructed, which serving
+		// stored output never does.
+		Assert.Equal(HttpStatusCode.OK, second.Status);
+		Assert.Contains("data-inner", second.Body, StringComparison.Ordinal);
+		Assert.Contains("data-version=\"2\"", second.Body, StringComparison.Ordinal);
 	}
 
-	private static async Task<(HttpStatusCode Status, string Body)> SelectAsync(HttpClient client)
+	private static async Task<(HttpStatusCode Status, string Body)> ReadAsync(HttpClient client)
 	{
 		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/fragment");
 		request.Headers.Add("HX-Request", "true");
-		request.Headers.Add("HX-Request-Type", "partial");
 		using var response = await client.SendAsync(request);
 		return (response.StatusCode, await response.Content.ReadAsStringAsync());
 	}
