@@ -672,7 +672,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 		var enclosing = captureAbandoned;
 
-		// Two reasons a boundary stores nothing.
+		// Three reasons a boundary stores nothing.
 		//
 		// An htmx request never caches. Htmxor cannot tell what a subtree read from the request, and every
 		// attempt to decide it for the author produced a defect: inferring the dimensions was incomplete,
@@ -685,6 +685,9 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		// more weakly than stock, since stock's SSRRenderModeBoundary component-key override is not mirrored.
 		// It still begins and discards a capture rather than skipping one, because that is what makes stock's
 		// refusal guard run over what it holds.
+		//
+		// A boundary beneath an HtmxAsyncLoad would capture a placeholder carrying the current request's
+		// path, and no path reaches a cache key unless the application declared VaryByRoute.
 		captureAbandoned = httpContext.GetHtmxContext().Request.IsHtmxRequest ||
 			HasUncacheableAncestor(GetComponentState(componentId));
 		try
