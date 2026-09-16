@@ -33,7 +33,7 @@
       ]
     },
     {
-      "path": "src/Components/Endpoints/src/CacheView/CacheViewTextWriter.cs",
+      "path": "src/Components/Endpoints/src/Rendering/CacheViewTextWriter.cs",
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
@@ -42,7 +42,16 @@
       ]
     },
     {
-      "path": "src/Components/Endpoints/src/RenderFragmentCapture.cs",
+      "path": "src/Components/Shared/src/RenderFragmentCapture.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "private-accesses",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/CacheView/CacheViewRenderState.cs",
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",

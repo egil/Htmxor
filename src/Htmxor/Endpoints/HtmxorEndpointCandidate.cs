@@ -587,6 +587,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 #if NET11_0_OR_GREATER
 		var cacheViewServices = services.GetRequiredService<HtmxorEndpointCandidateCacheViewServices>();
 		if (GetComponentState(componentId).Component is CacheView cacheView &&
+			BeginCaptureScope() &&
 			cacheViewServices.TryWrite(
 				services,
 				cacheView,
@@ -655,9 +656,16 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	}
 
 #if NET11_0_OR_GREATER
-	// True once a capture has met content it must not store, so the CacheView discards the entry instead of
-	// caching something that would be wrong to replay.
+	// True once the capture in progress has met content it must not store, so that boundary discards its entry
+	// instead of caching something that would be wrong to replay. Scoped to one boundary: nesting is refused by
+	// the framework, so resetting as each boundary begins keeps a later sibling cacheable.
 	private bool captureAbandoned;
+
+	private bool BeginCaptureScope()
+	{
+		captureAbandoned = false;
+		return true;
+	}
 
 	// Mirrors stock's second CacheView block: during an active capture, a component whose output depends on
 	// per-request state is excluded from the entry and recorded so a later hit renders it live instead.

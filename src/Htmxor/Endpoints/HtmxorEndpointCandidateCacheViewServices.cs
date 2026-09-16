@@ -6,8 +6,9 @@
 // synchronized 2026-09-15. Approved #219 dependencies and exact sources: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheView.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheViewService.cs | private-accesses
-// Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheViewTextWriter.cs | private-accesses
-// Htmxor upstream dependency: src/Components/Endpoints/src/RenderFragmentCapture.cs | private-accesses
+// Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheViewRenderState.cs | private-accesses
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/CacheViewTextWriter.cs | private-accesses
+// Htmxor upstream dependency: src/Components/Shared/src/RenderFragmentCapture.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Shared/src/ComponentKeyHelper.cs | mirrors
 
 using System.Globalization;
@@ -129,13 +130,12 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 		IServiceProvider services, CacheView cacheView, TextWriter output, Action<TextWriter> write, Func<bool> captureUsable)
 	{
 		throwIfNested.Invoke(null, BindingFlags.DoNotWrapExceptions, null, [output], null);
-		var state = renderState.GetValue(cacheView);
-		if (state is null)
-		{
-			return false;
-		}
 
-		if ((bool)isCacheHit.GetValue(state)!)
+		// Null when the framework declined to cache this render: disabled, not a GET, or inside a streaming
+		// context. Stock still calls TryBeginWrite, which then supplies a validation-only writer so the
+		// descendant guard keeps running, so a boundary that stores nothing still refuses what stock refuses.
+		var state = renderState.GetValue(cacheView);
+		if (state is not null && (bool)isCacheHit.GetValue(state)!)
 		{
 			// The component's own render tree already holds the cached content.
 			write(output);
