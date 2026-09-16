@@ -70,43 +70,32 @@ internal partial class HtmxorEndpointCandidateRenderer
 	// that, so an ordinary response and an htmx one would share an entry. They do not contain the same thing:
 	// a body cached for one is wrong for the other, and a named fragment stored around is never reconstructed,
 	// which fails the request. The representation therefore joins the position Htmxor already supplies.
-	private string CurrentRepresentation()
-	{
-		// Every HX-* request header, by name and value. Naming individual dimensions was tried and was wrong
-		// twice: the first version carried IsHtmxRequest and RoutingMode, and content varying by HX-Target was
-		// served to a request that asked for a different target. The prefix is not a convention here -- an
-		// extension header is unreadable unless it starts with HX- (HtmxExtensionHeaderPolicy.IsAllowedName)
-		// -- so the whole surface a component can read is the set gathered below, including htmx headers this
-		// version does not model and extensions written later. IsHtmxRequest and RoutingMode are subsumed:
-		// they derive from HX-Request and HX-Request-Type.
-		//
-		// The selected fragment is deliberately not here. SelectFragment is permitted from ordinary lifecycle
-		// code, so a boundary above the selecting component would ask for its key before that code has run.
-		// The header selection is derived from is carried instead, which is stable for the whole request.
-		//
-		// The cost is cache fragmentation on high-cardinality headers, HX-Current-URL and HX-Trigger most of
-		// all: a page keyed this way holds one entry per distinct header set. That is a hit-rate cost on
-		// requests that do not vary, and it is the safe direction -- the alternative failed by serving one
-		// request another's markup.
-		var headers = httpContext.Request.Headers;
-		var representation = new List<string>();
-		foreach (var header in headers)
-		{
-			if (header.Key.StartsWith("HX-", StringComparison.OrdinalIgnoreCase))
-			{
-				representation.Add($"{header.Key.ToUpperInvariant()}={header.Value}");
-			}
-		}
+	// One bounded bit: whether this is an htmx request. It exists only so that an ordinary response and an
+	// htmx response can never share an entry, since the same URL serves both and their bodies differ.
+	//
+	// Nothing else about the request enters the key. An earlier revision put every HX-* header here, which
+	// closed a real hole and opened two worse ones: the key became unbounded attacker-controlled input, so a
+	// client could force an entry per request, and the name=value encoding was forgeable, so a crafted single
+	// header impersonated two and was served another client's stored body. Both were measured.
+	//
+	// Variation beyond this bit is the application's to declare, exactly as it is under stock. VaryByHeader
+	// takes a header list and reaches stock's own length-prefixed resolver, so <CacheView VaryByHeader=
+	// "HX-Target"> keys correctly with no Htmxor encoding involved and a cardinality the author chose.
+	// Read through the lazy key factory and the write path, both of which run after parameter binding, because
+	// component state is created before VaryByHeader has a value.
+	internal string CurrentRepresentation(CacheView cacheView)
+		=> !httpContext.GetHtmxContext().Request.IsHtmxRequest
+			? "ordinary"
+			: DeclaresRequestVariation(cacheView) ? "htmx-declared" : "htmx";
 
-		if (representation.Count == 0)
-		{
-			return "ordinary";
-		}
-
-		// Ordered so that header order on the wire cannot split one representation into two entries.
-		representation.Sort(StringComparer.Ordinal);
-		return string.Join("&", representation);
-	}
+	// An htmx request is cached only where the application said what its content varies by. Undeclared, the
+	// boundary is suppressed through the framework's own switch -- PrepareAsync returns null, so there is no
+	// store and no hit -- rather than cached against a key that does not describe the request. Htmxor cannot
+	// know what a subtree read, and guessing wrongly serves one request another's markup; guessing broadly
+	// makes the key attacker-controlled. Declaring is the only answer that is both safe and bounded, and it
+	// is the answer stock already gives for every other per-request input.
+	internal static bool DeclaresRequestVariation(CacheView cacheView)
+		=> !string.IsNullOrEmpty(cacheView.VaryByHeader) || !string.IsNullOrEmpty(cacheView.VaryBy);
 
 	// Mirrors stock EndpointComponentState's position computation: multiple CacheView components under one
 	// parent must not share a key. The result is deliberately not equal to stock's, because the representation
@@ -125,7 +114,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 			if (frame.FrameType is RenderTreeFrameType.Component && ReferenceEquals(frame.Component, target))
 			{
 				return HtmxorEndpointCandidateCacheViewServices.ComputeTreePositionKey(
-					ancestorTypeName, frame.Sequence, frame.ComponentKey, CurrentRepresentation(), beneathRequestVarying);
+					ancestorTypeName, frame.Sequence, frame.ComponentKey, CurrentRepresentation(target), beneathRequestVarying);
 			}
 		}
 
