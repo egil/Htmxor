@@ -213,7 +213,9 @@ variation. Htmxor appends the response representation to the tree position it al
 supplies, because one Htmxor URL serves representations the framework's key cannot
 distinguish; cached keys are therefore deliberately not equal to stock's.
 
-An **ordinary** request caches exactly as it does under stock. An **htmx** request caches
+An **ordinary** request caches as it does under stock, including beneath a named fragment
+or an `IConditionalRender`: neither varies on a request that selects nothing and carries
+no trigger or target element. An **htmx** request caches
 only where the boundary named the htmx dimensions it varies by, through stock's
 `VaryByHeader`; without one it stores nothing and can be served nothing, and the
 representation records which of the two states the request is in. Htmxor infers no
