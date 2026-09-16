@@ -605,11 +605,13 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 				CacheViewServices.ResumeCapture(paused);
 			}
 		}
+#else
+		WriteComponentHtmlCore(componentId, output, sequence, key, allowStreamingMarkers);
+#endif
 	}
 
 	private void WriteComponentHtmlCore(int componentId, TextWriter output, int sequence, object? key, bool allowStreamingMarkers)
 	{
-#endif
 		if (GetComponentState(componentId).Component is not HtmxorEndpointCandidateRenderModeBoundary boundary)
 		{
 			WriteStaticComponentHtml(componentId, output, allowStreamingMarkers);
@@ -668,15 +670,12 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	// state back to the outer one that already met content it refused to store.
 	private bool TryWriteCacheView(CacheView cacheView, int componentId, TextWriter output)
 	{
-		// Every scope statement covers an interactive boundary inside a CacheView. The opposite nesting would
-		// capture prerendered interactive content and key it more weakly than stock, so it caches nothing.
-		if (HasRenderModeBoundaryAncestor(GetComponentState(componentId)))
-		{
-			return false;
-		}
-
 		var enclosing = captureAbandoned;
-		captureAbandoned = false;
+
+		// A boundary beneath an interactive one would capture prerendered interactive content and key it more
+		// weakly than stock, so it stores nothing. It still begins and discards a capture rather than skipping
+		// one, because that is what makes stock's refusal guard run over what it holds.
+		captureAbandoned = HasRenderModeBoundaryAncestor(GetComponentState(componentId));
 		try
 		{
 			return CacheViewServices.TryWrite(
@@ -717,15 +716,20 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		var componentState = GetComponentState(componentId);
 		var component = componentState.Component;
 
-		// A named fragment is registered when its component is constructed, which a cache hit never does, and an
-		// interactive boundary is outside this slice's scope. Either way the subtree renders normally and is
-		// never stored, rather than being replayed in a form that would be wrong.
-		if (component is HtmxFragment or HtmxorEndpointCandidateRenderModeBoundary)
+		// Three reasons a subtree must not be stored. A named fragment is registered when its component is
+		// constructed, which serving stored output never does. An IConditionalRender decides whether to produce
+		// markup from the request itself — HtmxAsyncLoad varies on the trigger and target elements, which no
+		// cache key carries — so replaying it would hand one request another's markup. An interactive boundary
+		// is outside this slice. Each renders normally and is never stored.
+		if (component is HtmxFragment or IConditionalRender or HtmxorEndpointCandidateRenderModeBoundary)
 		{
 			captureAbandoned = true;
 			return null;
 		}
 
+		// Upstream also conjoins allowBoundaryMarkers here. The only caller passing it false writes to the
+		// streaming-update writer, never a capture writer, so the term cannot change this decision today; it is
+		// left out rather than carried as a condition that is always true at this point.
 		// Upstream pauses on the inherited value, not this component's own attribute. Using the own-type answer
 		// descended into a subtree stock had already paused, and validated content stock never validates, so a
 		// streaming page carrying an AuthorizeView under an ordinary wrapper failed where stock renders it.
