@@ -324,13 +324,22 @@ mirrors that rather than returning early on a null state, and
 `A_disabled_boundary_still_refuses_content_stock_refuses` asserts the message equals
 stock's.
 
-Two compositions abandon the capture instead, so the boundary stores nothing and the
+Several compositions discard the capture instead, so the boundary stores nothing and the
 subtree renders normally on every request. A named `HtmxFragment` is registered for
 selection only when its component is constructed, which serving stored output never
-does, so replaying it would break the selection #218 delivered. An interactive
-render-mode boundary is treated the same way, because Htmxor's own boundary does not
-expose the inner component type a live cached component would need; that path is
-outside this slice's scope and no command exercised it.
+does, so replaying it would break the selection #218 delivered. Any `IConditionalRender`
+component decides whether to produce markup from the request — `HtmxAsyncLoad` from the
+triggering and target elements — and no cache key carries that, so replaying it would
+hand one request another's markup. An interactive render-mode boundary is treated the
+same way, because Htmxor's own boundary does not expose the inner component type a live
+cached component would need; that path is outside this slice's scope and no command
+exercised it.
+
+A cached boundary **beneath** an interactive render-mode boundary is discarded too, for
+a different reason: it would store prerendered interactive content keyed more weakly
+than stock keys it, since stock's `SSRRenderModeBoundary` component-key override is not
+mirrored. It discards its capture rather than skipping one, so stock's refusal guard
+still runs over what it holds.
 
 ### Executed boundary
 
