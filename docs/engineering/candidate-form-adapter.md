@@ -253,8 +253,9 @@ own resolution; no cache implementation is copied and no private field is writte
 Two upstream sources are mirrored rather than accessed, both with provenance and a
 watch. `ComponentKeyHelper.FormatSerializableKey` is a pure shared function, and
 `EndpointComponentState`'s tree-position key computation is reproduced in
-`HtmxorEndpointCandidateRenderer.CacheView.cs`, line for line, and the response
-representation is then appended to it.
+`HtmxorEndpointCandidateCacheViewServices.ComputeTreePositionKey`, line for line, with
+the sequence lookup it needs mirrored in `HtmxorEndpointCandidateRenderer.CacheView.cs`,
+and the response representation is then appended to it.
 
 That last part is deliberate and is not what stock does. Stock serves one
 representation per URL; Htmxor serves an ordinary response and one or more htmx
@@ -353,25 +354,39 @@ still runs over what it holds.
 
 The Issue219 hosted contract pairs most cases against a stock host, so the framework
 decides the outcome and Htmxor only has to match it: a miss then a hit across an
-application data change, configured query variation keeping two tenants isolated, a
-cached component invoked exactly once across repeated hits, a not-yet-cached variant as
+application data change, configured query variation keeping two tenants isolated, a not-yet-cached variant as
 a cache-observation negative control, an already-expired boundary beside a kept one,
 suppression inside a streaming subtree, an `AuthorizeView` under an ordinary wrapper on
 a streaming page, response headers equal between a miss and a hit and between hosts, two
 sibling boundaries under one parent with no explicit key, `VaryByUser` isolation between
 principals, and the refusal cases above.
 
-These cases are deliberately candidate-only, because Htmxor caches less than stock by
-design there and a parity assertion would assert the wrong thing — named by test rather
-than counted, so the list cannot drift out of step with the suite:
+Six cases run against the candidate alone, for three different reasons. This list was
+derived from the suite rather than written from memory: counting it produced a wrong
+number three rounds running, and enumerating it from memory produced a wrong list once
+more.
+
+No stock equivalent exists, so there is nothing to pair against — `HtmxFragment` and
+`HtmxAsyncLoad` are Htmxor's own components, and the representation is Htmxor's concept:
 
 - `Named_fragment_inside_a_cached_subtree_stops_the_boundary_storing_anything`
-- `A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing`
+- `Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache`
 - `A_cached_async_load_boundary_never_replays_another_requests_element_identity_decision`
 - `An_htmx_request_does_not_reuse_an_entry_stored_for_the_ordinary_representation`
+
+Htmxor deliberately caches less than stock, so a parity assertion would assert the wrong
+thing:
+
+- `A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing`
+
+An observation probe rather than a behavioral comparison, counting how often the cached
+component runs:
+
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
 
-Each safety case was confirmed to redden when its guard is disabled.
+Every case in the first two groups was confirmed to redden when its guard is disabled.
+The probe has no guard to disable; it evidences that a hit reuses stored output rather
+than recording a divergence.
 
 `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and `VaryByCulture` are
 framework-owned and unchanged, but no command exercised them. Distributed cache

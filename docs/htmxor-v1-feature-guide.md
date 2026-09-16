@@ -1253,6 +1253,10 @@ renders normally on every request:
   `HtmxAsyncLoad` from the triggering and target elements — which no cache key carries,
   so replaying stored output would hand one request another's markup. The interface is
   public, so this covers your own components too.
+- An interactive render-mode boundary inside a cached subtree. Cached interactive
+  content is outside the executed boundary and no command exercised this path.
+- A cached boundary **beneath** an interactive render-mode boundary. It would otherwise
+  store prerendered interactive content, keyed more weakly than stock keys it.
 
 A component of your own that is **not** one of these, but still varies its output by the
 request — by injecting `HtmxContext` and reading the triggering element, say — is cached
@@ -1260,10 +1264,6 @@ and replayed like any other content, because nothing in the cache key describes 
 read. Mark such a component `[CacheBehavior(CacheBehavior.Throw)]` or
 `[CacheBehavior(CacheBehavior.Rerender)]`, exactly as you would for a framework component
 whose output depends on per-request state; Htmxor honours those the same way stock does.
-- An interactive render-mode boundary inside a cached subtree. Cached interactive
-  content is outside the executed boundary and no command exercised this path.
-- A cached boundary **beneath** an interactive render-mode boundary. It would otherwise
-  store prerendered interactive content, keyed more weakly than stock keys it.
 
 Keys are also deliberately not equal to stock's for the same component tree, because of
 the representation described above.
