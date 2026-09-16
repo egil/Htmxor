@@ -44,9 +44,38 @@ public sealed class Issue219CacheSafetyTests
 		Assert.Contains("data-version=\"2\"", second.Body, StringComparison.Ordinal);
 	}
 
-	private static async Task<(HttpStatusCode Status, string Body)> ReadAsync(HttpClient client)
+	[Fact]
+	public async Task Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache()
 	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/fragment");
+		await using var app = await StartAsync<Issue219UnnamedFragmentPage>(true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// Same two-request, same-representation shape as the named-fragment case above (both
+		// `RoutingMode.Standard`), but this fragment declares no `Name`. An unnamed fragment is never registered
+		// for selection, so it cannot be selected at all and is ordinary content — the guard must not treat it
+		// like the named case, and the boundary holding it should cache and reuse normally.
+		var first = await ReadAsync(client, "/issue-219/fragment-unnamed");
+		Assert.Equal(HttpStatusCode.OK, first.Status);
+		Assert.Contains("data-version=\"1\"", first.Body, StringComparison.Ordinal);
+
+		data.Version = 2;
+		var second = await ReadAsync(client, "/issue-219/fragment-unnamed");
+
+		// Unlike the named case, a stored entry is exactly what should happen here: the second response must
+		// still read version 1, proving the boundary's first-request capture was stored and replayed rather than
+		// abandoned or freshly re-rendered.
+		Assert.Equal(HttpStatusCode.OK, second.Status);
+		Assert.Contains("data-inner", second.Body, StringComparison.Ordinal);
+		Assert.Contains("data-version=\"1\"", second.Body, StringComparison.Ordinal);
+	}
+
+	private static Task<(HttpStatusCode Status, string Body)> ReadAsync(HttpClient client)
+		=> ReadAsync(client, "/issue-219/fragment");
+
+	private static async Task<(HttpStatusCode Status, string Body)> ReadAsync(HttpClient client, string path)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
 		request.Headers.Add("HX-Request", "true");
 		using var response = await client.SendAsync(request);
 		return (response.StatusCode, await response.Content.ReadAsStringAsync());
@@ -327,6 +356,33 @@ public sealed class Issue219FragmentPage : ComponentBase
 			cached.OpenComponent<HtmxFragment>(0);
 			cached.AddAttribute(1, nameof(HtmxFragment.Name), "inner");
 			cached.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
+			{
+				inner.OpenElement(0, "p");
+				inner.AddAttribute(1, "data-inner", "true");
+				inner.AddAttribute(2, "data-version", Data.Version);
+				inner.AddContent(3, "inner");
+				inner.CloseElement();
+			}));
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+[Route("/issue-219/fragment-unnamed")]
+public sealed class Issue219UnnamedFragmentPage : ComponentBase
+{
+	[Inject] internal Issue219Data Data { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment-unnamed");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			// No Name is set: this HtmxFragment is unnamed and therefore never registered for selection.
+			cached.OpenComponent<HtmxFragment>(0);
+			cached.AddAttribute(1, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
 			{
 				inner.OpenElement(0, "p");
 				inner.AddAttribute(1, "data-inner", "true");
