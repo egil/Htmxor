@@ -347,11 +347,21 @@ reachable, since before this change nothing was stored at all. The discard check
 before `IsCacheableComponent`, so stock's `[CacheBehavior]` opt-out still applies and is
 the documented remedy. No command exercises that composition.
 
-A cached boundary **beneath** an interactive render-mode boundary is discarded too, for
-a different reason: it would store prerendered interactive content keyed more weakly
-than stock keys it, since stock's `SSRRenderModeBoundary` component-key override is not
-mirrored. It discards its capture rather than skipping one, so stock's refusal guard
-still runs over what it holds.
+A cached boundary **beneath** any of the three request-varying kinds is discarded too.
+Beneath an interactive render-mode boundary the reason differs: it would store
+prerendered interactive content keyed more weakly than stock keys it, since stock's
+`SSRRenderModeBoundary` component-key override is not mirrored. Beneath a *named*
+`HtmxFragment` or an `IConditionalRender` the reason is the one above — the content is
+chosen per request by something the key does not carry. In every case the boundary
+discards its capture rather than skipping one, so stock's refusal guard still runs over
+what it holds.
+
+Discarding alone is not sufficient, because it governs only what is written. The tree
+position therefore also records whether the boundary stands beneath a request-varying
+ancestor, so the two states cannot share an entry. An `HtmxFragment`'s `Name` is a
+parameter and may be absent on one request and present on the next at one representation,
+which would otherwise let a position store an entry while ordinary content and be served
+it once selectable.
 
 ### Executed boundary
 
@@ -364,9 +374,10 @@ a streaming page, response headers equal between a miss and a hit and between ho
 sibling boundaries under one parent with no explicit key, `VaryByUser` isolation between
 principals, and the refusal cases above.
 
-Six cases run against the candidate alone, for three different reasons. Derive this list
-from the suite when it changes; it is small enough to check by asking which `Issue219`
-tests start only one host.
+Nine cases run against the candidate alone, for three different reasons. Derive this list
+from the suite when it changes rather than counting by hand; ask which `Issue219` tests
+construct only one host, and follow the shared helpers, some of which pass the flag
+positionally. This enumeration has gone stale more than once.
 
 No stock equivalent exists, so there is nothing to pair against — `HtmxFragment` and
 `HtmxAsyncLoad` are Htmxor's own components, and the representation is Htmxor's concept:
@@ -375,6 +386,9 @@ No stock equivalent exists, so there is nothing to pair against — `HtmxFragmen
 - `Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache`
 - `A_cached_async_load_boundary_never_replays_another_requests_element_identity_decision`
 - `An_htmx_request_does_not_reuse_an_entry_stored_for_the_ordinary_representation`
+- `Selecting_a_second_fragment_does_not_replay_the_first_fragments_markup`
+- `A_boundary_is_not_served_what_it_stored_before_its_fragment_ancestor_was_named`
+- `A_boundary_beneath_a_conditional_component_stores_nothing`
 
 Htmxor deliberately caches less than stock, so a parity assertion would assert the wrong
 thing:

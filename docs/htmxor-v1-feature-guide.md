@@ -1262,6 +1262,12 @@ renders normally on every request:
   selected, so two selections would otherwise reach one entry and the second be served
   the first's markup.
 
+A boundary standing beneath any of these also caches separately from the same boundary
+standing outside them, rather than merely declining to store. `Name` is an ordinary
+parameter, so one position can be plain content on one request and a selectable fragment
+on the next; without that separation the second request would be handed what the first
+stored.
+
 A component of your own that is **not** one of these, but still varies its output by the
 request — by injecting `HtmxContext` and reading the triggering element, say — is cached
 and replayed like any other content, because nothing in the cache key describes what it
