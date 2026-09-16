@@ -253,7 +253,7 @@ own resolution; no cache implementation is copied and no private field is writte
 Two upstream sources are mirrored rather than accessed, both with provenance and a
 watch. `ComponentKeyHelper.FormatSerializableKey` is a pure shared function, and
 `EndpointComponentState`'s tree-position key computation is reproduced in
-`HtmxorEndpointCandidateRenderer.FragmentSelection.cs`, line for line, and the response
+`HtmxorEndpointCandidateRenderer.CacheView.cs`, line for line, and the response
 representation is then appended to it.
 
 That last part is deliberate and is not what stock does. Stock serves one
@@ -327,13 +327,21 @@ stock's.
 Several compositions discard the capture instead, so the boundary stores nothing and the
 subtree renders normally on every request. A named `HtmxFragment` is registered for
 selection only when its component is constructed, which serving stored output never
-does, so replaying it would break the selection #218 delivered. Any `IConditionalRender`
+does, so replaying it would break the selection #218 delivered. An unnamed one cannot be
+selected and is treated as ordinary content. Any `IConditionalRender`
 component decides whether to produce markup from the request — `HtmxAsyncLoad` from the
 triggering and target elements — and no cache key carries that, so replaying it would
 hand one request another's markup. An interactive render-mode boundary is treated the
 same way, because Htmxor's own boundary does not expose the inner component type a live
 cached component would need; that path is outside this slice's scope and no command
 exercised it.
+
+A consumer component that is none of these but still varies by the request — one that
+injects the scoped `HtmxContext` and reads the triggering or target element, say — is
+captured and replayed, because no cache key describes what it read. This is newly
+reachable, since before this change nothing was stored at all. The discard check runs
+before `IsCacheableComponent`, so stock's `[CacheBehavior]` opt-out still applies and is
+the documented remedy. No command exercises that composition.
 
 A cached boundary **beneath** an interactive render-mode boundary is discarded too, for
 a different reason: it would store prerendered interactive content keyed more weakly
@@ -353,11 +361,17 @@ a streaming page, response headers equal between a miss and a hit and between ho
 sibling boundaries under one parent with no explicit key, `VaryByUser` isolation between
 principals, and the refusal cases above.
 
-Three cases are deliberately candidate-only, because Htmxor caches less than stock by
-design there and a parity assertion would assert the wrong thing: the boundary holding a
-named fragment, the boundary beneath an interactive render-mode boundary, and the
-separation of the ordinary and htmx representations. Each safety case was confirmed to
-redden when its guard is disabled.
+These cases are deliberately candidate-only, because Htmxor caches less than stock by
+design there and a parity assertion would assert the wrong thing — named by test rather
+than counted, so the list cannot drift out of step with the suite:
+
+- `Named_fragment_inside_a_cached_subtree_stops_the_boundary_storing_anything`
+- `A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing`
+- `A_cached_async_load_boundary_never_replays_another_requests_element_identity_decision`
+- `An_htmx_request_does_not_reuse_an_entry_stored_for_the_ordinary_representation`
+- `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
+
+Each safety case was confirmed to redden when its guard is disabled.
 
 `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and `VaryByCulture` are
 framework-owned and unchanged, but no command exercised them. Distributed cache

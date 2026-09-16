@@ -716,12 +716,13 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		var componentState = GetComponentState(componentId);
 		var component = componentState.Component;
 
-		// Three reasons a subtree must not be stored. A named fragment is registered when its component is
-		// constructed, which serving stored output never does. An IConditionalRender decides whether to produce
-		// markup from the request itself — HtmxAsyncLoad varies on the trigger and target elements, which no
-		// cache key carries — so replaying it would hand one request another's markup. An interactive boundary
-		// is outside this slice. Each renders normally and is never stored.
-		if (component is HtmxFragment or IConditionalRender or HtmxorEndpointCandidateRenderModeBoundary)
+		// Three reasons a subtree must not be stored. A *named* fragment is registered for selection when its
+		// component is constructed, which serving stored output never does; an unnamed one cannot be selected
+		// and is ordinary content. An IConditionalRender decides whether to produce markup from the request
+		// itself — HtmxAsyncLoad varies on the trigger and target elements, which no cache key carries — so
+		// replaying it would hand one request another's markup. An interactive boundary is outside this slice.
+		// Each renders normally and is never stored.
+		if (component is HtmxFragment { Name: not null } or IConditionalRender or HtmxorEndpointCandidateRenderModeBoundary)
 		{
 			captureAbandoned = true;
 			return null;

@@ -212,7 +212,7 @@ The framework keeps the cache store, key derivation, serialization, expiry and
 variation. Htmxor appends the response representation to the tree position it already
 supplies, because one Htmxor URL serves representations the framework's key cannot
 distinguish; cached keys are therefore deliberately not equal to stock's. Scope is ordinary read-only `CacheView` on static-SSR pages; no public API
-or named-fragment contract changes. A named fragment, an `IConditionalRender`
+or named-fragment contract changes. A *named* fragment, an `IConditionalRender`
 component or an interactive boundary inside a cached subtree, and a cached boundary
 beneath an interactive one, each cause Htmxor to store nothing for that one boundary,
 leaving any sibling boundary cacheable, rather than replaying content that would be
