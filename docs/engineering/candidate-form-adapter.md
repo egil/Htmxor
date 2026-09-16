@@ -227,8 +227,9 @@ Authorized dependencies, all in `Microsoft.AspNetCore.Components.Endpoints.dll` 
 - internal `CacheView.IsInStreamingContext` setter, so the framework can suppress
   caching inside a streaming subtree exactly as stock does.
 - internal `CacheView.TreePositionKeyFactory` setter. The tree position always
-  contributes to the computed key, even when `CacheKey` is set, so omitting it
-  would make Htmxor derive different keys than stock for the same page.
+  contributes to the computed key, even when `CacheKey` is set, so without it two
+  sibling boundaries under one parent would collide. It is also where Htmxor adds the
+  response representation, described below.
 - public `CacheViewService.ThrowIfNestedInsideCapturingCacheView(TextWriter)`,
   `CacheViewService.TryBeginWrite(...)` and `CacheViewService.EndCapture(...)` on
   the internal service type, resolved through existing DI.
@@ -260,11 +261,19 @@ representation per URL; Htmxor serves an ordinary response and one or more htmx
 responses from the same URL, and the framework's key has no dimension for the
 difference. Sharing one entry served an ordinary body to an htmx request, and a named
 fragment that the cached markup was stored around was never reconstructed, failing the
-request. The representation Htmxor already knows — whether the request is htmx, its
-routing mode, and any selected fragment names — therefore joins the position Htmxor
-already supplies, through the same approved `TreePositionKeyFactory`. Keys are
-consequently not equal to stock's for the same component tree; the derivation itself
-stays the framework's. Two hosts hold separate stores, so no test can
+request. The representation Htmxor already knows — whether the request is htmx and its
+routing mode — therefore joins the position Htmxor already supplies, through the same
+approved `TreePositionKeyFactory`. Keys are consequently not equal to stock's for the
+same component tree; the derivation itself stays the framework's. A page serving both
+representations holds one entry per representation rather than one in total, which is
+the cost of not serving one representation's body for the other.
+
+Selected fragment names were tried in that value and removed. Selection is permitted
+from ordinary lifecycle code, so the names are not reliably populated when the
+framework asks for the key, and they added nothing: a boundary holding a named
+fragment abandons its capture regardless of how it is keyed.
+
+Two hosts hold separate stores, so no test can
 observe cross-host key equality; what is observed is that two sibling boundaries under
 one parent with no explicit key are disambiguated, which is what the tree position is
 for. Stock's `GetComponentKey()` override for an `SSRRenderModeBoundary` parent is not
@@ -325,14 +334,21 @@ outside this slice's scope and no command exercised it.
 
 ### Executed boundary
 
-The Issue219 hosted contract pairs every case against a stock host: a miss then a hit
-across an application data change, configured query variation keeping two tenants
-isolated, a cached component invoked exactly once across repeated hits, a
-not-yet-cached variant as a cache-observation negative control, an already-expired
-entry, suppression inside a streaming subtree, response headers unchanged across a
-hit, two sibling boundaries under one parent with no explicit key, `VaryByUser`
-isolation between principals, and the three refusal and abandonment cases above. Each
-safety case was confirmed to redden when the guard is disabled.
+The Issue219 hosted contract pairs most cases against a stock host, so the framework
+decides the outcome and Htmxor only has to match it: a miss then a hit across an
+application data change, configured query variation keeping two tenants isolated, a
+cached component invoked exactly once across repeated hits, a not-yet-cached variant as
+a cache-observation negative control, an already-expired boundary beside a kept one,
+suppression inside a streaming subtree, an `AuthorizeView` under an ordinary wrapper on
+a streaming page, response headers equal between a miss and a hit and between hosts, two
+sibling boundaries under one parent with no explicit key, `VaryByUser` isolation between
+principals, and the refusal cases above.
+
+Three cases are deliberately candidate-only, because Htmxor caches less than stock by
+design there and a parity assertion would assert the wrong thing: the boundary holding a
+named fragment, the boundary beneath an interactive render-mode boundary, and the
+separation of the ordinary and htmx representations. Each safety case was confirmed to
+redden when its guard is disabled.
 
 `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and `VaryByCulture` are
 framework-owned and unchanged, but no command exercised them. Distributed cache
