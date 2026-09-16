@@ -260,17 +260,53 @@ Synchronized **2026-09-15**, ASP.NET Core **v11.0.0-rc.1.26425.128**, commit
 - [ComponentKeyHelper.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Shared/src/ComponentKeyHelper.cs): the mirrored key formatting.
 - [EndpointHtmlRenderer.Streaming.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs): the write-path branch, under the existing renderer watch.
 
-The Issue219 hosted contract pairs every case against a stock host: a miss then a
-hit across an application data change, configured query variation keeping two
-tenants isolated, a cached component invoked exactly once across repeated hits,
-and a not-yet-cached variant observing current data as a cache-observation
-negative control. The live-cached-component capture path, `CacheViewTextWriter`
-pausing and validation-only writers are **not** adapted; that boundary is reached
-only by cached interactive content, which this slice excludes. A named
-`HtmxFragment` inside a cached subtree remains a separately tracked composition
-question, since a hit reuses stored output without constructing the component.
-Distributed cache deployment, cached form content and performance are unclaimed.
-The existing package-retained ASP.NET Core MIT license covers adapted coordination.
+### The descendant guard is required, not optional
+
+An earlier revision of this adapter omitted stock's second `CacheView` block and
+justified it as a path "reached only by cached interactive content". **That was
+wrong, and it was a security defect.** Stock consults
+`CacheViewService.IsCacheableComponent` for every component written during an active
+capture, and the components that matter are ordinary static SSR:
+
+- `AuthorizeViewCore` is `[CacheBehavior(CacheBehavior.Throw)]` with
+  `[CacheCondition(CacheVaryBy.User)]`. Stock refuses to cache it. Without the guard
+  Htmxor cached it, and a second principal was served the first principal's
+  authorized markup.
+- `AntiforgeryToken` is `[CacheBehavior(CacheBehavior.Rerender)]`. Without the guard
+  its first value was frozen into the entry and replayed.
+
+The [extended #219 decision](https://github.com/egil/Htmxor/issues/219#issuecomment-5694552511)
+therefore authorizes `IsCacheableComponent`, the `CacheViewTextWriter` capture state
+with `PauseCapture`/`StartCapture`, and `CreateLiveCachedComponent` with its
+`RenderFragmentCapture`. A refused component now raises the framework's own
+descriptive error; an excluded one is recorded so a later hit renders it live.
+`CacheViewTextWriter.StartValidation` sets capturing, so the guard also runs for a
+validation-only boundary, which is why a disabled boundary still reports the error.
+
+Two compositions abandon the capture instead, so the boundary stores nothing and the
+subtree renders normally on every request. A named `HtmxFragment` is registered for
+selection only when its component is constructed, which serving stored output never
+does, so replaying it would break the selection #218 delivered. An interactive
+render-mode boundary is outside this slice's scope and Htmxor's own boundary does not
+expose the inner component type a live cached component would need.
+
+### Executed boundary
+
+The Issue219 hosted contract pairs every case against a stock host: a miss then a hit
+across an application data change, configured query variation keeping two tenants
+isolated, a cached component invoked exactly once across repeated hits, a
+not-yet-cached variant as a cache-observation negative control, an already-expired
+entry, suppression inside a streaming subtree, response headers unchanged across a
+hit, two sibling boundaries under one parent with no explicit key, `VaryByUser`
+isolation between principals, and the three refusal and abandonment cases above. Each
+safety case was confirmed to redden when the guard is disabled.
+
+`VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and `VaryByCulture` are
+framework-owned and unchanged, but no command exercised them. Distributed cache
+deployment, cached form content and performance are unclaimed. Streaming boundary
+markers for a component that did not itself opt into streaming already differ from
+stock; that is pre-existing and owned by #192. The existing package-retained ASP.NET
+Core MIT license covers adapted coordination.
 
 ## Installed form-service access
 

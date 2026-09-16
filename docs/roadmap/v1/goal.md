@@ -197,12 +197,23 @@ It permits reading `CacheView.RenderState`, setting `CacheView.IsInStreamingCont
 and `CacheView.TreePositionKeyFactory`, and invoking
 `CacheViewService.ThrowIfNestedInsideCapturingCacheView`, `TryBeginWrite` and
 `EndCapture`, plus mirroring the shared `ComponentKeyHelper` key formatting and the
-tree-position key computation. The framework keeps the cache store, key derivation,
-serialization, invalidation and variation. Scope is ordinary read-only `CacheView`
-on static-SSR pages; no public API or named-fragment contract changes, and a named
-fragment inside a cached subtree, cached interactive content and distributed
-deployments remain unestablished. Validate and cache only accessor metadata and
-monitor the exact upstream dependencies.
+tree-position key computation.
+
+The [extended #219 decision](https://github.com/egil/Htmxor/issues/219#issuecomment-5694552511)
+additionally permits the descendant guard stock applies while capturing:
+`CacheViewService.IsCacheableComponent`, the `CacheViewTextWriter` capture state and
+`PauseCapture`/`StartCapture`, and `CreateLiveCachedComponent` with its
+`RenderFragmentCapture`. That guard is required, not optional: without it a component
+whose output depends on per-request state is frozen into a cache entry, which for
+`AuthorizeView` means replaying one principal's authorized markup to another. Content
+the framework refuses to cache must keep raising the framework's own error.
+
+The framework keeps the cache store, key derivation, serialization, expiry and
+variation. Scope is ordinary read-only `CacheView` on static-SSR pages; no public API
+or named-fragment contract changes. A named fragment or an interactive boundary inside
+a cached subtree causes Htmxor to store nothing for that boundary rather than replay
+it, and distributed deployments remain unestablished. Validate and cache only accessor
+metadata and monitor the exact upstream dependencies.
 
 ## The application owns HTMX
 
