@@ -9,6 +9,7 @@
 using System.Collections.Concurrent;
 using Htmxor.Components;
 using Htmxor.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
@@ -64,7 +65,22 @@ internal partial class HtmxorEndpointCandidateRenderer
 			.Select(attribute => (bool?)attribute.Enabled)
 			.FirstOrDefault());
 
-	// Mirrors stock EndpointComponentState: multiple CacheView components under one parent must not share a key.
+	// One URL serves more than one representation under Htmxor, and the framework's key has no dimension for
+	// that, so an ordinary response and an htmx one would share an entry. They do not contain the same thing:
+	// a body cached for one is wrong for the other, and a named fragment stored around is never reconstructed,
+	// which fails the request. The representation therefore joins the position Htmxor already supplies.
+	private string CurrentRepresentation()
+	{
+		var htmxContext = httpContext.GetHtmxContext();
+		var selected = htmxContext.Response.SelectedFragmentNames;
+		return selected.Count is 0
+			? $"{htmxContext.Request.IsHtmxRequest}.{htmxContext.Request.RoutingMode}"
+			: $"{htmxContext.Request.IsHtmxRequest}.{htmxContext.Request.RoutingMode}.{string.Join(",", selected)}";
+	}
+
+	// Mirrors stock EndpointComponentState's position computation: multiple CacheView components under one
+	// parent must not share a key. The result is deliberately not equal to stock's, because the representation
+	// is appended above, and stock's SSRRenderModeBoundary GetComponentKey override is not mirrored.
 	private string ComputeCacheViewTreePositionKey(ComponentState parentComponentState, CacheView target, string ancestorTypeName)
 	{
 		var frames = GetCurrentRenderTreeFrames(parentComponentState.ComponentId);
@@ -74,7 +90,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 			if (frame.FrameType is RenderTreeFrameType.Component && ReferenceEquals(frame.Component, target))
 			{
 				return HtmxorEndpointCandidateCacheViewServices.ComputeTreePositionKey(
-					ancestorTypeName, frame.Sequence, frame.ComponentKey);
+					ancestorTypeName, frame.Sequence, frame.ComponentKey, CurrentRepresentation());
 			}
 		}
 

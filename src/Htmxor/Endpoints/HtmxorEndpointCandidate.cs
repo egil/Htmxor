@@ -585,22 +585,27 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 		visitedComponentIdsInCurrentStreamingBatch.Add(componentId);
 #if NET11_0_OR_GREATER
-		var cacheViewServices = services.GetRequiredService<HtmxorEndpointCandidateCacheViewServices>();
-		if (GetComponentState(componentId).Component is CacheView cacheView &&
-			BeginCaptureScope() &&
-			cacheViewServices.TryWrite(
-				services,
-				cacheView,
-				output,
-				target => base.WriteComponentHtml(componentId, target),
-				() => !captureAbandoned))
+		if (GetComponentState(componentId).Component is CacheView cacheView && TryWriteCacheView(cacheView, componentId, output))
 		{
 			return;
 		}
 
-		var pausedCapture = TryPauseCaptureForUncacheableComponent(cacheViewServices, componentId, output);
+		var pausedCapture = TryPauseCaptureForUncacheableComponent(componentId, output);
 		try
 		{
+			WriteComponentHtmlCore(componentId, output, sequence, key, allowStreamingMarkers);
+		}
+		finally
+		{
+			if (pausedCapture is { } paused)
+			{
+				CacheViewServices.ResumeCapture(paused);
+			}
+		}
+	}
+
+	private void WriteComponentHtmlCore(int componentId, TextWriter output, int sequence, object? key, bool allowStreamingMarkers)
+	{
 #endif
 		if (GetComponentState(componentId).Component is not HtmxorEndpointCandidateRenderModeBoundary boundary)
 		{
@@ -643,36 +648,45 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			output.Write(marker.PrerenderId);
 			output.Write("\"}-->");
 		}
-#if NET11_0_OR_GREATER
-		}
-		finally
-		{
-			if (pausedCapture is { } paused)
-			{
-				cacheViewServices.ResumeCapture(paused);
-			}
-		}
-#endif
 	}
 
 #if NET11_0_OR_GREATER
 	// True once the capture in progress has met content it must not store, so that boundary discards its entry
-	// instead of caching something that would be wrong to replay. Scoped to one boundary: nesting is refused by
-	// the framework, so resetting as each boundary begins keeps a later sibling cacheable.
+	// instead of caching something that would be wrong to replay.
 	private bool captureAbandoned;
 
-	private bool BeginCaptureScope()
+	private HtmxorEndpointCandidateCacheViewServices? cacheViewServices;
+
+	private HtmxorEndpointCandidateCacheViewServices CacheViewServices
+		=> cacheViewServices ??= services.GetRequiredService<HtmxorEndpointCandidateCacheViewServices>();
+
+	// Saved and restored rather than simply cleared. The framework refuses a CacheView nested inside a
+	// *capturing* writer, but not one inside a paused region, so an inner boundary must not hand its own clean
+	// state back to the outer one that already met content it refused to store.
+	private bool TryWriteCacheView(CacheView cacheView, int componentId, TextWriter output)
 	{
+		var enclosing = captureAbandoned;
 		captureAbandoned = false;
-		return true;
+		try
+		{
+			return CacheViewServices.TryWrite(
+				services,
+				cacheView,
+				output,
+				target => base.WriteComponentHtml(componentId, target),
+				() => !captureAbandoned);
+		}
+		finally
+		{
+			captureAbandoned = enclosing;
+		}
 	}
 
 	// Mirrors stock's second CacheView block: during an active capture, a component whose output depends on
 	// per-request state is excluded from the entry and recorded so a later hit renders it live instead.
-	private object? TryPauseCaptureForUncacheableComponent(
-		HtmxorEndpointCandidateCacheViewServices cacheViewServices, int componentId, TextWriter output)
+	private object? TryPauseCaptureForUncacheableComponent(int componentId, TextWriter output)
 	{
-		if (!cacheViewServices.IsActiveCapture(output, out var writer) || writer is null)
+		if (!CacheViewServices.IsActiveCapture(output, out var writer) || writer is null)
 		{
 			return null;
 		}
@@ -690,15 +704,15 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		}
 
 		var streaming = IsStreamingComponent(componentId);
-		if (cacheViewServices.IsCacheable(writer, component.GetType()) && !streaming)
+		if (CacheViewServices.IsCacheable(writer, component.GetType()) && !streaming)
 		{
 			return null;
 		}
 
-		cacheViewServices.PauseCapture(writer);
-		if (!cacheViewServices.IsValidationOnlyCapture(writer))
+		CacheViewServices.PauseCapture(writer);
+		if (!CacheViewServices.IsValidationOnlyCapture(writer))
 		{
-			cacheViewServices.CreateLiveCachedComponent(
+			CacheViewServices.CreateLiveCachedComponent(
 				services, writer, component.GetType(), null, CaptureParameterFrames(componentState));
 		}
 
