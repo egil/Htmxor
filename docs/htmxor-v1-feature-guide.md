@@ -1229,12 +1229,15 @@ between a miss and a hit and between hosts, an async-load boundary never replayi
 request's element-identity decision, a boundary that stores nothing beside one that still
 caches,
 and two sibling boundaries under one parent with no explicit key. The remaining
-variation parameters — `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and
-`VaryByCulture` — are framework-owned and unchanged by Htmxor, but no Htmxor command
-has exercised them.
+variation parameters — `VaryByRoute`, `VaryByCookie` and `VaryByCulture` — are
+framework-owned, unchanged by Htmxor, and exercised by no Htmxor command. `VaryByHeader`
+is the exception: Htmxor reads it, because naming a header there is what permits an htmx
+response to be cached at all.
 
-Content that must not be cached is refused exactly as stock refuses it, including in a
-boundary that is disabled or otherwise storing nothing, which stock still validates. A
+Content that must not be cached is refused as stock refuses it, including in a boundary
+that is disabled or otherwise storing nothing, which stock still validates. The two
+compositions described below are the exceptions, and they are exceptions in the safe
+direction: Htmxor renders where stock raises, and stores nothing. A
 component
 carrying `[CacheBehavior(CacheBehavior.Throw)]` raises the framework's own descriptive
 error rather than being cached — `AuthorizeView` inside a `CacheView` that does not
@@ -1265,7 +1268,17 @@ nested beneath a named `HtmxFragment` inside another `CacheView`, and a
 protects a replay mechanism Htmxor does not use in these shapes, and Htmxor stores nothing
 for them, so the page renders rather than failing. The trade is silence: the boundary
 looks cached and is not. If you need the caching, restructure so the boundary holds
-neither. It is never served an ordinary request's body either, because htmx and
+neither.
+
+**A cache hit does not re-run the components in the boundary, so anything they did
+besides producing markup does not happen again.** A component calling
+`HtmxResponse.Retarget`, `Reswap`, `Reselect` or `Trigger` during render sets those
+headers on the request that stores the entry and on no request served from it. Stock
+behaves the same way with an ordinary response header — measured on both hosts — because
+a cache entry is body content rather than response metadata. It is worth stating plainly
+here because the htmx consequence is louder than the stock one: a lost `HX-Retarget`
+does not make the response look wrong, it makes the client swap correct markup into the
+wrong element. Set those headers outside the cached boundary. It is never served an ordinary request's body either, because htmx and
 ordinary responses occupy separate key spaces. Declaring incompletely — naming one header
 when the content varies by another — caches against a key that does not describe the
 request, exactly as it would under stock for an undeclared query value.

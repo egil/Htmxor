@@ -342,8 +342,8 @@ exercised it.
 
 A consumer component that is none of these but still varies by the request — one that
 injects the scoped `HtmxContext` and reads the triggering or target element, say — is
-captured and replayed, because no cache key describes what it read beyond the HX-*
-headers the representation carries. This is newly reachable, since before this change
+captured and replayed, because no cache key describes what it read. No `HX-*` header
+enters any key unless the application named it through `VaryByHeader`. This is newly reachable, since before this change
 nothing was stored at all. `IsCacheableComponent` is consulted *before* the discard, so
 stock's `[CacheBehavior]` opt-out applies to every component and is the documented
 remedy. No command exercises that composition; it is filed as #235
@@ -402,6 +402,8 @@ No stock equivalent exists, so there is nothing to pair against — `HtmxFragmen
 - `An_undeclared_boundary_does_not_cache_an_htmx_request_at_all`
 - `A_direct_request_is_not_served_what_a_standard_one_stored`
 - `Content_beside_a_named_fragment_is_not_kept_without_it`
+- `A_declared_boundary_caches_and_reuses_across_htmx_requests`
+- `A_keyed_boundary_is_not_served_another_keys_entry`
 
 Htmxor deliberately caches less than stock, so a parity assertion would assert the wrong
 thing:
@@ -413,21 +415,31 @@ component runs:
 
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
 
-Ten of the twelve cases in the first two groups were confirmed to redden when their
-guard is disabled, from eleven distinct inversions, all recorded in the verification
-receipt for `c7c6aa72d64989d76d0ace7806515101867f5d66`. An eleventh,
+Twelve of the fourteen cases in the first two groups were confirmed to redden when their
+guard is disabled, from thirteen distinct inversions, all recorded in the verification
+receipt for `9af29e07304d64f2b45a6f62e5be55cfb531c3e0`. A thirteenth,
 `Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache`, is a negative
 control: it reddens when the guard is *widened* to every fragment rather than when it is
-disabled. The twelfth,
+disabled, and also when the declaration gate is forced to suppress everything. The
+fourteenth,
 `A_boundary_whose_request_varying_child_is_conditional_is_not_shared_across_targets`,
 reddens under no inversion: it declares the header its content actually varies by, which
 is correct for the fixture, so stock's own resolver separates its two requests and no
 Htmxor guard is exercised. It is an end-to-end case for the declared path rather than
-evidence for a guard, and is recorded as such. The probe has no guard to
+evidence for a guard, and is recorded as such.
+
+Two production branches are deliberately unguarded and recorded rather than implied: the
+declared-ness component of the representation, which three rounds of attempts failed to
+defeat and so has nothing honest to assert, and the parentless-`CacheView` throw, which is
+unreachable by construction and would need a fabricated renderer to reach. The probe has no guard to
 disable; it evidences that a hit reuses stored output rather than recording a divergence.
 
-`VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and `VaryByCulture` are
-framework-owned and unchanged, but no command exercised them. Distributed cache
+`VaryByRoute`, `VaryByCookie` and `VaryByCulture` are framework-owned, unchanged, and
+exercised by no command. `VaryByHeader` is neither: production reads it, because naming a
+header there is what opens htmx caching for a boundary, and the suite exercises it
+candidate-only, with no paired stock coverage. `VaryBy` is read by no Htmxor code as of
+this revision -- it opened the gate briefly and should not have, since stock appends it
+as a literal that carries no request dimension. Distributed cache
 deployment, cached form content and performance are unclaimed. Streaming boundary
 markers for a component that did not itself opt into streaming already differ from
 stock; that is pre-existing and owned by #192. The existing package-retained ASP.NET
