@@ -776,6 +776,23 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			captureAbandoned = true;
 		}
 
+		// Stock's SSRRenderModeBoundary carries [CacheBehavior(Rerender)], so stock pauses at a render-mode
+		// boundary and never validates the prerendered subtree beneath it. Htmxor's boundary carries no such
+		// attribute, so falling through to the ordinary decision validated content stock never reaches, and an
+		// AuthorizeView below one threw where stock renders it. Mirror the answer here instead.
+		//
+		// Deliberately without recording a live cached component. Stock records one so a later hit can render
+		// the excluded component live; Htmxor's boundary does not expose the inner component type that would
+		// need, which is the reason this composition is excluded at all, and the boundary has already marked
+		// the capture abandoned so there is no later hit to render into. The attribute could have been put on
+		// the boundary type instead, which measures identically today, but that answer holds only while the
+		// framework's view and this predicate agree -- and this predicate has narrowed three times.
+		if (component is HtmxorEndpointCandidateRenderModeBoundary)
+		{
+			CacheViewServices.PauseCapture(writer);
+			return writer;
+		}
+
 		if (cacheable)
 		{
 			return null;
