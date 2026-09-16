@@ -91,12 +91,13 @@ public sealed class Issue219BranchingPage : ComponentBase
 		var htmx = HttpContext.GetHtmxContext().Request.IsHtmxRequest;
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-branching");
-		// A constant, deliberately, and not VaryByHeader "HX-Request". That header is present on an htmx
-		// request and absent on an ordinary one, so declaring it hands stock's own resolver the very
-		// ordinary-from-htmx separation this case exists to prove Htmxor makes. Measured: with the header
-		// form, collapsing CurrentRepresentation to a constant left every test in the suite green. A constant
-		// declares "this boundary may cache on htmx requests" and contributes the same value to every key.
-		builder.AddAttribute(5, nameof(CacheView.VaryBy), "issue-219-branching");
+		// A header absent from both of this case's requests, deliberately, and not "HX-Request". HX-Request
+		// is present on an htmx request and absent on an ordinary one, so declaring it hands stock's own
+		// resolver the very ordinary-from-htmx separation this case exists to prove Htmxor makes: measured,
+		// with that form, collapsing CurrentRepresentation to a constant left every test in the suite green.
+		// A header neither request carries opts the boundary in while contributing the same nothing to both
+		// keys, so only Htmxor's representation can separate them.
+		builder.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			if (!htmx)
@@ -133,7 +134,7 @@ public sealed class Issue219RoutingModePage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-routing-mode");
-		builder.AddAttribute(3, nameof(CacheView.VaryBy), "issue-219-routing-mode");
+		builder.AddAttribute(3, nameof(CacheView.VaryByHeader), "HX-Target");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenElement(0, "p");
