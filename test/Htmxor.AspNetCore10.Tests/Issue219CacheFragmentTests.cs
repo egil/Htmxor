@@ -56,32 +56,39 @@ public sealed class Issue219CacheFragmentTests
 		using var client = app.GetTestClient();
 		var data = app.Services.GetRequiredService<Issue219Data>();
 
+		// Htmx requests, because naming is only consequential on one: nothing selects a fragment on an ordinary
+		// request, so an ordinary pair caches and replays exactly as stock does -- measured, both hosts.
 		// An HtmxFragment's Name is a parameter, so one position can be unnamed on one request and named on the
 		// next at the same representation. Unnamed, the boundary beneath it is ordinary content and caches.
-		var unnamed = await ReadAsync(client, "/issue-219/nameable");
+		var unnamed = await HtmxAsync(client, "/issue-219/nameable");
 		Assert.Contains("data-version=\"1\"", unnamed, StringComparison.Ordinal);
 
 		data.Version = 2;
 
 		// Named, the same position must not be handed the body stored while it was ordinary content. Abandoning
 		// the capture cannot achieve that on its own, because abandonment governs the store and not the serve.
-		var named = await ReadAsync(client, "/issue-219/nameable?name=details");
+		var named = await HtmxAsync(client, "/issue-219/nameable?name=details");
 		Assert.Contains("data-version=\"2\"", named, StringComparison.Ordinal);
 	}
 
 	[Fact]
-	public async Task A_boundary_beneath_a_conditional_component_stores_nothing()
+	public async Task A_boundary_beneath_a_conditional_component_stores_nothing_for_an_htmx_request()
 	{
 		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219ConditionalAncestorPage>(htmxor: true);
 		using var client = app.GetTestClient();
 		var data = app.Services.GetRequiredService<Issue219Data>();
 
-		Assert.Contains("data-version=\"1\"", await ReadAsync(client, "/issue-219/conditional-ancestor"), StringComparison.Ordinal);
+		Assert.Contains("data-version=\"1\"", await HtmxAsync(client, "/issue-219/conditional-ancestor"), StringComparison.Ordinal);
 		data.Version = 2;
 
 		// The ancestor decides from the request whether to produce markup at all, which no cache key carries,
 		// so a boundary underneath it renders afresh every time rather than replaying an earlier decision.
-		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/conditional-ancestor"), StringComparison.Ordinal);
+		//
+		// Htmx requests, and only htmx requests. An IConditionalRender decides from what the request carries,
+		// and an ordinary request carries none of it, so the same page caches and replays exactly as stock does
+		// -- measured, both hosts. Classifying the kind unconditionally cost that parity on every page using an
+		// Htmxor layout, because HtmxLayoutComponentBase is an IConditionalRender.
+		Assert.Contains("data-version=\"2\"", await HtmxAsync(client, "/issue-219/conditional-ancestor"), StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -118,6 +125,26 @@ public sealed class Issue219CacheFragmentTests
 		// another's markup. It therefore stores nothing and renders afresh, and because the representation puts
 		// htmx requests in their own key space, there is no entry from an ordinary request for it to be served.
 		Assert.Contains("data-version=\"2\"", await HtmxAsync(client), StringComparison.Ordinal);
+	}
+
+	[Theory]
+	[InlineData(" ")]
+	[InlineData(",")]
+	[InlineData(" , ")]
+	public async Task A_declaration_naming_no_header_does_not_open_the_htmx_gate(string declaration)
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219EmptyDeclarationPage>(htmxor: true);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		// Non-empty and yet naming nothing. The gate asks what stock's resolver would actually vary by, not
+		// whether the string has characters in it, so whitespace and bare separators leave the boundary
+		// undeclared and suppressed rather than opening htmx caching against a key describing nothing.
+		var path = $"/issue-219/empty-declaration?declaration={Uri.EscapeDataString(declaration)}";
+		Assert.Contains("data-version=\"1\"", await HtmxAsync(client, path), StringComparison.Ordinal);
+
+		data.Version = 2;
+		Assert.Contains("data-version=\"2\"", await HtmxAsync(client, path), StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -178,6 +205,15 @@ public sealed class Issue219CacheFragmentTests
 			request.Headers.Add("HX-Target", target);
 		}
 
+		using var response = await client.SendAsync(request);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
+
+	private static async Task<string> HtmxAsync(HttpClient client, string path)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		request.Headers.Add("HX-Request", "true");
 		using var response = await client.SendAsync(request);
 		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		return await response.Content.ReadAsStringAsync();
@@ -456,4 +492,23 @@ public sealed class Issue219KeyedBoundaryPage : ComponentBase
 	}
 }
 
+// Declares a VaryByHeader value that is non-empty and yet names no header.
+[Route("/issue-219/empty-declaration")]
+public sealed class Issue219EmptyDeclarationPage : ComponentBase
+{
+	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-empty-declaration");
+		builder.AddAttribute(3, nameof(CacheView.VaryByHeader), HttpContext.Request.Query["declaration"].ToString());
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219CachedContent>(0);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
 #endif
