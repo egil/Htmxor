@@ -1217,14 +1217,16 @@ cached component again, and the framework owns the store, key derivation,
 serialization, expiry and variation. Htmxor only restores the renderer coordination
 that its endpoint candidate would otherwise skip.
 
-Executed evidence covers `CacheKey`, `VaryByQuery`, `VaryByUser`, an already-expired
-entry, suppression inside a streaming subtree, response headers unchanged across a
-hit, and two sibling boundaries under one parent with no explicit key. The remaining
+Executed evidence covers `CacheKey`, `VaryByQuery`, `VaryByUser`, an expired boundary
+beside a still-reusing one, suppression inside a streaming subtree, response headers
+unchanged across a hit, a boundary that stores nothing beside one that still caches,
+and two sibling boundaries under one parent with no explicit key. The remaining
 variation parameters — `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and
 `VaryByCulture` — are framework-owned and unchanged by Htmxor, but no Htmxor command
 has exercised them.
 
-Content that must not be cached is refused exactly as stock refuses it. A component
+Content that must not be cached is refused exactly as stock refuses it, including in a
+boundary that is disabled or otherwise storing nothing, which stock still validates. A component
 carrying `[CacheBehavior(CacheBehavior.Throw)]` raises the framework's own descriptive
 error rather than being cached — `AuthorizeView` inside a `CacheView` that does not
 vary by user is the case to know, and varying by user is the fix. A component carrying
@@ -1238,7 +1240,7 @@ renders normally on every request:
   selection when its component is constructed, which serving stored output never does,
   so caching it would break selection rather than merely skip work.
 - An interactive render-mode boundary inside a cached subtree. Cached interactive
-  content is outside the executed boundary.
+  content is outside the executed boundary and no command exercised this path.
 
 Distributed cache deployments and performance are unestablished.
 

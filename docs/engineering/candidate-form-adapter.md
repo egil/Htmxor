@@ -220,7 +220,7 @@ and the tree-position key as component state is created, and
 both, a cached subtree is never stored and never reused, so every request
 re-renders it.
 
-Authorized dependencies in `Microsoft.AspNetCore.Components.Endpoints.dll`:
+Authorized dependencies, all in `Microsoft.AspNetCore.Components.Endpoints.dll` unless noted:
 
 - internal `CacheView.RenderState` getter, to read the per-render coordination
   state the component produced.
@@ -234,6 +234,15 @@ Authorized dependencies in `Microsoft.AspNetCore.Components.Endpoints.dll`:
   the internal service type, resolved through existing DI.
 - public `CacheViewRenderState.IsCacheHit` getter on the internal state type.
 
+The extended approval adds the descendant guard's own dependencies:
+
+- public static `CacheViewService.IsCacheableComponent(Type, CacheVaryBy)`.
+- on the internal `CacheViewTextWriter`: the `IsCapturing`, `IsValidationOnly` and
+  `VaryBy` getters, `PauseCapture()`, `StartCapture()`, and
+  `CreateLiveCachedComponent(Type, IComponentRenderMode, RenderFragmentCapture, ILogger)`.
+- the internal `Microsoft.AspNetCore.Components.RenderFragmentCapture` constructor
+  taking `RenderTreeFrame[]`.
+
 `HtmxorEndpointCandidateCacheViewServices` validates each internal nongeneric type
 and every member's name, accessibility, exact parameters and return type during
 registration, caching only accessor metadata. The framework retains the cache
@@ -243,8 +252,12 @@ own resolution; no cache implementation is copied and no private field is writte
 Two upstream sources are mirrored rather than accessed, both with provenance and a
 watch. `ComponentKeyHelper.FormatSerializableKey` is a pure shared function, and
 `EndpointComponentState`'s tree-position key computation is reproduced in
-`HtmxorEndpointCandidateRenderer.FragmentSelection.cs` so an identical component
-tree yields an identical key under Htmxor and stock. The candidate reads the
+`HtmxorEndpointCandidateRenderer.FragmentSelection.cs`, line for line, so the key
+derivation stays the framework's. Two hosts hold separate stores, so no test can
+observe cross-host key equality; what is observed is that two sibling boundaries under
+one parent with no explicit key are disambiguated, which is what the tree position is
+for. Stock's `GetComponentKey()` override for an `SSRRenderModeBoundary` parent is not
+mirrored, and that case is outside this slice. The candidate reads the
 parent's frames through the supported protected `GetCurrentRenderTreeFrames` seam
 and takes the component key from the frame, rather than reaching for
 `ComponentState.GetComponentKey`. The candidate also tracks inherited stream
@@ -255,7 +268,10 @@ Synchronized **2026-09-15**, ASP.NET Core **v11.0.0-rc.1.26425.128**, commit
 **c3325eeb6b47bc6383c127d4f4827dc9642a2b6e**. Exact monitored sources:
 
 - [CacheView.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/CacheView/CacheView.cs): the three component dependencies, watched with `api: none`.
-- [CacheViewService.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/CacheView/CacheViewService.cs): the capture coordination and render state, watched with `api: none`.
+- [CacheViewService.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/CacheView/CacheViewService.cs): the capture coordination and the descendant guard, watched with `api: none`.
+- [CacheViewRenderState.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/CacheView/CacheViewRenderState.cs): the per-render state, watched with `api: none`.
+- [Rendering/CacheViewTextWriter.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/CacheViewTextWriter.cs): the capture writer, watched with `api: none`.
+- [Shared/RenderFragmentCapture.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Shared/src/RenderFragmentCapture.cs): the captured parameter frames, watched with `api: none`.
 - [EndpointComponentState.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs): the reimplemented tree-position key and streaming propagation.
 - [ComponentKeyHelper.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Shared/src/ComponentKeyHelper.cs): the mirrored key formatting.
 - [EndpointHtmlRenderer.Streaming.cs](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs): the write-path branch, under the existing renderer watch.
@@ -280,15 +296,21 @@ therefore authorizes `IsCacheableComponent`, the `CacheViewTextWriter` capture s
 with `PauseCapture`/`StartCapture`, and `CreateLiveCachedComponent` with its
 `RenderFragmentCapture`. A refused component now raises the framework's own
 descriptive error; an excluded one is recorded so a later hit renders it live.
-`CacheViewTextWriter.StartValidation` sets capturing, so the guard also runs for a
-validation-only boundary, which is why a disabled boundary still reports the error.
+A boundary the framework declined to cache — disabled, not a GET, or inside a
+streaming context — has no render state. Stock still calls `TryBeginWrite`, which
+then supplies a validation-only writer whose `StartValidation` sets capturing, so the
+guard keeps running and the boundary still refuses what stock refuses. The adapter
+mirrors that rather than returning early on a null state, and
+`A_disabled_boundary_still_refuses_content_stock_refuses` asserts the message equals
+stock's.
 
 Two compositions abandon the capture instead, so the boundary stores nothing and the
 subtree renders normally on every request. A named `HtmxFragment` is registered for
 selection only when its component is constructed, which serving stored output never
 does, so replaying it would break the selection #218 delivered. An interactive
-render-mode boundary is outside this slice's scope and Htmxor's own boundary does not
-expose the inner component type a live cached component would need.
+render-mode boundary is treated the same way, because Htmxor's own boundary does not
+expose the inner component type a live cached component would need; that path is
+outside this slice's scope and no command exercised it.
 
 ### Executed boundary
 

@@ -211,8 +211,10 @@ the framework refuses to cache must keep raising the framework's own error.
 The framework keeps the cache store, key derivation, serialization, expiry and
 variation. Scope is ordinary read-only `CacheView` on static-SSR pages; no public API
 or named-fragment contract changes. A named fragment or an interactive boundary inside
-a cached subtree causes Htmxor to store nothing for that boundary rather than replay
-it, and distributed deployments remain unestablished. Validate and cache only accessor
+a cached subtree causes Htmxor to store nothing for that one boundary, leaving any
+sibling boundary cacheable, rather than replaying content that would be wrong. That
+is deliberately less caching than stock performs. Distributed deployments remain
+unestablished. Validate and cache only accessor
 metadata and monitor the exact upstream dependencies.
 
 ## The application owns HTMX
