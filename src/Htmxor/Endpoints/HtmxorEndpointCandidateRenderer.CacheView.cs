@@ -84,9 +84,21 @@ internal partial class HtmxorEndpointCandidateRenderer
 	// Read through the lazy key factory and the write path, both of which run after parameter binding, because
 	// component state is created before VaryByHeader has a value.
 	internal string CurrentRepresentation(CacheView cacheView)
-		=> !httpContext.GetHtmxContext().Request.IsHtmxRequest
-			? "ordinary"
-			: DeclaresRequestVariation(cacheView) ? "htmx-declared" : "htmx";
+	{
+		var request = httpContext.GetHtmxContext().Request;
+		if (!request.IsHtmxRequest)
+		{
+			return "ordinary";
+		}
+
+		// RoutingMode belongs here and was briefly dropped when this method was reduced. Standard and Direct
+		// are different response representations -- WriteResponseHtml takes different paths -- and a boundary
+		// declaring a dimension whose value is equal across the two, which HX-Request is, would otherwise serve
+		// one routing mode's body for the other. Measured. It is a closed enum, so unlike a header value it
+		// cannot be extended by a client and adds no unbounded dimension.
+		var declared = DeclaresRequestVariation(cacheView) ? "declared" : "undeclared";
+		return $"htmx.{request.RoutingMode}.{declared}";
+	}
 
 	// An htmx request is cached only where the application said what its content varies by. Undeclared, the
 	// boundary is suppressed through the framework's own switch -- PrepareAsync returns null, so there is no
