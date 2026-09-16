@@ -41,6 +41,7 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 	private readonly MethodInfo startCapture;
 	private readonly MethodInfo createLiveCachedComponent;
 	private readonly MethodInfo isCacheableComponent;
+	private readonly string serializerCategory;
 	private readonly MethodInfo throwIfNested;
 	private readonly MethodInfo tryBeginWrite;
 	private readonly MethodInfo endCapture;
@@ -76,6 +77,9 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 		isCacheableComponent = RequireMethod(serviceType, "IsCacheableComponent",
 			BindingFlags.Public | BindingFlags.Static, typeof(bool), typeof(Type), typeof(CacheVaryBy));
 
+		// Taken from the type rather than written out, so the log category cannot drift from stock's.
+		serializerCategory = RequireInternalClass("RenderFragmentSerializer", "Microsoft.AspNetCore.Components").FullName!;
+
 		if (captureType.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
 			null, [typeof(RenderTreeFrame[])], null) is null)
 		{
@@ -108,8 +112,7 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 	{
 		var capture = Activator.CreateInstance(
 			captureType, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, [frames], null);
-		var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(
-			"Microsoft.AspNetCore.Components.Endpoints.RenderFragmentSerializer");
+		var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(serializerCategory);
 		createLiveCachedComponent.Invoke(writer, BindingFlags.DoNotWrapExceptions, null,
 			[componentType, renderMode, capture, logger], null);
 	}
@@ -164,9 +167,14 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 		return true;
 	}
 
-	// Mirrors stock EndpointComponentState.ComputeTreePositionKey with ComponentKeyHelper.FormatSerializableKey,
-	// so an identical component tree produces an identical cache key under Htmxor and under stock.
-	internal static string ComputeTreePositionKey(string ancestorTypeName, int sequence, object? componentKey)
+	// Mirrors stock EndpointComponentState.ComputeTreePositionKey, using the same
+	// ComponentKeyHelper.FormatSerializableKey rules, and then appends the response representation. Htmxor
+	// serves more than one representation from a URL where stock serves one, so the position alone does not
+	// identify the content. Keys are therefore deliberately not equal to stock's for the same tree; the
+	// derivation stays the framework's, and stock's SSRRenderModeBoundary GetComponentKey override is not
+	// mirrored because a boundary around a CacheView is outside this slice.
+	internal static string ComputeTreePositionKey(
+		string ancestorTypeName, int sequence, object? componentKey, string representation)
 	{
 		var keyString = FormatSerializableKey(componentKey);
 		return string.Concat(
@@ -174,7 +182,8 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 			typeof(CacheView).FullName, "#",
 			sequence.ToString(CultureInfo.InvariantCulture),
 			keyString is not null ? "." : "",
-			keyString);
+			keyString,
+			"|", representation);
 	}
 
 	private static string? FormatSerializableKey(object? key)
