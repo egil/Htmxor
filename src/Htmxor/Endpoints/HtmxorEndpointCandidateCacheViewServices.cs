@@ -57,10 +57,10 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 		serviceType = RequireInternalClass("CacheViewService");
 		var renderStateType = RequireInternalClass("CacheViewRenderState");
 
-		renderState = RequireProperty(typeof(CacheView), "RenderState", renderStateType, read: true);
-		isInStreamingContext = RequireProperty(typeof(CacheView), "IsInStreamingContext", typeof(bool), read: false);
-		treePositionKeyFactory = RequireProperty(typeof(CacheView), "TreePositionKeyFactory", typeof(Func<string>), read: false);
-		isCacheHit = RequireProperty(renderStateType, "IsCacheHit", typeof(bool), read: true);
+		renderState = RequireProperty(typeof(CacheView), "RenderState", renderStateType, read: true, expectInternal: true);
+		isInStreamingContext = RequireProperty(typeof(CacheView), "IsInStreamingContext", typeof(bool), read: false, expectInternal: true);
+		treePositionKeyFactory = RequireProperty(typeof(CacheView), "TreePositionKeyFactory", typeof(Func<string>), read: false, expectInternal: true);
+		isCacheHit = RequireProperty(renderStateType, "IsCacheHit", typeof(bool), read: true, expectInternal: false);
 
 		throwIfNested = RequireMethod(serviceType, "ThrowIfNestedInsideCapturingCacheView",
 			BindingFlags.Public | BindingFlags.Static, typeof(void), typeof(TextWriter));
@@ -72,9 +72,9 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 
 		writerType = RequireInternalClass("CacheViewTextWriter");
 		captureType = RequireInternalClass("RenderFragmentCapture", "Microsoft.AspNetCore.Components");
-		isCapturing = RequireProperty(writerType, "IsCapturing", typeof(bool), read: true);
-		isValidationOnly = RequireProperty(writerType, "IsValidationOnly", typeof(bool), read: true);
-		varyBy = RequireProperty(writerType, "VaryBy", typeof(CacheVaryBy), read: true);
+		isCapturing = RequireProperty(writerType, "IsCapturing", typeof(bool), read: true, expectInternal: false);
+		isValidationOnly = RequireProperty(writerType, "IsValidationOnly", typeof(bool), read: true, expectInternal: false);
+		varyBy = RequireProperty(writerType, "VaryBy", typeof(CacheVaryBy), read: true, expectInternal: false);
 		pauseCapture = RequireMethod(writerType, "PauseCapture", BindingFlags.Public | BindingFlags.Instance, typeof(void));
 		startCapture = RequireMethod(writerType, "StartCapture", BindingFlags.Public | BindingFlags.Instance, typeof(void));
 		createLiveCachedComponent = RequireMethod(writerType, "CreateLiveCachedComponent",
@@ -177,10 +177,16 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 	// ComponentKeyHelper.FormatSerializableKey rules, and then appends the response representation. Htmxor
 	// serves more than one representation from a URL where stock serves one, so the position alone does not
 	// identify the content. Keys are therefore deliberately not equal to stock's for the same tree; the
-	// derivation stays the framework's, and stock's SSRRenderModeBoundary GetComponentKey override is not
-	// mirrored because a boundary around a CacheView is outside this slice.
+	// derivation stays the framework's.
+	//
+	// The last component records whether the boundary stands beneath one of the request-varying kinds. Without
+	// it that decision would govern only what Htmxor writes and never what it serves: a position rendered once
+	// without such an ancestor stores an entry that the same position, later standing beneath one, still hits.
+	// An HtmxFragment's Name is a parameter and can differ between two requests at one representation, so this
+	// is not hypothetical. Separating the two states means a boundary beneath a request-varying ancestor can
+	// only ever miss, which is what abandoning its capture already intended.
 	internal static string ComputeTreePositionKey(
-		string ancestorTypeName, int sequence, object? componentKey, string representation)
+		string ancestorTypeName, int sequence, object? componentKey, string representation, bool beneathRequestVarying)
 	{
 		var keyString = FormatSerializableKey(componentKey);
 		return string.Concat(
@@ -189,7 +195,8 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 			sequence.ToString(CultureInfo.InvariantCulture),
 			keyString is not null ? "." : "",
 			keyString,
-			"|", representation);
+			"|", representation,
+			beneathRequestVarying ? "|beneath-request-varying" : "");
 	}
 
 	private static string? FormatSerializableKey(object? key)
@@ -225,15 +232,21 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 			: throw IncompatibleFramework($"internal nongeneric {name} class");
 	}
 
-	private static PropertyInfo RequireProperty(Type declaringType, string name, Type propertyType, bool read)
+	// The approved accessibility per accessor, not merely "reachable by reflection". Accepting either shape let
+	// an unreviewed upstream change widen an internal member to public, or narrow a public one, without failing
+	// registration -- the same gap the RenderFragmentCapture constructor carried, in the sibling helper.
+	private static PropertyInfo RequireProperty(
+		Type declaringType, string name, Type propertyType, bool read, bool expectInternal)
 	{
 		var property = declaringType.GetProperty(name,
 			BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 		var accessor = read ? property?.GetMethod : property?.SetMethod;
 		if (property is null || property.PropertyType != propertyType || accessor is null ||
-			!(accessor.IsAssembly || accessor.IsPublic))
+			(expectInternal ? !accessor.IsAssembly : !accessor.IsPublic))
 		{
-			throw IncompatibleFramework($"{declaringType.Name}.{name} {(read ? "getter" : "setter")} of {propertyType.Name}");
+			var expected = expectInternal ? "internal" : "public";
+			throw IncompatibleFramework(
+				$"{expected} {declaringType.Name}.{name} {(read ? "getter" : "setter")} of {propertyType.Name}");
 		}
 
 		return property;

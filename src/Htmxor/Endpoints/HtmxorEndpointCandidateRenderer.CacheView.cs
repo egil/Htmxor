@@ -41,7 +41,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 			services.GetRequiredService<HtmxorEndpointCandidateCacheViewServices>().Initialize(
 				cacheView,
 				streamRenderingByComponentId[componentId],
-				() => ComputeCacheViewTreePositionKey(parentComponentState, cacheView, ancestorTypeName));
+				() => ComputeCacheViewTreePositionKey(parentComponentState, cacheView, ancestorTypeName, state));
 		}
 	}
 
@@ -87,8 +87,13 @@ internal partial class HtmxorEndpointCandidateRenderer
 	// Mirrors stock EndpointComponentState's position computation: multiple CacheView components under one
 	// parent must not share a key. The result is deliberately not equal to stock's, because the representation
 	// is appended above, and stock's SSRRenderModeBoundary GetComponentKey override is not mirrored.
-	private string ComputeCacheViewTreePositionKey(ComponentState parentComponentState, CacheView target, string ancestorTypeName)
+	private string ComputeCacheViewTreePositionKey(
+		ComponentState parentComponentState, CacheView target, string ancestorTypeName, ComponentState state)
 	{
+		// Read inside the factory rather than at component-state creation: an ancestor's parameters, including
+		// an HtmxFragment's Name, are set before its children resolve their entries but not before this state
+		// is constructed.
+		var beneathRequestVarying = HasUncacheableAncestor(state);
 		var frames = GetCurrentRenderTreeFrames(parentComponentState.ComponentId);
 		for (var index = 0; index < frames.Count; index++)
 		{
@@ -96,7 +101,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 			if (frame.FrameType is RenderTreeFrameType.Component && ReferenceEquals(frame.Component, target))
 			{
 				return HtmxorEndpointCandidateCacheViewServices.ComputeTreePositionKey(
-					ancestorTypeName, frame.Sequence, frame.ComponentKey, CurrentRepresentation());
+					ancestorTypeName, frame.Sequence, frame.ComponentKey, CurrentRepresentation(), beneathRequestVarying);
 			}
 		}
 
