@@ -746,7 +746,14 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		if (IsRequestVarying(component))
 		{
 			captureAbandoned = true;
-			return null;
+
+			// Paused for the same reason stock pauses for anything it will not store. Returning without
+			// pausing left the capture active over a subtree stock stops validating here, so a named fragment
+			// holding an AuthorizeView threw the framework's refusal where stock renders the page -- on every
+			// request, not only on a hit. Nothing is recorded as a live cached component: the entry this
+			// capture belongs to is abandoned and is never stored, so there is no later hit to render into.
+			CacheViewServices.PauseCapture(writer);
+			return writer;
 		}
 
 		if (cacheable)
