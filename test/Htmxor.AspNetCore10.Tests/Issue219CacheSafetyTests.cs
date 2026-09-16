@@ -17,60 +17,6 @@ namespace Htmxor.AspNetCore10;
 public sealed class Issue219CacheSafetyTests
 {
 	[Fact]
-	public async Task Named_fragment_inside_a_cached_subtree_stops_the_boundary_storing_anything()
-	{
-		await using var app = await StartAsync();
-		using var client = app.GetTestClient();
-		var data = app.Services.GetRequiredService<Issue219Data>();
-
-		// Two htmx requests to the same URL at the same representation: both omit HX-Request-Type, so both are
-		// RoutingMode.Standard and would share one cache entry. The page's SelectFragment call is inert at that
-		// routing mode, which is deliberate — a fragment-selecting request writes straight from the selected
-		// component's own live render tree and never revisits its CacheView ancestor, so it cannot exercise the
-		// boundary's store-or-abandon decision at all.
-		var first = await ReadAsync(client);
-		Assert.Equal(HttpStatusCode.OK, first.Status);
-		Assert.Contains("data-version=\"1\"", first.Body, StringComparison.Ordinal);
-
-		data.Version = 2;
-		var second = await ReadAsync(client);
-
-		// A stored entry would still read version 1 here. The boundary must instead have abandoned its capture on
-		// both requests, because the fragment it holds is registered only when its component is constructed,
-		// which serving stored output never does. That is what this case proves: not that a hit occurred, but
-		// that the boundary never stores an entry for the fragment to be replayed from.
-		Assert.Equal(HttpStatusCode.OK, second.Status);
-		Assert.Contains("data-inner", second.Body, StringComparison.Ordinal);
-		Assert.Contains("data-version=\"2\"", second.Body, StringComparison.Ordinal);
-	}
-
-	[Fact]
-	public async Task Unnamed_fragment_inside_a_cached_subtree_still_lets_the_boundary_cache()
-	{
-		await using var app = await StartAsync<Issue219UnnamedFragmentPage>(true);
-		using var client = app.GetTestClient();
-		var data = app.Services.GetRequiredService<Issue219Data>();
-
-		// Same two-request, same-representation shape as the named-fragment case above (both
-		// `RoutingMode.Standard`), but this fragment declares no `Name`. An unnamed fragment is never registered
-		// for selection, so it cannot be selected at all and is ordinary content — the guard must not treat it
-		// like the named case, and the boundary holding it should cache and reuse normally.
-		var first = await ReadAsync(client, "/issue-219/fragment-unnamed");
-		Assert.Equal(HttpStatusCode.OK, first.Status);
-		Assert.Contains("data-version=\"1\"", first.Body, StringComparison.Ordinal);
-
-		data.Version = 2;
-		var second = await ReadAsync(client, "/issue-219/fragment-unnamed");
-
-		// Unlike the named case, a stored entry is exactly what should happen here: the second response must
-		// still read version 1, proving the boundary's first-request capture was stored and replayed rather than
-		// abandoned or freshly re-rendered.
-		Assert.Equal(HttpStatusCode.OK, second.Status);
-		Assert.Contains("data-inner", second.Body, StringComparison.Ordinal);
-		Assert.Contains("data-version=\"1\"", second.Body, StringComparison.Ordinal);
-	}
-
-	[Fact]
 	public async Task An_htmx_response_header_set_during_render_reaches_every_request()
 	{
 		await using var app = await StartAsync<Issue219HeaderWritingPage>(true);
@@ -86,60 +32,12 @@ public sealed class Issue219CacheSafetyTests
 		data.Version = 2;
 		var second = await RetargetAsync(client);
 
-		// Not a parity case: stock never caches an htmx response, so there is no stock behaviour to match here.
-		// The boundary must keep nothing once its subtree has written an htmx response header, because a stored
-		// entry can carry the body and not the header.
+		// This now holds because an htmx request is not cached at all, not because a guard inspects what the
+		// subtree wrote. It is kept as the consumer-visible tripwire for that contract: if htmx caching returns
+		// without carrying response instructions with it, this is what fails, and it fails on the observation
+		// an application actually depends on rather than on a data version.
 		Assert.Equal("#panel", second.Retarget);
 		Assert.Contains("data-version=\"2\"", second.Body, StringComparison.Ordinal);
-	}
-
-	[Fact]
-	public async Task An_htmx_status_code_set_during_render_reaches_every_request()
-	{
-		await using var app = await StartAsync<Issue219HeaderWritingPage>(true);
-		using var client = app.GetTestClient();
-		var data = app.Services.GetRequiredService<Issue219Data>();
-
-		// A status code is not a header, so a rule written over response headers cannot see it. A lost 202 on a
-		// polling client reads as "stop polling" turning into "carry on", and nothing in the markup shows it.
-		Assert.Equal(HttpStatusCode.Accepted, (await InstructAsync(client, "status")).Status);
-
-		data.Version = 2;
-		Assert.Equal(HttpStatusCode.Accepted, (await InstructAsync(client, "status")).Status);
-	}
-
-	[Fact]
-	public async Task An_htmx_empty_body_request_during_render_reaches_every_request()
-	{
-		await using var app = await StartAsync<Issue219HeaderWritingPage>(true);
-		using var client = app.GetTestClient();
-		var data = app.Services.GetRequiredService<Issue219Data>();
-
-		// EmptyBody sets no header at all: it is renderer state. Replaying a stored entry puts the markup back
-		// that the component asked to suppress, which is the one outcome the call exists to prevent.
-		Assert.Equal("", (await InstructAsync(client, "empty")).Body);
-
-		data.Version = 2;
-		Assert.Equal("", (await InstructAsync(client, "empty")).Body);
-	}
-
-	[Fact]
-	public async Task An_htmx_redirect_issued_during_render_reaches_every_request()
-	{
-		await using var app = await StartAsync<Issue219HeaderWritingPage>(true);
-		using var client = app.GetTestClient();
-		var data = app.Services.GetRequiredService<Issue219Data>();
-
-		// The most damaging of the family: losing this leaves the client on the page it asked to leave, holding
-		// stale markup, with no error anywhere.
-		var first = await InstructAsync(client, "redirect");
-		Assert.Equal("/issue-219/elsewhere", first.Redirect);
-		Assert.Equal("", first.Body);
-
-		data.Version = 2;
-		var second = await InstructAsync(client, "redirect");
-		Assert.Equal("/issue-219/elsewhere", second.Redirect);
-		Assert.Equal("", second.Body);
 	}
 
 	private static async Task<(HttpStatusCode Status, string? Redirect, string Body)> InstructAsync(HttpClient client, string instruction)
@@ -159,32 +57,6 @@ public sealed class Issue219CacheSafetyTests
 		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		var retarget = response.Headers.TryGetValues("HX-Retarget", out var values) ? string.Join(",", values) : null;
 		return (retarget, await response.Content.ReadAsStringAsync());
-	}
-
-	[Fact]
-	public async Task Content_beside_a_named_fragment_is_not_kept_without_it()
-	{
-		await using var app = await StartAsync<Issue219FragmentSiblingPage>(true);
-		using var client = app.GetTestClient();
-		var data = app.Services.GetRequiredService<Issue219Data>();
-
-		var first = await ReadAsync(client, "/issue-219/fragment-sibling");
-		Assert.Equal(HttpStatusCode.OK, first.Status);
-		Assert.Contains("data-shell=\"1\"", first.Body, StringComparison.Ordinal);
-		Assert.Contains("data-version=\"1\"", first.Body, StringComparison.Ordinal);
-
-		data.Version = 2;
-		var second = await ReadAsync(client, "/issue-219/fragment-sibling");
-
-		// This boundary holds markup of its own beside the fragment, which the case above does not: there the
-		// fragment is the whole cached body. Excluding only the fragment's subtree from the capture and storing
-		// the rest leaves an entry with a hole nothing fills, because no live cached component is recorded for
-		// it -- the second response then carries a stale shell and loses the fragment's content altogether.
-		// Measured: that is exactly what happens when the boundary keeps its capture instead of abandoning it.
-		// Both must be current, and both must still be present.
-		Assert.Equal(HttpStatusCode.OK, second.Status);
-		Assert.Contains("data-shell=\"2\"", second.Body, StringComparison.Ordinal);
-		Assert.Contains("data-version=\"2\"", second.Body, StringComparison.Ordinal);
 	}
 
 	private static Task<(HttpStatusCode Status, string Body)> ReadAsync(HttpClient client)
@@ -487,61 +359,6 @@ public sealed class Issue219FragmentPage : ComponentBase
 	}
 }
 
-[Route("/issue-219/fragment-unnamed")]
-public sealed class Issue219UnnamedFragmentPage : ComponentBase
-{
-	[Inject] internal Issue219Data Data { get; set; } = default!;
-
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment-unnamed");
-		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Target");
-		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
-		{
-			// No Name is set: this HtmxFragment is unnamed and therefore never registered for selection.
-			cached.OpenComponent<HtmxFragment>(0);
-			cached.AddAttribute(1, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
-			{
-				inner.OpenElement(0, "p");
-				inner.AddAttribute(1, "data-inner", "true");
-				inner.AddAttribute(2, "data-version", Data.Version);
-				inner.AddContent(3, "inner");
-				inner.CloseElement();
-			}));
-			cached.CloseComponent();
-		}));
-		builder.CloseComponent();
-	}
-}
-// Markup of the boundary's own beside a named fragment, rather than a fragment that is the whole cached body.
-[Route("/issue-219/fragment-sibling")]
-public sealed class Issue219FragmentSiblingPage : ComponentBase
-{
-	[Inject] internal Issue219Data Data { get; set; } = default!;
-
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment-sibling");
-		builder.AddAttribute(4, nameof(CacheView.VaryByHeader), "HX-Target");
-		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
-		{
-			cached.OpenElement(0, "p");
-			cached.AddAttribute(1, "data-shell", Data.Version);
-			cached.CloseElement();
-			cached.OpenComponent<HtmxFragment>(2);
-			cached.AddAttribute(3, nameof(HtmxFragment.Name), "sibling");
-			cached.AddAttribute(4, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
-			{
-				inner.OpenComponent<Issue219CachedContent>(0);
-				inner.CloseComponent();
-			}));
-			cached.CloseComponent();
-		}));
-		builder.CloseComponent();
-	}
-}
 // A component inside a declared boundary that writes an htmx response header while it renders. Declared, so
 // the boundary is otherwise eligible to cache: the header is the only reason it must not.
 [Route("/issue-219/header-writing")]
