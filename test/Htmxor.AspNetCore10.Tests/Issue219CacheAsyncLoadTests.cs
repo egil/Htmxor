@@ -48,6 +48,7 @@ public sealed class Issue219AsyncLoadPage : ComponentBase
 	{
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-async-load");
+		builder.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Request");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<HtmxAsyncLoad>(0);

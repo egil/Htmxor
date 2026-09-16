@@ -53,6 +53,7 @@ public sealed class Issue219BranchingPage : ComponentBase
 		var htmx = HttpContext.GetHtmxContext().Request.IsHtmxRequest;
 		builder.OpenComponent<CacheView>(0);
 		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-branching");
+		builder.AddAttribute(5, nameof(CacheView.VaryByHeader), "HX-Request");
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			if (!htmx)
