@@ -718,12 +718,6 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		return false;
 	}
 
-	// Three kinds whose subtree is chosen by the request rather than by the component tree. A *named* fragment
-	// is registered for selection when its component is constructed, which serving stored output never does; an
-	// unnamed one cannot be selected and is ordinary content. An IConditionalRender decides whether to produce
-	// markup from the request itself -- HtmxAsyncLoad varies on the trigger and target elements, which no cache
-	// key carries. An interactive boundary is outside this slice. A boundary that holds one of these, or that
-	// stands beneath one, stores nothing; either way the content renders normally.
 	// The render-mode boundary, and HtmxAsyncLoad by name.
 	//
 	// A named HtmxFragment does not belong here: nothing selects a fragment on an ordinary request, and an

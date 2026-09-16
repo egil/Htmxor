@@ -1273,8 +1273,10 @@ reachable at two routes would otherwise serve the first request's placeholder to
 second and the load trigger would fetch the wrong resource. Stock's own narrow mechanism
 for this, `CacheBehavior.Rerender`, cannot be used — it requires capturing the component's
 `RenderFragment` parameter, which the framework refuses — so the whole boundary is
-abandoned, and **content beside an `HtmxAsyncLoad` stops caching with it**. Put the
-boundary inside the async-loaded content rather than around it.
+abandoned, and **content beside an `HtmxAsyncLoad` stops caching with it**. No placement
+recovers that: the async-loaded content renders only on the htmx request that fetches it,
+and htmx requests are not cached at all. Cache a sibling subtree that does not contain
+the component.
 
 An **interactive render-mode boundary**, whether the cached
 boundary holds one or stands beneath one. Cached prerendered interactive content would be
@@ -1282,10 +1284,13 @@ keyed more weakly than stock keys it, because stock's `SSRRenderModeBoundary` co
 key is not mirrored. Any sibling boundary stays cacheable.
 
 Earlier revisions also refused to cache a boundary holding or beneath a named
-`HtmxFragment` or an `IConditionalRender`. Those guards existed for cached htmx
-responses; with htmx requests no longer cached, neither varies on an ordinary request —
-nothing selects a fragment, and the triggering and target elements an `IConditionalRender`
-reads are absent — so both cache normally now.
+`HtmxFragment`, or any `IConditionalRender`. Those guards existed for cached htmx
+responses. With htmx requests no longer cached, nothing selects a fragment on an ordinary
+request, so a named fragment caches normally now. `IConditionalRender` as a category is
+no longer refused either — `HtmxLayoutComponentBase` implements it with a constant, and
+refusing the interface stopped every boundary beneath the documented layout from caching.
+`HtmxAsyncLoad` is refused by name instead, because it is the one shipped component that
+writes per-request state into ordinary-request markup.
 
 A component of your own that is **not** one of these, but still varies its output by the
 request — by injecting `HtmxContext` and reading the triggering element, say — is cached
