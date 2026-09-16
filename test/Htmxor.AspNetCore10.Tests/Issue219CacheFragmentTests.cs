@@ -84,6 +84,36 @@ public sealed class Issue219CacheFragmentTests
 		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/conditional-ancestor"), StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task A_boundary_whose_request_varying_child_is_conditional_is_not_shared_across_targets()
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219ConditionalChildPage>(htmxor: true);
+		using var client = app.GetTestClient();
+
+		// The guards run while a component renders, and a cache hit is resolved before ChildContent is invoked,
+		// so a subtree that produced no request-varying component on the storing request has none to guard on
+		// the serving one. Two requests differing only in HX-Target: the first stores plain content, the second
+		// should produce the fragment. Before the representation carried the header, the second was served the
+		// first's body -- and when it selected, it failed with "No fragment named 'a' was rendered."
+		var plain = await TargetAsync(client, "#other");
+		Assert.Contains("data-plain", plain, StringComparison.Ordinal);
+
+		var fragment = await TargetAsync(client, "#a");
+		Assert.Contains("data-fragment-a", fragment, StringComparison.Ordinal);
+		Assert.DoesNotContain("data-plain", fragment, StringComparison.Ordinal);
+	}
+
+	private static async Task<string> TargetAsync(HttpClient client, string target)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/conditional-child");
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		request.Headers.Add("HX-Target", target);
+		using var response = await client.SendAsync(request);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
+
 	private static async Task<string> ReadAsync(HttpClient client, string path)
 	{
 		using var response = await client.GetAsync(path);
@@ -189,6 +219,42 @@ public sealed class Issue219ConditionalAncestor : ComponentBase, IConditionalRen
 		builder.AddAttribute(1, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<Issue219CachedContent>(0);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+// The request-varying component exists only on some requests, so neither guard can see it on the others. This
+// is ordinary page control flow, not a component anyone could annotate with [CacheBehavior].
+[Route("/issue-219/conditional-child")]
+public sealed class Issue219ConditionalChildPage : ComponentBase
+{
+	[CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		var wantsFragment = HttpContext.GetHtmxContext().Request.Target == "#a";
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-conditional-child");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			if (!wantsFragment)
+			{
+				cached.OpenElement(0, "p");
+				cached.AddAttribute(1, "data-plain", "true");
+				cached.CloseElement();
+				return;
+			}
+
+			cached.OpenComponent<HtmxFragment>(2);
+			cached.AddAttribute(3, nameof(HtmxFragment.Name), "a");
+			cached.AddAttribute(4, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
+			{
+				inner.OpenElement(0, "p");
+				inner.AddAttribute(1, "data-fragment-a", "true");
+				inner.CloseElement();
+			}));
 			cached.CloseComponent();
 		}));
 		builder.CloseComponent();
