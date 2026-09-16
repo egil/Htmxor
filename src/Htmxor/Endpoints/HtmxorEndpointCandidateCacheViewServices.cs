@@ -3,7 +3,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // Adapted from ASP.NET Core v11.0.0-rc.1.26425.128, commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e,
-// synchronized 2026-09-15. Approved #219 dependencies and exact sources: docs/engineering/candidate-form-adapter.md.
+// synchronized 2026-09-16. Approved #219 dependencies and exact sources: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheView.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheViewService.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/CacheView/CacheViewRenderState.cs | private-accesses

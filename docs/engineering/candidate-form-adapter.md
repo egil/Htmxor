@@ -361,10 +361,9 @@ a streaming page, response headers equal between a miss and a hit and between ho
 sibling boundaries under one parent with no explicit key, `VaryByUser` isolation between
 principals, and the refusal cases above.
 
-Six cases run against the candidate alone, for three different reasons. This list was
-derived from the suite rather than written from memory: counting it produced a wrong
-number three rounds running, and enumerating it from memory produced a wrong list once
-more.
+Six cases run against the candidate alone, for three different reasons. Derive this list
+from the suite when it changes; it is small enough to check by asking which `Issue219`
+tests start only one host.
 
 No stock equivalent exists, so there is nothing to pair against — `HtmxFragment` and
 `HtmxAsyncLoad` are Htmxor's own components, and the representation is Htmxor's concept:
@@ -385,8 +384,10 @@ component runs:
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
 
 Every case in the first two groups was confirmed to redden when its guard is disabled.
-The probe has no guard to disable; it evidences that a hit reuses stored output rather
-than recording a divergence.
+Four of those inversions are recorded in this slice's current verification receipt; the
+representation one is in the receipt for the snapshot that introduced it, which the
+review artifacts retain. The probe has no guard to disable; it evidences that a hit
+reuses stored output rather than recording a divergence.
 
 `VaryBy`, `VaryByRoute`, `VaryByHeader`, `VaryByCookie` and `VaryByCulture` are
 framework-owned and unchanged, but no command exercised them. Distributed cache
