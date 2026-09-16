@@ -770,17 +770,16 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		// page carrying an AuthorizeView under an ordinary wrapper failed where stock renders it.
 		var cacheable = CacheViewServices.IsCacheable(writer, component.GetType()) && !IsInStreamingContext(componentId);
 
+		// Marked and fallen through, not paused and returned. Pausing here hid the subtree from the framework:
+		// neither IsCacheableComponent nor the nested-boundary refusal saw it, so a CacheView holding an
+		// HtmxAsyncLoad rendered content the framework refuses. Abandoning without pausing is not the answer
+		// either -- it leaves the capture active over a subtree stock stops validating, and a streaming page
+		// then throws where stock renders it. Letting the ordinary decision below run satisfies both, because
+		// suppression inside a streaming subtree was never this branch's job: `cacheable` already carries
+		// !IsInStreamingContext, so descendants on a streaming page pause on their own account.
 		if (IsRequestVarying(component))
 		{
 			captureAbandoned = true;
-
-			// Paused for the same reason stock pauses for anything it will not store. Returning without
-			// pausing left the capture active over a subtree stock stops validating here, so a named fragment
-			// holding an AuthorizeView threw the framework's refusal where stock renders the page -- on every
-			// request, not only on a hit. Nothing is recorded as a live cached component: the entry this
-			// capture belongs to is abandoned and is never stored, so there is no later hit to render into.
-			CacheViewServices.PauseCapture(writer);
-			return writer;
 		}
 
 		if (cacheable)
