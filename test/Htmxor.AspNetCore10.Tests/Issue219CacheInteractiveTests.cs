@@ -58,23 +58,23 @@ public sealed class Issue219CacheInteractiveTests
 	}
 
 	[Fact]
-	public async Task A_position_that_gains_a_render_mode_boundary_is_never_staler_than_stock()
+	public async Task A_position_whose_render_mode_ancestor_changes_never_replays_the_other_states_body()
 	{
-		// Htmxor discards a capture beneath a render-mode boundary; stock stores one. Stock does not key that
-		// position differently either, because its SSRRenderModeBoundary GetComponentKey override applies to
-		// the boundary's own child and not to a CacheView further down. So the two hosts share one entry per
-		// position, and the only divergence is which requests fill it.
 		var stock = await MeasureAsync(htmxor: false);
 		var candidate = await MeasureAsync(htmxor: true);
 
-		// Stored without the boundary, then read beneath one: both replay the stored body. Htmxor's discard
-		// governs what is written, never what is served, so the hit path stays stock's.
+		// Stock's own behavior, asserted to pin it rather than to guard Htmxor: no Htmxor code runs in this
+		// host, so these two lines cannot detect any change under src/. They fail only if ASP.NET Core changes
+		// how it keys a CacheView -- worth failing loudly, because the comparison below is stated against it.
+		// Stock replays in both orderings: its SSRRenderModeBoundary GetComponentKey override applies to the
+		// boundary's own child and not to a CacheView further down, so one entry serves both states.
 		Assert.Equal(("1", "1"), stock.StaticFirst);
-		Assert.Equal(stock.StaticFirst, candidate.StaticFirst);
-
-		// Stored beneath the boundary, then read without one: stock replays its stored body, Htmxor stored
-		// nothing and renders the current data. Htmxor caches less here and is never the staler of the two.
 		Assert.Equal(("1", "1"), stock.BoundaryFirst);
+
+		// Htmxor keys the two states apart, so neither ordering is served the other's body. Stored without the
+		// boundary and read beneath one, the read misses; stored beneath it, nothing was stored at all. The
+		// discard alone would only have covered the second: it governs what is written, never what is served.
+		Assert.Equal(("1", "2"), candidate.StaticFirst);
 		Assert.Equal(("1", "2"), candidate.BoundaryFirst);
 	}
 
@@ -103,9 +103,13 @@ public sealed class Issue219CacheInteractiveTests
 		using var response = await client.GetAsync($"/issue-219/conditional-mode?key={key}{suffix}");
 		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		var html = await response.Content.ReadAsStringAsync();
-		var index = html.IndexOf("data-version=\"", StringComparison.Ordinal);
-		Assert.True(index >= 0, "the cached content did not reach the response");
-		return html.Substring(index + 14, 1);
+		const string marker = "data-version=\"";
+		var start = html.IndexOf(marker, StringComparison.Ordinal);
+		Assert.True(start >= 0, "the cached content did not reach the response");
+		start += marker.Length;
+		var end = html.IndexOf('"', start);
+		Assert.True(end > start, "the cached content carried no version");
+		return html[start..end];
 	}
 
 	private static async Task<string> ReadAsync(HttpClient client)
