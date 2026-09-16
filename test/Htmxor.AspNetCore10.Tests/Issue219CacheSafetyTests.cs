@@ -95,23 +95,32 @@ public sealed class Issue219CacheBehaviourTests
 		var candidateTokens = await ReadTokensAsync(candidate);
 
 		// AntiforgeryToken is [CacheBehavior(Rerender)]: stock re-renders it on a hit rather than replaying it.
-		Assert.NotEqual(stockTokens[0], stockTokens[1]);
-		Assert.NotEqual(candidateTokens[0], candidateTokens[1]);
+		// The data version beside it is the discriminator: differing tokens alone would also be explained by
+		// nothing having been cached, so the surrounding boundary must be shown to have been reused.
+		Assert.NotEqual(stockTokens[0].Token, stockTokens[1].Token);
+		Assert.NotEqual(candidateTokens[0].Token, candidateTokens[1].Token);
+		Assert.Equal("1", stockTokens[1].Version);
+		Assert.Equal("1", candidateTokens[1].Version);
 	}
 
-	private static async Task<string[]> ReadTokensAsync(WebApplication app)
+	private static async Task<(string Token, string Version)[]> ReadTokensAsync(WebApplication app)
 	{
 		using var client = app.GetTestClient();
-		return [await ReadTokenAsync(client), await ReadTokenAsync(client)];
+		var data = app.Services.GetRequiredService<Issue219Data>();
+		var first = await ReadTokenAsync(client);
+		data.Version = 2;
+		return [first, await ReadTokenAsync(client)];
 	}
 
-	private static async Task<string> ReadTokenAsync(HttpClient client)
+	private static async Task<(string Token, string Version)> ReadTokenAsync(HttpClient client)
 	{
 		using var response = await client.GetAsync("/issue-219/token");
 		var body = await response.Content.ReadAsStringAsync();
-		var match = System.Text.RegularExpressions.Regex.Match(body, "value=\"([^\"]+)\"");
-		Assert.True(match.Success, $"expected a token in: {body}");
-		return match.Groups[1].Value;
+		var token = System.Text.RegularExpressions.Regex.Match(body, "value=\"([^\"]+)\"");
+		Assert.True(token.Success, $"expected a token in: {body}");
+		var version = System.Text.RegularExpressions.Regex.Match(body, "data-version=\"([^\"]+)\"");
+		Assert.True(version.Success, $"expected a data version in: {body}");
+		return (token.Groups[1].Value, version.Groups[1].Value);
 	}
 }
 
@@ -281,6 +290,8 @@ public sealed class Issue219TokenPage : ComponentBase
 		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
 		{
 			cached.OpenComponent<Microsoft.AspNetCore.Components.Forms.AntiforgeryToken>(0);
+			cached.CloseComponent();
+			cached.OpenComponent<Issue219CachedContent>(1);
 			cached.CloseComponent();
 		}));
 		builder.CloseComponent();
