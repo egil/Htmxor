@@ -390,8 +390,10 @@ public sealed class Issue219StreamingWrappedAuthPage : ComponentBase
 	}
 }
 
-// The same shape as Issue219StreamingWrappedAuthPage with a named fragment where the plain wrapper sits, so the
-// discard path is the one under test rather than the ordinary pause path.
+// The same shape as Issue219StreamingWrappedAuthPage with a named fragment where the plain wrapper sits. That
+// distinguished the two while a named fragment was a kind the capture was discarded for; the scope reversal
+// removed it, so both take the ordinary streaming-pause path now -- dropping !IsInStreamingContext from
+// cacheable reddens this case and its plain-wrapper sibling together.
 [StreamRendering]
 public sealed class Issue219StreamingFragmentAuthPage : ComponentBase
 {
