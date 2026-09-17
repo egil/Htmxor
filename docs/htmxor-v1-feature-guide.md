@@ -1232,8 +1232,8 @@ two sibling boundaries under one parent with no explicit key. The remaining
 variation parameters — `VaryByRoute`, `VaryByCookie` and `VaryByCulture` — are
 framework-owned and exercised by no Htmxor command, as are `VaryBy` and `VaryByHeader`.
 Htmxor reads none of the parameters themselves: it reads only the aggregate `CacheVaryBy`
-the framework derives from them, and forwards it unchanged into the framework's own
-cacheability predicate. That is a statement about this code, not a measured parity result,
+the framework derives from the dimensional ones among them, and forwards it unchanged into
+the framework's own cacheability predicate. That is a statement about this code, not a measured parity result,
 and no command in this slice exercised one of these parameters. An htmx request is not
 cached whatever is declared.
 
@@ -1247,8 +1247,8 @@ vary by user is the case to know, and varying by user is the fix. A component ca
 the entry and rendered live on a later hit instead of being replayed.
 
 **An htmx request is never cached.** `CacheView` works on an ordinary static-SSR page
-exactly as it does under stock ASP.NET Core — miss, hit, expiry and every configured
-`VaryBy*` dimension. On an htmx request the boundary renders every time and stores
+exactly as it does under stock ASP.NET Core — miss, hit, expiry, and the `VaryBy*`
+dimensions a command exercised: `VaryByQuery` and `VaryByUser`. On an htmx request the boundary renders every time and stores
 nothing, and it is never served what an ordinary request stored, because the two occupy
 separate key spaces.
 
@@ -1279,6 +1279,12 @@ component renders, and a cache hit renders nothing. So a boundary that holds an 
 kind only on some requests can still serve an entry stored by an earlier request that held
 none, and the excluded component never appears. Stock behaves the same way, for the same
 reason.
+
+The mirror image does not hold, and neither does the *beneath* direction. When the storing
+request is the one that held the excluded kind, Htmxor stored nothing for it, so the next
+request renders afresh where stock replays what it captured. And a boundary whose
+render-mode ancestor is decided per request records that in its key, so it is never served
+the other state's body — stock serves it.
 
 An **`HtmxAsyncLoad`**. It writes the current request's path into its `hx-get`, and no path
 reaches a cache key unless you declared `VaryByRoute`, so a page reachable at two routes
