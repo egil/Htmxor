@@ -182,9 +182,11 @@ internal sealed class HtmxorEndpointCandidateCacheViewServices
 	// The last component records whether the boundary stands beneath one of the request-varying kinds. Without
 	// it that decision would govern only what Htmxor writes and never what it serves: a position rendered once
 	// without such an ancestor stores an entry that the same position, later standing beneath one, still hits.
-	// An HtmxFragment's Name is a parameter and can differ between two requests at one representation, so this
-	// is not hypothetical. Separating the two states means a boundary beneath a request-varying ancestor can
-	// only ever miss, which is what abandoning its capture already intended.
+	// A component's render mode can be decided per request, so one position stands beneath an interactive
+	// boundary on one request and not on the next -- measured by
+	// A_position_whose_render_mode_ancestor_changes_never_replays_the_other_states_body. Separating the two
+	// states means a boundary beneath a request-varying ancestor can only ever miss, which is what abandoning
+	// its capture already intended.
 	internal static string ComputeTreePositionKey(
 		string ancestorTypeName, int sequence, object? componentKey, string representation, bool beneathRequestVarying)
 	{

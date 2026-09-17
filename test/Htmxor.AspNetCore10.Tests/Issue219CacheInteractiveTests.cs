@@ -78,10 +78,11 @@ public sealed class Issue219CacheInteractiveTests
 
 		data.Version = 2;
 
-		// The reverse of the nesting the case above covers, and the only composition that reaches the discard
-		// and the pause a capture performs over a render-mode boundary it *holds*. A stored entry would freeze
-		// prerendered interactive markup and a component id with it, so the boundary keeps nothing and the
-		// content beside it renders afresh too.
+		// The reverse of the nesting the case above covers: a boundary that *holds* a render-mode boundary, so
+		// this is where the discard and the pause are reached from the holding direction. The two cases at the
+		// top of this file reach the same pause from beneath it. A stored entry would freeze prerendered
+		// interactive markup and a component id with it, so the boundary keeps nothing and the content beside it
+		// renders afresh too.
 		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/interactive-inside"), StringComparison.Ordinal);
 	}
 

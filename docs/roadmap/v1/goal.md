@@ -214,11 +214,12 @@ supplies, because one Htmxor URL serves representations the framework's key cann
 distinguish; cached keys are therefore deliberately not equal to stock's.
 
 An **ordinary** request caches as it does under stock, including beneath a named
-fragment, except in the compositions listed below: an `HtmxAsyncLoad`, which writes the
-request path into its placeholder, and an interactive render-mode boundary held or stood
-beneath. An **htmx** request caches nothing and is never
-served what an ordinary request stored; Htmxor cannot determine what a subtree read from
-an htmx request, and four attempts to decide it produced defects rather than a design.
+fragment, except in the compositions listed in the feature guide: a boundary that holds or
+stands beneath an `HtmxAsyncLoad`, and a boundary that holds or stands beneath an
+interactive render-mode boundary — four in all, enumerated in one place there rather than
+restated here. An **htmx** request caches nothing and is never served what an ordinary
+request stored; Htmxor cannot determine what a subtree read from an htmx request, and four
+attempts to decide it produced defects rather than a design.
 Caching htmx responses is #236, which owns the variation model, the interaction with
 `HtmxLayoutComponentBase`, and the performance evidence this issue never claimed.
 
@@ -233,13 +234,10 @@ because the instruction and the Outcome pulled in opposite directions once htmx 
 was withdrawn.
 
 Scope is otherwise ordinary read-only `CacheView` on static-SSR pages; no public API
-or named-fragment contract changes. An `HtmxAsyncLoad` inside a cached subtree, an interactive render-mode boundary inside
-one, and a cached boundary beneath such a boundary, each cause Htmxor to store nothing for
-that one boundary,
-leaving any sibling boundary cacheable, rather than replaying content that would be
-wrong. That
-is deliberately less caching than stock performs. Distributed deployments remain
-unestablished. Validate and cache only accessor
+or named-fragment contract changes. Each of those four compositions causes Htmxor to store
+nothing for that one boundary, leaving any sibling boundary cacheable, rather than
+replaying content that would be wrong. That is deliberately less caching than stock
+performs. Distributed deployments remain unestablished. Validate and cache only accessor
 metadata and monitor the exact upstream dependencies.
 
 ## The application owns HTMX
