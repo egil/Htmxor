@@ -57,11 +57,15 @@ public sealed class UnresolvedWatchPathTests
 		// MonitorStatus, and Classify() can legitimately assign the unresolved watch the same
 		// classification an ordinarily-removed file gets. Comparing the same watch's issue for
 		// "actually removed" against "never resolved" is the comparative shape criterion 3 asks
-		// for, without pinning what either rendering must say. The dedupe identity is included
-		// deliberately, not incidentally: GitHubIssueUpserter searches on it, so reusing the
-		// ordinary-drift identity would upsert unresolved-path findings into the same tracker
-		// issue as legitimate code drift, defeating "distinguishable... in the review issue" at
-		// the tracking-system level even if the body text happened to differ.
+		// for, without pinning what either rendering must say. Only Body is asserted — the
+		// criterion's literal requirement. Identity is deliberately not pinned here: a single
+		// shared per-major-version tracking issue with clearly separated body sections also
+		// satisfies "distinguishable... in the review issue" as worded, and today Identity is a
+		// pure function of SupportedMajorVersion, not of content. Reusing the ordinary-drift
+		// Identity for the unresolved state is a real residual risk (GitHubIssueUpserter dedupes
+		// by Identity, so a shared issue must not let one state's findings silently erase the
+		// other's on a later run) that belongs to the Implementor's design and complete-change
+		// review, not to this test — pinning it here would decide the design.
 		var watch = Fixture.Watch(WrongFilePath);
 
 		var removed = await Fixture.Application(ActuallyRemovedTransport(WrongFilePath))
@@ -73,7 +77,6 @@ public sealed class UnresolvedWatchPathTests
 		Assert.NotNull(removed.Issue);
 		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(unresolved, WrongFilePath);
 		Assert.NotNull(unresolved.Issue);
-		Assert.NotEqual(removed.Issue.Identity, unresolved.Issue.Identity);
 		Assert.NotEqual(removed.Issue.Body, unresolved.Issue.Body);
 	}
 
