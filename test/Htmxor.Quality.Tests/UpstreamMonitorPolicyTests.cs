@@ -99,6 +99,7 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.BrowserConfiguration.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.Streaming.cs",
 				"src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer|prefix|none|mirrors|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs",
 				"src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer|prefix|subclass|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.NamedSubmit.cs,src/Htmxor/Rendering/HtmxorRenderer.EventDispatch.cs,src/Htmxor/Rendering/HtmxorRenderer.HtmxorEventDispatch.cs,src/Htmxor/Rendering/HtmxorRenderer.Rendering.cs,src/Htmxor/Rendering/HtmxorRenderer.cs",
+				"src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs|file|none|mirrors|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
 				"src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs",
 				"src/Components/Endpoints/src/SessionCascadingValueSupplier.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateSessionServices.cs",
 				"src/Components/Endpoints/src/TempData/TempDataCascadingValueSupplier.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateTempDataServices.cs",
