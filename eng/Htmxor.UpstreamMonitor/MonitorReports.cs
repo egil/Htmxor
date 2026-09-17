@@ -6,21 +6,59 @@ namespace Htmxor.UpstreamMonitor;
 internal static class MonitorReports
 {
 	public static MonitorResult Create(MonitorRequest request, MonitorStatus status, UpstreamRevision? upstream,
-		IReadOnlyList<SourceChange> sourceChanges, IReadOnlyList<ApiChange> apiChanges, string? error = null)
+		IReadOnlyList<SourceChange> sourceChanges, IReadOnlyList<ApiChange> apiChanges, string? error = null,
+		IReadOnlyList<string>? unresolvedWatchPaths = null)
 	{
+		var unresolved = (unresolvedWatchPaths ?? []).OrderBy(path => path, StringComparer.Ordinal).ToArray();
 		var sources = sourceChanges.OrderBy(change => change.Path, StringComparer.Ordinal).ThenBy(change => change.Kind).ToArray();
 		var apis = apiChanges.Distinct().OrderBy(change => change.TypeName, StringComparer.Ordinal).ThenBy(change => change.Kind)
 			.ThenBy(change => change.SymbolKind).ThenBy(change => change.Signature, StringComparer.Ordinal).ToArray();
 		var baselineCommit = request.BaselineCommit ?? request.Framework.ReviewedCommit;
 		var baselineTag = baselineCommit == request.Framework.ReviewedCommit ? request.Framework.ReviewedTag : "unresolved";
 		var baseline = new UpstreamRevision(baselineTag, baselineCommit);
-		return new(status, upstream, sources, apis, Json(status, baseline, upstream, sources, apis, error),
-			Markdown(status, baseline, upstream, sources, apis, error),
-			status == MonitorStatus.Drift ? Issue(request, baseline, upstream!, sources, apis) : null, error);
+		return new(status, upstream, sources, apis, Json(status, baseline, upstream, sources, apis, error, unresolved),
+			Markdown(status, baseline, upstream, sources, apis, error, unresolved),
+			IssueFor(request, status, baseline, upstream, sources, apis, unresolved), error, unresolved);
+	}
+
+	// An unresolved watch is a manifest defect, not upstream drift: the path names a dependency the
+	// monitor cannot see at the reviewed commit, so every later run would report it current. It gets
+	// its own status, its own report section and its own review issue rather than a SourceChange, so
+	// a reader can never mistake it for a change in a file that does exist. The separate issue
+	// identity also keeps the two kinds out of one upserted body, where a full replace would drop
+	// whichever ran first — see issue #238.
+	private static IssueUpsertInput? IssueFor(MonitorRequest request, MonitorStatus status, UpstreamRevision baseline,
+		UpstreamRevision? upstream, SourceChange[] sources, ApiChange[] apis, string[] unresolved) => status switch
+	{
+		MonitorStatus.Drift => Issue(request, baseline, upstream!, sources, apis),
+		MonitorStatus.UnresolvedWatch => UnresolvedIssue(request, baseline, upstream!, unresolved),
+		_ => null,
+	};
+
+	private static IssueUpsertInput UnresolvedIssue(MonitorRequest request, UpstreamRevision baseline,
+		UpstreamRevision upstream, string[] unresolved)
+	{
+		var identity = $"aspnetcore-{request.SupportedMajorVersion}-unresolved-watch";
+		var url = $"https://github.com/{request.Manifest.Repository}";
+		var body = string.Join('\n',
+		[
+			"## ASP.NET Core watch paths that do not exist upstream", string.Empty, $"Identity: {identity}", string.Empty,
+			$"- Reviewed: [{Revision(baseline)}]({url}/tree/{baseline.Commit})",
+			$"- Current: [{Revision(upstream)}]({url}/tree/{upstream.Commit})",
+			"- These dependencies are unmonitored: a path that cannot resolve never appears in a compare,",
+			"  so drift in it is reported as current on every run until the manifest is corrected.",
+			string.Empty, "### Unresolved watch paths", string.Empty,
+			.. unresolved.Select(path => $"- [{path}]({url}/tree/{baseline.Commit}/{path})"),
+			string.Empty, "### Review checklist", string.Empty,
+			"- [ ] Correct or remove each path above", "- [ ] Confirm the corrected path is the right upstream dependency",
+			"- [ ] Re-run the monitor and confirm the watch reports against real content",
+		]);
+		return new(identity, $"repo:egil/Htmxor is:issue label:upstream-monitor \"{identity}\" in:body",
+			$"Htmxor upstream watch paths do not exist at {upstream.Tag}", body);
 	}
 
 	private static string Json(MonitorStatus status, UpstreamRevision baseline, UpstreamRevision? upstream,
-		SourceChange[] sources, ApiChange[] apis, string? error)
+		SourceChange[] sources, ApiChange[] apis, string? error, string[] unresolved)
 	{
 		var report = new JsonObject
 		{
@@ -37,6 +75,10 @@ internal static class MonitorReports
 				signature = change.Signature, classification = Name(change.Classification),
 			})),
 		};
+		if (unresolved.Length > 0)
+		{
+			report["unresolvedWatchPaths"] = JsonSerializer.SerializeToNode(unresolved);
+		}
 		if (error is not null)
 		{
 			report["infrastructureError"] = error;
@@ -47,7 +89,7 @@ internal static class MonitorReports
 	private static JsonObject RevisionJson(UpstreamRevision revision) => new() { ["tag"] = revision.Tag, ["commit"] = revision.Commit };
 
 	private static string Markdown(MonitorStatus status, UpstreamRevision baseline, UpstreamRevision? upstream,
-		SourceChange[] sources, ApiChange[] apis, string? error) => string.Join('\n',
+		SourceChange[] sources, ApiChange[] apis, string? error, string[] unresolved) => string.Join('\n',
 		[
 			"# ASP.NET Core upstream monitor", string.Empty, $"Status: {Name(status)}",
 			$"Baseline: {Revision(baseline)}", $"Upstream: {(upstream is null ? "unavailable" : Revision(upstream))}",
@@ -56,6 +98,9 @@ internal static class MonitorReports
 			.. sources.Length == 0 ? ["None."] : sources.Select(change => $"- {Name(change.Classification)} | {SourceRow(change)}"),
 			string.Empty, "## API changes", string.Empty,
 			.. apis.Length == 0 ? ["None."] : apis.Select(change => $"- {Name(change.Classification)} | {ApiRow(change)}"),
+			.. unresolved.Length == 0 ? Array.Empty<string>() :
+				[string.Empty, "## Unresolved watch paths", string.Empty,
+					.. unresolved.Select(path => $"- does-not-exist-upstream | {path}")],
 		]);
 
 	private static IssueUpsertInput Issue(MonitorRequest request, UpstreamRevision baseline, UpstreamRevision upstream,

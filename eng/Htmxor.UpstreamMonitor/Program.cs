@@ -45,7 +45,13 @@ internal static class Program
 			}
 			await WriteReportAsync(options.JsonPath, CombinedJson(results), cancellationToken);
 			await WriteReportAsync(options.MarkdownPath, CombinedMarkdown(results), cancellationToken);
-			var status = results.Max(result => result.Result.Status);
+			// An infrastructure failure means a framework was not measured at all, so it outranks any
+			// finding from a framework that was. Ordinal Max alone encoded that only while
+			// InfrastructureError was the highest declared value; UnresolvedWatch sits above it.
+			var statuses = results.Select(result => result.Result.Status).ToArray();
+			var status = statuses.Contains(MonitorStatus.InfrastructureError)
+				? MonitorStatus.InfrastructureError
+				: statuses.Max();
 			if (status == MonitorStatus.InfrastructureError)
 			{
 				await standardError.WriteLineAsync(results.First(result => result.Result.InfrastructureError is not null).Result.InfrastructureError);

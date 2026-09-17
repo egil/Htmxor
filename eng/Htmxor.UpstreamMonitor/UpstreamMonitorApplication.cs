@@ -14,7 +14,7 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			var baseline = request.BaselineCommit ?? request.Framework.ReviewedCommit;
 			if (upstream.Commit == baseline)
 			{
-				return MonitorReports.Create(request, MonitorStatus.Current, upstream, [], []);
+				return await CurrentOrUnresolvedAsync(request, upstream, repository, baseline, cancellationToken);
 			}
 			var files = await repository.CompareAsync(baseline, upstream.Commit, cancellationToken);
 			return await CompareWatchedAsync(request, upstream, repository, files, cancellationToken);
@@ -42,7 +42,34 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			sources.Add(new(file.Path, file.Kind, Classify(watches, changes)));
 		}
 		var apis = comparisons.Values.SelectMany(changes => changes).ToArray();
-		return MonitorReports.Create(request, sources.Count == 0 ? MonitorStatus.Current : MonitorStatus.Drift, upstream, sources, apis);
+		if (sources.Count == 0)
+		{
+			return await CurrentOrUnresolvedAsync(request, upstream, repository,
+				request.BaselineCommit ?? request.Framework.ReviewedCommit, cancellationToken);
+		}
+		return MonitorReports.Create(request, MonitorStatus.Drift, upstream, sources, apis);
+	}
+
+	// Reporting current is the one claim this monitor cannot make from a changed-file list alone: a
+	// watch path that does not exist upstream never appears in one, so silence is indistinguishable
+	// from a dependency nobody is watching. The paths are therefore resolved against the reviewed
+	// commit exactly here, on the runs that would otherwise report nothing. A run that already has
+	// drift to report is not silent, and any watch it matched is proven to exist by the diff itself.
+	private static async Task<MonitorResult> CurrentOrUnresolvedAsync(MonitorRequest request, UpstreamRevision upstream,
+		UpstreamRepository repository, string baseline, CancellationToken cancellationToken)
+	{
+		var unresolved = new SortedSet<string>(StringComparer.Ordinal);
+		foreach (var watch in request.Manifest.Targets.DistinctBy(watch => (watch.Path, watch.Match))
+			.OrderBy(watch => watch.Path, StringComparer.Ordinal).ThenBy(watch => watch.Match))
+		{
+			if (!await repository.ResolvesAsync(watch, baseline, cancellationToken))
+			{
+				unresolved.Add(watch.Path);
+			}
+		}
+		return unresolved.Count == 0
+			? MonitorReports.Create(request, MonitorStatus.Current, upstream, [], [])
+			: MonitorReports.Create(request, MonitorStatus.UnresolvedWatch, upstream, [], [], null, unresolved.ToArray());
 	}
 
 	internal static bool Matches(WatchTarget target, string path) => target.Match == WatchMatch.Prefix

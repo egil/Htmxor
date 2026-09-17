@@ -6,7 +6,10 @@ internal sealed class GitHubIssueUpserter(HttpClient httpClient)
 {
 	public async Task<IssueWriteResult> UpsertAsync(MonitorResult result, CancellationToken cancellationToken = default)
 	{
-		if (result.Status != MonitorStatus.Drift || result.Issue is null)
+		// Both finding states write; Current and InfrastructureError never do, even if a caller hands
+		// over a populated Issue. Matching on the reporting states rather than on Issue alone keeps
+		// that guarantee where it was before an unresolved watch became a second writable state.
+		if (result.Issue is null || result.Status is not (MonitorStatus.Drift or MonitorStatus.UnresolvedWatch))
 		{
 			return new(IssueWriteAction.None, null, null);
 		}
