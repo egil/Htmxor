@@ -67,6 +67,11 @@ public sealed class ProviderSchemaTests
 	{
 		var transport = ProviderInventoryTests.TargetTransport();
 		transport.AddJson(Compare, """{"files":[]}""");
+		// No source changed the watch, so #232's fix resolves it against the reviewed commit
+		// before reporting Current: this stub is the proof the path still exists there.
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.Invoker}?ref={Fixture.BaselineCommit}",
+			Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
 
 		var result = await Fixture.Application(transport).RunAsync(
 			ProviderInventoryTests.Request(Fixture.Watch(ExpectedMonitorArtifacts.Invoker)));

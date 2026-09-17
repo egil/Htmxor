@@ -14,12 +14,22 @@ public sealed class ConsoleTargetFrameworkTests
 		transport.AddJson(Releases, Fixture.Read("github/releases.json"));
 		transport.AddJson(Tag("v10.0.11"), Fixture.Read("github/ref-v10.0.11-direct.json"));
 		transport.AddJson(Tag(Fixture.Net11ReviewedTag), Commit(Fixture.Net11ReviewedCommit));
+		// Neither framework has moved past its own reviewed commit, so #232's fix resolves the
+		// workspace's single watch (ExpectedMonitorArtifacts.InvokerInterface) against each before
+		// reporting Current.
+		transport.AddJson(Contents(Fixture.ReviewedCommit), Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
+		transport.AddJson(Contents(Fixture.Net11ReviewedCommit), Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
 
 		var observation = await RunAsync(workspace, transport, []);
 
 		Assert.Equal(0, observation.ExitCode);
 		Assert.Equal("Current", observation.StandardOutput);
-		Assert.Equal([Request(Releases), Request(Tag("v10.0.11")), Request(Tag(Fixture.Net11ReviewedTag))], observation.Requests);
+		Assert.Equal(
+			[
+				Request(Releases), Request(Tag("v10.0.11")), Request(Contents(Fixture.ReviewedCommit)),
+				Request(Tag(Fixture.Net11ReviewedTag)), Request(Contents(Fixture.Net11ReviewedCommit)),
+			],
+			observation.Requests);
 		Assert.Equal(
 			[
 				("net10.0", "v10.0.11", Fixture.ReviewedCommit),
@@ -159,5 +169,6 @@ public sealed class ConsoleTargetFrameworkTests
 	private static ConsoleRequestObservation Request(string path) => new(HttpMethod.Get, path, null, "Bearer fixture-token");
 	private static string Tag(string tag) => $"/repos/dotnet/aspnetcore/git/ref/tags/{tag}";
 	private static string Compare(string baseline) => $"/repos/dotnet/aspnetcore/compare/{baseline}...{Fixture.TargetCommit}";
+	private static string Contents(string commit) => $"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.InvokerInterface}?ref={commit}";
 	private static string Commit(string commit) => JsonSerializer.Serialize(new { @object = new { type = "commit", sha = commit } });
 }

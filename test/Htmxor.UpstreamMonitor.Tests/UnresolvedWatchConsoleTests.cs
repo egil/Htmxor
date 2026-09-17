@@ -31,6 +31,12 @@ public sealed class UnresolvedWatchConsoleTests
 		transport.AddJson(
 			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
 			JsonSerializer.Serialize(new { files = new[] { new { filename = "src/Unrelated/File.cs", status = "modified" } } }));
+		// WrongFilePath is deliberately never resolved (that is this test's whole point), so #232's
+		// fix now writes a review issue for it. Without these stubs the unstubbed issue-list/create
+		// endpoints 404, UpsertAsync's own catch turns that into an unrelated write failure, and
+		// Program.cs converts the run to InfrastructureError (exit 2) for the wrong reason.
+		transport.AddJson("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", "[]");
+		transport.AddJson("/repos/egil/Htmxor/issues", "{\"number\":42,\"state\":\"open\"}");
 
 		var observation = await RunAsync(workspace, transport, ["--tag", "v10.0.12", "--baseline", Fixture.BaselineCommit]);
 
