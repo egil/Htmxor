@@ -5,6 +5,7 @@ internal enum MonitorStatus
 	Current,
 	Drift,
 	InfrastructureError,
+	UnresolvedWatch,
 }
 
 internal enum WatchMatch
@@ -129,7 +130,8 @@ internal sealed record MonitorResult(
 	string JsonReport,
 	string MarkdownReport,
 	IssueUpsertInput? Issue,
-	string? InfrastructureError);
+	string? InfrastructureError,
+	IReadOnlyList<string>? UnresolvedWatchPaths = null);
 
 internal enum IssueWriteAction
 {
