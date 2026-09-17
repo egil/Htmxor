@@ -95,9 +95,9 @@ internal partial class HtmxorEndpointCandidateRenderer
 	private string ComputeCacheViewTreePositionKey(
 		ComponentState parentComponentState, CacheView target, string ancestorTypeName, ComponentState state)
 	{
-		// Read inside the factory rather than at component-state creation: an ancestor's parameters, including
-		// an HtmxFragment's Name, are set before its children resolve their entries but not before this state
-		// is constructed.
+		// Read inside the factory rather than at component-state creation: an ancestor's parameters are set
+		// before its children resolve their entries, but not before this state is constructed, and a render
+		// mode can be decided per request.
 		var beneathRequestVarying = HasUncacheableAncestor(state);
 		var frames = GetCurrentRenderTreeFrames(parentComponentState.ComponentId);
 		for (var index = 0; index < frames.Count; index++)

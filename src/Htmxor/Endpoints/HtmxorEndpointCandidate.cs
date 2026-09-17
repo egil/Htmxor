@@ -673,7 +673,12 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 		var enclosing = captureAbandoned;
 
-		// Three reasons a boundary stores nothing.
+		// What this method decides: an htmx request, and a boundary that stands *beneath* one of the
+		// request-varying kinds. The other direction -- a boundary that *holds* one -- is decided in
+		// TryPauseCaptureForUncacheableComponent, because it is only known once the inner component renders. Two
+		// kinds times two directions is four excluded compositions, each with a case; IsRequestVarying below is
+		// the single place the kinds are named, and docs/htmxor-v1-feature-guide.md enumerates the four for a
+		// reader. Counting only the reasons visible here is what made three artefacts disagree.
 		//
 		// An htmx request never caches. Htmxor cannot tell what a subtree read from the request, and every
 		// attempt to decide it for the author produced a defect: inferring the dimensions was incomplete,
@@ -706,9 +711,13 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		}
 	}
 
-	// The physical parent chain, not the logical one: content authored in a page but passed as child content
-	// into a fragment has the page as its logical parent, and only the physical chain shows the fragment that
-	// decides whether the content is produced at all.
+	// The physical parent chain, not the logical one. The composition this was expected to divide on -- content
+	// authored in a page and passed into HtmxAsyncLoad as Loading content, whose logical parent is the page --
+	// does not divide: swapping this walk to LogicalParentComponentState leaves
+	// A_boundary_inside_an_async_loads_loading_content_stores_nothing green, so no measured composition
+	// distinguishes the two chains. Physical is kept because it is the chain that shows the component deciding
+	// whether the content is produced at all, which is the question being asked; the claim that it is
+	// observably required was measured and is false.
 	private static bool HasUncacheableAncestor(ComponentState componentState)
 	{
 		for (var ancestor = componentState.ParentComponentState; ancestor is not null; ancestor = ancestor.ParentComponentState)
@@ -768,13 +777,16 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		// page carrying an AuthorizeView under an ordinary wrapper failed where stock renders it.
 		var cacheable = CacheViewServices.IsCacheable(writer, component.GetType()) && !IsInStreamingContext(componentId);
 
-		// Marked and fallen through, not paused and returned. Pausing here hid the subtree from the framework:
-		// neither IsCacheableComponent nor the nested-boundary refusal saw it, so a CacheView holding an
-		// HtmxAsyncLoad rendered content the framework refuses. Abandoning without pausing is not the answer
-		// either -- it leaves the capture active over a subtree stock stops validating, and a streaming page
-		// then throws where stock renders it. Letting the ordinary decision below run satisfies both, because
-		// suppression inside a streaming subtree was never this branch's job: `cacheable` already carries
-		// !IsInStreamingContext, so descendants on a streaming page pause on their own account.
+		// Marked here and fallen through; the render-mode boundary additionally pauses, in its own branch below.
+		// The two kinds differ because stock differs: it carries [CacheBehavior(Rerender)] on its render-mode
+		// boundary and nothing on an ordinary component, so mirroring stock means pausing for one kind and not
+		// the other. Falling through is what the HtmxAsyncLoad kind needs: pausing hid the subtree from the
+		// framework -- neither IsCacheableComponent nor the nested-boundary refusal saw it, so a CacheView
+		// holding an HtmxAsyncLoad rendered content the framework refuses. Abandoning without pausing is not the
+		// answer either -- it leaves the capture active over a subtree stock stops validating, and a streaming
+		// page then throws where stock renders it. Letting the ordinary decision below run satisfies both,
+		// because suppression inside a streaming subtree was never this branch's job: `cacheable` already
+		// carries !IsInStreamingContext, so descendants on a streaming page pause on their own account.
 		if (IsRequestVarying(component))
 		{
 			captureAbandoned = true;

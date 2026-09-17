@@ -356,10 +356,17 @@ rather than left as narration here.
 A cached boundary **beneath** either kind is discarded too. Beneath an interactive
 render-mode boundary it would store prerendered interactive content keyed more weakly
 than stock keys it, since stock's `SSRRenderModeBoundary` component-key override is not
-mirrored. Beneath an `HtmxAsyncLoad` the reason is the one above. The boundary is marked
-rather than paused, so the framework's refusals still run over what it holds — pausing
-hid the subtree from them, and abandoning without marking left a streaming page throwing
-where stock renders it. Both were measured.
+mirrored. Beneath an `HtmxAsyncLoad` the reason is the one above.
+
+The two kinds then part company on whether the capture also pauses, because stock does.
+Stock's `SSRRenderModeBoundary` carries `[CacheBehavior(Rerender)]`, so stock pauses at a
+render-mode boundary and never validates the prerendered subtree beneath it; Htmxor's
+boundary carries no such attribute and now mirrors that answer in `HtmxorEndpointCandidate`
+— a second, separately watched dependency on that upstream file. An `HtmxAsyncLoad` is
+marked and falls through instead, so the framework's refusals still run over what it holds:
+pausing there hid the subtree from them, and abandoning without marking left a streaming
+page throwing where stock renders it. All three were measured, and the two render-mode
+cases at the top of `Issue219CacheInteractiveTests` are the tripwire for the pause.
 
 Discarding alone is not sufficient, because it governs only what is written. The tree
 position therefore also records whether the boundary stands beneath a request-varying
@@ -423,12 +430,10 @@ save and restore** has likewise resisted two proposed compositions. All three be
 observable again if #236 restores the request-varying kinds, and #236 will have to
 re-derive them.
 
-The Htmxor-specific pause was removed rather than left unobservable: a request-varying
-kind is marked and falls through, and the render-mode boundary pauses through its own
-branch, so the one remaining mirrored pause is stock's and is measured.
-
-The probe has no guard to
-disable; it evidences that a hit reuses stored output rather than recording a divergence.
+The Htmxor-specific pause was removed rather than left unobservable. Two `PauseCapture`
+call sites remain and both mirror stock: the one that mirrors stock's own second CacheView
+block, and the render-mode boundary's own branch added to match `[CacheBehavior(Rerender)]`.
+Both are measured; neither is an Htmxor-specific policy.
 
 `VaryByRoute`, `VaryByCookie` and `VaryByCulture` are framework-owned, unchanged, and
 exercised by no command. So are `VaryBy` and `VaryByHeader`: no Htmxor code reads either

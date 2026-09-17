@@ -1264,24 +1264,32 @@ the rest — is unaffected, because its boundary is never serving a cache hit on
 request. And a page that is only ever reached over htmx gains nothing from a `CacheView`
 today; put the boundary where ordinary requests reach it, or wait for #236.
 
-Two compositions cause Htmxor to store nothing for that boundary, so the subtree renders
-normally on every request.
+Two kinds of component cause Htmxor to store nothing for a boundary, in either direction:
+whether the cached boundary **holds** one or stands **beneath** one. That is four
+compositions, and in all four the subtree simply renders normally on every request.
 
-An **`HtmxAsyncLoad`** inside the boundary. It writes the current request's path into its
-`hx-get`, and no path reaches a cache key unless you declared `VaryByRoute`, so a page
-reachable at two routes would otherwise serve the first request's placeholder to the
-second and the load trigger would fetch the wrong resource. Stock's own narrow mechanism
-for this, `CacheBehavior.Rerender`, cannot be used — it requires capturing the component's
+An **`HtmxAsyncLoad`**. It writes the current request's path into its `hx-get`, and no path
+reaches a cache key unless you declared `VaryByRoute`, so a page reachable at two routes
+would otherwise serve the first request's placeholder to the second and the load trigger
+would fetch the wrong resource. Stock's own narrow mechanism for this,
+`CacheBehavior.Rerender`, cannot be used — it requires capturing the component's
 `RenderFragment` parameter, which the framework refuses — so the whole boundary is
-abandoned, and **content beside an `HtmxAsyncLoad` stops caching with it**. No placement
-recovers that: the async-loaded content renders only on the htmx request that fetches it,
-and htmx requests are not cached at all. Cache a sibling subtree that does not contain
-the component.
+abandoned, and **content beside an `HtmxAsyncLoad` stops caching with it**.
 
-An **interactive render-mode boundary**, whether the cached
-boundary holds one or stands beneath one. Cached prerendered interactive content would be
-keyed more weakly than stock keys it, because stock's `SSRRenderModeBoundary` component
-key is not mirrored. Any sibling boundary stays cacheable.
+The *beneath* direction is the one worth reading twice, because it is easy to author by
+accident: a `CacheView` you place in an `HtmxAsyncLoad`'s **`Loading` content** stands
+beneath that async load and stores nothing, even though that content renders on every
+ordinary request and looks like ordinary page content. What recovers caching is a sibling
+subtree that neither contains the `HtmxAsyncLoad` nor sits inside it; moving the boundary
+into the `Loading` content does not.
+
+An **interactive render-mode boundary**, again in either direction. Cached prerendered
+interactive content would be keyed more weakly than stock keys it, because stock's
+`SSRRenderModeBoundary` component key is not mirrored. Beneath such a boundary Htmxor also
+pauses exactly where stock pauses, so content below it is validated — and refused — no
+differently than it is without Htmxor.
+
+A sibling boundary standing outside all four compositions stays cacheable.
 
 Earlier revisions also refused to cache a boundary holding or beneath a named
 `HtmxFragment`, or any `IConditionalRender`. Those guards existed for cached htmx

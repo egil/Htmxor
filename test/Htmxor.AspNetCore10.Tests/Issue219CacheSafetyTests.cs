@@ -315,8 +315,9 @@ public sealed class Issue219TokenPage : ComponentBase
 	}
 }
 
-// A component inside a declared boundary that writes an htmx response header while it renders. Declared, so
-// the boundary is otherwise eligible to cache: the header is the only reason it must not.
+// A component inside a boundary that writes an htmx response header while it renders. The boundary holds no
+// request-varying kind, so nothing in the predicate excludes it; the case sends only htmx requests, which are
+// the only kind that reaches the header write and the only kind that stores nothing whatever it holds.
 [Route("/issue-219/header-writing")]
 public sealed class Issue219HeaderWritingPage : ComponentBase
 {
