@@ -73,6 +73,10 @@ public sealed class ReleaseDiscoveryTests
 			  ]
 			}
 			""");
+		// The watched file did not appear in the compare, so #232's fix resolves it against the
+		// reviewed commit before reporting Current: this stub is the proof it still exists there.
+		const string contents = "/repos/dotnet/aspnetcore/contents/" + ExpectedMonitorArtifacts.Invoker + "?ref=" + Fixture.BaselineCommit;
+		transport.AddJson(contents, Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
 		var request = new MonitorRequest(
 			Fixture.Manifest(Fixture.Watch(ExpectedMonitorArtifacts.Invoker)),
 			10,
@@ -91,6 +95,7 @@ public sealed class ReleaseDiscoveryTests
 			[
 				(HttpMethod.Get, "/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12"),
 				(HttpMethod.Get, compare),
+				(HttpMethod.Get, contents),
 			],
 			transport.Requests.Select(observed => (observed.Method, observed.PathAndQuery)));
 	}
