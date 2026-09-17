@@ -51,8 +51,13 @@ public sealed class CacheViewCaseInventoryTests
 		// per data row, so counting methods would understate the total in exactly the direction this check
 		// exists to catch: a case could be added and absorbed by the stated paired count without reddening.
 		// Fail loudly on the first one rather than silently miscount.
-		Assert.Empty(methods.Where(method => method.GetCustomAttributes()
-			.Any(attribute => attribute.GetType().Name == "TheoryAttribute")).Select(method => method.Name));
+		var theories = methods.Where(method => method.GetCustomAttributes()
+			.Any(attribute => attribute.GetType().Name == "TheoryAttribute")).Select(method => method.Name).ToArray();
+
+		Assert.True(theories.Length == 0,
+			$"This reconciliation counts one discovered case per method, which a [Theory] breaks: it discovers one "
+			+ $"per data row. Convert it, or teach this check to count rows, before relying on the totals in "
+			+ $"docs/engineering/candidate-form-adapter.md. Found: {string.Join(", ", theories)}");
 
 		return methods.Select(method => method.Name).ToHashSet(StringComparer.Ordinal);
 	}

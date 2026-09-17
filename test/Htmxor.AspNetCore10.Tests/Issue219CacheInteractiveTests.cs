@@ -22,7 +22,7 @@ namespace Htmxor.AspNetCore10;
 public sealed class Issue219CacheInteractiveTests
 {
 	[Fact]
-	public async Task Content_beneath_an_interactive_boundary_is_validated_like_stock()
+	public async Task An_authorize_view_inside_a_held_render_mode_boundary_renders_like_stock()
 	{
 		await using var stock = await StartAsync<Issue219InteractiveAuthInsidePage>(htmxor: false);
 		await using var candidate = await StartAsync<Issue219InteractiveAuthInsidePage>(htmxor: true);

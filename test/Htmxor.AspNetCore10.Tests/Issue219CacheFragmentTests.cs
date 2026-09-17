@@ -102,8 +102,8 @@ public sealed class Issue219CacheFragmentTests
 		// half of the claim unmeasured. Paired, because the claim is parity: the stock arm establishes what the
 		// framework does with the same tree when HtmxFragment is just a component, which on an ordinary request
 		// is all it is -- selection is honoured only for htmx requests, which cache nothing.
-		var expected = await ReadPairAsync<Issue219FragmentAboveBoundaryPage>(htmxor: false);
-		var actual = await ReadPairAsync<Issue219FragmentAboveBoundaryPage>(htmxor: true);
+		var expected = await ReadPairAsync<Issue219FragmentAboveBoundaryPage>(htmxor: false, path: "/issue-219/fragment-above-boundary");
+		var actual = await ReadPairAsync<Issue219FragmentAboveBoundaryPage>(htmxor: true, path: "/issue-219/fragment-above-boundary");
 
 		// The stock arm must prove reuse, not merely agree: without this the case passes when neither host
 		// caches, which is the regression it exists to catch.
@@ -112,21 +112,34 @@ public sealed class Issue219CacheFragmentTests
 		Assert.Equal(expected, actual);
 	}
 
-	private static async Task<string[]> ReadPairAsync<TRoot>(bool htmxor) where TRoot : IComponent
+	[Fact]
+	public async Task A_boundary_holding_a_conditional_component_caches_like_stock()
+	{
+		// The guide says IConditionalRender as a category is no longer refused, because refusing the interface
+		// stopped every boundary beneath HtmxLayoutComponentBase -- the documented layout, which implements it --
+		// from caching. That claim had no case: restoring the category refusal in the holding direction left the
+		// whole Issue219 filter green, so nothing measured the behaviour the guide advertises.
+		//
+		// Deliberately not [CacheBehavior(Throw)]. A_conditional_component_that_opted_out_still_raises_the_
+		// frameworks_refusal covers the type that is both, and asserts a refusal; this asserts the opposite for
+		// the ordinary case, which is what an application implementing the interface actually gets.
+		var expected = await ReadPairAsync<Issue219ConditionalCachedPage>(htmxor: false, path: "/issue-219/conditional-cached");
+		var actual = await ReadPairAsync<Issue219ConditionalCachedPage>(htmxor: true, path: "/issue-219/conditional-cached");
+
+		// The stock arm must prove reuse, not merely agree.
+		Assert.Contains("data-version=\"1\"", expected[0], StringComparison.Ordinal);
+		Assert.Contains("data-version=\"1\"", expected[1], StringComparison.Ordinal);
+		Assert.Equal(expected, actual);
+	}
+
+	private static async Task<string[]> ReadPairAsync<TRoot>(bool htmxor, string path) where TRoot : IComponent
 	{
 		await using var app = await Issue219CacheSafetyTests.StartAsync<TRoot>(htmxor);
 		using var client = app.GetTestClient();
 		var data = app.Services.GetRequiredService<Issue219Data>();
-		var first = await ReadBodyAsync(client, "/issue-219/fragment-above-boundary");
+		var first = await ReadAsync(client, path);
 		data.Version = 2;
-		return [first, await ReadBodyAsync(client, "/issue-219/fragment-above-boundary")];
-	}
-
-	private static async Task<string> ReadBodyAsync(HttpClient client, string path)
-	{
-		using var response = await client.GetAsync(path);
-		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-		return await response.Content.ReadAsStringAsync();
+		return [first, await ReadAsync(client, path)];
 	}
 
 	private static async Task<string> ReadAsync(HttpClient client, string path)
@@ -221,7 +234,6 @@ public sealed class Issue219KeyedBoundaryPage : ComponentBase
 	}
 }
 
-
 // A named HtmxFragment standing *above* a cached boundary: the direction goal.md advertises and no other
 // fixture composes. On an ordinary request nothing selects the fragment, so the boundary beneath it is
 // ordinary cached content.
@@ -240,6 +252,40 @@ public sealed class Issue219FragmentAboveBoundaryPage : ComponentBase
 			inner.CloseComponent();
 		}));
 		builder.CloseComponent();
+	}
+}
+
+// A boundary holding an ordinary IConditionalRender -- no [CacheBehavior] attribute, so nothing but the
+// interface distinguishes it. This is the composition the guide's "no longer refused as a category" claim is
+// about, and the shape HtmxLayoutComponentBase puts every page into.
+[Route("/issue-219/conditional-cached")]
+public sealed class Issue219ConditionalCachedPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-conditional-cached");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219ConditionalCachedContent>(0);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219ConditionalCachedContent : ComponentBase, IConditionalRender
+{
+	[Inject] internal Issue219Data Data { get; set; } = default!;
+
+	public bool ShouldOutput([System.Diagnostics.CodeAnalysis.NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren) => true;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "p");
+		builder.AddAttribute(1, "data-version", Data.Version.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		builder.AddContent(2, "conditional");
+		builder.CloseElement();
 	}
 }
 #endif
