@@ -58,6 +58,38 @@ public sealed class Issue219CacheAsyncLoadTests
 		Assert.Contains("data-version=\"2\"", await ReadAsync(client, "/issue-219/async-loading"), StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task A_boundary_that_only_sometimes_holds_an_async_load_reuses_like_stock()
+	{
+		// Raised on the pull request: a boundary that holds HtmxAsyncLoad only on some requests can serve an
+		// entry stored by an earlier request that did not hold one, because the holding-direction discard runs
+		// while the inner component renders and a cache hit renders nothing.
+		//
+		// The mechanism is real and it is stock's. Both hosts store at version 1, and at version 2 both serve
+		// that entry, so the async load the application would now render never appears on either. Paired
+		// because the only question is whether Htmxor diverges; the answer is what AC1 protects, not a defect
+		// Htmxor can fix -- excluding a kind that never renders would require deciding it before the hit.
+		var expected = await ReadPairAsync(htmxor: false);
+		var actual = await ReadPairAsync(htmxor: true);
+
+		// The stock arm must show the hit, or this passes when neither host cached.
+		Assert.Contains("data-version=\"1\"", expected[1], StringComparison.Ordinal);
+		Assert.DoesNotContain("hx-get", expected[1], StringComparison.Ordinal);
+		Assert.Equal(expected, actual);
+	}
+
+	private static async Task<string[]> ReadPairAsync(bool htmxor)
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219ConditionalAsyncLoadPage>(htmxor);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+
+		data.Version = 1;
+		var first = await ReadAsync(client, "/issue-219/conditional-async-load");
+		data.Version = 2;
+		return [first, await ReadAsync(client, "/issue-219/conditional-async-load")];
+	}
+
 	private static async Task<string> ReadAsync(HttpClient client, string path)
 	{
 		using var response = await client.GetAsync(path);
@@ -119,6 +151,45 @@ public sealed class Issue219AsyncLoadingHostPage : ComponentBase
 			loading.CloseComponent();
 		}));
 		builder.CloseComponent();
+	}
+}
+
+// A boundary whose child holds an HtmxAsyncLoad only from version 2 on, so the first request stores a tree
+// with no excluded kind in it and the second would have held one.
+[Route("/issue-219/conditional-async-load")]
+public sealed class Issue219ConditionalAsyncLoadPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<CacheView>(0);
+		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-conditional-async-load");
+		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
+		{
+			cached.OpenComponent<Issue219ConditionalAsyncLoadContent>(0);
+			cached.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
+
+public sealed class Issue219ConditionalAsyncLoadContent : ComponentBase
+{
+	[Inject] internal Issue219Data Data { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "p");
+		builder.AddAttribute(1, "data-version", Data.Version.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		builder.AddContent(2, "body");
+		builder.CloseElement();
+
+		if (Data.Version >= 2)
+		{
+			builder.OpenComponent<HtmxAsyncLoad>(3);
+			builder.AddAttribute(4, nameof(HtmxAsyncLoad.Id), "late");
+			builder.AddAttribute(5, nameof(HtmxAsyncLoad.ChildContent), (RenderFragment)(inner => inner.AddContent(0, "late")));
+			builder.CloseComponent();
+		}
 	}
 }
 #endif
