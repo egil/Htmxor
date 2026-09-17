@@ -12,6 +12,23 @@ internal sealed partial class GitHubApi(HttpClient client)
 		return await ReadAsync(response, cancellationToken);
 	}
 
+	// A 404 is the contents API's answer that the path does not exist at this ref, which is a
+	// finding rather than a failure to reach GitHub. Every other non-success status stays a
+	// MonitorFailure, so a rate limit or an outage is never reported as a missing dependency.
+	public async Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
+	{
+		using var response = await client.GetAsync(ValidatePath(path), cancellationToken);
+		if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+		{
+			return false;
+		}
+		if (!response.IsSuccessStatusCode)
+		{
+			throw new MonitorFailure($"GitHub API returned {(int)response.StatusCode} {response.ReasonPhrase}.");
+		}
+		return true;
+	}
+
 	public async Task<IReadOnlyList<JsonElement>> GetPagesAsync(string path, CancellationToken cancellationToken)
 	{
 		var items = new List<JsonElement>();
