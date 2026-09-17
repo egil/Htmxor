@@ -115,7 +115,12 @@ public sealed class ConsoleTargetFrameworkTests
 		});
 	}
 
-	private static TemporaryMonitorWorkspace MultiTargetWorkspace()
+	private static TemporaryMonitorWorkspace MultiTargetWorkspace() => MultiTargetWorkspace(
+		ExpectedMonitorArtifacts.InvokerInterface, api: "interface", relationship: "implements");
+
+	// Shared with UnresolvedWatchConsoleTests via `using static`, parameterized on the single
+	// watch entry so both files' two-framework CLI fixtures come from one source of truth.
+	internal static TemporaryMonitorWorkspace MultiTargetWorkspace(string watchPath, string api, string relationship)
 	{
 		var workspace = new TemporaryMonitorWorkspace();
 		var path = Path.Combine(workspace.Path, "eng", "Htmxor.UpstreamMonitor", "upstream-watch.json");
@@ -127,7 +132,7 @@ public sealed class ConsoleTargetFrameworkTests
 				new { targetFramework = "net10.0", majorVersion = 10, allowsPrerelease = false, referencePackVersion = "10.0.11", reviewed = new { tag = "v10.0.11", commit = Fixture.ReviewedCommit } },
 				new { targetFramework = "net11.0", majorVersion = 11, allowsPrerelease = true, referencePackVersion = "11.0.0-rc.1.26425.128", reviewed = new { tag = Fixture.Net11ReviewedTag, commit = Fixture.Net11ReviewedCommit } },
 			},
-			watches = new[] { new { path = ExpectedMonitorArtifacts.InvokerInterface, match = "file", api = "interface", relationship = "implements", dependencies = Array.Empty<string>() } },
+			watches = new[] { new { path = watchPath, match = "file", api, relationship, dependencies = Array.Empty<string>() } },
 		}));
 		return workspace;
 	}
