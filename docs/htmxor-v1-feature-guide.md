@@ -1230,10 +1230,12 @@ matching between a miss and a hit and between hosts, an async-load placeholder c
 each request's own path, a boundary beneath an Htmxor layout caching as stock does, and
 two sibling boundaries under one parent with no explicit key. The remaining
 variation parameters — `VaryByRoute`, `VaryByCookie` and `VaryByCulture` — are
-framework-owned and exercised by no Htmxor command, as are `VaryBy` and `VaryByHeader`. No
-Htmxor code reads any of them, so nothing here changes how the framework applies them;
-that is a statement about this code, not a measured parity result, and no command in this
-slice exercised one. An htmx request is not cached whatever is declared.
+framework-owned and exercised by no Htmxor command, as are `VaryBy` and `VaryByHeader`.
+Htmxor reads none of the parameters themselves: it reads only the aggregate `CacheVaryBy`
+the framework derives from them, and forwards it unchanged into the framework's own
+cacheability predicate. That is a statement about this code, not a measured parity result,
+and no command in this slice exercised one of these parameters. An htmx request is not
+cached whatever is declared.
 
 Content that must not be cached is refused exactly as stock refuses it, including in a
 boundary that is disabled or otherwise storing nothing, which stock still validates. A
@@ -1270,7 +1272,13 @@ today; put the boundary where ordinary requests reach it, or wait for #236.
 
 Two kinds of component cause Htmxor to store nothing for a boundary, in either direction:
 whether the cached boundary **holds** one or stands **beneath** one. That is four
-compositions, and in all four the subtree simply renders normally on every request.
+compositions, and in all four the subtree renders normally on any request that reaches it.
+
+One qualification, because it is the quiet case. The exclusion is decided while the
+component renders, and a cache hit renders nothing. So a boundary that holds an excluded
+kind only on some requests can still serve an entry stored by an earlier request that held
+none, and the excluded component never appears. Stock behaves the same way, for the same
+reason.
 
 An **`HtmxAsyncLoad`**. It writes the current request's path into its `hx-get`, and no path
 reaches a cache key unless you declared `VaryByRoute`, so a page reachable at two routes

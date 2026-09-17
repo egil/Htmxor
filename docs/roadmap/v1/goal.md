@@ -236,7 +236,9 @@ was withdrawn.
 Scope is otherwise ordinary read-only `CacheView` on static-SSR pages; no public API
 or named-fragment contract changes. Each of those four compositions causes Htmxor to store
 nothing for that one boundary, leaving any sibling boundary cacheable, rather than
-replaying content that would be wrong. That is deliberately less caching than stock
+replaying content that would be wrong. The decision is taken while the component renders,
+so a boundary holding an excluded kind only on some requests can still serve an entry
+stored by a request that held none, as it does under stock. That is deliberately less caching than stock
 performs. Distributed deployments remain unestablished. Validate and cache only accessor
 metadata and monitor the exact upstream dependencies.
 

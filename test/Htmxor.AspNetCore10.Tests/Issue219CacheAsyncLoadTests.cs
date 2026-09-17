@@ -69,6 +69,14 @@ public sealed class Issue219CacheAsyncLoadTests
 		// that entry, so the async load the application would now render never appears on either. Paired
 		// because the only question is whether Htmxor diverges; the answer is what AC1 protects, not a defect
 		// Htmxor can fix -- excluding a kind that never renders would require deciding it before the hit.
+		//
+		// What it is worth, measured: no inversion of today's production reddens it alone. Dropping
+		// HtmxAsyncLoad from IsRequestVarying leaves it green, because the kind never renders here, and the
+		// inversion that does redden it -- a boundary that stores nothing -- reddens thirteen other Issue219
+		// cases with it. It is kept as the pin on the decision above: an implementation that decided the
+		// exclusion before the hit would redden this and nothing else. The stock arm also needs the hit to
+		// stay a 200 at all, since stock cannot render HtmxAsyncLoad; a stock-side miss fails with a
+		// missing-HtmxContext error rather than a version mismatch.
 		var expected = await ReadPairAsync(htmxor: false);
 		var actual = await ReadPairAsync(htmxor: true);
 
