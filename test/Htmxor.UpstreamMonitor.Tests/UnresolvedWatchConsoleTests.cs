@@ -1,28 +1,30 @@
 using System.Text.Json;
 using Htmxor.UpstreamMonitor;
 using static Htmxor.UpstreamMonitor.Tests.ConsoleBoundaryTests;
+using static Htmxor.UpstreamMonitor.Tests.ConsoleTargetFrameworkTests;
 
 namespace Htmxor.UpstreamMonitor.Tests;
 
 [Collection("Process environment")]
-public sealed class UnresolvedWatchExitCodeTests
+public sealed class UnresolvedWatchConsoleTests
 {
 	private const string WrongFilePath = "src/Components/Endpoints/src/CacheView/CacheViewTextWriter.cs";
 
 	[Fact]
-	public async Task Exit_code_for_an_unresolved_watch_path_matches_none_of_the_three_existing_exit_codes()
+	public async Task Exit_code_for_an_unresolved_watch_path_is_neither_current_nor_infrastructure_error()
 	{
 		// docs/agents/testing.md documents exit 0/1/2 as Current/Drift/InfrastructureError, and
 		// Program.cs:57 returns `(int)status` directly — a pre-existing, documented contract this
-		// test does not touch or extend. This does not invent a value for the fourth status the
-		// issue requires; it only forces that an unresolved-path run cannot silently collide with
-		// any of the three exit codes callers already rely on. The Verification contract's
-		// amended Observation seam names the exit code explicitly, and the amendment's audited
-		// decision points include Program.cs:49's InfrastructureError special case alongside the
-		// exit-code cast itself — excluding 2 as well as 0 covers that a naive fix that
-		// misclassifies an unresolved path as InfrastructureError (a shape MonitorOutcomeTests.
-		// Current_or_infrastructure_outcome_never_writes_an_issue already forbids at the
-		// application level) would also be caught here, at the CLI's own exit-code surface.
+		// test does not touch or extend. `!= 0` is required directly by acceptance criterion 1
+		// ("a non-current result"). `!= 2` is defense-in-depth at this same CLI surface for a
+		// counter-implementation MonitorOutcomeTests.Current_or_infrastructure_outcome_never_
+		// writes_an_issue already forbids at the application level (an unresolved path silently
+		// misclassified as InfrastructureError, which never populates Issue). No exclusion for
+		// exit code 1 (Drift): acceptance criterion 3 requires distinguishability in the JSON
+		// report, the Markdown report, and the review issue — not the exit code — so a design
+		// where the new status deliberately shares Drift's exit code 1 (both meaning "requires
+		// review" at the CLI surface) while still rendering distinguishable report content remains
+		// compliant and is not foreclosed here.
 		using var workspace = SingleWatchWorkspace(WrongFilePath);
 		var transport = new FakeGitHubTransport();
 		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12", Fixture.Read("github/ref-v10.0.12-direct.json"));
@@ -33,7 +35,6 @@ public sealed class UnresolvedWatchExitCodeTests
 		var observation = await RunAsync(workspace, transport, ["--tag", "v10.0.12", "--baseline", Fixture.BaselineCommit]);
 
 		Assert.NotEqual(0, observation.ExitCode);
-		Assert.NotEqual(1, observation.ExitCode);
 		Assert.NotEqual(2, observation.ExitCode);
 	}
 
@@ -46,7 +47,7 @@ public sealed class UnresolvedWatchExitCodeTests
 		// does not pin where the new status sits in the enum declaration or a specific integer —
 		// only that a run cannot exit 0 (Current) merely because one configured framework
 		// happened to be clean while another carried an unresolved watch.
-		using var workspace = MultiFrameworkWorkspace(WrongFilePath);
+		using var workspace = MultiTargetWorkspace(WrongFilePath, api: "none", relationship: "reimplements");
 		var transport = new FakeGitHubTransport();
 		transport.AddJson("/repos/dotnet/aspnetcore/releases?per_page=100", Fixture.Read("github/releases.json"));
 		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
@@ -78,7 +79,7 @@ public sealed class UnresolvedWatchExitCodeTests
 		// that (a non-sequential explicit enum value, or an aggregation that checks
 		// InfrastructureError before falling back to ordinal Max, are both compatible with this
 		// assertion).
-		using var workspace = MultiFrameworkWorkspace(WrongFilePath);
+		using var workspace = MultiTargetWorkspace(WrongFilePath, api: "none", relationship: "reimplements");
 		var transport = new FakeGitHubTransport();
 		transport.AddStatus("/repos/dotnet/aspnetcore/releases?per_page=100", System.Net.HttpStatusCode.ServiceUnavailable);
 		transport.AddJson(
@@ -122,7 +123,8 @@ public sealed class UnresolvedWatchExitCodeTests
 	private static TemporaryMonitorWorkspace SingleWatchWorkspace(string path)
 	{
 		var workspace = new TemporaryMonitorWorkspace();
-		File.WriteAllText(ManifestPath(workspace), JsonSerializer.Serialize(new
+		var manifestPath = Path.Combine(workspace.Path, "eng", "Htmxor.UpstreamMonitor", "upstream-watch.json");
+		File.WriteAllText(manifestPath, JsonSerializer.Serialize(new
 		{
 			repository = Fixture.Repository,
 			reviewed = new { tag = "v10.0.11", commit = Fixture.ReviewedCommit },
@@ -130,23 +132,4 @@ public sealed class UnresolvedWatchExitCodeTests
 		}));
 		return workspace;
 	}
-
-	private static TemporaryMonitorWorkspace MultiFrameworkWorkspace(string path)
-	{
-		var workspace = new TemporaryMonitorWorkspace();
-		File.WriteAllText(ManifestPath(workspace), JsonSerializer.Serialize(new
-		{
-			repository = Fixture.Repository,
-			frameworks = new[]
-			{
-				new { targetFramework = "net10.0", majorVersion = 10, allowsPrerelease = false, referencePackVersion = "10.0.11", reviewed = new { tag = "v10.0.11", commit = Fixture.ReviewedCommit } },
-				new { targetFramework = "net11.0", majorVersion = 11, allowsPrerelease = true, referencePackVersion = "11.0.0-rc.1.26425.128", reviewed = new { tag = Fixture.Net11ReviewedTag, commit = Fixture.Net11ReviewedCommit } },
-			},
-			watches = new[] { new { path, match = "file", api = "none", relationship = "reimplements", dependencies = Array.Empty<string>() } },
-		}));
-		return workspace;
-	}
-
-	private static string ManifestPath(TemporaryMonitorWorkspace workspace) =>
-		Path.Combine(workspace.Path, "eng", "Htmxor.UpstreamMonitor", "upstream-watch.json");
 }
