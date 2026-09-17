@@ -1255,9 +1255,10 @@ header — and four attempts to decide it for you each produced a defect: inferr
 dimensions was incomplete; keying on every `HX-*` header made the key unbounded
 attacker-controlled input; letting you declare the dimensions through stock's
 `VaryByHeader` was sound but silently did nothing beneath `HtmxLayoutComponentBase`, which
-is the layout this documentation teaches; and `VaryBy` varies the key by a literal string
-you supply, which names no request dimension, so it cannot express what an htmx request
-varied by. Caching htmx responses is tracked as its own feature in #236, where the
+is the layout this documentation teaches; and stock's `VaryBy` appends whatever string you
+supply to the key as an opaque literal, so admitting a non-empty one to the same gate let a
+boundary opt in without saying anything about the request — a constant cache-busting value
+is indistinguishable from a request-derived one. Caching htmx responses is tracked as its own feature in #236, where the
 variation model and its performance evidence belong together.
 
 Two consequences worth knowing while that is outstanding. A component that sets htmx

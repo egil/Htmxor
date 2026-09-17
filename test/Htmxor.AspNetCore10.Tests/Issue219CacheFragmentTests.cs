@@ -115,10 +115,11 @@ public sealed class Issue219CacheFragmentTests
 	[Fact]
 	public async Task A_boundary_holding_a_conditional_component_caches_like_stock()
 	{
-		// The guide says IConditionalRender as a category is no longer refused, because refusing the interface
-		// stopped every boundary beneath HtmxLayoutComponentBase -- the documented layout, which implements it --
-		// from caching. That claim had no case: restoring the category refusal in the holding direction left the
-		// whole Issue219 filter green, so nothing measured the behaviour the guide advertises.
+		// The guide says IConditionalRender as a category is no longer refused. The beneath half of that claim
+		// is measured by A_boundary_beneath_an_htmx_layout_caches_like_stock: HtmxLayoutComponentBase implements
+		// the interface, so refusing it stopped every boundary beneath the documented layout from caching. The
+		// holding half had no case -- restoring the category refusal in the holding branch left the whole
+		// Issue219 filter green.
 		//
 		// Deliberately not [CacheBehavior(Throw)]. A_conditional_component_that_opted_out_still_raises_the_
 		// frameworks_refusal covers the type that is both, and asserts a refusal; this asserts the opposite for
@@ -255,9 +256,11 @@ public sealed class Issue219FragmentAboveBoundaryPage : ComponentBase
 	}
 }
 
-// A boundary holding an ordinary IConditionalRender -- no [CacheBehavior] attribute, so nothing but the
-// interface distinguishes it. This is the composition the guide's "no longer refused as a category" claim is
-// about, and the shape HtmxLayoutComponentBase puts every page into.
+// A boundary *holding* an ordinary IConditionalRender -- no [CacheBehavior] attribute, so nothing but the
+// interface distinguishes it. This is the holding half of the guide's "no longer refused as a category"
+// claim. The beneath half -- the shape HtmxLayoutComponentBase puts every page into -- is
+// Issue219LayoutHostPage, asserted by A_boundary_beneath_an_htmx_layout_caches_like_stock; the two reach
+// different production branches and neither substitutes for the other.
 [Route("/issue-219/conditional-cached")]
 public sealed class Issue219ConditionalCachedPage : ComponentBase
 {

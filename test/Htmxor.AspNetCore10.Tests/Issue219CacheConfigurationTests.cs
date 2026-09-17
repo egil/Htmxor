@@ -76,7 +76,9 @@ public sealed class Issue219CacheConfigurationTests
 		// with a constant ShouldOutput. Classifying that interface as request-varying therefore stopped every
 		// boundary beneath the documented layout from caching, on ordinary requests, which is the parity defect
 		// the scope reversal repaired. Nothing measured the repair in this direction until this case: re-adding
-		// the interface to the request-varying kinds leaves it as the only thing that reddens.
+		// the interface to the ancestor walk in HasUncacheableAncestor leaves it as the only thing that reddens.
+		// Re-adding it to IsRequestVarying itself also reddens the holding half, which
+		// A_boundary_holding_a_conditional_component_caches_like_stock owns.
 		Assert.Equal("1", Slot(stock[1], "layout"));
 		Assert.Equal(Slot(stock[1], "layout"), Slot(candidate[1], "layout"));
 	}
@@ -138,10 +140,13 @@ public sealed class Issue219CacheConfigurationTests
 		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219StreamingFragmentAuthPage>(htmxor: true);
 
 		// The sibling case above puts a plain wrapper between the boundary and the AuthorizeView; this one puts a
-		// named fragment there, which is a kind Htmxor discards the capture for. Discarding must still pause the
-		// capture as stock pauses for anything it will not store -- returning without pausing left the capture
-		// active over a subtree stock stops validating at that point, and the framework's refusal fired on every
-		// request rather than none. Measured before the fix: stock 200, candidate threw.
+		// named fragment there. That was a kind Htmxor discarded the capture for when this case was written, and
+		// is not one now -- the scope reversal removed it, so both compositions take the same streaming-pause
+		// path today and the distinction the two cases were built on no longer exists. Retained because the
+		// behaviour it pins is still the contract: pausing as stock pauses for anything it will not store.
+		// Returning without pausing left the capture active over a subtree stock stops validating, and the
+		// framework's refusal fired on every request rather than none. Measured before that fix: stock 200,
+		// candidate threw.
 		var expected = await ReadAsAuthenticatedAsync(stock, "alice");
 		var actual = await ReadAsAuthenticatedAsync(candidate, "alice");
 
