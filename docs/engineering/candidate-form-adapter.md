@@ -444,6 +444,13 @@ call sites remain and both mirror stock: the one that mirrors stock's own second
 block, and the render-mode boundary's own branch added to match `[CacheBehavior(Rerender)]`.
 Both are measured; neither is an Htmxor-specific policy.
 
+Stock and Htmxor still express the exclusion through two independent mechanisms — an
+attribute on the component against a predicate in the renderer — so they are kept in step
+by hand rather than by construction. That is why three separate repairs in this file each
+fixed one composition and broke an adjacent one. Converging them is **#237**; it is not a
+condition of this slice, whose mirror is measured by the two render-mode cases at the top
+of `Issue219CacheInteractiveTests`.
+
 `VaryByRoute`, `VaryByCookie` and `VaryByCulture` are framework-owned, unchanged, and
 exercised by no command. So are `VaryBy` and `VaryByHeader`: no Htmxor code reads either
 at this revision. `VaryByHeader` briefly opened htmx caching for a boundary and `VaryBy`
