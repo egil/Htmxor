@@ -49,6 +49,34 @@ public sealed class UnresolvedWatchPathTests
 		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, WrongFilePath);
 	}
 
+	[Fact]
+	public async Task Review_issue_for_an_unresolved_watch_path_differs_from_the_issue_for_the_same_path_actually_removed()
+	{
+		// Assert.NotNull(Issue) plus a path-containment check (below) holds equally for an
+		// ordinary drift issue about the very same path: MonitorReports.Issue(...) takes no
+		// MonitorStatus, and Classify() can legitimately assign the unresolved watch the same
+		// classification an ordinarily-removed file gets. Comparing the same watch's issue for
+		// "actually removed" against "never resolved" is the comparative shape criterion 3 asks
+		// for, without pinning what either rendering must say. The dedupe identity is included
+		// deliberately, not incidentally: GitHubIssueUpserter searches on it, so reusing the
+		// ordinary-drift identity would upsert unresolved-path findings into the same tracker
+		// issue as legitimate code drift, defeating "distinguishable... in the review issue" at
+		// the tracking-system level even if the body text happened to differ.
+		var watch = Fixture.Watch(WrongFilePath);
+
+		var removed = await Fixture.Application(ActuallyRemovedTransport(WrongFilePath))
+			.RunAsync(ProviderInventoryTests.Request(watch));
+		var unresolved = await Fixture.Application(UnrelatedChangeTransport())
+			.RunAsync(ProviderInventoryTests.Request(watch));
+
+		Assert.Equal(MonitorStatus.Drift, removed.Status);
+		Assert.NotNull(removed.Issue);
+		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(unresolved, WrongFilePath);
+		Assert.NotNull(unresolved.Issue);
+		Assert.NotEqual(removed.Issue.Identity, unresolved.Issue.Identity);
+		Assert.NotEqual(removed.Issue.Body, unresolved.Issue.Body);
+	}
+
 	// Acceptance criterion 3 requires the unresolved state to be distinguishable from ordinary
 	// drift in the JSON report, the Markdown report, and the review issue — not merely "not
 	// Current". Excluding Drift directly rules out the counter-implementation that funnels an
@@ -59,7 +87,10 @@ public sealed class UnresolvedWatchPathTests
 	// RunAsync's existing catch): MonitorReports.Create populates Issue only for Drift today
 	// (MonitorOutcomeTests.Current_or_infrastructure_outcome_never_writes_an_issue pins that an
 	// InfrastructureError result never writes one), so that shape would suppress the review
-	// issue on every unresolved-path run while still passing a bare "not Current" check.
+	// issue on every unresolved-path run while still passing a bare "not Current" check. This
+	// does not by itself force the review issue's rendered content to differ from ordinary
+	// drift; see Review_issue_for_an_unresolved_watch_path_differs_from_the_issue_for_the_same_
+	// path_actually_removed for that comparative check.
 	private static void AssertUnresolvedIsDistinguishableFromOrdinaryDrift(MonitorResult result, string path)
 	{
 		Assert.NotEqual(MonitorStatus.Current, result.Status);
@@ -78,6 +109,17 @@ public sealed class UnresolvedWatchPathTests
 		transport.AddJson(
 			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
 			JsonSerializer.Serialize(new { files = new[] { new { filename = "src/Unrelated/File.cs", status = "modified" } } }));
+		return transport;
+	}
+
+	// The counterpart to UnrelatedChangeTransport: the same path, but it genuinely resolves and
+	// was removed, so this is ordinary drift rather than an unresolvable watch.
+	private static FakeGitHubTransport ActuallyRemovedTransport(string path)
+	{
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = path, status = "removed" } } }));
 		return transport;
 	}
 }
