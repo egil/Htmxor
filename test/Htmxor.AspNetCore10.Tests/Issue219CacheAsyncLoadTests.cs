@@ -91,8 +91,9 @@ public sealed class Issue219AsyncLoadRoutePage : ComponentBase
 		builder.CloseComponent();
 	}
 }
-// A CacheView authored in the page and passed into HtmxAsyncLoad as its Loading content, so the physical and
-// authoring ancestor chains disagree about what stands above it.
+// A CacheView authored in the page and passed into HtmxAsyncLoad as its Loading content. This was built
+// expecting the physical and authoring ancestor chains to disagree about what stands above it; they do not --
+// for a component passed as a RenderFragment parameter both parents are the HtmxAsyncLoad, measured.
 [Route("/issue-219/async-loading")]
 public sealed class Issue219AsyncLoadingHostPage : ComponentBase
 {
