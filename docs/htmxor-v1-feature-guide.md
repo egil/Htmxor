@@ -1252,10 +1252,11 @@ separate key spaces.
 That is a deliberate v1 boundary rather than an oversight. Htmxor cannot tell what a
 subtree read from an htmx request — the triggering element, the target, an extension
 header — and four attempts to decide it for you each produced a defect: inferring the
-dimensions was incomplete, keying on every `HX-*` header made the key unbounded
-attacker-controlled input, and letting you declare the dimensions was sound but silently
-did nothing beneath `HtmxLayoutComponentBase`, which is the layout this documentation
-teaches. Caching htmx responses is tracked as its own feature in #236, where the
+dimensions was incomplete; keying on every `HX-*` header made the key unbounded
+attacker-controlled input; letting you declare the dimensions through stock's
+`VaryByHeader` was sound but silently did nothing beneath `HtmxLayoutComponentBase`, which
+is the layout this documentation teaches; and `VaryBy` did not name a request dimension at
+all, so it never varied anything. Caching htmx responses is tracked as its own feature in #236, where the
 variation model and its performance evidence belong together.
 
 Two consequences worth knowing while that is outstanding. A component that sets htmx
@@ -1285,9 +1286,11 @@ into the `Loading` content does not.
 
 An **interactive render-mode boundary**, again in either direction. Cached prerendered
 interactive content would be keyed more weakly than stock keys it, because stock's
-`SSRRenderModeBoundary` component key is not mirrored. Beneath such a boundary Htmxor also
-pauses exactly where stock pauses, so content below it is validated — and refused — no
-differently than it is without Htmxor.
+`SSRRenderModeBoundary` component key is not mirrored. Htmxor also pauses at such a
+boundary exactly where stock pauses, which is what *stops* the content below it being put
+through the capture's checks at all: a component that a capture would refuse — an
+`AuthorizeView`, say — renders below an interactive boundary exactly as it does without
+Htmxor, rather than being refused.
 
 A sibling boundary standing outside all four compositions stays cacheable.
 

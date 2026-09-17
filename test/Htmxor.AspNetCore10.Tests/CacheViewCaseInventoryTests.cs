@@ -39,13 +39,23 @@ public sealed class CacheViewCaseInventoryTests
 		Assert.Equal(discovered.Count, listed.Count + ReadStatedPairedCount());
 	}
 
-	private static IReadOnlyCollection<string> DiscoverIssue219Cases() =>
-		typeof(CacheViewCaseInventoryTests).Assembly.GetTypes()
+	private static IReadOnlyCollection<string> DiscoverIssue219Cases()
+	{
+		var methods = typeof(CacheViewCaseInventoryTests).Assembly.GetTypes()
 			.Where(type => type.Name.StartsWith("Issue219", StringComparison.Ordinal))
 			.SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
 			.Where(method => method.GetCustomAttributes().Any(attribute =>
-				attribute.GetType().Name is "FactAttribute" or "TheoryAttribute"))
-			.Select(method => method.Name).ToHashSet(StringComparer.Ordinal);
+				attribute.GetType().Name is "FactAttribute" or "TheoryAttribute")).ToArray();
+
+		// One method is one discovered case only while every case is a [Fact]. A [Theory] discovers one case
+		// per data row, so counting methods would understate the total in exactly the direction this check
+		// exists to catch: a case could be added and absorbed by the stated paired count without reddening.
+		// Fail loudly on the first one rather than silently miscount.
+		Assert.Empty(methods.Where(method => method.GetCustomAttributes()
+			.Any(attribute => attribute.GetType().Name == "TheoryAttribute")).Select(method => method.Name));
+
+		return methods.Select(method => method.Name).ToHashSet(StringComparer.Ordinal);
+	}
 
 	private static IReadOnlyList<string> ReadListedCandidateOnlyCases()
 	{

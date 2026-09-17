@@ -50,17 +50,6 @@ public sealed class Issue219CacheSafetyTests
 		return (retarget, await response.Content.ReadAsStringAsync());
 	}
 
-	private static Task<(HttpStatusCode Status, string Body)> ReadAsync(HttpClient client)
-		=> ReadAsync(client, "/issue-219/fragment");
-
-	private static async Task<(HttpStatusCode Status, string Body)> ReadAsync(HttpClient client, string path)
-	{
-		using var request = new HttpRequestMessage(HttpMethod.Get, path);
-		request.Headers.Add("HX-Request", "true");
-		using var response = await client.SendAsync(request);
-		return (response.StatusCode, await response.Content.ReadAsStringAsync());
-	}
-
 	internal static async Task<WebApplication> StartAsync<TRoot>(bool htmxor) where TRoot : IComponent
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions

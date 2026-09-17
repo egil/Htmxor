@@ -712,8 +712,9 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	}
 
 	// The physical parent chain, not the logical one. The composition this was expected to divide on -- content
-	// authored in a page and passed into HtmxAsyncLoad as Loading content, whose logical parent is the page --
-	// does not divide: swapping this walk to LogicalParentComponentState leaves
+	// authored in a page and passed into HtmxAsyncLoad as Loading content -- does not divide, and not because of
+	// where the content was written: for a component passed as a RenderFragment parameter the two parents are
+	// the same object. Swapping this walk to LogicalParentComponentState leaves
 	// A_boundary_inside_an_async_loads_loading_content_stores_nothing green, so no measured composition
 	// distinguishes the two chains. Physical is kept because it is the chain that shows the component deciding
 	// whether the content is produced at all, which is the question being asked; the claim that it is

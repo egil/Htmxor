@@ -330,8 +330,9 @@ mirrors that rather than returning early on a null state, and
 `A_disabled_boundary_still_refuses_content_stock_refuses` asserts the message equals
 stock's.
 
-Two compositions discard the capture instead, so the boundary stores nothing and the
-subtree renders normally on every request. An `HtmxAsyncLoad` writes the current request
+Four compositions discard the capture instead -- two kinds, each held by the boundary or
+standing above it -- so the boundary stores nothing and the subtree renders normally on
+every request. An `HtmxAsyncLoad` writes the current request
 path into its placeholder, and no path reaches a cache key unless the application
 declared `VaryByRoute`, so a page at two routes would otherwise serve the first request's
 placeholder to the second. It is named concretely rather than through
@@ -401,7 +402,7 @@ builds, reached through shared helpers and sometimes positional arguments — so
 below is still a human judgement, but one that can no longer drift unnoticed from the
 suite's size.
 
-Paired cases in the same suite: 21.
+Paired cases in the same suite: 22.
 
 - `A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing`
 - `A_boundary_inside_an_async_loads_loading_content_stores_nothing`

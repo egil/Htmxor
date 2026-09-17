@@ -93,6 +93,42 @@ public sealed class Issue219CacheFragmentTests
 		return await response.Content.ReadAsStringAsync();
 	}
 
+	[Fact]
+	public async Task A_boundary_beneath_a_named_fragment_caches_like_stock()
+	{
+		// goal.md advertises ordinary caching parity "including beneath a named fragment", and the guide says a
+		// boundary holding *or beneath* one caches normally. Every other fragment fixture puts the fragment
+		// inside the boundary; the one that did this direction was orphaned and deleted, leaving the advertised
+		// half of the claim unmeasured. Paired, because the claim is parity: the stock arm establishes what the
+		// framework does with the same tree when HtmxFragment is just a component, which on an ordinary request
+		// is all it is -- selection is honoured only for htmx requests, which cache nothing.
+		var expected = await ReadPairAsync<Issue219FragmentAboveBoundaryPage>(htmxor: false);
+		var actual = await ReadPairAsync<Issue219FragmentAboveBoundaryPage>(htmxor: true);
+
+		// The stock arm must prove reuse, not merely agree: without this the case passes when neither host
+		// caches, which is the regression it exists to catch.
+		Assert.Contains("data-version=\"1\"", expected[0], StringComparison.Ordinal);
+		Assert.Contains("data-version=\"1\"", expected[1], StringComparison.Ordinal);
+		Assert.Equal(expected, actual);
+	}
+
+	private static async Task<string[]> ReadPairAsync<TRoot>(bool htmxor) where TRoot : IComponent
+	{
+		await using var app = await Issue219CacheSafetyTests.StartAsync<TRoot>(htmxor);
+		using var client = app.GetTestClient();
+		var data = app.Services.GetRequiredService<Issue219Data>();
+		var first = await ReadBodyAsync(client, "/issue-219/fragment-above-boundary");
+		data.Version = 2;
+		return [first, await ReadBodyAsync(client, "/issue-219/fragment-above-boundary")];
+	}
+
+	private static async Task<string> ReadBodyAsync(HttpClient client, string path)
+	{
+		using var response = await client.GetAsync(path);
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		return await response.Content.ReadAsStringAsync();
+	}
+
 	private static async Task<string> ReadAsync(HttpClient client, string path)
 	{
 		using var response = await client.GetAsync(path);
@@ -185,4 +221,25 @@ public sealed class Issue219KeyedBoundaryPage : ComponentBase
 	}
 }
 
+
+// A named HtmxFragment standing *above* a cached boundary: the direction goal.md advertises and no other
+// fixture composes. On an ordinary request nothing selects the fragment, so the boundary beneath it is
+// ordinary cached content.
+[Route("/issue-219/fragment-above-boundary")]
+public sealed class Issue219FragmentAboveBoundaryPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<HtmxFragment>(0);
+		builder.AddAttribute(1, nameof(HtmxFragment.Name), "above");
+		builder.AddAttribute(2, nameof(HtmxFragment.ChildContent), (RenderFragment)(inner =>
+		{
+			inner.OpenComponent<CacheView>(0);
+			inner.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-fragment-above-boundary");
+			inner.AddAttribute(2, nameof(CacheView.ChildContent), Issue219Slot.Render("beneath-fragment"));
+			inner.CloseComponent();
+		}));
+		builder.CloseComponent();
+	}
+}
 #endif
