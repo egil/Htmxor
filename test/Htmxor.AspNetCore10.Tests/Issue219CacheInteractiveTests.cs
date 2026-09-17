@@ -17,8 +17,8 @@ namespace Htmxor.AspNetCore10;
 
 // Both nestings of a CacheView and an interactive render-mode boundary are covered here, because both need a
 // genuinely interactive-server-capable host rather than the plain static host the other Issue219 fixtures
-// share. The boundary holding one is the only composition that reaches the discard a capture performs over
-// content it must not store, one of the two request-varying kinds.
+// share. A boundary holding one reaches the discard a capture performs over content it must not store; a
+// boundary holding an HtmxAsyncLoad reaches the same branch and is covered in Issue219CacheAsyncLoadTests.
 public sealed class Issue219CacheInteractiveTests
 {
 	[Fact]
