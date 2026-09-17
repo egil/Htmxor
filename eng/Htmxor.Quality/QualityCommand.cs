@@ -56,7 +56,15 @@ internal sealed class QualityCommand(
 		var result = await runner.RunAsync(command, cancellationToken);
 		if (result.ExitCode != 0)
 		{
-			var category = result.ExitCode == 1 ? "drift" : "infrastructure";
+			// The monitor's exit code is its MonitorStatus. An unresolved watch path is a finding the
+			// monitor already filed a review issue for, not a failure to reach GitHub, so it must not
+			// be reported as infrastructure. See docs/agents/testing.md for the documented codes.
+			var category = result.ExitCode switch
+			{
+				1 => "drift",
+				3 => "unresolved watch path",
+				_ => "infrastructure",
+			};
 			var error = new InvalidOperationException($"Upstream {category} result: monitor exited with code {result.ExitCode}.");
 			error.Data["ExitCode"] = result.ExitCode;
 			throw error;
