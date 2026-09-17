@@ -14,7 +14,7 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			var baseline = request.BaselineCommit ?? request.Framework.ReviewedCommit;
 			if (upstream.Commit == baseline)
 			{
-				return await CurrentOrUnresolvedAsync(request, upstream, repository, baseline, cancellationToken);
+				return await ReportAsync(request, upstream, repository, baseline, [], [], [], cancellationToken);
 			}
 			var files = await repository.CompareAsync(baseline, upstream.Commit, cancellationToken);
 			return await CompareWatchedAsync(request, upstream, repository, files, cancellationToken);
@@ -42,24 +42,22 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			sources.Add(new(file.Path, file.Kind, Classify(watches, changes)));
 		}
 		var apis = comparisons.Values.SelectMany(changes => changes).ToArray();
-		if (sources.Count == 0)
-		{
-			return await CurrentOrUnresolvedAsync(request, upstream, repository,
-				request.BaselineCommit ?? request.Framework.ReviewedCommit, cancellationToken);
-		}
-		return MonitorReports.Create(request, MonitorStatus.Drift, upstream, sources, apis);
+		return await ReportAsync(request, upstream, repository, request.BaselineCommit ?? request.Framework.ReviewedCommit,
+			files, sources, apis, cancellationToken);
 	}
 
-	// Reporting current is the one claim this monitor cannot make from a changed-file list alone: a
-	// watch path that does not exist upstream never appears in one, so silence is indistinguishable
-	// from a dependency nobody is watching. The paths are therefore resolved against the reviewed
-	// commit exactly here, on the runs that would otherwise report nothing. A run that already has
-	// drift to report is not silent, and any watch it matched is proven to exist by the diff itself.
-	private static async Task<MonitorResult> CurrentOrUnresolvedAsync(MonitorRequest request, UpstreamRevision upstream,
-		UpstreamRepository repository, string baseline, CancellationToken cancellationToken)
+	// Silence is a property of each watch, not of the run. A watch that appeared in the changed-file
+	// list is proven to exist by the diff itself; every other watch is resolved against the reviewed
+	// commit, whether or not some unrelated watch drifted in the same run. Gating this on the run
+	// having nothing else to report would leave the other 51 entries of a 52-entry manifest
+	// unchecked for as long as any one of them keeps drifting, which is the #219 failure itself.
+	private static async Task<MonitorResult> ReportAsync(MonitorRequest request, UpstreamRevision upstream,
+		UpstreamRepository repository, string baseline, IReadOnlyList<ChangedFile> files,
+		IReadOnlyList<SourceChange> sources, IReadOnlyList<ApiChange> apis, CancellationToken cancellationToken)
 	{
 		var unresolved = new SortedSet<string>(StringComparer.Ordinal);
 		foreach (var watch in request.Manifest.Targets.DistinctBy(watch => (watch.Path, watch.Match))
+			.Where(watch => !files.Any(file => Matches(watch, file.Path)))
 			.OrderBy(watch => watch.Path, StringComparer.Ordinal).ThenBy(watch => watch.Match))
 		{
 			if (!await repository.ResolvesAsync(watch, baseline, cancellationToken))
@@ -67,9 +65,14 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 				unresolved.Add(watch.Path);
 			}
 		}
-		return unresolved.Count == 0
-			? MonitorReports.Create(request, MonitorStatus.Current, upstream, [], [])
-			: MonitorReports.Create(request, MonitorStatus.UnresolvedWatch, upstream, [], [], null, unresolved.ToArray());
+		// An unresolved path outranks drift because it is a manifest defect: until it is corrected the
+		// monitor cannot speak for that dependency at all. The drift that was found is carried into
+		// the same reports rather than discarded, and is reported on its own once the manifest is fixed.
+		if (unresolved.Count > 0)
+		{
+			return MonitorReports.Create(request, MonitorStatus.UnresolvedWatch, upstream, sources, apis, null, unresolved.ToArray());
+		}
+		return MonitorReports.Create(request, sources.Count == 0 ? MonitorStatus.Current : MonitorStatus.Drift, upstream, sources, apis);
 	}
 
 	internal static bool Matches(WatchTarget target, string path) => target.Match == WatchMatch.Prefix
