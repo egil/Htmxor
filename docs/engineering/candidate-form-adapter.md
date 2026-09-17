@@ -392,7 +392,16 @@ built with the htmxor flag false; the flag usually reaches `AddHtmxor` through a
 helper rather than the test body, and some call sites pass it positionally. Check the
 derivation by reconciling it: these cases plus the paired cases must account for every
 test that `dotnet test … --filter "FullyQualifiedName~Issue219"` discovers. This
-enumeration has gone stale repeatedly, every time because that reconciliation was skipped.
+enumeration went stale in four separate rounds, every time because that reconciliation was
+performed by reading rather than by counting, so it is now executable.
+`CacheViewCaseInventoryTests` asserts that every case named below still exists under that
+name, and that this list plus the paired count stated here accounts for every discovered
+case. It deliberately does not classify a case as paired — that needs the host each case
+builds, reached through shared helpers and sometimes positional arguments — so the count
+below is still a human judgement, but one that can no longer drift unnoticed from the
+suite's size.
+
+Paired cases in the same suite: 21.
 
 - `A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing`
 - `A_boundary_inside_an_async_loads_loading_content_stores_nothing`
