@@ -331,8 +331,11 @@ mirrors that rather than returning early on a null state, and
 stock's.
 
 Four compositions discard the capture instead -- two kinds, each held by the boundary or
-standing above it -- so the boundary stores nothing and the subtree renders normally on
-every request. An `HtmxAsyncLoad` writes the current request
+standing above it -- so the boundary stores nothing and the subtree renders normally on any
+request that reaches it. The discard is decided while the component renders, so a boundary
+that holds an excluded kind only on some requests can still serve an entry stored by a
+request that held none; stock does the same, and
+`A_boundary_that_only_sometimes_holds_an_async_load_reuses_like_stock` pins the parity. An `HtmxAsyncLoad` writes the current request
 path into its placeholder, and no path reaches a cache key unless the application
 declared `VaryByRoute`, so a page at two routes would otherwise serve the first request's
 placeholder to the second. It is named concretely rather than through
@@ -416,9 +419,11 @@ Paired cases in the same suite: 24.
 - `An_htmx_response_header_set_during_render_reaches_every_request`
 - `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`
 
-Several of these are candidate-only by necessity rather than by choice: a stock host
-cannot construct a composition containing `HtmxAsyncLoad` at all, so there is no arm to
-pair against.
+Several of these are candidate-only by necessity rather than by choice: a stock host cannot
+render `HtmxAsyncLoad` -- it fails for the missing `HtmxContext` service -- so there is no
+arm to pair against, unless the composition keeps the component from rendering at all. That
+is how `A_boundary_that_only_sometimes_holds_an_async_load_reuses_like_stock` is paired: the
+version-2 request is a cache hit on both hosts, so neither arm ever renders one.
 
 Every case above was confirmed to redden when its guard is disabled, except
 `Cached_subtree_runs_its_component_once_and_is_reused_afterwards`, which is an
@@ -452,9 +457,11 @@ fixed one composition and broke an adjacent one. Converging them is **#237**; it
 condition of this slice, whose mirror is measured by the two render-mode cases at the top
 of `Issue219CacheInteractiveTests`.
 
-`VaryByRoute`, `VaryByCookie` and `VaryByCulture` are framework-owned, unchanged, and
-exercised by no command. So are `VaryBy` and `VaryByHeader`: no Htmxor code reads either
-at this revision. `VaryByHeader` briefly opened htmx caching for a boundary and `VaryBy`
+`VaryByRoute`, `VaryByCookie` and `VaryByCulture` are framework-owned and exercised by no
+command; nothing here claims how they behave, because no command in this slice exercised
+one. So are `VaryBy` and `VaryByHeader`: Htmxor reads none of these parameters themselves
+at this revision, only the aggregate `CacheVaryBy` the framework derives from them, which
+it forwards unchanged into `IsCacheableComponent`. `VaryByHeader` briefly opened htmx caching for a boundary and `VaryBy`
 briefly did too, which was a defect — stock appends `VaryBy` to its key as a literal that
 names no request dimension — and both were withdrawn with htmx caching itself. Distributed cache
 deployment, cached form content and performance are unclaimed. Streaming boundary
