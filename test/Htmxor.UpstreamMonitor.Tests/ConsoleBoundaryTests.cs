@@ -14,6 +14,10 @@ public sealed class ConsoleBoundaryTests
 		transport.AddJson(
 			"/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11",
 			Fixture.Read("github/ref-v10.0.11-direct.json"));
+		// Upstream has not moved past the reviewed commit, so #232's fix resolves the workspace's
+		// single watch (ExpectedMonitorArtifacts.Invoker) against it before reporting Current.
+		const string contents = "/repos/dotnet/aspnetcore/contents/" + ExpectedMonitorArtifacts.Invoker + "?ref=" + Fixture.ReviewedCommit;
+		transport.AddJson(contents, Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
 
 		var observation = await RunAsync(workspace, transport, []);
 
@@ -22,6 +26,7 @@ public sealed class ConsoleBoundaryTests
 			[
 				Get("/repos/dotnet/aspnetcore/releases?per_page=100"),
 				Get("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11"),
+				Get(contents),
 			],
 			observation.Requests);
 		ReportAssertions.Equal(observation.JsonReport!, observation.MarkdownReport!, ExpectedMonitorArtifacts.CurrentReport());
