@@ -247,6 +247,15 @@
       "path": "src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs",
       "match": "file",
       "api": "none",
+      "relationship": "mirrors",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs",
+      "match": "file",
+      "api": "none",
       "relationship": "reimplements",
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"

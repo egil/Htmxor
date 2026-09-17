@@ -1,5 +1,6 @@
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs | mirrors
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
