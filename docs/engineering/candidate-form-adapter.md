@@ -402,7 +402,7 @@ builds, reached through shared helpers and sometimes positional arguments — so
 below is still a human judgement, but one that can no longer drift unnoticed from the
 suite's size.
 
-Paired cases in the same suite: 23.
+Paired cases in the same suite: 24.
 
 - `A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing`
 - `A_boundary_inside_an_async_loads_loading_content_stores_nothing`

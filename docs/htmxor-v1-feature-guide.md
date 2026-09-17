@@ -1230,9 +1230,10 @@ matching between a miss and a hit and between hosts, an async-load placeholder c
 each request's own path, a boundary beneath an Htmxor layout caching as stock does, and
 two sibling boundaries under one parent with no explicit key. The remaining
 variation parameters — `VaryByRoute`, `VaryByCookie` and `VaryByCulture` — are
-framework-owned, unchanged by Htmxor, and exercised by no Htmxor command. So are `VaryBy`
-and `VaryByHeader`: no Htmxor code reads any of them, and they behave exactly as they do
-under stock. An htmx request is not cached whatever is declared.
+framework-owned and exercised by no Htmxor command, as are `VaryBy` and `VaryByHeader`. No
+Htmxor code reads any of them, so nothing here changes how the framework applies them;
+that is a statement about this code, not a measured parity result, and no command in this
+slice exercised one. An htmx request is not cached whatever is declared.
 
 Content that must not be cached is refused exactly as stock refuses it, including in a
 boundary that is disabled or otherwise storing nothing, which stock still validates. A
