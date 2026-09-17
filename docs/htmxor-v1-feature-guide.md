@@ -1255,8 +1255,9 @@ header — and four attempts to decide it for you each produced a defect: inferr
 dimensions was incomplete; keying on every `HX-*` header made the key unbounded
 attacker-controlled input; letting you declare the dimensions through stock's
 `VaryByHeader` was sound but silently did nothing beneath `HtmxLayoutComponentBase`, which
-is the layout this documentation teaches; and `VaryBy` did not name a request dimension at
-all, so it never varied anything. Caching htmx responses is tracked as its own feature in #236, where the
+is the layout this documentation teaches; and `VaryBy` varies the key by a literal string
+you supply, which names no request dimension, so it cannot express what an htmx request
+varied by. Caching htmx responses is tracked as its own feature in #236, where the
 variation model and its performance evidence belong together.
 
 Two consequences worth knowing while that is outstanding. A component that sets htmx
@@ -1286,11 +1287,18 @@ into the `Loading` content does not.
 
 An **interactive render-mode boundary**, again in either direction. Cached prerendered
 interactive content would be keyed more weakly than stock keys it, because stock's
-`SSRRenderModeBoundary` component key is not mirrored. Htmxor also pauses at such a
-boundary exactly where stock pauses, which is what *stops* the content below it being put
-through the capture's checks at all: a component that a capture would refuse — an
-`AuthorizeView`, say — renders below an interactive boundary exactly as it does without
-Htmxor, rather than being refused.
+`SSRRenderModeBoundary` component key is not mirrored.
+
+The two directions differ in what happens to a component a capture would refuse, and they
+differ the same way under stock:
+
+- When the boundary is **inside** your `CacheView`, Htmxor pauses there exactly as stock
+  does, and pausing is what stops the subtree below the boundary being checked at all. An
+  `AuthorizeView` placed inside the render-mode boundary renders, on both stacks.
+- When your `CacheView` stands **beneath** a render-mode boundary, its capture still
+  begins and is discarded, so the framework's descendant guard does run over what the
+  boundary holds. An `AuthorizeView` inside that `CacheView` is refused, on both stacks,
+  with the framework's own message.
 
 A sibling boundary standing outside all four compositions stays cacheable.
 
