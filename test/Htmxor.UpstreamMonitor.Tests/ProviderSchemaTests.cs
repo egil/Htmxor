@@ -27,7 +27,7 @@ public sealed class ProviderSchemaTests
 
 		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
 		Assert.Null(result.Upstream);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
 		Assert.Equal(error, result.InfrastructureError);
@@ -54,7 +54,7 @@ public sealed class ProviderSchemaTests
 			ProviderInventoryTests.Request(Fixture.Watch(ExpectedMonitorArtifacts.Invoker)));
 
 		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
 		Assert.Equal(error, result.InfrastructureError);
@@ -67,12 +67,17 @@ public sealed class ProviderSchemaTests
 	{
 		var transport = ProviderInventoryTests.TargetTransport();
 		transport.AddJson(Compare, """{"files":[]}""");
+		// No source changed the watch, so #232's fix resolves it against the reviewed commit
+		// before reporting Current: this stub is the proof the path still exists there.
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.Invoker}?ref={Fixture.BaselineCommit}",
+			Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
 
 		var result = await Fixture.Application(transport).RunAsync(
 			ProviderInventoryTests.Request(Fixture.Watch(ExpectedMonitorArtifacts.Invoker)));
 
 		Assert.Equal(MonitorStatus.Current, result.Status);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		Assert.Null(result.InfrastructureError);
 		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.NewerCurrentReport());
 		Assert.All(transport.Requests, request => Assert.Equal(HttpMethod.Get, request.Method));

@@ -48,7 +48,7 @@ public sealed class ReleaseDiscoveryTests
 		Assert.Equal(new UpstreamRevision("v10.0.11", Fixture.ReviewedCommit), result.Upstream);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		Assert.Equal(
 			[
 				(HttpMethod.Get, "/repos/dotnet/aspnetcore/releases?per_page=100"),
@@ -73,6 +73,10 @@ public sealed class ReleaseDiscoveryTests
 			  ]
 			}
 			""");
+		// The watched file did not appear in the compare, so #232's fix resolves it against the
+		// reviewed commit before reporting Current: this stub is the proof it still exists there.
+		const string contents = "/repos/dotnet/aspnetcore/contents/" + ExpectedMonitorArtifacts.Invoker + "?ref=" + Fixture.BaselineCommit;
+		transport.AddJson(contents, Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
 		var request = new MonitorRequest(
 			Fixture.Manifest(Fixture.Watch(ExpectedMonitorArtifacts.Invoker)),
 			10,
@@ -85,12 +89,13 @@ public sealed class ReleaseDiscoveryTests
 		Assert.Equal(new UpstreamRevision("v10.0.12", Fixture.TargetCommit), result.Upstream);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.NewerCurrentReport());
 		Assert.Equal(
 			[
 				(HttpMethod.Get, "/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12"),
 				(HttpMethod.Get, compare),
+				(HttpMethod.Get, contents),
 			],
 			transport.Requests.Select(observed => (observed.Method, observed.PathAndQuery)));
 	}

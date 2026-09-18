@@ -50,7 +50,7 @@ public sealed class MonitorOutcomeTests
 		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.InfrastructureReport());
 		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
 		Assert.Equal(ExpectedMonitorArtifacts.InfrastructureError, result.InfrastructureError);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		var observed = Assert.Single(transport.Requests);
 		Assert.Equal(HttpMethod.Get, observed.Method);
 		Assert.Equal("/repos/dotnet/aspnetcore/releases?per_page=100", observed.PathAndQuery);
@@ -63,8 +63,8 @@ public sealed class MonitorOutcomeTests
 		var second = await RunSingleFileDriftAsync();
 
 		var expected = ExpectedMonitorArtifacts.SingleFileIssue();
-		Assert.Equal(expected, first.Issue);
-		Assert.Equal(expected, second.Issue);
+		Assert.Equal(expected, Assert.Single(first.Issues));
+		Assert.Equal(expected, Assert.Single(second.Issues));
 	}
 
 	[Fact]
@@ -125,6 +125,78 @@ public sealed class MonitorOutcomeTests
 		AssertUpdatedIssue(write, "closed");
 	}
 
+	[Fact]
+	public async Task Mixed_run_writes_both_issues_and_returns_the_last_one_attempted()
+	{
+		// GitHubIssueUpserter.UpsertAsync's per-issue loop (GitHubIssueUpserter.cs:24-36) is the
+		// exact seam both prior complete-change review rounds' P1 findings pointed at, one layer
+		// up each time: first the run-level resolution gate, then MonitorReports.IssuesFor's
+		// status-derived single issue. A regression that wrote only Issues[0] (or `.Last()`, or
+		// otherwise stopped continuing after one write) would pass every other test in this
+		// suite, because nothing before this test drives the loop with more than one issue.
+		// Computes a real mixed MonitorResult (one drifting watch, one unresolved) through the
+		// real UpstreamMonitorApplication first, so both the computation and the write are
+		// exercised together against a genuinely mixed result rather than a hand-built double fed
+		// only to the write half. IssuesFor adds the drift issue before the unresolved one, so
+		// the unresolved issue is the last one the loop attempts: the returned IssueWriteResult
+		// should be its outcome, not the drift issue's, pinning the "returns the last write
+		// attempted" contract GitHubIssueUpserter.cs's own comment documents.
+		var mixed = await MixedDriftAndUnresolvedResultAsync();
+		Assert.Equal(2, mixed.Issues.Count);
+		Assert.NotEqual(mixed.Issues[0].Identity, mixed.Issues[1].Identity);
+
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", "[]");
+		transport.AddJson("/repos/egil/Htmxor/issues", "{\"number\":42,\"state\":\"open\"}");
+		transport.AddJson("/repos/egil/Htmxor/issues", "{\"number\":43,\"state\":\"open\"}");
+
+		var outcome = await UpsertAsync(transport, mixed);
+
+		var writes = transport.Requests.Where(request => request.Method != HttpMethod.Get).ToArray();
+		Assert.Equal(2, writes.Length);
+		Assert.Equal((HttpMethod.Post, "/repos/egil/Htmxor/issues"), (writes[0].Method, writes[0].PathAndQuery));
+		Assert.Contains(mixed.Issues[0].Identity, writes[0].Body, StringComparison.Ordinal);
+		Assert.Equal((HttpMethod.Post, "/repos/egil/Htmxor/issues"), (writes[1].Method, writes[1].PathAndQuery));
+		Assert.Contains(mixed.Issues[1].Identity, writes[1].Body, StringComparison.Ordinal);
+		Assert.Equal(new IssueWriteResult(IssueWriteAction.Created, 43, null), outcome.Result);
+	}
+
+	[Fact]
+	public async Task First_write_failure_stops_before_a_later_issue_is_attempted()
+	{
+		// The loop's first-failure-stops behaviour is real, but its mechanism is exception
+		// propagation, not a per-iteration error check: CreateAsync/UpdateAsync never construct an
+		// Error-populated IssueWriteResult themselves (GitHubApi.WriteAsync -> ReadAsync throws
+		// MonitorFailure on any non-success response instead), so a failed write's exception is
+		// uncaught inside the foreach and aborts the whole loop, landing only in UpsertAsync's
+		// outer catch (GitHubIssueUpserter.cs's own comment now names this directly). Unverified
+		// anywhere else in this suite: every other test writes zero, one, or (the sibling test
+		// above) two issues that both succeed. Fails the first (drift) issue's create call by
+		// leaving it unstubbed, and asserts the second (unresolved) issue's write — which would
+		// otherwise also be a plain, unstubbed create — is never attempted at all, not merely that
+		// it also happens to fail. Confirmed by controlled inversion (not a hypothetical): wrapping
+		// this loop's body in its own try/catch that swallows a write failure and continues to the
+		// next issue reddens this test at `Assert.NotNull(outcome.Result.Error)` (the loop
+		// completes normally with `written` still at its unassigned `(None, null, null)` default,
+		// so UpsertAsync returns it directly instead of reaching the outer catch) — a second,
+		// independent symptom of the same regression is `writes.Length` becoming 2, since the
+		// swallowed first failure lets the second issue's write also occur.
+		var mixed = await MixedDriftAndUnresolvedResultAsync();
+		Assert.Equal(2, mixed.Issues.Count);
+
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", "[]");
+		// No create stub: the first issue's POST 404s, and GitHubApi.WriteAsync throws.
+
+		var outcome = await UpsertAsync(transport, mixed);
+
+		Assert.Equal(IssueWriteAction.None, outcome.Result.Action);
+		Assert.NotNull(outcome.Result.Error);
+		var writes = transport.Requests.Where(request => request.Method != HttpMethod.Get).ToArray();
+		var write = Assert.Single(writes);
+		Assert.Contains(mixed.Issues[0].Identity, write.Body, StringComparison.Ordinal);
+	}
+
 	[Theory]
 	[InlineData("current")]
 	[InlineData("infrastructure-error")]
@@ -135,7 +207,7 @@ public sealed class MonitorOutcomeTests
 		var result = DriftResult() with
 		{
 			Status = status,
-			Issue = status == MonitorStatus.Current ? null : ExpectedMonitorArtifacts.SingleFileIssue(),
+			Issues = status == MonitorStatus.Current ? [] : [ExpectedMonitorArtifacts.SingleFileIssue()],
 			InfrastructureError = status == MonitorStatus.InfrastructureError ? "503 Service Unavailable" : null,
 		};
 
@@ -160,6 +232,27 @@ public sealed class MonitorOutcomeTests
 		return await application.RunAsync(request);
 	}
 
+	// The exact wrong path #219 shipped for two releases before it was noticed: see issue #232.
+	private const string WrongFilePath = "src/Components/Endpoints/src/CacheView/CacheViewTextWriter.cs";
+
+	// Mirrors UnresolvedWatchPathTests.Mixed_run_reports_the_unresolved_watch_without_losing_a_
+	// different_watchs_drift_from_the_reports's fixture exactly, so the two issues driven through
+	// GitHubIssueUpserter here are the same real, production-computed shapes that test already
+	// proved are distinct at the computation boundary — not a hand-built double that could mask a
+	// defect either MonitorReports.IssuesFor or the write loop introduced.
+	private static async Task<MonitorResult> MixedDriftAndUnresolvedResultAsync()
+	{
+		var driftingWatch = Fixture.Watch(ExpectedMonitorArtifacts.Invoker);
+		var unresolvedWatch = Fixture.Watch(WrongFilePath);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			System.Text.Json.JsonSerializer.Serialize(new { files = new[] { new { filename = ExpectedMonitorArtifacts.Invoker, status = "removed" } } }));
+		var request = new MonitorRequest(Fixture.Manifest(driftingWatch, unresolvedWatch), 10, "v10.0.12", Fixture.BaselineCommit);
+
+		return await Fixture.Application(transport).RunAsync(request);
+	}
+
 	private static MonitorResult DriftResult() => new(
 		MonitorStatus.Drift,
 		new UpstreamRevision("v10.0.12", Fixture.TargetCommit),
@@ -167,7 +260,7 @@ public sealed class MonitorOutcomeTests
 		[],
 		"{}",
 		"report",
-		ExpectedMonitorArtifacts.SingleFileIssue(),
+		[ExpectedMonitorArtifacts.SingleFileIssue()],
 		null);
 
 	private static FakeGitHubTransport IssueTransport(string searchResponse)

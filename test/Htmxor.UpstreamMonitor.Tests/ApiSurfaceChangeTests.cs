@@ -107,7 +107,7 @@ public sealed class ApiSurfaceChangeTests
 		Assert.Equal(
 			ExpectedMonitorArtifacts.MixedApiChanges(),
 			result.ApiChanges.OrderBy(change => change.TypeName).ThenBy(change => change.Kind).ThenBy(change => change.SymbolKind).ThenBy(change => change.Signature));
-		Assert.Equal(ExpectedMonitorArtifacts.MixedIssue(), result.Issue);
+		Assert.Equal(ExpectedMonitorArtifacts.MixedIssue(), Assert.Single(result.Issues));
 		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.MixedDriftReport());
 	}
 

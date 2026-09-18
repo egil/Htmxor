@@ -1,10 +1,14 @@
 namespace Htmxor.UpstreamMonitor;
 
+// The value is the process exit code: Program returns (int)status, QualityCommand classifies it,
+// and docs/agents/testing.md documents each one. They are written out so reordering the members
+// cannot silently change what a run reports to its callers.
 internal enum MonitorStatus
 {
-	Current,
-	Drift,
-	InfrastructureError,
+	Current = 0,
+	Drift = 1,
+	InfrastructureError = 2,
+	UnresolvedWatch = 3,
 }
 
 internal enum WatchMatch
@@ -128,8 +132,9 @@ internal sealed record MonitorResult(
 	IReadOnlyList<ApiChange> ApiChanges,
 	string JsonReport,
 	string MarkdownReport,
-	IssueUpsertInput? Issue,
-	string? InfrastructureError);
+	IReadOnlyList<IssueUpsertInput> Issues,
+	string? InfrastructureError,
+	IReadOnlyList<string>? UnresolvedWatchPaths = null);
 
 internal enum IssueWriteAction
 {

@@ -45,7 +45,13 @@ internal static class Program
 			}
 			await WriteReportAsync(options.JsonPath, CombinedJson(results), cancellationToken);
 			await WriteReportAsync(options.MarkdownPath, CombinedMarkdown(results), cancellationToken);
-			var status = results.Max(result => result.Result.Status);
+			// An infrastructure failure means a framework was not measured at all, so it outranks any
+			// finding from a framework that was. Ordinal Max alone encoded that only while
+			// InfrastructureError was the highest declared value; UnresolvedWatch sits above it.
+			var statuses = results.Select(result => result.Result.Status).ToArray();
+			var status = statuses.Contains(MonitorStatus.InfrastructureError)
+				? MonitorStatus.InfrastructureError
+				: statuses.Max();
 			if (status == MonitorStatus.InfrastructureError)
 			{
 				await standardError.WriteLineAsync(results.First(result => result.Result.InfrastructureError is not null).Result.InfrastructureError);
@@ -75,8 +81,12 @@ internal static class Program
 		client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
 		var result = await new UpstreamMonitorApplication(client).RunAsync(request, cancellationToken);
 		var issueWrite = await new GitHubIssueUpserter(client).UpsertAsync(result, cancellationToken);
+		// The reports are rebuilt rather than amended because they embed the status, so every finding
+		// the run made must be carried across or it is lost from the written reports. An unresolved
+		// path is named by acceptance criterion 1 and would otherwise vanish precisely when the write
+		// that would have reported it failed.
 		return issueWrite.Error is null ? result : MonitorReports.Create(request, MonitorStatus.InfrastructureError,
-			result.Upstream, result.SourceChanges, result.ApiChanges, issueWrite.Error);
+			result.Upstream, result.SourceChanges, result.ApiChanges, issueWrite.Error, result.UnresolvedWatchPaths);
 	}
 
 	private static async Task WriteReportAsync(string path, string report, CancellationToken cancellationToken)

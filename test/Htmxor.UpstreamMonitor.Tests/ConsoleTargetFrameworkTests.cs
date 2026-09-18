@@ -14,12 +14,22 @@ public sealed class ConsoleTargetFrameworkTests
 		transport.AddJson(Releases, Fixture.Read("github/releases.json"));
 		transport.AddJson(Tag("v10.0.11"), Fixture.Read("github/ref-v10.0.11-direct.json"));
 		transport.AddJson(Tag(Fixture.Net11ReviewedTag), Commit(Fixture.Net11ReviewedCommit));
+		// Neither framework has moved past its own reviewed commit, so #232's fix resolves the
+		// workspace's single watch (ExpectedMonitorArtifacts.InvokerInterface) against each before
+		// reporting Current.
+		transport.AddJson(Contents(Fixture.ReviewedCommit), Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
+		transport.AddJson(Contents(Fixture.Net11ReviewedCommit), Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
 
 		var observation = await RunAsync(workspace, transport, []);
 
 		Assert.Equal(0, observation.ExitCode);
 		Assert.Equal("Current", observation.StandardOutput);
-		Assert.Equal([Request(Releases), Request(Tag("v10.0.11")), Request(Tag(Fixture.Net11ReviewedTag))], observation.Requests);
+		Assert.Equal(
+			[
+				Request(Releases), Request(Tag("v10.0.11")), Request(Contents(Fixture.ReviewedCommit)),
+				Request(Tag(Fixture.Net11ReviewedTag)), Request(Contents(Fixture.Net11ReviewedCommit)),
+			],
+			observation.Requests);
 		Assert.Equal(
 			[
 				("net10.0", "v10.0.11", Fixture.ReviewedCommit),
@@ -115,7 +125,12 @@ public sealed class ConsoleTargetFrameworkTests
 		});
 	}
 
-	private static TemporaryMonitorWorkspace MultiTargetWorkspace()
+	private static TemporaryMonitorWorkspace MultiTargetWorkspace() => MultiTargetWorkspace(
+		ExpectedMonitorArtifacts.InvokerInterface, api: "interface", relationship: "implements");
+
+	// Shared with UnresolvedWatchConsoleTests via `using static`, parameterized on the single
+	// watch entry so both files' two-framework CLI fixtures come from one source of truth.
+	internal static TemporaryMonitorWorkspace MultiTargetWorkspace(string watchPath, string api, string relationship)
 	{
 		var workspace = new TemporaryMonitorWorkspace();
 		var path = Path.Combine(workspace.Path, "eng", "Htmxor.UpstreamMonitor", "upstream-watch.json");
@@ -127,7 +142,7 @@ public sealed class ConsoleTargetFrameworkTests
 				new { targetFramework = "net10.0", majorVersion = 10, allowsPrerelease = false, referencePackVersion = "10.0.11", reviewed = new { tag = "v10.0.11", commit = Fixture.ReviewedCommit } },
 				new { targetFramework = "net11.0", majorVersion = 11, allowsPrerelease = true, referencePackVersion = "11.0.0-rc.1.26425.128", reviewed = new { tag = Fixture.Net11ReviewedTag, commit = Fixture.Net11ReviewedCommit } },
 			},
-			watches = new[] { new { path = ExpectedMonitorArtifacts.InvokerInterface, match = "file", api = "interface", relationship = "implements", dependencies = Array.Empty<string>() } },
+			watches = new[] { new { path = watchPath, match = "file", api, relationship, dependencies = Array.Empty<string>() } },
 		}));
 		return workspace;
 	}
@@ -154,5 +169,6 @@ public sealed class ConsoleTargetFrameworkTests
 	private static ConsoleRequestObservation Request(string path) => new(HttpMethod.Get, path, null, "Bearer fixture-token");
 	private static string Tag(string tag) => $"/repos/dotnet/aspnetcore/git/ref/tags/{tag}";
 	private static string Compare(string baseline) => $"/repos/dotnet/aspnetcore/compare/{baseline}...{Fixture.TargetCommit}";
+	private static string Contents(string commit) => $"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.InvokerInterface}?ref={commit}";
 	private static string Commit(string commit) => JsonSerializer.Serialize(new { @object = new { type = "commit", sha = commit } });
 }
