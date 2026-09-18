@@ -77,6 +77,18 @@ public sealed class UnresolvedWatchPathTests
 		Assert.Contains(ExpectedMonitorArtifacts.Invoker, result.MarkdownReport, StringComparison.Ordinal);
 		Assert.Contains(WrongFilePath, result.JsonReport, StringComparison.Ordinal);
 		Assert.Contains(WrongFilePath, result.MarkdownReport, StringComparison.Ordinal);
+
+		// The reports alone do not prove the drift finding reaches a human: MonitorReports.
+		// IssuesFor derives the drift issue from `sources`/`apis` and the unresolved issue from
+		// `unresolved` independently of the run's single Status, so both must be written in the
+		// same MonitorResult rather than the unresolved status silently displacing the drift issue
+		// the way it displaced the drift SourceChange before #232's fix.
+		Assert.Equal(2, result.Issues.Count);
+		var driftIssue = Assert.Single(result.Issues, issue => issue.Body.Contains(ExpectedMonitorArtifacts.Invoker, StringComparison.Ordinal));
+		var unresolvedIssue = Assert.Single(result.Issues, issue => issue.Body.Contains(WrongFilePath, StringComparison.Ordinal));
+		Assert.NotEqual(driftIssue.Identity, unresolvedIssue.Identity);
+		Assert.DoesNotContain(WrongFilePath, driftIssue.Body, StringComparison.Ordinal);
+		Assert.DoesNotContain(ExpectedMonitorArtifacts.Invoker, unresolvedIssue.Body, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -104,10 +116,10 @@ public sealed class UnresolvedWatchPathTests
 			.RunAsync(ProviderInventoryTests.Request(watch));
 
 		Assert.Equal(MonitorStatus.Drift, removed.Status);
-		Assert.NotNull(removed.Issue);
+		var removedIssue = Assert.Single(removed.Issues);
 		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(unresolved, WrongFilePath);
-		Assert.NotNull(unresolved.Issue);
-		Assert.NotEqual(removed.Issue.Body, unresolved.Issue.Body);
+		var unresolvedIssue = Assert.Single(unresolved.Issues);
+		Assert.NotEqual(removedIssue.Body, unresolvedIssue.Body);
 	}
 
 	// Acceptance criterion 3 requires the unresolved state to be distinguishable from ordinary
@@ -130,8 +142,8 @@ public sealed class UnresolvedWatchPathTests
 		Assert.NotEqual(MonitorStatus.Drift, result.Status);
 		Assert.Contains(path, result.JsonReport, StringComparison.Ordinal);
 		Assert.Contains(path, result.MarkdownReport, StringComparison.Ordinal);
-		Assert.NotNull(result.Issue);
-		Assert.Contains(path, result.Issue.Body, StringComparison.Ordinal);
+		var issue = Assert.Single(result.Issues);
+		Assert.Contains(path, issue.Body, StringComparison.Ordinal);
 	}
 
 	// The wrong or unmatched watch path can never appear in a real GitHub compare response, so an

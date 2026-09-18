@@ -26,7 +26,7 @@ public sealed class PartialApiSurfaceTests
 		Assert.Empty(result.ApiChanges);
 		ReportAssertions.Equal(result, DriftReport(
 			[new(First, "changed", "parity-required"), new(Second, "changed", "parity-required")], []));
-		Assert.DoesNotContain("| member |", Assert.IsType<IssueUpsertInput>(result.Issue).Body);
+		Assert.DoesNotContain("| member |", Assert.Single(result.Issues).Body);
 	}
 
 	[Fact]
@@ -116,7 +116,7 @@ public sealed class PartialApiSurfaceTests
 		Assert.Equal("GitHub API returned 503 Service Unavailable.", result.InfrastructureError);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		ReportAssertions.Equal(result, ProviderInventoryTests.FailureReport("GitHub API returned 503 Service Unavailable."));
 	}
 

@@ -45,6 +45,34 @@ public sealed class UnresolvedWatchConsoleTests
 	}
 
 	[Fact]
+	public async Task Exit_code_for_an_unresolved_watch_path_matches_the_pinned_ordinal()
+	{
+		// MonitorContracts.cs gives MonitorStatus explicit values specifically because Program.cs
+		// returns `(int)status` directly and QualityCommand.cs hardcodes the same integer a second
+		// time in a different assembly — UpstreamCommandDispatchTests feeds that integer to a fake
+		// runner as a literal and never derives it from the real enum, so it cannot catch a drift
+		// between the two. Nothing end to end confirmed a real unresolved-path run's actual exit
+		// code is still the value the enum declares. The literal `3` below is deliberate, not a
+		// shortcut for `(int)MonitorStatus.UnresolvedWatch`: deriving the expected value from the
+		// same enum the real run also derives its value from would make this assertion vacuous —
+		// both sides would drift together under a reorder. A hard-coded literal, matching exactly
+		// what QualityCommand.cs itself hard-codes, is what actually lets a reorder or a removed
+		// explicit assignment redden this test.
+		using var workspace = SingleWatchWorkspace(WrongFilePath);
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12", Fixture.Read("github/ref-v10.0.12-direct.json"));
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = "src/Unrelated/File.cs", status = "modified" } } }));
+		transport.AddJson("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", "[]");
+		transport.AddJson("/repos/egil/Htmxor/issues", "{\"number\":42,\"state\":\"open\"}");
+
+		var observation = await RunAsync(workspace, transport, ["--tag", "v10.0.12", "--baseline", Fixture.BaselineCommit]);
+
+		Assert.Equal(3, observation.ExitCode);
+	}
+
+	[Fact]
 	public async Task Unresolved_watch_path_in_one_framework_is_not_masked_by_a_current_framework_in_the_same_run()
 	{
 		// Program.cs:48 aggregates a multi-framework run's exit code with `results.Max(...)`, an
@@ -104,14 +132,14 @@ public sealed class UnresolvedWatchConsoleTests
 	public async Task Unresolved_watch_path_review_issue_is_created_on_github()
 	{
 		// GitHubIssueUpserter.UpsertAsync (GitHubIssueUpserter.cs:9) gates the actual write on
-		// `result.Status == MonitorStatus.Drift`, a second, independent status check in a
-		// different file from the one that populates MonitorResult.Issue
-		// (MonitorReports.Create). A fix that only widens MonitorReports.Create would leave this
-		// path silently unresolved: the in-memory Issue would be populated but never posted, so
-		// criterion 3's review issue would never exist on GitHub. This is the exact gap the
-		// amended Verification contract's Observation seam now names explicitly: "whether the
-		// review issue is actually written through GitHubIssueUpserter... a state that is
-		// computed but never written does not satisfy 'the upstream monitor reports it'."
+		// `result.Status`, a second, independent status check in a different file from the one
+		// that populates MonitorResult.Issues (MonitorReports.Create). A fix that only widens
+		// MonitorReports.Create would leave this path silently unresolved: the in-memory Issues
+		// would be populated but never posted, so criterion 3's review issue would never exist on
+		// GitHub. This is the exact gap the amended Verification contract's Observation seam now
+		// names explicitly: "whether the review issue is actually written through
+		// GitHubIssueUpserter... a state that is computed but never written does not satisfy 'the
+		// upstream monitor reports it'."
 		using var workspace = SingleWatchWorkspace(WrongFilePath);
 		var transport = new FakeGitHubTransport();
 		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12", Fixture.Read("github/ref-v10.0.12-direct.json"));
