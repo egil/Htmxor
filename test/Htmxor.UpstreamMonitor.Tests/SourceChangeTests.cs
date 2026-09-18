@@ -93,7 +93,7 @@ public sealed class SourceChangeTests
 		ReportAssertions.Equal(result, new ReportExpectation("drift",
 			new("unresolved", Fixture.BaselineCommit), new("v10.0.12", Fixture.TargetCommit),
 			[new(path, reportKind, "compatibility-risk")], [], null));
-		Assert.Contains($"- Compatibility risk | {reportKind} | {path}", Assert.IsType<IssueUpsertInput>(result.Issue).Body);
+		Assert.Contains($"- Compatibility risk | {reportKind} | {path}", Assert.Single(result.Issues).Body);
 	}
 
 	internal static FakeGitHubTransport DriftTransport(string compareFixture)

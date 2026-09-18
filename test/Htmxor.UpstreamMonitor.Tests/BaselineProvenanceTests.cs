@@ -30,7 +30,7 @@ public sealed class BaselineProvenanceTests
 	{
 		var result = await CustomBaselineDriftAsync();
 
-		var issue = Assert.IsType<IssueUpsertInput>(result.Issue);
+		var issue = Assert.Single(result.Issues);
 		Assert.Contains($"- Previous: [unresolved ({Fixture.BaselineCommit})](https://github.com/dotnet/aspnetcore/tree/{Fixture.BaselineCommit})", issue.Body);
 		Assert.DoesNotContain($"v10.0.11 ({Fixture.BaselineCommit})", issue.Body);
 		Assert.Contains($"/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}", issue.Body);
