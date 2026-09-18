@@ -22,9 +22,11 @@ internal sealed class GitHubIssueUpserter(HttpClient httpClient)
 			// later success.
 			var issues = await api.GetPagesAsync("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", cancellationToken);
 			// IssueWriteResult describes one write, so for a run reporting several findings the
-			// returned value is the last one attempted. Only Error is read by Program, and the loop
-			// returns on the first error rather than letting a later success hide it, so the caller
-			// never sees a clean result for a run that failed to write something.
+			// returned value is the last one attempted. A failed write throws out of CreateAsync or
+			// UpdateAsync into the catch below, which is what stops a later issue being attempted and
+			// what turns the run into an error; neither returns a populated Error for the loop to
+			// inspect. Only Error is read by Program, so a run that failed to write is never reported
+			// clean.
 			var written = new IssueWriteResult(IssueWriteAction.None, null, null);
 			foreach (var input in result.Issues)
 			{
@@ -32,10 +34,6 @@ internal sealed class GitHubIssueUpserter(HttpClient httpClient)
 				written = existing.ValueKind == JsonValueKind.Undefined
 					? await CreateAsync(api, input, cancellationToken)
 					: await UpdateAsync(api, existing, input, cancellationToken);
-				if (written.Error is not null)
-				{
-					return written;
-				}
 			}
 			return written;
 		}
