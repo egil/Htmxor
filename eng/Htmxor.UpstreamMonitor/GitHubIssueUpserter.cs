@@ -21,6 +21,10 @@ internal sealed class GitHubIssueUpserter(HttpClient httpClient)
 			// suppresses the other. The first failure stops the loop rather than being masked by a
 			// later success.
 			var issues = await api.GetPagesAsync("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", cancellationToken);
+			// IssueWriteResult describes one write, so for a run reporting several findings the
+			// returned value is the last one attempted. Only Error is read by Program, and the loop
+			// returns on the first error rather than letting a later success hide it, so the caller
+			// never sees a clean result for a run that failed to write something.
 			var written = new IssueWriteResult(IssueWriteAction.None, null, null);
 			foreach (var input in result.Issues)
 			{
