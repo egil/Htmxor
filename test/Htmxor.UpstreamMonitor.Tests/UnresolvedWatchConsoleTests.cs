@@ -19,7 +19,7 @@ public sealed class UnresolvedWatchConsoleTests
 		// ("a non-current result"). `!= 2` is defense-in-depth at this same CLI surface for a
 		// counter-implementation MonitorOutcomeTests.Current_or_infrastructure_outcome_never_
 		// writes_an_issue already forbids at the application level (an unresolved path silently
-		// misclassified as InfrastructureError, which never populates Issue). No exclusion for
+		// misclassified as InfrastructureError, which never populates Issues). No exclusion for
 		// exit code 1 (Drift): acceptance criterion 3 requires distinguishability in the JSON
 		// report, the Markdown report, and the review issue — not the exit code — so a design
 		// where the new status deliberately shares Drift's exit code 1 (both meaning "requires

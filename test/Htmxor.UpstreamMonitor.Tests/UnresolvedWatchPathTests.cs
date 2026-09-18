@@ -94,7 +94,7 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task Review_issue_for_an_unresolved_watch_path_differs_from_the_issue_for_the_same_path_actually_removed()
 	{
-		// Assert.NotNull(Issue) plus a path-containment check (below) holds equally for an
+		// Assert.Single(result.Issues) plus a path-containment check (below) holds equally for an
 		// ordinary drift issue about the very same path: MonitorReports.Issue(...) takes no
 		// MonitorStatus, and Classify() can legitimately assign the unresolved watch the same
 		// classification an ordinarily-removed file gets. Comparing the same watch's issue for
@@ -127,15 +127,16 @@ public sealed class UnresolvedWatchPathTests
 	// Current". Excluding Drift directly rules out the counter-implementation that funnels an
 	// unresolved watch through an ordinary SourceChange and the existing Drift pipeline, which
 	// would produce output shaped exactly like drift in a file that does exist. Requiring a
-	// populated Issue rules out the other counter-implementation that classifies an unresolved
-	// path as InfrastructureError (a natural shape if resolution failure is thrown and caught by
-	// RunAsync's existing catch): MonitorReports.Create populates Issue only for Drift today
-	// (MonitorOutcomeTests.Current_or_infrastructure_outcome_never_writes_an_issue pins that an
-	// InfrastructureError result never writes one), so that shape would suppress the review
-	// issue on every unresolved-path run while still passing a bare "not Current" check. This
-	// does not by itself force the review issue's rendered content to differ from ordinary
-	// drift; see Review_issue_for_an_unresolved_watch_path_differs_from_the_issue_for_the_same_
-	// path_actually_removed for that comparative check.
+	// populated Issues list rules out the other counter-implementation that classifies an
+	// unresolved path as InfrastructureError (a natural shape if resolution failure is thrown and
+	// caught by RunAsync's existing catch): before this issue's fix, MonitorReports.Create
+	// populated its one issue only for Drift, and today IssuesFor still never populates one for
+	// InfrastructureError (MonitorOutcomeTests.Current_or_infrastructure_outcome_never_writes_an_
+	// issue pins that an InfrastructureError result never writes one), so that shape would
+	// suppress the review issue on every unresolved-path run while still passing a bare "not
+	// Current" check. This does not by itself force the review issue's rendered content to differ
+	// from ordinary drift; see Review_issue_for_an_unresolved_watch_path_differs_from_the_issue_
+	// for_the_same_path_actually_removed for that comparative check.
 	private static void AssertUnresolvedIsDistinguishableFromOrdinaryDrift(MonitorResult result, string path)
 	{
 		Assert.NotEqual(MonitorStatus.Current, result.Status);
