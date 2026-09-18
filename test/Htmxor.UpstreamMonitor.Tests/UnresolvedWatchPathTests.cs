@@ -9,6 +9,53 @@ public sealed class UnresolvedWatchPathTests
 	private const string WrongFilePath = "src/Components/Endpoints/src/CacheView/CacheViewTextWriter.cs";
 	private const string UnmatchedPrefix = "src/Components/Endpoints/src/CacheView/Retired";
 
+	// WrongFilePath's own containing directory: a real path upstream, but the wrong kind of thing
+	// for a `match: file` watch to name.
+	private const string DirectoryInsteadOfFile = "src/Components/Endpoints/src/CacheView";
+
+	[Fact]
+	public async Task File_watch_pointing_at_a_directory_is_not_reported_as_current()
+	{
+		// PR #239 review (5333c33): the contents API answers 200 for a directory exactly as
+		// readily as for a file, so a status-only check (the shape ExistsAsync used before this
+		// fix) reported a `match: file` watch aimed at a directory as resolved — the same silence
+		// #232 exists to remove, surfacing only later once SourceAsync failed looking for a file
+		// body that was never there. The stub below is the actual shape GitHub's contents API
+		// returns for a directory: a JSON array of entries, not the single file object
+		// GitHubContent produces.
+		var watch = Fixture.Watch(DirectoryInsteadOfFile);
+		var transport = UnrelatedChangeTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{DirectoryInsteadOfFile}?ref={Fixture.BaselineCommit}",
+			JsonSerializer.Serialize(new[] { PrefixInventoryFixture.Entry($"{DirectoryInsteadOfFile}/{Path.GetFileName(WrongFilePath)}") }));
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
+
+		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, DirectoryInsteadOfFile);
+	}
+
+	[Fact]
+	public async Task Prefix_watch_whose_parent_path_is_a_file_is_not_reported_as_current()
+	{
+		// The mirror of the case above, for the prefix branch PR #239 review also flagged:
+		// pointing a prefix watch's parent directory at a path that is actually a file. Before
+		// this fix the prefix branch accepted any 200 for the parent and leaned on
+		// PrefixSourcePathsAsync's own array check to reject it, which throws MonitorFailure and
+		// would have reported this manifest mistake as an infrastructure error rather than as the
+		// unresolved watch it is. WrongFilePath is a real file, so treating it as a directory by
+		// nesting a prefix watch one level under it is the faithful shape of the mistake.
+		var prefix = $"{WrongFilePath}/Nested";
+		var watch = Fixture.Watch(prefix, WatchMatch.Prefix);
+		var transport = UnrelatedChangeTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{WrongFilePath}?ref={Fixture.BaselineCommit}",
+			JsonSerializer.Serialize(PrefixInventoryFixture.Entry(WrongFilePath)));
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
+
+		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, prefix);
+	}
+
 	[Fact]
 	public async Task File_watch_at_a_path_that_never_existed_upstream_is_not_reported_as_current()
 	{
