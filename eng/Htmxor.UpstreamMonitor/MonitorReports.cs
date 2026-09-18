@@ -18,7 +18,7 @@ internal static class MonitorReports
 		var baseline = new UpstreamRevision(baselineTag, baselineCommit);
 		return new(status, upstream, sources, apis, Json(status, baseline, upstream, sources, apis, error, unresolved),
 			Markdown(status, baseline, upstream, sources, apis, error, unresolved),
-			IssuesFor(request, status, baseline, upstream, sources, apis, unresolved), error);
+			IssuesFor(request, status, baseline, upstream, sources, apis, unresolved), error, unresolved);
 	}
 
 	// An unresolved watch is a manifest defect, not upstream drift: the path names a dependency the
