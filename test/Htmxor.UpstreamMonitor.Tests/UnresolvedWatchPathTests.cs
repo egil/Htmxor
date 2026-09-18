@@ -50,6 +50,36 @@ public sealed class UnresolvedWatchPathTests
 	}
 
 	[Fact]
+	public async Task Mixed_run_reports_the_unresolved_watch_without_losing_a_different_watchs_drift_from_the_reports()
+	{
+		// #232's committed fix (e8c35e4) resolves every watch absent from the changed-file list
+		// regardless of what else the same run found, because silence is a property of each watch,
+		// not of the run: gating resolution on "the run has nothing else to report" left every
+		// other entry of the committed 52-watch manifest unchecked for as long as any one of them
+		// kept drifting — the #219 failure reintroduced one level up. DriftingPath is present in
+		// the compare and drifts ordinarily; WrongFilePath is absent and never resolves. The run
+		// must report UnresolvedWatch (not Drift, and not merely "not Current"), and DriftingPath's
+		// finding must still appear in both reports rather than being discarded.
+		var driftingWatch = Fixture.Watch(ExpectedMonitorArtifacts.Invoker);
+		var unresolvedWatch = Fixture.Watch(WrongFilePath);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = ExpectedMonitorArtifacts.Invoker, status = "removed" } } }));
+		var request = new MonitorRequest(
+			Fixture.Manifest(driftingWatch, unresolvedWatch), 10, "v10.0.12", Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		Assert.Contains(result.SourceChanges, change => change.Path == ExpectedMonitorArtifacts.Invoker);
+		Assert.Contains(ExpectedMonitorArtifacts.Invoker, result.JsonReport, StringComparison.Ordinal);
+		Assert.Contains(ExpectedMonitorArtifacts.Invoker, result.MarkdownReport, StringComparison.Ordinal);
+		Assert.Contains(WrongFilePath, result.JsonReport, StringComparison.Ordinal);
+		Assert.Contains(WrongFilePath, result.MarkdownReport, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public async Task Review_issue_for_an_unresolved_watch_path_differs_from_the_issue_for_the_same_path_actually_removed()
 	{
 		// Assert.NotNull(Issue) plus a path-containment check (below) holds equally for an
