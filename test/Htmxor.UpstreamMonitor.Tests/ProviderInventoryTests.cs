@@ -25,7 +25,7 @@ public sealed class ProviderInventoryTests
 
 		Assert.Equal("GitHub compare file inventory reached the 300-file limit; completeness is unknown.", result.InfrastructureError);
 		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
 		ReportAssertions.Equal(result, FailureReport(result.InfrastructureError!));

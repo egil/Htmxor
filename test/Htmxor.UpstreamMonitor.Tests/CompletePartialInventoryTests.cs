@@ -17,7 +17,7 @@ public sealed class CompletePartialInventoryTests
 
 		ReportAssertions.Equal(result, Drift("added",
 			new ApiReportRow("EndpointHtmlRenderer", "added", "member", "public void Introduced()", "extensibility-opportunity")));
-		var issue = Assert.IsType<IssueUpsertInput>(result.Issue);
+		var issue = Assert.Single(result.Issues);
 		Assert.Contains("Extensibility opportunity | added | member | EndpointHtmlRenderer | public void Introduced()", issue.Body);
 		Assert.DoesNotContain("| type |", issue.Body);
 	}
@@ -32,7 +32,7 @@ public sealed class CompletePartialInventoryTests
 		var result = await Fixture.Application(transport).RunAsync(Request());
 
 		ReportAssertions.Equal(result, Drift("removed"));
-		Assert.DoesNotContain("| type |", Assert.IsType<IssueUpsertInput>(result.Issue).Body);
+		Assert.DoesNotContain("| type |", Assert.Single(result.Issues).Body);
 	}
 
 	[Fact]
@@ -46,7 +46,7 @@ public sealed class CompletePartialInventoryTests
 
 		ReportAssertions.Equal(result, Drift("removed",
 			new ApiReportRow("EndpointHtmlRenderer", "removed", "member", "protected void Retired()", "compatibility-risk")));
-		var issue = Assert.IsType<IssueUpsertInput>(result.Issue);
+		var issue = Assert.Single(result.Issues);
 		Assert.Contains("Compatibility risk | removed | member | EndpointHtmlRenderer | protected void Retired()", issue.Body);
 		Assert.DoesNotContain("| type |", issue.Body);
 	}

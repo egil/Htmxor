@@ -48,7 +48,7 @@ public sealed class ReleaseDiscoveryTests
 		Assert.Equal(new UpstreamRevision("v10.0.11", Fixture.ReviewedCommit), result.Upstream);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		Assert.Equal(
 			[
 				(HttpMethod.Get, "/repos/dotnet/aspnetcore/releases?per_page=100"),
@@ -89,7 +89,7 @@ public sealed class ReleaseDiscoveryTests
 		Assert.Equal(new UpstreamRevision("v10.0.12", Fixture.TargetCommit), result.Upstream);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.NewerCurrentReport());
 		Assert.Equal(
 			[

@@ -83,7 +83,7 @@ public sealed class PartialInventoryGuardTests
 		Assert.False(string.IsNullOrWhiteSpace(result.InfrastructureError));
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		ReportAssertions.Equal(result, ProviderInventoryTests.FailureReport(result.InfrastructureError!));
 	}
 }

@@ -27,7 +27,7 @@ public sealed class ProviderSchemaTests
 
 		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
 		Assert.Null(result.Upstream);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
 		Assert.Equal(error, result.InfrastructureError);
@@ -54,7 +54,7 @@ public sealed class ProviderSchemaTests
 			ProviderInventoryTests.Request(Fixture.Watch(ExpectedMonitorArtifacts.Invoker)));
 
 		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
 		Assert.Equal(error, result.InfrastructureError);
@@ -77,7 +77,7 @@ public sealed class ProviderSchemaTests
 			ProviderInventoryTests.Request(Fixture.Watch(ExpectedMonitorArtifacts.Invoker)));
 
 		Assert.Equal(MonitorStatus.Current, result.Status);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		Assert.Null(result.InfrastructureError);
 		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.NewerCurrentReport());
 		Assert.All(transport.Requests, request => Assert.Equal(HttpMethod.Get, request.Method));

@@ -50,7 +50,7 @@ public sealed class MonitorOutcomeTests
 		ReportAssertions.Equal(result, ExpectedMonitorArtifacts.InfrastructureReport());
 		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
 		Assert.Equal(ExpectedMonitorArtifacts.InfrastructureError, result.InfrastructureError);
-		Assert.Null(result.Issue);
+		Assert.Empty(result.Issues);
 		var observed = Assert.Single(transport.Requests);
 		Assert.Equal(HttpMethod.Get, observed.Method);
 		Assert.Equal("/repos/dotnet/aspnetcore/releases?per_page=100", observed.PathAndQuery);
@@ -63,8 +63,8 @@ public sealed class MonitorOutcomeTests
 		var second = await RunSingleFileDriftAsync();
 
 		var expected = ExpectedMonitorArtifacts.SingleFileIssue();
-		Assert.Equal(expected, first.Issue);
-		Assert.Equal(expected, second.Issue);
+		Assert.Equal(expected, Assert.Single(first.Issues));
+		Assert.Equal(expected, Assert.Single(second.Issues));
 	}
 
 	[Fact]
@@ -135,7 +135,7 @@ public sealed class MonitorOutcomeTests
 		var result = DriftResult() with
 		{
 			Status = status,
-			Issue = status == MonitorStatus.Current ? null : ExpectedMonitorArtifacts.SingleFileIssue(),
+			Issues = status == MonitorStatus.Current ? [] : [ExpectedMonitorArtifacts.SingleFileIssue()],
 			InfrastructureError = status == MonitorStatus.InfrastructureError ? "503 Service Unavailable" : null,
 		};
 
@@ -167,7 +167,7 @@ public sealed class MonitorOutcomeTests
 		[],
 		"{}",
 		"report",
-		ExpectedMonitorArtifacts.SingleFileIssue(),
+		[ExpectedMonitorArtifacts.SingleFileIssue()],
 		null);
 
 	private static FakeGitHubTransport IssueTransport(string searchResponse)

@@ -43,7 +43,7 @@ public sealed class EffectivePartialTypeTests
 		ReportAssertions.Equal(result, Report("added", "extensibility-opportunity",
 			new ApiReportRow("EndpointHtmlRenderer", "added", "type", "internal partial class EndpointHtmlRenderer", "extensibility-opportunity")));
 		Assert.Contains("Extensibility opportunity | added | type | EndpointHtmlRenderer",
-			Assert.IsType<IssueUpsertInput>(result.Issue).Body);
+			Assert.Single(result.Issues).Body);
 	}
 
 	[Fact]
@@ -58,7 +58,7 @@ public sealed class EffectivePartialTypeTests
 		ReportAssertions.Equal(result, Report("removed", "compatibility-risk",
 			new ApiReportRow("EndpointHtmlRenderer", "removed", "type", "internal partial class EndpointHtmlRenderer", "compatibility-risk")));
 		Assert.Contains("Compatibility risk | removed | type | EndpointHtmlRenderer",
-			Assert.IsType<IssueUpsertInput>(result.Issue).Body);
+			Assert.Single(result.Issues).Body);
 	}
 
 	private static MonitorRequest SubclassRequest() => ProviderInventoryTests.Request(
@@ -68,7 +68,7 @@ public sealed class EffectivePartialTypeTests
 	{
 		ReportAssertions.Equal(result, Report(kind, "implementation-review"));
 		Assert.Empty(result.ApiChanges);
-		var issue = Assert.IsType<IssueUpsertInput>(result.Issue);
+		var issue = Assert.Single(result.Issues);
 		Assert.Contains($"Implementation review | {kind} | {Auxiliary}", issue.Body);
 		Assert.DoesNotContain("Extensibility opportunity", issue.Body);
 		Assert.DoesNotContain("Compatibility risk", issue.Body);
