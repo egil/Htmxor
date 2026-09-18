@@ -133,7 +133,8 @@ internal sealed record MonitorResult(
 	string JsonReport,
 	string MarkdownReport,
 	IReadOnlyList<IssueUpsertInput> Issues,
-	string? InfrastructureError);
+	string? InfrastructureError,
+	IReadOnlyList<string>? UnresolvedWatchPaths = null);
 
 internal enum IssueWriteAction
 {
