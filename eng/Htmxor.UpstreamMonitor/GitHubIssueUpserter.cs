@@ -7,20 +7,33 @@ internal sealed class GitHubIssueUpserter(HttpClient httpClient)
 	public async Task<IssueWriteResult> UpsertAsync(MonitorResult result, CancellationToken cancellationToken = default)
 	{
 		// Both finding states write; Current and InfrastructureError never do, even if a caller hands
-		// over a populated Issue. Matching on the reporting states rather than on Issue alone keeps
-		// that guarantee where it was before an unresolved watch became a second writable state.
-		if (result.Issue is null || result.Status is not (MonitorStatus.Drift or MonitorStatus.UnresolvedWatch))
+		// over populated issues. Matching on the reporting states rather than on the issues alone
+		// keeps that guarantee where it was before an unresolved watch became a second writable state.
+		if (result.Issues.Count == 0 || result.Status is not (MonitorStatus.Drift or MonitorStatus.UnresolvedWatch))
 		{
 			return new(IssueWriteAction.None, null, null);
 		}
 		try
 		{
 			var api = new GitHubApi(httpClient);
+			// One listing serves every issue this run reports; each is matched by its own identity, so
+			// a drift finding and an unresolved-path finding reach separate issues and neither
+			// suppresses the other. The first failure stops the loop rather than being masked by a
+			// later success.
 			var issues = await api.GetPagesAsync("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", cancellationToken);
-			var existing = issues.FirstOrDefault(issue => Matches(issue, result.Issue.Identity));
-			return existing.ValueKind == JsonValueKind.Undefined
-				? await CreateAsync(api, result.Issue, cancellationToken)
-				: await UpdateAsync(api, existing, result.Issue, cancellationToken);
+			var written = new IssueWriteResult(IssueWriteAction.None, null, null);
+			foreach (var input in result.Issues)
+			{
+				var existing = issues.FirstOrDefault(issue => Matches(issue, input.Identity));
+				written = existing.ValueKind == JsonValueKind.Undefined
+					? await CreateAsync(api, input, cancellationToken)
+					: await UpdateAsync(api, existing, input, cancellationToken);
+				if (written.Error is not null)
+				{
+					return written;
+				}
+			}
+			return written;
 		}
 		catch (Exception exception)
 		{
