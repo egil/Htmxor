@@ -154,6 +154,35 @@ public sealed class UnresolvedWatchConsoleTests
 		Assert.Contains(observation.Requests, request => request.Method == HttpMethod.Post && request.PathAndQuery == "/repos/egil/Htmxor/issues");
 	}
 
+	[Fact]
+	public async Task Failed_issue_write_still_names_the_unresolved_path_in_the_persisted_reports()
+	{
+		// Program.cs's RunMonitorAsync rebuilds the reports when the GitHub issue write itself
+		// fails, because the reports embed the status (MonitorReports.Create(...,
+		// MonitorStatus.InfrastructureError, ...)). Before 3e25419 that reconstruction call site
+		// omitted result.UnresolvedWatchPaths, so a run that found this exact unresolved path and
+		// then failed to write its issue silently dropped the one thing acceptance criterion 1
+		// requires the persisted JSON and Markdown reports to name. No create stub for the
+		// unresolved-path issue's POST: the create 404s, GitHubApi.WriteAsync throws, and
+		// UpsertAsync's outer catch turns that into a non-null issueWrite.Error, which is what
+		// forces Program.cs onto the reconstruction branch under test rather than returning the
+		// already-correct `result` unchanged.
+		using var workspace = SingleWatchWorkspace(WrongFilePath);
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12", Fixture.Read("github/ref-v10.0.12-direct.json"));
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = "src/Unrelated/File.cs", status = "modified" } } }));
+		transport.AddJson("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", "[]");
+		// Deliberately no create stub: the unresolved-path issue's POST 404s.
+
+		var observation = await RunAsync(workspace, transport, ["--tag", "v10.0.12", "--baseline", Fixture.BaselineCommit]);
+
+		Assert.Equal(2, observation.ExitCode);
+		Assert.Contains(WrongFilePath, observation.JsonReport, StringComparison.Ordinal);
+		Assert.Contains(WrongFilePath, observation.MarkdownReport, StringComparison.Ordinal);
+	}
+
 	private static TemporaryMonitorWorkspace SingleWatchWorkspace(string path)
 	{
 		var workspace = new TemporaryMonitorWorkspace();
