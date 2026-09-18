@@ -8,6 +8,7 @@ public sealed class UpstreamCommandDispatchTests
 	[InlineData(0)]
 	[InlineData(1)]
 	[InlineData(2)]
+	[InlineData(3)]
 	public async Task Canonical_upstream_command_runs_static_gates_then_monitor_and_preserves_outcome(int monitorExit)
 	{
 		using var repository = CreateRepository();
@@ -30,7 +31,19 @@ public sealed class UpstreamCommandDispatchTests
 
 		Assert.IsType<InvalidOperationException>(error);
 		Assert.Contains($"{monitorExit}", error.Message, StringComparison.Ordinal);
-		Assert.Contains(monitorExit == 1 ? "drift" : "infrastructure", error.Message, StringComparison.OrdinalIgnoreCase);
+		// QualityCommand.RunUpstreamAsync classifies the monitor's exit code, its MonitorStatus, as
+		// its own finding category rather than collapsing every non-drift code to "infrastructure":
+		// exit 3 (UnresolvedWatch) already has its own filed review issue, so reporting it as an
+		// infrastructure failure would misdirect a human toward "the tool didn't work" instead of
+		// "the manifest needs a path corrected". Only a genuinely unclassified code (here, 2) falls
+		// back to "infrastructure".
+		var expectedCategory = monitorExit switch
+		{
+			1 => "drift",
+			3 => "unresolved watch path",
+			_ => "infrastructure",
+		};
+		Assert.Contains(expectedCategory, error.Message, StringComparison.OrdinalIgnoreCase);
 	}
 
 	[Theory]
