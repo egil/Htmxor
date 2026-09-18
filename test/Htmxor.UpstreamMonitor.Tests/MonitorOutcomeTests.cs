@@ -164,15 +164,23 @@ public sealed class MonitorOutcomeTests
 	[Fact]
 	public async Task First_write_failure_stops_before_a_later_issue_is_attempted()
 	{
-		// The loop's first-failure-stops behaviour (GitHubIssueUpserter.cs's own comment: "the
-		// first failure stops the loop rather than being masked by a later success") is
-		// unverified anywhere else in this suite: every other test writes zero, one, or (the
-		// sibling test above) two issues that both succeed. Fails the first (drift) issue's
-		// create call by leaving it unstubbed, and asserts the second (unresolved) issue's write
-		// — which would otherwise also be a plain, unstubbed create — is never attempted at all,
-		// not merely that it also happens to fail; a regression that changed the early `return`
-		// to `continue` would still fail only one assertion (Requests.Count), not surface as a
-		// silently-swallowed second failure.
+		// The loop's first-failure-stops behaviour is real, but its mechanism is exception
+		// propagation, not a per-iteration error check: CreateAsync/UpdateAsync never construct an
+		// Error-populated IssueWriteResult themselves (GitHubApi.WriteAsync -> ReadAsync throws
+		// MonitorFailure on any non-success response instead), so a failed write's exception is
+		// uncaught inside the foreach and aborts the whole loop, landing only in UpsertAsync's
+		// outer catch (GitHubIssueUpserter.cs's own comment now names this directly). Unverified
+		// anywhere else in this suite: every other test writes zero, one, or (the sibling test
+		// above) two issues that both succeed. Fails the first (drift) issue's create call by
+		// leaving it unstubbed, and asserts the second (unresolved) issue's write — which would
+		// otherwise also be a plain, unstubbed create — is never attempted at all, not merely that
+		// it also happens to fail. Confirmed by controlled inversion (not a hypothetical): wrapping
+		// this loop's body in its own try/catch that swallows a write failure and continues to the
+		// next issue reddens this test at `Assert.NotNull(outcome.Result.Error)` (the loop
+		// completes normally with `written` still at its unassigned `(None, null, null)` default,
+		// so UpsertAsync returns it directly instead of reaching the outer catch) — a second,
+		// independent symptom of the same regression is `writes.Length` becoming 2, since the
+		// swallowed first failure lets the second issue's write also occur.
 		var mixed = await MixedDriftAndUnresolvedResultAsync();
 		Assert.Equal(2, mixed.Issues.Count);
 
