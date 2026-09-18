@@ -81,10 +81,28 @@ public sealed class UnresolvedWatchConsoleTests
 		// does not pin where the new status sits in the enum declaration or a specific integer —
 		// only that a run cannot exit 0 (Current) merely because one configured framework
 		// happened to be clean while another carried an unresolved watch.
+		//
+		// PR #239 review (Copilot, correct): as originally written, WrongFilePath had no contents
+		// stub at either framework's own reviewed commit, so BOTH frameworks resolved to
+		// UnresolvedWatch — the "current framework" this test's name names never existed, and a
+		// broken aggregation that simply propagated one framework's result unchanged would still
+		// have passed. Stubbing WrongFilePath's contents at net10.0's own reviewed commit
+		// (Fixture.ReviewedCommit) makes net10.0 genuinely Current: upstream has not moved past
+		// its baseline, and the watch now resolves there. net11.0 is left exactly as before — its
+		// tag still resolves past its own baseline, and WrongFilePath still has no contents stub
+		// at net11.0's baseline — so it stays UnresolvedWatch. net10.0 is listed first in the
+		// manifest, ahead of the UnresolvedWatch net11.0 result, so this fixture also rules out a
+		// broken aggregation that simply returns the first framework's result outright: that
+		// would report Current (exit 0), which this test's assertion catches. (net11.0 first,
+		// net10.0 second, would not: Max() and First() agree whenever the first entry already
+		// happens to be the worse status.)
 		using var workspace = MultiTargetWorkspace(WrongFilePath, api: "none", relationship: "reimplements");
 		var transport = new FakeGitHubTransport();
 		transport.AddJson("/repos/dotnet/aspnetcore/releases?per_page=100", Fixture.Read("github/releases.json"));
 		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{WrongFilePath}?ref={Fixture.ReviewedCommit}",
+			Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
 		transport.AddJson(
 			$"/repos/dotnet/aspnetcore/git/ref/tags/{Fixture.Net11ReviewedTag}",
 			JsonSerializer.Serialize(new { @object = new { type = "commit", sha = Fixture.TargetCommit } }));
