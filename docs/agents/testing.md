@@ -108,7 +108,7 @@ Reports are written to `artifacts/upstream-monitor/upstream-monitor.json` and
 drift requiring review, 2 means infrastructure failure, and 3 means at least one
 watched path does not exist at the reviewed commit. A drift result creates,
 updates, or reopens the stable upstream review issue; an unresolved-path result
-does the same for a separate review issue. A run that finds both writes both, so
+does the same for a separate review issue. A run that finds both reports both, so
 a manifest defect never suppresses the review issue for a watch that really did
 drift, and the two findings never share one issue body. Exit 3 is a finding to act on, not a failed run: the
 monitor reached GitHub and answered. When one framework fails infrastructure and
