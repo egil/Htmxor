@@ -18,7 +18,7 @@ internal static class MonitorReports
 		var baseline = new UpstreamRevision(baselineTag, baselineCommit);
 		return new(status, upstream, sources, apis, Json(status, baseline, upstream, sources, apis, error, unresolved),
 			Markdown(status, baseline, upstream, sources, apis, error, unresolved),
-			IssueFor(request, status, baseline, upstream, sources, apis, unresolved), error, unresolved);
+			IssuesFor(request, status, baseline, upstream, sources, apis, unresolved), error, unresolved);
 	}
 
 	// An unresolved watch is a manifest defect, not upstream drift: the path names a dependency the
@@ -27,13 +27,28 @@ internal static class MonitorReports
 	// a reader can never mistake it for a change in a file that does exist. The separate issue
 	// identity also keeps the two kinds out of one upserted body, where a full replace would drop
 	// whichever ran first — see issue #238.
-	private static IssueUpsertInput? IssueFor(MonitorRequest request, MonitorStatus status, UpstreamRevision baseline,
-		UpstreamRevision? upstream, SourceChange[] sources, ApiChange[] apis, string[] unresolved) => status switch
+	// A run reports one issue per finding kind it actually found, not one issue for its summary
+	// status. A single unresolved path must not suppress the drift issue for every other watch: that
+	// would make the review issue a property of the run, which is the same shape as the defect this
+	// change exists to remove. Current and InfrastructureError report nothing.
+	private static IReadOnlyList<IssueUpsertInput> IssuesFor(MonitorRequest request, MonitorStatus status,
+		UpstreamRevision baseline, UpstreamRevision? upstream, SourceChange[] sources, ApiChange[] apis, string[] unresolved)
 	{
-		MonitorStatus.Drift => Issue(request, baseline, upstream!, sources, apis),
-		MonitorStatus.UnresolvedWatch => UnresolvedIssue(request, baseline, upstream!, unresolved),
-		_ => null,
-	};
+		if (status is not (MonitorStatus.Drift or MonitorStatus.UnresolvedWatch))
+		{
+			return [];
+		}
+		var issues = new List<IssueUpsertInput>();
+		if (sources.Length > 0 || apis.Length > 0)
+		{
+			issues.Add(Issue(request, baseline, upstream!, sources, apis));
+		}
+		if (unresolved.Length > 0)
+		{
+			issues.Add(UnresolvedIssue(request, baseline, upstream!, unresolved));
+		}
+		return issues;
+	}
 
 	private static IssueUpsertInput UnresolvedIssue(MonitorRequest request, UpstreamRevision baseline,
 		UpstreamRevision upstream, string[] unresolved)
