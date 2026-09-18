@@ -6,19 +6,22 @@ internal sealed partial class UpstreamRepository
 {
 	private const string InvalidInventory = "GitHub directory inventory is invalid or reached the 1000-entry limit; completeness is unknown.";
 
-	// A prefix watch resolves when the directory holding it exists and contains at least one file
-	// under the prefix; a file watch resolves when the contents API can see it. A missing directory
-	// answers the same question as an empty match, so it is a non-resolving watch rather than an
-	// infrastructure failure.
+	// A file watch resolves only to a file and a prefix watch only to a directory holding at least
+	// one matching file. The contents API answers 200 for both kinds, so status alone would report a
+	// file watch aimed at a directory as resolved, and the mistake would surface much later as
+	// SourceAsync failing to find the file body it assumes. A missing path answers the same question
+	// as an empty match, so both are non-resolving watches rather than infrastructure failures.
 	public async Task<bool> ResolvesAsync(WatchTarget watch, string commit, CancellationToken cancellationToken)
 	{
 		if (watch.Match == WatchMatch.File)
 		{
-			return await api.ExistsAsync(ContentsPath(watch.Path, commit), cancellationToken);
+			var content = await api.TryGetAsync(ContentsPath(watch.Path, commit), cancellationToken);
+			return content is { ValueKind: JsonValueKind.Object } file && IsFile(file);
 		}
 		var separator = watch.Path.LastIndexOf('/');
 		var directory = separator < 0 ? "" : watch.Path[..separator];
-		if (!await api.ExistsAsync(ContentsPath(directory, commit), cancellationToken))
+		var listing = await api.TryGetAsync(ContentsPath(directory, commit), cancellationToken);
+		if (listing is not { ValueKind: JsonValueKind.Array })
 		{
 			return false;
 		}
