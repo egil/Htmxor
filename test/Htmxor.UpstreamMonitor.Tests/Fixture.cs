@@ -52,6 +52,15 @@ internal static class Fixture
 		params string[] dependencies) =>
 		new(path, match, apiSurface, relationship, dependencies);
 
+	public static WatchTarget ScopedWatch(
+		string path,
+		IReadOnlyList<string> frameworks,
+		WatchMatch match = WatchMatch.File,
+		ApiSurface apiSurface = ApiSurface.None,
+		WatchRelationship relationship = WatchRelationship.Reimplements,
+		params string[] dependencies) =>
+		new(path, match, apiSurface, relationship, dependencies, frameworks);
+
 	public static UpstreamMonitorApplication Application(FakeGitHubTransport transport)
 	{
 		var client = new HttpClient(transport)
