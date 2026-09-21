@@ -115,19 +115,27 @@ public sealed class WatchFrameworkScopeTests
 		Assert.Contains("net12.0", exception.Message, StringComparison.Ordinal);
 	}
 
-	// Criterion 2 (closes LR-24773d2-S001/P001): a frameworks entry that is not a non-empty string
-	// is rejected on its own terms rather than silently becoming an unconfigured framework name.
-	// The reader used to build `names` with `value.GetString()!`, and `JsonElement.GetString()`
-	// returns `null` for a JSON `null`, so `FirstOrDefault`'s "nothing matched" sentinel and "the
-	// match is null" were the same value: `[null]` applied to no configured framework instead of
-	// being rejected, and in `[null, "net12.0"]` the `null` was found first, so the genuinely
-	// unknown `net12.0` beside it was never reported. `[42]` is included because the fix rejects
-	// any entry whose `ValueKind` is not `String`, not `null` specifically; without it, narrowing
-	// the check to only the `Null` kind would still pass every other case in this file.
+	// Criterion 2 (closes LR-24773d2-S001/P001; extended for LR-6d257ca-P001): a frameworks entry
+	// that is not a non-empty string is rejected on its own terms rather than silently becoming
+	// an unconfigured framework name. The reader used to build `names` with `value.GetString()!`,
+	// and `JsonElement.GetString()` returns `null` for a JSON `null`, so `FirstOrDefault`'s
+	// "nothing matched" sentinel and "the match is null" were the same value: `[null]` applied to
+	// no configured framework instead of being rejected, and in `[null, "net12.0"]` the `null` was
+	// found first, so the genuinely unknown `net12.0` beside it was never reported. `[42]` is
+	// included because the fix rejects any entry whose `ValueKind` is not `String`, not `null`
+	// specifically; without it, narrowing the check to only the `Null` kind would still pass every
+	// other case in this file. `[""]` is included because the guard's two grounds are independent:
+	// `ValueKind != String` rejects `null` and `42`, but only the separate `{ Length: > 0 }` check
+	// rejects an empty string, and no other case here reaches it. The message assertion below
+	// therefore checks the malformed-entry wording itself, not just that the watch is named:
+	// dropping `Length: > 0` still rejects `""`, naming the watch, but as "declares framework '',
+	// which the manifest does not configure" — the unconfigured-name message this theory exists to
+	// distinguish from — so a watch-name-only assertion would not notice the clause is unreachable.
 	[Theory]
 	[InlineData("[null]")]
 	[InlineData("[null, \"net12.0\"]")]
 	[InlineData("[42]")]
+	[InlineData("[\"\"]")]
 	public void Malformed_frameworks_entry_on_a_watch_is_rejected_naming_the_watch(string frameworks)
 	{
 		using var repository = new TemporaryRepository();
@@ -151,6 +159,7 @@ public sealed class WatchFrameworkScopeTests
 		var exception = Assert.Throws<MonitorFailure>(() => WatchManifestFile.Read(repository.Path));
 
 		Assert.Contains(watchPath, exception.Message, StringComparison.Ordinal);
+		Assert.Contains("is not a framework name", exception.Message, StringComparison.Ordinal);
 	}
 
 	// Criterion 2: an empty `frameworks` list names no framework, so it is rejected rather than
