@@ -134,11 +134,12 @@ frameworks it answers for; omit it to answer for every configured one. An empty
 list, an unconfigured name, and an entry that is not a name are manifest errors.
 The list scopes manifest coverage only, not drift comparison, so a watch keeps
 reporting drift in every framework's compare. Coverage matches a dependency to
-the framework that discovered it, so a provenance marker for a path that exists
-in one framework's upstream line belongs inside that framework's `#if`, next to
-the code using it. An ungated marker for a scoped watch reports an untracked
-dependency. Every watched addition, removal, or change is a
-compatibility risk. Mirrored and reimplemented sources still require parity
+the framework that discovered it, and discovery parses each source with that
+framework's symbols, so a marker for a path in one framework's upstream line
+must carry the same compile condition as the code using it. Where in the file it
+sits does not matter. An ungated marker for a scoped watch reports an untracked
+dependency. Every watched addition, removal, or change is a compatibility
+risk. Mirrored and reimplemented sources still require parity
 review. EndpointHtmlRenderer EventDispatch remains covered by its reimplementation
 prefix watch.
 
