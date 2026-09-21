@@ -145,6 +145,30 @@ public sealed class UnresolvedWatchPathTests
 		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, UnmatchedPrefix);
 	}
 
+	// Closes LR-79bce2b-P001: nothing exercised ResolvesAsync's prefix branch returning true.
+	// Every fixture above drives its false side (unstubbed parent, unrelated entries, or a
+	// directory entry), leaving the branch the committed manifest's only prefix watch,
+	// `PrefixInventoryFixture.Prefix`, actually takes on every real steady-state run
+	// unprotected. This stubs the parent directory with the file it genuinely matches upstream.
+	// Reverting `PrefixSourcePaths(entries, watch.Path).Count > 0` in
+	// UpstreamRepository.Inventory.cs to `return false` fails only this test, confirming it is
+	// the sole guard on that line. This behavior is already correct, so this test is expected
+	// to stay green; it exists to protect the branch rather than to change it.
+	[Fact]
+	public async Task Prefix_watch_whose_parent_directory_lists_a_matching_file_is_reported_as_current()
+	{
+		var watch = Fixture.Watch(PrefixInventoryFixture.Prefix, WatchMatch.Prefix);
+		var transport = UnrelatedChangeTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{PrefixInventoryFixture.RenderingDirectory}?ref={Fixture.BaselineCommit}",
+			JsonSerializer.Serialize(new[] { PrefixInventoryFixture.Entry(PrefixInventoryFixture.Main) }));
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
+
+		Assert.Equal(MonitorStatus.Current, result.Status);
+		Assert.Empty(result.Issues);
+	}
+
 	[Fact]
 	public async Task Every_unresolved_watch_path_is_reported_not_only_the_first()
 	{
@@ -169,8 +193,9 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task Prefix_watch_whose_parent_directory_lists_only_unrelated_entries_is_not_reported_as_current()
 	{
-		// The case above exits ResolvesAsync's own "listing is not an array" guard (its parent
-		// directory is unstubbed and 404s) before ever evaluating the prefix. This fixture instead
+		// Prefix_watch_matching_no_upstream_files_is_not_reported_as_current exits ResolvesAsync's
+		// own null-or-not-an-array guard (its parent directory is unstubbed and 404s, so TryGetAsync
+		// answers null) before ever evaluating the prefix. This fixture instead
 		// drives a parent directory that resolves as a genuine, non-empty entry array in which
 		// nothing matches the prefix, so the array guard is satisfied and
 		// `PrefixSourcePaths(entries, watch.Path).Count > 0` is the only thing left standing
