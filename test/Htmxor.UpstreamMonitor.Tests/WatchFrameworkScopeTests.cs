@@ -37,7 +37,7 @@ public sealed class WatchFrameworkScopeTests
 		{ "src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs", "Reimplements", "net10.0" },
 	};
 
-	// Criterion 1 (green baseline): the thirty-six unannotated watches apply to every
+	// Criterion 1 (green baseline): a watch with no `frameworks` list applies to every
 	// configured framework, so each of these ordinary, unscoped watches covers the
 	// dependency discovered for its own framework.
 	[Fact]
@@ -83,10 +83,13 @@ public sealed class WatchFrameworkScopeTests
 		Assert.Equal(["net11.0"], watch.Frameworks);
 	}
 
-	// Criterion 2: an unknown framework name on a watch must be rejected, naming both the
-	// watch path and the unknown name.
-	[Fact]
-	public void Unknown_framework_name_on_a_watch_is_rejected_naming_the_watch_and_the_unknown_name()
+	// Criterion 2: every entry of the list is validated, so an unknown name is rejected whether
+	// it stands alone or follows a configured one. The second case guards a validator that
+	// inspects only the first entry.
+	[Theory]
+	[InlineData("""["net12.0"]""")]
+	[InlineData("""["net10.0", "net12.0"]""")]
+	public void Unknown_framework_name_on_a_watch_is_rejected_naming_the_watch_and_the_unknown_name(string frameworks)
 	{
 		using var repository = new TemporaryRepository();
 		const string watchPath = "src/Components/Endpoints/src/Forms/Provider.cs";
@@ -101,7 +104,7 @@ public sealed class WatchFrameworkScopeTests
 			    "path": "{{watchPath}}",
 			    "match": "file", "api": "none", "relationship": "reimplements",
 			    "dependencies": ["src/Htmxor/Dependency.cs"],
-			    "frameworks": ["net12.0"]
+			    "frameworks": {{frameworks}}
 			  }]
 			}
 			""");
@@ -174,10 +177,28 @@ public sealed class WatchFrameworkScopeTests
 		Assert.Equal([new LocalFrameworkDependency(LocalPath, ComponentPath, WatchRelationship.Subclasses)], untracked);
 	}
 
-	// Criterion 1: only the watches the issue identifies carry a scope. Every other committed
-	// watch stays unannotated, which is what keeps it applying to every configured framework;
-	// otherwise annotating all forty-eight entries, the shape the issue explicitly rejects,
-	// would still satisfy this file.
+	// Criterion 2 and 3 (closes LR-1a1c95f-S002/P001): a `frameworks` list naming both
+	// configured frameworks must cover the dependency discovered under either, so both
+	// validation and coverage walk the whole list rather than only its first entry. A
+	// predicate written `watch.Frameworks.Single() == framework` throws on this two-entry
+	// list; a predicate that inspects only `Frameworks[0]` would silently miss the second.
+	[Fact]
+	public void Watch_scoped_to_both_frameworks_covers_a_dependency_discovered_under_either()
+	{
+		using var repository = new ConditionalRepository("unguarded");
+		var manifest = Fixture.MultiTargetManifest(
+			Fixture.Watch(ComponentPath, relationship: WatchRelationship.Subclasses, dependencies: [LocalPath]) with { Frameworks = ["net10.0", "net11.0"] });
+
+		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
+
+		Assert.Empty(untracked);
+	}
+
+	// Criterion 1: only the thirteen watches the issue identifies carry a scope. The other
+	// thirty-nine committed watches stay unannotated, which is what keeps each applying to
+	// every configured framework; otherwise annotating all fifty-two entries, the shape the
+	// issue explicitly rejects, would still satisfy this file. The issue's "forty-eight" and
+	// "thirty-six" count distinct upstream paths, not watch entries.
 	[Fact]
 	public void Committed_manifest_leaves_every_other_watch_unannotated()
 	{
@@ -208,5 +229,31 @@ public sealed class WatchFrameworkScopeTests
 		var watch = manifest.Targets.Single(target => target.Path == upstreamPath && target.Relationship == relationship);
 
 		Assert.Equal([expectedFramework], watch.Frameworks);
+	}
+
+	// LR-1a1c95f-S001 / LR-1a1c95f-P002 — a decision, recorded here rather than left implicit.
+	// The comparison walk (`CompareWatchedAsync`, `CompareApisAsync`) stays framework-blind on
+	// purpose: it can only ever report a *true* observation ("this file the watch names changed
+	// in that framework's line"), unlike the resolution walk #232 scopes, which can report a
+	// *false* one ("this watched path does not exist upstream"). Scoping the comparison walk
+	// would suppress a true report — the under-reporting failure mode #219, #232, and this issue
+	// all exist to remove — so it is left unscoped deliberately. This case pins that choice: a
+	// watch scoped to net11.0 only still reports drift for the net10.0 compare, because the file
+	// it names changed in that line too. It is expected to stay green through the
+	// implementation; a later change that wants to scope this walk must argue against this test
+	// rather than silently narrowing it.
+	[Fact]
+	public async Task Watch_scoped_to_one_framework_still_reports_drift_in_a_different_frameworks_compare()
+	{
+		const string path = "src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs";
+		var transport = SourceChangeTests.DriftTransport("github/compare-source-execution-sentinel.json");
+		var manifest = Fixture.MultiTargetManifest(
+			Fixture.Watch(path, relationship: WatchRelationship.Reimplements) with { Frameworks = ["net11.0"] });
+		var request = new MonitorRequest(manifest, 10, RequestedTag: "v10.0.12", BaselineCommit: Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Equal(MonitorStatus.Drift, result.Status);
+		Assert.Equal([new SourceChange(path, ChangeKind.Changed, ReviewClassification.ParityRequired)], result.SourceChanges);
 	}
 }
