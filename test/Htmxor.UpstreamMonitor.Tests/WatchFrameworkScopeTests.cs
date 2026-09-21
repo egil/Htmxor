@@ -306,14 +306,14 @@ public sealed class WatchFrameworkScopeTests
 		Assert.Equal([new SourceChange(path, ChangeKind.Changed, ReviewClassification.ParityRequired)], result.SourceChanges);
 	}
 
-	// Issue #232's own resolution loop (`UpstreamMonitorApplication.ReportAsync`) does not yet
-	// consult `Frameworks` at all: it resolves every watch absent from the compare against
-	// whichever framework's baseline the running request measures, regardless of which
-	// framework(s) the watch names. A watch scoped to net10.0 only must be resolved against
-	// net10.0's baseline, and must not be resolved — in either direction — against net11.0's:
-	// both runs are steady state (the requested tag resolves to each framework's own reviewed
-	// commit), so no compare stub is needed and the only question is whether resolution runs at
-	// all for the framework the watch does not name.
+	// Issue #232's resolution loop (`UpstreamMonitorApplication.ReportAsync`) filters the watch
+	// list by `AppliesTo` before resolving, so a watch is resolved only against the baseline of a
+	// framework it names. A watch scoped to net10.0 only must be resolved against net10.0's
+	// baseline, and must not be resolved — in either direction — against net11.0's: both runs are
+	// steady state (the requested tag resolves to each framework's own reviewed commit), so no
+	// compare stub is needed and the only question is whether resolution runs at all for the
+	// framework the watch does not name. Replacing `Where(AppliesTo)` with an unconditional filter
+	// reddens this test and no other.
 	[Fact]
 	public async Task Watch_scoped_to_one_framework_is_resolved_only_against_that_frameworks_baseline()
 	{
@@ -357,13 +357,9 @@ public sealed class WatchFrameworkScopeTests
 	// match (`TempDataProviderServiceCollectionExtensions.cs`, differing by relationship), which
 	// is silent today only because both currently carry the same scope.
 	//
-	// This is green today for a different reason than the fix to come will make it green:
-	// ReportAsync does not yet consult Frameworks anywhere, so every non-diffed watch is
-	// unconditionally resolved regardless of scope, and resolving the same path and match always
-	// answers identically no matter which duplicate entry represents it. A collapse-then-filter
-	// implementation is the one shape this test rejects; it must fail once someone reaches for
-	// `.Where(watch => Applies(watch, request.Framework))` placed after `DistinctBy` instead of
-	// before it.
+	// A collapse-then-filter implementation is the one shape this test rejects: moving
+	// `.Where(watch => AppliesTo(watch, request.Framework))` after `DistinctBy` instead of before
+	// it fails this test and no other.
 	[Fact]
 	public async Task Applicable_entry_decides_resolution_even_when_a_differently_scoped_duplicate_collapses_first()
 	{
@@ -382,12 +378,11 @@ public sealed class WatchFrameworkScopeTests
 
 	// The scope list is walked whole at this seam too, not only at ManifestDependencyPolicy's: a
 	// watch naming both frameworks with the one being measured listed second must still be
-	// resolved for it. #241's LR-5f81b81-P002 recorded the hazard that this issue restates the
-	// applicability rule rather than sharing `ManifestDependencyPolicy.Applies`; a restatement
-	// reading only `watch.Frameworks[0]` — or `Frameworks.Single()`, which throws on a two-entry
-	// list — passes every other case in this file while silently dropping a two-framework watch
-	// from resolution and reporting its path current forever, the under-reporting failure #219
-	// and #232 exist to remove. Green today for the same reason the collapse case above is.
+	// resolved for it. Both seams share one predicate, `UpstreamMonitorApplication.AppliesTo`; a
+	// first-entry-only reading (`watch.Frameworks[0]`) passes every other case here but silently
+	// drops a two-framework watch from resolution. Such a reading fails this test and
+	// Watch_scoped_to_both_frameworks_covers_a_dependency_discovered_under_either together, which
+	// is what makes the sharing real rather than nominal.
 	[Fact]
 	public async Task Watch_scoped_to_both_frameworks_is_resolved_against_the_framework_listed_second()
 	{
