@@ -115,6 +115,44 @@ public sealed class WatchFrameworkScopeTests
 		Assert.Contains("net12.0", exception.Message, StringComparison.Ordinal);
 	}
 
+	// Criterion 2 (closes LR-24773d2-S001/P001): a frameworks entry that is not a non-empty string
+	// is rejected on its own terms rather than silently becoming an unconfigured framework name.
+	// The reader used to build `names` with `value.GetString()!`, and `JsonElement.GetString()`
+	// returns `null` for a JSON `null`, so `FirstOrDefault`'s "nothing matched" sentinel and "the
+	// match is null" were the same value: `[null]` applied to no configured framework instead of
+	// being rejected, and in `[null, "net12.0"]` the `null` was found first, so the genuinely
+	// unknown `net12.0` beside it was never reported. `[42]` is included because the fix rejects
+	// any entry whose `ValueKind` is not `String`, not `null` specifically; without it, narrowing
+	// the check to only the `Null` kind would still pass every other case in this file.
+	[Theory]
+	[InlineData("[null]")]
+	[InlineData("[null, \"net12.0\"]")]
+	[InlineData("[42]")]
+	public void Malformed_frameworks_entry_on_a_watch_is_rejected_naming_the_watch(string frameworks)
+	{
+		using var repository = new TemporaryRepository();
+		const string watchPath = "src/Components/Endpoints/src/Forms/Provider.cs";
+		repository.Write("eng/Htmxor.UpstreamMonitor/upstream-watch.json", $$"""
+			{
+			  "repository": "dotnet/aspnetcore",
+			  "frameworks": [
+			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.11",
+			      "reviewed": { "tag": "v10.0.11", "commit": "{{Fixture.ReviewedCommit}}" } }
+			  ],
+			  "watches": [{
+			    "path": "{{watchPath}}",
+			    "match": "file", "api": "none", "relationship": "reimplements",
+			    "dependencies": ["src/Htmxor/Dependency.cs"],
+			    "frameworks": {{frameworks}}
+			  }]
+			}
+			""");
+
+		var exception = Assert.Throws<MonitorFailure>(() => WatchManifestFile.Read(repository.Path));
+
+		Assert.Contains(watchPath, exception.Message, StringComparison.Ordinal);
+	}
+
 	// Criterion 2: an empty `frameworks` list names no framework, so it is rejected rather than
 	// read as "every framework" (the meaning of an absent list) or as "no framework" (which
 	// would silently stop monitoring the watch). Rejected through the same validation path as
