@@ -16,10 +16,7 @@ internal static class ManifestDependencyPolicy
 			.ThenBy(dependency => dependency.Relationship).ToArray();
 
 	private static bool Covered(WatchManifest manifest, LocalFrameworkDependency dependency, FrameworkBaseline framework) =>
-		manifest.Targets.Any(watch => Applies(watch, framework) &&
+		manifest.Targets.Any(watch => UpstreamMonitorApplication.AppliesTo(watch, framework) &&
 			UpstreamMonitorApplication.Matches(watch, dependency.UpstreamPath) && watch.Relationship == dependency.Relationship &&
 			watch.LocalDependencies.Contains(dependency.LocalPath, StringComparer.Ordinal));
-
-	private static bool Applies(WatchTarget watch, FrameworkBaseline framework) =>
-		watch.Frameworks is null || watch.Frameworks.Contains(framework.TargetFramework, StringComparer.Ordinal);
 }
