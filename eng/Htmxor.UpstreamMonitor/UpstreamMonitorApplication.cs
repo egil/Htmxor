@@ -56,7 +56,11 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 		IReadOnlyList<SourceChange> sources, IReadOnlyList<ApiChange> apis, CancellationToken cancellationToken)
 	{
 		var unresolved = new SortedSet<string>(StringComparer.Ordinal);
-		foreach (var watch in request.Manifest.Targets.DistinctBy(watch => (watch.Path, watch.Match))
+		// Applicability is decided before the collapse. Two entries can share a path and match while
+		// differing in scope, so collapsing first would let whichever happened to be listed first
+		// answer for the rest, and an inapplicable survivor would drop the path from checking.
+		foreach (var watch in request.Manifest.Targets.Where(watch => AppliesTo(watch, request.Framework))
+			.DistinctBy(watch => (watch.Path, watch.Match))
 			.Where(watch => !files.Any(file => Matches(watch, file.Path)))
 			.OrderBy(watch => watch.Path, StringComparer.Ordinal).ThenBy(watch => watch.Match))
 		{
@@ -78,6 +82,13 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 	internal static bool Matches(WatchTarget target, string path) => target.Match == WatchMatch.Prefix
 		? path.StartsWith(target.Path, StringComparison.Ordinal)
 		: path.Equals(target.Path, StringComparison.Ordinal);
+
+	// One answer to "does this watch speak for this framework", shared with ManifestDependencyPolicy
+	// so the two cannot drift apart. An absent list means every configured framework; a present one
+	// is checked entry by entry, because reading only its first would drop a watch that names this
+	// framework later in the list.
+	internal static bool AppliesTo(WatchTarget target, FrameworkBaseline framework) =>
+		target.Frameworks is null || target.Frameworks.Contains(framework.TargetFramework, StringComparer.Ordinal);
 
 	private static async Task<Dictionary<WatchTarget, IReadOnlyList<ApiChange>>> CompareApisAsync(MonitorRequest request,
 		UpstreamRevision upstream, UpstreamRepository repository, IReadOnlyList<ChangedFile> files, CancellationToken cancellationToken)
