@@ -54,9 +54,9 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task Prefix_watch_whose_parent_path_is_a_file_is_not_reported_as_current()
 	{
-		// The mirror of the case above, for the prefix branch PR #239 review also flagged:
-		// pointing a prefix watch's parent directory at a path that is actually a file. Before
-		// this fix the prefix branch accepted any 200 for the parent and leaned on
+		// The mirror of the case above, for the prefix branch: pointing a prefix watch's parent
+		// directory at a path that is actually a file. Before this fix the prefix branch accepted
+		// any 200 for the parent and leaned on
 		// PrefixSourcePathsAsync's own array check to reject it, which throws MonitorFailure and
 		// would have reported this manifest mistake as an infrastructure error rather than as the
 		// unresolved watch it is. WrongFilePath is a real file, so treating it as a directory by
@@ -109,17 +109,15 @@ public sealed class UnresolvedWatchPathTests
 	}
 
 	[Fact]
-	public async Task Prefix_watch_naming_an_upstream_directory_is_an_infrastructure_error_not_an_unresolved_path()
+	public async Task Prefix_watch_naming_an_upstream_directory_is_not_reported_as_current()
 	{
-		// A prefix watch names a file-name stem inside one directory, because the listing that
-		// inventories it is not recursive: a prefix whose path is itself a directory entry would be
-		// compared against every file beneath it while the listing holds none of them. That is a
-		// manifest defect, not a fact about whether the path exists upstream, so it must report
-		// InfrastructureError naming the rule rather than being silently reported as unresolved
-		// (which criterion 1 reserves for a path that genuinely does not exist upstream). A sibling
-		// directory that merely shares the same stem must stay unrelated to this rule, and that case
-		// is covered separately by CompletePartialInventoryTests.
-		// Unrelated_directory_entries_do_not_enter_the_watched_partial_surface.
+		// A prefix watch names a file-name stem inside one directory. When the entry upstream that
+		// happens to share that exact path is itself a directory rather than a file, IsFile filters
+		// it out like any other non-file kind, so this resolves no differently than a prefix that
+		// matches nothing at all. Naming that specific shape as its own kind of manifest defect,
+		// with its own report surface and exit code, is #240's. A sibling directory that merely
+		// shares the same stem is a different case, covered separately by
+		// CompletePartialInventoryTests.Unrelated_directory_entries_do_not_enter_the_watched_partial_surface.
 		const string parent = "src/Components/Endpoints/src";
 		var watch = Fixture.Watch(DirectoryInsteadOfFile, WatchMatch.Prefix);
 		var transport = UnrelatedChangeTransport();
@@ -133,9 +131,7 @@ public sealed class UnresolvedWatchPathTests
 
 		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
 
-		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
-		Assert.Contains("names an upstream directory", result.InfrastructureError!, StringComparison.Ordinal);
-		Assert.Empty(result.Issues);
+		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, DirectoryInsteadOfFile);
 	}
 
 	[Fact]
@@ -147,6 +143,27 @@ public sealed class UnresolvedWatchPathTests
 		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
 
 		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, UnmatchedPrefix);
+	}
+
+	[Fact]
+	public async Task Every_unresolved_watch_path_is_reported_not_only_the_first()
+	{
+		// The review issue lists every path a maintainer has to correct, so resolution must answer
+		// for each silent watch rather than stopping once the run's status is already decided. Every
+		// other fixture here carries exactly one unresolved watch, which cannot tell "reports each
+		// one" apart from "reports the one that settled the status"; neither watch below is stubbed,
+		// so both are unresolved and both must reach the report and the issue body.
+		const string secondWrongFilePath = "src/Components/Endpoints/src/CacheView/CacheViewBuffer.cs";
+		var request = new MonitorRequest(
+			Fixture.Manifest(Fixture.Watch(WrongFilePath), Fixture.Watch(secondWrongFilePath)),
+			10, "v10.0.12", Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(UnrelatedChangeTransport()).RunAsync(request);
+
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		var issue = Assert.Single(result.Issues);
+		Assert.Contains(WrongFilePath, issue.Body, StringComparison.Ordinal);
+		Assert.Contains(secondWrongFilePath, issue.Body, StringComparison.Ordinal);
 	}
 
 	[Fact]
