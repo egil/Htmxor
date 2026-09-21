@@ -344,22 +344,15 @@ public sealed class WatchFrameworkScopeTests
 		Assert.DoesNotContain(path, net11Result.JsonReport, StringComparison.Ordinal);
 	}
 
-	// The loop reads `Targets.DistinctBy(watch => (watch.Path, watch.Match))` before anything
-	// else. Two entries sharing a path and match but differing only in scope must not let
-	// whichever survives that collapse decide applicability on its own: applicability has to be
-	// decided per watch before the collapse, so that any entry naming the framework being
-	// measured keeps the path in the loop even when a differently-scoped sibling for the same
-	// path would otherwise stand in for it. `netOtherOnly` is listed first specifically so a fix
-	// that filters by `Frameworks` only after `DistinctBy` has already picked its survivor — the
-	// literal reading of "decide, then collapse" reversed — keeps `netOtherOnly` (scoped away
-	// from net10.0) as that survivor and drops `netThisOnly` unseen, never resolving this path
-	// for net10.0 at all. The committed manifest already has two entries sharing a path and
-	// match (`TempDataProviderServiceCollectionExtensions.cs`, differing by relationship), which
-	// is silent today only because both currently carry the same scope.
-	//
-	// A collapse-then-filter implementation is the one shape this test rejects: moving
-	// `.Where(watch => AppliesTo(watch, request.Framework))` after `DistinctBy` instead of before
-	// it fails this test and no other.
+	// The loop filters by `AppliesTo` before it collapses with `DistinctBy(watch => (watch.Path,
+	// watch.Match))`, so two entries sharing a path and match but differing only in scope cannot
+	// let whichever survives the collapse decide applicability for both. `netOtherOnly` is listed
+	// first so a collapse-then-filter implementation — moving `.Where(watch => AppliesTo(watch,
+	// request.Framework))` after `DistinctBy` — would keep it (scoped away from net10.0) as the
+	// survivor and drop `netThisOnly` unseen, never resolving this path for net10.0 at all. That
+	// reordering fails this test and no other. The committed manifest already has two entries
+	// sharing a path and match (`TempDataProviderServiceCollectionExtensions.cs`, differing by
+	// relationship), silent today only because both currently carry the same scope.
 	[Fact]
 	public async Task Applicable_entry_decides_resolution_even_when_a_differently_scoped_duplicate_collapses_first()
 	{
