@@ -87,16 +87,14 @@ public sealed class UnresolvedWatchConsoleTests
 	[Fact]
 	public async Task Infrastructure_error_in_one_framework_is_not_masked_by_an_unresolved_watch_in_another_framework_in_the_same_run()
 	{
-		// Program.RunAsync's ordinal `Max` aggregation across frameworks means a naive fix that
-		// simply appended the new status after InfrastructureError in the MonitorStatus
-		// declaration — leaving Current/Drift/InfrastructureError's existing 0/1/2 exit codes
-		// untouched for every other already-passing test — would let an unresolved-but-known
-		// finding in one framework outrank a genuine provider/tool failure in another framework
-		// for exit-code purposes. Exit code 2 is InfrastructureError's documented meaning
-		// (docs/agents/testing.md), not the new status's own ordinal: this asserts the existing
-		// outcome must still win when both are present in one run, without pinning how (a
-		// non-sequential explicit enum value, or an aggregation that checks InfrastructureError
-		// before falling back to ordinal Max, are both compatible with this assertion).
+		// Program.RunAsync lets InfrastructureError win outright and falls back to an ordinal Max
+		// over MonitorStatus only for the rest, so an unresolved-but-known finding in one
+		// framework cannot outrank a genuine provider/tool failure in another. A naive fix that
+		// only appended the new status after InfrastructureError in the MonitorStatus declaration,
+		// leaving a plain ordinal Max in place, would have reversed the two. Exit code 2 is
+		// InfrastructureError's documented meaning (docs/agents/testing.md), not an ordinal
+		// position: this asserts the existing outcome still wins when both are present, without
+		// pinning how (a non-sequential enum value would satisfy it too).
 		using var workspace = MultiTargetWorkspace(WrongFilePath, api: "none", relationship: "reimplements");
 		var transport = new FakeGitHubTransport();
 		transport.AddStatus("/repos/dotnet/aspnetcore/releases?per_page=100", System.Net.HttpStatusCode.ServiceUnavailable);
