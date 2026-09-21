@@ -149,15 +149,13 @@ public sealed class UnresolvedWatchConsoleTests
 	public async Task Failed_issue_write_still_names_the_unresolved_path_in_the_persisted_reports()
 	{
 		// Program.cs's RunMonitorAsync rebuilds the reports when the GitHub issue write itself
-		// fails, because the reports embed the status (MonitorReports.Create(...,
-		// MonitorStatus.InfrastructureError, ...)). Before 3e25419 that reconstruction call site
-		// omitted result.UnresolvedWatchPaths, so a run that found this exact unresolved path and
-		// then failed to write its issue silently dropped the one thing acceptance criterion 1
-		// requires the persisted JSON and Markdown reports to name. No create stub for the
-		// unresolved-path issue's POST: the create 404s, GitHubApi.WriteAsync throws, and
-		// UpsertAsync's outer catch turns that into a non-null issueWrite.Error, which is what
-		// forces Program.cs onto the reconstruction branch under test rather than returning the
-		// already-correct `result` unchanged.
+		// fails, because the reports embed the status, so the rebuild has to carry
+		// result.UnresolvedWatchPaths across: otherwise a run that found this exact unresolved
+		// path and then failed to write its issue silently drops the one thing the persisted JSON
+		// and Markdown reports must name. No create stub for the unresolved-path issue's POST: the
+		// create 404s, GitHubApi.WriteAsync throws, and UpsertAsync's outer catch turns that into a
+		// non-null issueWrite.Error, which is what forces Program.cs onto the reconstruction branch
+		// under test rather than returning the already-correct `result` unchanged.
 		using var workspace = SingleWatchWorkspace(WrongFilePath);
 		var transport = new FakeGitHubTransport();
 		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12", Fixture.Read("github/ref-v10.0.12-direct.json"));

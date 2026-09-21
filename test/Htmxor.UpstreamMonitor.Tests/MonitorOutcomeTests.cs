@@ -172,13 +172,7 @@ public sealed class MonitorOutcomeTests
 		// above) two issues that both succeed. Fails the first (drift) issue's create call by
 		// leaving it unstubbed, and asserts the second (unresolved) issue's write — which would
 		// otherwise also be a plain, unstubbed create — is never attempted at all, not merely that
-		// it also happens to fail. Confirmed by controlled inversion (not a hypothetical): wrapping
-		// this loop's body in its own try/catch that swallows a write failure and continues to the
-		// next issue reddens this test at `Assert.NotNull(outcome.Result.Error)` (the loop
-		// completes normally with `written` still at its unassigned `(None, null, null)` default,
-		// so UpsertAsync returns it directly instead of reaching the outer catch) — a second,
-		// independent symptom of the same regression is `writes.Length` becoming 2, since the
-		// swallowed first failure lets the second issue's write also occur.
+		// it also happens to fail.
 		var mixed = await MixedDriftAndUnresolvedResultAsync();
 		Assert.Equal(2, mixed.Issues.Count);
 

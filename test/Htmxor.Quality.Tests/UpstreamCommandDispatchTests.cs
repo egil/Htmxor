@@ -31,12 +31,13 @@ public sealed class UpstreamCommandDispatchTests
 
 		Assert.IsType<InvalidOperationException>(error);
 		Assert.Contains($"{monitorExit}", error.Message, StringComparison.Ordinal);
-		// QualityCommand.RunUpstreamAsync classifies the monitor's exit code, its MonitorStatus, as
-		// its own finding category rather than collapsing every non-drift code to "infrastructure":
-		// exit 3 (UnresolvedWatch) already has its own filed review issue, so reporting it as an
-		// infrastructure failure would misdirect a human toward "the tool didn't work" instead of
-		// "the manifest needs a path corrected". Only a genuinely unclassified code (here, 2) falls
-		// back to "infrastructure".
+		// QualityCommand.RunUpstreamAsync classifies the monitor's exit code, its MonitorStatus,
+		// as its own finding category rather than collapsing every non-drift code to
+		// "infrastructure": exit 3 (UnresolvedWatch) already has its own filed review issue, so
+		// reporting it as an infrastructure failure would misdirect a human toward "the tool
+		// didn't work" instead of "the manifest needs a path corrected". Exit 2 is
+		// InfrastructureError, for which "infrastructure" is the right answer, so it is the one
+		// code left to the fallback arm.
 		var expectedCategory = monitorExit switch
 		{
 			1 => "drift",
