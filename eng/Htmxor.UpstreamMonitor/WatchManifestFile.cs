@@ -42,16 +42,24 @@ internal static class WatchManifestFile
 		{
 			return null;
 		}
-		var names = declared.EnumerateArray().Select(value => value.GetString()!).ToArray();
-		if (names.Length == 0)
+		var names = new List<string>();
+		foreach (var value in declared.EnumerateArray())
+		{
+			// Read the entry before comparing it, so a null or non-string one is rejected here
+			// rather than becoming a name that matches no configured framework.
+			if (value.ValueKind != JsonValueKind.String || value.GetString() is not { Length: > 0 } name)
+			{
+				throw new MonitorFailure($"Watch '{path}' declares a frameworks entry that is not a framework name.");
+			}
+			if (!frameworks.Any(framework => framework.TargetFramework.Equals(name, StringComparison.Ordinal)))
+			{
+				throw new MonitorFailure($"Watch '{path}' declares framework '{name}', which the manifest does not configure.");
+			}
+			names.Add(name);
+		}
+		if (names.Count == 0)
 		{
 			throw new MonitorFailure($"Watch '{path}' declares an empty frameworks list. Omit the list to watch every configured framework.");
-		}
-		var unknown = names.FirstOrDefault(name => !frameworks.Any(framework =>
-			framework.TargetFramework.Equals(name, StringComparison.Ordinal)));
-		if (unknown is not null)
-		{
-			throw new MonitorFailure($"Watch '{path}' declares framework '{unknown}', which the manifest does not configure.");
 		}
 		return names;
 	}

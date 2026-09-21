@@ -130,9 +130,14 @@ relationship is `mirrors`, `reimplements`, or `private-accesses`. Maintain each
 marker alongside its local dependency and matching manifest watch.
 `private-accesses` describes narrow cached, fail-fast access to private provider
 metadata; use `api: none`. A watch may add `frameworks` to name the target
-frameworks whose upstream baseline carries its path; omit it when every
-configured framework does. An empty list and an unconfigured name are both
-manifest errors. The list scopes manifest coverage only, not drift comparison. Every watched addition, removal, or change is a
+frameworks it answers for; omit it to answer for every configured one. An empty
+list, an unconfigured name, and an entry that is not a name are manifest errors.
+The list scopes manifest coverage only, not drift comparison, so a watch keeps
+reporting drift in every framework's compare. Coverage matches a dependency to
+the framework that discovered it, so a provenance marker for a path that exists
+in one framework's upstream line belongs inside that framework's `#if`, next to
+the code using it. An ungated marker for a scoped watch reports an untracked
+dependency. Every watched addition, removal, or change is a
 compatibility risk. Mirrored and reimplemented sources still require parity
 review. EndpointHtmlRenderer EventDispatch remains covered by its reimplementation
 prefix watch.
