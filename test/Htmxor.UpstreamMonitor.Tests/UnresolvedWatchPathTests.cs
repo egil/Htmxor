@@ -16,13 +16,12 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task File_watch_pointing_at_a_directory_is_not_reported_as_current()
 	{
-		// PR #239 review (5333c33): the contents API answers 200 for a directory exactly as
-		// readily as for a file, so a status-only check (the shape ExistsAsync used before this
-		// fix) reported a `match: file` watch aimed at a directory as resolved — the same silence
-		// #232 exists to remove, surfacing only later once SourceAsync failed looking for a file
-		// body that was never there. The stub below is the actual shape GitHub's contents API
-		// returns for a directory: a JSON array of entries, not the single file object
-		// GitHubContent produces.
+		// The contents API answers 200 for a directory exactly as readily as for a file, so a
+		// status-only check would report a `match: file` watch aimed at a directory as resolved —
+		// the same silence #232 exists to remove, surfacing only later once SourceAsync failed
+		// looking for a file body that was never there. The stub below is the actual shape
+		// GitHub's contents API returns for a directory: a JSON array of entries, not the single
+		// file object GitHubContent produces.
 		var watch = Fixture.Watch(DirectoryInsteadOfFile);
 		var transport = UnrelatedChangeTransport();
 		transport.AddJson(
@@ -110,6 +109,36 @@ public sealed class UnresolvedWatchPathTests
 	}
 
 	[Fact]
+	public async Task Prefix_watch_naming_an_upstream_directory_is_an_infrastructure_error_not_an_unresolved_path()
+	{
+		// A prefix watch names a file-name stem inside one directory, because the listing that
+		// inventories it is not recursive: a prefix whose path is itself a directory entry would be
+		// compared against every file beneath it while the listing holds none of them. That is a
+		// manifest defect, not a fact about whether the path exists upstream, so it must report
+		// InfrastructureError naming the rule rather than being silently reported as unresolved
+		// (which criterion 1 reserves for a path that genuinely does not exist upstream). A sibling
+		// directory that merely shares the same stem must stay unrelated to this rule, and that case
+		// is covered separately by CompletePartialInventoryTests.
+		// Unrelated_directory_entries_do_not_enter_the_watched_partial_surface.
+		const string parent = "src/Components/Endpoints/src";
+		var watch = Fixture.Watch(DirectoryInsteadOfFile, WatchMatch.Prefix);
+		var transport = UnrelatedChangeTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{parent}?ref={Fixture.BaselineCommit}",
+			JsonSerializer.Serialize(new[]
+			{
+				PrefixInventoryFixture.Entry(DirectoryInsteadOfFile, "dir"),
+				PrefixInventoryFixture.Entry($"{parent}/Unrelated.cs"),
+			}));
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
+
+		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
+		Assert.Contains("names an upstream directory", result.InfrastructureError!, StringComparison.Ordinal);
+		Assert.Empty(result.Issues);
+	}
+
+	[Fact]
 	public async Task Prefix_watch_matching_no_upstream_files_is_not_reported_as_current()
 	{
 		var watch = Fixture.Watch(UnmatchedPrefix, WatchMatch.Prefix);
@@ -123,20 +152,15 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task Prefix_watch_whose_parent_directory_lists_only_unrelated_entries_is_not_reported_as_current()
 	{
-		// The case above exits at ResolvesAsync's own "listing is not an array" guard
-		// (UpstreamRepository.Inventory.cs:24-27) before PrefixSourcePathsAsync's own emptiness
-		// check at line 28 is ever reached, because its parent directory is unstubbed and 404s. This
-		// fixture instead drives a parent directory that resolves as a genuine, non-empty entry
-		// array in which nothing matches the prefix, so the array guard is satisfied and
-		// `(await PrefixSourcePathsAsync(...)).Count > 0` is the only thing left standing between
-		// this watch and a false "resolved" result.
+		// The case above exits ResolvesAsync's own "listing is not an array" guard (its parent
+		// directory is unstubbed and 404s) before ever evaluating the prefix. This fixture instead
+		// drives a parent directory that resolves as a genuine, non-empty entry array in which
+		// nothing matches the prefix, so the array guard is satisfied and
+		// `PrefixSourcePaths(entries, watch.Path).Count > 0` is the only thing left standing
+		// between this watch and a false "resolved" result.
 		var watch = Fixture.Watch(UnmatchedPrefix, WatchMatch.Prefix);
 		var transport = UnrelatedChangeTransport();
 		var listing = JsonSerializer.Serialize(new[] { PrefixInventoryFixture.Entry(WrongFilePath) });
-		// ResolvesAsync's own guard and PrefixSourcePathsAsync each fetch this same directory
-		// independently (a pre-existing duplicate request, not introduced by this fixture), so the
-		// stub must answer the same path twice.
-		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{DirectoryInsteadOfFile}?ref={Fixture.BaselineCommit}", listing);
 		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{DirectoryInsteadOfFile}?ref={Fixture.BaselineCommit}", listing);
 
 		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
@@ -166,11 +190,11 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task Mixed_run_reports_the_unresolved_watch_without_losing_a_different_watchs_drift_from_the_reports()
 	{
-		// #232's committed fix (e8c35e4) resolves every watch absent from the changed-file list
-		// regardless of what else the same run found, because silence is a property of each watch,
-		// not of the run: gating resolution on "the run has nothing else to report" left every
-		// other entry of the committed 52-watch manifest unchecked for as long as any one of them
-		// kept drifting — the #219 failure reintroduced one level up. DriftingPath is present in
+		// This fix resolves every watch absent from the changed-file list regardless of what else
+		// the same run found, because silence is a property of each watch, not of the run: gating
+		// resolution on "the run has nothing else to report" left every other entry of the
+		// committed 52-watch manifest unchecked for as long as any one of them kept drifting — the
+		// #219 failure reintroduced one level up. DriftingPath is present in
 		// the compare and drifts ordinarily; WrongFilePath is absent and never resolves. The run
 		// must report UnresolvedWatch (not Drift, and not merely "not Current"), and DriftingPath's
 		// finding must still appear in both reports rather than being discarded.
@@ -223,6 +247,13 @@ public sealed class UnresolvedWatchPathTests
 		var driftIssue = Assert.Single(result.Issues, issue => issue.Body.Contains(ExpectedMonitorArtifacts.Invoker, StringComparison.Ordinal));
 		var unresolvedIssue = Assert.Single(result.Issues, issue => issue.Body.Contains(WrongFilePath, StringComparison.Ordinal));
 		Assert.NotEqual(driftIssue.Identity, unresolvedIssue.Identity);
+		// The identity line is the upsert key: GitHubIssueUpserter matches an existing issue by it
+		// alone, so it must name the framework this run measured, exactly as the drift identity does.
+		// A version-less identity would make net10.0's and net11.0's unresolved findings share one
+		// issue body, where the second framework's upsert replaces the first's path list.
+		Assert.Equal("aspnetcore-10-unresolved-watch", unresolvedIssue.Identity);
+		Assert.Contains("aspnetcore-10-unresolved-watch", unresolvedIssue.SearchQuery, StringComparison.Ordinal);
+		Assert.Contains("Identity: aspnetcore-10-unresolved-watch", unresolvedIssue.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain(WrongFilePath, driftIssue.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain(ExpectedMonitorArtifacts.Invoker, unresolvedIssue.Body, StringComparison.Ordinal);
 	}
@@ -230,20 +261,14 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task Review_issue_for_an_unresolved_watch_path_differs_from_the_issue_for_the_same_path_actually_removed()
 	{
-		// Assert.Single(result.Issues) plus a path-containment check (below) holds equally for an
-		// ordinary drift issue about the very same path: MonitorReports.Issue(...) takes no
-		// MonitorStatus, and Classify() can legitimately assign the unresolved watch the same
-		// classification an ordinarily-removed file gets. Comparing the same watch's issue for
-		// "actually removed" against "never resolved" is the comparative shape criterion 3 asks
-		// for, without pinning what either rendering must say. Only Body is asserted — the
-		// criterion's literal requirement. Identity is deliberately not pinned here: a single
-		// shared per-major-version tracking issue with clearly separated body sections also
-		// satisfies "distinguishable... in the review issue" as worded, and today Identity is a
-		// pure function of SupportedMajorVersion, not of content. Reusing the ordinary-drift
-		// Identity for the unresolved state is a real residual risk (GitHubIssueUpserter dedupes
-		// by Identity, so a shared issue must not let one state's findings silently erase the
-		// other's on a later run) that belongs to the Implementor's design and complete-change
-		// review, not to this test — pinning it here would decide the design.
+		// Assert.Single(result.Issues) plus a path-containment check alone cannot tell the
+		// unresolved issue's rendering apart from an ordinary drift issue about the same path:
+		// MonitorReports.Issue(...) takes no MonitorStatus, and Classify() can assign the
+		// unresolved watch the same classification an ordinarily-removed file gets. Comparing the
+		// same watch's issue for "actually removed" against "never resolved" proves the bodies
+		// differ. Identity is pinned exactly, for both states, in
+		// Mixed_run_reports_the_unresolved_watch_without_losing_a_different_watchs_drift_from_the_reports;
+		// only Body is compared here.
 		var watch = Fixture.Watch(WrongFilePath);
 
 		var removed = await Fixture.Application(ActuallyRemovedTransport(WrongFilePath))
