@@ -139,14 +139,15 @@ marker alongside its local dependency and matching manifest watch.
 metadata; use `api: none`. A watch may add `frameworks` to name the target
 frameworks it answers for; omit it to answer for every configured one. An empty
 list, an unconfigured name, and an entry that is not a name are manifest errors.
-The list scopes manifest coverage only, not drift comparison, so a watch keeps
-reporting drift in every framework's compare. Coverage matches a dependency to
-the framework that discovered it, and discovery parses each source with that
-framework's symbols, so a marker for a path in one framework's upstream line
-must carry the same compile condition as the code using it. Where in the file it
-sits does not matter. An ungated marker for a scoped watch reports an untracked
-dependency. Every watched addition, removal, or change is a compatibility
-risk. Mirrored and reimplemented sources still require parity
+The list scopes manifest coverage and unresolved-path resolution, but not drift
+comparison, so a watch keeps reporting drift in every framework's compare while
+only the frameworks it names check that its path exists. Coverage matches a
+dependency to the framework that discovered it, and discovery parses each source
+with that framework's symbols, so a marker for a path in one framework's
+upstream line must carry the same compile condition as the code using it. Where
+in the file it sits does not matter. An ungated marker for a scoped watch
+reports an untracked dependency. Every watched addition, removal, or change is
+a compatibility risk. Mirrored and reimplemented sources still require parity
 review. EndpointHtmlRenderer EventDispatch remains covered by its reimplementation
 prefix watch.
 
