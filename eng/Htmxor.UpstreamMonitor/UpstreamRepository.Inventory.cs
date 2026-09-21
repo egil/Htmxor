@@ -28,10 +28,10 @@ internal sealed partial class UpstreamRepository
 		return PrefixSourcePaths(listing, prefix);
 	}
 
-	// A prefix watch names a file-name stem inside one directory, because the listing that
-	// inventories it is not recursive. A prefix that names a directory would be compared against
-	// every file beneath it while none of them is inventoried, so it is a manifest error rather
-	// than a watch that does or does not resolve. A sibling directory sharing the stem is unrelated.
+	// Only file entries count. The listing is not recursive, so a directory matching the prefix is
+	// not inventoried and cannot answer for the files beneath it; it therefore neither resolves the
+	// watch nor says anything about it. Reporting that shape as its own kind of manifest error is
+	// #240's, because a per-watch finding is the only form that does not suppress the rest of a run.
 	private static IReadOnlyList<string> PrefixSourcePaths(JsonElement listing, string prefix)
 	{
 		if (listing.ValueKind != JsonValueKind.Array || listing.GetArrayLength() >= 1000)
@@ -44,16 +44,11 @@ internal sealed partial class UpstreamRepository
 		foreach (var entry in listing.EnumerateArray())
 		{
 			var path = EntryPath(entry, directory);
-			var type = EntryType(entry);
 			if (!seen.Add(path))
 			{
 				throw new MonitorFailure("GitHub directory inventory repeated a path.");
 			}
-			if (type == "dir" && path.Equals(prefix, StringComparison.Ordinal))
-			{
-				throw new MonitorFailure($"Prefix watch '{prefix}' names an upstream directory. A prefix watch names a file-name stem inside one directory.");
-			}
-			if (type == "file" && path.StartsWith(prefix, StringComparison.Ordinal))
+			if (IsFile(entry) && path.StartsWith(prefix, StringComparison.Ordinal))
 			{
 				paths.Add(path);
 			}
@@ -78,15 +73,12 @@ internal sealed partial class UpstreamRepository
 		return path;
 	}
 
-	private static bool IsFile(JsonElement entry) => EntryType(entry) == "file";
-
-	private static string EntryType(JsonElement entry)
+	private static bool IsFile(JsonElement entry) => RequiredString(entry, "type") switch
 	{
-		var type = RequiredString(entry, "type");
-		return type is "file" or "dir" or "symlink" or "submodule"
-			? type
-			: throw new MonitorFailure("GitHub directory inventory contained an unsupported entry type.");
-	}
+		"file" => true,
+		"dir" or "symlink" or "submodule" => false,
+		_ => throw new MonitorFailure("GitHub directory inventory contained an unsupported entry type."),
+	};
 
 	private static string RequiredString(JsonElement entry, string name)
 	{
