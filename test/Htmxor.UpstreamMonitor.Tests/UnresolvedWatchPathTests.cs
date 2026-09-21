@@ -35,6 +35,24 @@ public sealed class UnresolvedWatchPathTests
 	}
 
 	[Fact]
+	public async Task File_watch_pointing_at_a_symlink_is_not_reported_as_current()
+	{
+		// The other half of the same guard: GitHub answers an object, not an array, for a symlink or
+		// a submodule, so the ValueKind check alone still resolves the watch and only IsFile rejects
+		// it. SourceAsync would then fail on a base64 body that was never there — the same late
+		// surprise #232 exists to remove, for a third kind of wrong path.
+		var watch = Fixture.Watch(WrongFilePath);
+		var transport = UnrelatedChangeTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{WrongFilePath}?ref={Fixture.BaselineCommit}",
+			JsonSerializer.Serialize(PrefixInventoryFixture.Entry(WrongFilePath, "symlink")));
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
+
+		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, WrongFilePath);
+	}
+
+	[Fact]
 	public async Task Prefix_watch_whose_parent_path_is_a_file_is_not_reported_as_current()
 	{
 		// The mirror of the case above, for the prefix branch PR #239 review also flagged:
@@ -72,6 +90,30 @@ public sealed class UnresolvedWatchPathTests
 	{
 		var watch = Fixture.Watch(UnmatchedPrefix, WatchMatch.Prefix);
 		var transport = UnrelatedChangeTransport();
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
+
+		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, UnmatchedPrefix);
+	}
+
+	[Fact]
+	public async Task Prefix_watch_whose_parent_directory_lists_only_unrelated_entries_is_not_reported_as_current()
+	{
+		// The case above exits at ResolvesAsync's own "listing is not an array" guard
+		// (UpstreamRepository.Inventory.cs:24-27) before PrefixSourcePathsAsync's own emptiness
+		// check at line 28 is ever reached, because its parent directory is unstubbed and 404s. This
+		// fixture instead drives a parent directory that resolves as a genuine, non-empty entry
+		// array in which nothing matches the prefix, so the array guard is satisfied and
+		// `(await PrefixSourcePathsAsync(...)).Count > 0` is the only thing left standing between
+		// this watch and a false "resolved" result.
+		var watch = Fixture.Watch(UnmatchedPrefix, WatchMatch.Prefix);
+		var transport = UnrelatedChangeTransport();
+		var listing = JsonSerializer.Serialize(new[] { PrefixInventoryFixture.Entry(WrongFilePath) });
+		// ResolvesAsync's own guard and PrefixSourcePathsAsync each fetch this same directory
+		// independently (a pre-existing duplicate request, not introduced by this fixture), so the
+		// stub must answer the same path twice.
+		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{DirectoryInsteadOfFile}?ref={Fixture.BaselineCommit}", listing);
+		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{DirectoryInsteadOfFile}?ref={Fixture.BaselineCommit}", listing);
 
 		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
 
