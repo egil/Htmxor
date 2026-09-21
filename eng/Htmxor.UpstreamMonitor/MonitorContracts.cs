@@ -62,6 +62,10 @@ internal sealed record WatchTarget(
 {
 	// Null means the watch applies to every configured framework. WatchManifestFile rejects an
 	// empty list, so a non-null list always names at least one.
+	//
+	// Only coverage honours this. The drift comparison walk stays framework-blind on purpose: it
+	// reports what a framework's own compare already says changed, which is a true observation
+	// whichever framework the watch names, while a scope applied there would suppress one. See #241.
 	public IReadOnlyList<string>? Frameworks { get; init; }
 }
 
