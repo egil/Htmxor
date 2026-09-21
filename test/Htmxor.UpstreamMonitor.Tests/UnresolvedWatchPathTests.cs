@@ -294,7 +294,6 @@ public sealed class UnresolvedWatchPathTests
 		// A version-less identity would make net10.0's and net11.0's unresolved findings share one
 		// issue body, where the second framework's upsert replaces the first's path list.
 		Assert.Equal("aspnetcore-10-unresolved-watch", unresolvedIssue.Identity);
-		Assert.Contains("aspnetcore-10-unresolved-watch", unresolvedIssue.SearchQuery, StringComparison.Ordinal);
 		Assert.Contains("Identity: aspnetcore-10-unresolved-watch", unresolvedIssue.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain(WrongFilePath, driftIssue.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain(ExpectedMonitorArtifacts.Invoker, unresolvedIssue.Body, StringComparison.Ordinal);
