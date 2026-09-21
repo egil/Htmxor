@@ -27,9 +27,16 @@
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
+// Gated with the code that uses it: this dependency exists only in the .NET 11 upstream line,
+// so an ungated marker would declare it for net10.0 too and the monitor would report a watch
+// scoped to net11.0 as uncovered. See #241.
+#if NET11_0_OR_GREATER
 // Htmxor upstream dependency: src/Shared/MiddlewareInvokedKeys.cs | mirrors
+#endif
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
+#if NET11_0_OR_GREATER
 // Htmxor upstream dependency: src/Components/Endpoints/src/TempData/TempDataProviderServiceCollectionExtensions.cs | reimplements
+#endif
 // Issue #184 relationships: reimplements RazorComponentEndpointInvoker, subclasses StaticHtmlRenderer,
 // implements IRazorComponentEndpointInvoker, consumes ComponentState through supported seams, and reimplements
 // the RazorComponentsServiceCollectionExtensions cascading HttpContext registration selection.

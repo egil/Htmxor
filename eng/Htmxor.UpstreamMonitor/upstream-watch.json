@@ -28,6 +28,9 @@
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
       ]
@@ -37,6 +40,9 @@
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
       ]
@@ -46,6 +52,9 @@
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
       ]
@@ -55,6 +64,9 @@
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
       ]
@@ -64,6 +76,9 @@
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
       ]
@@ -83,6 +98,9 @@
       "match": "file",
       "api": "none",
       "relationship": "mirrors",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs"
       ]
@@ -92,6 +110,9 @@
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateSessionServices.cs"
       ]
@@ -101,6 +122,9 @@
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateTempDataServices.cs"
       ]
@@ -110,6 +134,9 @@
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateTempDataServices.cs"
       ]
@@ -119,6 +146,9 @@
       "match": "file",
       "api": "none",
       "relationship": "reimplements",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
       ]
@@ -128,6 +158,9 @@
       "match": "file",
       "api": "none",
       "relationship": "private-accesses",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateTempDataServices.cs"
       ]
@@ -137,6 +170,9 @@
       "match": "file",
       "api": "none",
       "relationship": "mirrors",
+      "frameworks": [
+        "net11.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
       ]
@@ -303,6 +339,9 @@
       "match": "file",
       "api": "none",
       "relationship": "reimplements",
+      "frameworks": [
+        "net10.0"
+      ],
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs"
       ]

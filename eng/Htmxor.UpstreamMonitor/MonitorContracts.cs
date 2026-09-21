@@ -60,9 +60,8 @@ internal sealed record WatchTarget(
 	WatchRelationship Relationship,
 	IReadOnlyList<string> LocalDependencies)
 {
-	// TODO(#241): compile-only seam for the red-contract tests. Null means "applies to every
-	// configured framework"; nothing parses or reads this yet. Remove this comment once
-	// WatchManifestFile parses "frameworks" and ManifestDependencyPolicy.Covered scopes by it.
+	// Null means the watch applies to every configured framework. WatchManifestFile rejects an
+	// empty list, so a non-null list always names at least one.
 	public IReadOnlyList<string>? Frameworks { get; init; }
 }
 
