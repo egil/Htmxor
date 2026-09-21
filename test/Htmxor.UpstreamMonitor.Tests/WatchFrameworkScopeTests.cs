@@ -4,8 +4,9 @@ using Htmxor.UpstreamMonitor;
 namespace Htmxor.UpstreamMonitor.Tests;
 
 /// <summary>
-/// Protects issue #241's amended contract at the seam that decides it here:
-/// <c>ManifestDependencyPolicy</c> and the manifest reader.
+/// Protects issue #241's amended contract at the seams that decide it here:
+/// <c>ManifestDependencyPolicy</c> and the manifest reader, together with issue #232's
+/// resolution loop in <c>UpstreamMonitorApplication</c>, which the same scope governs.
 /// </summary>
 public sealed class WatchFrameworkScopeTests
 {
@@ -356,7 +357,7 @@ public sealed class WatchFrameworkScopeTests
 	// match (`TempDataProviderServiceCollectionExtensions.cs`, differing by relationship), which
 	// is silent today only because both currently carry the same scope.
 	//
-	// This is green today for a different reason than the fix below will make it green:
+	// This is green today for a different reason than the fix to come will make it green:
 	// ReportAsync does not yet consult Frameworks anywhere, so every non-diffed watch is
 	// unconditionally resolved regardless of scope, and resolving the same path and match always
 	// answers identically no matter which duplicate entry represents it. A collapse-then-filter
@@ -374,6 +375,29 @@ public sealed class WatchFrameworkScopeTests
 		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
 
 		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(manifest, 10, RequestedTag: "v10.0.11"));
+
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		Assert.Contains(path, result.JsonReport, StringComparison.Ordinal);
+	}
+
+	// The scope list is walked whole at this seam too, not only at ManifestDependencyPolicy's: a
+	// watch naming both frameworks with the one being measured listed second must still be
+	// resolved for it. #241's LR-5f81b81-P002 recorded the hazard that this issue restates the
+	// applicability rule rather than sharing `ManifestDependencyPolicy.Applies`; a restatement
+	// reading only `watch.Frameworks[0]` — or `Frameworks.Single()`, which throws on a two-entry
+	// list — passes every other case in this file while silently dropping a two-framework watch
+	// from resolution and reporting its path current forever, the under-reporting failure #219
+	// and #232 exist to remove. Green today for the same reason the collapse case above is.
+	[Fact]
+	public async Task Watch_scoped_to_both_frameworks_is_resolved_against_the_framework_listed_second()
+	{
+		const string path = "src/Components/Endpoints/src/CacheView/ScopedToBothFrameworks.cs";
+		var watch = Fixture.Watch(path) with { Frameworks = ["net11.0", "net10.0"] };
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
+
+		var result = await Fixture.Application(transport)
+			.RunAsync(new MonitorRequest(Fixture.MultiTargetManifest(watch), 10, RequestedTag: "v10.0.11"));
 
 		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
 		Assert.Contains(path, result.JsonReport, StringComparison.Ordinal);
