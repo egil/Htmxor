@@ -18,40 +18,53 @@ internal sealed partial class UpstreamRepository
 			var content = await api.TryGetAsync(ContentsPath(watch.Path, commit), cancellationToken);
 			return content is { ValueKind: JsonValueKind.Object } file && IsFile(file);
 		}
-		var separator = watch.Path.LastIndexOf('/');
-		var directory = separator < 0 ? "" : watch.Path[..separator];
-		var listing = await api.TryGetAsync(ContentsPath(directory, commit), cancellationToken);
-		if (listing is not { ValueKind: JsonValueKind.Array })
-		{
-			return false;
-		}
-		return (await PrefixSourcePathsAsync(watch.Path, commit, cancellationToken)).Count > 0;
+		var listing = await api.TryGetAsync(ContentsPath(ParentDirectory(watch.Path), commit), cancellationToken);
+		return listing is { ValueKind: JsonValueKind.Array } entries && PrefixSourcePaths(entries, watch.Path).Count > 0;
 	}
 
 	public async Task<IReadOnlyList<string>> PrefixSourcePathsAsync(string prefix, string commit, CancellationToken cancellationToken)
 	{
-		var separator = prefix.LastIndexOf('/');
-		var directory = separator < 0 ? "" : prefix[..separator];
-		var listing = await api.GetAsync(ContentsPath(directory, commit), cancellationToken);
+		var listing = await api.GetAsync(ContentsPath(ParentDirectory(prefix), commit), cancellationToken);
+		return PrefixSourcePaths(listing, prefix);
+	}
+
+	// A prefix watch names a file-name stem inside one directory, because the listing that
+	// inventories it is not recursive. A prefix that names a directory would be compared against
+	// every file beneath it while none of them is inventoried, so it is a manifest error rather
+	// than a watch that does or does not resolve. A sibling directory sharing the stem is unrelated.
+	private static IReadOnlyList<string> PrefixSourcePaths(JsonElement listing, string prefix)
+	{
 		if (listing.ValueKind != JsonValueKind.Array || listing.GetArrayLength() >= 1000)
 		{
 			throw new MonitorFailure(InvalidInventory);
 		}
+		var directory = ParentDirectory(prefix);
 		var paths = new SortedSet<string>(StringComparer.Ordinal);
 		var seen = new HashSet<string>(StringComparer.Ordinal);
 		foreach (var entry in listing.EnumerateArray())
 		{
 			var path = EntryPath(entry, directory);
+			var type = EntryType(entry);
 			if (!seen.Add(path))
 			{
 				throw new MonitorFailure("GitHub directory inventory repeated a path.");
 			}
-			if (IsFile(entry) && path.StartsWith(prefix, StringComparison.Ordinal))
+			if (type == "dir" && path.Equals(prefix, StringComparison.Ordinal))
+			{
+				throw new MonitorFailure($"Prefix watch '{prefix}' names an upstream directory. A prefix watch names a file-name stem inside one directory.");
+			}
+			if (type == "file" && path.StartsWith(prefix, StringComparison.Ordinal))
 			{
 				paths.Add(path);
 			}
 		}
 		return paths.ToArray();
+	}
+
+	private static string ParentDirectory(string path)
+	{
+		var separator = path.LastIndexOf('/');
+		return separator < 0 ? "" : path[..separator];
 	}
 
 	private static string EntryPath(JsonElement entry, string directory)
@@ -65,12 +78,15 @@ internal sealed partial class UpstreamRepository
 		return path;
 	}
 
-	private static bool IsFile(JsonElement entry) => RequiredString(entry, "type") switch
+	private static bool IsFile(JsonElement entry) => EntryType(entry) == "file";
+
+	private static string EntryType(JsonElement entry)
 	{
-		"file" => true,
-		"dir" or "symlink" or "submodule" => false,
-		_ => throw new MonitorFailure("GitHub directory inventory contained an unsupported entry type."),
-	};
+		var type = RequiredString(entry, "type");
+		return type is "file" or "dir" or "symlink" or "submodule"
+			? type
+			: throw new MonitorFailure("GitHub directory inventory contained an unsupported entry type.");
+	}
 
 	private static string RequiredString(JsonElement entry, string name)
 	{
