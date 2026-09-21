@@ -130,23 +130,4 @@ public sealed class TargetFrameworkDeclarationPolicyTests
 
 		Assert.Empty(untracked);
 	}
-
-	private sealed class ConditionalRepository : IDisposable
-	{
-		public ConditionalRepository(string fixture, string symbol = "")
-		{
-			Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"htmxor-target-framework-{Guid.NewGuid():N}");
-			var destination = System.IO.Path.Combine(Path, "src", "Htmxor");
-			Directory.CreateDirectory(destination);
-			foreach (var source in Directory.EnumerateFiles(System.IO.Path.Combine(AppContext.BaseDirectory, "Fixtures", "target-framework-dependencies", fixture), "*.cs"))
-			{
-				File.WriteAllText(System.IO.Path.Combine(destination, System.IO.Path.GetFileName(source)),
-					File.ReadAllText(source).Replace("TARGET_FRAMEWORK_SYMBOL", symbol, StringComparison.Ordinal));
-			}
-		}
-
-		public string Path { get; }
-
-		public void Dispose() => Directory.Delete(Path, recursive: true);
-	}
 }

@@ -350,35 +350,4 @@ public sealed class ManifestDependencyPolicyTests
 			},
 			relationship: relationship,
 			dependencies: dependencies);
-
-	private sealed class TemporaryRepository : IDisposable
-	{
-		public TemporaryRepository()
-		{
-			Path = System.IO.Path.Combine(
-				System.IO.Path.GetTempPath(),
-				$"htmxor-upstream-monitor-{Guid.NewGuid():N}");
-			Directory.CreateDirectory(Path);
-		}
-
-		public string Path { get; }
-
-		public void WriteFixture(string fixture)
-		{
-			var directory = System.IO.Path.Combine(AppContext.BaseDirectory, "Fixtures", "dependencies", fixture);
-			foreach (var file in Directory.GetFiles(directory, "*.cs"))
-			{
-				Write($"src/Htmxor/{System.IO.Path.GetFileName(file)}", File.ReadAllText(file));
-			}
-		}
-
-		public void Write(string relativePath, string contents = "")
-		{
-			var path = System.IO.Path.Combine(Path, relativePath);
-			Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-			File.WriteAllText(path, contents);
-		}
-
-		public void Dispose() => Directory.Delete(Path, recursive: true);
-	}
 }
