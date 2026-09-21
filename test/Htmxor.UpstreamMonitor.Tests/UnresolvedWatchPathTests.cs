@@ -85,6 +85,30 @@ public sealed class UnresolvedWatchPathTests
 		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, WrongFilePath);
 	}
 
+	[Theory]
+	[InlineData(System.Net.HttpStatusCode.ServiceUnavailable, "503")]
+	[InlineData(System.Net.HttpStatusCode.Forbidden, "403")]
+	public async Task Outage_while_resolving_a_watch_is_an_infrastructure_error_not_an_unresolved_path(
+		System.Net.HttpStatusCode status, string expectedCode)
+	{
+		// TryGetAsync answers null only for 404 ("the path is not there at this ref"); every other
+		// non-success status must still throw, or a rate limit or outage during resolution is
+		// reported as a manifest defect — an unresolved-watch review issue and exit 3 for a path
+		// that may be perfectly correct, asserting a fact about upstream this run never observed.
+		var watch = Fixture.Watch(WrongFilePath);
+		var transport = UnrelatedChangeTransport();
+		transport.AddStatus(
+			$"/repos/dotnet/aspnetcore/contents/{WrongFilePath}?ref={Fixture.BaselineCommit}",
+			status);
+
+		var result = await Fixture.Application(transport).RunAsync(ProviderInventoryTests.Request(watch));
+
+		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
+		Assert.Contains(expectedCode, result.InfrastructureError!, StringComparison.Ordinal);
+		Assert.Empty(result.Issues);
+		Assert.DoesNotContain(WrongFilePath, result.JsonReport, StringComparison.Ordinal);
+	}
+
 	[Fact]
 	public async Task Prefix_watch_matching_no_upstream_files_is_not_reported_as_current()
 	{
@@ -123,11 +147,12 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task Unresolved_watch_path_is_not_reported_as_current_when_upstream_has_not_moved()
 	{
-		// RunAsync returns Current before examining any watch whenever upstream has not moved
-		// past the reviewed commit (UpstreamMonitorApplication.cs:14-17) — the common steady
-		// state, and the state most runs are in. A fix placed only inside CompareWatchedAsync
-		// would leave this path unresolved: criterion 1 is stated against the reviewed commit,
-		// not against the existence of drift.
+		// Before this fix, UpstreamMonitorApplication.RunAsync's steady-state branch (upstream
+		// has not moved past the reviewed commit) returned Current directly without resolving any
+		// watch — the common steady state, and the state most runs are in. This test guards
+		// against that regression: a fix placed only inside CompareWatchedAsync would leave this
+		// path unresolved, because criterion 1 is stated against the reviewed commit, not against
+		// the existence of drift.
 		var watch = Fixture.Watch(WrongFilePath);
 		var transport = new FakeGitHubTransport();
 		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
@@ -166,6 +191,28 @@ public sealed class UnresolvedWatchPathTests
 		Assert.Contains(ExpectedMonitorArtifacts.Invoker, result.MarkdownReport, StringComparison.Ordinal);
 		Assert.Contains(WrongFilePath, result.JsonReport, StringComparison.Ordinal);
 		Assert.Contains(WrongFilePath, result.MarkdownReport, StringComparison.Ordinal);
+
+		// The four Contains checks above cannot tell a dedicated unresolved channel from the
+		// ordinary drift channel: both simply put the path in the report text, so a
+		// counter-implementation that rendered WrongFilePath as an ordinary source-change row
+		// (drift's own channel) would satisfy every one of them. Criterion 3 requires the two
+		// states to be distinguishable, so this run — the only fixture with a real drift row and
+		// an unresolved path together — also pins each path to its own JSON key and Markdown
+		// section, and the other path's absence from it.
+		using var json = JsonDocument.Parse(result.JsonReport);
+		var unresolvedWatchPaths = json.RootElement.GetProperty("unresolvedWatchPaths")
+			.EnumerateArray().Select(element => element.GetString()).ToArray();
+		var sourceChangePaths = json.RootElement.GetProperty("sourceChanges")
+			.EnumerateArray().Select(element => element.GetProperty("path").GetString()).ToArray();
+		Assert.Contains(WrongFilePath, unresolvedWatchPaths);
+		Assert.DoesNotContain(WrongFilePath, sourceChangePaths);
+		Assert.Contains(ExpectedMonitorArtifacts.Invoker, sourceChangePaths);
+
+		var sourceChangesSection = MarkdownSection(result.MarkdownReport, "## Source changes", "## API changes");
+		var unresolvedSection = MarkdownSection(result.MarkdownReport, "## Unresolved watch paths", nextHeading: null);
+		Assert.Contains(ExpectedMonitorArtifacts.Invoker, sourceChangesSection, StringComparison.Ordinal);
+		Assert.DoesNotContain(WrongFilePath, sourceChangesSection, StringComparison.Ordinal);
+		Assert.Contains(WrongFilePath, unresolvedSection, StringComparison.Ordinal);
 
 		// The reports alone do not prove the drift finding reaches a human: MonitorReports.
 		// IssuesFor derives the drift issue from `sources`/`apis` and the unresolved issue from
@@ -234,6 +281,18 @@ public sealed class UnresolvedWatchPathTests
 		Assert.Contains(path, result.MarkdownReport, StringComparison.Ordinal);
 		var issue = Assert.Single(result.Issues);
 		Assert.Contains(path, issue.Body, StringComparison.Ordinal);
+	}
+
+	// Isolates one heading's own body from MonitorReports.Markdown's single concatenated string, so
+	// a path found "in the Markdown report" can be pinned to the specific section that names it
+	// rather than merely being present somewhere in the whole document.
+	private static string MarkdownSection(string markdown, string heading, string? nextHeading)
+	{
+		var start = markdown.IndexOf(heading, StringComparison.Ordinal);
+		Assert.True(start >= 0, $"Markdown report does not contain '{heading}'.");
+		var end = nextHeading is null ? markdown.Length : markdown.IndexOf(nextHeading, start, StringComparison.Ordinal);
+		Assert.True(end >= 0, $"Markdown report does not contain '{nextHeading}' after '{heading}'.");
+		return markdown[start..end];
 	}
 
 	// The wrong or unmatched watch path can never appear in a real GitHub compare response, so an

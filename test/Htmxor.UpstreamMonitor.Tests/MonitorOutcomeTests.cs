@@ -128,7 +128,7 @@ public sealed class MonitorOutcomeTests
 	[Fact]
 	public async Task Mixed_run_writes_both_issues_and_returns_the_last_one_attempted()
 	{
-		// GitHubIssueUpserter.UpsertAsync's per-issue loop (GitHubIssueUpserter.cs:24-36) is the
+		// GitHubIssueUpserter.UpsertAsync's per-issue `foreach` loop over `result.Issues` is the
 		// exact seam both prior complete-change review rounds' P1 findings pointed at, one layer
 		// up each time: first the run-level resolution gate, then MonitorReports.IssuesFor's
 		// status-derived single issue. A regression that wrote only Issues[0] (or `.Last()`, or

@@ -14,7 +14,7 @@ public sealed class UnresolvedWatchConsoleTests
 	public async Task Exit_code_for_an_unresolved_watch_path_is_neither_current_nor_infrastructure_error()
 	{
 		// docs/agents/testing.md documents exit 0/1/2 as Current/Drift/InfrastructureError, and
-		// Program.cs:57 returns `(int)status` directly — a pre-existing, documented contract this
+		// Program.RunAsync returns `(int)status` directly — a pre-existing, documented contract this
 		// test does not touch or extend. `!= 0` is required directly by acceptance criterion 1
 		// ("a non-current result"). `!= 2` is defense-in-depth at this same CLI surface for a
 		// counter-implementation MonitorOutcomeTests.Current_or_infrastructure_outcome_never_
@@ -75,8 +75,8 @@ public sealed class UnresolvedWatchConsoleTests
 	[Fact]
 	public async Task Unresolved_watch_path_in_one_framework_is_not_masked_by_a_current_framework_in_the_same_run()
 	{
-		// Program.cs:48 aggregates a multi-framework run's exit code with `results.Max(...)`, an
-		// ordinal comparison across MonitorStatus. No existing console-level test exercises that
+		// Program.cs's multi-framework branch aggregates the run's exit code across frameworks with an
+		// ordinal Max over MonitorStatus. No existing console-level test exercises that
 		// aggregation across differing statuses from multiple frameworks in one invocation. This
 		// does not pin where the new status sits in the enum declaration or a specific integer —
 		// only that a run cannot exit 0 (Current) merely because one configured framework
@@ -126,19 +126,19 @@ public sealed class UnresolvedWatchConsoleTests
 	[Fact]
 	public async Task Infrastructure_error_in_one_framework_is_not_masked_by_an_unresolved_watch_in_another_framework_in_the_same_run()
 	{
-		// The amended Verification contract's row for Program.cs:49,57 covers the
-		// InfrastructureError special case alongside the exit-code cast. Program.cs:48's ordinal
-		// `Max` means a naive fix that simply appends the new status after InfrastructureError in
-		// the MonitorStatus declaration — the least-disruptive-looking change, since it leaves
-		// Current/Drift/InfrastructureError's existing 0/1/2 exit codes untouched for every other
-		// already-passing test — would let an unresolved-but-known finding in one framework
-		// outrank a genuine provider/tool failure in another framework for exit-code purposes.
-		// Exit code 2 is InfrastructureError's pre-existing, documented meaning (docs/agents/
-		// testing.md), not the new status's own ordinal: this asserts the existing outcome must
-		// still win when both are present in one run, without saying how the Implementor achieves
-		// that (a non-sequential explicit enum value, or an aggregation that checks
-		// InfrastructureError before falling back to ordinal Max, are both compatible with this
-		// assertion).
+		// The amended Verification contract's row for Program.RunAsync's InfrastructureError
+		// precedence covers that special case alongside the exit-code cast. Program.RunAsync's
+		// ordinal `Max` fallback means a naive fix that simply appended the new status after
+		// InfrastructureError in the MonitorStatus declaration — the least-disruptive-looking
+		// change, since it leaves Current/Drift/InfrastructureError's existing 0/1/2 exit codes
+		// untouched for every other already-passing test — would let an unresolved-but-known
+		// finding in one framework outrank a genuine provider/tool failure in another framework
+		// for exit-code purposes. Exit code 2 is InfrastructureError's pre-existing, documented
+		// meaning (docs/agents/testing.md), not the new status's own ordinal: this asserts the
+		// existing outcome must still win when both are present in one run, without saying how
+		// the Implementor achieves that (a non-sequential explicit enum value, or an aggregation
+		// that checks InfrastructureError before falling back to ordinal Max, are both
+		// compatible with this assertion).
 		using var workspace = MultiTargetWorkspace(WrongFilePath, api: "none", relationship: "reimplements");
 		var transport = new FakeGitHubTransport();
 		transport.AddStatus("/repos/dotnet/aspnetcore/releases?per_page=100", System.Net.HttpStatusCode.ServiceUnavailable);
@@ -166,7 +166,7 @@ public sealed class UnresolvedWatchConsoleTests
 	[Fact]
 	public async Task Unresolved_watch_path_review_issue_is_created_on_github()
 	{
-		// GitHubIssueUpserter.UpsertAsync (GitHubIssueUpserter.cs:9) gates the actual write on
+		// GitHubIssueUpserter.UpsertAsync gates the actual write on
 		// `result.Status`, a second, independent status check in a different file from the one
 		// that populates MonitorResult.Issues (MonitorReports.Create). A fix that only widens
 		// MonitorReports.Create would leave this path silently unresolved: the in-memory Issues
