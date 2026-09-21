@@ -88,14 +88,16 @@ public sealed class UnresolvedWatchConsoleTests
 		// broken aggregation that simply propagated one framework's result unchanged would still
 		// have passed. Stubbing WrongFilePath's contents at net10.0's own reviewed commit
 		// (Fixture.ReviewedCommit) makes net10.0 genuinely Current: upstream has not moved past
-		// its baseline, and the watch now resolves there. net11.0 is left exactly as before — its
-		// tag still resolves past its own baseline, and WrongFilePath still has no contents stub
-		// at net11.0's baseline — so it stays UnresolvedWatch. net10.0 is listed first in the
-		// manifest, ahead of the UnresolvedWatch net11.0 result, so this fixture also rules out a
-		// broken aggregation that simply returns the first framework's result outright: that
-		// would report Current (exit 0), which this test's assertion catches. (net11.0 first,
-		// net10.0 second, would not: Max() and First() agree whenever the first entry already
-		// happens to be the worse status.)
+		// its baseline, and the watch now resolves there. net11.0's own resolution setup is left
+		// exactly as before — its tag still resolves past its own baseline, and WrongFilePath
+		// still has no contents stub at net11.0's baseline — so it still resolves to
+		// UnresolvedWatch, provided its issue write below is stubbed so the run does not convert
+		// it to InfrastructureError before the aggregation this test exists to weigh ever sees it.
+		// net10.0 is listed first in the manifest, ahead of the UnresolvedWatch net11.0 result, so
+		// this fixture also rules out a broken aggregation that simply returns the first
+		// framework's result outright: that would report Current (exit 0), which this test's
+		// assertion catches. (net11.0 first, net10.0 second, would not: Max() and First() agree
+		// whenever the first entry already happens to be the worse status.)
 		using var workspace = MultiTargetWorkspace(WrongFilePath, api: "none", relationship: "reimplements");
 		var transport = new FakeGitHubTransport();
 		transport.AddJson("/repos/dotnet/aspnetcore/releases?per_page=100", Fixture.Read("github/releases.json"));
@@ -109,10 +111,16 @@ public sealed class UnresolvedWatchConsoleTests
 		transport.AddJson(
 			$"/repos/dotnet/aspnetcore/compare/{Fixture.Net11ReviewedCommit}...{Fixture.TargetCommit}",
 			JsonSerializer.Serialize(new { files = new[] { new { filename = "src/Unrelated/File.cs", status = "modified" } } }));
+		// net11.0's unresolved watch files a review issue, so the issue endpoints must be stubbed.
+		// Unstubbed they 404, UpsertAsync's catch turns that into a write failure, and Program
+		// rebuilds net11.0's result as InfrastructureError before the aggregation ever sees the
+		// UnresolvedWatch status this test exists to weigh.
+		transport.AddJson("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", "[]");
+		transport.AddJson("/repos/egil/Htmxor/issues", "{\"number\":42,\"state\":\"open\"}");
 
 		var observation = await RunAsync(workspace, transport, []);
 
-		Assert.NotEqual(0, observation.ExitCode);
+		Assert.Equal(3, observation.ExitCode);
 	}
 
 	[Fact]
@@ -140,10 +148,19 @@ public sealed class UnresolvedWatchConsoleTests
 		transport.AddJson(
 			$"/repos/dotnet/aspnetcore/compare/{Fixture.Net11ReviewedCommit}...{Fixture.TargetCommit}",
 			JsonSerializer.Serialize(new { files = new[] { new { filename = "src/Unrelated/File.cs", status = "modified" } } }));
+		// net11.0 must stay UnresolvedWatch for the two statuses to actually compete: without these
+		// stubs its issue write 404s and Program rebuilds it as InfrastructureError, leaving both
+		// frameworks at 2, where plain ordinal Max would answer 2 as well.
+		transport.AddJson("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", "[]");
+		transport.AddJson("/repos/egil/Htmxor/issues", "{\"number\":42,\"state\":\"open\"}");
 
 		var observation = await RunAsync(workspace, transport, []);
 
 		Assert.Equal(2, observation.ExitCode);
+		using var report = JsonDocument.Parse(observation.JsonReport!);
+		var frameworks = report.RootElement.GetProperty("frameworks").EnumerateArray().ToArray();
+		Assert.Equal("infrastructure-error", FrameworkStatus(frameworks, "net10.0"));
+		Assert.Equal("unresolved-watch", FrameworkStatus(frameworks, "net11.0"));
 	}
 
 	[Fact]
@@ -200,6 +217,10 @@ public sealed class UnresolvedWatchConsoleTests
 		Assert.Contains(WrongFilePath, observation.JsonReport, StringComparison.Ordinal);
 		Assert.Contains(WrongFilePath, observation.MarkdownReport, StringComparison.Ordinal);
 	}
+
+	private static string FrameworkStatus(IReadOnlyList<JsonElement> frameworks, string targetFramework) =>
+		frameworks.Single(framework => framework.GetProperty("targetFramework").GetString() == targetFramework)
+			.GetProperty("report").GetProperty("status").GetString()!;
 
 	private static TemporaryMonitorWorkspace SingleWatchWorkspace(string path)
 	{
