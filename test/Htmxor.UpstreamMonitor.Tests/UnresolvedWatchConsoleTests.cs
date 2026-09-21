@@ -45,12 +45,12 @@ public sealed class UnresolvedWatchConsoleTests
 	[Fact]
 	public async Task Unresolved_watch_path_in_one_framework_is_not_masked_by_a_current_framework_in_the_same_run()
 	{
-		// Program.cs's multi-framework branch aggregates the run's exit code across frameworks with an
-		// ordinal Max over MonitorStatus. No existing console-level test exercises that
-		// aggregation across differing statuses from multiple frameworks in one invocation. This
-		// does not pin where the new status sits in the enum declaration or a specific integer —
-		// only that a run cannot exit 0 (Current) merely because one configured framework
-		// happened to be clean while another carried an unresolved watch.
+		// Program.cs aggregates a multi-framework run's exit code by letting InfrastructureError win
+		// outright and falling back to an ordinal Max over MonitorStatus for every other
+		// combination; the sibling test below pins the InfrastructureError half. This one pins the
+		// fallback half: a run must not exit 0 (Current) merely because one configured framework
+		// happened to be clean while another carried an unresolved watch, and 3 is the unresolved
+		// framework's own documented exit code (docs/agents/testing.md).
 		//
 		// The fixture must make the two frameworks genuinely differ. Stubbing WrongFilePath's
 		// contents at net10.0's reviewed commit makes net10.0 Current: upstream has not moved past
