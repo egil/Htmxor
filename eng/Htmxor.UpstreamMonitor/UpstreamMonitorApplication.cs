@@ -46,11 +46,12 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			files, sources, apis, cancellationToken);
 	}
 
-	// Silence is a property of each watch, not of the run. A watch that appeared in the changed-file
-	// list is proven to exist by the diff itself; every other watch is resolved against the reviewed
-	// commit, whether or not some unrelated watch drifted in the same run. Gating this on the run
-	// having nothing else to report would leave the other 51 entries of a 52-entry manifest
-	// unchecked for as long as any one of them keeps drifting, which is the #219 failure itself.
+	// Silence is a property of each watch, not of the run. A watch the compare already speaks to is
+	// reported through its own source change and needs no separate existence check; every other
+	// watch is resolved against the reviewed commit, whether or not some unrelated watch drifted in
+	// the same run. Gating this on the run having nothing else to report would leave the other 51
+	// entries of a 52-entry manifest unchecked for as long as any one of them keeps drifting, which
+	// is the #219 failure itself.
 	private static async Task<MonitorResult> ReportAsync(MonitorRequest request, UpstreamRevision upstream,
 		UpstreamRepository repository, string baseline, IReadOnlyList<ChangedFile> files,
 		IReadOnlyList<SourceChange> sources, IReadOnlyList<ApiChange> apis, CancellationToken cancellationToken)
