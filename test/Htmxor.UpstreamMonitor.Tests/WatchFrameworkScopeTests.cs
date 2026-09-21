@@ -13,32 +13,34 @@ public sealed class WatchFrameworkScopeTests
 	private const string ComponentPath = "src/Components/Components/src/ComponentBase.cs";
 	private const string NavigationManagerPath = "src/Components/Components/src/NavigationManager.cs";
 
-	// The twelve watches identified in the issue as answering for only one framework's
-	// local `#if`-gated dependency. Annotating these is the Implementor's production work;
-	// this fixes their expected `frameworks` scope so the test fails until that lands.
-	public static TheoryData<string, string> Net11OnlyWatches => new()
+	// The twelve upstream dependencies the issue identifies as serving a single framework's
+	// local dependency, with the framework each is expected to declare. One upstream path
+	// (TempDataProviderServiceCollectionExtensions.cs) resolves to two watches under
+	// different relationships, so this theory carries thirteen cases.
+	public static TheoryData<string, string, string> FrameworkScopedWatches => new()
 	{
-		{ "src/Components/Endpoints/src/CacheView/CacheView.cs", "net11.0" },
-		{ "src/Components/Endpoints/src/CacheView/CacheViewRenderState.cs", "net11.0" },
-		{ "src/Components/Endpoints/src/CacheView/CacheViewService.cs", "net11.0" },
-		{ "src/Components/Endpoints/src/DependencyInjection/TempDataService.cs", "net11.0" },
-		{ "src/Components/Endpoints/src/Rendering/CacheViewTextWriter.cs", "net11.0" },
-		{ "src/Components/Endpoints/src/SessionCascadingValueSupplier.cs", "net11.0" },
-		{ "src/Components/Endpoints/src/TempData/TempDataCascadingValueSupplier.cs", "net11.0" },
-		{ "src/Components/Endpoints/src/TempData/TempDataProviderServiceCollectionExtensions.cs", "net11.0" },
-		{ "src/Components/Shared/src/ComponentKeyHelper.cs", "net11.0" },
-		{ "src/Components/Shared/src/RenderFragmentCapture.cs", "net11.0" },
-		{ "src/Shared/MiddlewareInvokedKeys.cs", "net11.0" },
-		{ "src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs", "net10.0" },
+		{ "src/Components/Endpoints/src/CacheView/CacheView.cs", "PrivateAccesses", "net11.0" },
+		{ "src/Components/Endpoints/src/CacheView/CacheViewRenderState.cs", "PrivateAccesses", "net11.0" },
+		{ "src/Components/Endpoints/src/CacheView/CacheViewService.cs", "PrivateAccesses", "net11.0" },
+		{ "src/Components/Endpoints/src/DependencyInjection/TempDataService.cs", "PrivateAccesses", "net11.0" },
+		{ "src/Components/Endpoints/src/Rendering/CacheViewTextWriter.cs", "PrivateAccesses", "net11.0" },
+		{ "src/Components/Endpoints/src/SessionCascadingValueSupplier.cs", "PrivateAccesses", "net11.0" },
+		{ "src/Components/Endpoints/src/TempData/TempDataCascadingValueSupplier.cs", "PrivateAccesses", "net11.0" },
+		{ "src/Components/Endpoints/src/TempData/TempDataProviderServiceCollectionExtensions.cs", "PrivateAccesses", "net11.0" },
+		{ "src/Components/Endpoints/src/TempData/TempDataProviderServiceCollectionExtensions.cs", "Reimplements", "net11.0" },
+		{ "src/Components/Shared/src/ComponentKeyHelper.cs", "Mirrors", "net11.0" },
+		{ "src/Components/Shared/src/RenderFragmentCapture.cs", "PrivateAccesses", "net11.0" },
+		{ "src/Shared/MiddlewareInvokedKeys.cs", "Mirrors", "net11.0" },
+		{ "src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs", "Reimplements", "net10.0" },
 	};
 
-	// Criterion 1 (green baseline): the thirty-six unannotated watches behave exactly as
-	// before. Two ordinary, unscoped watches each cover the dependency discovered for their
-	// own framework, exactly as `Covered` already does today, ignoring framework entirely.
+	// Criterion 1 (green baseline): the thirty-six unannotated watches apply to every
+	// configured framework, so each of these ordinary, unscoped watches covers the
+	// dependency discovered for its own framework.
 	[Fact]
 	public void Unannotated_watches_cover_dependencies_discovered_for_every_configured_framework()
 	{
-		using var repository = new TwoFrameworkRepository();
+		using var repository = new ConditionalRepository("per-target-symbols");
 		var manifest = Fixture.MultiTargetManifest(
 			Fixture.Watch(ComponentPath, relationship: WatchRelationship.Subclasses, dependencies: [LocalPath]),
 			Fixture.Watch(NavigationManagerPath, relationship: WatchRelationship.Subclasses, dependencies: [LocalPath]));
@@ -49,12 +51,12 @@ public sealed class WatchFrameworkScopeTests
 	}
 
 	// Criterion 1 (schema): the manifest reader must parse an explicit `frameworks` list onto
-	// its watch. Nothing parses it yet, so `Frameworks` stays null.
+	// its watch.
 	[Fact]
 	public void A_watch_frameworks_list_is_parsed_from_the_manifest()
 	{
-		using var repository = new TemporaryManifestRepository();
-		repository.WriteManifest($$"""
+		using var repository = new TemporaryRepository();
+		repository.Write("eng/Htmxor.UpstreamMonitor/upstream-watch.json", $$"""
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
@@ -79,14 +81,13 @@ public sealed class WatchFrameworkScopeTests
 	}
 
 	// Criterion 2: an unknown framework name on a watch must be rejected, naming both the
-	// watch path and the unknown name. Nothing validates the property today, so it is
-	// silently ignored instead of throwing.
+	// watch path and the unknown name.
 	[Fact]
 	public void Unknown_framework_name_on_a_watch_is_rejected_naming_the_watch_and_the_unknown_name()
 	{
-		using var repository = new TemporaryManifestRepository();
+		using var repository = new TemporaryRepository();
 		const string watchPath = "src/Components/Endpoints/src/Forms/Provider.cs";
-		repository.WriteManifest($$"""
+		repository.Write("eng/Htmxor.UpstreamMonitor/upstream-watch.json", $$"""
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
@@ -108,68 +109,36 @@ public sealed class WatchFrameworkScopeTests
 		Assert.Contains("net12.0", exception.Message, StringComparison.Ordinal);
 	}
 
-	// Criteria 3 and 5: a watch scoped to net11.0 only must not cover a dependency discovered
-	// for net10.0, even though its upstream path, relationship, and local dependency all
-	// match. `Covered` ignores `Frameworks` entirely today, so the scoped watch silently
-	// covers the wrong framework's dependency and this reports nothing.
+	// Criteria 3 and 5: a watch scoped to net11.0 must not cover the net10.0 dependency that
+	// otherwise matches its upstream path, relationship, and local dependency, while a second
+	// watch scoped to net11.0 still covers its own framework's dependency.
 	[Fact]
 	public void Watch_scoped_to_one_framework_does_not_cover_a_dependency_discovered_for_another_framework()
 	{
-		using var repository = new TwoFrameworkRepository();
+		using var repository = new ConditionalRepository("per-target-symbols");
 		var manifest = Fixture.MultiTargetManifest(
-			Fixture.ScopedWatch(ComponentPath, ["net11.0"], relationship: WatchRelationship.Subclasses, dependencies: [LocalPath]),
-			Fixture.Watch(NavigationManagerPath, relationship: WatchRelationship.Subclasses, dependencies: [LocalPath]));
+			Fixture.Watch(ComponentPath, relationship: WatchRelationship.Subclasses, dependencies: [LocalPath]) with { Frameworks = ["net11.0"] },
+			Fixture.Watch(NavigationManagerPath, relationship: WatchRelationship.Subclasses, dependencies: [LocalPath]) with { Frameworks = ["net11.0"] });
 
 		var untracked = ManifestDependencyPolicy.FindUntrackedDependencies(repository.Path, manifest);
 
 		Assert.Equal([new LocalFrameworkDependency(LocalPath, ComponentPath, WatchRelationship.Subclasses)], untracked);
 	}
 
-	// Criterion 4: the twelve watches identified in the issue must declare the single
-	// framework they actually serve. Annotating `upstream-watch.json` is the Implementor's
-	// production work; today none of them carry a `frameworks` property, and the reader does
-	// not parse one, so every `Frameworks` reads back null instead of the expected scope.
+	// Criterion 4: the twelve upstream dependencies identified in the issue must declare the
+	// single framework each actually serves. The TempData path selects by relationship as
+	// well because it names two distinct watches, one per relationship.
 	[Theory]
-	[MemberData(nameof(Net11OnlyWatches))]
-	public void Committed_manifest_annotates_the_framework_specific_watch_with_its_scope(string upstreamPath, string expectedFramework)
+	[MemberData(nameof(FrameworkScopedWatches))]
+	public void Committed_manifest_annotates_the_framework_specific_watch_with_its_scope(
+		string upstreamPath, string relationshipName, string expectedFramework)
 	{
 		var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
 		var manifest = WatchManifestFile.Read(repositoryRoot);
+		var relationship = Enum.Parse<WatchRelationship>(relationshipName);
 
-		var watch = manifest.Targets.Single(target => target.Path == upstreamPath);
+		var watch = manifest.Targets.Single(target => target.Path == upstreamPath && target.Relationship == relationship);
 
 		Assert.Equal([expectedFramework], watch.Frameworks);
-	}
-
-	private sealed class TwoFrameworkRepository : IDisposable
-	{
-		public TwoFrameworkRepository()
-		{
-			Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"htmxor-watch-frameworks-{Guid.NewGuid():N}");
-			var destination = System.IO.Path.Combine(Path, "src", "Htmxor");
-			Directory.CreateDirectory(destination);
-			var source = System.IO.Path.Combine(AppContext.BaseDirectory, "Fixtures", "target-framework-dependencies", "per-target-symbols", "Dependency.cs");
-			File.Copy(source, System.IO.Path.Combine(destination, "Dependency.cs"));
-		}
-
-		public string Path { get; }
-
-		public void Dispose() => Directory.Delete(Path, recursive: true);
-	}
-
-	private sealed class TemporaryManifestRepository : IDisposable
-	{
-		public TemporaryManifestRepository()
-		{
-			Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"htmxor-watch-manifest-{Guid.NewGuid():N}");
-			Directory.CreateDirectory(System.IO.Path.Combine(Path, "eng", "Htmxor.UpstreamMonitor"));
-		}
-
-		public string Path { get; }
-
-		public void WriteManifest(string json) =>
-			File.WriteAllText(System.IO.Path.Combine(Path, "eng", "Htmxor.UpstreamMonitor", "upstream-watch.json"), json);
-
-		public void Dispose() => Directory.Delete(Path, recursive: true);
 	}
 }
