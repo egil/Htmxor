@@ -47,10 +47,11 @@ internal static class WatchManifestFile
 		{
 			throw new MonitorFailure($"Watch '{path}' declares an empty frameworks list. Omit the list to watch every configured framework.");
 		}
-		foreach (var name in names.Where(name => !frameworks.Any(framework =>
-			framework.TargetFramework.Equals(name, StringComparison.Ordinal))))
+		var unknown = names.FirstOrDefault(name => !frameworks.Any(framework =>
+			framework.TargetFramework.Equals(name, StringComparison.Ordinal)));
+		if (unknown is not null)
 		{
-			throw new MonitorFailure($"Watch '{path}' declares framework '{name}', which the manifest does not configure.");
+			throw new MonitorFailure($"Watch '{path}' declares framework '{unknown}', which the manifest does not configure.");
 		}
 		return names;
 	}

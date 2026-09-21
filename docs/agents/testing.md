@@ -129,7 +129,10 @@ Source-owned provenance markers have the exact form
 relationship is `mirrors`, `reimplements`, or `private-accesses`. Maintain each
 marker alongside its local dependency and matching manifest watch.
 `private-accesses` describes narrow cached, fail-fast access to private provider
-metadata; use `api: none`. Every watched addition, removal, or change is a
+metadata; use `api: none`. A watch may add `frameworks` to name the target
+frameworks whose upstream baseline carries its path; omit it when every
+configured framework does. An empty list and an unconfigured name are both
+manifest errors. The list scopes manifest coverage only, not drift comparison. Every watched addition, removal, or change is a
 compatibility risk. Mirrored and reimplemented sources still require parity
 review. EndpointHtmlRenderer EventDispatch remains covered by its reimplementation
 prefix watch.
