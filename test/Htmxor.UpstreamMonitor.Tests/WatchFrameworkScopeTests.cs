@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Htmxor.UpstreamMonitor;
 
 namespace Htmxor.UpstreamMonitor.Tests;
@@ -302,5 +303,79 @@ public sealed class WatchFrameworkScopeTests
 
 		Assert.Equal(MonitorStatus.Drift, result.Status);
 		Assert.Equal([new SourceChange(path, ChangeKind.Changed, ReviewClassification.ParityRequired)], result.SourceChanges);
+	}
+
+	// Issue #232's own resolution loop (`UpstreamMonitorApplication.ReportAsync`) does not yet
+	// consult `Frameworks` at all: it resolves every watch absent from the compare against
+	// whichever framework's baseline the running request measures, regardless of which
+	// framework(s) the watch names. A watch scoped to net10.0 only must be resolved against
+	// net10.0's baseline, and must not be resolved — in either direction — against net11.0's:
+	// both runs are steady state (the requested tag resolves to each framework's own reviewed
+	// commit), so no compare stub is needed and the only question is whether resolution runs at
+	// all for the framework the watch does not name.
+	[Fact]
+	public async Task Watch_scoped_to_one_framework_is_resolved_only_against_that_frameworks_baseline()
+	{
+		const string path = "src/Components/Endpoints/src/CacheView/ScopedOnlyToNet10.cs";
+		var watch = Fixture.Watch(path) with { Frameworks = ["net10.0"] };
+		var manifest = Fixture.MultiTargetManifest(watch);
+
+		var net10Transport = new FakeGitHubTransport();
+		net10Transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
+		var net10Result = await Fixture.Application(net10Transport)
+			.RunAsync(new MonitorRequest(manifest, 10, RequestedTag: "v10.0.11"));
+
+		var net11Transport = new FakeGitHubTransport();
+		net11Transport.AddJson(
+			$"/repos/dotnet/aspnetcore/git/ref/tags/{Fixture.Net11ReviewedTag}",
+			JsonSerializer.Serialize(new { @object = new { type = "commit", sha = Fixture.Net11ReviewedCommit } }));
+		var net11Result = await Fixture.Application(net11Transport).RunAsync(new MonitorRequest(manifest, 11));
+
+		// The framework the watch names: absent from the (empty) steady-state compare and
+		// unstubbed at its own baseline, so it must still be reported unresolved.
+		Assert.Equal(MonitorStatus.UnresolvedWatch, net10Result.Status);
+		Assert.Contains(path, net10Result.JsonReport, StringComparison.Ordinal);
+
+		// The framework the watch does not name: the same unstubbed path must never be resolved
+		// against net11.0's baseline at all, so the run reports Current rather than a false
+		// "does not exist upstream" for a dependency this watch never claimed there.
+		Assert.Equal(MonitorStatus.Current, net11Result.Status);
+		Assert.DoesNotContain(path, net11Result.JsonReport, StringComparison.Ordinal);
+	}
+
+	// The loop reads `Targets.DistinctBy(watch => (watch.Path, watch.Match))` before anything
+	// else. Two entries sharing a path and match but differing only in scope must not let
+	// whichever survives that collapse decide applicability on its own: applicability has to be
+	// decided per watch before the collapse, so that any entry naming the framework being
+	// measured keeps the path in the loop even when a differently-scoped sibling for the same
+	// path would otherwise stand in for it. `netOtherOnly` is listed first specifically so a fix
+	// that filters by `Frameworks` only after `DistinctBy` has already picked its survivor — the
+	// literal reading of "decide, then collapse" reversed — keeps `netOtherOnly` (scoped away
+	// from net10.0) as that survivor and drops `netThisOnly` unseen, never resolving this path
+	// for net10.0 at all. The committed manifest already has two entries sharing a path and
+	// match (`TempDataProviderServiceCollectionExtensions.cs`, differing by relationship), which
+	// is silent today only because both currently carry the same scope.
+	//
+	// This is green today for a different reason than the fix below will make it green:
+	// ReportAsync does not yet consult Frameworks anywhere, so every non-diffed watch is
+	// unconditionally resolved regardless of scope, and resolving the same path and match always
+	// answers identically no matter which duplicate entry represents it. A collapse-then-filter
+	// implementation is the one shape this test rejects; it must fail once someone reaches for
+	// `.Where(watch => Applies(watch, request.Framework))` placed after `DistinctBy` instead of
+	// before it.
+	[Fact]
+	public async Task Applicable_entry_decides_resolution_even_when_a_differently_scoped_duplicate_collapses_first()
+	{
+		const string path = "src/Components/Endpoints/src/CacheView/DuplicateScopedWatch.cs";
+		var netOtherOnly = Fixture.Watch(path) with { Frameworks = ["net11.0"] };
+		var netThisOnly = Fixture.Watch(path) with { Frameworks = ["net10.0"] };
+		var manifest = Fixture.MultiTargetManifest(netOtherOnly, netThisOnly);
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(manifest, 10, RequestedTag: "v10.0.11"));
+
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		Assert.Contains(path, result.JsonReport, StringComparison.Ordinal);
 	}
 }
