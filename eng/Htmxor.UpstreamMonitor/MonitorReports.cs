@@ -39,7 +39,7 @@ internal static class MonitorReports
 			return [];
 		}
 		var issues = new List<IssueUpsertInput>();
-		if (sources.Length > 0 || apis.Length > 0)
+		if (sources.Length > 0)
 		{
 			issues.Add(Issue(request, baseline, upstream!, sources, apis));
 		}
