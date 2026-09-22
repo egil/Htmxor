@@ -79,6 +79,10 @@ public sealed class WrongKindWatchTests
 		// wrong-kind variant must not repeat, because a prefix's deeper source drift and a wrong-kind
 		// file watch's own directory are both still visible, unlike a path that is genuinely absent.
 		Assert.DoesNotContain("These dependencies are unmonitored", issue.Body, StringComparison.Ordinal);
+		// The design decision's own replacement sentence, pinned positively: DoesNotContain above
+		// only rules out the retired claim, and would still pass for any other wording placed in its
+		// position, including a different false claim about upstream.
+		Assert.Contains("- These watches do not resolve to the kind of thing they claim at the reviewed commit.", issue.Body, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -263,6 +267,7 @@ public sealed class WrongKindWatchTests
 		Assert.Contains($"- does-not-exist-upstream | [{AbsentPath}]", issue.Body, StringComparison.Ordinal);
 		Assert.Contains($"- exists-as-directory | [{DirectoryPath}]", issue.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain("These dependencies are unmonitored", issue.Body, StringComparison.Ordinal);
+		Assert.Contains("- These watches do not resolve to the kind of thing they claim at the reviewed commit.", issue.Body, StringComparison.Ordinal);
 	}
 
 	// Acceptance criterion 4, and #240's second comment "How this meets acceptance criterion 4":
