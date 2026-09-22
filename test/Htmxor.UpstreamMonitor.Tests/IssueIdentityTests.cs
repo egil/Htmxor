@@ -50,13 +50,11 @@ public sealed class IssueIdentityTests
 	// first call created, and UpdateAsync's full body replace would overwrite it: the tracker
 	// would still hold exactly one issue after both calls, carrying only the second finding's body
 	// instead of both, and the second call's own result would read Updated against issue 1 rather
-	// than Created against a new one. The body-sequence assertion is asserted first and is the one
-	// the recorded inversion shows failing; secondWrite reddens under the same collision whenever it
-	// is reached, which xUnit does not do once the earlier assertion has failed;
-	// firstWrite and the GET count do not — the first call always creates regardless of identity
-	// scheme, and both calls always issue exactly one listing GET regardless of whether it
-	// matches, so those two assertions guard different, unrelated regressions rather than this
-	// one.
+	// than Created against a new one. The body-sequence assertion reddens under that collision, and
+	// secondWrite would too if it were reached; firstWrite and the GET count do not — the first
+	// call always creates regardless of identity scheme, and both calls always issue exactly one
+	// listing GET regardless of whether it matches, so those two assertions guard different,
+	// unrelated regressions rather than this one.
 	[Theory]
 	[InlineData("drift-then-unresolved")]
 	[InlineData("unresolved-then-drift")]
