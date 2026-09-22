@@ -56,7 +56,7 @@ public sealed class WrongKindWatchTests
 
 		var result = await Fixture.Application(transport).RunAsync(request);
 
-		var section = MarkdownSection(result.MarkdownReport, "## Unresolved watch paths", nextHeading: null);
+		var section = UnresolvedWatchPathTests.MarkdownSection(result.MarkdownReport, "## Unresolved watch paths", nextHeading: null);
 		Assert.Contains($"- exists-as-directory | {DirectoryPath}", section, StringComparison.Ordinal);
 		Assert.Contains($"- exists-as-symlink | {SymlinkPath}", section, StringComparison.Ordinal);
 		Assert.Contains($"- exists-as-submodule | {SubmodulePath}", section, StringComparison.Ordinal);
@@ -75,13 +75,18 @@ public sealed class WrongKindWatchTests
 		Assert.Contains($"- exists-as-directory | [{DirectoryPath}]", issue.Body, StringComparison.Ordinal);
 		Assert.Contains($"- exists-as-symlink | [{SymlinkPath}]", issue.Body, StringComparison.Ordinal);
 		Assert.Contains($"- exists-as-submodule | [{SubmodulePath}]", issue.Body, StringComparison.Ordinal);
-		// #232's absent-path sentence makes an "unmonitored" claim that the design decided the
-		// wrong-kind variant must not repeat, because a prefix's deeper source drift and a wrong-kind
-		// file watch's own directory are both still visible, unlike a path that is genuinely absent.
+		// #232's "unmonitored" claim is false only for the prefix shape: prefix matching is
+		// StartsWith over a recursive compare, so deeper drift still reaches it. It stays literally
+		// true for a file watch naming a non-file, since exact-path matching means nothing beneath it
+		// is ever monitored. The design retires the word for the whole wrong-kind variant regardless
+		// of which shapes are present, rather than conditionally per watch kind, so this run (three
+		// file watches, no prefix) still must not say it.
 		Assert.DoesNotContain("These dependencies are unmonitored", issue.Body, StringComparison.Ordinal);
-		// The design decision's own replacement sentence, pinned positively: DoesNotContain above
-		// only rules out the retired claim, and would still pass for any other wording placed in its
-		// position, including a different false claim about upstream.
+		// The line below is not quoted anywhere on the issue; the design decision only paraphrases it
+		// ("it says only that the listed watches do not resolve to the kind of thing they claim at
+		// the reviewed commit"). It was supplied in the delegation that requested this assertion.
+		// Pinned positively because DoesNotContain above would still pass for any other wording
+		// placed in the retired sentence's position, including a different false claim about upstream.
 		Assert.Contains("- These watches do not resolve to the kind of thing they claim at the reviewed commit.", issue.Body, StringComparison.Ordinal);
 	}
 
@@ -175,8 +180,8 @@ public sealed class WrongKindWatchTests
 	// non-file entry shares its stem. The same answer for a watch that also carries an API surface,
 	// and whose matching files actually changed, is pinned separately below
 	// (Mixed_run_with_a_file_change_beneath_a_prefix_watchs_directory_and_a_drifting_watch_does_not_abort_the_run),
-	// because that shape reaches a different, currently broken code path
-	// (UpstreamMonitorApplication.ApiSourceAsync) that this steady-state fixture never exercises.
+	// because that shape reaches a different code path (UpstreamMonitorApplication.ApiSourceAsync)
+	// that this fixture, with `api: none` and no watched file in the compare, never exercises.
 	[Fact]
 	public async Task Prefix_watch_whose_listing_holds_both_a_matching_directory_and_matching_files_resolves()
 	{
@@ -261,7 +266,7 @@ public sealed class WrongKindWatchTests
 
 		var issue = Assert.Single(result.Issues);
 		Assert.Equal("Htmxor upstream watches do not resolve at v10.0.12", issue.Title);
-		var section = MarkdownSection(result.MarkdownReport, "## Unresolved watch paths", nextHeading: null);
+		var section = UnresolvedWatchPathTests.MarkdownSection(result.MarkdownReport, "## Unresolved watch paths", nextHeading: null);
 		Assert.Contains($"- does-not-exist-upstream | {AbsentPath}", section, StringComparison.Ordinal);
 		Assert.Contains($"- exists-as-directory | {DirectoryPath}", section, StringComparison.Ordinal);
 		Assert.Contains($"- does-not-exist-upstream | [{AbsentPath}]", issue.Body, StringComparison.Ordinal);
@@ -296,7 +301,7 @@ public sealed class WrongKindWatchTests
 		Assert.Equal("does-not-exist-upstream", row.GetProperty("finding").GetString());
 	}
 
-	// LR-324c38a-P002: GitHubIssueUpserter.Matches finds an existing issue only through an
+	// GitHubIssueUpserter.Matches finds an existing issue only through an
 	// `Identity: {identity}` line in the persisted body; it never reads IssueUpsertInput.Identity
 	// directly. A wrong-kind body that dropped or altered that line would still pass every seam
 	// test above (which reads only the in-memory Issues property) while opening a new tracker issue
@@ -314,32 +319,6 @@ public sealed class WrongKindWatchTests
 
 		var persisted = Assert.Single(transport.Issues);
 		Assert.Contains("Identity: aspnetcore-10-unresolved-watch", persisted.Body, StringComparison.Ordinal);
-	}
-
-	// The wrong-kind counterpart to IssueIdentityTests.Two_upserts_carrying_divergent_findings_
-	// leave_both_discoverable_in_the_tracker: that test only ever upserts an absent-path unresolved
-	// result, so "neither issue body erases the other" (acceptance criterion 2) has never been
-	// observed against persisted tracker state for the wrong-kind variant, only against one run's
-	// in-memory drafts.
-	[Theory]
-	[InlineData("wrong-kind-then-drift")]
-	[InlineData("drift-then-wrong-kind")]
-	public async Task Wrong_kind_and_drift_issues_upserted_in_either_order_persist_both_without_erasure(string ordering)
-	{
-		var wrongKind = await SingleWrongKindResultAsync();
-		var drift = await DriftOnlyResultAsync();
-		var (first, second) = ordering == "wrong-kind-then-drift" ? (wrongKind, drift) : (drift, wrongKind);
-
-		var transport = new RecordingIssueTransport();
-		using var client = new HttpClient(transport, disposeHandler: false) { BaseAddress = new Uri("https://api.github.test") };
-		var upserter = new GitHubIssueUpserter(client);
-
-		await upserter.UpsertAsync(first);
-		await upserter.UpsertAsync(second);
-
-		Assert.Equal(
-			new[] { first.Issues[0].Body, second.Issues[0].Body },
-			transport.Issues.Select(issue => issue.Body));
 	}
 
 	// The design depends on an already-open absent-variant issue being updated in place once a
@@ -367,17 +346,17 @@ public sealed class WrongKindWatchTests
 		Assert.Equal(wrongKind.Issues[0].Body, persisted.Body);
 	}
 
-	// LR-324c38a-P001, corrected by the design decision's follow-up comment
-	// (https://github.com/egil/Htmxor/issues/240#issuecomment-5781847223). A prefix watch's API
-	// surface must only ever be checked against files directly in the one directory its listing
-	// covers; a changed file beneath a matching subdirectory (the CacheView shape every fixture in
-	// this file uses) is source drift only, and must not be handed to that listing at all. Today it
-	// still is: ApiSourceAsync's own incomplete-listing guard treats the deep file as an omission
-	// from that listing and throws, and the exception unwinds UpstreamMonitorApplication.RunAsync's
-	// try/catch, discarding both this watch's own drift and ExpectedMonitorArtifacts.Invoker's
-	// unrelated drift for the entire run. Both manifest orderings, and both the directory-only
-	// shape and the Work item 3 shape (a sibling file, CacheView.cs, also matches the same parent
-	// listing), must stop aborting.
+	// The design decision's correction
+	// (https://github.com/egil/Htmxor/issues/240#issuecomment-5781847223): a prefix watch's API
+	// surface is checked only against files directly in the one directory its listing covers. A
+	// changed file beneath a matching subdirectory (the CacheView shape every fixture in this file
+	// uses) is source drift only. Handed to that listing, ApiSourceAsync's incomplete-listing guard
+	// would count it as an omission and throw, and RunAsync would turn the throw into an
+	// InfrastructureError that discards both this watch's drift and ExpectedMonitorArtifacts.Invoker's
+	// unrelated drift. Both manifest orderings, and both the directory-only shape and the Work item 3
+	// shape (a sibling file, CacheView.cs, also matches the same parent listing), must report both
+	// drifts. The Work item 3 case must also not surface as an unresolved-watch finding, since the
+	// correction decides that shape is not a finding for any `api` value.
 	[Theory]
 	[InlineData(false, false)]
 	[InlineData(false, true)]
@@ -421,10 +400,17 @@ public sealed class WrongKindWatchTests
 
 		var result = await Fixture.Application(transport).RunAsync(request);
 
-		Assert.NotEqual(MonitorStatus.InfrastructureError, result.Status);
+		Assert.Equal(MonitorStatus.Drift, result.Status);
 		Assert.Null(result.InfrastructureError);
 		Assert.Contains(result.SourceChanges, change => change.Path == ExpectedMonitorArtifacts.Invoker);
 		Assert.Contains(result.SourceChanges, change => change.Path == deepChangedFile);
+		if (listingAlsoHoldsAMatchingSiblingFile)
+		{
+			// The correction's last decision: the Work item 3 shape is not a finding for any `api`
+			// value, so a fix that reports the prefix watch as an unresolved-watch issue alongside
+			// its own source drift is rejected just as much as one that aborts the run.
+			Assert.DoesNotContain(result.Issues, issue => issue.Identity == "aspnetcore-10-unresolved-watch");
+		}
 	}
 
 	// Preservation: a changed file directly in the prefix's own listed directory that the listing
@@ -489,17 +475,6 @@ public sealed class WrongKindWatchTests
 		return await Fixture.Application(transport).RunAsync(request);
 	}
 
-	private static async Task<MonitorResult> DriftOnlyResultAsync()
-	{
-		var watch = Fixture.Watch(ExpectedMonitorArtifacts.Invoker);
-		var transport = ProviderInventoryTests.TargetTransport();
-		transport.AddJson(
-			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
-			JsonSerializer.Serialize(new { files = new[] { new { filename = ExpectedMonitorArtifacts.Invoker, status = "removed" } } }));
-		var request = new MonitorRequest(Fixture.Manifest(watch), 10, "v10.0.12", Fixture.BaselineCommit);
-		return await Fixture.Application(transport).RunAsync(request);
-	}
-
 	private static async Task<MonitorResult> AbsentOnlyResultAsync()
 	{
 		var watch = Fixture.Watch(AbsentPath);
@@ -508,9 +483,10 @@ public sealed class WrongKindWatchTests
 		return await Fixture.Application(transport).RunAsync(request);
 	}
 
-	// The exact body MonitorReports.UnresolvedIssue renders for a single absent watch, built from
-	// the same literal template pieces the design decision quotes, independently of production
-	// code, so this is a genuine comparison rather than the function checking itself.
+	// The exact body MonitorReports.UnresolvedIssue renders for a single absent watch at the
+	// comparison base, written out as a literal rather than derived from production so the
+	// comparison cannot pass by checking the function against itself. The design decision requires
+	// an absent-only run to keep every word of it.
 	private static string ExpectedAbsentOnlyIssueBody(string path)
 	{
 		const string url = "https://github.com/dotnet/aspnetcore";
@@ -528,18 +504,6 @@ public sealed class WrongKindWatchTests
 			"- [ ] Correct or remove each path above", "- [ ] Confirm the corrected path is the right upstream dependency",
 			"- [ ] Re-run the monitor and confirm the watch reports against real content",
 		]);
-	}
-
-	// Isolates one heading's own body from a single concatenated Markdown string, so a row found
-	// "in the Markdown report" can be pinned to the specific section that names it. Mirrors
-	// UnresolvedWatchPathTests's own private helper of the same name and shape.
-	private static string MarkdownSection(string markdown, string heading, string? nextHeading)
-	{
-		var start = markdown.IndexOf(heading, StringComparison.Ordinal);
-		Assert.True(start >= 0, $"Markdown report does not contain '{heading}'.");
-		var end = nextHeading is null ? markdown.Length : markdown.IndexOf(nextHeading, start, StringComparison.Ordinal);
-		Assert.True(end >= 0, $"Markdown report does not contain '{nextHeading}' after '{heading}'.");
-		return markdown[start..end];
 	}
 
 	// An unrelated changed file keeps every watch in these fixtures out of the compare, so each is

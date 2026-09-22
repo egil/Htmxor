@@ -351,14 +351,24 @@ public sealed class UnresolvedWatchPathTests
 
 	// Isolates one heading's own body from MonitorReports.Markdown's single concatenated string, so
 	// a path found "in the Markdown report" can be pinned to the specific section that names it
-	// rather than merely being present somewhere in the whole document.
-	private static string MarkdownSection(string markdown, string heading, string? nextHeading)
+	// rather than merely being present somewhere in the whole document. Shared across test classes
+	// as an internal static member, the way this suite normally shares cross-class helpers
+	// (ProviderInventoryTests.TargetTransport/Request, PrefixInventoryFixture.Entry).
+	internal static string MarkdownSection(string markdown, string heading, string? nextHeading)
 	{
 		var start = markdown.IndexOf(heading, StringComparison.Ordinal);
 		Assert.True(start >= 0, $"Markdown report does not contain '{heading}'.");
-		var end = nextHeading is null ? markdown.Length : markdown.IndexOf(nextHeading, start, StringComparison.Ordinal);
-		Assert.True(end >= 0, $"Markdown report does not contain '{nextHeading}' after '{heading}'.");
-		return markdown[start..end];
+		if (nextHeading is not null)
+		{
+			var explicitEnd = markdown.IndexOf(nextHeading, start, StringComparison.Ordinal);
+			Assert.True(explicitEnd >= 0, $"Markdown report does not contain '{nextHeading}' after '{heading}'.");
+			return markdown[start..explicitEnd];
+		}
+		// No explicit next heading: bound to the next top-level section marker rather than the end
+		// of the document, so a row that a later implementation places under a section added after
+		// this one is not mistaken for belonging to it.
+		var nextSectionStart = markdown.IndexOf("\n## ", start + heading.Length, StringComparison.Ordinal);
+		return nextSectionStart < 0 ? markdown[start..] : markdown[start..nextSectionStart];
 	}
 
 	// The wrong or unmatched watch path can never appear in a real GitHub compare response, so an

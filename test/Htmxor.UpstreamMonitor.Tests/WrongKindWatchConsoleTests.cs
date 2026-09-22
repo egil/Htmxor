@@ -4,13 +4,12 @@ using static Htmxor.UpstreamMonitor.Tests.ConsoleBoundaryTests;
 
 namespace Htmxor.UpstreamMonitor.Tests;
 
-// Issue #240, LR-324c38a-P007: every other wrong-kind test drives UpstreamMonitorApplication
-// directly and reads MonitorResult. The exit code the workflow acts on and the JSON/Markdown
-// files it uploads are produced only by Program.RunAsync, and Program.RunMonitorAsync rebuilds
-// both reports from result.UnresolvedWatchPaths when the issue write itself fails — a second,
-// independent path that must also carry the finding word once it exists, not just the path
-// string the field carries today. These tests close that gap at the console boundary
-// UnresolvedWatchConsoleTests already exercises for the absent-path shape.
+// Issue #240 at the console boundary. Every other wrong-kind test drives UpstreamMonitorApplication
+// directly and reads MonitorResult, but the exit code the workflow acts on and the JSON/Markdown
+// files it uploads are produced only by Program.RunAsync. When the issue write fails,
+// Program.RunMonitorAsync rebuilds both reports from the result's unresolved watches, a second,
+// independent path that must carry each watch's finding word as well as its path. These tests
+// cover that boundary as UnresolvedWatchConsoleTests does for the absent-path shape.
 [Collection("Process environment")]
 public sealed class WrongKindWatchConsoleTests
 {
