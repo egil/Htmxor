@@ -45,9 +45,27 @@ internal sealed class RecordingIssueTransport : HttpMessageHandler
 		_ when method == HttpMethod.Get && pathAndQuery == ListPath => JsonResponse(SerializeList()),
 		_ when method == HttpMethod.Post && pathAndQuery == IssuesPath => Create(body!),
 		_ when method == HttpMethod.Patch && pathAndQuery.StartsWith(IssuesPath + "/", StringComparison.Ordinal) =>
-			Update(long.Parse(pathAndQuery[(IssuesPath.Length + 1)..], CultureInfo.InvariantCulture), body!),
+			Patch(pathAndQuery, body!),
 		_ => NotFound(method, pathAndQuery),
 	};
+
+	// A sub-resource path (e.g. "/issues/42/comments"), a non-numeric segment, or a number this
+	// fake never created all fall through to NotFound rather than throwing: GitHubIssueUpserter
+	// catches every exception and MonitorErrors.SafeMessage maps a non-MonitorFailure to one fixed
+	// opaque string, so an unmodelled PATCH must answer the same diagnosable 404 a real one does
+	// rather than an exception that reads as an infrastructure failure naming neither the route nor
+	// the fake.
+	private HttpResponseMessage Patch(string pathAndQuery, string body)
+	{
+		var numberSegment = pathAndQuery[(IssuesPath.Length + 1)..];
+		if (!long.TryParse(numberSegment, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
+		{
+			return NotFound(HttpMethod.Patch, pathAndQuery);
+		}
+
+		var index = issues.FindIndex(issue => issue.Number == number);
+		return index < 0 ? NotFound(HttpMethod.Patch, pathAndQuery) : Update(index, body);
+	}
 
 	private static HttpResponseMessage NotFound(HttpMethod method, string pathAndQuery) => new(HttpStatusCode.NotFound)
 	{
@@ -63,11 +81,10 @@ internal sealed class RecordingIssueTransport : HttpMessageHandler
 		return JsonResponse(JsonSerializer.Serialize(new { number = issue.Number, state = issue.State }));
 	}
 
-	private HttpResponseMessage Update(long number, string body)
+	private HttpResponseMessage Update(int index, string body)
 	{
 		using var document = JsonDocument.Parse(body);
 		var root = document.RootElement;
-		var index = issues.FindIndex(issue => issue.Number == number);
 		var current = issues[index];
 		var state = root.TryGetProperty("state", out var stateProperty) ? stateProperty.GetString()! : current.State;
 		var updated = current with

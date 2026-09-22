@@ -18,13 +18,11 @@ public sealed class IssueIdentityTests
 	// Criterion 3: the identity scheme's intent — a drift finding and an unresolved-watch finding
 	// for the same supported framework never share an identity — is asserted directly against
 	// MonitorReports.Create, the real production function that derives both identities, for a
-	// real MonitorRequest. Parameterized over two different SupportedMajorVersion values (net10
-	// and net11 both ship watches, see WatchFrameworkScopeTests) because both identity format
-	// strings interpolate that version: a scheme that distinguished only by version, and not by
-	// finding kind, would still read as "the two identities differ" if that were only checked
-	// against one hardcoded version by coincidence of the literal string chosen for the test;
-	// checking it holds for both configured frameworks makes the claim about the kind, not about
-	// one version's literal text.
+	// real MonitorRequest. Run for both configured frameworks (net10 and net11 both ship watches,
+	// see WatchFrameworkScopeTests) because the invariant is about every framework the manifest
+	// configures, not one of them: a single case leaves the other framework's derivation unpinned.
+	// It is not needed to rule out a version-only scheme — such a scheme makes the two identities
+	// equal within one framework, so either case alone would redden against it.
 	[Theory]
 	[InlineData(10)]
 	[InlineData(11)]
@@ -49,11 +47,15 @@ public sealed class IssueIdentityTests
 	// real; only the HTTP transport is fake.
 	//
 	// If the two kinds shared one identity, the second call's listing would match the issue the
-	// first call created, and UpdateAsync's full body replace would overwrite it: the second
-	// write's action would read Updated instead of Created, the tracker would still hold exactly
-	// one issue after both calls, and its body would carry only the second finding. Every
-	// assertion below is written to catch exactly that shape; see the receipt for the recorded
-	// inversion that confirms it.
+	// first call created, and UpdateAsync's full body replace would overwrite it: the tracker
+	// would still hold exactly one issue after both calls, carrying only the second finding's body
+	// instead of both, and the second call's own result would read Updated against issue 1 rather
+	// than Created against a new one. The body-sequence assertion and secondWrite each redden
+	// under exactly that collision (see the receipt for the recorded per-assertion evidence);
+	// firstWrite and the GET count do not — the first call always creates regardless of identity
+	// scheme, and both calls always issue exactly one listing GET regardless of whether it
+	// matches, so those two assertions guard different, unrelated regressions rather than this
+	// one.
 	[Theory]
 	[InlineData("drift-then-unresolved")]
 	[InlineData("unresolved-then-drift")]
@@ -71,16 +73,22 @@ public sealed class IssueIdentityTests
 		var firstWrite = await upserter.UpsertAsync(first);
 		var secondWrite = await upserter.UpsertAsync(second);
 
+		// Both findings are discoverable afterwards, with the exact body MonitorReports.Create
+		// produced for each, not a body one of them overwrote. Asserted first, as one sequence
+		// comparison rather than a count plus two positional lookups, so this is the assertion
+		// that reddens under a collapsed identity: xUnit stops at the first failed assertion, and
+		// this is the one that observes the erasure itself (fewer than two persisted bodies, or a
+		// body that does not match), not a downstream write-action code that changes for the same
+		// reason without naming what was lost. A sequence comparison also cannot throw
+		// ArgumentOutOfRange the way indexing transport.Issues[1] would if only one issue persisted.
+		Assert.Equal(
+			new[] { first.Issues[0].Body, second.Issues[0].Body },
+			transport.Issues.Select(issue => issue.Body));
+
 		// Each call created its own issue rather than the second matching and overwriting the
-		// first's: this is the assertion that reddens under a collapsed identity.
+		// first's.
 		Assert.Equal(new IssueWriteResult(IssueWriteAction.Created, 1, null), firstWrite);
 		Assert.Equal(new IssueWriteResult(IssueWriteAction.Created, 2, null), secondWrite);
-
-		// Both findings are discoverable afterwards, with the exact body MonitorReports.Create
-		// produced for each, not a body one of them overwrote.
-		Assert.Equal(2, transport.Issues.Count);
-		Assert.Equal(first.Issues[0].Body, transport.Issues[0].Body);
-		Assert.Equal(second.Issues[0].Body, transport.Issues[1].Body);
 
 		// The second call actually observed the state the first one left: two listing GETs were
 		// made (one per UpsertAsync call), not one shared assumption.
