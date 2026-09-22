@@ -266,9 +266,6 @@ public sealed class UnresolvedWatchPathTests
 		// an unresolved path together — also pins each path to its own JSON key and Markdown
 		// section, and the other path's absence from it.
 		using var json = JsonDocument.Parse(result.JsonReport);
-		// #240 renames this JSON container from unresolvedWatchPaths (strings) to unresolvedWatches
-		// (rows carrying what was found at each path); this reads the new container's path column
-		// rather than the old flat string array.
 		var unresolvedWatchPaths = json.RootElement.GetProperty("unresolvedWatches")
 			.EnumerateArray().Select(element => element.GetProperty("path").GetString()).ToArray();
 		var sourceChangePaths = json.RootElement.GetProperty("sourceChanges")

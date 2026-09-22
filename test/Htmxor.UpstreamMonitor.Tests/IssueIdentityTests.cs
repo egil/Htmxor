@@ -17,9 +17,10 @@ public sealed class IssueIdentityTests
 	private const string WrongFilePath = "src/Components/Endpoints/src/CacheView/CacheViewTextWriter.cs";
 
 	// Criterion 3: the identity scheme's intent — a drift finding and an unresolved-watch finding
-	// for the same supported framework never share an identity — is asserted directly against
-	// MonitorReports.Create, the real production function that derives both identities, for a
-	// real MonitorRequest. Run for both configured frameworks (net10 and net11 both ship watches,
+	// for the same supported framework never share an identity — is asserted against the identities
+	// MonitorReports.Create derives for a real MonitorRequest, the drift one called directly and the
+	// unresolved one reached through a real application run. Run for both configured frameworks (net10
+	// and net11 both ship watches,
 	// see WatchFrameworkScopeTests) because the invariant is about every framework the manifest
 	// configures, not one of them: a single case leaves the other framework's derivation unpinned.
 	// It is not needed to rule out a version-only scheme — such a scheme makes the two identities
@@ -101,13 +102,11 @@ public sealed class IssueIdentityTests
 		[]);
 
 	// Built through the real application and a fake transport, the way MonitorOutcomeTests.
-	// MixedDriftAndUnresolvedResultAsync builds its own mixed result, rather than through
-	// MonitorReports.Create's unresolvedWatchPaths parameter directly: #240 widens that
-	// parameter's shape, and this call site has no reason to depend on its exact signature to
-	// produce a genuine unresolved-watch result. The stubbed tag ref resolves to the framework's
-	// own reviewed commit, so RunAsync takes its steady-state branch and resolves WrongFilePath
-	// against that same commit without a compare stub; WrongFilePath's own contents request is
-	// left unstubbed, which FakeGitHubTransport answers 404, so the watch stays unresolved.
+	// MixedDriftAndUnresolvedResultAsync builds its own mixed result, so the unresolved finding is
+	// the shape production computes. The stubbed tag ref resolves to the framework's own reviewed
+	// commit, so RunAsync takes its steady-state branch and resolves WrongFilePath against that same
+	// commit without a compare stub; WrongFilePath's own contents request is left unstubbed, which
+	// FakeGitHubTransport answers 404, so the watch stays unresolved.
 	private static async Task<MonitorResult> UnresolvedOnlyResultAsync(FrameworkBaseline framework)
 	{
 		var manifest = Fixture.ManifestFor(framework, Fixture.Watch(WrongFilePath));
