@@ -116,7 +116,7 @@ public sealed class UnresolvedWatchPathTests
 		// happens to share that exact path is itself a directory rather than a file, ResolveAsync's
 		// prefix branch finds no matching file kind and reports exists-as-directory, distinct from
 		// does-not-exist-upstream for a prefix that matches nothing at all — WrongKindWatchTests pins
-		// that exact word; this test only pins that neither shape is silently treated as current. A
+		// that exact word; this test only pins that this shape is not silently treated as current. A
 		// sibling directory that merely shares the same stem is a different case, covered separately
 		// by CompletePartialInventoryTests.Unrelated_directory_entries_do_not_enter_the_watched_partial_surface.
 		const string parent = "src/Components/Endpoints/src";
