@@ -145,7 +145,7 @@ public sealed class UnresolvedWatchPathTests
 		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, UnmatchedPrefix);
 	}
 
-	// Closes LR-79bce2b-P001: nothing exercised ResolvesAsync's prefix branch returning true.
+	// Closes LR-79bce2b-P001: nothing exercised ResolveAsync's prefix branch returning true.
 	// Every fixture above drives its false side (unstubbed parent, unrelated entries, or a
 	// directory entry), leaving the branch the committed manifest's only prefix watch,
 	// `PrefixInventoryFixture.Prefix`, actually takes on every real steady-state run
@@ -193,7 +193,7 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task Prefix_watch_whose_parent_directory_lists_only_unrelated_entries_is_not_reported_as_current()
 	{
-		// Prefix_watch_matching_no_upstream_files_is_not_reported_as_current exits ResolvesAsync's
+		// Prefix_watch_matching_no_upstream_files_is_not_reported_as_current exits ResolveAsync's
 		// own null-or-not-an-array guard (its parent directory is unstubbed and 404s, so TryGetAsync
 		// answers null) before ever evaluating the prefix. This fixture instead
 		// drives a parent directory that resolves as a genuine, non-empty entry array in which

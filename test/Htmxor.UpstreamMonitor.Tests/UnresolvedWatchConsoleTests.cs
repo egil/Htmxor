@@ -148,7 +148,7 @@ public sealed class UnresolvedWatchConsoleTests
 	{
 		// Program.cs's RunMonitorAsync rebuilds the reports when the GitHub issue write itself
 		// fails, because the reports embed the status, so the rebuild has to carry
-		// result.UnresolvedWatchPaths across: otherwise a run that found this exact unresolved
+		// result.UnresolvedWatches across: otherwise a run that found this exact unresolved
 		// path and then failed to write its issue silently drops the one thing the persisted JSON
 		// and Markdown reports must name. No create stub for the unresolved-path issue's POST: the
 		// create 404s, GitHubApi.WriteAsync throws, and UpsertAsync's outer catch turns that into a
