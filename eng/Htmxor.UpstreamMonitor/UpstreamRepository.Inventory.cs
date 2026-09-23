@@ -19,21 +19,21 @@ internal sealed partial class UpstreamRepository
 			// GitHub answers a directory with an array and a file, symlink or submodule with an object.
 			return await api.TryGetAsync(ContentsPath(watch.Path, commit), cancellationToken) switch
 			{
-				{ ValueKind: JsonValueKind.Array } => WatchFinding.Directory,
+				{ ValueKind: JsonValueKind.Array } => WatchFinding.ExistsAsDirectory,
 				{ ValueKind: JsonValueKind.Object } content => EntryKind(content),
-				_ => WatchFinding.DoesNotExist,
+				_ => WatchFinding.DoesNotExistUpstream,
 			};
 		}
 		var listing = await api.TryGetAsync(ContentsPath(ParentDirectory(watch.Path), commit), cancellationToken);
 		if (listing is not { ValueKind: JsonValueKind.Array } entries)
 		{
-			return WatchFinding.DoesNotExist;
+			return WatchFinding.DoesNotExistUpstream;
 		}
 		var kinds = PrefixEntries(entries, watch.Path).Select(entry => entry.Kind).ToArray();
 		// Any matching file resolves the watch. Otherwise the first kind present in this order names it.
-		return kinds.Length == 0 ? WatchFinding.DoesNotExist
+		return kinds.Length == 0 ? WatchFinding.DoesNotExistUpstream
 			: kinds.Contains(null) ? null
-			: new[] { WatchFinding.Directory, WatchFinding.Symlink, WatchFinding.Submodule }.First(kind => kinds.Contains(kind));
+			: new[] { WatchFinding.ExistsAsDirectory, WatchFinding.ExistsAsSymlink, WatchFinding.ExistsAsSubmodule }.First(kind => kinds.Contains(kind));
 	}
 
 	public async Task<IReadOnlyList<string>> PrefixSourcePathsAsync(string prefix, string commit, CancellationToken cancellationToken)
@@ -90,9 +90,9 @@ internal sealed partial class UpstreamRepository
 	private static WatchFinding? EntryKind(JsonElement entry) => RequiredString(entry, "type") switch
 	{
 		"file" => null,
-		"dir" => WatchFinding.Directory,
-		"symlink" => WatchFinding.Symlink,
-		"submodule" => WatchFinding.Submodule,
+		"dir" => WatchFinding.ExistsAsDirectory,
+		"symlink" => WatchFinding.ExistsAsSymlink,
+		"submodule" => WatchFinding.ExistsAsSubmodule,
 		_ => throw new MonitorFailure("GitHub directory inventory contained an unsupported entry type."),
 	};
 

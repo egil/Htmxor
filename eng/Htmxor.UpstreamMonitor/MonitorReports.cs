@@ -59,7 +59,7 @@ internal static class MonitorReports
 		// A run whose watches are all absent keeps #232's issue word for word. Once any watch exists as
 		// the wrong kind, "do not exist" would be false for it, so the issue says only that the watches
 		// do not resolve, and each row names what was found.
-		var absentOnly = unresolved.All(watch => watch.Finding == WatchFinding.DoesNotExist);
+		var absentOnly = unresolved.All(watch => watch.Finding == WatchFinding.DoesNotExistUpstream);
 		string[] summary = absentOnly
 			?
 			[
@@ -77,7 +77,7 @@ internal static class MonitorReports
 			string.Empty, "### Unresolved watch paths", string.Empty,
 			.. unresolved.Select(watch => absentOnly
 				? $"- [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"
-				: $"- {Word(watch.Finding)} | [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"),
+				: $"- {Name(watch.Finding)} | [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"),
 			string.Empty, "### Review checklist", string.Empty,
 			"- [ ] Correct or remove each path above", "- [ ] Confirm the corrected path is the right upstream dependency",
 			"- [ ] Re-run the monitor and confirm the watch reports against real content",
@@ -86,15 +86,6 @@ internal static class MonitorReports
 			absentOnly ? $"Htmxor upstream watch paths do not exist at {upstream.Tag}" : $"Htmxor upstream watches do not resolve at {upstream.Tag}",
 			body);
 	}
-
-	private static string Word(WatchFinding finding) => finding switch
-	{
-		WatchFinding.DoesNotExist => "does-not-exist-upstream",
-		WatchFinding.Directory => "exists-as-directory",
-		WatchFinding.Symlink => "exists-as-symlink",
-		WatchFinding.Submodule => "exists-as-submodule",
-		_ => throw new ArgumentOutOfRangeException(nameof(finding)),
-	};
 
 	private static string Json(MonitorStatus status, UpstreamRevision baseline, UpstreamRevision? upstream,
 		SourceChange[] sources, ApiChange[] apis, string? error, UnresolvedWatch[] unresolved)
@@ -118,7 +109,7 @@ internal static class MonitorReports
 		{
 			report["unresolvedWatches"] = JsonSerializer.SerializeToNode(unresolved.Select(watch => new
 			{
-				path = watch.Path, finding = Word(watch.Finding),
+				path = watch.Path, finding = Name(watch.Finding),
 			}));
 		}
 		if (error is not null)
@@ -142,7 +133,7 @@ internal static class MonitorReports
 			.. apis.Length == 0 ? ["None."] : apis.Select(change => $"- {Name(change.Classification)} | {ApiRow(change)}"),
 			.. unresolved.Length == 0 ? Array.Empty<string>() :
 				[string.Empty, "## Unresolved watch paths", string.Empty,
-					.. unresolved.Select(watch => $"- {Word(watch.Finding)} | {watch.Path}")],
+					.. unresolved.Select(watch => $"- {Name(watch.Finding)} | {watch.Path}")],
 		]);
 
 	private static IssueUpsertInput Issue(MonitorRequest request, UpstreamRevision baseline, UpstreamRevision upstream,
