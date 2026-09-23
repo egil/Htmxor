@@ -83,10 +83,10 @@ internal static class Program
 		var issueWrite = await new GitHubIssueUpserter(client).UpsertAsync(result, cancellationToken);
 		// The reports are rebuilt rather than amended because they embed the status, so every finding
 		// the run made must be carried across or it is lost from the written reports. An unresolved
-		// path is named by acceptance criterion 1 and would otherwise vanish precisely when the write
-		// that would have reported it failed.
+		// watch, and what was found at its path, would otherwise vanish precisely when the write that
+		// would have reported it failed.
 		return issueWrite.Error is null ? result : MonitorReports.Create(request, MonitorStatus.InfrastructureError,
-			result.Upstream, result.SourceChanges, result.ApiChanges, issueWrite.Error, result.UnresolvedWatchPaths);
+			result.Upstream, result.SourceChanges, result.ApiChanges, issueWrite.Error, result.UnresolvedWatches);
 	}
 
 	private static async Task WriteReportAsync(string path, string report, CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Htmxor.UpstreamMonitor;
 
 namespace Htmxor.UpstreamMonitor.Tests;
@@ -16,9 +17,10 @@ public sealed class IssueIdentityTests
 	private const string WrongFilePath = "src/Components/Endpoints/src/CacheView/CacheViewTextWriter.cs";
 
 	// Criterion 3: the identity scheme's intent — a drift finding and an unresolved-watch finding
-	// for the same supported framework never share an identity — is asserted directly against
-	// MonitorReports.Create, the real production function that derives both identities, for a
-	// real MonitorRequest. Run for both configured frameworks (net10 and net11 both ship watches,
+	// for the same supported framework never share an identity — is asserted against the identities
+	// MonitorReports.Create derives for a real MonitorRequest, the drift one called directly and the
+	// unresolved one reached through a real application run. Run for both configured frameworks (net10
+	// and net11 both ship watches,
 	// see WatchFrameworkScopeTests) because the invariant is about every framework the manifest
 	// configures, not one of them: a single case leaves the other framework's derivation unpinned.
 	// It is not needed to rule out a version-only scheme — such a scheme makes the two identities
@@ -26,12 +28,12 @@ public sealed class IssueIdentityTests
 	[Theory]
 	[InlineData(10)]
 	[InlineData(11)]
-	public void Drift_and_unresolved_identities_are_distinct_for_the_same_supported_major_version(int majorVersion)
+	public async Task Drift_and_unresolved_identities_are_distinct_for_the_same_supported_major_version(int majorVersion)
 	{
 		var framework = majorVersion == 10 ? Fixture.Net10Framework() : Fixture.Net11Framework();
 
 		var drift = DriftOnlyResult(framework);
-		var unresolved = UnresolvedOnlyResult(framework);
+		var unresolved = await UnresolvedOnlyResultAsync(framework);
 
 		var driftIdentity = Assert.Single(drift.Issues).Identity;
 		var unresolvedIdentity = Assert.Single(unresolved.Issues).Identity;
@@ -62,7 +64,7 @@ public sealed class IssueIdentityTests
 	{
 		var framework = Fixture.Net10Framework();
 		var drift = DriftOnlyResult(framework);
-		var unresolved = UnresolvedOnlyResult(framework);
+		var unresolved = await UnresolvedOnlyResultAsync(framework);
 		var (first, second) = ordering == "drift-then-unresolved" ? (drift, unresolved) : (unresolved, drift);
 
 		var transport = new RecordingIssueTransport();
@@ -99,9 +101,23 @@ public sealed class IssueIdentityTests
 		[new SourceChange(ExpectedMonitorArtifacts.Invoker, ChangeKind.Changed, ReviewClassification.ParityRequired)],
 		[]);
 
-	private static MonitorResult UnresolvedOnlyResult(FrameworkBaseline framework) => MonitorReports.Create(
-		Request(framework), MonitorStatus.UnresolvedWatch, Upstream(framework),
-		[], [], unresolvedWatchPaths: [WrongFilePath]);
+	// Built through the real application and a fake transport, the way MonitorOutcomeTests.
+	// MixedDriftAndUnresolvedResultAsync builds its own mixed result, so the unresolved finding is
+	// the shape production computes. The stubbed tag ref resolves to the framework's own reviewed
+	// commit, so RunAsync takes its steady-state branch and resolves WrongFilePath against that same
+	// commit without a compare stub; WrongFilePath's own contents request is left unstubbed, which
+	// FakeGitHubTransport answers 404, so the watch stays unresolved.
+	private static async Task<MonitorResult> UnresolvedOnlyResultAsync(FrameworkBaseline framework)
+	{
+		var manifest = Fixture.ManifestFor(framework, Fixture.Watch(WrongFilePath));
+		var transport = new FakeGitHubTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/git/ref/tags/{framework.ReviewedTag}",
+			JsonSerializer.Serialize(new { @object = new { type = "commit", sha = framework.ReviewedCommit } }));
+		var request = new MonitorRequest(manifest, framework, framework.ReviewedTag, framework.ReviewedCommit);
+
+		return await Fixture.Application(transport).RunAsync(request);
+	}
 
 	private static MonitorRequest Request(FrameworkBaseline framework) =>
 		new(Fixture.ManifestFor(framework), framework, framework.ReviewedTag, framework.ReviewedCommit);

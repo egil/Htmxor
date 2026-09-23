@@ -56,7 +56,7 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 		UpstreamRepository repository, string baseline, IReadOnlyList<ChangedFile> files,
 		IReadOnlyList<SourceChange> sources, IReadOnlyList<ApiChange> apis, CancellationToken cancellationToken)
 	{
-		var unresolved = new SortedSet<string>(StringComparer.Ordinal);
+		var unresolved = new List<UnresolvedWatch>();
 		// Applicability is decided before the collapse. Two entries can share a path and match while
 		// differing in scope, so collapsing first would let whichever happened to be listed first
 		// answer for the rest, and an inapplicable survivor would drop the path from checking.
@@ -65,9 +65,9 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			.Where(watch => !files.Any(file => Matches(watch, file.Path)))
 			.OrderBy(watch => watch.Path, StringComparer.Ordinal).ThenBy(watch => watch.Match))
 		{
-			if (!await repository.ResolvesAsync(watch, baseline, cancellationToken))
+			if (await repository.ResolveAsync(watch, baseline, cancellationToken) is { } finding)
 			{
-				unresolved.Add(watch.Path);
+				unresolved.Add(new(watch.Path, finding));
 			}
 		}
 		// An unresolved path outranks drift because it is a manifest defect: until it is corrected the
@@ -75,10 +75,13 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 		// the same reports rather than discarded, and is reported on its own once the manifest is fixed.
 		if (unresolved.Count > 0)
 		{
-			return MonitorReports.Create(request, MonitorStatus.UnresolvedWatch, upstream, sources, apis, null, unresolved.ToArray());
+			return MonitorReports.Create(request, MonitorStatus.UnresolvedWatch, upstream, sources, apis, null, unresolved);
 		}
 		return MonitorReports.Create(request, sources.Count == 0 ? MonitorStatus.Current : MonitorStatus.Drift, upstream, sources, apis);
 	}
+
+	private static bool InApiSurface(WatchTarget watch, string path) => watch.Match == WatchMatch.File ||
+		UpstreamRepository.ParentDirectory(path) == UpstreamRepository.ParentDirectory(watch.Path);
 
 	internal static bool Matches(WatchTarget target, string path) => target.Match == WatchMatch.Prefix
 		? path.StartsWith(target.Path, StringComparison.Ordinal)
@@ -100,7 +103,13 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			.OrderBy(watch => watch.Path, StringComparer.Ordinal).ThenBy(watch => watch.Match).ThenBy(watch => watch.ApiSurface);
 		foreach (var watch in watches)
 		{
-			var matchingFiles = files.Where(file => Matches(watch, file.Path)).OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
+			// A prefix watch's API surface is the files its one-directory listing inventories. A changed
+			// file beneath a matching subdirectory still reaches the report as source drift through
+			// Matches, but that listing cannot contain it, so handing it to ApiSourceAsync would trip the
+			// omission guard and fail the whole run. A changed file directly in the directory stays a
+			// candidate, so the guard still catches a listing that omits one.
+			var matchingFiles = files.Where(file => Matches(watch, file.Path) && InApiSurface(watch, file.Path))
+				.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
 			if (matchingFiles.Length > 0)
 			{
 				comparisons.Add(watch, await ApiChangesAsync(request, upstream, repository, watch, matchingFiles, cancellationToken));

@@ -11,15 +11,29 @@ internal sealed partial class UpstreamRepository
 	// file watch aimed at a directory as resolved, and the mistake would surface much later as
 	// SourceAsync failing to find the file body it assumes. A missing path answers the same question
 	// as an empty match, so both are non-resolving watches rather than infrastructure failures.
-	public async Task<bool> ResolvesAsync(WatchTarget watch, string commit, CancellationToken cancellationToken)
+	// Returns null when the watch resolves, otherwise what was found at its path.
+	public async Task<WatchFinding?> ResolveAsync(WatchTarget watch, string commit, CancellationToken cancellationToken)
 	{
 		if (watch.Match == WatchMatch.File)
 		{
-			var content = await api.TryGetAsync(ContentsPath(watch.Path, commit), cancellationToken);
-			return content is { ValueKind: JsonValueKind.Object } file && IsFile(file);
+			// GitHub answers a directory with an array and a file, symlink or submodule with an object.
+			return await api.TryGetAsync(ContentsPath(watch.Path, commit), cancellationToken) switch
+			{
+				{ ValueKind: JsonValueKind.Array } => WatchFinding.ExistsAsDirectory,
+				{ ValueKind: JsonValueKind.Object } content => EntryKind(content),
+				_ => WatchFinding.DoesNotExistUpstream,
+			};
 		}
 		var listing = await api.TryGetAsync(ContentsPath(ParentDirectory(watch.Path), commit), cancellationToken);
-		return listing is { ValueKind: JsonValueKind.Array } entries && PrefixSourcePaths(entries, watch.Path).Count > 0;
+		if (listing is not { ValueKind: JsonValueKind.Array } entries)
+		{
+			return WatchFinding.DoesNotExistUpstream;
+		}
+		var kinds = PrefixEntries(entries, watch.Path).Select(entry => entry.Kind).ToArray();
+		// Any matching file resolves the watch. Otherwise the first kind present in this order names it.
+		return kinds.Length == 0 ? WatchFinding.DoesNotExistUpstream
+			: kinds.Contains(null) ? null
+			: new[] { WatchFinding.ExistsAsDirectory, WatchFinding.ExistsAsSymlink, WatchFinding.ExistsAsSubmodule }.First(kind => kinds.Contains(kind));
 	}
 
 	public async Task<IReadOnlyList<string>> PrefixSourcePathsAsync(string prefix, string commit, CancellationToken cancellationToken)
@@ -29,34 +43,34 @@ internal sealed partial class UpstreamRepository
 	}
 
 	// Only file entries count. The listing is not recursive, so a directory matching the prefix is
-	// not inventoried and cannot answer for the files beneath it; it therefore neither resolves the
-	// watch nor says anything about it. Reporting that shape as its own kind of manifest error is
-	// #240's, because a per-watch finding is the only form that does not suppress the rest of a run.
-	private static IReadOnlyList<string> PrefixSourcePaths(JsonElement listing, string prefix)
+	// not inventoried and cannot answer for the files beneath it.
+	private static IReadOnlyList<string> PrefixSourcePaths(JsonElement listing, string prefix) =>
+		PrefixEntries(listing, prefix).Where(entry => entry.Kind is null).Select(entry => entry.Path).ToArray();
+
+	// Every entry of one directory listing whose path starts with the prefix, with null for a file
+	// and otherwise the kind it is. The listing is validated whole, not only its matching entries.
+	private static IReadOnlyList<(string Path, WatchFinding? Kind)> PrefixEntries(JsonElement listing, string prefix)
 	{
 		if (listing.ValueKind != JsonValueKind.Array || listing.GetArrayLength() >= 1000)
 		{
 			throw new MonitorFailure(InvalidInventory);
 		}
 		var directory = ParentDirectory(prefix);
-		var paths = new SortedSet<string>(StringComparer.Ordinal);
-		var seen = new HashSet<string>(StringComparer.Ordinal);
+		var entries = new SortedDictionary<string, WatchFinding?>(StringComparer.Ordinal);
 		foreach (var entry in listing.EnumerateArray())
 		{
 			var path = EntryPath(entry, directory);
-			if (!seen.Add(path))
+			var kind = EntryKind(entry);
+			if (!entries.TryAdd(path, kind))
 			{
 				throw new MonitorFailure("GitHub directory inventory repeated a path.");
 			}
-			if (IsFile(entry) && path.StartsWith(prefix, StringComparison.Ordinal))
-			{
-				paths.Add(path);
-			}
 		}
-		return paths.ToArray();
+		return entries.Where(entry => entry.Key.StartsWith(prefix, StringComparison.Ordinal))
+			.Select(entry => (entry.Key, entry.Value)).ToArray();
 	}
 
-	private static string ParentDirectory(string path)
+	internal static string ParentDirectory(string path)
 	{
 		var separator = path.LastIndexOf('/');
 		return separator < 0 ? "" : path[..separator];
@@ -73,10 +87,12 @@ internal sealed partial class UpstreamRepository
 		return path;
 	}
 
-	private static bool IsFile(JsonElement entry) => RequiredString(entry, "type") switch
+	private static WatchFinding? EntryKind(JsonElement entry) => RequiredString(entry, "type") switch
 	{
-		"file" => true,
-		"dir" or "symlink" or "submodule" => false,
+		"file" => null,
+		"dir" => WatchFinding.ExistsAsDirectory,
+		"symlink" => WatchFinding.ExistsAsSymlink,
+		"submodule" => WatchFinding.ExistsAsSubmodule,
 		_ => throw new MonitorFailure("GitHub directory inventory contained an unsupported entry type."),
 	};
 

@@ -106,7 +106,8 @@ capability, not an operating-system network sandbox.
 Reports are written to `artifacts/upstream-monitor/upstream-monitor.json` and
 `artifacts/upstream-monitor/upstream-monitor.md`. Exit 0 means current, 1 means
 drift requiring review, 2 means infrastructure failure, and 3 means at least one
-watched path does not exist at the reviewed commit. A drift result creates,
+watch does not resolve at the reviewed commit: its path is absent, or exists as
+something other than what the watch claims, and the reports name which. A drift result creates,
 updates, or reopens the stable upstream review issue; an unresolved-path result
 does the same for a separate review issue. A run that finds both writes both, so
 a manifest defect never suppresses the review issue for a watch that really did

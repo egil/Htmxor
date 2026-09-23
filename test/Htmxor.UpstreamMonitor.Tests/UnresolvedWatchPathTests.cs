@@ -37,9 +37,10 @@ public sealed class UnresolvedWatchPathTests
 	public async Task File_watch_pointing_at_a_symlink_is_not_reported_as_current()
 	{
 		// The other half of the same guard: GitHub answers an object, not an array, for a symlink or
-		// a submodule, so the ValueKind check alone still resolves the watch and only IsFile rejects
-		// it. SourceAsync would then fail on a base64 body that was never there — the same late
-		// surprise #232 exists to remove, for a third kind of wrong path.
+		// a submodule, so the ValueKind check alone still resolves the watch; only EntryKind's read
+		// of the entry's own `type` field rejects it, returning the finding instead of null.
+		// SourceAsync would then fail on a base64 body that was never there — the same late surprise
+		// #232 exists to remove, for a third kind of wrong path.
 		var watch = Fixture.Watch(WrongFilePath);
 		var transport = UnrelatedChangeTransport();
 		transport.AddJson(
@@ -112,12 +113,12 @@ public sealed class UnresolvedWatchPathTests
 	public async Task Prefix_watch_naming_an_upstream_directory_is_not_reported_as_current()
 	{
 		// A prefix watch names a file-name stem inside one directory. When the entry upstream that
-		// happens to share that exact path is itself a directory rather than a file, IsFile filters
-		// it out like any other non-file kind, so this resolves no differently than a prefix that
-		// matches nothing at all. Naming that specific shape as its own kind of manifest defect,
-		// with its own report surface and exit code, is #240's. A sibling directory that merely
-		// shares the same stem is a different case, covered separately by
-		// CompletePartialInventoryTests.Unrelated_directory_entries_do_not_enter_the_watched_partial_surface.
+		// happens to share that exact path is itself a directory rather than a file, ResolveAsync's
+		// prefix branch finds no matching file kind and reports exists-as-directory, distinct from
+		// does-not-exist-upstream for a prefix that matches nothing at all — WrongKindWatchTests pins
+		// that exact word; this test only pins that this shape is not silently treated as current. A
+		// sibling directory that merely shares the same stem is a different case, covered separately
+		// by CompletePartialInventoryTests.Unrelated_directory_entries_do_not_enter_the_watched_partial_surface.
 		const string parent = "src/Components/Endpoints/src";
 		var watch = Fixture.Watch(DirectoryInsteadOfFile, WatchMatch.Prefix);
 		var transport = UnrelatedChangeTransport();
@@ -145,15 +146,14 @@ public sealed class UnresolvedWatchPathTests
 		AssertUnresolvedIsDistinguishableFromOrdinaryDrift(result, UnmatchedPrefix);
 	}
 
-	// Closes LR-79bce2b-P001: nothing exercised ResolvesAsync's prefix branch returning true.
-	// Every fixture above drives its false side (unstubbed parent, unrelated entries, or a
-	// directory entry), leaving the branch the committed manifest's only prefix watch,
-	// `PrefixInventoryFixture.Prefix`, actually takes on every real steady-state run
-	// unprotected. This stubs the parent directory with the file it genuinely matches upstream.
-	// Reverting `PrefixSourcePaths(entries, watch.Path).Count > 0` in
-	// UpstreamRepository.Inventory.cs to `return false` fails only this test, confirming it is
-	// the sole guard on that line. This behavior is already correct, so this test is expected
-	// to stay green; it exists to protect the branch rather than to change it.
+	// Closes LR-79bce2b-P001: nothing exercised ResolveAsync's prefix branch actually resolving the
+	// watch (returning null). Every fixture above drives its non-resolving side (unstubbed parent,
+	// unrelated entries, or a non-file entry), leaving the branch the committed manifest's only
+	// prefix watch, `PrefixInventoryFixture.Prefix`, actually takes on every real steady-state run
+	// unprotected. This stubs the parent directory with the file it genuinely matches upstream, so
+	// `kinds.Contains(null)` in ResolveAsync's prefix branch is what resolves it. This behavior is
+	// already correct, so this test is expected to stay green; it exists to protect the branch
+	// rather than to change it.
 	[Fact]
 	public async Task Prefix_watch_whose_parent_directory_lists_a_matching_file_is_reported_as_current()
 	{
@@ -193,13 +193,14 @@ public sealed class UnresolvedWatchPathTests
 	[Fact]
 	public async Task Prefix_watch_whose_parent_directory_lists_only_unrelated_entries_is_not_reported_as_current()
 	{
-		// Prefix_watch_matching_no_upstream_files_is_not_reported_as_current exits ResolvesAsync's
+		// Prefix_watch_matching_no_upstream_files_is_not_reported_as_current exits ResolveAsync's
 		// own null-or-not-an-array guard (its parent directory is unstubbed and 404s, so TryGetAsync
 		// answers null) before ever evaluating the prefix. This fixture instead
 		// drives a parent directory that resolves as a genuine, non-empty entry array in which
-		// nothing matches the prefix, so the array guard is satisfied and
-		// `PrefixSourcePaths(entries, watch.Path).Count > 0` is the only thing left standing
-		// between this watch and a false "resolved" result.
+		// nothing matches the prefix, so the array guard is satisfied and `kinds.Length == 0` in
+		// ResolveAsync's prefix branch is what still reports this watch as does-not-exist-upstream
+		// instead of falling through to the ordering lookup, which has nothing to select from an
+		// empty match.
 		var watch = Fixture.Watch(UnmatchedPrefix, WatchMatch.Prefix);
 		var transport = UnrelatedChangeTransport();
 		var listing = JsonSerializer.Serialize(new[] { PrefixInventoryFixture.Entry(WrongFilePath) });
@@ -266,8 +267,8 @@ public sealed class UnresolvedWatchPathTests
 		// an unresolved path together — also pins each path to its own JSON key and Markdown
 		// section, and the other path's absence from it.
 		using var json = JsonDocument.Parse(result.JsonReport);
-		var unresolvedWatchPaths = json.RootElement.GetProperty("unresolvedWatchPaths")
-			.EnumerateArray().Select(element => element.GetString()).ToArray();
+		var unresolvedWatchPaths = json.RootElement.GetProperty("unresolvedWatches")
+			.EnumerateArray().Select(element => element.GetProperty("path").GetString()).ToArray();
 		var sourceChangePaths = json.RootElement.GetProperty("sourceChanges")
 			.EnumerateArray().Select(element => element.GetProperty("path").GetString()).ToArray();
 		Assert.Contains(WrongFilePath, unresolvedWatchPaths);
@@ -351,14 +352,24 @@ public sealed class UnresolvedWatchPathTests
 
 	// Isolates one heading's own body from MonitorReports.Markdown's single concatenated string, so
 	// a path found "in the Markdown report" can be pinned to the specific section that names it
-	// rather than merely being present somewhere in the whole document.
-	private static string MarkdownSection(string markdown, string heading, string? nextHeading)
+	// rather than merely being present somewhere in the whole document. Shared across test classes
+	// as an internal static member, the way this suite normally shares cross-class helpers
+	// (ProviderInventoryTests.TargetTransport/Request, PrefixInventoryFixture.Entry).
+	internal static string MarkdownSection(string markdown, string heading, string? nextHeading)
 	{
 		var start = markdown.IndexOf(heading, StringComparison.Ordinal);
 		Assert.True(start >= 0, $"Markdown report does not contain '{heading}'.");
-		var end = nextHeading is null ? markdown.Length : markdown.IndexOf(nextHeading, start, StringComparison.Ordinal);
-		Assert.True(end >= 0, $"Markdown report does not contain '{nextHeading}' after '{heading}'.");
-		return markdown[start..end];
+		if (nextHeading is not null)
+		{
+			var explicitEnd = markdown.IndexOf(nextHeading, start, StringComparison.Ordinal);
+			Assert.True(explicitEnd >= 0, $"Markdown report does not contain '{nextHeading}' after '{heading}'.");
+			return markdown[start..explicitEnd];
+		}
+		// No explicit next heading: bound to the next top-level section marker rather than the end
+		// of the document, so a row that a later implementation places under a section added after
+		// this one is not mistaken for belonging to it.
+		var nextSectionStart = markdown.IndexOf("\n## ", start + heading.Length, StringComparison.Ordinal);
+		return nextSectionStart < 0 ? markdown[start..] : markdown[start..nextSectionStart];
 	}
 
 	// The wrong or unmatched watch path can never appear in a real GitHub compare response, so an
