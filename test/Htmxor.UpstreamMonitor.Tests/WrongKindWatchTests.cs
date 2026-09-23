@@ -82,11 +82,11 @@ public sealed class WrongKindWatchTests
 		// of which shapes are present, rather than conditionally per watch kind, so this run (three
 		// file watches, no prefix) still must not say it.
 		Assert.DoesNotContain("These dependencies are unmonitored", issue.Body, StringComparison.Ordinal);
-		// The line below is not quoted anywhere on the issue; the design decision only paraphrases it
-		// ("it says only that the listed watches do not resolve to the kind of thing they claim at
-		// the reviewed commit"). It was supplied in the delegation that requested this assertion.
-		// Pinned positively because DoesNotContain above would still pass for any other wording
-		// placed in the retired sentence's position, including a different false claim about upstream.
+		// Pinned positively rather than only by the DoesNotContain above, which alone would still pass
+		// for any other wording placed in the retired sentence's position, including a different
+		// false claim about upstream. This sentence belongs here because it names the one claim the
+		// wrong-kind variant is allowed to make in place of the retired one: the listed watches do
+		// not resolve to the kind of thing they claim, not that they are unmonitored.
 		Assert.Contains("- These watches do not resolve to the kind of thing they claim at the reviewed commit.", issue.Body, StringComparison.Ordinal);
 	}
 
