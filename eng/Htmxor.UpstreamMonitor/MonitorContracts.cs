@@ -145,7 +145,20 @@ internal sealed record MonitorResult(
 	string MarkdownReport,
 	IReadOnlyList<IssueUpsertInput> Issues,
 	string? InfrastructureError,
-	IReadOnlyList<string>? UnresolvedWatchPaths = null);
+	IReadOnlyList<UnresolvedWatch>? UnresolvedWatches = null);
+
+// What a non-resolving watch's path turned out to be at the reviewed commit. A watch that exists
+// but is the wrong kind is still unresolved, so the report names what was found rather than
+// claiming the path is missing.
+internal enum WatchFinding
+{
+	DoesNotExist,
+	Directory,
+	Symlink,
+	Submodule,
+}
+
+internal sealed record UnresolvedWatch(string Path, WatchFinding Finding);
 
 internal enum IssueWriteAction
 {

@@ -7,9 +7,10 @@ internal static class MonitorReports
 {
 	public static MonitorResult Create(MonitorRequest request, MonitorStatus status, UpstreamRevision? upstream,
 		IReadOnlyList<SourceChange> sourceChanges, IReadOnlyList<ApiChange> apiChanges, string? error = null,
-		IReadOnlyList<string>? unresolvedWatchPaths = null)
+		IReadOnlyList<UnresolvedWatch>? unresolvedWatches = null)
 	{
-		var unresolved = (unresolvedWatchPaths ?? []).OrderBy(path => path, StringComparer.Ordinal).ToArray();
+		var unresolved = (unresolvedWatches ?? []).Distinct().OrderBy(watch => watch.Path, StringComparer.Ordinal)
+			.ThenBy(watch => watch.Finding).ToArray();
 		var sources = sourceChanges.OrderBy(change => change.Path, StringComparer.Ordinal).ThenBy(change => change.Kind).ToArray();
 		var apis = apiChanges.Distinct().OrderBy(change => change.TypeName, StringComparer.Ordinal).ThenBy(change => change.Kind)
 			.ThenBy(change => change.SymbolKind).ThenBy(change => change.Signature, StringComparer.Ordinal).ToArray();
@@ -21,8 +22,8 @@ internal static class MonitorReports
 			IssuesFor(request, status, baseline, upstream, sources, apis, unresolved), error, unresolved);
 	}
 
-	// An unresolved watch is a manifest defect, not upstream drift: the path names a dependency the
-	// monitor cannot see at the reviewed commit, so every later run would report it current. It gets
+	// An unresolved watch is a manifest defect, not upstream drift: at the reviewed commit its path is
+	// absent, or is not the kind of thing the watch claims to watch. It gets
 	// its own status, its own report section and its own review issue rather than a SourceChange, so
 	// a reader can never mistake it for a change in a file that does exist. The separate issue
 	// identity also keeps the two kinds out of one upserted body, where a full replace would drop
@@ -32,7 +33,7 @@ internal static class MonitorReports
 	// would make the review issue a property of the run, which is the same shape as the defect this
 	// change exists to remove. Current and InfrastructureError report nothing.
 	private static IReadOnlyList<IssueUpsertInput> IssuesFor(MonitorRequest request, MonitorStatus status,
-		UpstreamRevision baseline, UpstreamRevision? upstream, SourceChange[] sources, ApiChange[] apis, string[] unresolved)
+		UpstreamRevision baseline, UpstreamRevision? upstream, SourceChange[] sources, ApiChange[] apis, UnresolvedWatch[] unresolved)
 	{
 		if (status is not (MonitorStatus.Drift or MonitorStatus.UnresolvedWatch))
 		{
@@ -51,29 +52,52 @@ internal static class MonitorReports
 	}
 
 	private static IssueUpsertInput UnresolvedIssue(MonitorRequest request, UpstreamRevision baseline,
-		UpstreamRevision upstream, string[] unresolved)
+		UpstreamRevision upstream, UnresolvedWatch[] unresolved)
 	{
 		var identity = $"aspnetcore-{request.SupportedMajorVersion}-unresolved-watch";
 		var url = $"https://github.com/{request.Manifest.Repository}";
+		// A run whose watches are all absent keeps #232's issue word for word. Once any watch exists as
+		// the wrong kind, "do not exist" would be false for it, so the issue says only that the watches
+		// do not resolve, and each row names what was found.
+		var absentOnly = unresolved.All(watch => watch.Finding == WatchFinding.DoesNotExist);
+		string[] summary = absentOnly
+			?
+			[
+				"- These dependencies are unmonitored: a path that cannot resolve never appears in a compare,",
+				"  so drift in it is reported as current on every run until the manifest is corrected.",
+			]
+			: ["- These watches do not resolve to the kind of thing they claim at the reviewed commit."];
 		var body = string.Join('\n',
 		[
-			"## ASP.NET Core watch paths that do not exist upstream", string.Empty, $"Identity: {identity}", string.Empty,
+			absentOnly ? "## ASP.NET Core watch paths that do not exist upstream" : "## ASP.NET Core watches that do not resolve upstream",
+			string.Empty, $"Identity: {identity}", string.Empty,
 			$"- Reviewed: [{Revision(baseline)}]({url}/tree/{baseline.Commit})",
 			$"- Current: [{Revision(upstream)}]({url}/tree/{upstream.Commit})",
-			"- These dependencies are unmonitored: a path that cannot resolve never appears in a compare,",
-			"  so drift in it is reported as current on every run until the manifest is corrected.",
+			.. summary,
 			string.Empty, "### Unresolved watch paths", string.Empty,
-			.. unresolved.Select(path => $"- [{path}]({url}/tree/{baseline.Commit}/{path})"),
+			.. unresolved.Select(watch => absentOnly
+				? $"- [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"
+				: $"- {Word(watch.Finding)} | [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"),
 			string.Empty, "### Review checklist", string.Empty,
 			"- [ ] Correct or remove each path above", "- [ ] Confirm the corrected path is the right upstream dependency",
 			"- [ ] Re-run the monitor and confirm the watch reports against real content",
 		]);
 		return new(identity, $"repo:egil/Htmxor is:issue label:upstream-monitor \"{identity}\" in:body",
-			$"Htmxor upstream watch paths do not exist at {upstream.Tag}", body);
+			absentOnly ? $"Htmxor upstream watch paths do not exist at {upstream.Tag}" : $"Htmxor upstream watches do not resolve at {upstream.Tag}",
+			body);
 	}
 
+	private static string Word(WatchFinding finding) => finding switch
+	{
+		WatchFinding.DoesNotExist => "does-not-exist-upstream",
+		WatchFinding.Directory => "exists-as-directory",
+		WatchFinding.Symlink => "exists-as-symlink",
+		WatchFinding.Submodule => "exists-as-submodule",
+		_ => throw new ArgumentOutOfRangeException(nameof(finding)),
+	};
+
 	private static string Json(MonitorStatus status, UpstreamRevision baseline, UpstreamRevision? upstream,
-		SourceChange[] sources, ApiChange[] apis, string? error, string[] unresolved)
+		SourceChange[] sources, ApiChange[] apis, string? error, UnresolvedWatch[] unresolved)
 	{
 		var report = new JsonObject
 		{
@@ -92,7 +116,10 @@ internal static class MonitorReports
 		};
 		if (unresolved.Length > 0)
 		{
-			report["unresolvedWatchPaths"] = JsonSerializer.SerializeToNode(unresolved);
+			report["unresolvedWatches"] = JsonSerializer.SerializeToNode(unresolved.Select(watch => new
+			{
+				path = watch.Path, finding = Word(watch.Finding),
+			}));
 		}
 		if (error is not null)
 		{
@@ -104,7 +131,7 @@ internal static class MonitorReports
 	private static JsonObject RevisionJson(UpstreamRevision revision) => new() { ["tag"] = revision.Tag, ["commit"] = revision.Commit };
 
 	private static string Markdown(MonitorStatus status, UpstreamRevision baseline, UpstreamRevision? upstream,
-		SourceChange[] sources, ApiChange[] apis, string? error, string[] unresolved) => string.Join('\n',
+		SourceChange[] sources, ApiChange[] apis, string? error, UnresolvedWatch[] unresolved) => string.Join('\n',
 		[
 			"# ASP.NET Core upstream monitor", string.Empty, $"Status: {Name(status)}",
 			$"Baseline: {Revision(baseline)}", $"Upstream: {(upstream is null ? "unavailable" : Revision(upstream))}",
@@ -115,7 +142,7 @@ internal static class MonitorReports
 			.. apis.Length == 0 ? ["None."] : apis.Select(change => $"- {Name(change.Classification)} | {ApiRow(change)}"),
 			.. unresolved.Length == 0 ? Array.Empty<string>() :
 				[string.Empty, "## Unresolved watch paths", string.Empty,
-					.. unresolved.Select(path => $"- does-not-exist-upstream | {path}")],
+					.. unresolved.Select(watch => $"- {Word(watch.Finding)} | {watch.Path}")],
 		]);
 
 	private static IssueUpsertInput Issue(MonitorRequest request, UpstreamRevision baseline, UpstreamRevision upstream,
