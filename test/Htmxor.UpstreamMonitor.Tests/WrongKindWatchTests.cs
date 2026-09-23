@@ -3,9 +3,9 @@ using Htmxor.UpstreamMonitor;
 
 namespace Htmxor.UpstreamMonitor.Tests;
 
-// Issue #240: #232 made a watch resolve only to the kind of thing it claims to watch, but every
-// watch that does not resolve is reported with #232's absent-path wording even when the path
-// exists as a directory, a symlink, or a submodule. These tests pin the design decision recorded
+// Issue #240: #232 made a watch resolve only to the kind of thing it claims to watch, but reported
+// every watch that does not resolve with its absent-path wording, even when the path exists as a
+// directory, a symlink, or a submodule. These tests pin the design decision recorded
 // on the issue: a wrong-kind watch stays the same UnresolvedWatch status, exit code, and review
 // issue identity, but every report surface now carries what was actually found, and a prefix
 // watch whose listing holds both a matching directory and matching files still resolves. They
@@ -236,9 +236,9 @@ public sealed class WrongKindWatchTests
 		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
 		Assert.Contains(result.SourceChanges, change => change.Path == ExpectedMonitorArtifacts.Invoker);
 		Assert.Equal(2, result.Issues.Count);
-		var driftIssue = Assert.Single(result.Issues, issue => issue.Body.Contains(ExpectedMonitorArtifacts.Invoker, StringComparison.Ordinal));
+		var driftIssue = Assert.Single(result.Issues, issue => issue.Identity == "aspnetcore-10-upstream-drift");
 		var unresolvedIssue = Assert.Single(result.Issues, issue => issue.Identity == "aspnetcore-10-unresolved-watch");
-		Assert.NotEqual(driftIssue.Identity, unresolvedIssue.Identity);
+		Assert.Contains(ExpectedMonitorArtifacts.Invoker, driftIssue.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain(DirectoryPath, driftIssue.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain(ExpectedMonitorArtifacts.Invoker, unresolvedIssue.Body, StringComparison.Ordinal);
 
@@ -278,8 +278,8 @@ public sealed class WrongKindWatchTests
 	// Acceptance criterion 4, and #240's second comment "How this meets acceptance criterion 4":
 	// an absent-only run keeps #232's exact title, heading, body and rows. Distinct from
 	// UnresolvedWatchPathTests, which pins that the run is unresolved rather than current or drift
-	// but never pinned the exact rendered wording; this closes that gap without repeating
-	// UnresolvedWatchPathTests's own coverage of the status and distinguishability. The body is
+	// but not the exact rendered wording; this closes that gap. The status and single-issue checks
+	// first only guard the fixture before the wording is compared. The body is
 	// compared exactly rather than by fragment, because #240 edits exactly the function that
 	// renders it, and a fragment match cannot see a change to the parts it does not check (the
 	// second explanatory line, the "### Unresolved watch paths" subheading, or the review
@@ -318,7 +318,7 @@ public sealed class WrongKindWatchTests
 		await upserter.UpsertAsync(result);
 
 		var persisted = Assert.Single(transport.Issues);
-		Assert.Contains("Identity: aspnetcore-10-unresolved-watch", persisted.Body, StringComparison.Ordinal);
+		Assert.Contains("Identity: aspnetcore-10-unresolved-watch", persisted.Body.Split('\n'));
 	}
 
 	// The design depends on an already-open absent-variant issue being updated in place once a
