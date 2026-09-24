@@ -35,8 +35,15 @@ internal static class Issue189FormAssertions
 		Assert.Equal(stock.Headers, candidate.Headers);
 	}
 
-	public static void CandidateReached(Issue189Observation observation)
-		=> Assert.Contains("invoker:HtmxorEndpointCandidateInvoker", observation.Operations);
+	public static void CandidateReached(Issue189Observation observation, Issue189Response response)
+		=> Assert.True(
+			observation.Operations.Contains("invoker:HtmxorEndpointCandidateInvoker"),
+			$"Expected the candidate invoker to be reached, but the candidate host recorded [{string.Join(", ", observation.Operations)}] and its request returned {response.Status}.\n{response.Body}");
+
+	public static void AssertStatus(HttpStatusCode expected, Issue189Response response)
+		=> Assert.True(
+			response.Status == expected,
+			$"Expected {expected} for the host's first request but got {response.Status}.\n{response.Body}");
 
 	public static void EqualComponents(Issue189Observation stock, Issue189Observation candidate)
 		=> Assert.Equal(

@@ -15,8 +15,8 @@ public sealed class Issue189FormInputTests
 
 		var stock = pair.Observe(pair.Stock, "exempt");
 		var candidate = pair.Observe(pair.Candidate, "exempt");
-		CandidateReached(candidate);
-		Assert.Equal(HttpStatusCode.OK, responses.Stock.Status);
+		CandidateReached(candidate, responses.Candidate);
+		AssertStatus(HttpStatusCode.OK, responses.Stock);
 		Assert.Contains("data-name=\"Ada\"", responses.Stock.Body, StringComparison.Ordinal);
 		Assert.Contains("data-result=\"valid\"", responses.Stock.Body, StringComparison.Ordinal);
 		AssertExemptValidation(stock);
@@ -37,7 +37,7 @@ public sealed class Issue189FormInputTests
 
 		var stock = pair.Observe(pair.Stock, "upload");
 		var candidate = pair.Observe(pair.Candidate, "upload");
-		CandidateReached(candidate);
+		CandidateReached(candidate, responses.Candidate);
 		Assert.Equal(HttpStatusCode.OK, responses.Stock.Status);
 		Assert.Contains("data-caption=\"manifest\"", responses.Stock.Body, StringComparison.Ordinal);
 		Assert.Contains("Model.Attachment|notes.txt|text/plain; charset=utf-8|12|hello upload", responses.Stock.Body, StringComparison.Ordinal);

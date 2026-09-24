@@ -35,7 +35,7 @@ public sealed class Issue189FormRejectionTests
 
 		var stock = pair.Observe(pair.Stock, "antiforgery");
 		var candidate = pair.Observe(pair.Candidate, "antiforgery");
-		CandidateReached(candidate);
+		CandidateReached(candidate, responses.Candidate);
 		Assert.Equal(HttpStatusCode.BadRequest, responses.Stock.Status);
 		Assert.Equal(environment == Environments.Development || detailedErrors, responses.Stock.Body.Length > 0);
 		Assert.Contains("middleware-feature:False", stock.Operations);
@@ -59,7 +59,7 @@ public sealed class Issue189FormRejectionTests
 
 		var responses = await SendAsync(pair, () => UnsupportedPost(tokens, contentType));
 
-		CandidateReached(pair.Observe(pair.Candidate, "content-type"));
+		CandidateReached(pair.Observe(pair.Candidate, "content-type"), responses.Candidate);
 		Assert.Equal(HttpStatusCode.BadRequest, responses.Stock.Status);
 		Assert.Equal(environment == Environments.Development || detailedErrors, responses.Stock.Body.Length > 0);
 		RejectedBeforeBinding(pair.Observe(pair.Stock, "content-type"));
@@ -79,7 +79,7 @@ public sealed class Issue189FormRejectionTests
 		var responses = await SendAsync(pair, () => Issue189HostPair.Post(
 			Issue189HostPair.FormPath, "duplicate", tokens, Form().Append(new("_handler", "save"))));
 
-		CandidateReached(pair.Observe(pair.Candidate, "duplicate"));
+		CandidateReached(pair.Observe(pair.Candidate, "duplicate"), responses.Candidate);
 		Assert.Equal(HttpStatusCode.BadRequest, responses.Stock.Status);
 		Assert.Empty(responses.Stock.Body);
 		RejectedBeforeBinding(pair.Observe(pair.Stock, "duplicate"));
@@ -104,7 +104,7 @@ public sealed class Issue189FormRejectionTests
 		var responses = await SendAsync(pair, () => Issue189HostPair.Post(
 			Issue189HostPair.FormPath, "handler", tokens, fields));
 
-		CandidateReached(pair.Observe(pair.Candidate, "handler"));
+		CandidateReached(pair.Observe(pair.Candidate, "handler"), responses.Candidate);
 		Assert.Equal(HttpStatusCode.BadRequest, responses.Stock.Status);
 		Assert.Equal(environment == Environments.Development, responses.Stock.Body.Length > 0);
 		Assert.Equal("text/plain", responses.Stock.Headers["Content-Type"]);

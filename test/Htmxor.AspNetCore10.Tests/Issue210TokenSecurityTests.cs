@@ -49,8 +49,11 @@ public sealed class Issue210TokenSecurityTests
 		request.Headers.Add("Sec-Fetch-Site", "same-origin");
 
 		using var response = await host.Client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
 
-		Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+		Assert.True(
+			response.StatusCode == HttpStatusCode.BadRequest,
+			$"Expected the host's first request to return BadRequest but it was {response.StatusCode}.\n{body}");
 		host.Probe.AssertUntouched();
 	}
 
@@ -119,7 +122,10 @@ public sealed class Issue210TokenSecurityTests
 		using var request = Issue210SecurityHost.Request("POST", "exempt-form", form: true, direct: false);
 		request.Headers.Add("Sec-Fetch-Site", "cross-site");
 		using var response = await host.Client.SendAsync(request);
-		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		var body = await response.Content.ReadAsStringAsync();
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"Expected the host's first request to return OK but it was {response.StatusCode}.\n{body}");
 		Assert.Equal(1, host.Probe.Callbacks);
 	}
 

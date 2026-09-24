@@ -18,7 +18,7 @@ public sealed class Issue189FormParityTests
 		var responses = await SendAsync(pair, () => Issue189HostPair.Post(
 			Issue189HostPair.FormPath, "submit", tokens, Form(name, age)));
 
-		CandidateReached(pair.Observe(pair.Candidate, "submit"));
+		CandidateReached(pair.Observe(pair.Candidate, "submit"), responses.Candidate);
 		Assert.Equal(HttpStatusCode.OK, responses.Stock.Status);
 		Assert.Contains(expectedOutput, responses.Stock.Body, StringComparison.Ordinal);
 		Assert.Contains($"data-result=\"{result}\"", responses.Stock.Body, StringComparison.Ordinal);
@@ -41,7 +41,7 @@ public sealed class Issue189FormParityTests
 
 		var stock = pair.Observe(pair.Stock, "order");
 		var candidate = pair.Observe(pair.Candidate, "order");
-		CandidateReached(candidate);
+		CandidateReached(candidate, responses.Candidate);
 		AssertValidationBeforeMapping(stock, invokerValidation);
 		AssertValidationBeforeMapping(candidate, invokerValidation);
 		EqualResponse(responses.Stock, responses.Candidate);
@@ -59,7 +59,7 @@ public sealed class Issue189FormParityTests
 		var responses = await SendAsync(pair, () => Issue189HostPair.Post(
 			"/issue-189/scopes/right", "scoped", tokens, Form(handler: $"[{submitted}]save")));
 
-		CandidateReached(pair.Observe(pair.Candidate, "scoped"));
+		CandidateReached(pair.Observe(pair.Candidate, "scoped"), responses.Candidate);
 		var callback = Assert.Single(pair.Observe(pair.Stock, "scoped").Components, item => item.Phase == "valid");
 		Assert.Equal(submitted, callback.Label);
 		Assert.Contains(pair.Observe(pair.Stock, "scoped").Components, item =>
@@ -78,7 +78,7 @@ public sealed class Issue189FormParityTests
 
 		var responses = await SendAsync(pair, () => Issue189HostPair.Post(path, "ambiguous", tokens, Form(handler: handler)));
 
-		CandidateReached(pair.Observe(pair.Candidate, "ambiguous"));
+		CandidateReached(pair.Observe(pair.Candidate, "ambiguous"), responses.Candidate);
 		Assert.Equal(HttpStatusCode.InternalServerError, responses.Stock.Status);
 		Assert.Contains("There is more than one named submit event", responses.Stock.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain(pair.Observe(pair.Stock, "ambiguous").Components, item => item.Phase == "valid");
@@ -98,7 +98,7 @@ public sealed class Issue189FormParityTests
 		var responses = await SendAsync(pair, () => Issue189HostPair.Post(
 			Issue189HostPair.FormPath, "limit", tokens, fields));
 
-		CandidateReached(pair.Observe(pair.Candidate, "limit"));
+		CandidateReached(pair.Observe(pair.Candidate, "limit"), responses.Candidate);
 		Assert.Equal(HttpStatusCode.OK, responses.Stock.Status);
 		Assert.Contains("data-result=\"invalid\"", responses.Stock.Body, StringComparison.Ordinal);
 		Assert.Contains("maximum", responses.Stock.Body, StringComparison.OrdinalIgnoreCase);

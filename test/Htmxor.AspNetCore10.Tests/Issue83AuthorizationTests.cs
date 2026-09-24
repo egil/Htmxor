@@ -60,9 +60,12 @@ public sealed class Issue83AuthorizationTests : IAsyncLifetime
 		HttpStatusCode expectedStatusCode)
 	{
 		using var normalResponse = await SendAsync(user, direct: false);
+		var normalBody = await normalResponse.Content.ReadAsStringAsync();
 		using var directResponse = await SendAsync(user, direct: true);
 
-		Assert.Equal(expectedStatusCode, normalResponse.StatusCode);
+		Assert.True(
+			normalResponse.StatusCode == expectedStatusCode,
+			$"Expected {expectedStatusCode} for the host's first request but got {normalResponse.StatusCode}.\n{normalBody}");
 		Assert.Equal(normalResponse.StatusCode, directResponse.StatusCode);
 	}
 

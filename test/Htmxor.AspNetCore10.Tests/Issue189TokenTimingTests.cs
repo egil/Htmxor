@@ -19,7 +19,7 @@ public sealed class Issue189TokenTimingTests
 
 		var stock = pair.Observe(pair.Stock, "get");
 		var candidate = pair.Observe(pair.Candidate, "get");
-		CandidateReached(candidate);
+		CandidateReached(candidate, responses.Candidate);
 		Assert.Equal(HttpStatusCode.OK, responses.Stock.Status);
 		Assert.Equal(TokenOperations(stock), TokenOperations(candidate));
 		Assert.Equal(stock.GeneratedTokens.Distinct(), responses.Stock.Tokens);
@@ -37,7 +37,7 @@ public sealed class Issue189TokenTimingTests
 		var responses = await SendAsync(pair, () => Issue189HostPair.Post(
 			Issue189HostPair.FormPath, "post", tokens, Form()));
 
-		CandidateReached(pair.Observe(pair.Candidate, "post"));
+		CandidateReached(pair.Observe(pair.Candidate, "post"), responses.Candidate);
 		Assert.Equal(HttpStatusCode.OK, responses.Stock.Status);
 		Assert.Equal(TokenOperations(pair.Observe(pair.Stock, "post")), TokenOperations(pair.Observe(pair.Candidate, "post")));
 		Assert.Equal(pair.Observe(pair.Stock, "post").GeneratedTokens.Distinct(), responses.Stock.Tokens);
@@ -56,7 +56,7 @@ public sealed class Issue189TokenTimingTests
 
 		var stock = pair.Observe(pair.Stock, "late-token");
 		var candidate = pair.Observe(pair.Candidate, "late-token");
-		CandidateReached(candidate);
+		CandidateReached(candidate, responses.Candidate);
 		Assert.Equal(HttpStatusCode.OK, responses.Stock.Status);
 		Assert.Contains("late-response-started:True", stock.Operations);
 		Assert.Contains("late-response-started:True", candidate.Operations);
