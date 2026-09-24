@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -62,6 +64,7 @@ internal sealed class Issue210SecurityHost(WebApplication app, HttpClient client
 		}
 
 		var components = group.MapRazorComponents<Issue78App>();
+		PreserveOwnHttpMethodMetadata(components);
 		if (htmxor)
 		{
 			components.AddHtmxorEndpoints();
@@ -72,6 +75,21 @@ internal sealed class Issue210SecurityHost(WebApplication app, HttpClient client
 		client.DefaultRequestHeaders.Add(Issue83AuthenticationHandler.UserHeaderName, Issue83AuthenticationHandler.AuthorizedUser);
 		return new(app, client);
 	}
+
+	private static void PreserveOwnHttpMethodMetadata(RazorComponentsEndpointConventionBuilder components)
+		=> components.Add(builder =>
+		{
+			// Every Razor component endpoint in the process carries the same static HttpMethodMetadata
+			// instance. RouteEndpointBuilder flips AcceptCorsPreflight on an endpoint's last
+			// IHttpMethodMetadata when the endpoint carries CORS metadata, so append a per-endpoint copy
+			// here: the flip lands on this host's own copy instead of the instance every other host's
+			// component endpoints share.
+			var current = builder.Metadata.OfType<IHttpMethodMetadata>().LastOrDefault();
+			if (current is not null)
+			{
+				builder.Metadata.Add(new HttpMethodMetadata(current.HttpMethods, current.AcceptCorsPreflight));
+			}
+		});
 
 	private static void ConfigureServices(IServiceCollection services, bool htmxor, Action<IServiceCollection>? configureServices)
 	{
