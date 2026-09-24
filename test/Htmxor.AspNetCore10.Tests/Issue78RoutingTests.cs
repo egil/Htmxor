@@ -141,7 +141,9 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 	{
 		using var normalResponse = await client.GetAsync($"{requestPath}?query=from-query");
 		var normalBody = await normalResponse.Content.ReadAsStringAsync();
-		Assert.Equal(HttpStatusCode.OK, normalResponse.StatusCode);
+		Assert.True(
+			normalResponse.StatusCode == HttpStatusCode.OK,
+			$"Expected the host's first request to return OK but it was {normalResponse.StatusCode}.\n{normalBody}");
 		Assert.Contains("<html", normalBody, StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("data-stock-shell", normalBody, StringComparison.Ordinal);
 		Assert.Contains(expectedRouteValue, normalBody, StringComparison.Ordinal);
@@ -152,7 +154,9 @@ public sealed class Issue78RoutingTests : IAsyncLifetime
 		htmxRequest.Headers.Add("HX-Request-Type", "partial");
 		using var htmxResponse = await client.SendAsync(htmxRequest);
 		var htmxBody = await htmxResponse.Content.ReadAsStringAsync();
-		Assert.Equal(HttpStatusCode.OK, htmxResponse.StatusCode);
+		Assert.True(
+			htmxResponse.StatusCode == HttpStatusCode.OK,
+			$"Expected the direct HTMX request to return OK but it was {htmxResponse.StatusCode}.\n{htmxBody}");
 		Assert.Contains(expectedRouteValue, htmxBody, StringComparison.Ordinal);
 		Assert.Contains("data-request-values>from-query|from-di|1</span>", htmxBody, StringComparison.Ordinal);
 		Assert.DoesNotContain("<html", htmxBody, StringComparison.OrdinalIgnoreCase);

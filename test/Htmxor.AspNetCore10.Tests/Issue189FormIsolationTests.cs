@@ -16,8 +16,8 @@ public sealed class Issue189FormIsolationTests
 		var stock = await SendTwoAsync(pair.Stock, tokens, overlap);
 		var candidate = await SendTwoAsync(pair.Candidate, tokens, overlap);
 
-		CandidateReached(pair.Observe(pair.Candidate, "first"));
-		CandidateReached(pair.Observe(pair.Candidate, "second"));
+		CandidateReached(pair.Observe(pair.Candidate, "first"), candidate[0]);
+		CandidateReached(pair.Observe(pair.Candidate, "second"), candidate[1]);
 		Assert.Contains("data-result=\"invalid\"", stock[0].Body, StringComparison.Ordinal);
 		Assert.Contains("The Name field is required.", stock[0].Body, StringComparison.Ordinal);
 		Assert.Contains("data-result=\"valid\"", stock[1].Body, StringComparison.Ordinal);

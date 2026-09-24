@@ -54,7 +54,9 @@ internal sealed class Issue189HostPair(Issue187ParityHost stock, Issue187ParityH
 		using var request = Request(HttpMethod.Get, FormPath, "token-provisioning");
 		using var response = await Stock.Client.SendAsync(request);
 		var body = await response.Content.ReadAsStringAsync();
-		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"Expected the stock host's first request to return OK but it was {response.StatusCode}.\n{body}");
 		var token = Regex.Match(body, "name=\"__RequestVerificationToken\" value=\"([^\"]+)\"", RegexOptions.CultureInvariant);
 		Assert.True(token.Success, "The stock form must issue a real antiforgery request token.");
 		var cookie = response.Headers.GetValues("Set-Cookie")
@@ -166,9 +168,10 @@ internal sealed class Issue189HostPair(Issue187ParityHost stock, Issue187ParityH
 		{
 			await next(context);
 		}
-		catch (InvalidOperationException exception)
+		catch (Exception exception)
 		{
-			// Capture the stock exception without developer-page stack noise or error-page re-execution.
+			// Capture whatever this pipeline throws, not only the stock antiforgery/mapping exception this
+			// suite anticipates, without developer-page stack noise or error-page re-execution.
 			context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 			context.Response.ContentType = "text/plain";
 			await context.Response.WriteAsync(exception.GetType().FullName + "\n" + exception.Message);
