@@ -18,7 +18,8 @@ public sealed class Issue246ComponentEndpointMetadataTests
 		await using var plain = await BuildPlainHostAsync();
 		var plainMetadata = GetLastHttpMethodMetadata(plain);
 
-		// The suite's only CORS-bearing host, built exactly as the real tests build it.
+		// The CORS-bearing host whose per-endpoint metadata copy this guards. Another CORS-bearing test host
+		// needs the same copy; this test builds only this one, so it cannot reliably detect a copy missing elsewhere.
 		await using var cors = await Issue210SecurityHost.StartAsync(cors: "trusted");
 
 		Assert.False(

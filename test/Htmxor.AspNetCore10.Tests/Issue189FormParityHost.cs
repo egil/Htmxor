@@ -168,10 +168,9 @@ internal sealed class Issue189HostPair(Issue187ParityHost stock, Issue187ParityH
 		{
 			await next(context);
 		}
-		catch (Exception exception)
+		catch (InvalidOperationException exception)
 		{
-			// Capture whatever this pipeline throws, not only the stock antiforgery/mapping exception this
-			// suite anticipates, without developer-page stack noise or error-page re-execution.
+			// Capture the stock exception without developer-page stack noise or error-page re-execution.
 			context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 			context.Response.ContentType = "text/plain";
 			await context.Response.WriteAsync(exception.GetType().FullName + "\n" + exception.Message);

@@ -41,8 +41,11 @@ public sealed class Issue210AuthorizationTests
 		using var request = Issue210SecurityHost.Request("GET", page, direct: page == "actions");
 
 		using var response = await host.Client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
 
-		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.True(
+			response.StatusCode == HttpStatusCode.OK,
+			$"Expected the host's first request to return OK but it was {response.StatusCode}.\n{body}");
 		Assert.Equal(1, host.Probe.Initializations);
 	}
 

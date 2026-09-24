@@ -38,7 +38,7 @@ internal static class Issue189FormAssertions
 	public static void CandidateReached(Issue189Observation observation, Issue189Response response)
 		=> Assert.True(
 			observation.Operations.Contains("invoker:HtmxorEndpointCandidateInvoker"),
-			$"Expected the candidate invoker to be reached, but the candidate host's request returned {response.Status}.\n{response.Body}");
+			$"Expected the candidate invoker to be reached, but the candidate host recorded [{string.Join(", ", observation.Operations)}] and its request returned {response.Status}.\n{response.Body}");
 
 	public static void AssertStatus(HttpStatusCode expected, Issue189Response response)
 		=> Assert.True(
