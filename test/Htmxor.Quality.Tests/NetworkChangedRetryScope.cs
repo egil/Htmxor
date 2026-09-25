@@ -4,8 +4,9 @@ using Htmxor.Quality;
 namespace Htmxor.Quality.Tests;
 
 /// <summary>
-/// Decides whether <see cref="Htmx4PackageBrowserTests"/> reruns its nested `dotnet test`
-/// invocation once, scoped to a navigation aborted by Playwright's `net::ERR_NETWORK_CHANGED`
+/// Decides whether <see cref="Htmx4PackageBrowserTests"/> reruns its nested run (pack, restore,
+/// publish, and `dotnet test`) once, scoped to a navigation aborted by Playwright's
+/// `net::ERR_NETWORK_CHANGED`
 /// (https://github.com/egil/Htmxor/issues/248). The nested run retries only when every failed
 /// nested test's error carries that exact error. A failure that lacks it, a mix of that error with
 /// any other failure, a different network error, a hung or aborted run, and a non-zero exit that

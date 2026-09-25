@@ -1,8 +1,9 @@
 namespace Htmxor.Quality.Tests;
 
 /// <summary>
-/// Runs <see cref="Htmx4PackageBrowserTests"/>' nested `dotnet test` invocation, and reruns it
-/// exactly once when <see cref="NetworkChangedRetryScope.ShouldRetry"/> says the nested run's TRX
+/// Runs <see cref="Htmx4PackageBrowserTests"/>' nested run, which at that call site packs,
+/// restores, publishes, and runs `dotnet test`, and reruns all of it exactly once when
+/// <see cref="NetworkChangedRetryScope.ShouldRetry"/> says the nested run's TRX
 /// qualifies (https://github.com/egil/Htmxor/issues/248), writing a note naming the reason and
 /// this issue at the point of retry. <typeparamref name="TRun"/> and <paramref name="trxPathOf"/>
 /// let the real wiring pass its own `ProcessResult` and assert on it directly: both the first run
