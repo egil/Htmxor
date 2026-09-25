@@ -8,11 +8,13 @@ namespace Htmxor.Quality.Tests;
 /// publish, and `dotnet test`) once, scoped to a navigation aborted by Playwright's
 /// `net::ERR_NETWORK_CHANGED`
 /// (https://github.com/egil/Htmxor/issues/248). The nested run retries only when every failed
-/// nested test's error carries that exact error, and the run's Counters show no error, no timeout,
-/// and every discovered test executed. A failure that lacks the error, a mix of that error with any
-/// other failure, a different network error, a hung or aborted run, a non-zero error or timeout
-/// count, an executed count short of total, and a non-zero exit that reports no failed test in the
-/// TRX all fail on the first attempt.
+/// nested test's error carries that exact error, the number of failed results found equals
+/// Counters.failed, and the run's Counters show no error, no timeout, and every discovered test
+/// executed. A failure that lacks the error, a mix of that error with any other failure, a
+/// different network error, a hung or aborted run, a non-zero error or timeout count, an executed
+/// count short of total, a Counters.failed count that disagrees with the failed results actually
+/// present, and a non-zero exit that reports no failed test in the TRX all fail on the first
+/// attempt.
 /// </summary>
 internal static class NetworkChangedRetryScope
 {
@@ -26,7 +28,10 @@ internal static class NetworkChangedRetryScope
 	// total is what a skipped nested test produces on this VSTest stack; the nested suite has no
 	// skipped test today, but this rule keeps such a run from retrying. The guard costs nothing and
 	// only narrows retry further, consistent with the owner excluding a timeout or aborted run
-	// outright.
+	// outright. The failed-message list is materialized once and checked against Counters.failed
+	// before its content is checked: without that count check, a TRX where Counters.failed disagrees
+	// with the number of failed results actually present would let `All` over a short or empty list
+	// pass vacuously.
 	public static bool ShouldRetry(string trxPath)
 	{
 		var run = TrxTestRun.Read(trxPath);
@@ -36,7 +41,13 @@ internal static class NetworkChangedRetryScope
 		}
 
 		var document = XDocument.Load(trxPath);
-		return !HasAbortRunInfo(document) && ReadFailedMessages(document).All(IsNetworkChanged);
+		if (HasAbortRunInfo(document))
+		{
+			return false;
+		}
+
+		var failedMessages = ReadFailedMessages(document).ToList();
+		return failedMessages.Count == run.Failed && failedMessages.All(IsNetworkChanged);
 	}
 
 	private static bool HasAbnormalCounters(TrxTestRun run) =>

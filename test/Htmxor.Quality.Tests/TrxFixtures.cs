@@ -34,6 +34,7 @@ internal static class TrxFixtures
 		string? runAbortedMessage = null,
 		string? blameMessage = BlameFinishedMessage,
 		int? executed = null,
+		int? failedCount = null,
 		int error = 0,
 		int timeout = 0,
 		string fileName = "nested.trx")
@@ -49,7 +50,7 @@ internal static class TrxFixtures
 				new XAttribute("total", total),
 				new XAttribute("executed", executed ?? total),
 				new XAttribute("passed", passed),
-				new XAttribute("failed", failedErrorMessages.Count),
+				new XAttribute("failed", failedCount ?? failedErrorMessages.Count),
 				new XAttribute("notExecuted", 0),
 				new XAttribute("error", error),
 				new XAttribute("timeout", timeout)));

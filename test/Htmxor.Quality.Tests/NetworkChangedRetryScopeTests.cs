@@ -197,4 +197,41 @@ public sealed class NetworkChangedRetryScopeTests
 
 		Assert.False(shouldRetry);
 	}
+
+	// Inconsistent-TRX shapes no real capture shows: Counters.failed disagrees with the number of
+	// failed UnitTestResult elements actually present. All over a short or empty failed-message
+	// list is vacuously true, so a decision that does not check the count against Counters.failed
+	// would retry here even though the TRX cannot support that count.
+
+	[Fact]
+	public void A_failed_counter_exceeding_the_failed_results_does_not_retry()
+	{
+		using var directory = new TemporaryDirectory();
+		var trxPath = TrxFixtures.Write(
+			directory.Path,
+			total: 42,
+			passed: 40,
+			failedErrorMessages: [NetworkChangedMessage],
+			failedCount: 2);
+
+		var shouldRetry = NetworkChangedRetryScope.ShouldRetry(trxPath);
+
+		Assert.False(shouldRetry);
+	}
+
+	[Fact]
+	public void A_positive_failed_counter_with_no_failed_results_does_not_retry()
+	{
+		using var directory = new TemporaryDirectory();
+		var trxPath = TrxFixtures.Write(
+			directory.Path,
+			total: 42,
+			passed: 42,
+			failedErrorMessages: [],
+			failedCount: 1);
+
+		var shouldRetry = NetworkChangedRetryScope.ShouldRetry(trxPath);
+
+		Assert.False(shouldRetry);
+	}
 }
