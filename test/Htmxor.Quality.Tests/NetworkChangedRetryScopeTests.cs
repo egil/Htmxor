@@ -198,10 +198,10 @@ public sealed class NetworkChangedRetryScopeTests
 		Assert.False(shouldRetry);
 	}
 
-	// Inconsistent-TRX shapes no real capture shows: Counters.failed disagrees with the number of
-	// failed UnitTestResult elements actually present. All over a short or empty failed-message
-	// list is vacuously true, so a decision that does not check the count against Counters.failed
-	// would retry here even though the TRX cannot support that count.
+	// Inconsistent-TRX shapes no real capture recorded for #248 shows: Counters.failed disagrees
+	// with the number of failed UnitTestResult elements actually present. `All` is vacuously true
+	// over an empty failed-message list, and over a short one it never sees the missing failures,
+	// so a decision that does not check the count against Counters.failed would retry here.
 
 	[Fact]
 	public void A_failed_counter_exceeding_the_failed_results_does_not_retry()

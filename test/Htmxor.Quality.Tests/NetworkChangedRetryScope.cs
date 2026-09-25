@@ -6,15 +6,13 @@ namespace Htmxor.Quality.Tests;
 /// <summary>
 /// Decides whether <see cref="Htmx4PackageBrowserTests"/> reruns its nested run (pack, restore,
 /// publish, and `dotnet test`) once, scoped to a navigation aborted by Playwright's
-/// `net::ERR_NETWORK_CHANGED`
-/// (https://github.com/egil/Htmxor/issues/248). The nested run retries only when every failed
-/// nested test's error carries that exact error, the number of failed results found equals
-/// Counters.failed, and the run's Counters show no error, no timeout, and every discovered test
-/// executed. A failure that lacks the error, a mix of that error with any other failure, a
-/// different network error, a hung or aborted run, a non-zero error or timeout count, an executed
-/// count short of total, a Counters.failed count that disagrees with the failed results actually
-/// present, and a non-zero exit that reports no failed test in the TRX all fail on the first
-/// attempt.
+/// `net::ERR_NETWORK_CHANGED` (https://github.com/egil/Htmxor/issues/248). The nested run
+/// retries only when all of these hold: the TRX reports at least one failed test; it contains
+/// exactly as many failed results as Counters.failed, and every one carries that exact error; its
+/// Counters show no error, no timeout, and every discovered test executed; and no run information
+/// carries the test-run abort text. Anything else, including a mix with another failure, a
+/// different network error, a hung or aborted run, or a non-zero exit with no failed test in the
+/// TRX, fails on the first attempt.
 /// </summary>
 internal static class NetworkChangedRetryScope
 {
@@ -23,15 +21,6 @@ internal static class NetworkChangedRetryScope
 
 	// The decision reads only the TRX. A retry needs at least one failed test, so a non-zero exit
 	// with no failed test in the TRX never retries, and the exit code adds nothing to the decision.
-	// The counter guard below is defensive for the error and timeout counts: no captured real run
-	// has shown either alongside net::ERR_NETWORK_CHANGED failures. An executed count short of
-	// total is what a skipped nested test produces on this VSTest stack; the nested suite has no
-	// skipped test today, but this rule keeps such a run from retrying. The guard costs nothing and
-	// only narrows retry further, consistent with the owner excluding a timeout or aborted run
-	// outright. The failed-message list is materialized once and checked against Counters.failed
-	// before its content is checked: without that count check, a TRX where Counters.failed disagrees
-	// with the number of failed results actually present would let `All` over a short or empty list
-	// pass vacuously.
 	public static bool ShouldRetry(string trxPath)
 	{
 		var run = TrxTestRun.Read(trxPath);
@@ -41,17 +30,24 @@ internal static class NetworkChangedRetryScope
 		}
 
 		var document = XDocument.Load(trxPath);
-		if (HasAbortRunInfo(document))
-		{
-			return false;
-		}
-
-		var failedMessages = ReadFailedMessages(document).ToList();
-		return failedMessages.Count == run.Failed && failedMessages.All(IsNetworkChanged);
+		return !HasAbortRunInfo(document) && EveryCountedFailureIsNetworkChanged(document, run.Failed);
 	}
 
+	// Defensive for the error and timeout counts: no captured real run has shown either alongside
+	// net::ERR_NETWORK_CHANGED failures. An executed count short of total is what a skipped nested
+	// test produces on this VSTest stack; the nested suite has no skipped test today, but this rule
+	// keeps such a run from retrying. It only narrows retry further, consistent with the owner
+	// excluding a timeout or aborted run outright.
 	private static bool HasAbnormalCounters(TrxTestRun run) =>
 		run.Errors > 0 || run.TimedOut > 0 || run.Executed < run.Total;
+
+	// The failed results found must match Counters.failed. Otherwise `All` would pass vacuously over
+	// an empty list, or over a short list without seeing every counted failure.
+	private static bool EveryCountedFailureIsNetworkChanged(XDocument document, int failedCount)
+	{
+		var failedMessages = ReadFailedMessages(document).ToList();
+		return failedMessages.Count == failedCount && failedMessages.All(IsNetworkChanged);
+	}
 
 	// A real abort (a `--blame-hang` timeout or a test-host crash) always adds one more `RunInfo`
 	// with this text. It is the one entry every observed abort carries and no non-abort run does,
