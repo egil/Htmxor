@@ -143,11 +143,11 @@ public sealed class NetworkChangedRetryScopeTests
 		Assert.False(shouldRetry);
 	}
 
-	// Defensive shapes, not observed in any of the 13 real captures on record: every distinct
-	// capture has error, timeout, and notExecuted at zero, and executed equal to total. The abort
-	// text already covers every observed abort. These three facts guard TrxTestRun shapes the
-	// Counters can represent regardless, so a run that is otherwise scoped to retry still does not
-	// when the run itself was not clean, cheaply and without weakening the abort-text signal.
+	// Defensive shapes: no real capture recorded for #248 has shown a nonzero error or timeout
+	// count, or executed short of total, and the abort text already covers every observed abort.
+	// These three facts guard Counters shapes a TRX can still represent, so a run otherwise scoped
+	// to retry does not retry when the run itself was not clean, without weakening the abort-text
+	// signal.
 
 	[Fact]
 	public void A_network_changed_failure_with_a_nonzero_error_counter_does_not_retry()
