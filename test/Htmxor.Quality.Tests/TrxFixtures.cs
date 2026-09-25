@@ -33,6 +33,9 @@ internal static class TrxFixtures
 		IReadOnlyList<string> failedErrorMessages,
 		string? runAbortedMessage = null,
 		string? blameMessage = BlameFinishedMessage,
+		int? executed = null,
+		int error = 0,
+		int timeout = 0,
 		string fileName = "nested.trx")
 	{
 		var results = new XElement(Trx + "Results");
@@ -44,12 +47,12 @@ internal static class TrxFixtures
 			new XElement(
 				Trx + "Counters",
 				new XAttribute("total", total),
-				new XAttribute("executed", total),
+				new XAttribute("executed", executed ?? total),
 				new XAttribute("passed", passed),
 				new XAttribute("failed", failedErrorMessages.Count),
 				new XAttribute("notExecuted", 0),
-				new XAttribute("error", 0),
-				new XAttribute("timeout", 0)));
+				new XAttribute("error", error),
+				new XAttribute("timeout", timeout)));
 		AddRunInfos(resultSummary, failedErrorMessages, runAbortedMessage, blameMessage);
 
 		var document = new XElement(Trx + "TestRun", results, resultSummary);

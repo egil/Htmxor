@@ -142,4 +142,58 @@ public sealed class NetworkChangedRetryScopeTests
 
 		Assert.False(shouldRetry);
 	}
+
+	// Defensive shapes, not observed in any of the 13 real captures on record: every distinct
+	// capture has error, timeout, and notExecuted at zero, and executed equal to total. The abort
+	// text already covers every observed abort. These three facts guard TrxTestRun shapes the
+	// Counters can represent regardless, so a run that is otherwise scoped to retry still does not
+	// when the run itself was not clean, cheaply and without weakening the abort-text signal.
+
+	[Fact]
+	public void A_network_changed_failure_with_a_nonzero_error_counter_does_not_retry()
+	{
+		using var directory = new TemporaryDirectory();
+		var trxPath = TrxFixtures.Write(
+			directory.Path,
+			total: 42,
+			passed: 39,
+			failedErrorMessages: [NetworkChangedMessage, NetworkChangedMessage],
+			error: 1);
+
+		var shouldRetry = NetworkChangedRetryScope.ShouldRetry(trxPath);
+
+		Assert.False(shouldRetry);
+	}
+
+	[Fact]
+	public void A_network_changed_failure_with_a_nonzero_timeout_counter_does_not_retry()
+	{
+		using var directory = new TemporaryDirectory();
+		var trxPath = TrxFixtures.Write(
+			directory.Path,
+			total: 42,
+			passed: 39,
+			failedErrorMessages: [NetworkChangedMessage, NetworkChangedMessage],
+			timeout: 1);
+
+		var shouldRetry = NetworkChangedRetryScope.ShouldRetry(trxPath);
+
+		Assert.False(shouldRetry);
+	}
+
+	[Fact]
+	public void A_network_changed_failure_with_executed_less_than_total_does_not_retry()
+	{
+		using var directory = new TemporaryDirectory();
+		var trxPath = TrxFixtures.Write(
+			directory.Path,
+			total: 42,
+			passed: 39,
+			failedErrorMessages: [NetworkChangedMessage, NetworkChangedMessage],
+			executed: 41);
+
+		var shouldRetry = NetworkChangedRetryScope.ShouldRetry(trxPath);
+
+		Assert.False(shouldRetry);
+	}
 }

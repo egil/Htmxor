@@ -8,9 +8,11 @@ namespace Htmxor.Quality.Tests;
 /// publish, and `dotnet test`) once, scoped to a navigation aborted by Playwright's
 /// `net::ERR_NETWORK_CHANGED`
 /// (https://github.com/egil/Htmxor/issues/248). The nested run retries only when every failed
-/// nested test's error carries that exact error. A failure that lacks it, a mix of that error with
-/// any other failure, a different network error, a hung or aborted run, and a non-zero exit that
-/// reports no failed test in the TRX all fail on the first attempt.
+/// nested test's error carries that exact error, and the run's Counters show no error, no timeout,
+/// and every discovered test executed. A failure that lacks the error, a mix of that error with any
+/// other failure, a different network error, a hung or aborted run, a non-zero error or timeout
+/// count, an executed count short of total, and a non-zero exit that reports no failed test in the
+/// TRX all fail on the first attempt.
 /// </summary>
 internal static class NetworkChangedRetryScope
 {
@@ -19,10 +21,14 @@ internal static class NetworkChangedRetryScope
 
 	// The decision reads only the TRX. A retry needs at least one failed test, so a non-zero exit
 	// with no failed test in the TRX never retries, and the exit code adds nothing to the decision.
+	// The counter guard below is defensive: no captured real run has shown a nonzero error or
+	// timeout count, or executed short of total, alongside net::ERR_NETWORK_CHANGED failures. It
+	// costs nothing and only narrows retry further, consistent with the owner excluding a timeout
+	// or aborted run outright.
 	public static bool ShouldRetry(string trxPath)
 	{
 		var run = TrxTestRun.Read(trxPath);
-		if (run.Failed == 0)
+		if (run.Failed == 0 || HasAbnormalCounters(run))
 		{
 			return false;
 		}
@@ -30,6 +36,9 @@ internal static class NetworkChangedRetryScope
 		var document = XDocument.Load(trxPath);
 		return !HasAbortRunInfo(document) && ReadFailedMessages(document).All(IsNetworkChanged);
 	}
+
+	private static bool HasAbnormalCounters(TrxTestRun run) =>
+		run.Errors > 0 || run.TimedOut > 0 || run.Executed < run.Total;
 
 	// A real abort (a `--blame-hang` timeout or a test-host crash) always adds one more `RunInfo`
 	// with this text. It is the one entry every observed abort carries and no non-abort run does,
