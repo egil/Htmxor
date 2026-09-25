@@ -144,10 +144,11 @@ public sealed class NetworkChangedRetryScopeTests
 	}
 
 	// Defensive shapes: no real capture recorded for #248 has shown a nonzero error or timeout
-	// count, or executed short of total, and the abort text already covers every observed abort.
-	// These three facts guard Counters shapes a TRX can still represent, so a run otherwise scoped
-	// to retry does not retry when the run itself was not clean, without weakening the abort-text
-	// signal.
+	// count, and the abort text already covers every observed abort. Executed short of total is
+	// what a skipped nested test produces on this VSTest stack, which leaves notExecuted at zero;
+	// the nested suite has no skipped test today. These three facts guard Counters shapes a TRX can
+	// represent, so a run otherwise scoped to retry does not retry when the run itself was not
+	// clean, without weakening the abort-text signal.
 
 	[Fact]
 	public void A_network_changed_failure_with_a_nonzero_error_counter_does_not_retry()

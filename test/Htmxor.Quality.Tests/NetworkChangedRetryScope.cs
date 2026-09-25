@@ -21,10 +21,12 @@ internal static class NetworkChangedRetryScope
 
 	// The decision reads only the TRX. A retry needs at least one failed test, so a non-zero exit
 	// with no failed test in the TRX never retries, and the exit code adds nothing to the decision.
-	// The counter guard below is defensive: no captured real run has shown a nonzero error or
-	// timeout count, or executed short of total, alongside net::ERR_NETWORK_CHANGED failures. It
-	// costs nothing and only narrows retry further, consistent with the owner excluding a timeout
-	// or aborted run outright.
+	// The counter guard below is defensive for the error and timeout counts: no captured real run
+	// has shown either alongside net::ERR_NETWORK_CHANGED failures. An executed count short of
+	// total is what a skipped nested test produces on this VSTest stack; the nested suite has no
+	// skipped test today, but this rule keeps such a run from retrying. The guard costs nothing and
+	// only narrows retry further, consistent with the owner excluding a timeout or aborted run
+	// outright.
 	public static bool ShouldRetry(string trxPath)
 	{
 		var run = TrxTestRun.Read(trxPath);
