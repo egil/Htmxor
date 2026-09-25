@@ -1,11 +1,12 @@
 using System.Security.Cryptography;
 using System.Xml.Linq;
 using Htmxor.Quality;
+using Xunit.Abstractions;
 
 namespace Htmxor.Quality.Tests;
 
 [Collection(PackageConsumerCollection.Name)]
-public sealed class Htmx4PackageBrowserTests
+public sealed class Htmx4PackageBrowserTests(ITestOutputHelper output)
 {
 	[Fact]
 	[Trait("Category", "Browser")]
@@ -13,7 +14,7 @@ public sealed class Htmx4PackageBrowserTests
 	{
 		using var workspace = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find());
 
-		var result = await workspace.RunAsync();
+		var result = await NetworkChangedRetryRunner.RunAsync(workspace.RunAsync, _ => workspace.TrxPath, output.WriteLine);
 		var testRun = TrxTestRun.Read(workspace.TrxPath);
 
 		Assert.True(
