@@ -20,7 +20,41 @@ public static class BrowserAttemptRetryScope
 
 	public static bool ShouldRetry(BrowserAttemptOutcome outcome) => QualifyingError(outcome) is not null;
 
-	// TODO(https://github.com/egil/Htmxor/issues/252): always null until the real scoping decision
-	// lands. Every attempt is retried zero times, matching today's actual behavior.
-	public static string? QualifyingError(BrowserAttemptOutcome outcome) => null;
+	public static string? QualifyingError(BrowserAttemptOutcome outcome) =>
+		QualifyingRequestFailure(outcome) ?? QualifyingExceptionMessage(outcome);
+
+	private static string? QualifyingRequestFailure(BrowserAttemptOutcome outcome)
+	{
+		if (outcome.RequestFailureErrors.Contains(NetworkChangedError))
+		{
+			return NetworkChangedError;
+		}
+
+		if (outcome.RequestFailureErrors.Contains(ConnectionClosedError))
+		{
+			return ConnectionClosedError;
+		}
+
+		return null;
+	}
+
+	private static string? QualifyingExceptionMessage(BrowserAttemptOutcome outcome)
+	{
+		if (outcome.Exception is null)
+		{
+			return null;
+		}
+
+		if (outcome.Exception.Message.Contains(NetworkChangedError, StringComparison.Ordinal))
+		{
+			return NetworkChangedError;
+		}
+
+		if (outcome.Exception.Message.Contains(ConnectionClosedError, StringComparison.Ordinal))
+		{
+			return ConnectionClosedError;
+		}
+
+		return null;
+	}
 }
