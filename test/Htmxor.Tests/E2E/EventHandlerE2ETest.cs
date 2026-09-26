@@ -88,12 +88,11 @@ public class EventHandlerE2ETest : PageTest
     const method = String(ctx.request.method || 'GET').toUpperCase();
     const url = String(ctx.request.action);
     if (method === 'GET' && !url.includes('inline') && ++plainGets === 2) {
-      window.secondGetBodyDelayed = true;
       const f = window.fetch.bind(window);
       ctx.fetch = async (a, o) => {
         const r = await f(a, o);
         const text = r.text.bind(r);
-        r.text = () => new Promise(res => setTimeout(() => res(text()), DELAY));
+        r.text = () => new Promise(res => setTimeout(() => { window.secondGetBodyDelayed = true; res(text()); }, DELAY));
         return r;
       };
     }
