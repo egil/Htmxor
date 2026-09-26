@@ -84,9 +84,7 @@ public sealed class BrowserAttemptRetryRunnerTests
 	}
 
 	// Same pin as above, for the second rethrow site: a qualifying first outcome must actually reach
-	// a retry before this can exercise the second attempt's rethrow, so it stays red at the shell (the
-	// stub never retries, so the first outcome's own exception surfaces instead) and green once the
-	// scoping decision lands.
+	// a retry before this can exercise the second attempt's rethrow.
 	[Fact]
 	public async Task A_retried_attempts_failure_rethrow_still_names_its_own_frame()
 	{

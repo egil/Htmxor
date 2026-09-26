@@ -6,8 +6,8 @@ namespace Htmxor.E2E;
 
 /// <summary>
 /// Real-browser probes of <see cref="BrowserAttemptRetryRunner"/> itself
-/// (https://github.com/egil/Htmxor/issues/252), not of the four existing E2E facts it will later
-/// run. Each abort probe aborts one request with a real Chromium network error, using
+/// (https://github.com/egil/Htmxor/issues/252), not of the E2E facts that run through it. Each
+/// abort probe aborts one request with a real Chromium network error, using
 /// <c>route.AbortAsync</c>, and asserts the abort actually engaged so a drifted probe cannot pass
 /// vacuously. The three retried abort probes abort only on their first attempt.
 /// </summary>
