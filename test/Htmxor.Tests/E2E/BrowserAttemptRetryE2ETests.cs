@@ -253,11 +253,10 @@ public class BrowserAttemptRetryE2ETests : PageTest
 		BrowserAttemptRetryRunner.RunAsync(() => RunProbeAttemptAsync(probe), outputHelper.WriteLine);
 
 	// Observes RequestFailed on this test's Context, like BrowserAttemptRetryRunner.RunAttemptAsync
-	// does per inner attempt, but only from the moment probe's own inner retry begins onward: before
-	// that, every one of these probes' first inner attempt is a deliberate, injected failure, and
-	// counting it here would make the outer decision qualify for any failure at all, including one
-	// unrelated to the network. innerRetryBegins is the probe's own inner writeNote callback, so
-	// recording starts exactly when the inner runner starts the attempt this outer retry exists for.
+	// does per inner attempt, but only once the probe's inner retry begins (innerRetryBegins is the
+	// probe's inner writeNote callback). Anything before that is the probe's own deliberate first
+	// attempt, whose injected request failure or error-naming exception would otherwise qualify any
+	// failure at all, so an exception thrown before the inner retry began propagates unchanged.
 	private async Task<BrowserAttemptOutcome> RunProbeAttemptAsync(Func<Action, Task> probe)
 	{
 		var failures = new List<string>();
@@ -276,7 +275,7 @@ public class BrowserAttemptRetryE2ETests : PageTest
 			await probe(() => recording = true);
 			return new BrowserAttemptOutcome(null, failures);
 		}
-		catch (Exception ex)
+		catch (Exception ex) when (recording)
 		{
 			return new BrowserAttemptOutcome(ex, failures);
 		}
