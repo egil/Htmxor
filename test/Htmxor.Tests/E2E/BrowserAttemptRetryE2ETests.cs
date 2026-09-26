@@ -31,7 +31,7 @@ public class BrowserAttemptRetryE2ETests : PageTest
 	// BrowserAttemptRetryScopeTests' A_thrown_exception_naming_*_retries facts.
 	[Fact]
 	public Task A_first_navigation_aborted_with_connectionclosed_is_retried_and_the_retry_lands() =>
-		RunProbeWithOuterRetryAsync(async () =>
+		RunProbeWithOuterRetryAsync(async innerRetryBegins =>
 		{
 			var attemptNumber = 0;
 			var notes = new List<string>();
@@ -60,6 +60,7 @@ public class BrowserAttemptRetryE2ETests : PageTest
 				},
 				note =>
 				{
+					innerRetryBegins();
 					outputHelper.WriteLine(note);
 					notes.Add(note);
 				});
@@ -76,7 +77,7 @@ public class BrowserAttemptRetryE2ETests : PageTest
 	// exception does not.
 	[Fact]
 	public Task A_mid_test_htmx_request_aborted_with_connectionclosed_is_retried_and_the_retry_lands() =>
-		RunProbeWithOuterRetryAsync(async () =>
+		RunProbeWithOuterRetryAsync(async innerRetryBegins =>
 		{
 			var attemptNumber = 0;
 			var notes = new List<string>();
@@ -107,6 +108,7 @@ public class BrowserAttemptRetryE2ETests : PageTest
 				},
 				note =>
 				{
+					innerRetryBegins();
 					outputHelper.WriteLine(note);
 					notes.Add(note);
 				});
@@ -123,7 +125,7 @@ public class BrowserAttemptRetryE2ETests : PageTest
 	// whether the runner observed the request failure or not.
 	[Fact]
 	public Task A_request_aborted_on_a_page_the_body_opens_itself_is_still_observed_and_retried() =>
-		RunProbeWithOuterRetryAsync(async () =>
+		RunProbeWithOuterRetryAsync(async innerRetryBegins =>
 		{
 			var attemptNumber = 0;
 			var notes = new List<string>();
@@ -163,6 +165,7 @@ public class BrowserAttemptRetryE2ETests : PageTest
 				},
 				note =>
 				{
+					innerRetryBegins();
 					outputHelper.WriteLine(note);
 					notes.Add(note);
 				});
@@ -173,13 +176,10 @@ public class BrowserAttemptRetryE2ETests : PageTest
 
 	// Cheap pin for the "fresh page per attempt" design constraint (issue #252 Work item 3): a
 	// runner that reused one page across attempts would hand the retry a page a prior aborted
-	// navigation already left in a failed state. The qualifying failure here is a constructed throw,
-	// not an injected network abort, so it is unaffected by the environmental race the other probes
-	// guard against: whether the real navigation underneath also happens to fail with the same
-	// error changes nothing observable, because either one alone already qualifies the attempt.
+	// navigation already left in a failed state.
 	[Fact]
 	public Task Each_attempt_of_a_qualifying_failure_gets_a_fresh_page() =>
-		RunProbeWithOuterRetryAsync(async () =>
+		RunProbeWithOuterRetryAsync(async innerRetryBegins =>
 		{
 			var pages = new List<IPage>();
 			var attemptNumber = 0;
@@ -197,7 +197,7 @@ public class BrowserAttemptRetryE2ETests : PageTest
 						throw new PlaywrightException("net::ERR_NETWORK_CHANGED at https://127.0.0.1/EventHandlers");
 					}
 				},
-				_ => { });
+				_ => innerRetryBegins());
 
 			Assert.Equal(2, pages.Count);
 			Assert.NotSame(pages[0], pages[1]);
@@ -244,27 +244,41 @@ public class BrowserAttemptRetryE2ETests : PageTest
 		Assert.Empty(notes);
 	}
 
-	// The outer retry for the four probes above that deliberately fail their own first (inner)
-	// attempt: the inner runner's one retry is always spent on that deliberate failure, so a real
-	// qualifying failure landing on the inner retried attempt would otherwise fail the probe outright
-	// (https://github.com/egil/Htmxor/issues/252). This wraps the whole probe -- inner runner and
-	// all -- in one more retry of the same kind, keyed on the same decision. It observes this test's
-	// whole Context, so it also sees the probe's own injected abort; that is expected, since the
-	// probe's own first inner attempt is itself a qualifying failure by design.
-	private async Task RunProbeWithOuterRetryAsync(Func<Task> probe)
+	// The outer retry for the four probes above that deliberately fail their own first inner
+	// attempt, which always spends the inner runner's one retry on that deliberate failure
+	// (https://github.com/egil/Htmxor/issues/252). Reuses BrowserAttemptRetryRunner.RunAsync itself
+	// for the retry-once-and-note loop, so this differs from the inner seam only in what one
+	// "attempt" means: running the whole probe once, which may itself retry internally.
+	private Task RunProbeWithOuterRetryAsync(Func<Action, Task> probe) =>
+		BrowserAttemptRetryRunner.RunAsync(() => RunProbeAttemptAsync(probe), outputHelper.WriteLine);
+
+	// Observes RequestFailed on this test's Context, like BrowserAttemptRetryRunner.RunAttemptAsync
+	// does per inner attempt, but only from the moment probe's own inner retry begins onward: before
+	// that, every one of these probes' first inner attempt is a deliberate, injected failure, and
+	// counting it here would make the outer decision qualify for any failure at all, including one
+	// unrelated to the network. innerRetryBegins is the probe's own inner writeNote callback, so
+	// recording starts exactly when the inner runner starts the attempt this outer retry exists for.
+	private async Task<BrowserAttemptOutcome> RunProbeAttemptAsync(Func<Action, Task> probe)
 	{
 		var failures = new List<string>();
-		void OnRequestFailed(object? _, IRequest request) => failures.Add(request.Failure ?? string.Empty);
+		var recording = false;
+		void OnRequestFailed(object? _, IRequest request)
+		{
+			if (recording)
+			{
+				failures.Add(request.Failure ?? string.Empty);
+			}
+		}
 
 		Context.RequestFailed += OnRequestFailed;
 		try
 		{
-			await probe();
+			await probe(() => recording = true);
+			return new BrowserAttemptOutcome(null, failures);
 		}
-		catch (Exception ex) when (BrowserAttemptRetryScope.QualifyingError(new BrowserAttemptOutcome(ex, failures)) is string reason)
+		catch (Exception ex)
 		{
-			outputHelper.WriteLine($"Retried the whole probe once after {reason} ({BrowserAttemptRetryRunner.IssueUrl}).");
-			await probe();
+			return new BrowserAttemptOutcome(ex, failures);
 		}
 		finally
 		{
@@ -281,7 +295,7 @@ public class BrowserAttemptRetryE2ETests : PageTest
 
 	// Accepts either qualifying error: absent an environmental race, the injected connectionclosed
 	// abort is the only thing that can produce this note, but an unrelated real net::ERR_NETWORK_CHANGED
-	// (see this class's summary) can legitimately cause the same retry-and-pass outcome instead.
+	// can pre-empt it and legitimately cause the same retry-and-pass outcome instead.
 	private static void AssertRetryNoteWasWritten(List<string> notes) =>
 		Assert.Contains(notes, note =>
 			note.Contains(BrowserAttemptRetryRunner.IssueUrl, StringComparison.Ordinal) &&
