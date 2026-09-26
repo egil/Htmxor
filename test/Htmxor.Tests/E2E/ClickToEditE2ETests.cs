@@ -16,27 +16,29 @@ public class ClickToEditE2ETests : PageTest
 	}
 
 	[Fact]
-	public async Task Click_to_edit()
-	{
-		var contact = new Contact
+	public Task Click_to_edit() =>
+		RunWithRetryAsync(outputHelper, async page =>
 		{
-			Id = Guid.NewGuid(),
-			FirstName = "Joe",
-			LastName = "Blow",
-			Email = "joe@blow.com",
-		};
-		DataStore.Store(contact);
+			// Fresh per attempt (https://github.com/egil/Htmxor/issues/252): a retry re-stores its
+			// own contact rather than depending on a prior attempt's still being there.
+			var contact = new Contact
+			{
+				Id = Guid.NewGuid(),
+				FirstName = "Joe",
+				LastName = "Blow",
+				Email = "joe@blow.com",
+			};
+			DataStore.Store(contact);
 
-		var page = await Context.NewPageAsync();
-		page.Request += (_, request) =>
-			outputHelper.WriteLine($">> {request.ResourceType} {request.Method} {request.Url} {request.Headers.Aggregate("", (r, x) => $"{r}, {x.Key}:{x.Value}")}");
+			page.Request += (_, request) =>
+				outputHelper.WriteLine($">> {request.ResourceType} {request.Method} {request.Url} {request.Headers.Aggregate("", (r, x) => $"{r}, {x.Key}:{x.Value}")}");
 
-		await page.GotoAsync($"/click-to-edit-1/contact/{contact.Id}");
-		await page.GetByRole(AriaRole.Button, new() { Name = "Click To Edit" }).ClickAsync();
-		await page.Locator("input[name=\"Contact\\.FirstName\"]").FillAsync("Foo");
-		await page.Locator("input[name=\"Contact\\.LastName\"]").FillAsync("Bar");
-		await page.Locator("input[name=\"Contact\\.Email\"]").FillAsync("foo@bar.com");
-		await page.GetByRole(AriaRole.Button, new() { Name = "Submit" }).ClickAsync();
-		await Expect(page.Locator("body")).ToContainTextAsync("First Name: Foo Last Name: Bar Email: foo@bar.com Click To Edit");
-	}
+			await page.GotoAsync($"/click-to-edit-1/contact/{contact.Id}");
+			await page.GetByRole(AriaRole.Button, new() { Name = "Click To Edit" }).ClickAsync();
+			await page.Locator("input[name=\"Contact\\.FirstName\"]").FillAsync("Foo");
+			await page.Locator("input[name=\"Contact\\.LastName\"]").FillAsync("Bar");
+			await page.Locator("input[name=\"Contact\\.Email\"]").FillAsync("foo@bar.com");
+			await page.GetByRole(AriaRole.Button, new() { Name = "Submit" }).ClickAsync();
+			await Expect(page.Locator("body")).ToContainTextAsync("First Name: Foo Last Name: Bar Email: foo@bar.com Click To Edit");
+		});
 }

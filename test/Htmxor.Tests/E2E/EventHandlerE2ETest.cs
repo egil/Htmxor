@@ -17,11 +17,8 @@ public class EventHandlerE2ETest : PageTest
 	}
 
 	[Fact]
-	public async Task Invoke_event_handler_methods()
-	{
-		var page = await Context.NewPageAsync();
-		await ClickEachHandlerAndAssert(page);
-	}
+	public Task Invoke_event_handler_methods() =>
+		RunWithRetryAsync(outputHelper, ClickEachHandlerAndAssert);
 
 	// Holds the second GET's response for SecondGetReleaseBoundMilliseconds, and GET INLINE's
 	// response until the second GET's has arrived. If the shared sequence clicks GET INLINE before
@@ -33,44 +30,45 @@ public class EventHandlerE2ETest : PageTest
 	// already rendered. Every other step expects text only its own response renders, so delaying
 	// that response cannot make the sequence move on early.
 	[Fact]
-	public async Task Sequence_shows_get_inlines_own_result_even_when_the_second_gets_swap_is_delayed()
-	{
-		var page = await Context.NewPageAsync();
-
-		var htmxGetCount = 0;
-		var secondGetLanded = new TaskCompletionSource();
-
-		await page.RouteAsync("**/EventHandlers**", async route =>
+	public Task Sequence_shows_get_inlines_own_result_even_when_the_second_gets_swap_is_delayed() =>
+		RunWithRetryAsync(outputHelper, async page =>
 		{
-			var request = route.Request;
-			var isInline = request.Url.Contains("inline");
-			var isSecondPlainGet = !isInline && request.Headers.ContainsKey("hx-request") && Interlocked.Increment(ref htmxGetCount) == 2;
+			// Fresh per attempt (https://github.com/egil/Htmxor/issues/252): a retry must not reuse a
+			// prior attempt's counter or hold, or the hold could target the wrong GET.
+			var htmxGetCount = 0;
+			var secondGetLanded = new TaskCompletionSource();
 
-			if (isSecondPlainGet)
+			await page.RouteAsync("**/EventHandlers**", async route =>
 			{
-				await Task.Delay(SecondGetReleaseBoundMilliseconds);
+				var request = route.Request;
+				var isInline = request.Url.Contains("inline");
+				var isSecondPlainGet = !isInline && request.Headers.ContainsKey("hx-request") && Interlocked.Increment(ref htmxGetCount) == 2;
 
-				var ownResponse = page.WaitForResponseAsync(r => r.Request == request);
+				if (isSecondPlainGet)
+				{
+					await Task.Delay(SecondGetReleaseBoundMilliseconds);
+
+					var ownResponse = page.WaitForResponseAsync(r => r.Request == request);
+					await route.ContinueAsync();
+					await ownResponse;
+					secondGetLanded.TrySetResult();
+					return;
+				}
+
+				if (isInline)
+				{
+					// Defensive fallback only; not expected to fire in either the red or the green
+					// case, since the second GET's own response always resolves well before it.
+					await Task.WhenAny(secondGetLanded.Task, Task.Delay(InlineHoldFallbackMilliseconds));
+				}
+
 				await route.ContinueAsync();
-				await ownResponse;
-				secondGetLanded.TrySetResult();
-				return;
-			}
+			});
 
-			if (isInline)
-			{
-				// Defensive fallback only; not expected to fire in either the red or the green
-				// case, since the second GET's own response always resolves well before it.
-				await Task.WhenAny(secondGetLanded.Task, Task.Delay(InlineHoldFallbackMilliseconds));
-			}
+			await ClickEachHandlerAndAssert(page);
 
-			await route.ContinueAsync();
+			Assert.True(secondGetLanded.Task.IsCompletedSuccessfully, "The second GET's response hold never engaged.");
 		});
-
-		await ClickEachHandlerAndAssert(page);
-
-		Assert.True(secondGetLanded.Task.IsCompletedSuccessfully, "The second GET's response hold never engaged.");
-	}
 
 	// htmx reads a response's body (`await r.text()`) and applies the swap only after that,
 	// strictly later than the response's headers, which is what a wait keyed on the response
@@ -102,26 +100,28 @@ public class EventHandlerE2ETest : PageTest
 })();";
 
 	[Fact]
-	public async Task Sequence_shows_get_inlines_own_result_even_when_the_second_gets_body_lags_its_headers()
-	{
-		var page = await Context.NewPageAsync();
-		await page.AddInitScriptAsync(SecondGetBodyDelayScript.Replace("DELAY", SecondGetBodyDelayMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-
-		await page.RouteAsync("**/EventHandlers**", async route =>
+	public Task Sequence_shows_get_inlines_own_result_even_when_the_second_gets_body_lags_its_headers() =>
+		RunWithRetryAsync(outputHelper, async page =>
 		{
-			var request = route.Request;
-			if (request.Method == "GET" && request.Headers.ContainsKey("hx-request") && request.Url.Contains("inline"))
+			// Fresh per attempt (https://github.com/egil/Htmxor/issues/252): the init script and
+			// route must be reinstalled on each attempt's own fresh page.
+			await page.AddInitScriptAsync(SecondGetBodyDelayScript.Replace("DELAY", SecondGetBodyDelayMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+
+			await page.RouteAsync("**/EventHandlers**", async route =>
 			{
-				await Task.Delay(InlineHoldForBodyDelayMilliseconds);
-			}
+				var request = route.Request;
+				if (request.Method == "GET" && request.Headers.ContainsKey("hx-request") && request.Url.Contains("inline"))
+				{
+					await Task.Delay(InlineHoldForBodyDelayMilliseconds);
+				}
 
-			await route.ContinueAsync();
+				await route.ContinueAsync();
+			});
+
+			await ClickEachHandlerAndAssert(page);
+
+			Assert.True(await page.EvaluateAsync<bool>("() => window.secondGetBodyDelayed === true"), "The second GET's body-read delay never engaged.");
 		});
-
-		await ClickEachHandlerAndAssert(page);
-
-		Assert.True(await page.EvaluateAsync<bool>("() => window.secondGetBodyDelayed === true"), "The second GET's body-read delay never engaged.");
-	}
 
 	// Also run by Sequence_shows_get_inlines_own_result_even_when_the_second_gets_swap_is_delayed
 	// and Sequence_shows_get_inlines_own_result_even_when_the_second_gets_body_lags_its_headers
