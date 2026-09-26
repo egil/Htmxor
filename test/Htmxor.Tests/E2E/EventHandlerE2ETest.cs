@@ -68,6 +68,8 @@ public class EventHandlerE2ETest : PageTest
 		});
 
 		await ClickEachHandlerAndAssert(page);
+
+		Assert.True(secondGetLanded.Task.IsCompletedSuccessfully, "The second GET's response hold never engaged.");
 	}
 
 	// htmx reads a response's body (`await r.text()`) and applies the swap only after that,
