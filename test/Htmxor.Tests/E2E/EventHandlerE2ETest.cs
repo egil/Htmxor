@@ -76,28 +76,52 @@ public class EventHandlerE2ETest : PageTest
 	{
 		await page.GotoAsync("/EventHandlers");
 
-		await page.GetByRole(AriaRole.Button, new() { Name = "GET", Exact = true }).First.ClickAsync();
+		await ClickAndWaitForOwnResponseAsync(page, page.GetByRole(AriaRole.Button, new() { Name = "GET", Exact = true }).First, IsOwnPlainGetResponse);
 		await Expect(page.Locator("#handler")).ToContainTextAsync("OnGet");
 
-		await page.GetByRole(AriaRole.Button, new() { Name = "GET", Exact = true }).Nth(1).ClickAsync();
+		await ClickAndWaitForOwnResponseAsync(page, page.GetByRole(AriaRole.Button, new() { Name = "GET", Exact = true }).Nth(1), IsOwnPlainGetResponse);
 		await Expect(page.Locator("#handler")).ToContainTextAsync("OnGet");
 
-		await page.GetByRole(AriaRole.Button, new() { Name = "GET INLINE", Exact = true }).ClickAsync();
+		await ClickAndWaitForOwnResponseAsync(page, page.GetByRole(AriaRole.Button, new() { Name = "GET INLINE", Exact = true }), IsOwnInlineGetResponse);
 		await Expect(page.Locator("#handler")).ToContainTextAsync("OnGetInline");
 
-		await page.GetByRole(AriaRole.Button, new() { Name = "POST" }).ClickAsync();
+		await ClickAndWaitForOwnResponseAsync(page, page.GetByRole(AriaRole.Button, new() { Name = "POST" }), r => IsOwnMethodResponse(r, "POST"));
 		await Expect(page.Locator("#handler")).ToContainTextAsync("OnPost");
 
-		await page.GetByRole(AriaRole.Button, new() { Name = "PUT" }).ClickAsync();
+		await ClickAndWaitForOwnResponseAsync(page, page.GetByRole(AriaRole.Button, new() { Name = "PUT" }), r => IsOwnMethodResponse(r, "PUT"));
 		await Expect(page.Locator("#handler")).ToContainTextAsync("OnPut");
 
-		await page.GetByRole(AriaRole.Button, new() { Name = "PATCH" }).ClickAsync();
+		await ClickAndWaitForOwnResponseAsync(page, page.GetByRole(AriaRole.Button, new() { Name = "PATCH" }), r => IsOwnMethodResponse(r, "PATCH"));
 		await Expect(page.Locator("#handler")).ToContainTextAsync("OnPatch");
 
-		await page.GetByRole(AriaRole.Button, new() { Name = "DELETE" }).ClickAsync();
+		await ClickAndWaitForOwnResponseAsync(page, page.GetByRole(AriaRole.Button, new() { Name = "DELETE" }), r => IsOwnMethodResponse(r, "DELETE"));
 		await Expect(page.Locator("#handler")).ToContainTextAsync("OnDelete");
 
-		await page.GetByRole(AriaRole.Button, new() { Name = "SUBMIT" }).ClickAsync();
+		await ClickAndWaitForOwnResponseAsync(page, page.GetByRole(AriaRole.Button, new() { Name = "SUBMIT" }), r => IsOwnMethodResponse(r, "POST"));
 		await Expect(page.Locator("#handler")).ToContainTextAsync("OnSubmit");
 	}
+
+	// Arms the wait for this click's own response before dispatching the click, so the very next
+	// matching response is unambiguously the one this click caused - never a response an earlier
+	// step already consumed, and never dependent on what #handler currently shows. Two steps here
+	// share a method and URL with another step (both GET clicks; the POST button and the SUBMIT
+	// form), so request content alone cannot always tell "this click's response" apart from
+	// another step's. Arming the wait immediately before the click, and never issuing a click
+	// before the previous one's own wait resolved, is what makes the very next matching response
+	// this click's own rather than a stale or future one.
+	private static async Task ClickAndWaitForOwnResponseAsync(IPage page, ILocator button, Func<IResponse, bool> isOwnResponse)
+	{
+		var ownResponse = page.WaitForResponseAsync(isOwnResponse);
+		await button.ClickAsync();
+		await ownResponse;
+	}
+
+	private static bool IsOwnPlainGetResponse(IResponse response) =>
+		IsOwnMethodResponse(response, "GET") && !response.Url.Contains("inline");
+
+	private static bool IsOwnInlineGetResponse(IResponse response) =>
+		IsOwnMethodResponse(response, "GET") && response.Url.Contains("inline");
+
+	private static bool IsOwnMethodResponse(IResponse response, string method) =>
+		response.Request.Method == method && response.Request.Headers.ContainsKey("hx-request");
 }
