@@ -70,7 +70,57 @@ public class EventHandlerE2ETest : PageTest
 		await ClickEachHandlerAndAssert(page);
 	}
 
+	// htmx reads a response's body (`await r.text()`) and applies the swap only after that,
+	// strictly later than the response's headers, which is what a wait keyed on the response
+	// event alone cannot see. Playwright cannot stall a body after real headers are already
+	// sent, so this delays only the second GET's body read, through htmx's own per-request
+	// `ctx.fetch` hook; the response itself is untouched. GET INLINE's response is also held, so
+	// the second GET's swap (once its delayed body is finally read) reliably lands while GET
+	// INLINE's own request is still in flight, deterministically - not only in a narrow window.
+	private const int SecondGetBodyDelayMilliseconds = 300;
+	private const int InlineHoldForBodyDelayMilliseconds = 600;
+
+	private const string SecondGetBodyDelayScript = @"
+(() => {
+  let plainGets = 0;
+  document.addEventListener('htmx:config:request', ev => {
+    const ctx = ev.detail.ctx;
+    const method = String(ctx.request.method || 'GET').toUpperCase();
+    const url = String(ctx.request.action);
+    if (method === 'GET' && !url.includes('inline') && ++plainGets === 2) {
+      const f = window.fetch.bind(window);
+      ctx.fetch = async (a, o) => {
+        const r = await f(a, o);
+        const text = r.text.bind(r);
+        r.text = () => new Promise(res => setTimeout(() => res(text()), DELAY));
+        return r;
+      };
+    }
+  });
+})();";
+
+	[Fact]
+	public async Task Sequence_shows_get_inlines_own_result_even_when_the_second_gets_body_lags_its_headers()
+	{
+		var page = await Context.NewPageAsync();
+		await page.AddInitScriptAsync(SecondGetBodyDelayScript.Replace("DELAY", SecondGetBodyDelayMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+
+		await page.RouteAsync("**/EventHandlers**", async route =>
+		{
+			var request = route.Request;
+			if (request.Method == "GET" && request.Headers.ContainsKey("hx-request") && request.Url.Contains("inline"))
+			{
+				await Task.Delay(InlineHoldForBodyDelayMilliseconds);
+			}
+
+			await route.ContinueAsync();
+		});
+
+		await ClickEachHandlerAndAssert(page);
+	}
+
 	// Also run by Sequence_shows_get_inlines_own_result_even_when_the_second_gets_swap_is_delayed
+	// and Sequence_shows_get_inlines_own_result_even_when_the_second_gets_body_lags_its_headers
 	// under delayed responses; each step must wait for its own click's result.
 	private async Task ClickEachHandlerAndAssert(IPage page)
 	{
