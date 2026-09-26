@@ -88,6 +88,7 @@ public class EventHandlerE2ETest : PageTest
     const method = String(ctx.request.method || 'GET').toUpperCase();
     const url = String(ctx.request.action);
     if (method === 'GET' && !url.includes('inline') && ++plainGets === 2) {
+      window.secondGetBodyDelayed = true;
       const f = window.fetch.bind(window);
       ctx.fetch = async (a, o) => {
         const r = await f(a, o);
@@ -117,6 +118,8 @@ public class EventHandlerE2ETest : PageTest
 		});
 
 		await ClickEachHandlerAndAssert(page);
+
+		Assert.True(await page.EvaluateAsync<bool>("() => window.secondGetBodyDelayed === true"), "The second GET's body-read delay never engaged.");
 	}
 
 	// Also run by Sequence_shows_get_inlines_own_result_even_when_the_second_gets_swap_is_delayed
