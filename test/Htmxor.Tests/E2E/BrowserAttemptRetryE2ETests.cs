@@ -8,12 +8,9 @@ namespace Htmxor.E2E;
 /// Real-browser probes of <see cref="BrowserAttemptRetryRunner"/> itself
 /// (https://github.com/egil/Htmxor/issues/252), not of the E2E facts that run through it. Each
 /// abort probe aborts one request with a real Chromium network error, using
-/// <c>route.AbortAsync</c>, and asserts that the runner actually retried (a note was written) so a
-/// drifted probe cannot pass vacuously. The three retried abort probes abort only on their first
-/// attempt. None of the retried probes assert that its own injected abort engaged: an unrelated
-/// real qualifying failure (about 1% of runs, per the issue's own evidence) can pre-empt it and
-/// still produce the same observable retry-and-pass outcome, and asserting the injected abort
-/// itself engaged would turn that correct behavior into a false failure.
+/// <c>route.AbortAsync</c>. The three retried probes abort only on their first attempt and assert
+/// the runner's retry and note rather than that their own abort engaged; see
+/// <c>AssertRetryNoteWasWritten</c>.
 /// </summary>
 public class BrowserAttemptRetryE2ETests : PageTest
 {
@@ -33,42 +30,43 @@ public class BrowserAttemptRetryE2ETests : PageTest
 	// accompanying qualifying request failure) has constructed evidence only, in
 	// BrowserAttemptRetryScopeTests' A_thrown_exception_naming_*_retries facts.
 	[Fact]
-	public async Task A_first_navigation_aborted_with_connectionclosed_is_retried_and_the_retry_lands()
-	{
-		var attemptNumber = 0;
-		var notes = new List<string>();
+	public Task A_first_navigation_aborted_with_connectionclosed_is_retried_and_the_retry_lands() =>
+		RunProbeWithOuterRetryAsync(async () =>
+		{
+			var attemptNumber = 0;
+			var notes = new List<string>();
 
-		await BrowserAttemptRetryRunner.RunOnPageAsync(
-			Context,
-			async page =>
-			{
-				attemptNumber++;
-				var thisAttemptIsFirst = attemptNumber == 1;
-				LogRequestFailures(page, attemptNumber);
-
-				await page.RouteAsync("**/EventHandlers", async route =>
+			await BrowserAttemptRetryRunner.RunOnPageAsync(
+				Context,
+				async page =>
 				{
-					if (thisAttemptIsFirst)
-					{
-						await route.AbortAsync("connectionclosed");
-						return;
-					}
+					attemptNumber++;
+					var thisAttemptIsFirst = attemptNumber == 1;
+					LogRequestFailures(page, attemptNumber);
 
-					await route.ContinueAsync();
+					await page.RouteAsync("**/EventHandlers", async route =>
+					{
+						if (thisAttemptIsFirst)
+						{
+							await route.AbortAsync("connectionclosed");
+							return;
+						}
+
+						await route.ContinueAsync();
+					});
+
+					await page.GotoAsync("/EventHandlers");
+					await Expect(page.Locator("#event-handlers")).ToBeVisibleAsync();
+				},
+				note =>
+				{
+					outputHelper.WriteLine(note);
+					notes.Add(note);
 				});
 
-				await page.GotoAsync("/EventHandlers");
-				await Expect(page.Locator("#event-handlers")).ToBeVisibleAsync();
-			},
-			note =>
-			{
-				outputHelper.WriteLine(note);
-				notes.Add(note);
-			});
-
-		Assert.Equal(2, attemptNumber);
-		AssertRetryNoteWasWritten(notes);
-	}
+			Assert.Equal(2, attemptNumber);
+			AssertRetryNoteWasWritten(notes);
+		});
 
 	// The mid-test htmx variant: the first GotoAsync succeeds, but the htmx GET for a click is
 	// aborted, so htmx swaps nothing and the test fails on the assertion timeout below -- an
@@ -77,70 +75,21 @@ public class BrowserAttemptRetryE2ETests : PageTest
 	// test's own output, so the red evidence names net::ERR_CONNECTION_CLOSED even though the thrown
 	// exception does not.
 	[Fact]
-	public async Task A_mid_test_htmx_request_aborted_with_connectionclosed_is_retried_and_the_retry_lands()
-	{
-		var attemptNumber = 0;
-		var notes = new List<string>();
+	public Task A_mid_test_htmx_request_aborted_with_connectionclosed_is_retried_and_the_retry_lands() =>
+		RunProbeWithOuterRetryAsync(async () =>
+		{
+			var attemptNumber = 0;
+			var notes = new List<string>();
 
-		await BrowserAttemptRetryRunner.RunOnPageAsync(
-			Context,
-			async page =>
-			{
-				attemptNumber++;
-				var thisAttemptIsFirst = attemptNumber == 1;
-				LogRequestFailures(page, attemptNumber);
-
-				await page.RouteAsync("**/EventHandlers", async route =>
+			await BrowserAttemptRetryRunner.RunOnPageAsync(
+				Context,
+				async page =>
 				{
-					var isHtmxGet = route.Request.Method == "GET" && route.Request.Headers.ContainsKey("hx-request");
-					if (thisAttemptIsFirst && isHtmxGet)
-					{
-						await route.AbortAsync("connectionclosed");
-						return;
-					}
+					attemptNumber++;
+					var thisAttemptIsFirst = attemptNumber == 1;
+					LogRequestFailures(page, attemptNumber);
 
-					await route.ContinueAsync();
-				});
-
-				await page.GotoAsync("/EventHandlers");
-				await page.GetByRole(AriaRole.Button, new() { Name = "GET", Exact = true }).First.ClickAsync();
-				await Expect(page.Locator("#handler")).ToContainTextAsync("OnGet");
-			},
-			note =>
-			{
-				outputHelper.WriteLine(note);
-				notes.Add(note);
-			});
-
-		Assert.Equal(2, attemptNumber);
-		AssertRetryNoteWasWritten(notes);
-	}
-
-	// P004: the runner must observe request failures on any page the body opens through the shared
-	// context, not only the page it hands to the body. This body deliberately ignores the handed
-	// page and opens its own, as a real body reasonably might for a second tab. Uses the mid-test
-	// shape (abort only the htmx GET, fail on the Expect) deliberately: aborting the own page's
-	// first navigation would qualify through the thrown exception alone, telling nothing about
-	// whether the runner observed the request failure or not.
-	[Fact]
-	public async Task A_request_aborted_on_a_page_the_body_opens_itself_is_still_observed_and_retried()
-	{
-		var attemptNumber = 0;
-		var notes = new List<string>();
-
-		await BrowserAttemptRetryRunner.RunOnPageAsync(
-			Context,
-			async _ =>
-			{
-				attemptNumber++;
-				var thisAttemptIsFirst = attemptNumber == 1;
-
-				var ownPage = await Context.NewPageAsync();
-				try
-				{
-					LogRequestFailures(ownPage, attemptNumber);
-
-					await ownPage.RouteAsync("**/EventHandlers", async route =>
+					await page.RouteAsync("**/EventHandlers", async route =>
 					{
 						var isHtmxGet = route.Request.Method == "GET" && route.Request.Headers.ContainsKey("hx-request");
 						if (thisAttemptIsFirst && isHtmxGet)
@@ -152,24 +101,75 @@ public class BrowserAttemptRetryE2ETests : PageTest
 						await route.ContinueAsync();
 					});
 
-					await ownPage.GotoAsync("/EventHandlers");
-					await ownPage.GetByRole(AriaRole.Button, new() { Name = "GET", Exact = true }).First.ClickAsync();
-					await Expect(ownPage.Locator("#handler")).ToContainTextAsync("OnGet");
-				}
-				finally
+					await page.GotoAsync("/EventHandlers");
+					await page.GetByRole(AriaRole.Button, new() { Name = "GET", Exact = true }).First.ClickAsync();
+					await Expect(page.Locator("#handler")).ToContainTextAsync("OnGet");
+				},
+				note =>
 				{
-					await ownPage.CloseAsync();
-				}
-			},
-			note =>
-			{
-				outputHelper.WriteLine(note);
-				notes.Add(note);
-			});
+					outputHelper.WriteLine(note);
+					notes.Add(note);
+				});
 
-		Assert.Equal(2, attemptNumber);
-		AssertRetryNoteWasWritten(notes);
-	}
+			Assert.Equal(2, attemptNumber);
+			AssertRetryNoteWasWritten(notes);
+		});
+
+	// P004: the runner must observe request failures on any page the body opens through the shared
+	// context, not only the page it hands to the body. This body deliberately ignores the handed
+	// page and opens its own, as a real body reasonably might for a second tab. Uses the mid-test
+	// shape (abort only the htmx GET, fail on the Expect) deliberately: aborting the own page's
+	// first navigation would qualify through the thrown exception alone, telling nothing about
+	// whether the runner observed the request failure or not.
+	[Fact]
+	public Task A_request_aborted_on_a_page_the_body_opens_itself_is_still_observed_and_retried() =>
+		RunProbeWithOuterRetryAsync(async () =>
+		{
+			var attemptNumber = 0;
+			var notes = new List<string>();
+
+			await BrowserAttemptRetryRunner.RunOnPageAsync(
+				Context,
+				async _ =>
+				{
+					attemptNumber++;
+					var thisAttemptIsFirst = attemptNumber == 1;
+
+					var ownPage = await Context.NewPageAsync();
+					try
+					{
+						LogRequestFailures(ownPage, attemptNumber);
+
+						await ownPage.RouteAsync("**/EventHandlers", async route =>
+						{
+							var isHtmxGet = route.Request.Method == "GET" && route.Request.Headers.ContainsKey("hx-request");
+							if (thisAttemptIsFirst && isHtmxGet)
+							{
+								await route.AbortAsync("connectionclosed");
+								return;
+							}
+
+							await route.ContinueAsync();
+						});
+
+						await ownPage.GotoAsync("/EventHandlers");
+						await ownPage.GetByRole(AriaRole.Button, new() { Name = "GET", Exact = true }).First.ClickAsync();
+						await Expect(ownPage.Locator("#handler")).ToContainTextAsync("OnGet");
+					}
+					finally
+					{
+						await ownPage.CloseAsync();
+					}
+				},
+				note =>
+				{
+					outputHelper.WriteLine(note);
+					notes.Add(note);
+				});
+
+			Assert.Equal(2, attemptNumber);
+			AssertRetryNoteWasWritten(notes);
+		});
 
 	// Cheap pin for the "fresh page per attempt" design constraint (issue #252 Work item 3): a
 	// runner that reused one page across attempts would hand the retry a page a prior aborted
@@ -178,39 +178,37 @@ public class BrowserAttemptRetryE2ETests : PageTest
 	// guard against: whether the real navigation underneath also happens to fail with the same
 	// error changes nothing observable, because either one alone already qualifies the attempt.
 	[Fact]
-	public async Task Each_attempt_of_a_qualifying_failure_gets_a_fresh_page()
-	{
-		var pages = new List<IPage>();
-		var attemptNumber = 0;
+	public Task Each_attempt_of_a_qualifying_failure_gets_a_fresh_page() =>
+		RunProbeWithOuterRetryAsync(async () =>
+		{
+			var pages = new List<IPage>();
+			var attemptNumber = 0;
 
-		await BrowserAttemptRetryRunner.RunOnPageAsync(
-			Context,
-			async page =>
-			{
-				attemptNumber++;
-				pages.Add(page);
-				await page.GotoAsync("/EventHandlers");
-
-				if (attemptNumber == 1)
+			await BrowserAttemptRetryRunner.RunOnPageAsync(
+				Context,
+				async page =>
 				{
-					throw new PlaywrightException("net::ERR_NETWORK_CHANGED at https://127.0.0.1/EventHandlers");
-				}
-			},
-			_ => { });
+					attemptNumber++;
+					pages.Add(page);
+					await page.GotoAsync("/EventHandlers");
 
-		Assert.Equal(2, pages.Count);
-		Assert.NotSame(pages[0], pages[1]);
-		Assert.True(pages[0].IsClosed);
-	}
+					if (attemptNumber == 1)
+					{
+						throw new PlaywrightException("net::ERR_NETWORK_CHANGED at https://127.0.0.1/EventHandlers");
+					}
+				},
+				_ => { });
 
-	// Negative: net::ERR_CONNECTION_REFUSED is a different error and must never itself be the reason
-	// for a retry. Aborts on every attempt (not only the first), because a wrongly retried second
-	// attempt must fail too. An unrelated real qualifying failure can still legitimately cause one
-	// retry here (the runner cannot tell this attempt's own connectionrefused apart from an
-	// unrelated real failure recorded on the same attempt); the invariant that must hold either way
-	// is that connectionrefused itself never appears as a retry's reason, and the final exception --
-	// whether after one attempt or two -- always names connectionrefused, because the abort fires
-	// unconditionally every time.
+			Assert.Equal(2, pages.Count);
+			Assert.NotSame(pages[0], pages[1]);
+			Assert.True(pages[0].IsClosed);
+		});
+
+	// Negative: net::ERR_CONNECTION_REFUSED is a different error and must not be retried. Aborts on
+	// every attempt (not only the first), because a wrongly retried second attempt must fail too.
+	// Not wrapped in the outer retry: its route aborts the attempt's only request -- the navigation
+	// itself -- before any network I/O, so no other request exists for a coincident real failure to
+	// land on, and this probe stays exactly deterministic.
 	[Fact]
 	public async Task A_first_navigation_aborted_with_connectionrefused_is_not_retried()
 	{
@@ -242,7 +240,36 @@ public class BrowserAttemptRetryE2ETests : PageTest
 
 		Assert.True(abortEngaged, "The connectionrefused abort never engaged.");
 		Assert.Contains(ConnectionRefusedError, thrown.Message, StringComparison.Ordinal);
-		Assert.DoesNotContain(notes, note => note.Contains(ConnectionRefusedError, StringComparison.Ordinal));
+		Assert.Equal(1, attemptNumber);
+		Assert.Empty(notes);
+	}
+
+	// The outer retry for the four probes above that deliberately fail their own first (inner)
+	// attempt: the inner runner's one retry is always spent on that deliberate failure, so a real
+	// qualifying failure landing on the inner retried attempt would otherwise fail the probe outright
+	// (https://github.com/egil/Htmxor/issues/252). This wraps the whole probe -- inner runner and
+	// all -- in one more retry of the same kind, keyed on the same decision. It observes this test's
+	// whole Context, so it also sees the probe's own injected abort; that is expected, since the
+	// probe's own first inner attempt is itself a qualifying failure by design.
+	private async Task RunProbeWithOuterRetryAsync(Func<Task> probe)
+	{
+		var failures = new List<string>();
+		void OnRequestFailed(object? _, IRequest request) => failures.Add(request.Failure ?? string.Empty);
+
+		Context.RequestFailed += OnRequestFailed;
+		try
+		{
+			await probe();
+		}
+		catch (Exception ex) when (BrowserAttemptRetryScope.QualifyingError(new BrowserAttemptOutcome(ex, failures)) is string reason)
+		{
+			outputHelper.WriteLine($"Retried the whole probe once after {reason} ({BrowserAttemptRetryRunner.IssueUrl}).");
+			await probe();
+		}
+		finally
+		{
+			Context.RequestFailed -= OnRequestFailed;
+		}
 	}
 
 	// Writes each observed RequestFailed straight to this test's own output, independently of the
