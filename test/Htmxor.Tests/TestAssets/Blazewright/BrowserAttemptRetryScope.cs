@@ -1,3 +1,5 @@
+using Microsoft.Playwright;
+
 namespace Htmxor.TestAssets.Blazewright;
 
 /// <summary>
@@ -7,11 +9,13 @@ namespace Htmxor.TestAssets.Blazewright;
 /// recognizes these errors, and is also the runner's only source for the retry note's reason: a
 /// qualifying Playwright <c>RequestFailed</c> error text matches exactly, and a qualifying thrown
 /// exception's message only needs to contain one, because Playwright wraps it with call-log text
-/// such as the failing URL. The mid-test htmx variant's thrown exception is an assertion timeout
-/// that never names the network error, so the recorded request failures must be consulted, not only
-/// the exception. Anything else -- a different network error such as
-/// <c>net::ERR_CONNECTION_REFUSED</c>, or an assertion or timeout failure with no qualifying request
-/// failure -- does not qualify.
+/// such as the failing URL -- but only when that exception is a <see cref="PlaywrightException"/>,
+/// since Chromium's own network errors are the only source of that text. The mid-test htmx variant's
+/// thrown exception is an assertion timeout that never names the network error, so the recorded
+/// request failures must be consulted, not only the exception. Anything else -- a different network
+/// error such as <c>net::ERR_CONNECTION_REFUSED</c>, an assertion or timeout failure with no
+/// qualifying request failure, or a non-Playwright exception whose message happens to contain a
+/// qualifying token -- does not qualify.
 /// </summary>
 public static class BrowserAttemptRetryScope
 {
@@ -40,17 +44,17 @@ public static class BrowserAttemptRetryScope
 
 	private static string? QualifyingExceptionMessage(BrowserAttemptOutcome outcome)
 	{
-		if (outcome.Exception is null)
+		if (outcome.Exception is not PlaywrightException exception)
 		{
 			return null;
 		}
 
-		if (outcome.Exception.Message.Contains(NetworkChangedError, StringComparison.Ordinal))
+		if (exception.Message.Contains(NetworkChangedError, StringComparison.Ordinal))
 		{
 			return NetworkChangedError;
 		}
 
-		if (outcome.Exception.Message.Contains(ConnectionClosedError, StringComparison.Ordinal))
+		if (exception.Message.Contains(ConnectionClosedError, StringComparison.Ordinal))
 		{
 			return ConnectionClosedError;
 		}

@@ -94,4 +94,19 @@ public sealed class BrowserAttemptRetryScopeTests
 
 		Assert.False(shouldRetry);
 	}
+
+	// The issue contract limits the exception-message branch to a thrown PlaywrightException:
+	// Chromium's own network errors are the only source of that text. A generic exception (from
+	// application code, not Playwright) whose message happens to contain a qualifying token, with no
+	// request failure to corroborate it, must not retry.
+	[Fact]
+	public void A_generic_exception_naming_a_qualifying_error_with_no_request_failure_does_not_retry()
+	{
+		var exception = new InvalidOperationException("net::ERR_NETWORK_CHANGED at https://127.0.0.1/EventHandlers");
+		var outcome = new BrowserAttemptOutcome(exception, []);
+
+		var shouldRetry = BrowserAttemptRetryScope.ShouldRetry(outcome);
+
+		Assert.False(shouldRetry);
+	}
 }
