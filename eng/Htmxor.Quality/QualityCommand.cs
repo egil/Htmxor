@@ -20,8 +20,8 @@ internal sealed class QualityCommand(
 			repositoryRoot,
 			runner,
 			cancellationToken);
-		Console.WriteLine($"Repository HEAD: {repository.Head}");
-		Console.WriteLine($"Dirty worktree: {repository.Dirty.ToString().ToLowerInvariant()}");
+		Console.WriteLine($"Repository opening HEAD: {repository.Head}");
+		Console.WriteLine($"Repository opening dirty worktree: {Lower(repository.Dirty)}");
 
 		var profileName = options.Action == QualityAction.Fix
 			? "fix"
@@ -98,10 +98,11 @@ internal sealed class QualityCommand(
 			CollectTestEvidence(test, result, coverage, runs, failures);
 		}
 
+		var window = await CaptureWindowAsync(repository, cancellationToken);
 		await QualitySummaryWriter.WriteTestsAsync(
 			output,
 			profile,
-			repository,
+			window,
 			runs,
 			failures,
 			cancellationToken);
@@ -203,9 +204,10 @@ internal sealed class QualityCommand(
 			failures.Add($"Stryker exited with code {process.ExitCode}.");
 		}
 
+		var window = await CaptureWindowAsync(repository, cancellationToken);
 		await QualitySummaryWriter.WriteMutationAsync(
 			output,
-			repository,
+			window,
 			characterization,
 			process.ExitCode,
 			jsonReportGenerated,
@@ -214,6 +216,22 @@ internal sealed class QualityCommand(
 		PrintMutationCounts(characterization);
 		ThrowIfInvalid(failures, "Mutation verification failed");
 	}
+
+	// Taken after the last command the receipt describes and before the receipt is written, so the
+	// receipt states the window it measured instead of only the tree it sampled at the start.
+	private async Task<RepositoryWindow> CaptureWindowAsync(
+		RepositoryEvidence opening,
+		CancellationToken cancellationToken)
+	{
+		var closing = await RepositoryEvidence.CaptureAsync(repositoryRoot, runner, cancellationToken);
+		var window = new RepositoryWindow(opening, closing);
+		Console.WriteLine($"Repository closing HEAD: {closing.Head}");
+		Console.WriteLine($"Repository closing dirty worktree: {Lower(closing.Dirty)}");
+		Console.WriteLine($"Repository worktree state: {window.StateWording}");
+		return window;
+	}
+
+	private static string Lower(bool value) => value.ToString().ToLowerInvariant();
 
 	private static void PrintTestCounts(IEnumerable<TestRunEvidence> runs)
 	{
