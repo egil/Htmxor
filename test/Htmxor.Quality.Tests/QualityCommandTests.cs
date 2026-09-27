@@ -126,17 +126,8 @@ public sealed class QualityCommandTests
 			? new(QualityAction.Fix, QualityProfile.Fast)
 			: new(QualityAction.Check, QualityProfile.Mutation);
 
-	private static void WriteValidPolicyFiles(string repositoryRoot)
-	{
-		var directory = Path.Combine(repositoryRoot, ".config");
-		Directory.CreateDirectory(directory);
-		File.WriteAllText(
-			Path.Combine(directory, "dotnet-tools.json"),
-			ValidManifest);
-		File.WriteAllText(
-			Path.Combine(repositoryRoot, "stryker-config.json"),
-			ValidMutationConfig);
-	}
+	private static void WriteValidPolicyFiles(string repositoryRoot) =>
+		QualityPolicyFiles.WriteValid(repositoryRoot);
 
 	private static void WriteInvalidPolicy(string repositoryRoot, string invalidFile)
 	{
@@ -144,7 +135,7 @@ public sealed class QualityCommandTests
 		{
 			File.WriteAllText(
 				Path.Combine(repositoryRoot, ".config", "dotnet-tools.json"),
-				ValidManifest.Replace("4.16.0", "4.15.0", StringComparison.Ordinal));
+				QualityPolicyFiles.ValidManifest.Replace("4.16.0", "4.15.0", StringComparison.Ordinal));
 			return;
 		}
 
@@ -153,21 +144,11 @@ public sealed class QualityCommandTests
 			: "\"baseline\": { \"enabled\": true }";
 		File.WriteAllText(
 			Path.Combine(repositoryRoot, "stryker-config.json"),
-			ValidMutationConfig.Replace(
+			QualityPolicyFiles.ValidMutationConfig.Replace(
 				"\"concurrency\":1",
 				$"\"concurrency\":1,{property}",
 				StringComparison.Ordinal));
 	}
-
-	private const string ValidManifest =
-		"""
-		{"version":1,"isRoot":true,"tools":{"dotnet-stryker":{"version":"4.16.0","commands":["dotnet-stryker"],"rollForward":false}}}
-		""";
-
-	private const string ValidMutationConfig =
-		"""
-		{"stryker-config":{"project":"src/Htmxor/Htmxor.csproj","configuration":"Release","reporters":["progress","json","html","markdown"],"report-file-name":"mutation-report","test-runner":"vstest","coverage-analysis":"perTest","additional-timeout":30000,"concurrency":1}}
-		""";
 
 	private sealed class RecordingProcessRunner : IProcessRunner
 	{
@@ -198,9 +179,7 @@ public sealed class QualityCommandTests
 
 			if (command.Arguments.Contains("dotnet-stryker", StringComparer.Ordinal))
 			{
-				var arguments = command.Arguments.ToArray();
-				var outputIndex = Array.IndexOf(arguments, "--output");
-				var output = arguments[outputIndex + 1];
+				var output = ProcessCommandArguments.After(command.Arguments, "--output");
 				Directory.CreateDirectory(output);
 				File.WriteAllText(
 					Path.Combine(output, "mutation-report.json"),
@@ -227,9 +206,8 @@ public sealed class QualityCommandTests
 
 			if (command.Arguments.Contains("--logger", StringComparer.Ordinal))
 			{
-				var arguments = command.Arguments.ToArray();
-				var resultsDirectory = arguments[Array.IndexOf(arguments, "--results-directory") + 1];
-				var logger = arguments[Array.IndexOf(arguments, "--logger") + 1];
+				var resultsDirectory = ProcessCommandArguments.After(command.Arguments, "--results-directory");
+				var logger = ProcessCommandArguments.After(command.Arguments, "--logger");
 				var fileName = logger[(logger.IndexOf('=') + 1)..];
 				Directory.CreateDirectory(resultsDirectory);
 				File.WriteAllText(

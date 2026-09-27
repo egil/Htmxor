@@ -1,7 +1,9 @@
 namespace Htmxor.Quality;
 
-internal sealed record RepositoryEvidence(string Head, bool Dirty)
+internal sealed record RepositoryEvidence(string Head, string Status)
 {
+	public bool Dirty => !string.IsNullOrWhiteSpace(Status);
+
 	public static async Task<RepositoryEvidence> CaptureAsync(
 		string repositoryRoot,
 		IProcessRunner runner,
@@ -19,7 +21,7 @@ internal sealed record RepositoryEvidence(string Head, bool Dirty)
 			throw new InvalidOperationException("Git returned an empty HEAD.");
 		}
 
-		return new(head, !string.IsNullOrWhiteSpace(statusResult.StandardOutput));
+		return new(head, statusResult.StandardOutput);
 	}
 
 	private static ProcessCommand Git(string repositoryRoot, params string[] arguments) =>

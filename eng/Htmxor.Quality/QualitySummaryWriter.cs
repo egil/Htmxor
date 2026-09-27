@@ -22,17 +22,20 @@ internal static class QualitySummaryWriter
 	public static async Task WriteTestsAsync(
 		string output,
 		QualityProfile profile,
-		RepositoryEvidence repository,
+		RepositoryWindow window,
 		IReadOnlyList<TestRunEvidence> runs,
 		IReadOnlyList<string> failures,
 		CancellationToken cancellationToken)
 	{
 		var summary = new
 		{
-			schemaVersion = 1,
+			schemaVersion = 2,
 			profile = profile.ToString().ToLowerInvariant(),
-			repository.Head,
-			repository.Dirty,
+			openingHead = window.Opening.Head,
+			openingDirty = window.Opening.Dirty,
+			closingHead = window.Closing.Head,
+			closingDirty = window.Closing.Dirty,
+			worktreeState = window.StateName,
 			valid = failures.Count == 0,
 			failures,
 			testRuns = runs.Select(run => new
@@ -54,13 +57,13 @@ internal static class QualitySummaryWriter
 		await WriteJsonAsync(Path.Combine(output, "summary.json"), summary, cancellationToken);
 		await File.WriteAllTextAsync(
 			Path.Combine(output, "summary.md"),
-			BuildTestMarkdown(profile, repository, runs, failures),
+			BuildTestMarkdown(profile, window, runs, failures),
 			cancellationToken);
 	}
 
 	public static async Task WriteMutationAsync(
 		string output,
-		RepositoryEvidence repository,
+		RepositoryWindow window,
 		MutationCharacterization? result,
 		int processExitCode,
 		bool jsonReportGenerated,
@@ -69,10 +72,13 @@ internal static class QualitySummaryWriter
 	{
 		var summary = new
 		{
-			schemaVersion = 1,
+			schemaVersion = 2,
 			profile = "mutation",
-			repository.Head,
-			repository.Dirty,
+			openingHead = window.Opening.Head,
+			openingDirty = window.Opening.Dirty,
+			closingHead = window.Closing.Head,
+			closingDirty = window.Closing.Dirty,
+			worktreeState = window.StateName,
 			jsonReportGenerated,
 			processExitCode,
 			valid = failures.Count == 0,
@@ -84,7 +90,7 @@ internal static class QualitySummaryWriter
 		await WriteJsonAsync(Path.Combine(output, "summary.json"), summary, cancellationToken);
 		await File.WriteAllTextAsync(
 			Path.Combine(output, "summary.md"),
-			BuildMutationMarkdown(repository, result, processExitCode, jsonReportGenerated, failures),
+			BuildMutationMarkdown(window, result, processExitCode, jsonReportGenerated, failures),
 			cancellationToken);
 	}
 
@@ -108,11 +114,11 @@ internal static class QualitySummaryWriter
 
 	private static string BuildTestMarkdown(
 		QualityProfile profile,
-		RepositoryEvidence repository,
+		RepositoryWindow window,
 		IReadOnlyList<TestRunEvidence> runs,
 		IReadOnlyList<string> failures)
 	{
-		var text = Header(profile.ToString().ToLowerInvariant(), repository, failures);
+		var text = Header(profile.ToString().ToLowerInvariant(), window, failures);
 		text.AppendLine("| Project | Total | Executed | Passed | Failed | Skipped | Error | Timeout | Coverage |");
 		text.AppendLine("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |");
 		foreach (var run in runs)
@@ -139,13 +145,13 @@ internal static class QualitySummaryWriter
 	}
 
 	private static string BuildMutationMarkdown(
-		RepositoryEvidence repository,
+		RepositoryWindow window,
 		MutationCharacterization? result,
 		int processExitCode,
 		bool jsonReportGenerated,
 		IReadOnlyList<string> failures)
 	{
-		var text = Header("mutation", repository, failures);
+		var text = Header("mutation", window, failures);
 		text.AppendLine($"- Stryker exit: `{processExitCode}`");
 		text.AppendLine($"- JSON report generated: `{jsonReportGenerated.ToString().ToLowerInvariant()}`");
 		text.AppendLine("- Score floor: none while the exact baseline is being characterized");
@@ -164,14 +170,17 @@ internal static class QualitySummaryWriter
 
 	private static StringBuilder Header(
 		string profile,
-		RepositoryEvidence repository,
+		RepositoryWindow window,
 		IReadOnlyCollection<string> failures)
 	{
 		var text = new StringBuilder();
 		text.AppendLine($"# Htmxor {profile} verification");
 		text.AppendLine();
-		text.AppendLine($"- HEAD: `{repository.Head}`");
-		text.AppendLine($"- Dirty worktree: `{repository.Dirty.ToString().ToLowerInvariant()}`");
+		text.AppendLine($"- Opening HEAD: `{window.Opening.Head}`");
+		text.AppendLine($"- Opening dirty worktree: `{window.Opening.Dirty.ToString().ToLowerInvariant()}`");
+		text.AppendLine($"- Closing HEAD: `{window.Closing.Head}`");
+		text.AppendLine($"- Closing dirty worktree: `{window.Closing.Dirty.ToString().ToLowerInvariant()}`");
+		text.AppendLine($"- Worktree state: {window.StateWording}");
 		text.AppendLine($"- Valid: `{(failures.Count == 0).ToString().ToLowerInvariant()}`");
 		foreach (var failure in failures)
 		{
