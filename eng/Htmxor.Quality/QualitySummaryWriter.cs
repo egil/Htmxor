@@ -177,9 +177,9 @@ internal static class QualitySummaryWriter
 		text.AppendLine($"# Htmxor {profile} verification");
 		text.AppendLine();
 		text.AppendLine($"- Opening HEAD: `{window.Opening.Head}`");
-		text.AppendLine($"- Opening dirty worktree: `{Lower(window.Opening.Dirty)}`");
+		text.AppendLine($"- Opening dirty worktree: `{window.Opening.Dirty.ToString().ToLowerInvariant()}`");
 		text.AppendLine($"- Closing HEAD: `{window.Closing.Head}`");
-		text.AppendLine($"- Closing dirty worktree: `{Lower(window.Closing.Dirty)}`");
+		text.AppendLine($"- Closing dirty worktree: `{window.Closing.Dirty.ToString().ToLowerInvariant()}`");
 		text.AppendLine($"- Worktree state: {window.StateWording}");
 		text.AppendLine($"- Valid: `{(failures.Count == 0).ToString().ToLowerInvariant()}`");
 		foreach (var failure in failures)
@@ -190,6 +190,4 @@ internal static class QualitySummaryWriter
 		text.AppendLine();
 		return text;
 	}
-
-	private static string Lower(bool value) => value.ToString().ToLowerInvariant();
 }

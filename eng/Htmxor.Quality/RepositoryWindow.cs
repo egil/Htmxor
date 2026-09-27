@@ -7,13 +7,11 @@ internal enum WorktreeState
 	ChangedDuringRun,
 }
 
-/// <summary>
-/// The repository as sampled before and after the commands a receipt describes. The state compares
-/// HEAD and the full porcelain text, not the dirty flags, so a tree that was already dirty and
-/// changed further is still reported as changed
-/// (https://github.com/egil/Htmxor/issues/234#issuecomment-5854112160). Nothing between the two
-/// samples is observed, so a change made and reverted inside the window stays invisible.
-/// </summary>
+// The repository as sampled before and after the commands a receipt describes. The state compares
+// HEAD and the full porcelain text, not the dirty flags, so a tree that was already dirty and
+// changed further is still reported as changed
+// (https://github.com/egil/Htmxor/issues/234#issuecomment-5854112160). Nothing between the two
+// samples is observed, so a change made and reverted inside the window stays invisible.
 internal sealed record RepositoryWindow(RepositoryEvidence Opening, RepositoryEvidence Closing)
 {
 	public WorktreeState State =>

@@ -21,7 +21,7 @@ internal sealed class QualityCommand(
 			runner,
 			cancellationToken);
 		Console.WriteLine($"Repository opening HEAD: {repository.Head}");
-		Console.WriteLine($"Repository opening dirty worktree: {Lower(repository.Dirty)}");
+		Console.WriteLine($"Repository opening dirty worktree: {repository.Dirty.ToString().ToLowerInvariant()}");
 
 		var profileName = options.Action == QualityAction.Fix
 			? "fix"
@@ -226,12 +226,10 @@ internal sealed class QualityCommand(
 		var closing = await RepositoryEvidence.CaptureAsync(repositoryRoot, runner, cancellationToken);
 		var window = new RepositoryWindow(opening, closing);
 		Console.WriteLine($"Repository closing HEAD: {closing.Head}");
-		Console.WriteLine($"Repository closing dirty worktree: {Lower(closing.Dirty)}");
+		Console.WriteLine($"Repository closing dirty worktree: {closing.Dirty.ToString().ToLowerInvariant()}");
 		Console.WriteLine($"Repository worktree state: {window.StateWording}");
 		return window;
 	}
-
-	private static string Lower(bool value) => value.ToString().ToLowerInvariant();
 
 	private static void PrintTestCounts(IEnumerable<TestRunEvidence> runs)
 	{
