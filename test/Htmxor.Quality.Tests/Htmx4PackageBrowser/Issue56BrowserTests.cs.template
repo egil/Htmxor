@@ -1929,9 +1929,10 @@ public sealed partial class Issue56BrowserTests
 			header: "HX-Replace-Url");
 	}
 
-	// HistoryBackRaceInitScript delays every page-JS history traversal until the replace case's
-	// cross-document back navigation can commit and destroy the calling execution context, so this
-	// fact fails if the helper's back step returns to evaluating one of them in page JS.
+	// HistoryBackRaceInitScript delays the page-JS back traversals it wraps (History.back and go,
+	// Navigation.back and traverseTo) until the replace case's cross-document back navigation can
+	// commit and destroy the calling execution context, so this fact fails if the helper's back
+	// step returns to evaluating one of them in page JS.
 	[Fact]
 	public async Task Application_owned_htmx4_history_back_survives_replace_traversal_committing_before_the_back_step_returns()
 	{
