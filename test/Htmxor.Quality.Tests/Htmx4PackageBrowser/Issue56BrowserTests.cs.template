@@ -52,20 +52,19 @@ public sealed partial class Issue56BrowserTests
 	private const string Issue154ExtensionPath = "/issue-154/extension";
 	private const string Issue154PollingPath = "/issue-154/polling";
 
-	// #255: forces the replace case's history.back() to take at least this long, synchronously,
-	// before returning control to its caller. Measured locally against the real nested suite:
-	// values below 5ms did not reliably reproduce the destroyed-context failure; this keeps
-	// margin above that measured floor, and stays far below every timeout in this suite.
+	// #255: how long a wrapped page-JS history traversal blocks before returning. Measured locally
+	// against the real nested suite: values below 5ms did not reliably reproduce the
+	// destroyed-context failure; this keeps margin above that measured floor, and stays far below
+	// every timeout in this suite.
 	private const int HistoryBackRaceDelayMilliseconds = 50;
 
 	// Overrides History.prototype.back, History.prototype.go, Navigation.prototype.back, and
-	// Navigation.prototype.traverseTo so any page-JS caller of one of these - including the back
-	// step in AssertIssue154HistoryUpdateAsync - synchronously blocks for
-	// HistoryBackRaceDelayMilliseconds before returning, forcing Chromium's already-in-flight
-	// cross-document traversal to have a chance to commit before that call (and therefore the
-	// evaluate awaiting it) returns control. A synchronous block, not an async timer, so a
-	// caller that discards the return value is delayed just the same; the delay is intrinsic to
-	// the callee, not contingent on the caller propagating a promise.
+	// Navigation.prototype.traverseTo so any page-JS caller of one of these synchronously blocks
+	// for HistoryBackRaceDelayMilliseconds after starting the traversal, giving Chromium's
+	// cross-document traversal a chance to commit, and destroy the caller's execution context,
+	// before the call returns. A back step that evaluates one of these in page JS therefore fails
+	// deterministically. A synchronous block, not an async timer, so a caller that discards the
+	// return value is delayed just the same.
 	private static readonly string HistoryBackRaceInitScript = $$"""
 		(() => {
 			const withForcedDelay = original => function historyTraversalWithForcedDelay() {
@@ -1930,9 +1929,9 @@ public sealed partial class Issue56BrowserTests
 			header: "HX-Replace-Url");
 	}
 
-	// HistoryBackRaceInitScript makes a page-JS history.back() block synchronously after it starts
-	// the traversal, so the replace case's cross-document back navigation commits, and can destroy
-	// the calling execution context, before the helper's back step returns.
+	// HistoryBackRaceInitScript delays every page-JS history traversal until the replace case's
+	// cross-document back navigation can commit and destroy the calling execution context, so this
+	// fact fails if the helper's back step returns to evaluating one of them in page JS.
 	[Fact]
 	public async Task Application_owned_htmx4_history_back_survives_replace_traversal_committing_before_the_back_step_returns()
 	{
@@ -2775,12 +2774,9 @@ public sealed partial class Issue56BrowserTests
 
 		var expectedBackUrl = new Uri(baseAddress, expectedBackPath).AbsoluteUri;
 		var backUrlTask = page.WaitForURLAsync(expectedBackUrl);
-		// GoBackAsync() drives the back traversal at the browser level and its returned task
-		// completes only once that specific navigation lands (or resolves to null if there was
-		// nothing to go back to). It cannot be satisfied by the page that was current before this
-		// call: unlike evaluating history.back() and reading a script's return value, there is no
-		// script result available before the navigation itself has actually committed, so a stale,
-		// pre-navigation completion has nothing to be satisfied by.
+		// GoBackAsync() starts the traversal through the browser, not page JavaScript, and waits for that
+		// navigation to complete. Evaluating history.back() instead can throw "Execution context was
+		// destroyed" when the replace case's cross-document traversal commits before the result returns.
 		await page.GoBackAsync();
 		await backUrlTask;
 		if (string.Equals(expectedBackPath, Issue154Path, StringComparison.Ordinal))
