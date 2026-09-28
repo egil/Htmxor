@@ -51,6 +51,36 @@ public sealed partial class Issue56BrowserTests
 	private const string Issue154Path = "/issue-154/navigation";
 	private const string Issue154ExtensionPath = "/issue-154/extension";
 	private const string Issue154PollingPath = "/issue-154/polling";
+
+	// #255: forces the replace case's history.back() to take at least this long, synchronously,
+	// before returning control to its caller. Measured locally against the real nested suite:
+	// values below 5ms did not reliably reproduce the destroyed-context failure; this keeps
+	// margin above that measured floor, and stays far below every timeout in this suite.
+	private const int HistoryBackRaceDelayMilliseconds = 50;
+
+	// Overrides History.prototype.back, History.prototype.go, Navigation.prototype.back, and
+	// Navigation.prototype.traverseTo so any page-JS caller of one of these - including the back
+	// step in AssertIssue154HistoryUpdateAsync - synchronously blocks for
+	// HistoryBackRaceDelayMilliseconds before returning, forcing Chromium's already-in-flight
+	// cross-document traversal to have a chance to commit before that call (and therefore the
+	// evaluate awaiting it) returns control. A synchronous block, not an async timer, so a
+	// caller that discards the return value is delayed just the same; the delay is intrinsic to
+	// the callee, not contingent on the caller propagating a promise.
+	private static readonly string HistoryBackRaceInitScript = $$"""
+		(() => {
+			const withForcedDelay = original => function historyTraversalWithForcedDelay() {
+				const result = original.apply(this, arguments);
+				const start = Date.now();
+				while (Date.now() - start < {{HistoryBackRaceDelayMilliseconds}}) { /* synchronous, deliberate */ }
+				return result;
+			};
+			History.prototype.back = withForcedDelay(History.prototype.back);
+			History.prototype.go = withForcedDelay(History.prototype.go);
+			Navigation.prototype.back = withForcedDelay(Navigation.prototype.back);
+			Navigation.prototype.traverseTo = withForcedDelay(Navigation.prototype.traverseTo);
+			window.__issue255HistoryBackWrapperInstalled = true;
+		})();
+		""";
 	private const string AdapterPath = "/_content/Htmxor/htmxor.js";
 	private const string StockPath = "/issue-75/control";
 	private static readonly string[] NavigationResponseHeaderNames =
@@ -1900,6 +1930,29 @@ public sealed partial class Issue56BrowserTests
 			header: "HX-Replace-Url");
 	}
 
+	// HistoryBackRaceInitScript makes a page-JS history.back() block synchronously after it starts
+	// the traversal, so the replace case's cross-document back navigation commits, and can destroy
+	// the calling execution context, before the helper's back step returns.
+	[Fact]
+	public async Task Application_owned_htmx4_history_back_survives_replace_traversal_committing_before_the_back_step_returns()
+	{
+		await using var app = CreateApplication(new Issue56RequestProbe());
+		await app.StartAsync();
+		var baseAddress = new Uri(Assert.Single(app.Urls));
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+
+		await AssertIssue154HistoryUpdateAsync(
+			browser,
+			baseAddress,
+			operation: "replace",
+			header: "HX-Replace-Url",
+			state: "replaced",
+			expectedBackPath: Issue64Path,
+			historyBackRaceInitScript: HistoryBackRaceInitScript);
+	}
+
 	[Fact]
 	public async Task Application_owned_htmx4_consumes_reswap_retarget_and_reselect_together()
 	{
@@ -2691,9 +2744,15 @@ public sealed partial class Issue56BrowserTests
 		string operation,
 		string header,
 		string state,
-		string expectedBackPath)
+		string expectedBackPath,
+		string? historyBackRaceInitScript = null)
 	{
 		await using var context = await browser.NewContextAsync(new() { BaseURL = baseAddress.AbsoluteUri });
+		if (historyBackRaceInitScript is not null)
+		{
+			await context.AddInitScriptAsync(historyBackRaceInitScript);
+		}
+
 		var page = await context.NewPageAsync();
 		await page.GotoAsync(Issue64Path);
 		var navigation = await page.GotoAsync(Issue154Path);
@@ -2725,6 +2784,17 @@ public sealed partial class Issue56BrowserTests
 		else
 		{
 			await page.Locator("[data-issue-64-page]").WaitForAsync();
+		}
+
+		if (historyBackRaceInitScript is not null)
+		{
+			// Reached only when the back step survived. The context-level init script runs in every
+			// document, so the back target carrying the marker shows the forced delay was installed
+			// for this traversal too. A back step that bypasses page JS, such as page.GoBackAsync(),
+			// is never delayed and passes on its own merits.
+			Assert.True(
+				await page.EvaluateAsync<bool>("() => window.__issue255HistoryBackWrapperInstalled === true"),
+				"The history.back() race wrapper failed to install; this probe did not run under forced timing.");
 		}
 	}
 
