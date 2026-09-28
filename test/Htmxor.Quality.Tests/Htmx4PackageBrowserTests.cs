@@ -21,7 +21,7 @@ public sealed class Htmx4PackageBrowserTests(ITestOutputHelper output)
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(42, 42, 42, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(43, 43, 43, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		Htmx4PackageBrowserEvidence.AssertConsumer(workspace);
 	}
