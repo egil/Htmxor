@@ -2775,7 +2775,13 @@ public sealed partial class Issue56BrowserTests
 
 		var expectedBackUrl = new Uri(baseAddress, expectedBackPath).AbsoluteUri;
 		var backUrlTask = page.WaitForURLAsync(expectedBackUrl);
-		await page.EvaluateAsync("() => history.back()");
+		// GoBackAsync() drives the back traversal at the browser level and its returned task
+		// completes only once that specific navigation lands (or resolves to null if there was
+		// nothing to go back to). It cannot be satisfied by the page that was current before this
+		// call: unlike evaluating history.back() and reading a script's return value, there is no
+		// script result available before the navigation itself has actually committed, so a stale,
+		// pre-navigation completion has nothing to be satisfied by.
+		await page.GoBackAsync();
 		await backUrlTask;
 		if (string.Equals(expectedBackPath, Issue154Path, StringComparison.Ordinal))
 		{
