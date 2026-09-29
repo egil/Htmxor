@@ -123,7 +123,8 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			// Applicability is decided over every entry the collapse merged, as in ReportAsync, so a
 			// differently scoped duplicate listed first cannot drop the finding.
 			if (finding is { } found && unresolved.All(entry => entry.Path != watch.Path) &&
-				request.Manifest.Targets.Any(entry => entry.Path == watch.Path && entry.Match == watch.Match && AppliesTo(entry, request.Framework)))
+				request.Manifest.Targets.Any(entry => (entry.Path, entry.Match, entry.ApiSurface) == (watch.Path, watch.Match, watch.ApiSurface) &&
+					AppliesTo(entry, request.Framework)))
 			{
 				unresolved.Add(new(watch.Path, found));
 			}
