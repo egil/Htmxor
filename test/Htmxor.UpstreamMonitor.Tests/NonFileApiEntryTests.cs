@@ -457,6 +457,98 @@ public sealed class NonFileApiEntryTests
 		Assert.DoesNotContain(result.Issues, issue => issue.Identity == "aspnetcore-10-unresolved-watch");
 	}
 
+	// #232's own applicability invariant, restated in ReportAsync's comment ("Applicability is
+	// decided before the collapse ... an inapplicable survivor would drop the path from
+	// checking"), applied to the API-surface finding this issue adds: two entries that share path,
+	// match and API surface but differ only in `frameworks` must not let whichever collapses first
+	// decide applicability for both. Mirrors WatchFrameworkScopeTests.Applicable_entry_decides_
+	// resolution_even_when_a_differently_scoped_duplicate_collapses_first, at the API-comparison
+	// route instead of the plain resolve loop.
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task Applicable_api_surface_entry_decides_the_unresolved_finding_even_when_a_differently_scoped_duplicate_collapses_first(
+		bool otherFrameworkListedFirst)
+	{
+		const string path = "src/Components/Endpoints/src/CacheView/DuplicateScopedApiWatch.cs";
+		var netOtherOnly = Fixture.Watch(path, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses) with { Frameworks = ["net11.0"] };
+		var netThisOnly = Fixture.Watch(path, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses) with { Frameworks = ["net10.0"] };
+		var drivingWatch = Fixture.Watch(
+			ExpectedMonitorArtifacts.InvokerInterface, apiSurface: ApiSurface.Interface, relationship: WatchRelationship.Implements);
+		var manifest = otherFrameworkListedFirst
+			? Fixture.MultiTargetManifest(netOtherOnly, netThisOnly, drivingWatch)
+			: Fixture.MultiTargetManifest(netThisOnly, netOtherOnly, drivingWatch);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new
+			{
+				files = new object[]
+				{
+					new { filename = ExpectedMonitorArtifacts.InvokerInterface, status = "modified" },
+					new { filename = path, status = "modified" },
+				},
+			}));
+		transport.AddRepeatingJson(
+			$"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.InvokerInterface}?ref={Fixture.BaselineCommit}",
+			Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
+		transport.AddRepeatingJson(
+			$"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.InvokerInterface}?ref={Fixture.TargetCommit}",
+			Fixture.GitHubContent("source/target/IRazorComponentEndpointInvoker.cs"));
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(path, Fixture.BaselineCommit),
+			Fixture.GitHubContentText("internal class DuplicateScopedApiWatch { public void Before() { } }"));
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(path, Fixture.TargetCommit), WrongKindContent("symlink"));
+		var request = new MonitorRequest(manifest, 10, "v10.0.12", Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Null(result.InfrastructureError);
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		using var json = JsonDocument.Parse(result.JsonReport);
+		var row = json.RootElement.GetProperty("unresolvedWatches").EnumerateArray()
+			.Single(element => element.GetProperty("path").GetString() == path);
+		Assert.Equal("exists-as-symlink", row.GetProperty("finding").GetString());
+	}
+
+	// Decision 5893089626: "prefix | holds a matching file | Resolved. The API surface is compared
+	// over the matching files at each revision." A sibling the listing types as a genuine file
+	// (RealFileEntry, git_url under git/blobs/) must not silence the watch's real matching file even
+	// when GitHub's single-path GET disagrees with the listing and answers a non-file kind for that
+	// sibling: the listing is what names a prefix finding, and it names none here.
+	[Fact]
+	public async Task Prefix_watch_still_compares_its_real_file_when_a_listed_file_siblings_single_path_get_disagrees_and_answers_a_submodule()
+	{
+		const string realFile = CacheViewDirectory + ".cs";
+		const string disagreeingSibling = CacheViewDirectory + ".Vendor.cs";
+		var prefixWatch = Fixture.Watch(CacheViewDirectory, WatchMatch.Prefix, ApiSurface.Subclass, WatchRelationship.Subclasses);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = realFile, status = "modified" } } }));
+		var listingJson = JsonSerializer.Serialize(new object[]
+		{
+			PrefixInventoryFixture.Entry(realFile),
+			PrefixInventoryFixture.RealFileEntry(disagreeingSibling),
+		});
+		transport.AddRepeatingJson($"/repos/dotnet/aspnetcore/contents/{CacheViewParent}?ref={Fixture.BaselineCommit}", listingJson);
+		transport.AddRepeatingJson($"/repos/dotnet/aspnetcore/contents/{CacheViewParent}?ref={Fixture.TargetCommit}", listingJson);
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(realFile, Fixture.BaselineCommit),
+			Fixture.GitHubContentText("internal partial class CacheView { public void Before() { } }"));
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(realFile, Fixture.TargetCommit),
+			Fixture.GitHubContentText("internal partial class CacheView { public void After() { } }"));
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(disagreeingSibling, Fixture.BaselineCommit), FaithfulSubmoduleContent());
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(disagreeingSibling, Fixture.TargetCommit), FaithfulSubmoduleContent());
+		var request = new MonitorRequest(Fixture.Manifest(prefixWatch), 10, "v10.0.12", Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Null(result.InfrastructureError);
+		Assert.Equal(MonitorStatus.Drift, result.Status);
+		Assert.Contains(result.ApiChanges, change => change.TypeName == "CacheView");
+		using var json = JsonDocument.Parse(result.JsonReport);
+		Assert.False(json.RootElement.TryGetProperty("unresolvedWatches", out _));
+	}
+
 	// A genuine infrastructure defect distinct from a symlink or submodule shape - a "type: file"
 	// object with no readable body at all - fails the run as infrastructure (issuecomment-5892255228),
 	// so a fix broad enough to swallow any SourceAsync failure as a finding is rejected.

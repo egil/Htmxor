@@ -58,6 +58,20 @@ internal static class PrefixInventoryFixture
 		size = 0,
 		git_url = $"https://api.github.com/repos/dotnet/aspnetcore/git/trees/{sha}",
 	};
+
+	// The unambiguous counterpart to LegacySubmoduleEntry: a genuine file entry the way GitHub's
+	// directory listing actually returns one, with a non-null download_url and a git_url naming a
+	// blob, not a tree.
+	public static object RealFileEntry(string path, string sha = "1111111111111111111111111111111111111a") => new
+	{
+		name = Path.GetFileName(path),
+		path,
+		type = "file",
+		download_url = $"https://raw.githubusercontent.com/dotnet/aspnetcore/{sha}/{path}",
+		size = 42,
+		git_url = $"https://api.github.com/repos/dotnet/aspnetcore/git/blobs/{sha}",
+	};
+
 	public static string ContentsUrl(string path, string revision) => $"/repos/dotnet/aspnetcore/contents/{path}?ref={revision}";
 	public static string Partial(string members = "") => $"internal partial class EndpointHtmlRenderer {{ {members} }}";
 
