@@ -22,8 +22,9 @@ internal static class MonitorReports
 			IssuesFor(request, status, baseline, upstream, sources, apis, unresolved), error, unresolved);
 	}
 
-	// An unresolved watch is a manifest defect, not upstream drift: at the reviewed commit its path is
-	// absent, or is not the kind of thing the watch claims to watch. It gets
+	// An unresolved watch is a manifest defect, not upstream drift: at the reviewed commit, or at the
+	// current commit for a finding API-surface comparison made, its path is absent or is not the kind
+	// of thing the watch claims to watch. It gets
 	// its own status, its own report section and its own review issue rather than a SourceChange, so
 	// a reader can never mistake it for a change in a file that does exist. The separate issue
 	// identity also keeps the two kinds out of one upserted body, where a full replace would drop
@@ -66,7 +67,9 @@ internal static class MonitorReports
 				"- These dependencies are unmonitored: a path that cannot resolve never appears in a compare,",
 				"  so drift in it is reported as current on every run until the manifest is corrected.",
 			]
-			: ["- These watches do not resolve to the kind of thing they claim at the reviewed commit."];
+			: unresolved.Any(watch => watch.AtCurrent)
+				? ["- These watches do not resolve to the kind of thing they claim at the reviewed commit, or at the current commit where a row says so."]
+				: ["- These watches do not resolve to the kind of thing they claim at the reviewed commit."];
 		var body = string.Join('\n',
 		[
 			absentOnly ? "## ASP.NET Core watch paths that do not exist upstream" : "## ASP.NET Core watches that do not resolve upstream",
@@ -77,7 +80,9 @@ internal static class MonitorReports
 			string.Empty, "### Unresolved watch paths", string.Empty,
 			.. unresolved.Select(watch => absentOnly
 				? $"- [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"
-				: $"- {Name(watch.Finding)} | [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"),
+				: watch.AtCurrent
+					? $"- {Name(watch.Finding)} | [{watch.Path}]({url}/tree/{upstream.Commit}/{watch.Path}) at current"
+					: $"- {Name(watch.Finding)} | [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"),
 			string.Empty, "### Review checklist", string.Empty,
 			"- [ ] Correct or remove each path above", "- [ ] Confirm the corrected path is the right upstream dependency",
 			"- [ ] Re-run the monitor and confirm the watch reports against real content",

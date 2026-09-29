@@ -64,7 +64,9 @@ public sealed class WrongKindWatchConsoleTests
 	private static object Watch(string path) =>
 		new { path, match = "file", api = "none", relationship = "reimplements", dependencies = Array.Empty<string>() };
 
-	private static TemporaryMonitorWorkspace Workspace(params object[] watches)
+	// Shared across console test classes: any change to the manifest's repository/reviewed shape now
+	// has one place to make it.
+	internal static TemporaryMonitorWorkspace Workspace(params object[] watches)
 	{
 		var workspace = new TemporaryMonitorWorkspace();
 		var manifestPath = Path.Combine(workspace.Path, "eng", "Htmxor.UpstreamMonitor", "upstream-watch.json");

@@ -30,22 +30,22 @@ internal sealed partial class UpstreamRepository
 			return WatchFinding.DoesNotExistUpstream;
 		}
 		var kinds = PrefixEntries(entries, watch.Path).Select(entry => entry.Kind).ToArray();
-		// Any matching file resolves the watch. Otherwise the first kind present in this order names it.
-		return kinds.Length == 0 ? WatchFinding.DoesNotExistUpstream
-			: kinds.Contains(null) ? null
-			: new[] { WatchFinding.ExistsAsDirectory, WatchFinding.ExistsAsSymlink, WatchFinding.ExistsAsSubmodule }.First(kind => kinds.Contains(kind));
+		return kinds.Length == 0 ? WatchFinding.DoesNotExistUpstream : PrefixFinding(kinds);
 	}
 
-	public async Task<IReadOnlyList<string>> PrefixSourcePathsAsync(string prefix, string commit, CancellationToken cancellationToken)
+	// Any matching file resolves a prefix watch. Otherwise the first kind present in this order names it.
+	internal static WatchFinding? PrefixFinding(IReadOnlyCollection<WatchFinding?> kinds) => kinds.Contains(null) ? null
+		: new[] { WatchFinding.ExistsAsDirectory, WatchFinding.ExistsAsSymlink, WatchFinding.ExistsAsSubmodule }
+			.First(kind => kinds.Contains(kind));
+
+	// The listing is not recursive, so a directory matching the prefix is inventoried as a directory
+	// and cannot answer for the files beneath it.
+	public async Task<IReadOnlyList<(string Path, WatchFinding? Kind)>> PrefixInventoryAsync(string prefix, string commit,
+		CancellationToken cancellationToken)
 	{
 		var listing = await api.GetAsync(ContentsPath(ParentDirectory(prefix), commit), cancellationToken);
-		return PrefixSourcePaths(listing, prefix);
+		return PrefixEntries(listing, prefix);
 	}
-
-	// Only file entries count. The listing is not recursive, so a directory matching the prefix is
-	// not inventoried and cannot answer for the files beneath it.
-	private static IReadOnlyList<string> PrefixSourcePaths(JsonElement listing, string prefix) =>
-		PrefixEntries(listing, prefix).Where(entry => entry.Kind is null).Select(entry => entry.Path).ToArray();
 
 	// Every entry of one directory listing whose path starts with the prefix, with null for a file
 	// and otherwise the kind it is. The listing is validated whole, not only its matching entries.
@@ -89,12 +89,19 @@ internal sealed partial class UpstreamRepository
 
 	private static WatchFinding? EntryKind(JsonElement entry) => RequiredString(entry, "type") switch
 	{
+		"file" when IsListedSubmodule(entry) => WatchFinding.ExistsAsSubmodule,
 		"file" => null,
 		"dir" => WatchFinding.ExistsAsDirectory,
 		"symlink" => WatchFinding.ExistsAsSymlink,
 		"submodule" => WatchFinding.ExistsAsSubmodule,
 		_ => throw new MonitorFailure("GitHub directory inventory contained an unsupported entry type."),
 	};
+
+	// A directory listing types a submodule "file" for backwards compatibility, where a single-path
+	// GET types it "submodule". The listing entry's git_url names a tree; a real file's names a blob.
+	private static bool IsListedSubmodule(JsonElement entry) =>
+		entry.TryGetProperty("git_url", out var url) && url.ValueKind == JsonValueKind.String &&
+		url.GetString()!.Contains("/git/trees/", StringComparison.Ordinal);
 
 	private static string RequiredString(JsonElement entry, string name)
 	{

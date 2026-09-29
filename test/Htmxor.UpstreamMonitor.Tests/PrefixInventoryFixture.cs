@@ -43,6 +43,35 @@ internal static class PrefixInventoryFixture
 		transport.AddJson(ContentsUrl(directory, revision), JsonSerializer.Serialize(paths.Select(path => Entry(path))));
 
 	public static object Entry(string path, string type = "file") => new { name = Path.GetFileName(path), path, type };
+
+	// Issue #244's second scope-widening comment: a directory listing types a submodule as "file"
+	// for backwards compatibility, unlike a single-path GET which answers "submodule" directly. Only
+	// a null download_url and a git_url pointing at a tree (not a blob) tell it apart from a real
+	// file entry in that same listing. Modeled on the verified live shape of dotnet/aspnetcore's
+	// src/submodules/googletest at a5383385.
+	public static object LegacySubmoduleEntry(string path, string sha = "3064a60ac5f6b26cd1cd5c26be6e14b5c0975ada") => new
+	{
+		name = Path.GetFileName(path),
+		path,
+		type = "file",
+		download_url = (string?)null,
+		size = 0,
+		git_url = $"https://api.github.com/repos/dotnet/aspnetcore/git/trees/{sha}",
+	};
+
+	// The unambiguous counterpart to LegacySubmoduleEntry: a genuine file entry the way GitHub's
+	// directory listing actually returns one, with a non-null download_url and a git_url naming a
+	// blob, not a tree.
+	public static object RealFileEntry(string path, string sha = "1111111111111111111111111111111111111a") => new
+	{
+		name = Path.GetFileName(path),
+		path,
+		type = "file",
+		download_url = $"https://raw.githubusercontent.com/dotnet/aspnetcore/{sha}/{path}",
+		size = 42,
+		git_url = $"https://api.github.com/repos/dotnet/aspnetcore/git/blobs/{sha}",
+	};
+
 	public static string ContentsUrl(string path, string revision) => $"/repos/dotnet/aspnetcore/contents/{path}?ref={revision}";
 	public static string Partial(string members = "") => $"internal partial class EndpointHtmlRenderer {{ {members} }}";
 

@@ -12,6 +12,7 @@ internal sealed record ObservedRequest(
 internal sealed class FakeGitHubTransport : HttpMessageHandler
 {
 	private readonly Dictionary<string, Queue<Func<HttpResponseMessage>>> responses = new(StringComparer.Ordinal);
+	private readonly Dictionary<string, Func<HttpResponseMessage>> repeatingResponses = new(StringComparer.Ordinal);
 	private readonly List<ObservedRequest> requests = [];
 
 	public IReadOnlyList<ObservedRequest> Requests => requests;
@@ -19,15 +20,33 @@ internal sealed class FakeGitHubTransport : HttpMessageHandler
 	public void AddJson(string pathAndQuery, string json, string? nextPage = null) =>
 		Add(pathAndQuery, () => JsonResponse(json, nextPage));
 
+	// Answers every GET of this URL with the same response, the way GitHub's real contents API does
+	// for a path whose content has not changed between calls. Use this for a `contents` single-path
+	// or directory-listing URL a correct implementation may read more than once (for example,
+	// resolving a compare-matched watch at the target after API-surface comparison already read the
+	// same URL); the one-shot queue would otherwise answer a second read with a synthetic 404. Keep
+	// the one-shot queue where the exact request count is itself part of the contract, such as the
+	// sequential issue-upsert POSTs.
+	public void AddRepeatingJson(string pathAndQuery, string json) =>
+		repeatingResponses[pathAndQuery] = () => JsonResponse(json, nextPage: null);
+
+	// Clears both registration stores for the URL, so a replaced repeating response cannot leave the
+	// original answer in place for every read after the first.
 	public void ReplaceJson(string pathAndQuery, string json)
 	{
 		responses.Remove(pathAndQuery);
+		if (repeatingResponses.Remove(pathAndQuery))
+		{
+			AddRepeatingJson(pathAndQuery, json);
+			return;
+		}
 		AddJson(pathAndQuery, json);
 	}
 
 	public void ReplaceWithFailure(string pathAndQuery)
 	{
 		responses.Remove(pathAndQuery);
+		repeatingResponses.Remove(pathAndQuery);
 		AddStatus(pathAndQuery, HttpStatusCode.ServiceUnavailable);
 	}
 
@@ -64,15 +83,19 @@ internal sealed class FakeGitHubTransport : HttpMessageHandler
 
 	private HttpResponseMessage FindResponse(string pathAndQuery)
 	{
-		if (!responses.TryGetValue(pathAndQuery, out var responsesForPath) || responsesForPath.Count == 0)
+		if (responses.TryGetValue(pathAndQuery, out var responsesForPath) && responsesForPath.Count > 0)
 		{
-			return new HttpResponseMessage(HttpStatusCode.NotFound)
-			{
-				Content = new StringContent($"No fake response for {pathAndQuery}.", Encoding.UTF8),
-			};
+			return responsesForPath.Dequeue()();
+		}
+		if (repeatingResponses.TryGetValue(pathAndQuery, out var repeating))
+		{
+			return repeating();
 		}
 
-		return responsesForPath.Dequeue()();
+		return new HttpResponseMessage(HttpStatusCode.NotFound)
+		{
+			Content = new StringContent($"No fake response for {pathAndQuery}.", Encoding.UTF8),
+		};
 	}
 
 	private static Task<string?> ReadBodyAsync(

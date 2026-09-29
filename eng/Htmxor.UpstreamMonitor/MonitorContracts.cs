@@ -147,9 +147,10 @@ internal sealed record MonitorResult(
 	string? InfrastructureError,
 	IReadOnlyList<UnresolvedWatch>? UnresolvedWatches = null);
 
-// What a non-resolving watch's path turned out to be at the reviewed commit. A watch that exists
-// but is the wrong kind is still unresolved, so the report names what was found rather than
-// claiming the path is missing.
+// What a non-resolving watch's path turned out to be at the revision that resolved it: the
+// reviewed commit, or the current commit when UnresolvedWatch.AtCurrent is set. A watch that
+// exists but is the wrong kind is still unresolved, so the report names what was found rather
+// than claiming the path is missing.
 // Member names are the report words: MonitorReports renders them in kebab case, as it does every
 // other enum it reports.
 internal enum WatchFinding
@@ -160,7 +161,9 @@ internal enum WatchFinding
 	ExistsAsSubmodule,
 }
 
-internal sealed record UnresolvedWatch(string Path, WatchFinding Finding);
+// AtCurrent marks a finding API-surface comparison found at the current (target) revision; every
+// other finding is resolved against the reviewed commit.
+internal sealed record UnresolvedWatch(string Path, WatchFinding Finding, bool AtCurrent = false);
 
 internal enum IssueWriteAction
 {

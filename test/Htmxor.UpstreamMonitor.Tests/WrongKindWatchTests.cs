@@ -122,6 +122,10 @@ public sealed class WrongKindWatchTests
 	// and ordinally-first entry here is a submodule, the listed-last entry is a different
 	// submodule, and the expected symlink winner is the listed-middle, ordinally-middle entry, so
 	// neither wrong rule can produce "exists-as-symlink" by accident.
+	// Issue #244 comment 5804645684: GitHub's directory listing never emits `type: submodule`; a
+	// listed submodule carries `type: file` with a null download_url and a tree- not blob-pointing
+	// git_url (PrefixInventoryFixture.LegacySubmoduleEntry). Both submodule entries here use that
+	// shape, so this precedence result also depends on that listing shape being read as a submodule.
 	[Fact]
 	public async Task Prefix_watch_whose_matches_are_a_symlink_and_a_submodule_is_named_exists_as_symlink()
 	{
@@ -131,14 +135,17 @@ public sealed class WrongKindWatchTests
 			$"/repos/dotnet/aspnetcore/contents/{OrderParent}?ref={Fixture.BaselineCommit}",
 			JsonSerializer.Serialize(new[]
 			{
-				PrefixInventoryFixture.Entry($"{OrderPrefix}AConfig", "submodule"),
+				PrefixInventoryFixture.LegacySubmoduleEntry($"{OrderPrefix}AConfig"),
 				PrefixInventoryFixture.Entry($"{OrderPrefix}MTarget", "symlink"),
-				PrefixInventoryFixture.Entry($"{OrderPrefix}ZModule", "submodule"),
+				PrefixInventoryFixture.LegacySubmoduleEntry($"{OrderPrefix}ZModule"),
 			}));
 		var request = ProviderInventoryTests.Request(watch);
 
 		var result = await Fixture.Application(transport).RunAsync(request);
 
+		// Asserted before the JSON section is parsed, so a wrong status reads as a status mismatch
+		// rather than a raw KeyNotFoundException from a report section the run did not write.
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
 		using var json = JsonDocument.Parse(result.JsonReport);
 		var row = json.RootElement.GetProperty("unresolvedWatches").EnumerateArray()
 			.Single(element => element.GetProperty("path").GetString() == OrderPrefix);
@@ -149,7 +156,9 @@ public sealed class WrongKindWatchTests
 	// match at the same prefix. Same discrimination as the test above, with the expected directory
 	// winner listed and sorted in the middle, a symlink at both "first" positions and a different
 	// submodule at both "last" positions, so neither wrong rule can produce "exists-as-directory"
-	// by accident either.
+	// by accident either. Issue #244 comment 5804645684: the submodule entry uses GitHub's real
+	// listing shape (PrefixInventoryFixture.LegacySubmoduleEntry), so this result also depends on
+	// that listing shape being read as a submodule.
 	[Fact]
 	public async Task Prefix_watch_whose_matches_include_a_directory_a_symlink_and_a_submodule_is_named_exists_as_directory()
 	{
@@ -161,12 +170,14 @@ public sealed class WrongKindWatchTests
 			{
 				PrefixInventoryFixture.Entry($"{OrderPrefix}ALink", "symlink"),
 				PrefixInventoryFixture.Entry($"{OrderPrefix}MDir", "dir"),
-				PrefixInventoryFixture.Entry($"{OrderPrefix}ZVendor", "submodule"),
+				PrefixInventoryFixture.LegacySubmoduleEntry($"{OrderPrefix}ZVendor"),
 			}));
 		var request = ProviderInventoryTests.Request(watch);
 
 		var result = await Fixture.Application(transport).RunAsync(request);
 
+		// See the sibling test above for why the status is asserted before the JSON section is parsed.
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
 		using var json = JsonDocument.Parse(result.JsonReport);
 		var row = json.RootElement.GetProperty("unresolvedWatches").EnumerateArray()
 			.Single(element => element.GetProperty("path").GetString() == OrderPrefix);
