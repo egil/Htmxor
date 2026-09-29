@@ -52,8 +52,7 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 	// the same run. Gating this on the run having nothing else to report would leave the other 51
 	// entries of a 52-entry manifest unchecked for as long as any one of them keeps drifting, which
 	// is the #219 failure itself. A watch the compare speaks to is unresolved only when API-surface
-	// comparison found a symlink or submodule where it needs a file at the target, and arrives here
-	// already found.
+	// comparison found no file where it needs one at the target, and arrives here already found.
 	private static async Task<MonitorResult> ReportAsync(MonitorRequest request, UpstreamRevision upstream,
 		UpstreamRepository repository, string baseline, IReadOnlyList<ChangedFile> files, IReadOnlyList<SourceChange> sources,
 		IReadOnlyList<ApiChange> apis, IReadOnlyList<UnresolvedWatch> compared, CancellationToken cancellationToken)
@@ -121,7 +120,10 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 			}
 			var (changes, finding) = await ApiChangesAsync(request, upstream, repository, watch, matchingFiles, cancellationToken);
 			comparisons.Add(watch, changes);
-			if (finding is { } found && AppliesTo(watch, request.Framework) && unresolved.All(entry => entry.Path != watch.Path))
+			// Applicability is decided over every entry the collapse merged, as in ReportAsync, so a
+			// differently scoped duplicate listed first cannot drop the finding.
+			if (finding is { } found && unresolved.All(entry => entry.Path != watch.Path) &&
+				request.Manifest.Targets.Any(entry => entry.Path == watch.Path && entry.Match == watch.Match && AppliesTo(entry, request.Framework)))
 			{
 				unresolved.Add(new(watch.Path, found));
 			}
@@ -155,7 +157,12 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 		{
 			var (text, kind) = await repository.SourceAsync(path, commit, cancellationToken);
 			source.AppendLine(text);
-			finding ??= kind;
+			// Only the listing names a prefix watch's finding. A listed file that answers as a
+			// symlink or submodule contributes no source, and the watch's real files still decide.
+			if (watch.Match == WatchMatch.File)
+			{
+				finding ??= kind;
+			}
 		}
 		return (source.ToString(), finding);
 	}
