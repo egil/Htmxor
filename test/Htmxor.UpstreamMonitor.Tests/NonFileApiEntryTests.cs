@@ -89,6 +89,75 @@ public sealed class NonFileApiEntryTests
 		Assert.Contains($"- {expectedFinding} | {WrongKindPath}", result.MarkdownReport, StringComparison.Ordinal);
 	}
 
+	// issuecomment-5895442949 (Copilot's review of PR #259,
+	// https://github.com/egil/Htmxor/pull/259#discussion_r4136488920): a finding this issue resolves
+	// at the target must not be labelled and linked as if #232's existing baseline-only resolution
+	// found it. Its review-issue row links the path at the current (upstream) commit and ends with
+	// "at current"; the summary line names both revisions once any row is target-derived. The JSON
+	// and Markdown reports are unaffected - they make no claim about which revision a row came from.
+	[Fact]
+	public async Task Target_derived_unresolved_finding_links_the_current_commit_and_uses_the_mixed_summary_line()
+	{
+		var watch = Fixture.Watch(WrongKindPath, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = WrongKindPath, status = "modified" } } }));
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.BaselineCommit),
+			Fixture.GitHubContentText("internal class LinkedEntry { public void Before() { } }"));
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.TargetCommit), WrongKindContent("symlink"));
+		var request = new MonitorRequest(Fixture.Manifest(watch), 10, "v10.0.12", Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		var issue = Assert.Single(result.Issues, issue => issue.Identity == "aspnetcore-10-unresolved-watch");
+		var lines = issue.Body.Split('\n');
+		Assert.Contains(
+			$"- exists-as-symlink | [{WrongKindPath}](https://github.com/dotnet/aspnetcore/tree/{Fixture.TargetCommit}/{WrongKindPath}) at current",
+			lines);
+		Assert.Contains(
+			"- These watches do not resolve to the kind of thing they claim at the reviewed commit, or at the current commit where a row says so.",
+			lines);
+	}
+
+	// The mirror shape: one finding from #232's existing baseline resolution (an unmatched watch, so
+	// it never reaches API comparison) beside one this issue resolves at the target. Each row links
+	// its own origin's commit, and the mixed summary line still applies because at least one row
+	// came from the target - not because every row did.
+	[Fact]
+	public async Task Mixed_run_with_a_reviewed_commit_finding_and_a_target_derived_finding_links_each_rows_own_commit()
+	{
+		var reviewedCommitWatch = Fixture.Watch(CacheViewDirectory);
+		var targetDerivedWatch = Fixture.Watch(WrongKindPath, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = WrongKindPath, status = "modified" } } }));
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/contents/{CacheViewDirectory}?ref={Fixture.BaselineCommit}",
+			JsonSerializer.Serialize(new[] { PrefixInventoryFixture.Entry($"{CacheViewDirectory}/Nested.cs") }));
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.BaselineCommit),
+			Fixture.GitHubContentText("internal class LinkedEntry { public void Before() { } }"));
+		transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.TargetCommit), WrongKindContent("symlink"));
+		var request = new MonitorRequest(Fixture.Manifest(reviewedCommitWatch, targetDerivedWatch), 10, "v10.0.12", Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		var issue = Assert.Single(result.Issues, issue => issue.Identity == "aspnetcore-10-unresolved-watch");
+		var lines = issue.Body.Split('\n');
+		Assert.Contains(
+			$"- exists-as-directory | [{CacheViewDirectory}](https://github.com/dotnet/aspnetcore/tree/{Fixture.BaselineCommit}/{CacheViewDirectory})",
+			lines);
+		Assert.Contains(
+			$"- exists-as-symlink | [{WrongKindPath}](https://github.com/dotnet/aspnetcore/tree/{Fixture.TargetCommit}/{WrongKindPath}) at current",
+			lines);
+		Assert.Contains(
+			"- These watches do not resolve to the kind of thing they claim at the reviewed commit, or at the current commit where a row says so.",
+			lines);
+	}
+
 	// The same decision's other half, over both non-file kinds: a symlink or submodule contributes no
 	// API source at either revision, reading as absent at the baseline. A `file` watch whose target
 	// resolves to a real file is ordinary drift, not a finding, whichever kind its baseline was.
