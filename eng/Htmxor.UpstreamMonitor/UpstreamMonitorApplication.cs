@@ -126,7 +126,7 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 				request.Manifest.Targets.Any(entry => (entry.Path, entry.Match, entry.ApiSurface) == (watch.Path, watch.Match, watch.ApiSurface) &&
 					AppliesTo(entry, request.Framework)))
 			{
-				unresolved.Add(new(watch.Path, found));
+				unresolved.Add(new(watch.Path, found, AtCurrent: true));
 			}
 		}
 		return (comparisons, unresolved);

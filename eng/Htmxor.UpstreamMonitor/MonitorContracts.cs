@@ -160,7 +160,9 @@ internal enum WatchFinding
 	ExistsAsSubmodule,
 }
 
-internal sealed record UnresolvedWatch(string Path, WatchFinding Finding);
+// AtCurrent marks a finding API-surface comparison found at the current (target) revision; every
+// other finding is resolved against the reviewed commit.
+internal sealed record UnresolvedWatch(string Path, WatchFinding Finding, bool AtCurrent = false);
 
 internal enum IssueWriteAction
 {
