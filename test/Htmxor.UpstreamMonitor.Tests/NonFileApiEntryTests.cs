@@ -459,20 +459,28 @@ public sealed class NonFileApiEntryTests
 
 	// #232's own applicability invariant, restated in ReportAsync's comment ("Applicability is
 	// decided before the collapse ... an inapplicable survivor would drop the path from
-	// checking"), applied to the API-surface finding this issue adds: two entries that share path,
-	// match and API surface but differ only in `frameworks` must not let whichever collapses first
-	// decide applicability for both. Mirrors WatchFrameworkScopeTests.Applicable_entry_decides_
+	// checking"), applied to the API-surface finding this issue adds: two entries that share path
+	// and match but differ in `frameworks` must not let whichever collapses first decide
+	// applicability for both - and the entries considered must be exactly the ones the
+	// (Path, Match, ApiSurface) collapse key actually merges, not every same-(Path, Match) entry
+	// regardless of API surface (decision 5893677679: a watch without an API surface is never
+	// target-resolved by this issue, so it must not lend its applicability to one that has an API
+	// surface for a different framework). Mirrors WatchFrameworkScopeTests.Applicable_entry_decides_
 	// resolution_even_when_a_differently_scoped_duplicate_collapses_first, at the API-comparison
 	// route instead of the plain resolve loop.
 	[Theory]
-	[InlineData(false)]
-	[InlineData(true)]
+	[InlineData(false, true, "UnresolvedWatch", "exists-as-symlink")]
+	[InlineData(true, true, "UnresolvedWatch", "exists-as-symlink")]
+	[InlineData(false, false, "Drift", null)]
+	[InlineData(true, false, "Drift", null)]
 	public async Task Applicable_api_surface_entry_decides_the_unresolved_finding_even_when_a_differently_scoped_duplicate_collapses_first(
-		bool otherFrameworkListedFirst)
+		bool otherFrameworkListedFirst, bool thisFrameworkWatchHasApiSurface, string expectedStatusName, string? expectedFinding)
 	{
 		const string path = "src/Components/Endpoints/src/CacheView/DuplicateScopedApiWatch.cs";
 		var netOtherOnly = Fixture.Watch(path, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses) with { Frameworks = ["net11.0"] };
-		var netThisOnly = Fixture.Watch(path, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses) with { Frameworks = ["net10.0"] };
+		var netThisOnly = thisFrameworkWatchHasApiSurface
+			? Fixture.Watch(path, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses) with { Frameworks = ["net10.0"] }
+			: Fixture.Watch(path) with { Frameworks = ["net10.0"] };
 		var drivingWatch = Fixture.Watch(
 			ExpectedMonitorArtifacts.InvokerInterface, apiSurface: ApiSurface.Interface, relationship: WatchRelationship.Implements);
 		var manifest = otherFrameworkListedFirst
@@ -502,12 +510,23 @@ public sealed class NonFileApiEntryTests
 
 		var result = await Fixture.Application(transport).RunAsync(request);
 
+		var expectedStatus = expectedStatusName switch
+		{
+			"UnresolvedWatch" => MonitorStatus.UnresolvedWatch,
+			"Drift" => MonitorStatus.Drift,
+			_ => throw new ArgumentOutOfRangeException(nameof(expectedStatusName), expectedStatusName, "Unrecognized expected status."),
+		};
 		Assert.Null(result.InfrastructureError);
-		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		Assert.Equal(expectedStatus, result.Status);
 		using var json = JsonDocument.Parse(result.JsonReport);
+		if (expectedFinding is null)
+		{
+			Assert.False(json.RootElement.TryGetProperty("unresolvedWatches", out _));
+			return;
+		}
 		var row = json.RootElement.GetProperty("unresolvedWatches").EnumerateArray()
 			.Single(element => element.GetProperty("path").GetString() == path);
-		Assert.Equal("exists-as-symlink", row.GetProperty("finding").GetString());
+		Assert.Equal(expectedFinding, row.GetProperty("finding").GetString());
 	}
 
 	// Decision 5893089626: "prefix | holds a matching file | Resolved. The API surface is compared
