@@ -31,16 +31,16 @@ public sealed class NonFileApiEntryConsoleTests
 					new { filename = WrongKindPath, status = "modified" },
 				},
 			}));
-		transport.AddJson(
+		transport.AddRepeatingJson(
 			$"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.InvokerInterface}?ref={Fixture.BaselineCommit}",
 			Fixture.GitHubContent("source/baseline/IRazorComponentEndpointInvoker.cs"));
-		transport.AddJson(
+		transport.AddRepeatingJson(
 			$"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.InvokerInterface}?ref={Fixture.TargetCommit}",
 			Fixture.GitHubContent("source/target/IRazorComponentEndpointInvoker.cs"));
-		transport.AddJson(
+		transport.AddRepeatingJson(
 			$"/repos/dotnet/aspnetcore/contents/{WrongKindPath}?ref={Fixture.BaselineCommit}",
 			JsonSerializer.Serialize(new { type = "symlink", target = "../CacheView.cs" }));
-		transport.AddJson(
+		transport.AddRepeatingJson(
 			$"/repos/dotnet/aspnetcore/contents/{WrongKindPath}?ref={Fixture.TargetCommit}",
 			JsonSerializer.Serialize(new { type = "symlink", target = "../CacheView.cs" }));
 		transport.AddJson("/repos/egil/Htmxor/issues?state=all&labels=upstream-monitor&per_page=100", "[]");
