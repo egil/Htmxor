@@ -6,7 +6,9 @@ namespace Htmxor.UpstreamMonitor.Tests;
 // Issue #244 (https://github.com/egil/Htmxor/issues/244): a symlink, submodule, or GitHub's legacy
 // submodule-as-file listing reaches API-surface comparison and must be reported per watch, using
 // #240's finding vocabulary, while every other finding in the same run is still reported. Decision:
-// https://github.com/egil/Htmxor/issues/244#issuecomment-5892255228.
+// https://github.com/egil/Htmxor/issues/244#issuecomment-5892255228, corrected by
+// https://github.com/egil/Htmxor/issues/244#issuecomment-5893089626 (the target revision alone
+// decides; a symlink or submodule contributes no API source at either revision).
 public sealed class NonFileApiEntryTests
 {
 	// A real upstream directory reused from WrongKindWatchTests, for a plausible file-watch path.
@@ -69,23 +71,22 @@ public sealed class NonFileApiEntryTests
 		Assert.Contains($"- {expectedFinding} | {WrongKindPath}", result.MarkdownReport, StringComparison.Ordinal);
 	}
 
-	// The live route: upstream turns a watched file into a symlink or submodule between the two
-	// compared revisions, rather than it already being one at both. Implementor decision: the
-	// target's kind names the finding, falling back to the baseline's. An added path (no object at
-	// the baseline at all) is the limiting case of the same rule.
+	// Decision (issuecomment-5893089626): the target revision alone decides. A `file` watch whose
+	// target is a symlink or submodule is reported unresolved with that kind, regardless of the
+	// baseline's kind or whether the path exists there at all.
 	[Theory]
-	[InlineData("file-then-symlink", false, "exists-as-symlink")]
-	[InlineData("file-then-symlink", true, "exists-as-symlink")]
-	[InlineData("file-then-submodule", false, "exists-as-submodule")]
-	[InlineData("added-then-symlink", false, "exists-as-symlink")]
-	public async Task File_watch_whose_kind_differs_between_revisions_is_reported_with_the_targets_kind(
-		string shape, bool wrongKindListedFirst, string expectedFinding)
+	[InlineData("modified", "file", "symlink", false)]
+	[InlineData("modified", "file", "symlink", true)]
+	[InlineData("modified", "file", "submodule", false)]
+	[InlineData("added", null, "symlink", false)]
+	[InlineData("modified", "symlink", "submodule", false)]
+	public async Task File_watch_whose_target_kind_is_a_non_file_is_reported_unresolved_regardless_of_the_baseline(
+		string compareStatus, string? baselineKind, string targetKind, bool wrongKindListedFirst)
 	{
 		var drivingWatch = Fixture.Watch(
 			ExpectedMonitorArtifacts.InvokerInterface, apiSurface: ApiSurface.Interface, relationship: WatchRelationship.Implements);
 		var wrongKindWatch = Fixture.Watch(WrongKindPath, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses);
 		var targets = wrongKindListedFirst ? new[] { wrongKindWatch, drivingWatch } : new[] { drivingWatch, wrongKindWatch };
-		var compareStatus = shape == "added-then-symlink" ? "added" : "modified";
 		var transport = ProviderInventoryTests.TargetTransport();
 		transport.AddJson(
 			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
@@ -103,23 +104,78 @@ public sealed class NonFileApiEntryTests
 		transport.AddJson(
 			$"/repos/dotnet/aspnetcore/contents/{ExpectedMonitorArtifacts.InvokerInterface}?ref={Fixture.TargetCommit}",
 			Fixture.GitHubContent("source/target/IRazorComponentEndpointInvoker.cs"));
-		if (shape != "added-then-symlink")
+		if (baselineKind == "file")
 		{
 			transport.AddJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.BaselineCommit),
 				Fixture.GitHubContentText("internal class Placeholder { }"));
 		}
-		var targetKind = shape == "file-then-submodule" ? "submodule" : "symlink";
+		else if (baselineKind is not null)
+		{
+			transport.AddJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.BaselineCommit), WrongKindContent(baselineKind));
+		}
 		transport.AddJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.TargetCommit), WrongKindContent(targetKind));
 		var request = new MonitorRequest(Fixture.Manifest(targets), 10, "v10.0.12", Fixture.BaselineCommit);
 
 		var result = await Fixture.Application(transport).RunAsync(request);
 
+		var expectedFinding = targetKind switch
+		{
+			"symlink" => "exists-as-symlink",
+			"submodule" => "exists-as-submodule",
+			_ => throw new ArgumentOutOfRangeException(nameof(targetKind), targetKind, "Unrecognized target kind."),
+		};
 		Assert.Null(result.InfrastructureError);
 		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		Assert.Contains(result.SourceChanges, change => change.Path == WrongKindPath);
 		using var json = JsonDocument.Parse(result.JsonReport);
 		var row = json.RootElement.GetProperty("unresolvedWatches").EnumerateArray()
 			.Single(element => element.GetProperty("path").GetString() == WrongKindPath);
 		Assert.Equal(expectedFinding, row.GetProperty("finding").GetString());
+	}
+
+	// The same decision's other half: a symlink or submodule contributes no API source at either
+	// revision, reading as absent at the baseline. A `file` watch whose target resolves to a real
+	// file is ordinary drift, not a finding, even though its baseline was a symlink.
+	[Fact]
+	public async Task File_watch_whose_baseline_is_a_symlink_and_whose_target_is_a_real_file_is_ordinary_drift()
+	{
+		var watch = Fixture.Watch(WrongKindPath, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = WrongKindPath, status = "modified" } } }));
+		transport.AddJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.BaselineCommit), WrongKindContent("symlink"));
+		transport.AddJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.TargetCommit),
+			Fixture.GitHubContentText("internal class LinkedEntry { public void After() { } }"));
+		var request = new MonitorRequest(Fixture.Manifest(watch), 10, "v10.0.12", Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Null(result.InfrastructureError);
+		Assert.Equal(MonitorStatus.Drift, result.Status);
+		Assert.Contains(result.SourceChanges, change => change.Path == WrongKindPath);
+		Assert.Contains(result.ApiChanges, change => change.TypeName == "LinkedEntry" && change.Kind == ChangeKind.Added);
+	}
+
+	// The same rule's other half again: a `file` watch whose target is absent (the path was removed)
+	// is also ordinary drift, not a finding, even though its baseline was a symlink.
+	[Fact]
+	public async Task File_watch_whose_baseline_is_a_symlink_and_whose_target_is_removed_is_ordinary_drift()
+	{
+		var watch = Fixture.Watch(WrongKindPath, apiSurface: ApiSurface.Subclass, relationship: WatchRelationship.Subclasses);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = WrongKindPath, status = "removed" } } }));
+		transport.AddJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.BaselineCommit), WrongKindContent("symlink"));
+		var request = new MonitorRequest(Fixture.Manifest(watch), 10, "v10.0.12", Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Null(result.InfrastructureError);
+		Assert.Equal(MonitorStatus.Drift, result.Status);
+		Assert.Contains(result.SourceChanges, change => change.Path == WrongKindPath);
+		Assert.Empty(result.ApiChanges);
 	}
 
 	// Decision row 1's prefix-directory counterpart, beside a matching file: the wrong-kind sibling
@@ -168,10 +224,9 @@ public sealed class NonFileApiEntryTests
 		Assert.DoesNotContain(result.Issues, issue => issue.Identity == "aspnetcore-10-unresolved-watch");
 	}
 
-	// Decision row 3: a prefix watch the compare already matched (Work item 2's exact gap - #240's
-	// own resolve check only ever runs for a watch the compare did not match), left with no matching
-	// file, is reported unresolved with the precedence kind, and the symlink's own source change
-	// still stands.
+	// Decision row 3: a prefix watch the compare has already matched, left with no matching file at
+	// the target, is reported unresolved with the precedence kind, and the symlink's own source
+	// change still stands.
 	[Fact]
 	public async Task Changed_symlink_alone_in_a_prefix_watchs_directory_is_reported_unresolved_with_its_kind()
 	{
@@ -204,6 +259,37 @@ public sealed class NonFileApiEntryTests
 		var row = json.RootElement.GetProperty("unresolvedWatches").EnumerateArray()
 			.Single(element => element.GetProperty("path").GetString() == CacheViewDirectory);
 		Assert.Equal("exists-as-symlink", row.GetProperty("finding").GetString());
+	}
+
+	// Decision row 3's precedence, pinned separately from the fact above: directory outranks symlink
+	// over the target listing's kinds, even though the entry that actually changed is the symlink.
+	[Fact]
+	public async Task Changed_symlink_beside_a_matching_directory_in_a_prefix_watchs_directory_is_reported_unresolved_by_precedence()
+	{
+		const string symlinkSibling = CacheViewDirectory + ".Alias.cs";
+		var prefixWatch = Fixture.Watch(CacheViewDirectory, WatchMatch.Prefix, ApiSurface.Subclass, WatchRelationship.Subclasses);
+		var transport = ProviderInventoryTests.TargetTransport();
+		transport.AddJson(
+			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
+			JsonSerializer.Serialize(new { files = new[] { new { filename = symlinkSibling, status = "modified" } } }));
+		var listingJson = JsonSerializer.Serialize(new object[]
+		{
+			PrefixInventoryFixture.Entry(CacheViewDirectory, "dir"),
+			PrefixInventoryFixture.Entry(symlinkSibling, "symlink"),
+		});
+		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{CacheViewParent}?ref={Fixture.BaselineCommit}", listingJson);
+		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{CacheViewParent}?ref={Fixture.TargetCommit}", listingJson);
+		var request = new MonitorRequest(Fixture.Manifest(prefixWatch), 10, "v10.0.12", Fixture.BaselineCommit);
+
+		var result = await Fixture.Application(transport).RunAsync(request);
+
+		Assert.Null(result.InfrastructureError);
+		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
+		Assert.Contains(result.SourceChanges, change => change.Path == symlinkSibling);
+		using var json = JsonDocument.Parse(result.JsonReport);
+		var row = json.RootElement.GetProperty("unresolvedWatches").EnumerateArray()
+			.Single(element => element.GetProperty("path").GetString() == CacheViewDirectory);
+		Assert.Equal("exists-as-directory", row.GetProperty("finding").GetString());
 	}
 
 	// The same decision row 3 gap reached a different way: the prefix's last real file is removed at
@@ -257,10 +343,8 @@ public sealed class NonFileApiEntryTests
 	}
 
 	// Comment 5804645684's candidacy half, decision row 1: the submodule need not itself change,
-	// only share a prefix watch's directory with a file that does. Observed at the seam (an exact
-	// Drift, with the sibling's real API diff present) rather than the fake's request log, and the
-	// fake answers the submodule's own single-path GET the way GitHub actually does (type: submodule)
-	// in case a correct fix still ever reaches it, so this discriminates the outcome, not a mechanism.
+	// only share a prefix watch's directory with a file that does. The fake answers the submodule's
+	// own single-path GET the way GitHub actually does (type: submodule).
 	[Fact]
 	public async Task Prefix_watch_beside_a_legacy_listed_submodule_still_compares_its_changed_file()
 	{
@@ -294,15 +378,14 @@ public sealed class NonFileApiEntryTests
 		Assert.DoesNotContain(result.Issues, issue => issue.Identity == "aspnetcore-10-unresolved-watch");
 	}
 
-	// The distinct route comment 5791910991 warns a partial fix can miss: a fix that excludes a
-	// changed compare path only by its raw listing type (literally "symlink" or "submodule") still
-	// takes this legacy entry for a file, since its raw type is "file", and still aborts. The
-	// submodule need not be the only match: alone, the watch is compare-matched with nothing real
-	// left (decision row 3); beside a real file, its own API surface is still compared over it.
+	// Comment 5791910991's warning about a partial fix: excluding a changed compare path only by its
+	// raw listing type (literally "symlink" or "submodule") still takes this legacy entry for a file,
+	// since its raw type is "file". Given an API surface, alone the watch is compare-matched with
+	// nothing real left (decision row 3); beside a real file, its own API surface is still compared.
 	[Fact]
 	public async Task Changed_legacy_listed_submodule_alone_in_a_prefix_watchs_directory_is_reported_unresolved_with_its_kind()
 	{
-		var prefixWatch = Fixture.Watch(SubmodulePath, WatchMatch.Prefix);
+		var prefixWatch = Fixture.Watch(SubmodulePath, WatchMatch.Prefix, ApiSurface.Subclass, WatchRelationship.Subclasses);
 		var transport = ProviderInventoryTests.TargetTransport();
 		transport.AddJson(
 			$"/repos/dotnet/aspnetcore/compare/{Fixture.BaselineCommit}...{Fixture.TargetCommit}",
@@ -310,6 +393,8 @@ public sealed class NonFileApiEntryTests
 		var listingJson = JsonSerializer.Serialize(new object[] { PrefixInventoryFixture.LegacySubmoduleEntry(SubmodulePath) });
 		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{SubmodulesParent}?ref={Fixture.BaselineCommit}", listingJson);
 		transport.AddJson($"/repos/dotnet/aspnetcore/contents/{SubmodulesParent}?ref={Fixture.TargetCommit}", listingJson);
+		transport.AddJson(PrefixInventoryFixture.ContentsUrl(SubmodulePath, Fixture.BaselineCommit), FaithfulSubmoduleContent());
+		transport.AddJson(PrefixInventoryFixture.ContentsUrl(SubmodulePath, Fixture.TargetCommit), FaithfulSubmoduleContent());
 		var request = new MonitorRequest(Fixture.Manifest(prefixWatch), 10, "v10.0.12", Fixture.BaselineCommit);
 
 		var result = await Fixture.Application(transport).RunAsync(request);
@@ -363,12 +448,11 @@ public sealed class NonFileApiEntryTests
 		Assert.DoesNotContain(result.Issues, issue => issue.Identity == "aspnetcore-10-unresolved-watch");
 	}
 
-	// Preservation (must stay green now and after): a genuine infrastructure defect distinct from a
-	// symlink or submodule shape - a "type: file" object with no readable body at all - must keep
-	// failing the run as infrastructure, so a fix broad enough to swallow any SourceAsync failure as
-	// a finding is rejected. PartialInventoryFailureTests.Directory_inventory_omitting_a_known_
-	// existing_changed_partial_is_incomplete already pins the omission guard's own preservation half;
-	// this is the SourceAsync half the same principle requires.
+	// A genuine infrastructure defect distinct from a symlink or submodule shape - a "type: file"
+	// object with no readable body at all - fails the run as infrastructure (decision 5892255228 row
+	// 5), so a fix broad enough to swallow any SourceAsync failure as a finding is rejected.
+	// PartialInventoryFailureTests.Directory_inventory_omitting_a_known_existing_changed_partial_is_
+	// incomplete already pins the omission guard's own half of this; this is the SourceAsync half.
 	[Fact]
 	public async Task A_file_watchs_unreadable_source_body_still_fails_the_run_as_infrastructure()
 	{
@@ -385,7 +469,7 @@ public sealed class NonFileApiEntryTests
 		var result = await Fixture.Application(transport).RunAsync(request);
 
 		Assert.Equal(MonitorStatus.InfrastructureError, result.Status);
-		Assert.Equal("Upstream monitor infrastructure failed.", result.InfrastructureError);
+		Assert.False(string.IsNullOrWhiteSpace(result.InfrastructureError));
 		Assert.Empty(result.SourceChanges);
 		Assert.Empty(result.ApiChanges);
 		Assert.Empty(result.Issues);

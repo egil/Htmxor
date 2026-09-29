@@ -125,8 +125,7 @@ public sealed class WrongKindWatchTests
 	// Issue #244 comment 5804645684: GitHub's directory listing never emits `type: submodule`; a
 	// listed submodule carries `type: file` with a null download_url and a tree- not blob-pointing
 	// git_url (PrefixInventoryFixture.LegacySubmoduleEntry). Both submodule entries here use that
-	// shape, so this precedence result depends on #244's own fix recognizing it; until then, this
-	// test is red for the same misclassification #244 exists to correct, not for a fixture mistake.
+	// shape, so this precedence result also depends on that listing shape being read as a submodule.
 	[Fact]
 	public async Task Prefix_watch_whose_matches_are_a_symlink_and_a_submodule_is_named_exists_as_symlink()
 	{
@@ -144,10 +143,8 @@ public sealed class WrongKindWatchTests
 
 		var result = await Fixture.Application(transport).RunAsync(request);
 
-		// Asserted before the JSON section is parsed: a still-misclassified legacy submodule resolves
-		// the watch (Status stays Current), so "unresolvedWatches" is absent from the report rather
-		// than merely missing this row, and the reason should read as a status mismatch, not a raw
-		// KeyNotFoundException from a report section that was never written.
+		// Asserted before the JSON section is parsed, so a wrong status reads as a status mismatch
+		// rather than a raw KeyNotFoundException from a report section the run did not write.
 		Assert.Equal(MonitorStatus.UnresolvedWatch, result.Status);
 		using var json = JsonDocument.Parse(result.JsonReport);
 		var row = json.RootElement.GetProperty("unresolvedWatches").EnumerateArray()
@@ -161,7 +158,7 @@ public sealed class WrongKindWatchTests
 	// submodule at both "last" positions, so neither wrong rule can produce "exists-as-directory"
 	// by accident either. Issue #244 comment 5804645684: the submodule entry uses GitHub's real
 	// listing shape (PrefixInventoryFixture.LegacySubmoduleEntry), so this result also depends on
-	// #244's fix; until then it is red for that same misclassification, not a fixture mistake.
+	// that listing shape being read as a submodule.
 	[Fact]
 	public async Task Prefix_watch_whose_matches_include_a_directory_a_symlink_and_a_submodule_is_named_exists_as_directory()
 	{

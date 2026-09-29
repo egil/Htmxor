@@ -16,9 +16,9 @@ public sealed class NonFileApiEntryConsoleTests
 	[Fact]
 	public async Task Symlink_named_file_watch_beside_a_drifting_watch_exits_3_and_upserts_both_issues()
 	{
-		using var workspace = Workspace(
-			Watch(ExpectedMonitorArtifacts.InvokerInterface, api: "interface", relationship: "implements"),
-			Watch(WrongKindPath, api: "subclass", relationship: "subclasses"));
+		using var workspace = WrongKindWatchConsoleTests.Workspace(
+			Watch(ExpectedMonitorArtifacts.InvokerInterface, "interface", "implements"),
+			Watch(WrongKindPath, "subclass", "subclasses"));
 		var transport = new FakeGitHubTransport();
 		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.12", Fixture.Read("github/ref-v10.0.12-direct.json"));
 		transport.AddJson(
@@ -57,19 +57,6 @@ public sealed class NonFileApiEntryConsoleTests
 			observation.Requests.Count(request => request.Method == HttpMethod.Post && request.PathAndQuery == "/repos/egil/Htmxor/issues"));
 	}
 
-	private static object Watch(string path, string api = "none", string relationship = "reimplements") =>
+	private static object Watch(string path, string api, string relationship) =>
 		new { path, match = "file", api, relationship, dependencies = Array.Empty<string>() };
-
-	private static TemporaryMonitorWorkspace Workspace(params object[] watches)
-	{
-		var workspace = new TemporaryMonitorWorkspace();
-		var manifestPath = Path.Combine(workspace.Path, "eng", "Htmxor.UpstreamMonitor", "upstream-watch.json");
-		File.WriteAllText(manifestPath, JsonSerializer.Serialize(new
-		{
-			repository = Fixture.Repository,
-			reviewed = new { tag = "v10.0.11", commit = Fixture.ReviewedCommit },
-			watches,
-		}));
-		return workspace;
-	}
 }
