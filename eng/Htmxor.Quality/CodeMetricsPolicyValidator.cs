@@ -233,6 +233,7 @@ internal static partial class CodeMetricsPolicyValidator
 		Directory.EnumerateFiles(repositoryRoot, "*.csproj", SearchOption.AllDirectories)
 			.Select(path => Normalize(Path.GetRelativePath(repositoryRoot, path)))
 			.Where(path => !IsGeneratedPath(path))
+			.Where(path => !IsNativeWorktreePath(path))
 			.Order(StringComparer.Ordinal)
 			.ToArray();
 
@@ -347,6 +348,10 @@ internal static partial class CodeMetricsPolicyValidator
 		path.StartsWith("artifacts/", StringComparison.OrdinalIgnoreCase) ||
 		path.Contains("/bin/", StringComparison.OrdinalIgnoreCase) ||
 		path.Contains("/obj/", StringComparison.OrdinalIgnoreCase);
+
+	// Claude Code checks out agent worktrees under .claude/worktrees; their projects belong to another checkout.
+	private static bool IsNativeWorktreePath(string path) =>
+		path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase);
 
 	private static string Normalize(string path) => path.Replace('\\', '/');
 
