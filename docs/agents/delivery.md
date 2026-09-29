@@ -62,10 +62,12 @@ unexercised dependencies through the handoff. A planning draft is not readiness.
 - Each issue receives one independently mergeable pull request. Preserve a clean Conventional Commit history: use GitHub's rebase strategy by default, with an exact pull-request-head guard. Squash is permitted when it is needed to make the issue history coherent. Never create a local merge commit or rewrite `main`.
 - Immediately before merge, fetch `main` and require the reviewed comparison base and current pull-request head to remain current. A changed base requires the delivery skill's rebase, verification, and review recovery path.
 
-### Codex ownership and worktrees
+### Ownership and worktrees
 
-- Use one owner task named `issue_<number>_implementor` per issue. Its isolated worktree is `/home/egil/src/worktrees/Htmxor/milestone-1-issue-<number>` and must remain outside any repository worktree to avoid nested-source discovery.
-- The owner verifies its path, branch, upstream, `HEAD`, and remote OID, sends one `provisioned` receipt, and makes no edits until the Supervisor returns an exact-OID `proceed` receipt.
+- Each issue's owner works in a native worktree per the delivery skills. The repository ignores `.claude/worktrees/` and keeps it out of builds, analyzer configuration, and the quality tool's project scan.
+- Codex: use one owner task named `issue_<number>_implementor` per issue, in the Codex managed worktree for that task.
+- Claude Code: the session that owns the issue enters its worktree with `EnterWorktree` named `issue-<number>`.
+- A Codex owner verifies its path, branch, upstream, `HEAD`, and remote OID, sends one `provisioned` receipt, and makes no edits until the Supervisor returns an exact-OID `proceed` receipt.
 - Owners report only `completed`, `decomposed`, `planning-checkpoint`, `blocked`, or `human-action` to their Supervisor. `provisioned` is the setup handshake, not a progress signal.
 
 ### Durable checkpoints and review artifacts
