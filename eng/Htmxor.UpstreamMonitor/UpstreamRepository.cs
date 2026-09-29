@@ -50,14 +50,20 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 		return files.EnumerateArray().SelectMany(Changes).ToArray();
 	}
 
-	public async Task<string> SourceAsync(string path, string commit, CancellationToken cancellationToken)
+	// A symlink or submodule has no source body, so its kind is returned instead and the caller can
+	// report the watch rather than fail the run. A file without a readable body is still a failure.
+	public async Task<(string? Source, WatchFinding? Kind)> SourceAsync(string path, string commit, CancellationToken cancellationToken)
 	{
 		var content = await api.GetAsync(ContentsPath(path, commit), cancellationToken);
-		if (content.GetProperty("encoding").GetString() != "base64")
+		if (EntryKind(content) is { } kind)
+		{
+			return (null, kind);
+		}
+		if (!content.TryGetProperty("encoding", out var encoding) || encoding.GetString() != "base64")
 		{
 			throw new MonitorFailure("GitHub source content used an unsupported encoding.");
 		}
-		return Encoding.UTF8.GetString(Convert.FromBase64String(content.GetProperty("content").GetString()!));
+		return (Encoding.UTF8.GetString(Convert.FromBase64String(content.GetProperty("content").GetString()!)), null);
 	}
 
 	private string ContentsPath(string path, string commit) =>
