@@ -30,15 +30,23 @@ internal sealed class FakeGitHubTransport : HttpMessageHandler
 	public void AddRepeatingJson(string pathAndQuery, string json) =>
 		repeatingResponses[pathAndQuery] = () => JsonResponse(json, nextPage: null);
 
+	// Clears both registration stores for the URL, so a replaced repeating response cannot leave the
+	// original answer in place for every read after the first.
 	public void ReplaceJson(string pathAndQuery, string json)
 	{
 		responses.Remove(pathAndQuery);
+		if (repeatingResponses.Remove(pathAndQuery))
+		{
+			AddRepeatingJson(pathAndQuery, json);
+			return;
+		}
 		AddJson(pathAndQuery, json);
 	}
 
 	public void ReplaceWithFailure(string pathAndQuery)
 	{
 		responses.Remove(pathAndQuery);
+		repeatingResponses.Remove(pathAndQuery);
 		AddStatus(pathAndQuery, HttpStatusCode.ServiceUnavailable);
 	}
 

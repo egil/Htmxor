@@ -62,7 +62,7 @@ public sealed class NonFileApiEntryTests
 		if (baselineKind == "file")
 		{
 			transport.AddRepeatingJson(PrefixInventoryFixture.ContentsUrl(WrongKindPath, Fixture.BaselineCommit),
-				Fixture.GitHubContentText("internal class Placeholder { }"));
+				Fixture.GitHubContentText("internal class LinkedEntry { public void Before() { } }"));
 		}
 		else if (baselineKind is not null)
 		{
@@ -223,7 +223,12 @@ public sealed class NonFileApiEntryTests
 
 	// issuecomment-5893089626's precedence, pinned separately from the fact above: directory outranks
 	// symlink over the target listing's kinds, even though the entry that actually changed is the
-	// symlink.
+	// symlink. Target resolution applies only when the prefix watch reaches API-surface comparison,
+	// which requires a changed path directly in the prefix's directory (issuecomment-5893677679);
+	// this fact's changed symlink sibling is exactly that. A change only beneath a matching
+	// subdirectory never reaches API comparison and keeps #240's ordinary drift, still pinned by
+	// WrongKindWatchTests.Mixed_run_with_a_file_change_beneath_a_prefix_watchs_directory_and_a_
+	// drifting_watch_does_not_abort_the_run's directory-only rows.
 	[Fact]
 	public async Task Changed_symlink_beside_a_matching_directory_in_a_prefix_watchs_directory_is_reported_unresolved_by_precedence()
 	{
