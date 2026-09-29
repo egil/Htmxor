@@ -57,11 +57,11 @@ public sealed class UnresolvedWatchPathTests
 	{
 		// The mirror of the case above, for the prefix branch: pointing a prefix watch's parent
 		// directory at a path that is actually a file. Before this fix the prefix branch accepted
-		// any 200 for the parent and leaned on
-		// PrefixSourcePathsAsync's own array check to reject it, which throws MonitorFailure and
-		// would have reported this manifest mistake as an infrastructure error rather than as the
-		// unresolved watch it is. WrongFilePath is a real file, so treating it as a directory by
-		// nesting a prefix watch one level under it is the faithful shape of the mistake.
+		// any 200 for the parent, so this manifest mistake surfaced only once something further
+		// downstream expected an array and threw MonitorFailure - an infrastructure error rather
+		// than the unresolved watch it is. WrongFilePath is a real file, so treating it as a
+		// directory by nesting a prefix watch one level under it is the faithful shape of the
+		// mistake.
 		var prefix = $"{WrongFilePath}/Nested";
 		var watch = Fixture.Watch(prefix, WatchMatch.Prefix);
 		var transport = UnrelatedChangeTransport();
