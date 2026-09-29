@@ -485,3 +485,6 @@ $RECYCLE.BIN/
 /samples/BlazingPizza/Data/pizza.db-wal
 /samples/BlazingPizza/Data/pizza.db-shm
 samples/BlazingPizza/Data/pizza.db
+
+# Claude Code native worktrees
+.claude/worktrees/

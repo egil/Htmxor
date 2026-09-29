@@ -16,4 +16,22 @@
 		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
 	</PropertyGroup>
 
+	<!--
+		Agent worktrees live under .claude/worktrees inside this checkout. Keep their files out of any
+		project's default globs. Roslyn also collects every .globalconfig above each source file, so a build
+		inside a nested worktree would load the enclosing checkout's copy too, and the duplicate keys would
+		cancel each other out. Drop any .globalconfig that sits above this checkout.
+	-->
+	<PropertyGroup>
+		<DefaultItemExcludes>$(DefaultItemExcludes);.claude/**</DefaultItemExcludes>
+	</PropertyGroup>
+
+	<Target Name="ExcludeEnclosingCheckoutGlobalConfig" BeforeTargets="CoreCompile">
+		<ItemGroup>
+			<EditorConfigFiles
+				Remove="@(EditorConfigFiles)"
+				Condition="'%(Filename)%(Extension)' == '.globalconfig' and !$([System.String]::Copy('%(FullPath)').StartsWith('$(MSBuildThisFileDirectory)'))" />
+		</ItemGroup>
+	</Target>
+
 </Project>
