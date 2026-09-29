@@ -83,6 +83,19 @@ public sealed class ProviderInventoryTests
 		return transport;
 	}
 
+	// An unrelated changed file keeps every watch out of the compare, so each is resolved against
+	// the baseline commit rather than matched as a change. Shared across test classes the way this
+	// suite normally shares cross-class helpers (this file's own TargetTransport/Request,
+	// PrefixInventoryFixture.Entry).
+	internal static FakeGitHubTransport UnrelatedChangeTransport()
+	{
+		var transport = TargetTransport();
+		transport.AddJson(
+			Compare,
+			JsonSerializer.Serialize(new { files = new[] { new { filename = "src/Unrelated/File.cs", status = "modified" } } }));
+		return transport;
+	}
+
 	internal static MonitorRequest Request(WatchTarget watch) => new(Fixture.Manifest(watch), 10, "v10.0.12", Fixture.BaselineCommit);
 
 	internal static ReportExpectation FailureReport(string error) => new("infrastructure-error",
