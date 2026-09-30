@@ -61,10 +61,14 @@ internal partial class HtmxorEndpointCandidateRenderer
 	{
 		if (httpContext.Response.HasStarted)
 		{
+			// Built whole before any of it is written, as stock's BufferedTextWriter does: if protecting the
+			// redirect fails partway, no partial template reaches the response.
+			using var template = new StringWriter(CultureInfo.InvariantCulture);
+			WriteNavigationAfterResponseStarted(template, httpContext, uri);
 			var defaultBufferSize = 16 * 1024;
 			await using var writer = new HttpResponseStreamWriter(
 				httpContext.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
-			WriteNavigationAfterResponseStarted(writer, httpContext, uri);
+			await writer.WriteAsync(template.ToString());
 			await writer.FlushAsync();
 		}
 		else if (inFirstRender && httpContext.GetHtmxContext().Request.IsHtmxRequest)

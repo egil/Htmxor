@@ -334,13 +334,16 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		{
 			// Enhanced navigation prefers an opaque redirection for an external URL, so post-redirect-get keeps
 			// working without forcing the request to be retried.
-			// The first navigation wins, as in stock, whose IDictionary.Add rejects a second value.
-			if (!context.Response.Headers.ContainsKey("blazor-enhanced-nav-redirect-location"))
+			// The first navigation wins and a second one fails, as stock's IDictionary.Add makes it fail, so the
+			// navigation callback's error handling logs the conflicting redirect instead of dropping it silently.
+			if (context.Response.Headers.ContainsKey("blazor-enhanced-nav-redirect-location"))
 			{
-				context.Response.Headers.Append(
-					"blazor-enhanced-nav-redirect-location",
-					OpaqueRedirection.CreateProtectedRedirectionUrl(context, destination));
+				throw new InvalidOperationException(
+					"The response already carries an enhanced-navigation redirect; a second navigation cannot replace it.");
 			}
+			context.Response.Headers.Append(
+				"blazor-enhanced-nav-redirect-location",
+				OpaqueRedirection.CreateProtectedRedirectionUrl(context, destination));
 			return;
 		}
 
