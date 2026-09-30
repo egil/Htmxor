@@ -19,11 +19,11 @@
     //
     // Awaits Task.Yield() right after signalling Reached: without it, a release that lands before this await
     // registers lets this whole method run to completion inside the same render pass the invoker captures its
-    // first non-streaming snapshot from, so neither this component's own task nor the grandchild's would ever
-    // be pending when that snapshot is taken -- even the candidate's one-shot wait would then wait for both,
-    // and the case would stop distinguishing a one-shot wait from stock's loop. The yield guarantees this
-    // component's own task is still incomplete at that point, regardless of how quickly the test reacts to
-    // Reached.
+    // first non-streaming snapshot from. The grandchild's pending task would then already be in that first
+    // snapshot, so even the candidate's one-shot wait would wait for it, and the case would stop distinguishing
+    // a one-shot wait from stock's loop. The yield posts the rest of this method to the renderer's dispatcher,
+    // which cannot run it until that render pass has captured the snapshot and yielded, so the grandchild is
+    // always discovered later, regardless of how quickly the test reacts to Reached.
     protected override async Task OnInitializedAsync()
     {
         Gate.Reached("late-child");

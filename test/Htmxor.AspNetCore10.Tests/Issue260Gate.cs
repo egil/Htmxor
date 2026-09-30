@@ -24,8 +24,8 @@ internal sealed class Issue260Gate
 	// does not guarantee the page is still pending by the time a released test inspects the render's own
 	// bookkeeping: Reached fires before the await, so a release that lands before the await registers can let
 	// the page run to completion inside the same render pass. A page whose exact pending-task registration
-	// matters (see Issue260LateDiscoveryChild, Issue260LateNavigationChild) awaits Task.Yield() right after
-	// Reached to close that gap.
+	// matters (see Issue260LateDiscoveryChild, Issue260LateNavigationChild, Issue260PendingNavigationPage)
+	// awaits Task.Yield() right after Reached to close that gap.
 	public void Reached(string name) => Get(reached, name).TrySetResult();
 
 	public Task WaitForReachedAsync(string name) => Get(reached, name).Task.WaitAsync(SignalTimeout);
