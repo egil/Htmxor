@@ -322,9 +322,9 @@ public sealed class Issue260NonStreamingNavigationTests
 // full-quiescence wait on an error-handler or a re-executed request -- the two paths this class verifies --
 // must answer with no rendered page body, exactly as stock's own NavigationException catch in
 // RenderEndpointComponent returns PrerenderedComponentHtmlContent.Empty instead of whatever was already
-// rendered before the navigation. This does not extend to Direct-mode POST: its own full-quiescence catch
-// (the invoker's submit branch) does not clear the body, since stock's own submit navigation keeps it too
-// (Issue260NonStreamingNavigationTests' own Direct POST case).
+// rendered before the navigation. Direct-mode POST is outside this class: its navigation is answered with
+// HX-Redirect and has no stock oracle for its body (Issue260NonStreamingNavigationTests' own Direct POST case
+// asserts only the status and redirect headers).
 public sealed class Issue260NavigationEmptyBodyTests
 {
 	private const string PendingNavigationPath = "/issue-260/pending-navigation";
@@ -538,14 +538,16 @@ internal static class Issue260Snapshot
 				},
 				StringComparer.OrdinalIgnoreCase);
 
-	// Replaces only the cookie's value (the ephemeral, per-host antiforgery token) with a fixed placeholder.
-	// The cookie name and every attribute -- path, samesite, secure, httponly, and any others the framework
-	// emits -- are left exactly as received, so a candidate that adds, drops, or changes one of them still
-	// fails whole-header parity instead of being hidden behind this normalization.
+	// Replaces only the antiforgery cookie's value (the ephemeral, per-host token) with a fixed placeholder; any
+	// other cookie is compared exactly as received. The cookie name and every attribute -- path, samesite, secure,
+	// httponly, and any others the framework emits -- are left exactly as received, so a candidate that adds,
+	// drops, or changes one of them still fails whole-header parity instead of being hidden behind this
+	// normalization.
 	private static string NormalizeSetCookieValue(string cookie)
 	{
+		const string antiforgeryCookiePrefix = ".AspNetCore.Antiforgery.";
 		var nameSeparator = cookie.IndexOf('=');
-		if (nameSeparator < 0)
+		if (nameSeparator < 0 || !cookie.StartsWith(antiforgeryCookiePrefix, StringComparison.Ordinal))
 		{
 			return cookie;
 		}
