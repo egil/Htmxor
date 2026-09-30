@@ -120,6 +120,53 @@ public sealed class Issue260NonStreamingQuiescenceTests
 	}
 }
 
+// LR-ce7bd22-P001 / the corrected criterion-5 decision (https://github.com/egil/Htmxor/issues/260, "Correction
+// to the criterion-5 decision"): a pending task with no owning ComponentState -- an async disposal still in
+// flight for a component removed mid-render -- still counts as non-streaming work, exactly as stock's
+// AddPendingTask counts it, regardless of whether any [StreamRendering] component exists anywhere on the page.
+public sealed class Issue260UnownedPendingTaskTests
+{
+	private const string Path = "/issue-260/unowned-pending";
+
+	[Fact]
+	public async Task Pending_disposal_with_no_owning_component_completes_before_initial_html_like_stock()
+	{
+		await using var stock = await Issue260Host.CreateAsync<Issue260App>(htmxor: false);
+		await using var candidate = await Issue260Host.CreateAsync<Issue260App>(htmxor: true);
+		var stockGate = stock.Services.GetRequiredService<Issue260Gate>();
+		var candidateGate = candidate.Services.GetRequiredService<Issue260Gate>();
+
+		var stockResponseTask = stock.Client.GetAsync(Path, HttpCompletionOption.ResponseHeadersRead);
+		var candidateResponseTask = candidate.Client.GetAsync(Path, HttpCompletionOption.ResponseHeadersRead);
+		await Task.WhenAll(
+			stockGate.WaitForReachedAsync("unowned-pending-page"),
+			candidateGate.WaitForReachedAsync("unowned-pending-page"));
+
+		stockGate.Release("unowned-pending-page");
+		candidateGate.Release("unowned-pending-page");
+		await Task.WhenAll(
+			stockGate.WaitForReachedAsync("unowned-pending-child-dispose"),
+			candidateGate.WaitForReachedAsync("unowned-pending-child-dispose"));
+
+		// Stock's own oracle: a pending task with no owning ComponentState still counts as non-streaming work,
+		// so neither host may respond while the child's disposal is held.
+		await Assert.ThrowsAsync<TimeoutException>(() => stockResponseTask.WaitAsync(TimeSpan.FromMilliseconds(300)));
+		await Assert.ThrowsAsync<TimeoutException>(() => candidateResponseTask.WaitAsync(TimeSpan.FromMilliseconds(300)));
+
+		stockGate.Release("unowned-pending-child-dispose");
+		candidateGate.Release("unowned-pending-child-dispose");
+
+		using var stockResponse = await stockResponseTask.WaitAsync(TimeSpan.FromSeconds(5));
+		using var candidateResponse = await candidateResponseTask.WaitAsync(TimeSpan.FromSeconds(5));
+		Assert.Equal(Issue260Snapshot.NormalizeHeaders(stockResponse), Issue260Snapshot.NormalizeHeaders(candidateResponse));
+
+		var stockBody = await stockResponse.Content.ReadAsStringAsync();
+		var candidateBody = await candidateResponse.Content.ReadAsStringAsync();
+		Assert.Contains("data-issue-260-unowned-pending=\"child-removed\"", stockBody, StringComparison.Ordinal);
+		Assert.Equal(stockBody, candidateBody);
+	}
+}
+
 public sealed class Issue260NonStreamingNavigationTests
 {
 	[Fact]
@@ -207,6 +254,24 @@ public sealed class Issue260NonStreamingNavigationTests
 		Assert.Null(response.Headers.Location);
 	}
 
+	// LR-ce7bd22-P003 / the corrected criterion-5 decision: an htmx Direct-mode POST whose submit handler
+	// navigates only after an await (not synchronously from the click handler itself) reaches the invoker's
+	// full-quiescence wait through a different site (the POST branch's own await quiesceTask) than the GET
+	// case above. No stock oracle: Direct mode is Htmxor's own concept. Reuses #213's own host and awaited-
+	// submit page (Issue213RedirectHost.SubmitAsync), since this is the POST half of the same mechanism the
+	// GET case above pins, rather than duplicating that harness here.
+	[Fact]
+	public async Task An_htmx_direct_mode_submit_whose_handler_navigates_after_an_await_gets_hx_redirect_per_the_carried_decision()
+	{
+		await using var candidate = await Issue213SubmitRedirectTests.Issue213RedirectHost.StartAsync(htmxor: true);
+
+		var snapshot = await candidate.SubmitAsync(htmx: true, awaited: true);
+
+		Assert.Equal(HttpStatusCode.OK, snapshot.Status);
+		Assert.Equal("/issue-213/after-submit", snapshot.HxRedirect);
+		Assert.Null(snapshot.Location);
+	}
+
 	private static string? SingleHeaderOrNull(HttpResponseMessage response, string name)
 		=> response.Headers.TryGetValues(name, out var values) ? values.Single() : null;
 
@@ -251,6 +316,102 @@ public sealed class Issue260NonStreamingNavigationTests
 	}
 
 	private sealed record Issue260NavigationResult(HttpStatusCode StatusCode, Uri? Location);
+}
+
+// LR-ce7bd22-P002 / LR-ce7bd22-S001 / the corrected criterion-5 decision: a navigation caught by the invoker's
+// full-quiescence wait (Direct routing, an error handler, or a re-executed request) must answer with no
+// rendered page body, exactly as stock's own NavigationException catch in RenderEndpointComponent returns
+// PrerenderedComponentHtmlContent.Empty instead of whatever was already rendered before the navigation.
+public sealed class Issue260NavigationEmptyBodyTests
+{
+	private const string PendingNavigationPath = "/issue-260/pending-navigation";
+	private const string ErrorOriginPath = "/issue-260/error-origin";
+	private const string ReexecutionOriginPath = "/issue-260/reexecuted-origin-pending-navigation";
+
+	[Fact]
+	public async Task A_navigation_from_pending_work_during_an_error_handler_response_has_stock_empty_body_parity()
+	{
+		await using var stock = await Issue260Host.CreateAsync<Issue260App>(htmxor: false, ConfigureErrorHandlerPipeline);
+		await using var candidate = await Issue260Host.CreateAsync<Issue260App>(htmxor: true, ConfigureErrorHandlerPipeline);
+
+		var stockResult = await RunAsync(stock, ErrorOriginPath);
+		var candidateResult = await RunAsync(candidate, ErrorOriginPath);
+
+		Assert.Equal(HttpStatusCode.Found, stockResult.StatusCode);
+		Assert.NotNull(stockResult.Location);
+		Assert.Equal(stockResult.StatusCode, candidateResult.StatusCode);
+		Assert.Equal(stockResult.Location, candidateResult.Location);
+		// Stock's own oracle: RenderEndpointComponent's NavigationException catch returns
+		// PrerenderedComponentHtmlContent.Empty, so the redirect carries no rendered page content.
+		Assert.Equal(string.Empty, stockResult.Body);
+		Assert.Equal(stockResult.Body, candidateResult.Body);
+	}
+
+	// net10.0 only: v10.0.11 stock's AddPendingTask does not track re-executed work at all
+	// (Issue260ReexecutedPendingPage's own comment), so this page's pending navigation is never observed by a
+	// re-executed request there -- the response answers with the page's pre-release state and no navigation,
+	// which #260's existing reexecution cases already cover. Only net11.0 reaches this mechanism.
+#if NET11_0_OR_GREATER
+	[Fact]
+	public async Task A_navigation_from_pending_work_during_a_status_reexecuted_response_has_stock_empty_body_parity()
+	{
+		await using var stock = await Issue260Host.CreateAsync<Issue260App>(htmxor: false, ConfigureReexecutionPipeline);
+		await using var candidate = await Issue260Host.CreateAsync<Issue260App>(htmxor: true, ConfigureReexecutionPipeline);
+
+		var stockResult = await RunAsync(stock, ReexecutionOriginPath);
+		var candidateResult = await RunAsync(candidate, ReexecutionOriginPath);
+
+		Assert.Equal(HttpStatusCode.Found, stockResult.StatusCode);
+		Assert.NotNull(stockResult.Location);
+		Assert.Equal(stockResult.StatusCode, candidateResult.StatusCode);
+		Assert.Equal(stockResult.Location, candidateResult.Location);
+		Assert.Equal(string.Empty, stockResult.Body);
+		Assert.Equal(stockResult.Body, candidateResult.Body);
+	}
+#endif
+
+	private static void ConfigureErrorHandlerPipeline(WebApplication app)
+	{
+		app.UseExceptionHandler(PendingNavigationPath);
+		app.Use((context, next) =>
+		{
+			if (context.Request.Path == ErrorOriginPath)
+			{
+				throw new InvalidOperationException("issue-260 error origin");
+			}
+
+			return next(context);
+		});
+		app.UseRouting();
+	}
+
+	private static void ConfigureReexecutionPipeline(WebApplication app)
+	{
+		app.UseStatusCodePagesWithReExecute(PendingNavigationPath);
+		app.Use((context, next) =>
+		{
+			if (context.Request.Path == ReexecutionOriginPath)
+			{
+				context.Response.StatusCode = StatusCodes.Status404NotFound;
+				return Task.CompletedTask;
+			}
+
+			return next(context);
+		});
+		app.UseRouting();
+	}
+
+	private static async Task<(HttpStatusCode StatusCode, Uri? Location, string Body)> RunAsync(Issue260Host host, string originPath)
+	{
+		var gate = host.Services.GetRequiredService<Issue260Gate>();
+		var responseTask = host.Client.GetAsync(originPath, HttpCompletionOption.ResponseHeadersRead);
+		await gate.WaitForReachedAsync("pending-navigation");
+		gate.Release("pending-navigation");
+
+		using var response = await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
+		var body = await response.Content.ReadAsStringAsync();
+		return (response.StatusCode, response.Headers.Location, body);
+	}
 }
 
 public sealed class Issue260ReexecutionParityTests

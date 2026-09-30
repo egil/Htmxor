@@ -1,0 +1,26 @@
+@page "/issue-260/unowned-pending"
+@inject Issue260Gate Gate
+
+<main data-issue-260-unowned-pending="@state">@state</main>
+@if (showChild)
+{
+    <Issue260UnownedPendingChild />
+}
+
+@code {
+    private string state = "initial";
+    private bool showChild = true;
+
+    // Not [StreamRendering]. Removes its own child (below) once released, so the child's DisposeAsync becomes
+    // a pending task with no owning ComponentState -- the corrected criterion-5 decision's case (an
+    // async-disposal still in flight, not a still-rendering component) rather than the case criterion 2's
+    // other fixtures already cover.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("unowned-pending-page");
+        await Task.Yield();
+        await Gate.WaitForReleaseAsync("unowned-pending-page");
+        showChild = false;
+        state = "child-removed";
+    }
+}
