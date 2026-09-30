@@ -236,10 +236,11 @@ public sealed class Issue260NonStreamingNavigationTests
 		gate.Release("late-nav-child");
 		await gate.WaitForReachedAsync("late-nav-grandchild");
 
-		// Bounded, deterministic checkpoint: the response must not have started yet. Without this, a fix that
-		// only wraps the *first* WhenAll in a try/catch -- and so already began writing the response as soon as
-		// "late-nav-child" completed -- only sometimes loses the race with the grandchild's navigation below,
-		// which would make this case's red intermittent instead of guaranteed.
+		// Bounded, deterministic checkpoint: the response must not have started yet. A non-streaming wait that does
+		// not loop (criterion 2's defect) has already started the response once "late-nav-child" completed, so the
+		// grandchild's navigation below would then land after the start and race between an in-body redirect and an
+		// escaped exception. Failing here makes that red deterministic, and once this passes the navigation below is
+		// raised on a later wait iteration before the response starts, so only per-iteration handling can pass.
 		await Assert.ThrowsAsync<TimeoutException>(() => responseTask.WaitAsync(TimeSpan.FromMilliseconds(300)));
 
 		gate.Release("late-nav-grandchild");
@@ -282,10 +283,9 @@ public sealed class Issue260ReexecutionParityTests
 	}
 
 	// Work item 1's "status-code re-executed page with pending asynchronous work" also needs a *streaming*
-	// variant: re-execution forces full quiescence (isReexecuted, HtmxorEndpointCandidate.cs), which is a
-	// different invoker path from criterion 1's ordinary case, and the inherited-streaming child's markers
-	// must survive it too. Not covered by the non-streaming case above, whose page has nothing to inherit
-	// streaming from.
+	// variant: the inherited-streaming child's markers must survive re-execution too, on both targets, and
+	// nothing streams during re-execution either way. Not covered by the non-streaming case above, whose page
+	// has nothing to inherit streaming from.
 	[Fact]
 	public async Task A_status_reexecuted_streaming_page_with_an_inherited_pending_child_matches_stock()
 	{
@@ -329,9 +329,23 @@ public sealed class Issue260ReexecutionParityTests
 		var gate = host.Services.GetRequiredService<Issue260Gate>();
 		var responseTask = host.Client.GetAsync(originPath, HttpCompletionOption.ResponseHeadersRead);
 		await gate.WaitForReachedAsync(gateName);
-		gate.Release(gateName);
 
+#if NET11_0_OR_GREATER
+		// net11.0 stock's AddPendingTask does track re-executed pending work, so its response only ever arrives
+		// once this release lands: release-then-read is deterministic here.
+		gate.Release(gateName);
 		using var response = await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
+#else
+		// net10.0 stock's AddPendingTask does not track re-executed pending work at all (the same v10.0.11
+		// short-circuit Issue260ReexecutedPendingPage's own comment describes), so its response can complete
+		// without this gate ever being released -- racing this test's own release against that completion.
+		// Reading the whole response first removes the race: stock's response arrives on its own, and a
+		// candidate that (wrongly) still waits on this target fails deterministically on this bound instead of
+		// on a race.
+		using var response = await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
+		gate.Release(gateName);
+#endif
+
 		var headers = Issue260Snapshot.NormalizeHeaders(response);
 		var body = await response.Content.ReadAsStringAsync();
 		return (response.StatusCode, body, headers);

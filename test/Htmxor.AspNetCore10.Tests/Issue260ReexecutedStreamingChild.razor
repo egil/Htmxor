@@ -5,11 +5,11 @@
 @code {
     private string state = "reexecuted-streaming-child-initial";
 
-    // Carries no [StreamRendering] of its own: the re-executed page above does, and re-execution's own
-    // waitForQuiescence path must still classify this child as streaming through the inherited flag, exactly
-    // as criterion 1's non-re-executed case does. Re-execution forces full quiescence either way, so this
-    // case is not about response timing; it is about whether the child still carries the inherited streaming
-    // markers once the invoker takes the re-execution path instead of the ordinary one.
+    // Carries no [StreamRendering] of its own: the re-executed page above does, and the protected behavior is that
+    // this child still carries the inherited streaming markers once the invoker takes the re-execution path, as
+    // stock's does on the same target. Nothing streams during re-execution on either target, but whether this
+    // child's pending work is awaited is target-dependent: net11.0 stock awaits it, while net10.0 stock's
+    // AddPendingTask does not track re-executed work and answers with this child's pre-release state.
     protected override async Task OnInitializedAsync()
     {
         Gate.Reached("reexecuted-streaming-child");
