@@ -19,13 +19,19 @@
 // Form coordination added for #189; exact dependency inventory: docs/engineering/candidate-form-adapter.md.
 // .NET 11 protection, persisted state, and browser configuration follow v11.0.0-rc.1.26425.128 at
 // c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13; see that inventory.
-// Non-throwing navigation (#264), synchronized 2026-09-30: the renderer stop and GetErrorHandledTask
-// reimplement v10.0.11 EndpointHtmlRenderer.cs and EndpointHtmlRenderer.Prerendering.cs, identical at c3325eeb:
-// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
-// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
 // CacheView write-path coordination follows the same commit, synchronized 2026-09-16: the capture and
 // descendant-guard branches reimplement EndpointHtmlRenderer.WriteComponentHtml; approved #219 dependencies
 // and their exact sources are in docs/engineering/candidate-form-adapter.md.
+// Non-throwing navigation (#264), synchronized 2026-09-30: the renderer stop and GetErrorHandledTask
+// reimplement EndpointHtmlRenderer.cs and EndpointHtmlRenderer.Prerendering.cs at v10.0.11
+// (a5383385245bdacc20ec19f30e46090a8154d8da) and, identically, at v11.0.0-rc.1.26425.128
+// (c3325eeb6b47bc6383c127d4f4827dc9642a2b6e):
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
@@ -328,9 +334,13 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		{
 			// Enhanced navigation prefers an opaque redirection for an external URL, so post-redirect-get keeps
 			// working without forcing the request to be retried.
-			context.Response.Headers.Append(
-				"blazor-enhanced-nav-redirect-location",
-				OpaqueRedirection.CreateProtectedRedirectionUrl(context, destination));
+			// The first navigation wins, as in stock, whose IDictionary.Add rejects a second value.
+			if (!context.Response.Headers.ContainsKey("blazor-enhanced-nav-redirect-location"))
+			{
+				context.Response.Headers.Append(
+					"blazor-enhanced-nav-redirect-location",
+					OpaqueRedirection.CreateProtectedRedirectionUrl(context, destination));
+			}
 			return;
 		}
 
@@ -381,7 +391,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private Guid invocationId;
 	private bool browserSettingsEmitted;
 	private bool rendererIsStopped;
-	private bool submitDispatched;
+	private bool inFirstRender;
 	private ResourceAssetCollection? resourceCollection;
 	private readonly Dictionary<IComponent, IComponentRenderMode> componentRenderModes = new(ReferenceEqualityComparer.Instance);
 
@@ -452,7 +462,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		invocationId = Guid.NewGuid();
 		browserSettingsEmitted = false;
 		rendererIsStopped = false;
-		submitDispatched = false;
+		inFirstRender = false;
 		componentRenderModes.Clear();
 		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().InitializeResourceCollection(context);
 		var navigationManager = services.GetRequiredService<NavigationManager>();
@@ -498,7 +508,19 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	internal HtmlRootComponent BeginRenderEndpointComponent(
 		Type rootComponent,
 		ParameterView parameters)
-		=> BeginRenderingComponent(rootComponent, parameters);
+	{
+		// Marks the synchronous first render, where the throwing path's catch answers every navigation, including an
+		// htmx one, with a bare redirect (#230). OnNavigateTo mirrors that only here.
+		inFirstRender = true;
+		try
+		{
+			return BeginRenderingComponent(rootComponent, parameters);
+		}
+		finally
+		{
+			inFirstRender = false;
+		}
+	}
 
 	internal async Task<HtmlRootComponent> RenderEndpointComponentAsync(
 		Type rootComponent,

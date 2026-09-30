@@ -3,7 +3,10 @@
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
 // synchronized 2026-09-05; OnNavigateTo added for #264, synchronized 2026-09-30 and identical at
-// c3325eeb for .NET 11. Exact sources and license: docs/engineering/candidate-form-adapter.md.
+// v11.0.0-rc.1.26425.128, commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e:
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
+// Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs | reimplements
 
 using System.Buffers;
@@ -25,7 +28,6 @@ internal partial class HtmxorEndpointCandidateRenderer
 
 	internal Task DispatchSubmitEventAsync(string? handlerName, out bool isBadRequest)
 	{
-		submitDispatched = true;
 		if (string.IsNullOrEmpty(handlerName))
 		{
 			isBadRequest = true;
@@ -51,10 +53,10 @@ internal partial class HtmxorEndpointCandidateRenderer
 			: Task.CompletedTask;
 	}
 
-	// Stock's navigation callback for non-throwing NavigateTo. Before the response starts, a non-htmx request
-	// takes stock's redirect. An htmx request takes exactly what Htmxor's throwing path gives the same request:
-	// the bare redirect of a navigation during the first render (kept by #230), or the htmx redirect of one
-	// during a form submit. See #264's decision on the htmx oracle.
+	// Stock's navigation callback for non-throwing NavigateTo. Before the response starts, a navigation during the
+	// synchronous first render of an htmx request gets the bare redirect the throwing path gives it (kept by #230);
+	// every other navigation takes HandleNavigationBeforeResponseStarted, which answers htmx with HX-Redirect and
+	// otherwise matches stock. See #264's decisions on the htmx oracle and on navigation from pending work.
 	private async Task OnNavigateTo(string uri)
 	{
 		if (httpContext.Response.HasStarted)
@@ -65,7 +67,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 			WriteNavigationAfterResponseStarted(writer, httpContext, uri);
 			await writer.FlushAsync();
 		}
-		else if (httpContext.GetHtmxContext().Request.IsHtmxRequest && !submitDispatched)
+		else if (inFirstRender && httpContext.GetHtmxContext().Request.IsHtmxRequest)
 		{
 			httpContext.Response.Redirect(uri);
 		}

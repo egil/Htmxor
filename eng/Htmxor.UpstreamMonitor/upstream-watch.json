@@ -276,7 +276,8 @@
         "src/Htmxor/Rendering/HtmxorRenderer.cs",
         "src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs",
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs",
-        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.NamedSubmit.cs"
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.NamedSubmit.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.Streaming.cs"
       ]
     },
     {
