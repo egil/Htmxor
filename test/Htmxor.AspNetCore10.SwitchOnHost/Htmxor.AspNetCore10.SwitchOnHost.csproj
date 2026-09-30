@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+	<!--
+		Issue #264 test-support host, not a test project itself. It exists only so Issue264SwitchOnTests in
+		test/Htmxor.AspNetCore10.Tests can spawn it as a separate OS process per switch-under-test mode
+		("stock" or "candidate"). The non-throwing navigation switch,
+		Microsoft.AspNetCore.Components.Endpoints.NavigationManager.DisableThrowNavigationException, is read once
+		into a `static readonly` field the first time HttpNavigationManager initializes on net11.0, so a process
+		that starts with the switch already baked into its own runtimeconfig.json is the only way to prove
+		switch-on behavior on that target; net10.0 uses the same mechanism for parity between targets (see
+		docs/agents/testing.md and the issue's Verification contract).
+	-->
+
+	<PropertyGroup>
+		<TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+		<RuntimeFrameworkVersion Condition="'$(TargetFramework)' == 'net10.0'">10.0.11</RuntimeFrameworkVersion>
+		<RuntimeFrameworkVersion Condition="'$(TargetFramework)' == 'net11.0'">11.0.0-rc.1.26425.128</RuntimeFrameworkVersion>
+		<RollForward>Disable</RollForward>
+		<OutputType>Exe</OutputType>
+		<EnableDefaultRazorComponentItems>false</EnableDefaultRazorComponentItems>
+		<CodeMetricsProfile>tests</CodeMetricsProfile>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<IsPackable>false</IsPackable>
+		<RootNamespace>Htmxor.AspNetCore10.SwitchOnHost</RootNamespace>
+		<InvariantGlobalization>true</InvariantGlobalization>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<RazorComponent Include="**/*.razor" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+	</ItemGroup>
+
+	<!--
+		Bakes the switch into this process's own runtimeconfig.json ("configProperties"), applied by the .NET
+		host before Main runs and before any Microsoft.AspNetCore.Components.Endpoints type initializes. This
+		host only ever runs switch-on; switch-off parity stays with the existing in-process paired hosts.
+	-->
+	<ItemGroup>
+		<RuntimeHostConfigurationOption
+			Include="Microsoft.AspNetCore.Components.Endpoints.NavigationManager.DisableThrowNavigationException"
+			Value="true"
+			Trim="false" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Htmxor.Generators\Htmxor.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\..\src\Htmxor\Htmxor.csproj" />
+	</ItemGroup>
+
+</Project>

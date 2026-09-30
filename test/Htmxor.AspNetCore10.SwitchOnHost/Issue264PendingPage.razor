@@ -1,0 +1,15 @@
+@page "/issue-264/pending"
+@inject NavigationManager Navigation
+
+<main data-issue-264-pending-output>unreachable</main>
+
+@code {
+    // Not [StreamRendering]: the invoker awaits this component's quiescence before writing any response, so
+    // the navigation below still happens before the response starts, but from async continuation running
+    // after the initial synchronous render rather than from the synchronous render itself.
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Yield();
+        Navigation.NavigateTo("/issue-264/destination");
+    }
+}

@@ -1,0 +1,22 @@
+@page "/issue-264/streaming"
+@attribute [StreamRendering]
+@inject NavigationManager Navigation
+
+<main data-issue-264-streaming="@state">@state</main>
+
+@code {
+    private string state = "initial";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Give the initial synchronous render a real chance to reach the client before navigating, so the
+        // navigation genuinely happens after the response has started rather than racing its first flush.
+        await Task.Delay(TimeSpan.FromMilliseconds(50));
+        Navigation.NavigateTo("/issue-264/streaming-destination");
+
+        // Stock stops the renderer from here on; a candidate that silently dropped the navigation instead
+        // keeps going and streams this update after the point where stock's redirection template appears.
+        await Task.Delay(TimeSpan.FromMilliseconds(150));
+        state = "updated-after-navigate";
+    }
+}

@@ -1,0 +1,12 @@
+@page "/issue-264/form"
+@inject NavigationManager Navigation
+
+<main data-issue-264-form-output>form</main>
+<form method="post" @formname="issue-264-go" @onsubmit="Go">
+    <AntiforgeryToken />
+    <button type="submit">Go</button>
+</form>
+
+@code {
+    private void Go() => Navigation.NavigateTo("/issue-264/destination");
+}
