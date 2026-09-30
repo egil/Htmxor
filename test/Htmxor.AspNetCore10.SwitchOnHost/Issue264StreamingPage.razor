@@ -10,6 +10,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Fresh gates for this request: Issue264StreamingGate is one process-wide singleton, so without this a
+        // second streaming request on the same host would find both gates already completed from the first
+        // request and navigate during its own initial synchronous render, before its response has started.
+        Gate.Reset();
+
         // The test releases this only after it has read the initial synchronous render off the wire, so the
         // navigation below is genuinely "after the response has started" rather than a timing guess.
         await Gate.NavigateReleased;

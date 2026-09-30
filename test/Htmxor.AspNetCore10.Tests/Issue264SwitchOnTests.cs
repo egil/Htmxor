@@ -157,6 +157,10 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 
 		AssertStreamingStopsAtRedirection(stock);
 		AssertStreamingStopsAtRedirection(candidate);
+		// The incremental checks above only look for the redirection template's text; they would pass a bare
+		// template written outside stock's <blazor-ssr>/<blazor-ssr-end> frame, which blazor.web.js would never
+		// act on. Comparing the whole normalized body catches that, per criterion 3's "whole body".
+		Assert.Equal(stock.WholeBody, candidate.WholeBody);
 		await AssertStreamingDestinationParityAsync(stock, candidate);
 		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
 	}
@@ -224,16 +228,21 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		await using var reader = await Issue264StreamingBodyReader.CreateAsync(response);
 
 		var initial = await reader.ReadUntilAsync(["data-issue-264-streaming=\"initial\""]);
+		// A missed precondition (the initial render never arriving) must fail here, not be reported later as a
+		// missing redirection: ReadUntilAsync returns whatever it has on timeout, so an empty or partial
+		// `initial` would otherwise blame the protected behavior for a broken setup.
+		Assert.Contains("data-issue-264-streaming=\"initial\"", initial, StringComparison.Ordinal);
 		await host.ReleaseStreamingNavigateAsync();
 
 		var beforeResume = await reader.ReadUntilAsync(["<template type=\"redirection\">", "<template blazor-component-id"]);
 		await host.ReleaseStreamingResumeAsync();
 
-		var afterResume = await reader.ReadToEndOrTimeoutAsync(TimeSpan.FromSeconds(1));
+		var wholeBody = await reader.ReadToEndOrTimeoutAsync(TimeSpan.FromSeconds(1));
 		return new(
 			response.StatusCode,
 			BeforeResume: beforeResume[initial.Length..],
-			AfterResume: afterResume[beforeResume.Length..]);
+			AfterResume: wholeBody[beforeResume.Length..],
+			WholeBody: Issue264Snapshot.NormalizeProtectedPayloads(wholeBody));
 	}
 
 	// Stock's post-start navigation writes the redirection template and stops the renderer without needing the
@@ -268,5 +277,5 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 			string.Join("; ", unobserved));
 	}
 
-	private sealed record Issue264StreamingSnapshot(HttpStatusCode StatusCode, string BeforeResume, string AfterResume);
+	private sealed record Issue264StreamingSnapshot(HttpStatusCode StatusCode, string BeforeResume, string AfterResume, string WholeBody);
 }

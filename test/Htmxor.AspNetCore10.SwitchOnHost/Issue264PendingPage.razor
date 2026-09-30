@@ -1,15 +1,23 @@
 @page "/issue-264/pending"
 @inject NavigationManager Navigation
 
-<main data-issue-264-pending-output>unreachable</main>
+<main data-issue-264-pending-output>@state</main>
 
 @code {
+    private string state = "before-navigate";
+
     // Not [StreamRendering]: the invoker awaits this component's quiescence before writing any response, so
     // the navigation below still happens before the response starts, but from async continuation running
     // after the initial synchronous render rather than from the synchronous render itself.
+    //
+    // The state change after NavigateTo below is what makes a before-start renderer-stop gap observable: a fix
+    // that redirects but never stops the renderer would let this re-render land in the captured response body,
+    // even though nothing here streams. A fix that stops the renderer keeps the response body at
+    // "before-navigate", matching stock, because the queued re-render below is never processed.
     protected override async Task OnInitializedAsync()
     {
         await Task.Yield();
         Navigation.NavigateTo("/issue-264/destination");
+        state = "updated-after-navigate";
     }
 }
