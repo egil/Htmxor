@@ -107,7 +107,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 			}
 		}
 		var writer = streamingUpdatesWriter;
-		if (writer is not null)
+		if (writer is not null && !rendererIsStopped)
 		{
 			SendBatchAsStreamingUpdate(in renderBatch, writer);
 			return Task.WhenAll(base.UpdateDisplayAsync(in renderBatch), writer.FlushAsync());

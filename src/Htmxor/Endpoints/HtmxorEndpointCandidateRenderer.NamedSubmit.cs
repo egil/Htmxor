@@ -2,13 +2,17 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
-// synchronized 2026-09-05. Exact sources and license: docs/engineering/candidate-form-adapter.md.
+// synchronized 2026-09-05; OnNavigateTo added for #264, synchronized 2026-09-30 and identical at
+// c3325eeb for .NET 11. Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs | reimplements
 
+using System.Buffers;
 using System.Globalization;
 using System.Text;
+using Htmxor.Http;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -21,6 +25,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 
 	internal Task DispatchSubmitEventAsync(string? handlerName, out bool isBadRequest)
 	{
+		submitDispatched = true;
 		if (string.IsNullOrEmpty(handlerName))
 		{
 			isBadRequest = true;
@@ -44,6 +49,31 @@ internal partial class HtmxorEndpointCandidateRenderer
 		return eventHandlerId.HasValue
 			? DispatchEventAsync(eventHandlerId.Value, null, EventArgs.Empty, waitForQuiescence: true)
 			: Task.CompletedTask;
+	}
+
+	// Stock's navigation callback for non-throwing NavigateTo. Before the response starts, a non-htmx request
+	// takes stock's redirect. An htmx request takes exactly what Htmxor's throwing path gives the same request:
+	// the bare redirect of a navigation during the first render (kept by #230), or the htmx redirect of one
+	// during a form submit. See #264's decision on the htmx oracle.
+	private async Task OnNavigateTo(string uri)
+	{
+		if (httpContext.Response.HasStarted)
+		{
+			var defaultBufferSize = 16 * 1024;
+			await using var writer = new HttpResponseStreamWriter(
+				httpContext.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
+			WriteNavigationAfterResponseStarted(writer, httpContext, uri);
+			await writer.FlushAsync();
+		}
+		else if (httpContext.GetHtmxContext().Request.IsHtmxRequest && !submitDispatched)
+		{
+			httpContext.Response.Redirect(uri);
+		}
+		else
+		{
+			HtmxorEndpointCandidateInvoker.HandleNavigationBeforeResponseStarted(httpContext, uri);
+		}
+		SignalRendererToFinishRendering();
 	}
 
 	private string CreateMessageForAmbiguousNamedSubmitEvent(string scopeQualifiedName, IEnumerable<(int ComponentId, int FrameIndex)> locations)
