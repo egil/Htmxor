@@ -1,0 +1,15 @@
+@page "/issue-264/sync-double-external"
+@inject NavigationManager Navigation
+
+<main data-issue-264-double-external-output>unreachable</main>
+
+@code {
+    // Two NavigateTo calls to distinct external destinations: before #264, the throwing path could reach
+    // HandleNavigationBeforeResponseStarted at most once per request, so this shape was unreachable. With the
+    // switch on, both calls run OnNavigateTo (see LR-08402d5-P003).
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("https://example.invalid/issue-264/one");
+        Navigation.NavigateTo("https://example.invalid/issue-264/two");
+    }
+}

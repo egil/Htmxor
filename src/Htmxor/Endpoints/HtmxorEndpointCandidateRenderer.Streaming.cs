@@ -5,7 +5,15 @@
 // synchronized 2026-09-08. Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // .NET 11 enhanced-exception framing follows v11.0.0-rc.1.26425.128,
 // commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13.
+// The stop gate in UpdateDisplayAsync (#264, synchronized 2026-09-30) reimplements EndpointHtmlRenderer.cs at
+// v10.0.11 (a5383385245bdacc20ec19f30e46090a8154d8da) and, identically, at v11.0.0-rc.1.26425.128
+// (c3325eeb6b47bc6383c127d4f4827dc9642a2b6e):
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 
 using System.Runtime.InteropServices;
 using System.Text.Encodings.Web;
@@ -107,7 +115,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 			}
 		}
 		var writer = streamingUpdatesWriter;
-		if (writer is not null)
+		if (writer is not null && !rendererIsStopped)
 		{
 			SendBatchAsStreamingUpdate(in renderBatch, writer);
 			return Task.WhenAll(base.UpdateDisplayAsync(in renderBatch), writer.FlushAsync());

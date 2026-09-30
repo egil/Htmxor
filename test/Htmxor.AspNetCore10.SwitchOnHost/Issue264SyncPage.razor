@@ -1,0 +1,13 @@
+@page "/issue-264/sync"
+@inject NavigationManager Navigation
+
+<main data-issue-264-sync-output>unreachable</main>
+
+@code {
+    [SupplyParameterFromQuery] public bool ForceLoad { get; set; }
+
+    [SupplyParameterFromQuery] public string? Destination { get; set; }
+
+    protected override void OnInitialized()
+        => Navigation.NavigateTo(Destination ?? "/issue-264/destination", forceLoad: ForceLoad);
+}

@@ -1,0 +1,34 @@
+@page "/issue-264/streaming-child-navigate"
+@attribute [StreamRendering]
+@inject Issue264StreamingGate Gate
+
+<main data-issue-264-streaming-child="@state">
+    @state
+    @if (showChild)
+    {
+        <Issue264StreamingNavigatingChild />
+    }
+</main>
+
+@code {
+    private string state = "initial";
+    private bool showChild;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // See Issue264StreamingPage for why this singleton gate needs resetting per request.
+        Gate.Reset();
+
+        // The test releases this only after it has read the initial synchronous render off the wire.
+        await Gate.NavigateReleased;
+
+        // Adding the child here, in the same StateHasChanged call as the state update, means the child's
+        // synchronous OnInitialized (and its NavigateTo) runs while this post-start render batch is still
+        // being built, not from an independent async continuation like Issue264StreamingPage exercises. A
+        // fix that only stops the renderer for the *next* batch (ProcessPendingRender), and not for a batch
+        // already in flight when the stop flag flips (UpdateDisplayAsync), would let this one still stream.
+        state = "updated-in-navigating-batch";
+        showChild = true;
+        await InvokeAsync(StateHasChanged);
+    }
+}

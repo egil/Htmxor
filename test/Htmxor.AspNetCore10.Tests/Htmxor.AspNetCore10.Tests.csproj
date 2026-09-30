@@ -18,7 +18,7 @@
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
 		<Compile Remove="Issue*.cs" />
-		<Compile Include="Issue210*.cs;Issue212*.cs;Issue213*.cs;Issue214*.cs;Issue216*.cs;Issue219*.cs;Issue246*.cs;Issue83AuthorizationTests.cs" />
+		<Compile Include="Issue210*.cs;Issue212*.cs;Issue213*.cs;Issue214*.cs;Issue216*.cs;Issue219*.cs;Issue246*.cs;Issue264*.cs;Issue83AuthorizationTests.cs" />
 		<RazorComponent Include="Issue210*.razor;Issue212*.razor;Issue213*.razor;Issue214*.razor;Issue216*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
@@ -40,6 +40,13 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Htmxor.Generators\Htmxor.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 		<ProjectReference Include="..\..\src\Htmxor\Htmxor.csproj" />
+		<!--
+			Issue #264's switch-on evidence spawns this host as a separate OS process (see
+			Issue264SwitchOnHostProcess.cs); ReferenceOutputAssembly="false" only ensures it builds alongside
+			this project so a matching-configuration, matching-framework output exists to spawn. It is never
+			linked into this test assembly, so its baked-in AppContext switch never applies to this process.
+		-->
+		<ProjectReference Include="..\Htmxor.AspNetCore10.SwitchOnHost\Htmxor.AspNetCore10.SwitchOnHost.csproj" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 </Project>

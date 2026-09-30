@@ -22,6 +22,16 @@
 // CacheView write-path coordination follows the same commit, synchronized 2026-09-16: the capture and
 // descendant-guard branches reimplement EndpointHtmlRenderer.WriteComponentHtml; approved #219 dependencies
 // and their exact sources are in docs/engineering/candidate-form-adapter.md.
+// Non-throwing navigation (#264), synchronized 2026-09-30: the renderer stop and GetErrorHandledTask
+// reimplement EndpointHtmlRenderer.cs and EndpointHtmlRenderer.Prerendering.cs at v10.0.11
+// (a5383385245bdacc20ec19f30e46090a8154d8da) and, identically, at v11.0.0-rc.1.26425.128
+// (c3325eeb6b47bc6383c127d4f4827dc9642a2b6e):
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
@@ -234,7 +244,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			{
 				// Stock redirects a completed submit and still runs TempData and Session write-back, so a
 				// post-redirect-get message survives.
-				HandleNavigationBeforeResponseStarted(context, navigationException);
+				HandleNavigationBeforeResponseStarted(context, navigationException.Location);
 				quiesceTask = Task.CompletedTask;
 			}
 		}
@@ -310,9 +320,8 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 
 	// Mirrors stock EndpointHtmlRenderer.HandleNavigationBeforeResponseStarted, adding only the htmx branch:
 	// an htmx request cannot follow a 302 for a partial response, so Htmxor asks the client to navigate instead.
-	private static void HandleNavigationBeforeResponseStarted(HttpContext context, NavigationException navigationException)
+	internal static void HandleNavigationBeforeResponseStarted(HttpContext context, string destination)
 	{
-		var destination = navigationException.Location;
 		var htmxContext = context.GetHtmxContext();
 		if (htmxContext.Request.IsHtmxRequest && IsHttpDestination(destination))
 		{
@@ -325,6 +334,13 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		{
 			// Enhanced navigation prefers an opaque redirection for an external URL, so post-redirect-get keeps
 			// working without forcing the request to be retried.
+			// The first navigation wins and a second one fails, as stock's IDictionary.Add makes it fail, so the
+			// navigation callback's error handling logs the conflicting redirect instead of dropping it silently.
+			if (context.Response.Headers.ContainsKey("blazor-enhanced-nav-redirect-location"))
+			{
+				throw new InvalidOperationException(
+					"The response already carries an enhanced-navigation redirect; a second navigation cannot replace it.");
+			}
 			context.Response.Headers.Append(
 				"blazor-enhanced-nav-redirect-location",
 				OpaqueRedirection.CreateProtectedRedirectionUrl(context, destination));
@@ -371,11 +387,14 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 {
 	private readonly IServiceProvider services;
 	private readonly EndpointRoutingStateProvider routingState;
+	private readonly ILogger logger;
 	private HttpContext httpContext = default!;
 	private NotFoundEventArgs? notFoundEventArgs;
 	private int invocationSequence;
 	private Guid invocationId;
 	private bool browserSettingsEmitted;
+	private bool rendererIsStopped;
+	private bool inFirstRender;
 	private ResourceAssetCollection? resourceCollection;
 	private readonly Dictionary<IComponent, IComponentRenderMode> componentRenderModes = new(ReferenceEqualityComparer.Instance);
 
@@ -392,6 +411,43 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 		this.services = services;
 		this.routingState = routingState;
+		logger = loggerFactory.CreateLogger<HtmxorEndpointCandidateRenderer>();
+	}
+
+	// A deferred stop, as stock's SignalRendererToFinishRendering: it takes effect after the current batch,
+	// so nothing renders or streams after a navigation.
+	private void SignalRendererToFinishRendering() => rendererIsStopped = true;
+
+	protected override void ProcessPendingRender()
+	{
+		if (rendererIsStopped)
+		{
+			return;
+		}
+		base.ProcessPendingRender();
+	}
+
+	private async Task GetErrorHandledTask(Task taskToHandle)
+	{
+		try
+		{
+			await taskToHandle;
+		}
+		catch (Exception exception)
+		{
+			// Ignore errors due to task cancellations.
+			if (!taskToHandle.IsCanceled)
+			{
+				Log.NavigationCallbackFailed(logger, exception);
+			}
+		}
+	}
+
+	// Stock logs this message from GetErrorHandledTask (EndpointHtmlRenderer.Prerendering.cs).
+	private static partial class Log
+	{
+		[LoggerMessage(1, LogLevel.Error, "An exception occurred during non-streaming rendering. This exception will be ignored because the response is being discarded and the request is being re-executed.", EventName = nameof(NavigationCallbackFailed))]
+		public static partial void NavigationCallbackFailed(ILogger logger, Exception exception);
 	}
 
 	internal HttpContext? HttpContext => httpContext;
@@ -408,12 +464,20 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		invocationSequence = -1;
 		invocationId = Guid.NewGuid();
 		browserSettingsEmitted = false;
+		rendererIsStopped = false;
+		inFirstRender = false;
 		componentRenderModes.Clear();
 		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().InitializeResourceCollection(context);
 		var navigationManager = services.GetRequiredService<NavigationManager>();
 		if (navigationManager is IHostEnvironmentNavigationManager hostNavigationManager)
 		{
-			hostNavigationManager.Initialize(GetContextBaseUri(context.Request), GetFullUri(context.Request));
+			// The callback is what non-throwing navigation (the template's BlazorDisableThrowNavigationException)
+			// calls instead of throwing; without it HttpNavigationManager fails in a discarded task and the
+			// navigation is lost. See #264.
+			hostNavigationManager.Initialize(
+				GetContextBaseUri(context.Request),
+				GetFullUri(context.Request),
+				uri => GetErrorHandledTask(OnNavigateTo(uri)));
 		}
 		navigationManager.OnNotFound += (_, args) => notFoundEventArgs = args;
 
@@ -447,7 +511,19 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	internal HtmlRootComponent BeginRenderEndpointComponent(
 		Type rootComponent,
 		ParameterView parameters)
-		=> BeginRenderingComponent(rootComponent, parameters);
+	{
+		// Marks the synchronous first render, where the throwing path's catch answers every navigation, including an
+		// htmx one, with a bare redirect (#230). OnNavigateTo mirrors that only here.
+		inFirstRender = true;
+		try
+		{
+			return BeginRenderingComponent(rootComponent, parameters);
+		}
+		finally
+		{
+			inFirstRender = false;
+		}
+	}
 
 	internal async Task<HtmlRootComponent> RenderEndpointComponentAsync(
 		Type rootComponent,

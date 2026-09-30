@@ -2,13 +2,20 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
-// synchronized 2026-09-05. Exact sources and license: docs/engineering/candidate-form-adapter.md.
+// synchronized 2026-09-05; OnNavigateTo added for #264, synchronized 2026-09-30 and identical at
+// v11.0.0-rc.1.26425.128, commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e:
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
+// Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs | reimplements
 
+using System.Buffers;
 using System.Globalization;
 using System.Text;
+using Htmxor.Http;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -44,6 +51,35 @@ internal partial class HtmxorEndpointCandidateRenderer
 		return eventHandlerId.HasValue
 			? DispatchEventAsync(eventHandlerId.Value, null, EventArgs.Empty, waitForQuiescence: true)
 			: Task.CompletedTask;
+	}
+
+	// Stock's navigation callback for non-throwing NavigateTo. Before the response starts, a navigation during the
+	// synchronous first render of an htmx request gets the bare redirect the throwing path gives it (kept by #230);
+	// every other navigation takes HandleNavigationBeforeResponseStarted, which answers htmx with HX-Redirect and
+	// otherwise matches stock. See #264's decisions on the htmx oracle and on navigation from pending work.
+	private async Task OnNavigateTo(string uri)
+	{
+		if (httpContext.Response.HasStarted)
+		{
+			// Built whole before any of it is written, as stock's BufferedTextWriter does: if protecting the
+			// redirect fails partway, no partial template reaches the response.
+			using var template = new StringWriter(CultureInfo.InvariantCulture);
+			WriteNavigationAfterResponseStarted(template, httpContext, uri);
+			var defaultBufferSize = 16 * 1024;
+			await using var writer = new HttpResponseStreamWriter(
+				httpContext.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
+			await writer.WriteAsync(template.ToString());
+			await writer.FlushAsync();
+		}
+		else if (inFirstRender && httpContext.GetHtmxContext().Request.IsHtmxRequest)
+		{
+			httpContext.Response.Redirect(uri);
+		}
+		else
+		{
+			HtmxorEndpointCandidateInvoker.HandleNavigationBeforeResponseStarted(httpContext, uri);
+		}
+		SignalRendererToFinishRendering();
 	}
 
 	private string CreateMessageForAmbiguousNamedSubmitEvent(string scopeQualifiedName, IEnumerable<(int ComponentId, int FrameIndex)> locations)

@@ -1,0 +1,31 @@
+@page "/issue-264/streaming"
+@attribute [StreamRendering]
+@inject NavigationManager Navigation
+@inject Issue264StreamingGate Gate
+
+<main data-issue-264-streaming="@state">@state</main>
+
+@code {
+    private string state = "initial";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Fresh gates for this request: Issue264StreamingGate is one process-wide singleton, so without this a
+        // second streaming request on the same host would find both gates already completed from the first
+        // request and navigate during its own initial synchronous render, before its response has started.
+        Gate.Reset();
+
+        // The test releases this only after it has read the initial synchronous render off the wire, so the
+        // navigation below is genuinely "after the response has started" rather than a timing guess.
+        await Gate.NavigateReleased;
+        Navigation.NavigateTo("/issue-264/streaming-destination");
+
+        // The test releases this only after making its own separate request to a release endpoint. Work
+        // fire-and-forget from the same dispatcher turn as the NavigateTo call above is already queued ahead
+        // of that externally triggered continuation, so it gets to run first. Stock stops the renderer from
+        // here on; a candidate that silently dropped the navigation instead keeps going and streams this
+        // update after the point where stock's redirection template appears.
+        await Gate.ResumeReleased;
+        state = "updated-after-navigate";
+    }
+}
