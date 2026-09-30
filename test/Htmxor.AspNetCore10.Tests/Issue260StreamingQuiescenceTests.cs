@@ -41,6 +41,8 @@ public sealed class Issue260InheritedStreamingTests
 		var candidateInitial = await candidateReader.ReadUntilAsync(["data-issue-260-child=\"initial\""]);
 		Assert.Contains("data-issue-260-child=\"initial\"", candidateInitial, StringComparison.Ordinal);
 
+		Assert.Equal(HttpStatusCode.OK, stockResponse.StatusCode);
+		Assert.Equal(stockResponse.StatusCode, candidateResponse.StatusCode);
 		Assert.Equal(Issue260Snapshot.NormalizeHeaders(stockResponse), Issue260Snapshot.NormalizeHeaders(candidateResponse));
 
 		stockGate.Release("inherited-child");
@@ -109,6 +111,9 @@ public sealed class Issue260NonStreamingQuiescenceTests
 		var candidateInitial = await candidateReader.ReadUntilAsync(["data-issue-260-late-grandchild=\"grandchild-complete\""]);
 		Assert.Contains("data-issue-260-late-grandchild=\"grandchild-complete\"", candidateInitial, StringComparison.Ordinal);
 
+		Assert.Equal(HttpStatusCode.OK, stockResponse.StatusCode);
+		Assert.Equal(stockResponse.StatusCode, candidateResponse.StatusCode);
+
 		stockGate.Release("late-sibling");
 		candidateGate.Release("late-sibling");
 
@@ -158,6 +163,8 @@ public sealed class Issue260UnownedPendingTaskTests
 
 		using var stockResponse = await stockResponseTask.WaitAsync(TimeSpan.FromSeconds(5));
 		using var candidateResponse = await candidateResponseTask.WaitAsync(TimeSpan.FromSeconds(5));
+		Assert.Equal(HttpStatusCode.OK, stockResponse.StatusCode);
+		Assert.Equal(stockResponse.StatusCode, candidateResponse.StatusCode);
 		Assert.Equal(Issue260Snapshot.NormalizeHeaders(stockResponse), Issue260Snapshot.NormalizeHeaders(candidateResponse));
 
 		var stockBody = await stockResponse.Content.ReadAsStringAsync();
