@@ -245,26 +245,34 @@ internal sealed class Issue186MixedStreamingProbe
 public sealed class Issue186StreamingReexecutionParityTests
 {
 	[Fact]
-	public async Task AddHtmxor_waits_for_a_streaming_status_reexecution_before_the_response_starts()
+	public async Task AddHtmxor_matches_stock_for_a_streaming_status_reexecution()
 	{
 		await using var stock = await Issue186StreamingStatusHost.CreateAsync(useHtmxor: false);
 		await using var htmxor = await Issue186StreamingStatusHost.CreateAsync(useHtmxor: true);
 
-		var stockResponseTask = stock.Client.GetAsync(Issue186StreamingStatusHost.OriginPath, HttpCompletionOption.ResponseHeadersRead);
-		var htmxorResponseTask = htmxor.Client.GetAsync(Issue186StreamingStatusHost.OriginPath, HttpCompletionOption.ResponseHeadersRead);
-		await Task.WhenAll(stock.Probe.InitialRenderReached, htmxor.Probe.InitialRenderReached);
-		await Assert.ThrowsAsync<TimeoutException>(async () => await htmxorResponseTask.WaitAsync(TimeSpan.FromMilliseconds(100)));
-		stock.Probe.Complete();
-		htmxor.Probe.Complete();
-
-		using var stockResponse = await stockResponseTask;
-		using var htmxorResponse = await htmxorResponseTask;
-		var stockSnapshot = await Issue187ResponseSnapshot.CreateAsync(stockResponse);
-		var htmxorSnapshot = await Issue187ResponseSnapshot.CreateAsync(htmxorResponse);
+		var stockSnapshot = await RunAsync(stock);
+		var htmxorSnapshot = await RunAsync(htmxor);
 
 		Assert.Equal(stockSnapshot.StatusCode, htmxorSnapshot.StatusCode);
 		Assert.Equal(stockSnapshot.Headers, htmxorSnapshot.Headers);
 		Assert.Equal(stockSnapshot.Body, htmxorSnapshot.Body);
+	}
+
+	private static async Task<Issue187ResponseSnapshot> RunAsync(Issue186StreamingStatusHost host)
+	{
+		var responseTask = host.Client.GetAsync(Issue186StreamingStatusHost.OriginPath, HttpCompletionOption.ResponseHeadersRead);
+		await host.Probe.InitialRenderReached;
+
+		// v10.0.11 stock's AddPendingTask returns early for a re-executed request (the same short-circuit
+		// #260's own re-executed cases pin), so it never tracks this page's pending OnInitializedAsync task and
+		// the response completes on its own, without this probe's completion ever being needed. Awaiting the
+		// response before completing the probe makes that deterministic instead of racing this test's own
+		// completion against stock's unprompted response: a candidate that (wrongly) still waits for this
+		// pending work fails on this bound instead of on a race.
+		using var response = await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
+		host.Probe.Complete();
+
+		return await Issue187ResponseSnapshot.CreateAsync(response);
 	}
 }
 
