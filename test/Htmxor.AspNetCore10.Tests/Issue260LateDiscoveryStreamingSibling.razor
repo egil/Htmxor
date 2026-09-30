@@ -1,0 +1,21 @@
+@attribute [StreamRendering]
+@inject Issue260Gate Gate
+
+<p data-issue-260-late-sibling="@state">@state</p>
+
+@code {
+    private string state = "sibling-initial";
+
+    // Its own [StreamRendering] task stays pending until the test releases it, so the response's full quiescence
+    // is still incomplete once the non-streaming chain (the non-streaming child and the work it discovers late)
+    // resolves: on the late-discovery page the response therefore streams, and this sibling's completion can
+    // reach it only as a streamed <template> update -- the whole-body and "no batch missed" half of criterion 2.
+    // It is not what exposes a one-shot non-streaming wait: the late-discovered task alone keeps quiescence
+    // incomplete, so such a wait starts the response early with or without this sibling.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("late-sibling");
+        await Gate.WaitForReleaseAsync("late-sibling");
+        state = "sibling-updated";
+    }
+}

@@ -12,9 +12,26 @@
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// Streaming classification and non-streaming quiescence (#260, synchronized 2026-09-30) reimplement
+// EndpointComponentState.cs (the inherited StreamRendering and its hot-reload cache), EndpointHtmlRenderer.cs
+// (AddPendingTask) and EndpointHtmlRenderer.Prerendering.cs (WaitForNonStreamingPendingTasks and
+// HandleNavigationException) at v10.0.11 (a5383385245bdacc20ec19f30e46090a8154d8da) and at
+// v11.0.0-rc.1.26425.128 (c3325eeb6b47bc6383c127d4f4827dc9642a2b6e); the two releases differ only where
+// v10.0.11 stops tracking re-executed work:
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs | reimplements
+// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointComponentState.cs | reimplements
 
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.Encodings.Web;
 using Htmxor.Rendering;
@@ -27,10 +44,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Diagnostics;
 #if NET11_0_OR_GREATER
 using Htmxor.Http;
-using Microsoft.AspNetCore.Diagnostics;
 #endif
+
+[assembly: System.Reflection.Metadata.MetadataUpdateHandler(typeof(Htmxor.Endpoints.HtmxorEndpointCandidateRenderer))]
 
 namespace Htmxor.Endpoints;
 
@@ -40,19 +59,22 @@ internal partial class HtmxorEndpointCandidateRenderer
 	private TextWriter? streamingUpdatesWriter;
 	private string? streamingFramingCommentMarkup;
 	private bool waitForQuiescence;
-	private bool hasStreamingComponent;
+	private bool isReexecuted;
 	private readonly List<Task> nonStreamingPendingTasks = [];
+	private Task? nonStreamingPendingTasksCompletion;
+	private readonly Dictionary<int, bool> streamRenderingByComponentId = [];
+	private static readonly ConcurrentDictionary<Type, bool?> StreamRenderingByComponentType = new();
 	private readonly HashSet<int> visitedComponentIdsInCurrentStreamingBatch = [];
 
 	internal void InitializeStreamingRenderingFraming(HttpContext context, bool waitForQuiescence)
 	{
 		streamingUpdatesWriter = null;
-		hasStreamingComponent = false;
 		nonStreamingPendingTasks.Clear();
+		nonStreamingPendingTasksCompletion = null;
 		this.waitForQuiescence = waitForQuiescence;
+		isReexecuted = context.Features.Get<IStatusCodeReExecuteFeature>() is not null;
 #if NET11_0_OR_GREATER
-		var allowFraming = context.Features.Get<IStatusCodeReExecuteFeature>() is null &&
-			context.GetHtmxContext().Request.RoutingMode is not RoutingMode.Direct;
+		var allowFraming = !isReexecuted && context.GetHtmxContext().Request.RoutingMode is not RoutingMode.Direct;
 #else
 		var allowFraming = !waitForQuiescence;
 #endif
@@ -106,14 +128,6 @@ internal partial class HtmxorEndpointCandidateRenderer
 	{
 		RemoveDisposedFragments(in renderBatch);
 		UpdateNamedSubmitEvents(in renderBatch);
-		for (var index = 0; !waitForQuiescence && index < renderBatch.UpdatedComponents.Count; index++)
-		{
-			if (IsStreamingComponent(renderBatch.UpdatedComponents.Array[index].ComponentId))
-			{
-				hasStreamingComponent = true;
-				break;
-			}
-		}
 		var writer = streamingUpdatesWriter;
 		if (writer is not null && !rendererIsStopped)
 		{
@@ -123,21 +137,83 @@ internal partial class HtmxorEndpointCandidateRenderer
 		return base.UpdateDisplayAsync(in renderBatch);
 	}
 
-	internal bool HasStreamingComponent => hasStreamingComponent;
-
+	// Waits for non-streaming work until none is left, since waiting can reveal more of it, and answers a
+	// navigation from any of it before the response starts, as stock does.
 	internal Task WaitForNonStreamingPendingTasks()
-		=> nonStreamingPendingTasks.Count == 0
-			? Task.CompletedTask
-			: Task.WhenAll(nonStreamingPendingTasks);
+	{
+		return nonStreamingPendingTasksCompletion ??= Execute();
+
+		async Task Execute()
+		{
+			while (nonStreamingPendingTasks.Count > 0)
+			{
+				var pendingWork = Task.WhenAll(nonStreamingPendingTasks);
+				nonStreamingPendingTasks.Clear();
+				try
+				{
+					await pendingWork;
+				}
+				catch (NavigationException navigationException)
+				{
+					HandleNavigationException(navigationException);
+				}
+			}
+		}
+	}
+
+	internal void HandleNavigationException(NavigationException navigationException)
+	{
+		if (httpContext.Response.HasStarted)
+		{
+			// Stock's message, including its missing space, so the failure reads the same.
+			throw new InvalidOperationException(
+				"A navigation command was attempted during prerendering after the server already started sending the response. " +
+				"Navigation commands can not be issued during server-side prerendering after the response from the server has started. Applications must buffer the" +
+				"response and avoid using features like FlushAsync() before all components on the page have been rendered to prevent failed navigation commands.",
+				navigationException);
+		}
+		HtmxorEndpointCandidateInvoker.HandleNavigationBeforeResponseStarted(httpContext, navigationException.Location);
+	}
 
 	protected override void AddPendingTask(ComponentState? componentState, Task task)
 	{
+#if !NET11_0_OR_GREATER
+		// v10.0.11 does not track work on a re-executed request at all, so its response does not wait for it.
+		if (isReexecuted)
+		{
+			return;
+		}
+#endif
 		base.AddPendingTask(componentState, task);
-		if (!waitForQuiescence && componentState is not null && !IsStreamingComponent(componentState.ComponentId))
+		// Work with no owning component, such as a pending DisposeAsync, is non-streaming, as in stock.
+		if (!waitForQuiescence && !IsInStreamingContext(componentState))
 		{
 			nonStreamingPendingTasks.Add(task);
 		}
 	}
+
+	// Stock's EndpointComponentState.StreamRendering: a component's own [StreamRendering], or else its logical
+	// parent's, so a component inside a streaming subtree streams too.
+	private void TrackStreamRendering(int componentId, IComponent component, ComponentState state)
+		=> streamRenderingByComponentId[componentId] =
+			GetStreamRenderingAttribute(component) ?? IsInStreamingContext(state.LogicalParentComponentState);
+
+	internal bool IsInStreamingContext(int componentId)
+		=> streamRenderingByComponentId.TryGetValue(componentId, out var streaming) && streaming;
+
+	private bool IsInStreamingContext(ComponentState? componentState)
+		=> componentState is not null && IsInStreamingContext(componentState.ComponentId);
+
+	// Upstream registers EndpointComponentState as a metadata update handler so this cache cannot outlive the
+	// attributes it describes. Invoked by the hot reload host through reflection.
+	internal static void ClearCache(Type[]? _) => StreamRenderingByComponentType.Clear();
+
+	private static bool? GetStreamRenderingAttribute(IComponent component)
+		=> StreamRenderingByComponentType.GetOrAdd(component.GetType(), static type => type
+			.GetCustomAttributes(typeof(StreamRenderingAttribute), inherit: true)
+			.OfType<StreamRenderingAttribute>()
+			.Select(attribute => (bool?)attribute.Enabled)
+			.FirstOrDefault());
 
 	internal void WriteNotFoundAfterResponseStarted(HttpContext context, TextWriter writer)
 	{
@@ -175,7 +251,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 		var enhancedNavigation = HtmxorEndpointCandidateFormServices.IsProgressivelyEnhancedNavigation(httpContext.Request);
 		foreach (var component in componentIdsInDepthOrder)
 		{
-			if (visitedComponentIdsInCurrentStreamingBatch.Contains(component.Id) || !IsStreamingComponent(component.Id))
+			if (visitedComponentIdsInCurrentStreamingBatch.Contains(component.Id) || !IsInStreamingContext(component.Id))
 			{
 				continue;
 			}
@@ -201,14 +277,6 @@ internal partial class HtmxorEndpointCandidateRenderer
 		}
 		return depth;
 	}
-
-	// Whether this component's own type opted into streaming, which decides its streaming markers. The
-	// inherited "is inside a streaming subtree" question that CacheView needs is tracked separately.
-	private bool IsStreamingComponent(int componentId)
-		=> GetComponentState(componentId).Component.GetType()
-			.GetCustomAttributes(typeof(StreamRenderingAttribute), inherit: true)
-			.OfType<StreamRenderingAttribute>()
-			.Any(attribute => attribute.Enabled);
 
 	private static void WriteNavigationAfterResponseStarted(TextWriter writer, HttpContext context, string destination)
 		=> WriteResponseTemplate(

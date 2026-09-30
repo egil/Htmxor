@@ -7,7 +7,6 @@
 // docs/engineering/candidate-form-adapter.md for the approved #219 dependency inventory.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointComponentState.cs | reimplements
 
-using System.Collections.Concurrent;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -15,8 +14,6 @@ using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
-
-[assembly: System.Reflection.Metadata.MetadataUpdateHandler(typeof(Htmxor.Endpoints.HtmxorEndpointCandidateRenderer))]
 
 namespace Htmxor.Endpoints;
 
@@ -27,12 +24,8 @@ internal partial class HtmxorEndpointCandidateRenderer
 	private void TrackForCacheView(
 		int componentId, IComponent component, ComponentState? parentComponentState, ComponentState state)
 	{
-		// This is the inherited notion stock keeps on EndpointComponentState.StreamRendering, which CacheView
-		// needs: a component inside a streaming subtree is itself in a streaming context. It is deliberately
-		// not the same question as IsStreamingComponent, which asks only whether this component's own type
-		// opted in and decides whether to emit that component's streaming markers.
-		streamRenderingByComponentId[componentId] =
-			GetStreamRenderingAttribute(component) ?? IsInheritedStreamRendering(state.LogicalParentComponentState);
+		// TrackStreamRendering has already recorded whether this component is in a streaming context, the
+		// inherited EndpointComponentState.StreamRendering that CacheView needs.
 		if (component is CacheView cacheView)
 		{
 			// Every other shape mismatch in this adapter fails loudly. A parentless boundary would otherwise
@@ -54,29 +47,6 @@ internal partial class HtmxorEndpointCandidateRenderer
 				() => ComputeCacheViewTreePositionKey(parentComponentState, cacheView, ancestorTypeName, state));
 		}
 	}
-
-	private readonly Dictionary<int, bool> streamRenderingByComponentId = [];
-
-	internal bool IsInStreamingContext(int componentId)
-		=> streamRenderingByComponentId.TryGetValue(componentId, out var streaming) && streaming;
-
-	private bool IsInheritedStreamRendering(ComponentState? parentComponentState)
-		=> parentComponentState is not null &&
-			streamRenderingByComponentId.TryGetValue(parentComponentState.ComponentId, out var streaming) &&
-			streaming;
-
-	private static readonly ConcurrentDictionary<Type, bool?> StreamRenderingByComponentType = new();
-
-	// Upstream registers EndpointComponentState as a metadata update handler so this cache cannot outlive the
-	// attributes it describes. Invoked by the hot reload host through reflection.
-	internal static void ClearCache(Type[]? _) => StreamRenderingByComponentType.Clear();
-
-	private static bool? GetStreamRenderingAttribute(IComponent component)
-		=> StreamRenderingByComponentType.GetOrAdd(component.GetType(), static type => type
-			.GetCustomAttributes(typeof(StreamRenderingAttribute), inherit: true)
-			.OfType<StreamRenderingAttribute>()
-			.Select(attribute => (bool?)attribute.Enabled)
-			.FirstOrDefault());
 
 	// One bit, and only because an htmx request must never be served an entry an ordinary request stored:
 	// the same URL serves both and their bodies differ. Nothing writes into the htmx key space, since an htmx

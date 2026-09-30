@@ -30,11 +30,9 @@ public sealed class Issue219CacheConfigurationTests
 		var actual = await ReadPairAsync<Issue219StreamingPage>(htmxor: true);
 
 		// Caching is suppressed inside a streaming render context, which the candidate must inherit from the
-		// logical parent exactly as stock does. The comparison is on the cached application data rather than
-		// the whole body: the candidate's streaming boundary markers already differ from stock for a component
-		// that did not itself opt into streaming, which is pre-existing and owned by #192.
+		// logical parent exactly as stock does.
 		Assert.Equal(["1", "2"], expected.Select(DataVersion));
-		Assert.Equal(expected.Select(DataVersion), actual.Select(DataVersion));
+		Assert.Equal(expected, actual);
 	}
 
 	[Fact]
@@ -120,17 +118,13 @@ public sealed class Issue219CacheConfigurationTests
 
 		// The wrapper carries no [StreamRendering] of its own, so the descendant guard must consult the inherited
 		// streaming state rather than the wrapper's own type, exactly as it does for the CacheView boundary itself.
-		// Measured before the fix: stock returned 200 here while the candidate threw. Streaming boundary markers
-		// are compared elsewhere (A_boundary_inside_a_streaming_subtree_is_not_cached) and are pre-existing,
-		// #192-owned noise for a component that never opted into streaming itself, so only the authorized content
-		// is compared here.
+		// Measured before the fix: stock returned 200 here while the candidate threw.
 		var expected = await ReadAsAuthenticatedAsync(stock, "alice");
 		var actual = await ReadAsAuthenticatedAsync(candidate, "alice");
 
 		Assert.Equal(HttpStatusCode.OK, expected.Status);
 		Assert.Contains("authorized: alice", expected.Body, StringComparison.Ordinal);
-		Assert.Equal(expected.Status, actual.Status);
-		Assert.Contains("authorized: alice", actual.Body, StringComparison.Ordinal);
+		Assert.Equal(expected, actual);
 	}
 
 	[Fact]

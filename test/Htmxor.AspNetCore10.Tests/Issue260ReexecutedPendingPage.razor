@@ -1,0 +1,19 @@
+@page "/issue-260/reexecuted-pending"
+@inject Issue260Gate Gate
+
+<main data-issue-260-reexecuted-pending="@state">@state</main>
+
+@code {
+    private string state = "reexecuted-initial";
+
+    // Not [StreamRendering]. Re-executed by UseStatusCodePagesWithReExecute; the protected behavior is that the
+    // candidate answers a re-executed request with non-streaming pending work exactly as stock does on the same
+    // target, whether that target's stock awaits the work or, because its AddPendingTask does not track
+    // re-executed work, answers with this page's pre-release state.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("reexecuted-pending");
+        await Gate.WaitForReleaseAsync("reexecuted-pending");
+        state = "reexecuted-complete";
+    }
+}

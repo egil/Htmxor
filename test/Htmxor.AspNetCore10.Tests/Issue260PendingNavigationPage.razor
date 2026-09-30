@@ -1,0 +1,33 @@
+@page "/issue-260/pending-navigation"
+@inject NavigationManager Navigation
+@inject Issue260Gate Gate
+
+<main data-issue-260-pending-navigation>@state</main>
+
+@code {
+    private string state = "before-navigate";
+
+    // Not [StreamRendering]: the invoker awaits this component's non-streaming pending work before writing any
+    // response. Stock's own non-streaming wait loop catches the NavigationException this raises and answers with
+    // a redirect before the response starts; the default (throwing) navigation path never reaches a streaming
+    // response at all here.
+    //
+    // Awaits Task.Yield() right after signalling Reached: without it, a release that lands before this await
+    // registers lets NavigateTo run, and throw, synchronously inside the first render, so the exception escapes
+    // BeginRenderEndpointComponent itself. The invoker's own first-render catch (#230's bare redirect) then
+    // answers it, and the request never reaches the pre-response wait these cases protect: a false green against
+    // an unmodified candidate, and a false red against a correct fix that answers an htmx request with
+    // HX-Redirect from that wait instead. The yield posts the rest of this method to the renderer's dispatcher,
+    // which cannot run it until the invoker has yielded at its first real wait, so NavigateTo always throws from
+    // pending work the invoker is already awaiting, regardless of how quickly a test reacts to Reached. In
+    // Standard mode that wait is the non-streaming wait; Direct mode forces full quiescence, so there it is the
+    // invoker's await quiesceTask.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("pending-navigation");
+        await Task.Yield();
+        await Gate.WaitForReleaseAsync("pending-navigation");
+        Navigation.NavigateTo("/issue-260/destination");
+        state = "updated-after-navigate";
+    }
+}

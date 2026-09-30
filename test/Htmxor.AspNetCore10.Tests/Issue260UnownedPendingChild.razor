@@ -1,0 +1,16 @@
+@implements IAsyncDisposable
+@inject Issue260Gate Gate
+
+<p data-issue-260-unowned-pending-child>child</p>
+
+@code {
+    // Disposed when the page above removes it. The pending DisposeAsync task then has no owning
+    // ComponentState -- stock's AddPendingTask classifies a task with a null componentState as non-streaming
+    // unconditionally, regardless of whether any component is still rendering.
+    public async ValueTask DisposeAsync()
+    {
+        Gate.Reached("unowned-pending-child-dispose");
+        await Task.Yield();
+        await Gate.WaitForReleaseAsync("unowned-pending-child-dispose");
+    }
+}

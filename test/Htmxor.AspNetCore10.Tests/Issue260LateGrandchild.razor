@@ -1,0 +1,17 @@
+@inject Issue260Gate Gate
+
+<p data-issue-260-late-grandchild="@state">@state</p>
+
+@code {
+    private string state = "grandchild-pending";
+
+    // The work discovered late: stock's initial HTML must already show "grandchild-complete" because stock
+    // loops the non-streaming wait until no new non-streaming task appears, so it picks this task up on a later
+    // iteration and waits for it too, before deciding whether -- and what -- to write as the initial response.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("late-grandchild");
+        await Gate.WaitForReleaseAsync("late-grandchild");
+        state = "grandchild-complete";
+    }
+}

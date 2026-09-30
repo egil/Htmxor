@@ -1,0 +1,29 @@
+@inject Issue260Gate Gate
+
+<p data-issue-260-late-nav-child="@state">@state</p>
+@if (showGrandchild)
+{
+    <Issue260LateNavigationGrandchild />
+}
+
+@code {
+    private string state = "child-initial";
+    private bool showGrandchild;
+
+    // Awaits Task.Yield() right after signalling Reached: without it, a release that lands before this await
+    // registers lets this method run to completion inside the same render pass the invoker captures its first
+    // non-streaming snapshot from, so the grandchild revealed below would already belong to that very first
+    // snapshot and the later-iteration mechanism criterion 3's "in any iteration" protects would never be
+    // exercised. The yield guarantees this component's own task is still incomplete when that first snapshot
+    // is captured. ComponentBase's own StateHasChanged after OnInitializedAsync then renders the grandchild,
+    // still inside this component's tracked SetParametersAsync task, so the grandchild's pending task can only
+    // ever be discovered by a wait that re-checks for new work after the first one.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("late-nav-child");
+        await Task.Yield();
+        await Gate.WaitForReleaseAsync("late-nav-child");
+        showGrandchild = true;
+        state = "child-updated";
+    }
+}
