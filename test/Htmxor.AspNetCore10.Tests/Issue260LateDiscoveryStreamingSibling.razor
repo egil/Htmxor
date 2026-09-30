@@ -6,9 +6,11 @@
 @code {
     private string state = "sibling-initial";
 
-    // Its own [StreamRendering] is what makes hasStreamingComponent true for the whole response, which is the
-    // precondition the non-streaming child below needs to expose the defect: without a streaming component
-    // anywhere on the page the response never considers starting before full quiescence at all.
+    // Its own [StreamRendering] task stays pending here, so it keeps the response's full quiescence incomplete
+    // after the non-streaming wait chain below finishes -- the precondition the non-streaming child needs to
+    // expose the defect: without a streaming component anywhere on the page, nothing keeps quiescence
+    // incomplete once that chain resolves, and the response never considers starting before full quiescence
+    // at all.
     protected override async Task OnInitializedAsync()
     {
         Gate.Reached("late-sibling");

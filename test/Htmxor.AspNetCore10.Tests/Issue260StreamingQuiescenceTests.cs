@@ -319,9 +319,12 @@ public sealed class Issue260NonStreamingNavigationTests
 }
 
 // LR-ce7bd22-P002 / LR-ce7bd22-S001 / the corrected criterion-5 decision: a navigation caught by the invoker's
-// full-quiescence wait (Direct routing, an error handler, or a re-executed request) must answer with no
-// rendered page body, exactly as stock's own NavigationException catch in RenderEndpointComponent returns
-// PrerenderedComponentHtmlContent.Empty instead of whatever was already rendered before the navigation.
+// full-quiescence wait on an error-handler or a re-executed request -- the two paths this class verifies --
+// must answer with no rendered page body, exactly as stock's own NavigationException catch in
+// RenderEndpointComponent returns PrerenderedComponentHtmlContent.Empty instead of whatever was already
+// rendered before the navigation. This does not extend to Direct-mode POST: its own full-quiescence catch
+// (the invoker's submit branch) does not clear the body, since stock's own submit navigation keeps it too
+// (Issue260NonStreamingNavigationTests' own Direct POST case).
 public sealed class Issue260NavigationEmptyBodyTests
 {
 	private const string PendingNavigationPath = "/issue-260/pending-navigation";
@@ -515,8 +518,10 @@ public sealed class Issue260ReexecutionParityTests
 
 // A read-once normalized header snapshot shared by every #260 case in this file, following the same
 // per-file convention as Issue186StreamingParityTests' own NormalizeHeaders and Issue187ResponseSnapshot: each
-// host has its own ephemeral data-protection key, so only the antiforgery Set-Cookie value is host-specific,
-// and only Date is otherwise time-varying.
+// host has its own ephemeral data-protection key, so only the antiforgery Set-Cookie *value* is host-specific,
+// and only Date is otherwise time-varying. Whole-header parity (#260's own contract) still requires the
+// cookie's name, count, order, and attributes (Path, SameSite, Secure, HttpOnly, ...) to match as the
+// framework emits them; only the per-cookie value is replaced.
 internal static class Issue260Snapshot
 {
 	public static IReadOnlyDictionary<string, string> NormalizeHeaders(HttpResponseMessage response) =>
@@ -527,8 +532,28 @@ internal static class Issue260Snapshot
 				group => group.Key switch
 				{
 					_ when group.Key.Equals("Date", StringComparison.OrdinalIgnoreCase) => "<dynamic-date>",
-					_ when group.Key.Equals("Set-Cookie", StringComparison.OrdinalIgnoreCase) => "<dynamic-antiforgery-cookie>",
+					_ when group.Key.Equals("Set-Cookie", StringComparison.OrdinalIgnoreCase)
+						=> string.Join(",", group.SelectMany(header => header.Value).Select(NormalizeSetCookieValue)),
 					_ => string.Join(",", group.SelectMany(header => header.Value)),
 				},
 				StringComparer.OrdinalIgnoreCase);
+
+	// Replaces only the cookie's value (the ephemeral, per-host antiforgery token) with a fixed placeholder.
+	// The cookie name and every attribute -- path, samesite, secure, httponly, and any others the framework
+	// emits -- are left exactly as received, so a candidate that adds, drops, or changes one of them still
+	// fails whole-header parity instead of being hidden behind this normalization.
+	private static string NormalizeSetCookieValue(string cookie)
+	{
+		var nameSeparator = cookie.IndexOf('=');
+		if (nameSeparator < 0)
+		{
+			return cookie;
+		}
+
+		var name = cookie[..nameSeparator];
+		var valueAndAttributes = cookie[(nameSeparator + 1)..];
+		var attributesSeparator = valueAndAttributes.IndexOf(';');
+		var attributes = attributesSeparator < 0 ? string.Empty : valueAndAttributes[attributesSeparator..];
+		return $"{name}=<dynamic-cookie-value>{attributes}";
+	}
 }
