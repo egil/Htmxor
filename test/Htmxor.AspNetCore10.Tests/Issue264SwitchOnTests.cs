@@ -152,8 +152,9 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 	[Fact]
 	public async Task Streaming_navigation_after_response_started_has_stock_redirection_template_parity()
 	{
-		var stock = await RunStreamingCaseAsync(fixture.Stock);
-		var candidate = await RunStreamingCaseAsync(fixture.Candidate);
+		const string path = "/issue-264/streaming";
+		var stock = await RunStreamingCaseAsync(fixture.Stock, path);
+		var candidate = await RunStreamingCaseAsync(fixture.Candidate, path);
 
 		AssertStreamingStopsAtRedirection(stock);
 		AssertStreamingStopsAtRedirection(candidate);
@@ -162,6 +163,69 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		// act on. Comparing the whole normalized body catches that, per criterion 3's "whole body".
 		Assert.Equal(stock.WholeBody, candidate.WholeBody);
 		await AssertStreamingDestinationParityAsync(stock, candidate);
+		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
+	}
+
+	// LR-08402d5-P001: SignalRendererToFinishRendering is a *deferred* stop. When a child's synchronous
+	// OnInitialized navigates while its parent's post-start render batch is still being built, that batch is
+	// already past ProcessPendingRender's gate and reaches UpdateDisplayAsync with the stop flag already set;
+	// only UpdateDisplayAsync's own "!rendererIsStopped" check keeps it from streaming after the redirection
+	// template. This is green at 08402d5 in-process; the mutant that drops that guard is recorded in
+	// verification.md, not committed here.
+	[Fact]
+	public async Task Streaming_child_navigation_during_post_start_render_batch_has_stock_redirection_template_parity()
+	{
+		const string path = "/issue-264/streaming-child-navigate";
+		const string initialMarker = "data-issue-264-streaming-child=\"initial\"";
+		var stock = await RunStreamingCaseAsync(fixture.Stock, path, initialMarker);
+		var candidate = await RunStreamingCaseAsync(fixture.Candidate, path, initialMarker);
+
+		AssertStreamingStopsAtRedirection(stock);
+		AssertStreamingStopsAtRedirection(candidate);
+		Assert.Equal(stock.WholeBody, candidate.WholeBody);
+		await AssertStreamingDestinationParityAsync(stock, candidate);
+		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
+	}
+
+	// LR-08402d5-P002: neither oracle answers this case. Stock has no htmx concept, and the switch-off
+	// (throwing) candidate gives 500 for pending-work navigation regardless of htmx, which is #260's own
+	// defect (see #192 comment 5901861239), not a valid switch-off answer. This case therefore asserts the
+	// owner's decided output directly, per
+	// https://github.com/egil/Htmxor/issues/264#issuecomment-5902791174: htmx navigation from pending work
+	// gets HX-Redirect, the same as a completed submit; only first-render navigation keeps the bare 302.
+	[Fact]
+	public async Task Htmx_pending_work_navigation_gets_hx_redirect_per_decision()
+	{
+		var on = await SendAsync(fixture.Candidate, "/issue-264/pending", htmx: true);
+
+		Assert.Equal(HttpStatusCode.OK, on.StatusCode);
+		Assert.Equal(Issue264SwitchOnConstants.InternalDestination, on.HxRedirect);
+		Assert.Null(on.Location);
+		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
+	}
+
+	// LR-08402d5-P003: before #264, the throwing path could reach HandleNavigationBeforeResponseStarted at
+	// most once per request, so a second external NavigateTo was unreachable. With the switch on, both calls
+	// run OnNavigateTo. Stock's HandleNavigationBeforeResponseStarted uses Headers.Add, so the second call
+	// throws (logged by GetErrorHandledTask) and the header keeps stock's first value. This reads the raw
+	// header values directly, rather than through Issue264Snapshot.EnhancedNavigationLocation, because that
+	// property assumes exactly one value and a second value is exactly the defect under test.
+	[Fact]
+	public async Task Double_external_navigation_under_enhanced_navigation_has_stock_single_header_value_parity()
+	{
+		const string path = "/issue-264/sync-double-external";
+		using var stockRequest = Issue264SwitchOnRequests.Create(HttpMethod.Get, path, enhancedNavigation: true);
+		using var stockResponse = await fixture.Stock.Client.SendAsync(stockRequest);
+		using var candidateRequest = Issue264SwitchOnRequests.Create(HttpMethod.Get, path, enhancedNavigation: true);
+		using var candidateResponse = await fixture.Candidate.Client.SendAsync(candidateRequest);
+
+		var stockValues = EnhancedNavigationRedirectHeaderValues(stockResponse);
+		var candidateValues = EnhancedNavigationRedirectHeaderValues(candidateResponse);
+
+		Assert.Equal(HttpStatusCode.OK, stockResponse.StatusCode);
+		Assert.Single(stockValues); // stock's own oracle: exactly one value, even though NavigateTo ran twice
+		Assert.Equal(stockResponse.StatusCode, candidateResponse.StatusCode);
+		Assert.Equal(stockValues.Count, candidateValues.Count);
 		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
 	}
 
@@ -222,16 +286,20 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		Assert.Equal(new Uri(expectedDestination), candidateDestination);
 	}
 
-	private static async Task<Issue264StreamingSnapshot> RunStreamingCaseAsync(Issue264SwitchOnHostProcess host)
+	private static Task<Issue264StreamingSnapshot> RunStreamingCaseAsync(Issue264SwitchOnHostProcess host, string path) =>
+		RunStreamingCaseAsync(host, path, initialMarker: "data-issue-264-streaming=\"initial\"");
+
+	private static async Task<Issue264StreamingSnapshot> RunStreamingCaseAsync(
+		Issue264SwitchOnHostProcess host, string path, string initialMarker)
 	{
-		using var response = await host.Client.GetAsync("/issue-264/streaming", HttpCompletionOption.ResponseHeadersRead);
+		using var response = await host.Client.GetAsync(path, HttpCompletionOption.ResponseHeadersRead);
 		await using var reader = await Issue264StreamingBodyReader.CreateAsync(response);
 
-		var initial = await reader.ReadUntilAsync(["data-issue-264-streaming=\"initial\""]);
+		var initial = await reader.ReadUntilAsync([initialMarker]);
 		// A missed precondition (the initial render never arriving) must fail here, not be reported later as a
 		// missing redirection: ReadUntilAsync returns whatever it has on timeout, so an empty or partial
 		// `initial` would otherwise blame the protected behavior for a broken setup.
-		Assert.Contains("data-issue-264-streaming=\"initial\"", initial, StringComparison.Ordinal);
+		Assert.Contains(initialMarker, initial, StringComparison.Ordinal);
 		await host.ReleaseStreamingNavigateAsync();
 
 		var beforeResume = await reader.ReadUntilAsync(["<template type=\"redirection\">", "<template blazor-component-id"]);
@@ -276,6 +344,9 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 			"No InvalidOperationException about uninitialized endpoint-based navigation may go unobserved: " +
 			string.Join("; ", unobserved));
 	}
+
+	private static IReadOnlyList<string> EnhancedNavigationRedirectHeaderValues(HttpResponseMessage response) =>
+		response.Headers.TryGetValues("blazor-enhanced-nav-redirect-location", out var values) ? values.ToArray() : [];
 
 	private sealed record Issue264StreamingSnapshot(HttpStatusCode StatusCode, string BeforeResume, string AfterResume, string WholeBody);
 }

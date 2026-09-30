@@ -1,0 +1,9 @@
+@inject NavigationManager Navigation
+
+<p data-issue-264-navigating-child>child</p>
+
+@code {
+    // Synchronous OnInitialized, so NavigateTo runs inline while the parent's post-start re-render batch is
+    // still being built, not from an independent async continuation. This is the shape LR-08402d5-P001 probed.
+    protected override void OnInitialized() => Navigation.NavigateTo("/issue-264/streaming-destination");
+}
