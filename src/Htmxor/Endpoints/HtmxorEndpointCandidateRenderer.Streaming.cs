@@ -74,8 +74,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 		this.waitForQuiescence = waitForQuiescence;
 		isReexecuted = context.Features.Get<IStatusCodeReExecuteFeature>() is not null;
 #if NET11_0_OR_GREATER
-		var allowFraming = context.Features.Get<IStatusCodeReExecuteFeature>() is null &&
-			context.GetHtmxContext().Request.RoutingMode is not RoutingMode.Direct;
+		var allowFraming = !isReexecuted && context.GetHtmxContext().Request.RoutingMode is not RoutingMode.Direct;
 #else
 		var allowFraming = !waitForQuiescence;
 #endif
@@ -186,7 +185,8 @@ internal partial class HtmxorEndpointCandidateRenderer
 		}
 #endif
 		base.AddPendingTask(componentState, task);
-		if (!waitForQuiescence && componentState is not null && !IsInStreamingContext(componentState.ComponentId))
+		// Work with no owning component, such as a pending DisposeAsync, is non-streaming, as in stock.
+		if (!waitForQuiescence && !IsInStreamingContext(componentState))
 		{
 			nonStreamingPendingTasks.Add(task);
 		}
@@ -278,8 +278,6 @@ internal partial class HtmxorEndpointCandidateRenderer
 		return depth;
 	}
 
-	// Whether this component's own type opted into streaming, which decides its streaming markers. The
-	// inherited "is inside a streaming subtree" question that CacheView needs is tracked separately.
 	private static void WriteNavigationAfterResponseStarted(TextWriter writer, HttpContext context, string destination)
 		=> WriteResponseTemplate(
 			writer,

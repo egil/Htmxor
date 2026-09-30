@@ -7,7 +7,6 @@
 // docs/engineering/candidate-form-adapter.md for the approved #219 dependency inventory.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointComponentState.cs | reimplements
 
-using System.Collections.Concurrent;
 using Htmxor.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -15,7 +14,6 @@ using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
-
 
 namespace Htmxor.Endpoints;
 
@@ -49,7 +47,6 @@ internal partial class HtmxorEndpointCandidateRenderer
 				() => ComputeCacheViewTreePositionKey(parentComponentState, cacheView, ancestorTypeName, state));
 		}
 	}
-
 
 	// One bit, and only because an htmx request must never be served an entry an ordinary request stored:
 	// the same URL serves both and their bodies differ. Nothing writes into the htmx key space, since an htmx

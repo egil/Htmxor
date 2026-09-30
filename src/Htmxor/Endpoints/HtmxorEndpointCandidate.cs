@@ -32,6 +32,9 @@
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// Non-streaming quiescence in the invoker (#260, synchronized 2026-09-30): the full-quiescence wait and its
+// navigation handling reimplement WaitForResultReady and RenderEndpointComponent in the same
+// EndpointHtmlRenderer.Prerendering.cs at both commits above.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
@@ -221,6 +224,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			return;
 		}
 		Task quiesceTask;
+		var writesPage = true;
 		if (!request.IsPost || isReexecuted)
 		{
 			quiesceTask = htmlContent.QuiescenceTask;
@@ -232,10 +236,11 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 				}
 				catch (NavigationException navigationException)
 				{
-					// As stock's full-quiescence wait: a navigation from pending work is answered before the
-					// response starts, and nothing is left to stream.
+					// As stock's RenderEndpointComponent: a navigation from pending work during the full wait is
+					// answered before the response starts, with no page body and nothing left to stream.
 					renderer.HandleNavigationException(navigationException);
 					quiesceTask = Task.CompletedTask;
+					writesPage = false;
 				}
 			}
 			else
@@ -265,9 +270,17 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			}
 			if (waitForQuiescence)
 			{
-				// A response that cannot stream (Direct routing, an error handler) answers once the submit's own
-				// work has completed.
-				await quiesceTask;
+				// A Direct-routed response cannot stream, so it answers once the submit's own work has completed,
+				// and a navigation from that work is answered like one from the submit itself.
+				try
+				{
+					await quiesceTask;
+				}
+				catch (NavigationException navigationException)
+				{
+					renderer.HandleNavigationException(navigationException);
+					quiesceTask = Task.CompletedTask;
+				}
 			}
 		}
 		if (renderer.NotFoundEventArgs is not null)
@@ -301,7 +314,10 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			defaultBufferSize,
 			ArrayPool<byte>.Shared,
 			ArrayPool<char>.Shared);
-		renderer.WriteResponseHtml(htmlContent, context.GetHtmxContext(), writer);
+		if (writesPage)
+		{
+			renderer.WriteResponseHtml(htmlContent, context.GetHtmxContext(), writer);
+		}
 		if (!quiesceTask.IsCompletedSuccessfully)
 		{
 			await renderer.SendStreamingUpdatesAsync(context, quiesceTask, writer);
