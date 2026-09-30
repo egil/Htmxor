@@ -1,0 +1,13 @@
+@inject NavigationManager Navigation
+@inject Issue260Gate Gate
+
+<p data-issue-260-late-nav-grandchild>grandchild</p>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("late-nav-grandchild");
+        await Gate.WaitForReleaseAsync("late-nav-grandchild");
+        Navigation.NavigateTo("/issue-260/destination");
+    }
+}

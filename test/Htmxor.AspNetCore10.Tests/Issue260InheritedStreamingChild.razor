@@ -1,0 +1,17 @@
+@inject Issue260Gate Gate
+
+<p data-issue-260-child="@state">@state</p>
+
+@code {
+    private string state = "initial";
+
+    // Carries no [StreamRendering] of its own: the page above does, and the protected behavior is that this
+    // child streams anyway because it inherits the page's value, exactly as stock's EndpointComponentState
+    // inherits from the logical parent.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("inherited-child");
+        await Gate.WaitForReleaseAsync("inherited-child");
+        state = "updated";
+    }
+}

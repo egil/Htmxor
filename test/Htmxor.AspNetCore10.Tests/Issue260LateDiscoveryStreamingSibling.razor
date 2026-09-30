@@ -1,0 +1,18 @@
+@attribute [StreamRendering]
+@inject Issue260Gate Gate
+
+<p data-issue-260-late-sibling="@state">@state</p>
+
+@code {
+    private string state = "sibling-initial";
+
+    // Its own [StreamRendering] is what makes hasStreamingComponent true for the whole response, which is the
+    // precondition the non-streaming child below needs to expose the defect: without a streaming component
+    // anywhere on the page the response never considers starting before full quiescence at all.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("late-sibling");
+        await Gate.WaitForReleaseAsync("late-sibling");
+        state = "sibling-updated";
+    }
+}

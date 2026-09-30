@@ -1,0 +1,21 @@
+@page "/issue-260/pending-navigation"
+@inject NavigationManager Navigation
+@inject Issue260Gate Gate
+
+<main data-issue-260-pending-navigation>@state</main>
+
+@code {
+    private string state = "before-navigate";
+
+    // Not [StreamRendering]: the invoker awaits this component's non-streaming pending work before writing any
+    // response. Stock's own non-streaming wait loop catches the NavigationException this raises and answers with
+    // a redirect before the response starts; the default (throwing) navigation path never reaches a streaming
+    // response at all here.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("pending-navigation");
+        await Gate.WaitForReleaseAsync("pending-navigation");
+        Navigation.NavigateTo("/issue-260/destination");
+        state = "updated-after-navigate";
+    }
+}

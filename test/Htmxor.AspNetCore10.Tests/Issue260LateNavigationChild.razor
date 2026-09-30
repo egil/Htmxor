@@ -1,0 +1,25 @@
+@inject Issue260Gate Gate
+
+<p data-issue-260-late-nav-child="@state">@state</p>
+@if (showGrandchild)
+{
+    <Issue260LateNavigationGrandchild />
+}
+
+@code {
+    private string state = "child-initial";
+    private bool showGrandchild;
+
+    // Same shape as Issue260LateDiscoveryChild: the grandchild below is discovered only after this first wait
+    // releases, so its NavigationException surfaces from a later iteration of the non-streaming wait, not the
+    // first. A fix that only wraps the first WhenAll in a try/catch, rather than every iteration of a loop,
+    // would still let this one escape.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("late-nav-child");
+        await Gate.WaitForReleaseAsync("late-nav-child");
+        showGrandchild = true;
+        state = "child-updated";
+        await InvokeAsync(StateHasChanged);
+    }
+}

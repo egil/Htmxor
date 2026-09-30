@@ -1,0 +1,27 @@
+@inject Issue260Gate Gate
+
+<p data-issue-260-late-child="@state">@state</p>
+@if (showGrandchild)
+{
+    <Issue260LateGrandchild />
+}
+
+@code {
+    private string state = "child-initial";
+    private bool showGrandchild;
+
+    // Not [StreamRendering], and reveals its own grandchild only once this first wait releases: the grandchild's
+    // pending task cannot exist in the non-streaming wait set at the moment that set is first captured, so it is
+    // "work discovered after the first wait began" (criterion 2). InvokeAsync(StateHasChanged) runs synchronously
+    // here (the dispatcher is already on this call stack), so the grandchild's own OnInitializedAsync -- and the
+    // pending task it adds -- run before this method itself returns, i.e. before this component's own pending
+    // task completes.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("late-child");
+        await Gate.WaitForReleaseAsync("late-child");
+        showGrandchild = true;
+        state = "child-updated";
+        await InvokeAsync(StateHasChanged);
+    }
+}
