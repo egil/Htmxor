@@ -1,6 +1,7 @@
 @page "/issue-264/streaming"
 @attribute [StreamRendering]
 @inject NavigationManager Navigation
+@inject Issue264StreamingGate Gate
 
 <main data-issue-264-streaming="@state">@state</main>
 
@@ -9,14 +10,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Give the initial synchronous render a real chance to reach the client before navigating, so the
-        // navigation genuinely happens after the response has started rather than racing its first flush.
-        await Task.Delay(TimeSpan.FromMilliseconds(50));
+        // The test releases this only after it has read the initial synchronous render off the wire, so the
+        // navigation below is genuinely "after the response has started" rather than a timing guess.
+        await Gate.NavigateReleased;
         Navigation.NavigateTo("/issue-264/streaming-destination");
 
-        // Stock stops the renderer from here on; a candidate that silently dropped the navigation instead
-        // keeps going and streams this update after the point where stock's redirection template appears.
-        await Task.Delay(TimeSpan.FromMilliseconds(150));
+        // The test releases this only after making its own separate request to a release endpoint. Work
+        // fire-and-forget from the same dispatcher turn as the NavigateTo call above is already queued ahead
+        // of that externally triggered continuation, so it gets to run first. Stock stops the renderer from
+        // here on; a candidate that silently dropped the navigation instead keeps going and streams this
+        // update after the point where stock's redirection template appears.
+        await Gate.ResumeReleased;
         state = "updated-after-navigate";
     }
 }

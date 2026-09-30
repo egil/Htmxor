@@ -2,13 +2,13 @@
 
 	<!--
 		Issue #264 test-support host, not a test project itself. It exists only so Issue264SwitchOnTests in
-		test/Htmxor.AspNetCore10.Tests can spawn it as a separate OS process per switch-under-test mode
-		("stock" or "candidate"). The non-throwing navigation switch,
+		test/Htmxor.AspNetCore10.Tests can spawn it as a separate OS process per mode ("stock", "candidate", or
+		"candidate-switch-off"; see Issue264SwitchOnHostRuntime). The non-throwing navigation switch,
 		Microsoft.AspNetCore.Components.Endpoints.NavigationManager.DisableThrowNavigationException, is read once
 		into a `static readonly` field the first time HttpNavigationManager initializes on net11.0, so a process
-		that starts with the switch already baked into its own runtimeconfig.json is the only way to prove
-		switch-on behavior on that target; net10.0 uses the same mechanism for parity between targets (see
-		docs/agents/testing.md and the issue's Verification contract).
+		that settles the switch's value before that first initialization is the only way to prove either value
+		on that target; net10.0 uses the same mechanism for parity between targets. See the Verification
+		contract on https://github.com/egil/Htmxor/issues/264.
 	-->
 
 	<PropertyGroup>
@@ -31,9 +31,9 @@
 	</ItemGroup>
 
 	<!--
-		Bakes the switch into this process's own runtimeconfig.json ("configProperties"), applied by the .NET
-		host before Main runs and before any Microsoft.AspNetCore.Components.Endpoints type initializes. This
-		host only ever runs switch-on; switch-off parity stays with the existing in-process paired hosts.
+		Bakes the switch on into this process's own runtimeconfig.json ("configProperties"), applied by the
+		.NET host before Main runs and before any Microsoft.AspNetCore.Components.Endpoints type initializes.
+		Issue264SwitchOnHostRuntime flips it back off for "candidate-switch-off" mode, still before any request.
 	-->
 	<ItemGroup>
 		<RuntimeHostConfigurationOption

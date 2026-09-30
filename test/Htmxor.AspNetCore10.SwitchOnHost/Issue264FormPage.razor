@@ -8,5 +8,7 @@
 </form>
 
 @code {
-    private void Go() => Navigation.NavigateTo("/issue-264/destination");
+    [SupplyParameterFromQuery] public string? Destination { get; set; }
+
+    private void Go() => Navigation.NavigateTo(Destination ?? "/issue-264/destination");
 }
