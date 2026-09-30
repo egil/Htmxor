@@ -60,9 +60,10 @@ internal static class Issue264SwitchOnHostRuntime
 		};
 	}
 
-	// Orthogonal to `mode`: only test/Htmxor.AspNetCore10.Tests's LR-52e324f-C fault-injection probe passes
-	// this, on either a "stock" or "candidate" host, to isolate whether OpaqueRedirection's own protector
-	// throwing mid-write leaves a malformed <blazor-ssr> fragment on the wire.
+	// Orthogonal to `mode`: only test/Htmxor.AspNetCore10.Tests's opaque-redirection fault-injection probe
+	// (PR #265 review discussion_r4140656921) passes this, on either a "stock" or "candidate" host, to
+	// isolate whether OpaqueRedirection's own protector throwing mid-write leaves a malformed <blazor-ssr>
+	// fragment on the wire.
 	public const string ThrowOnOpaqueRedirectionProtectFlag = "--throw-on-opaque-redirection-protect";
 
 	public static void ConfigureServices(WebApplicationBuilder builder, string mode, bool throwOnOpaqueRedirectionProtect)

@@ -194,13 +194,12 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
 	}
 
-	// PR #265 review discussion_r4140656921: OnNavigateTo writes the after-start redirection template
-	// directly into HttpResponseStreamWriter. If OpaqueRedirection.CreateProtectedRedirectionUrl throws
-	// mid-write, that writer's disposal flushes whatever prefix was already buffered, leaving malformed
-	// <blazor-ssr> markup on the wire; stock builds the whole template in a buffer first, so a failed attempt
-	// leaves nothing on the wire at all. This needs a data-protection provider that throws only for the
-	// opaque-redirection purpose, which is orthogonal to every other switch-on case's real protector, so it
-	// uses a dedicated pair of hosts started and disposed only by this test rather than the shared fixture.
+	// PR #265 review discussion_r4140656921: if OpaqueRedirection.CreateProtectedRedirectionUrl throws while
+	// OnNavigateTo builds the after-start redirection template, no part of that template may reach the wire;
+	// stock builds the whole template in a buffer first, so a failed attempt leaves nothing on the wire.
+	// This needs a data-protection provider that throws only for the opaque-redirection purpose, which is
+	// orthogonal to every other switch-on case's real protector, so it uses a dedicated pair of hosts started
+	// and disposed only by this test rather than the shared fixture.
 	[Fact]
 	public async Task Streaming_navigation_with_failed_opaque_redirection_protection_has_no_malformed_template_parity()
 	{
@@ -215,7 +214,7 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		// Stock's own oracle: even though this navigation fails, stock never emits a bare, unclosed
 		// redirection template -- confirmed live (not just by source reading) against this exact fault.
 		Assert.DoesNotContain("<template type=\"redirection\">", stockBody, StringComparison.Ordinal);
-		Assert.DoesNotContain("<template type=\"redirection\">", candidateBody, StringComparison.Ordinal);
+		Assert.Equal(stockBody, candidateBody);
 	}
 
 	// LR-08402d5-P002: neither oracle answers this case. Stock has no htmx concept, and the switch-off
