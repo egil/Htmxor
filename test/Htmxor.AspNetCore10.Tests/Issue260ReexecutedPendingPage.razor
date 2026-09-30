@@ -6,10 +6,10 @@
 @code {
     private string state = "reexecuted-initial";
 
-    // Not [StreamRendering]. Re-executed by UseStatusCodePagesWithReExecute; the protected behavior is that a
-    // re-executed request with non-streaming pending work still reaches the same final, quiesced output stock
-    // reaches on the same target, whichever way each target's own invoker classifies pending work during
-    // re-execution.
+    // Not [StreamRendering]. Re-executed by UseStatusCodePagesWithReExecute; the protected behavior is that the
+    // candidate answers a re-executed request with non-streaming pending work exactly as stock does on the same
+    // target, whether that target's stock awaits the work or, because its AddPendingTask does not track
+    // re-executed work, answers with this page's pre-release state.
     protected override async Task OnInitializedAsync()
     {
         Gate.Reached("reexecuted-pending");

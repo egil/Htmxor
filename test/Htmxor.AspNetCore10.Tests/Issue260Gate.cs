@@ -14,16 +14,21 @@ internal sealed class Issue260Gate
 	private readonly Dictionary<string, TaskCompletionSource> released = new(StringComparer.Ordinal);
 	private readonly object sync = new();
 
+	// A bound on every signal, so a request that faults or returns before a page reaches its waypoint fails
+	// the one test on that waypoint instead of hanging the whole test boundary until the blame-hang timeout
+	// (see #212's and #214's gates, which bound their own waits the same way).
+	private static readonly TimeSpan SignalTimeout = TimeSpan.FromSeconds(20);
+
 	// Called by a page the instant it reaches the named await, before it actually awaits: the test can then wait
 	// on this to know the page has run exactly as far as intended, instead of racing the dispatcher with a fixed
 	// delay.
 	public void Reached(string name) => Get(reached, name).TrySetResult();
 
-	public Task WaitForReachedAsync(string name) => Get(reached, name).Task;
+	public Task WaitForReachedAsync(string name) => Get(reached, name).Task.WaitAsync(SignalTimeout);
 
 	public void Release(string name) => Get(released, name).TrySetResult();
 
-	public Task WaitForReleaseAsync(string name) => Get(released, name).Task;
+	public Task WaitForReleaseAsync(string name) => Get(released, name).Task.WaitAsync(SignalTimeout);
 
 	private TaskCompletionSource Get(Dictionary<string, TaskCompletionSource> signals, string name)
 	{

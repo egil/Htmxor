@@ -1,0 +1,19 @@
+@inject Issue260Gate Gate
+
+<p data-issue-260-reexecuted-streaming-child="@state">@state</p>
+
+@code {
+    private string state = "reexecuted-streaming-child-initial";
+
+    // Carries no [StreamRendering] of its own: the re-executed page above does, and re-execution's own
+    // waitForQuiescence path must still classify this child as streaming through the inherited flag, exactly
+    // as criterion 1's non-re-executed case does. Re-execution forces full quiescence either way, so this
+    // case is not about response timing; it is about whether the child still carries the inherited streaming
+    // markers once the invoker takes the re-execution path instead of the ordinary one.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("reexecuted-streaming-child");
+        await Gate.WaitForReleaseAsync("reexecuted-streaming-child");
+        state = "reexecuted-streaming-child-complete";
+    }
+}
