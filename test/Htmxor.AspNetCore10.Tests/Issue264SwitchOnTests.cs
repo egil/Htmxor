@@ -170,8 +170,8 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 	// OnInitialized navigates while its parent's post-start render batch is still being built, that batch is
 	// already past ProcessPendingRender's gate and reaches UpdateDisplayAsync with the stop flag already set;
 	// only UpdateDisplayAsync's own "!rendererIsStopped" check keeps it from streaming after the redirection
-	// template. This is green at 08402d5 in-process; the mutant that drops that guard is recorded in
-	// verification.md, not committed here.
+	// template. Without that check this batch streams a <blazor-ssr> update after the template and this case
+	// fails; the Issue264StreamingPage case never reaches that check.
 	[Fact]
 	public async Task Streaming_child_navigation_during_post_start_render_batch_has_stock_redirection_template_parity()
 	{
@@ -226,6 +226,10 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		Assert.Single(stockValues); // stock's own oracle: exactly one value, even though NavigateTo ran twice
 		Assert.Equal(stockResponse.StatusCode, candidateResponse.StatusCode);
 		Assert.Equal(stockValues.Count, candidateValues.Count);
+		var stockDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Stock, stockValues[0]);
+		var candidateDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Candidate, candidateValues[0]);
+		Assert.Equal(new Uri("https://example.invalid/issue-264/one"), stockDestination); // stock keeps the first
+		Assert.Equal(stockDestination, candidateDestination);
 		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
 	}
 
