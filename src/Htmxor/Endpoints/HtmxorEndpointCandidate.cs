@@ -184,8 +184,9 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		context.Response.ContentType = DefaultContentType;
 		var isErrorHandler = context.Features.Get<IExceptionHandlerFeature>() is not null;
 		var isReexecuted = context.Features.Get<IStatusCodeReExecuteFeature>() is not null;
-		renderer.InitializeStreamingRenderingFraming(context,
-			isErrorHandler || isReexecuted || context.GetHtmxContext().Request.RoutingMode is RoutingMode.Direct);
+		var waitForQuiescence =
+			isErrorHandler || isReexecuted || context.GetHtmxContext().Request.RoutingMode is RoutingMode.Direct;
+		renderer.InitializeStreamingRenderingFraming(context, waitForQuiescence);
 		if (!isReexecuted)
 		{
 			context.Response.Headers[EnhancedNavigationHeader] = "allow";
@@ -220,12 +221,27 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			return;
 		}
 		Task quiesceTask;
-		bool? hasPendingInitialRenderWork = null;
 		if (!request.IsPost || isReexecuted)
 		{
 			quiesceTask = htmlContent.QuiescenceTask;
-			await renderer.WaitForNonStreamingPendingTasks();
-			hasPendingInitialRenderWork = !quiesceTask.IsCompleted && renderer.HasStreamingComponent;
+			if (waitForQuiescence)
+			{
+				try
+				{
+					await quiesceTask;
+				}
+				catch (NavigationException navigationException)
+				{
+					// As stock's full-quiescence wait: a navigation from pending work is answered before the
+					// response starts, and nothing is left to stream.
+					renderer.HandleNavigationException(navigationException);
+					quiesceTask = Task.CompletedTask;
+				}
+			}
+			else
+			{
+				await renderer.WaitForNonStreamingPendingTasks();
+			}
 		}
 		else
 		{
@@ -247,12 +263,13 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 				HandleNavigationBeforeResponseStarted(context, navigationException.Location);
 				quiesceTask = Task.CompletedTask;
 			}
+			if (waitForQuiescence)
+			{
+				// A response that cannot stream (Direct routing, an error handler) answers once the submit's own
+				// work has completed.
+				await quiesceTask;
+			}
 		}
-		if (!renderer.HasStreamingComponent)
-		{
-			await quiesceTask;
-		}
-
 		if (renderer.NotFoundEventArgs is not null)
 		{
 			context.Response.StatusCode = StatusCodes.Status404NotFound;
@@ -267,7 +284,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 #endif
 			return;
 		}
-		if (hasPendingInitialRenderWork ?? !quiesceTask.IsCompleted)
+		if (!quiesceTask.IsCompleted)
 		{
 			PrepareStreamingResponse(context, antiforgery);
 		}
@@ -285,7 +302,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			ArrayPool<byte>.Shared,
 			ArrayPool<char>.Shared);
 		renderer.WriteResponseHtml(htmlContent, context.GetHtmxContext(), writer);
-		if (hasPendingInitialRenderWork ?? !quiesceTask.IsCompletedSuccessfully)
+		if (!quiesceTask.IsCompletedSuccessfully)
 		{
 			await renderer.SendStreamingUpdatesAsync(context, quiesceTask, writer);
 			if (renderer.NotFoundEventArgs is not null)
@@ -932,7 +949,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 	private void WriteStaticComponentHtml(int componentId, TextWriter output, bool allowStreamingMarkers)
 	{
-		var streaming = allowStreamingMarkers && IsStreamingComponent(componentId);
+		var streaming = allowStreamingMarkers && IsInStreamingContext(componentId);
 		if (streaming)
 		{
 			output.Write("<!--bl:");
