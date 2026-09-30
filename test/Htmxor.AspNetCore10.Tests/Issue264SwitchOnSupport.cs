@@ -8,6 +8,11 @@ internal static class Issue264SwitchOnConstants
 	public const string InternalDestination = "/issue-264/destination";
 	public const string ExternalDestination = "https://example.invalid/issue-264/destination";
 	public const string EnhancedNavigationAccept = "text/html; blazor-enhanced-nav=on";
+
+	// The test project never references the switch-on host project's assembly (it is spawned as a separate
+	// process; see Issue264SwitchOnHostProcess), so this literal is duplicated here rather than shared, and
+	// must match Htmxor.AspNetCore10.SwitchOnHost.Issue264SwitchOnHostRuntime.ThrowOnOpaqueRedirectionProtectFlag exactly.
+	public const string ThrowOnOpaqueRedirectionProtectFlag = "--throw-on-opaque-redirection-protect";
 }
 
 // A read-once-and-normalize snapshot of a switch-on host's response, shared by every Issue264SwitchOnTests

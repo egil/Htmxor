@@ -24,8 +24,9 @@ if (observedSwitch != Issue264SwitchOnHostRuntime.ExpectedSwitch(mode))
 
 Issue264SwitchOnHostRuntime.ReportUnobservedNavigationExceptions();
 
+var throwOnOpaqueRedirectionProtect = args.Contains(Issue264SwitchOnHostRuntime.ThrowOnOpaqueRedirectionProtectFlag);
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { ApplicationName = "Issue264SwitchOnHost" });
-Issue264SwitchOnHostRuntime.ConfigureServices(builder, mode);
+Issue264SwitchOnHostRuntime.ConfigureServices(builder, mode, throwOnOpaqueRedirectionProtect);
 
 var app = builder.Build();
 app.UseAntiforgery();

@@ -21,12 +21,19 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 
 	public Issue264SwitchOnTests(Issue264SwitchOnFixture fixture) => this.fixture = fixture;
 
-	// The candidate host process, and its output queue, are shared across every test in this class (see
-	// Issue264SwitchOnFixture). A test that fails on an assertion before it reaches its own
-	// AssertNoUnobservedNavigationExceptionAsync call never drains the lines its own request produced, so
-	// xUnit constructing a fresh instance of this class per test is used here to discard that backlog before
-	// each test's own request, rather than letting an earlier test's failure be misattributed to a later one.
-	public async Task InitializeAsync() => await fixture.Candidate.DrainRecentOutputAsync();
+	// Every host process, and its output queue, is shared across every test in this class (see
+	// Issue264SwitchOnFixture). A test that fails on an assertion before it reaches its own drain-based check
+	// (AssertNoUnobservedNavigationExceptionAsync, or an Error-log count) never drains the lines its own
+	// request produced, and each host also has its own one-time startup noise (observed: a benign
+	// "Hosting startup assembly exception" from Microsoft.AspNetCore.Hosting.Diagnostics). xUnit constructing
+	// a fresh instance of this class per test is used here to discard all of that backlog before each test's
+	// own request, on every host, rather than letting it be misattributed to a later, unrelated test.
+	public async Task InitializeAsync()
+	{
+		await fixture.Stock.DrainRecentOutputAsync();
+		await fixture.Candidate.DrainRecentOutputAsync();
+		await fixture.CandidateSwitchOff.DrainRecentOutputAsync();
+	}
 
 	public Task DisposeAsync() => Task.CompletedTask;
 
@@ -187,6 +194,30 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
 	}
 
+	// PR #265 review discussion_r4140656921: OnNavigateTo writes the after-start redirection template
+	// directly into HttpResponseStreamWriter. If OpaqueRedirection.CreateProtectedRedirectionUrl throws
+	// mid-write, that writer's disposal flushes whatever prefix was already buffered, leaving malformed
+	// <blazor-ssr> markup on the wire; stock builds the whole template in a buffer first, so a failed attempt
+	// leaves nothing on the wire at all. This needs a data-protection provider that throws only for the
+	// opaque-redirection purpose, which is orthogonal to every other switch-on case's real protector, so it
+	// uses a dedicated pair of hosts started and disposed only by this test rather than the shared fixture.
+	[Fact]
+	public async Task Streaming_navigation_with_failed_opaque_redirection_protection_has_no_malformed_template_parity()
+	{
+		await using var stockHost = await Issue264SwitchOnHostProcess.StartAsync(
+			"stock", Issue264SwitchOnConstants.ThrowOnOpaqueRedirectionProtectFlag);
+		await using var candidateHost = await Issue264SwitchOnHostProcess.StartAsync(
+			"candidate", Issue264SwitchOnConstants.ThrowOnOpaqueRedirectionProtectFlag);
+
+		var stockBody = await RunFaultedStreamingCaseAsync(stockHost);
+		var candidateBody = await RunFaultedStreamingCaseAsync(candidateHost);
+
+		// Stock's own oracle: even though this navigation fails, stock never emits a bare, unclosed
+		// redirection template -- confirmed live (not just by source reading) against this exact fault.
+		Assert.DoesNotContain("<template type=\"redirection\">", stockBody, StringComparison.Ordinal);
+		Assert.DoesNotContain("<template type=\"redirection\">", candidateBody, StringComparison.Ordinal);
+	}
+
 	// LR-08402d5-P002: neither oracle answers this case. Stock has no htmx concept, and the switch-off
 	// (throwing) candidate gives 500 for pending-work navigation regardless of htmx, which is #260's own
 	// defect (see #192 comment 5901861239), not a valid switch-off answer. This case therefore asserts the
@@ -226,6 +257,11 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		Assert.Single(stockValues); // stock's own oracle: exactly one value, even though NavigateTo ran twice
 		Assert.Equal(stockResponse.StatusCode, candidateResponse.StatusCode);
 		Assert.Equal(stockValues.Count, candidateValues.Count);
+		// Stock's own oracle: GetErrorHandledTask logs the second Headers.Add's exception at Error level, the
+		// only surviving signal that a conflicting redirect occurred once the header itself shows only one
+		// value. See PR #265 review discussion_r4140656885.
+		await AssertExactlyOneErrorLoggedAsync(fixture.Stock);
+		await AssertExactlyOneErrorLoggedAsync(fixture.Candidate);
 		var stockDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Stock, stockValues[0]);
 		var candidateDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Candidate, candidateValues[0]);
 		Assert.Equal(new Uri("https://example.invalid/issue-264/one"), stockDestination); // stock keeps the first
@@ -304,17 +340,47 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		// missing redirection: ReadUntilAsync returns whatever it has on timeout, so an empty or partial
 		// `initial` would otherwise blame the protected behavior for a broken setup.
 		Assert.Contains(initialMarker, initial, StringComparison.Ordinal);
-		await host.ReleaseStreamingNavigateAsync();
+		await ReleaseAndRequireSuccessAsync(host.ReleaseStreamingNavigateAsync);
 
 		var beforeResume = await reader.ReadUntilAsync(["<template type=\"redirection\">", "<template blazor-component-id"]);
-		await host.ReleaseStreamingResumeAsync();
+		await ReleaseAndRequireSuccessAsync(host.ReleaseStreamingResumeAsync);
 
-		var wholeBody = await reader.ReadToEndOrTimeoutAsync(TimeSpan.FromSeconds(1));
+		// Only a genuine end-of-stream counts as completion here (see Issue264StreamingBodyReader.ReadToEndAsync):
+		// a failed release, a delayed continuation, or a hung response now fails this case instead of silently
+		// passing with an empty tail.
+		var wholeBody = await reader.ReadToEndAsync(TimeSpan.FromSeconds(2));
 		return new(
 			response.StatusCode,
 			BeforeResume: beforeResume[initial.Length..],
 			AfterResume: wholeBody[beforeResume.Length..],
 			WholeBody: Issue264Snapshot.NormalizeProtectedPayloads(wholeBody));
+	}
+
+	// Unlike RunStreamingCaseAsync, this does not wait for a marker between the two gate releases: under fault
+	// injection, stock never emits anything in that window (the failed attempt writes nothing at all), so
+	// waiting for a marker that will never arrive there would only cost a real timeout for no benefit. Both
+	// gates are released back-to-back and the whole body is read only once, to a genuine end-of-stream.
+	private static async Task<string> RunFaultedStreamingCaseAsync(Issue264SwitchOnHostProcess host)
+	{
+		using var response = await host.Client.GetAsync("/issue-264/streaming", HttpCompletionOption.ResponseHeadersRead);
+		await using var reader = await Issue264StreamingBodyReader.CreateAsync(response);
+
+		var initial = await reader.ReadUntilAsync(["data-issue-264-streaming=\"initial\""]);
+		Assert.Contains("data-issue-264-streaming=\"initial\"", initial, StringComparison.Ordinal);
+		await ReleaseAndRequireSuccessAsync(host.ReleaseStreamingNavigateAsync);
+		await ReleaseAndRequireSuccessAsync(host.ReleaseStreamingResumeAsync);
+
+		var wholeBody = await reader.ReadToEndAsync(TimeSpan.FromSeconds(2));
+		return Issue264Snapshot.NormalizeProtectedPayloads(wholeBody);
+	}
+
+	// A release call that itself failed must not be silently treated as "nothing more will ever arrive": that
+	// would let a broken release endpoint pass through to ReadToEndAsync's genuine-EOF wait and (once that
+	// eventually times out) report a confusing stream failure instead of the actual release failure.
+	private static async Task ReleaseAndRequireSuccessAsync(Func<Task<HttpResponseMessage>> release)
+	{
+		using var response = await release();
+		Assert.True(response.IsSuccessStatusCode, $"Streaming gate release failed with {response.StatusCode}.");
 	}
 
 	// Stock's post-start navigation writes the redirection template and stops the renderer without needing the
@@ -347,6 +413,18 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 			unobserved.Length == 0,
 			"No InvalidOperationException about uninitialized endpoint-based navigation may go unobserved: " +
 			string.Join("; ", unobserved));
+	}
+
+	// The host relays every Error-or-above log entry to its own stdout as "ERROR <category>|<message>" (see
+	// Issue264ErrorLogRelay), since the host otherwise clears every logging provider. This counts them per
+	// request the same way AssertNoUnobservedNavigationExceptionAsync counts "UNOBSERVED " lines.
+	private static async Task AssertExactlyOneErrorLoggedAsync(Issue264SwitchOnHostProcess host)
+	{
+		var lines = await host.DrainRecentOutputAsync();
+		var errors = lines.Where(line => line.StartsWith("ERROR ", StringComparison.Ordinal)).ToArray();
+		Assert.True(
+			errors.Length == 1,
+			$"Expected exactly one Error-level log entry for this request; got {errors.Length}: {string.Join("; ", errors)}");
 	}
 
 	private static IReadOnlyList<string> EnhancedNavigationRedirectHeaderValues(HttpResponseMessage response) =>

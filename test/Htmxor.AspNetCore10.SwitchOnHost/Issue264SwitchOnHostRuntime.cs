@@ -60,11 +60,29 @@ internal static class Issue264SwitchOnHostRuntime
 		};
 	}
 
-	public static void ConfigureServices(WebApplicationBuilder builder, string mode)
+	// Orthogonal to `mode`: only test/Htmxor.AspNetCore10.Tests's LR-52e324f-C fault-injection probe passes
+	// this, on either a "stock" or "candidate" host, to isolate whether OpaqueRedirection's own protector
+	// throwing mid-write leaves a malformed <blazor-ssr> fragment on the wire.
+	public const string ThrowOnOpaqueRedirectionProtectFlag = "--throw-on-opaque-redirection-protect";
+
+	public static void ConfigureServices(WebApplicationBuilder builder, string mode, bool throwOnOpaqueRedirectionProtect)
 	{
 		builder.WebHost.UseUrls("http://127.0.0.1:0");
 		builder.Logging.ClearProviders();
-		builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
+		builder.Logging.SetMinimumLevel(LogLevel.Error);
+		builder.Logging.AddProvider(new Issue264ErrorLogRelay());
+		if (throwOnOpaqueRedirectionProtect)
+		{
+			// Bypasses AddDataProtection()'s own DI wiring entirely, rather than trying to override or decorate
+			// its registration afterward, so this has no dependency on that wiring's internal registration order.
+			builder.Services.AddSingleton<IDataProtectionProvider>(
+				new Issue264ThrowingRedirectionProtectionProvider(new EphemeralDataProtectionProvider()));
+		}
+		else
+		{
+			builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
+		}
+
 		builder.Services.AddSingleton<Issue264StreamingGate>();
 		var razorComponents = builder.Services.AddRazorComponents();
 		if (IsCandidateMode(mode))

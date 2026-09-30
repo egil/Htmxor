@@ -24,19 +24,24 @@ internal sealed class Issue264StreamingBodyReader : IAsyncDisposable
 	public async Task<string> ReadUntilAsync(string[] markers, TimeSpan? timeout = null)
 	{
 		using var cancellation = new CancellationTokenSource(timeout ?? DefaultTimeout);
-		while (!ContainsAny(markers) && await TryReadChunkAsync(cancellation.Token))
+		while (!ContainsAny(markers) && await TryReadChunkLenientAsync(cancellation.Token))
 		{
 		}
 
 		return buffer.ToString();
 	}
 
-	// Reads until the stream ends (a fixed short quiet period counts as "ended" for this purpose: stock and a
-	// fixed candidate both close their connection once RenderComponentCore returns) or the timeout elapses.
-	public async Task<string> ReadToEndOrTimeoutAsync(TimeSpan? timeout = null)
+	// Reads until the stream reaches a genuine end-of-stream (a real zero-byte read), which is what stock and
+	// a fixed candidate both produce once RenderComponentCore returns and the connection closes. Unlike
+	// ReadUntilAsync, a timeout or a cancelled/faulted read here is not completion and must not be reported as
+	// though it were: a failed release call, a delayed continuation, or a hung response would otherwise yield
+	// an empty tail and let a parity assertion pass without ever exercising the forbidden post-navigation
+	// update (see PR #265 review discussion_r4140656945). Both failure modes now throw instead of returning.
+	public async Task<string> ReadToEndAsync(TimeSpan? timeout = null)
 	{
-		using var cancellation = new CancellationTokenSource(timeout ?? DefaultTimeout);
-		while (await TryReadChunkAsync(cancellation.Token))
+		var deadline = timeout ?? DefaultTimeout;
+		using var cancellation = new CancellationTokenSource(deadline);
+		while (await ReadChunkOrThrowAsync(cancellation.Token, deadline) > 0)
 		{
 		}
 
@@ -46,7 +51,7 @@ internal sealed class Issue264StreamingBodyReader : IAsyncDisposable
 	private bool ContainsAny(string[] markers) =>
 		markers.Length > 0 && markers.Any(marker => buffer.ToString().Contains(marker, StringComparison.Ordinal));
 
-	private async Task<bool> TryReadChunkAsync(CancellationToken cancellationToken)
+	private async Task<bool> TryReadChunkLenientAsync(CancellationToken cancellationToken)
 	{
 		if (faulted)
 		{
@@ -72,6 +77,30 @@ internal sealed class Issue264StreamingBodyReader : IAsyncDisposable
 			faulted = true;
 			return false;
 		}
+	}
+
+	private async Task<int> ReadChunkOrThrowAsync(CancellationToken cancellationToken, TimeSpan timeout)
+	{
+		int read;
+		try
+		{
+			read = await stream.ReadAsync(chunk, cancellationToken);
+		}
+		catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException or IOException)
+		{
+			throw new TimeoutException(
+				$"Expected the stream to reach a real end-of-stream within {timeout}, but the read was cancelled " +
+				$"or the connection faulted instead ({exception.GetType().Name}: {exception.Message}). A genuine " +
+				$"zero-byte read is the only thing that counts as completion here. Accumulated so far: {buffer}",
+				exception);
+		}
+
+		if (read > 0)
+		{
+			buffer.Append(Encoding.UTF8.GetString(chunk, 0, read));
+		}
+
+		return read;
 	}
 
 	public ValueTask DisposeAsync() => stream.DisposeAsync();

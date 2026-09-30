@@ -41,10 +41,13 @@ public sealed class Issue264SwitchOnHostProcess : IAsyncDisposable
 	// too, rather than trusting a silent precondition.
 	public bool ObservedSwitch { get; }
 
-	public static async Task<Issue264SwitchOnHostProcess> StartAsync(string mode)
+	// `extraArgs` is for the rare fault-injection probe that needs a host variant orthogonal to `mode` (see
+	// Issue264SwitchOnHostRuntime.ThrowOnOpaqueRedirectionProtectFlag); every ordinary case calls this with no
+	// extra arguments.
+	public static async Task<Issue264SwitchOnHostProcess> StartAsync(string mode, params string[] extraArgs)
 	{
 		var assemblyPath = ResolveSwitchOnHostAssemblyPath();
-		var process = new Process { StartInfo = CreateStartInfo(assemblyPath, mode), EnableRaisingEvents = true };
+		var process = new Process { StartInfo = CreateStartInfo(assemblyPath, mode, extraArgs), EnableRaisingEvents = true };
 		var outputLines = new ConcurrentQueue<string>();
 		var errorLines = new ConcurrentQueue<string>();
 		var signals = new StartupSignals();
@@ -108,7 +111,7 @@ public sealed class Issue264SwitchOnHostProcess : IAsyncDisposable
 		process.Dispose();
 	}
 
-	private static ProcessStartInfo CreateStartInfo(string assemblyPath, string mode)
+	private static ProcessStartInfo CreateStartInfo(string assemblyPath, string mode, string[] extraArgs)
 	{
 		var startInfo = new ProcessStartInfo("dotnet")
 		{
@@ -121,6 +124,11 @@ public sealed class Issue264SwitchOnHostProcess : IAsyncDisposable
 		startInfo.ArgumentList.Add("exec");
 		startInfo.ArgumentList.Add(assemblyPath);
 		startInfo.ArgumentList.Add(mode);
+		foreach (var extraArg in extraArgs)
+		{
+			startInfo.ArgumentList.Add(extraArg);
+		}
+
 		return startInfo;
 	}
 
