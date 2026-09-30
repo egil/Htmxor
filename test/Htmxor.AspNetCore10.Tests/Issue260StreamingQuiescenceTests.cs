@@ -339,9 +339,9 @@ public sealed class Issue260ReexecutionParityTests
 		// net10.0 stock's AddPendingTask does not track re-executed pending work at all (the same v10.0.11
 		// short-circuit Issue260ReexecutedPendingPage's own comment describes), so its response can complete
 		// without this gate ever being released -- racing this test's own release against that completion.
-		// Reading the whole response first removes the race: stock's response arrives on its own, and a
-		// candidate that (wrongly) still waits on this target fails deterministically on this bound instead of
-		// on a race.
+		// Awaiting the response headers before releasing removes the race: stock starts its response on its own,
+		// with a body already serialized from the pre-release state, and a candidate that (wrongly) still waits
+		// on this target fails deterministically on this bound instead of on a race.
 		using var response = await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
 		gate.Release(gateName);
 #endif

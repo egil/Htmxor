@@ -10,17 +10,17 @@
     private string state = "child-initial";
     private bool showGrandchild;
 
-    // Deliberately does not force a synchronous re-render before returning (contrast
-    // Issue260LateDiscoveryChild's own InvokeAsync(StateHasChanged) call): that would let the grandchild's own
-    // pending task exist while this method's own task is still running, so it could in principle be picked up
-    // by whatever captured the *first* iteration's snapshot before this task is even marked complete. Letting
-    // the framework's own post-completion render reveal the grandchild instead means the grandchild cannot
-    // exist until this component's own OnInitializedAsync task has already finished, so its NavigationException
-    // can only ever surface from a wait that re-checks for new work after this one settles -- exactly the
-    // later-iteration mechanism criterion 3's "in any iteration" protects.
+    // Awaits Task.Yield() right after signalling Reached: without it, a release that lands before this await
+    // registers lets this method run to completion inside the same render pass the invoker captures its first
+    // non-streaming snapshot from, so the grandchild revealed below would already belong to that very first
+    // snapshot and the later-iteration mechanism criterion 3's "in any iteration" protects would never be
+    // exercised. The yield guarantees this component's own task is still incomplete when that first snapshot
+    // is captured, so the grandchild -- revealed by the framework's own post-completion render once this task
+    // settles -- can only ever be discovered by a wait that re-checks for new work after this one.
     protected override async Task OnInitializedAsync()
     {
         Gate.Reached("late-nav-child");
+        await Task.Yield();
         await Gate.WaitForReleaseAsync("late-nav-child");
         showGrandchild = true;
         state = "child-updated";

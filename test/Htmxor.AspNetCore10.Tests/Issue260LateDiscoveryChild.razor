@@ -16,9 +16,18 @@
     // here (the dispatcher is already on this call stack), so the grandchild's own OnInitializedAsync -- and the
     // pending task it adds -- run before this method itself returns, i.e. before this component's own pending
     // task completes.
+    //
+    // Awaits Task.Yield() right after signalling Reached: without it, a release that lands before this await
+    // registers lets this whole method run to completion inside the same render pass the invoker captures its
+    // first non-streaming snapshot from, so neither this component's own task nor the grandchild's would ever
+    // be pending when that snapshot is taken -- even the candidate's one-shot wait would then wait for both,
+    // and the case would stop distinguishing a one-shot wait from stock's loop. The yield guarantees this
+    // component's own task is still incomplete at that point, regardless of how quickly the test reacts to
+    // Reached.
     protected override async Task OnInitializedAsync()
     {
         Gate.Reached("late-child");
+        await Task.Yield();
         await Gate.WaitForReleaseAsync("late-child");
         showGrandchild = true;
         state = "child-updated";

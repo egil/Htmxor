@@ -20,8 +20,12 @@ internal sealed class Issue260Gate
 	private static readonly TimeSpan SignalTimeout = TimeSpan.FromSeconds(20);
 
 	// Called by a page the instant it reaches the named await, before it actually awaits: the test can then wait
-	// on this to know the page has run exactly as far as intended, instead of racing the dispatcher with a fixed
-	// delay.
+	// on this to know the page has run at least this far, instead of guessing with a fixed sleep. This alone
+	// does not guarantee the page is still pending by the time a released test inspects the render's own
+	// bookkeeping: Reached fires before the await, so a release that lands before the await registers can let
+	// the page run to completion inside the same render pass. A page whose exact pending-task registration
+	// matters (see Issue260LateDiscoveryChild, Issue260LateNavigationChild) awaits Task.Yield() right after
+	// Reached to close that gap.
 	public void Reached(string name) => Get(reached, name).TrySetResult();
 
 	public Task WaitForReachedAsync(string name) => Get(reached, name).Task.WaitAsync(SignalTimeout);
