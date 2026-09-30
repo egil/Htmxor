@@ -347,10 +347,10 @@ public sealed class Issue260NavigationEmptyBodyTests
 		Assert.Equal(stockResult.Body, candidateResult.Body);
 	}
 
-	// net10.0 only: v10.0.11 stock's AddPendingTask does not track re-executed work at all
-	// (Issue260ReexecutedPendingPage's own comment), so this page's pending navigation is never observed by a
-	// re-executed request there -- the response answers with the page's pre-release state and no navigation,
-	// which #260's existing reexecution cases already cover. Only net11.0 reaches this mechanism.
+	// net11.0 only: v10.0.11 stock's AddPendingTask does not track re-executed work at all
+	// (Issue260ReexecutedPendingPage's own comment), so on net10.0 this page's pending navigation is never
+	// observed by a re-executed request -- the response answers with the page's pre-release state and no
+	// navigation, which #260's existing reexecution cases already cover.
 #if NET11_0_OR_GREATER
 	[Fact]
 	public async Task A_navigation_from_pending_work_during_a_status_reexecuted_response_has_stock_empty_body_parity()
