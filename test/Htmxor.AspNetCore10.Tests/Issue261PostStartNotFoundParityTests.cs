@@ -7,29 +7,25 @@ namespace Htmxor.AspNetCore10;
 
 // #261: a component that signals NotFound() after the response has already started streaming. Stock writes
 // its not-found template through a fresh writer, flushes it, and stops the renderer
-// (SignalRendererToFinishRendering), so a later render from work the renderer never tracked for quiescence
-// (Issue261StrayUpdateChild's detached continuation) is gated by ProcessPendingRender before it ever touches
-// the response again. At 8b4a905 the candidate (HtmxorEndpointCandidateRenderer.Streaming.cs's
-// WriteNotFoundAfterResponseStarted) writes the same template but never calls that stop, so the same deferred
-// render is let through to SendBatchAsStreamingUpdate.
+// (SignalRendererToFinishRendering), so ProcessPendingRender returns before building a new render tree for
+// any later, quiescence-untracked work (Issue261StrayUpdateChild's detached continuation). A fix for this
+// issue reuses that same stop, so the identical gate is expected to apply to it too.
 //
 // Both stock and the candidate check NotFoundEventArgs only once SendStreamingUpdatesAsync's quiescence wait
 // has resolved; a render that races *inside* that wait streams on both sides identically, as its own
-// <blazor-ssr> batch for the page's root component, and is not the gap. Issue261ResponseHold makes "after the
-// not-found write, and only then" an observed precondition instead of an assumption: it holds the response
-// open at the first write/flush/completion attempt once the not-found template has already been written,
-// identically on both hosts, and only once held does the test release the stray.
+// <blazor-ssr> batch for the page's root component, and is not the gap. The stray is released only after the
+// endpoint's own request-handling task -- including any stop the renderer set along the way -- has completed,
+// signalled by Issue261NotFoundGate.EndpointFinished from a middleware that awaits the endpoint and then
+// awaits release, identically on both hosts (see Issue261Host.CreateAsync). The request's own service scope,
+// and with it the renderer and response writer, is still alive at that point, because the middleware that
+// signals it has not itself returned yet.
 //
-// HttpResponseStreamWriter's own FlushAsync and DisposeAsync only ever reach the underlying stream through a
-// WriteAsync call, and only when its char buffer is non-empty. For this page, nothing is buffered into either
-// host's writer after the not-found content, so neither host performs a further body operation once that
-// content is written, and Issue261ResponseHold's own backstop is what engages the hold, immediately after the
-// endpoint's request-handling task has finished -- by which point stock's stop has already run, and the
-// candidate's writer is already disposed either way. The two hosts stay identical on the wire (whole body,
-// status, headers); what differs is whether Issue261StrayUpdateChild's own render attempt, made while the
-// response is held, reaches SendBatchAsStreamingUpdate at all. Stock's StrayOutcome is always null
-// (ProcessPendingRender returns before touching the writer); the candidate's is an ObjectDisposedException,
-// because nothing stopped it.
+// Two independent, component-level observations separate a genuine stop from a fix that merely avoids the
+// resulting exception without stopping anything: Issue261StrayUpdateChild.RenderedState records the state
+// its own render tree last carried, which only changes when ProcessPendingRender actually proceeds past the
+// stop check to build a new one, regardless of what later happens to that render tree; the outcome of its own
+// InvokeAsync(StateHasChanged) call separately records whether sending that render tree raised. A fix that
+// gates the render keeps both unchanged from their initial values, on both hosts.
 public sealed class Issue261PostStartNotFoundParityTests
 {
 	private const string Path = "/issue-261/post-start-not-found";
@@ -47,17 +43,18 @@ public sealed class Issue261PostStartNotFoundParityTests
 
 		// Stock's own oracle, pinned before the comparison the test cares about: it actually reached the
 		// not-found template with a normal 200 (streaming never changes the status already sent with the
-		// initial render), and the renderer's stop means Issue261StrayUpdateChild's own render attempt,
-		// made while the response was held, never throws.
+		// initial render), and the renderer's stop keeps Issue261StrayUpdateChild's own render attempt,
+		// made once the endpoint had already finished, from building a new render tree or raising.
 		Assert.Equal(HttpStatusCode.OK, stockResult.StatusCode);
 		Assert.Contains(TemplateTypeMarker, stockResult.Body, StringComparison.Ordinal);
+		Assert.Equal("stray-initial", stockResult.ObservedStrayRenderState);
 		Assert.Null(stockResult.StrayOutcome);
 
 		// The approved observation seam (status, headers, whole body): status, the antiforgery-normalized
 		// headers, and the whole body (with the per-host opaque-redirect payload normalized, the same
 		// Issue264Snapshot pattern this project already uses for a protected destination) must match stock
 		// regardless of this case's own outcome, so a header-, status-, or body-shape regression cannot hide
-		// behind the outcome assertion below.
+		// behind the outcome assertions below.
 		Assert.Equal(stockResult.StatusCode, candidateResult.StatusCode);
 		Assert.Equal(stockResult.Headers, candidateResult.Headers);
 		Assert.Equal(
@@ -72,39 +69,38 @@ public sealed class Issue261PostStartNotFoundParityTests
 		Assert.Equal(NotFoundDestinationPath, stockDestination.AbsolutePath);
 		Assert.Equal(stockDestination.AbsolutePath, candidateDestination.AbsolutePath);
 
-		// Nothing stops the candidate's renderer for a post-start NotFound, so Issue261StrayUpdateChild's
-		// render attempt -- made under the identical hold stock was also driven through -- is let through to
-		// SendBatchAsStreamingUpdate instead of being gated first, and throws against the response
-		// HtmxorEndpointCandidate.RenderComponentCore has already finished with.
+		// The protected behavior, asserted against the candidate: the same render stays gated, so neither
+		// its recorded render state nor its own render-attempt outcome differs from stock's.
+		Assert.Equal("stray-initial", candidateResult.ObservedStrayRenderState);
 		Assert.Null(candidateResult.StrayOutcome);
 	}
 
-	// Both gates are released under the identical Issue261ResponseHold-driven precondition on both hosts: the
-	// not-found write has already happened (confirmed per-host, not assumed), and only then is the stray
-	// released, so no batch that only races *inside* quiescence can produce this case's red or its green.
+	// Both gates are released under the identical EndpointFinished-driven precondition on both hosts: the
+	// endpoint has already finished handling the request -- stop included, if one was set -- and only then is
+	// the stray released, so no batch that only races *inside* quiescence can produce this case's red or its
+	// green.
 	private static async Task<Issue261Result> RunCaseAsync(Issue261Host host)
 	{
-		var responseTask = host.Client.GetAsync(Path, HttpCompletionOption.ResponseHeadersRead);
-		var hold = await host.Hold;
-		using var response = await responseTask;
+		using var response = await host.Client.GetAsync(Path, HttpCompletionOption.ResponseHeadersRead);
 		await using var reader = await Issue264StreamingBodyReader.CreateAsync(response);
 
 		var initial = await reader.ReadUntilAsync(["data-issue-261-stray=\"stray-initial\""]);
 		Assert.Contains("data-issue-261-stray=\"stray-initial\"", initial, StringComparison.Ordinal);
 
 		host.Gate.ReleaseNotFound();
-		await hold.HoldReached;
+		await host.Gate.EndpointFinished;
 
 		host.Gate.ReleaseStray();
 		var strayOutcome = await host.Gate.StrayOutcome;
+		var observedStrayRenderState = host.Gate.LastObservedStrayRenderState;
 
-		hold.Release();
+		host.Gate.ReleaseResponse();
 		var body = await reader.ReadToEndAsync();
 
 		// Headers are read from the still-live HttpResponseMessage, not the body reader, so this must happen
 		// before `response` goes out of scope; Issue260Snapshot.NormalizeHeaders replaces only the ephemeral
 		// per-host antiforgery cookie value, the same normalization every other paired case in this project uses.
-		return new(response.StatusCode, Issue260Snapshot.NormalizeHeaders(response), body, strayOutcome);
+		return new(response.StatusCode, Issue260Snapshot.NormalizeHeaders(response), body, strayOutcome, observedStrayRenderState);
 	}
 
 	// The not-found template's own opaque-redirect payload is meaningful only against the host that protected
@@ -123,25 +119,19 @@ public sealed class Issue261PostStartNotFoundParityTests
 		HttpStatusCode StatusCode,
 		IReadOnlyDictionary<string, string> Headers,
 		string Body,
-		Exception? StrayOutcome);
+		Exception? StrayOutcome,
+		string ObservedStrayRenderState);
 
-	// A per-request wrapper over Issue260Host, carrying #261's own gate and the Issue261ResponseHold the
-	// request's own pipeline creates (see Issue261ResponseHoldMiddleware), so RunCaseAsync can observe both
-	// without a second copy of Issue260Host's own TestServer/data-protection wiring (S4: reuse, not copy).
-	private sealed class Issue261Host(Issue260Host host, Issue261NotFoundGate gate, TaskCompletionSource<Issue261ResponseHold> holdSource)
-		: IAsyncDisposable
+	// A per-host wrapper over Issue260Host, carrying #261's own gate, so RunCaseAsync can observe both
+	// without a second copy of Issue260Host's own TestServer/data-protection wiring.
+	private sealed class Issue261Host(Issue260Host host, Issue261NotFoundGate gate) : IAsyncDisposable
 	{
 		public HttpClient Client => host.Client;
 
 		public Issue261NotFoundGate Gate { get; } = gate;
 
-		// Resolves once this request's own middleware instance has been created, which happens as soon as the
-		// request starts being processed -- well before the not-found write, let alone the hold itself.
-		public Task<Issue261ResponseHold> Hold => holdSource.Task;
-
 		public static async Task<Issue261Host> CreateAsync(bool useHtmxor)
 		{
-			var holdSource = new TaskCompletionSource<Issue261ResponseHold>(TaskCreationOptions.RunContinuationsAsynchronously);
 			var host = await Issue260Host.CreateAsync<Issue260App>(
 				useHtmxor,
 				configurePipeline: app =>
@@ -152,10 +142,20 @@ public sealed class Issue261PostStartNotFoundParityTests
 					// 200 by the time NotFound() is raised, so this never actually re-executes the request; it
 					// only supplies the same item both renderers read.
 					app.UseStatusCodePagesWithReExecute(NotFoundDestinationPath);
-					Issue261ResponseHoldMiddleware.Use(app, TemplateTypeMarker, created => holdSource.TrySetResult(created));
+
+					// Holds the response open, with its request scope -- and therefore the renderer and
+					// response writer -- still alive, from the moment the endpoint's own request-handling
+					// task completes until the test calls Issue261NotFoundGate.ReleaseResponse.
+					app.Use(async (context, next) =>
+					{
+						await next(context);
+						var gate = context.RequestServices.GetRequiredService<Issue261NotFoundGate>();
+						gate.SignalEndpointFinished();
+						await gate.ResponseReleased;
+					});
 				},
 				configureServices: services => services.AddSingleton<Issue261NotFoundGate>());
-			return new Issue261Host(host, host.Services.GetRequiredService<Issue261NotFoundGate>(), holdSource);
+			return new Issue261Host(host, host.Services.GetRequiredService<Issue261NotFoundGate>());
 		}
 
 		public ValueTask DisposeAsync() => host.DisposeAsync();

@@ -13,7 +13,7 @@ namespace Htmxor.AspNetCore10;
 // widening its much larger surface (session, authentication, forms, TempData) to net11.0 would pull in
 // behavior this issue's cases never touch. This host carries only what #260 needs, and reuses
 // Issue264StreamingBodyReader for incremental reading rather than adding a second copy of that logic.
-// `configureServices` lets another same-shaped case (see #261) register its own additional per-request
+// `configureServices` lets another same-shaped case (see #261) register its own additional host-level
 // service, such as a case-specific gate, without a second copy of this host's own TestServer/data-protection
 // wiring.
 internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable

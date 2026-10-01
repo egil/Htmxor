@@ -1,9 +1,23 @@
 @inject Issue261NotFoundGate Gate
 
-<p data-issue-261-stray="@state">@state</p>
+<p data-issue-261-stray="@RenderedState">@RenderedState</p>
 
 @code {
     private string state = "stray-initial";
+
+    // Read from the markup above instead of `state` directly: the renderer calls into this component's
+    // generated BuildRenderTree, which evaluates this getter, only when it actually builds a new render tree
+    // for this component. Recording the state here, rather than only checking whether a batch later reached
+    // the wire, keeps this component's own observation independent of what later happens to that render tree
+    // (sent, suppressed, or lost to an exception while sending it).
+    private string RenderedState
+    {
+        get
+        {
+            Gate.RecordStrayRenderObserved(state);
+            return state;
+        }
+    }
 
     protected override Task OnInitializedAsync()
     {
