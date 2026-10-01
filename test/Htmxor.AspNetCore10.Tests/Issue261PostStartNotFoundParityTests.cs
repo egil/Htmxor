@@ -136,7 +136,7 @@ public sealed class Issue261PostStartNotFoundParityTests
 				useHtmxor,
 				configurePipeline: app =>
 				{
-					// Supplies WriteNotFoundAfterResponseStarted's (and stock's GetNotFoundUrl's) destination
+					// Supplies SetNotFoundWhenResponseHasStarted's (and stock's GetNotFoundUrl's) destination
 					// fallback through the real re-execution middleware applications use, rather than writing
 					// context.Items["StatusCodePagesOptions"] by hand. The response has already started with a
 					// 200 by the time NotFound() is raised, so this never actually re-executes the request; it
