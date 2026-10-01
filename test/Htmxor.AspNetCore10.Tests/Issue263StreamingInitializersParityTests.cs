@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.FileProviders;
@@ -26,8 +27,11 @@ public sealed class Issue263StreamingInitializersTests
 		// Stock's own oracle: a streamed response writes the base64-encoded modules.json contents once, at the
 		// start of its streaming updates, immediately after the (here empty) framing marker.
 		var expectedMarker = $"<!--Blazor-Web-Initializers:{Convert.ToBase64String(Encoding.UTF8.GetBytes(ModulesContent))}-->";
+		Assert.Equal(HttpStatusCode.OK, stockResult.StatusCode);
 		Assert.Contains(expectedMarker, stockResult.Body, StringComparison.Ordinal);
 		AssertStreamed(stockResult.Body);
+		Assert.Equal(stockResult.StatusCode, candidateResult.StatusCode);
+		Assert.Equal(stockResult.Headers, candidateResult.Headers);
 		Assert.Equal(
 			Issue263FramingMarkup.Normalize(stockResult.Body, stockResult.FramingHeaderValue),
 			Issue263FramingMarkup.Normalize(candidateResult.Body, candidateResult.FramingHeaderValue));
@@ -43,8 +47,11 @@ public sealed class Issue263StreamingInitializersTests
 		var stockResult = await RunAsync(stock, enhancedNavigation: true);
 		var candidateResult = await RunAsync(candidate, enhancedNavigation: true);
 
+		Assert.Equal(HttpStatusCode.OK, stockResult.StatusCode);
 		Assert.DoesNotContain("<!--Blazor-Web-Initializers:", stockResult.Body, StringComparison.Ordinal);
 		AssertStreamed(stockResult.Body);
+		Assert.Equal(stockResult.StatusCode, candidateResult.StatusCode);
+		Assert.Equal(stockResult.Headers, candidateResult.Headers);
 		Assert.Equal(
 			Issue263FramingMarkup.Normalize(stockResult.Body, stockResult.FramingHeaderValue),
 			Issue263FramingMarkup.Normalize(candidateResult.Body, candidateResult.FramingHeaderValue));
