@@ -50,10 +50,9 @@ public sealed class Issue263StreamingInitializersTests
 			Issue263FramingMarkup.Normalize(candidateResult.Body, candidateResult.FramingHeaderValue));
 	}
 
-	// Proves each case actually exercised SendStreamingUpdatesAsync, the call this issue's own cases cover for
-	// the first time, rather than the non-streamed EmitInitializersIfNecessary branch #214 already pins: without
-	// this, a race that let the response complete before the body read would still pass with no initializer
-	// assertion ever having observed a streamed response.
+	// Proves each case exercised SendStreamingUpdatesAsync rather than the non-streamed
+	// EmitInitializersIfNecessary branch: an initializer assertion on a response that completed before the body
+	// read would otherwise pass without ever observing a streamed response.
 	private static void AssertStreamed(string body)
 	{
 		Assert.Contains("<blazor-ssr>", body, StringComparison.Ordinal);

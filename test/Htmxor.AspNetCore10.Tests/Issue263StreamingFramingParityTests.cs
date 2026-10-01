@@ -221,13 +221,15 @@ public sealed class Issue263DirectRoutingFramingTests
 		await gate.WaitForReachedAsync("inherited-child");
 
 		// Direct routing forces full quiescence (RoutingMode.Direct is one of waitForQuiescence's own terms on
-		// both targets), so -- like the exception-handler and re-execution cases above -- no header reaches the
+		// both targets), so -- like the exception-handler case above -- no header reaches the
 		// client until the gated child's release lets that wait resolve.
 		gate.Release("inherited-child");
 		using var response = await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
 
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		Assert.False(response.Headers.Contains("ssr-framing"));
 		var body = await response.Content.ReadAsStringAsync();
+		Assert.Contains("data-issue-260-page", body, StringComparison.Ordinal);
 		Assert.False(Issue263FramingMarkup.ContainsAnyMarker(body));
 	}
 }
@@ -264,9 +266,9 @@ internal static class Issue263FramingRun
 		return new(response.StatusCode, headers, framingHeaderValue, body);
 	}
 
-	// For a request that forces full quiescence (an exception-handler or status-code re-execution, where
-	// isErrorHandler/isReexecuted gate the response), both hosts withhold every header until that wait resolves,
-	// so releasing must happen before awaiting the response rather than after.
+	// For a request that forces full quiescence on both hosts (an exception-handler re-execution), both hosts
+	// withhold every header until that wait resolves, so releasing must happen before awaiting the response
+	// rather than after. A status-code re-execution does not qualify: net10.0 does not track its pending work.
 	public static async Task<Issue263FramingResult> RunReleasingBeforeHeadersAsync(
 		Issue260Host host, string path, bool enhancedNavigation)
 	{
