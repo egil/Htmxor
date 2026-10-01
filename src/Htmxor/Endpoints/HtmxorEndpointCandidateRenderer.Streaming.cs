@@ -3,8 +3,15 @@
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
 // synchronized 2026-09-08. Exact sources and license: docs/engineering/candidate-form-adapter.md.
-// .NET 11 enhanced-exception framing follows v11.0.0-rc.1.26425.128,
-// commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13.
+// Enhanced-navigation framing in InitializeStreamingRenderingFraming follows EndpointHtmlRenderer.Streaming.cs,
+// first for .NET 11 at v11.0.0-rc.1.26425.128 (c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, #214, synchronized
+// 2026-09-13), and on both targets since #263 (synchronized 2026-10-01), identical at v10.0.11
+// (a5383385245bdacc20ec19f30e46090a8154d8da): every response that is not re-executed frames, error-handler
+// responses included. Direct htmx responses never frame.
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
 // The stop gate in UpdateDisplayAsync (#264, synchronized 2026-09-30) reimplements EndpointHtmlRenderer.cs at
 // v10.0.11 (a5383385245bdacc20ec19f30e46090a8154d8da) and, identically, at v11.0.0-rc.1.26425.128
 // (c3325eeb6b47bc6383c127d4f4827dc9642a2b6e):
@@ -34,6 +41,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.Encodings.Web;
+using Htmxor.Http;
 using Htmxor.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
@@ -45,9 +53,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Diagnostics;
-#if NET11_0_OR_GREATER
-using Htmxor.Http;
-#endif
 
 [assembly: System.Reflection.Metadata.MetadataUpdateHandler(typeof(Htmxor.Endpoints.HtmxorEndpointCandidateRenderer))]
 
@@ -73,11 +78,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 		nonStreamingPendingTasksCompletion = null;
 		this.waitForQuiescence = waitForQuiescence;
 		isReexecuted = context.Features.Get<IStatusCodeReExecuteFeature>() is not null;
-#if NET11_0_OR_GREATER
 		var allowFraming = !isReexecuted && context.GetHtmxContext().Request.RoutingMode is not RoutingMode.Direct;
-#else
-		var allowFraming = !waitForQuiescence;
-#endif
 		if (allowFraming && HtmxorEndpointCandidateFormServices.IsProgressivelyEnhancedNavigation(context.Request))
 		{
 			var identifier = Guid.NewGuid().ToString();

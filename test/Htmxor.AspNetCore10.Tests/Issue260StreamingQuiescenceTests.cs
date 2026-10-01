@@ -529,6 +529,10 @@ public sealed class Issue260ReexecutionParityTests
 // and only Date is otherwise time-varying. Whole-header parity (#260's own contract) still requires the
 // cookie's name, count, order, and attributes (Path, SameSite, Secure, HttpOnly, ...) to match as the
 // framework emits them; only the per-cookie value is replaced.
+//
+// The "ssr-framing" header carries a fresh Guid for every framed response (InitializeStreamingRenderingFraming), so
+// only its presence is comparable across two separately keyed hosts: its value is replaced, and a header present on
+// one host but not the other still fails whole-header parity.
 internal static class Issue260Snapshot
 {
 	public static IReadOnlyDictionary<string, string> NormalizeHeaders(HttpResponseMessage response) =>
@@ -539,6 +543,7 @@ internal static class Issue260Snapshot
 				group => group.Key switch
 				{
 					_ when group.Key.Equals("Date", StringComparison.OrdinalIgnoreCase) => "<dynamic-date>",
+					_ when group.Key.Equals("ssr-framing", StringComparison.OrdinalIgnoreCase) => "<framing-id>",
 					_ when group.Key.Equals("Set-Cookie", StringComparison.OrdinalIgnoreCase)
 						=> string.Join(",", group.SelectMany(header => header.Value).Select(NormalizeSetCookieValue)),
 					_ => string.Join(",", group.SelectMany(header => header.Value)),

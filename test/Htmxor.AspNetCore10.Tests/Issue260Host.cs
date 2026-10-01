@@ -15,7 +15,9 @@ namespace Htmxor.AspNetCore10;
 // Issue264StreamingBodyReader for incremental reading rather than adding a second copy of that logic.
 // `configureServices` lets another same-shaped case (see #261) register its own additional host-level
 // service, such as a case-specific gate, without a second copy of this host's own TestServer/data-protection
-// wiring.
+// wiring. `configureBuilder` extends the same host for #263's own cases: a streamed response's configured
+// JavaScript initializers live on the builder's environment (`WebRootFileProvider`), the same seam Issue191's
+// and Issue214's own hosts already configure.
 internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 {
 	public HttpClient Client { get; } = app.GetTestClient();
@@ -23,24 +25,13 @@ internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 	public IServiceProvider Services => app.Services;
 
 	public static async Task<Issue260Host> CreateAsync<TRootComponent>(
-		bool htmxor, Action<WebApplication>? configurePipeline = null, Action<IServiceCollection>? configureServices = null)
+		bool htmxor,
+		Action<WebApplication>? configurePipeline = null,
+		Action<IServiceCollection>? configureServices = null,
+		Action<WebApplicationBuilder>? configureBuilder = null)
 		where TRootComponent : IComponent
 	{
-		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-		{
-			ApplicationName = typeof(TRootComponent).Assembly.GetName().Name,
-		});
-		builder.WebHost.UseTestServer();
-		builder.Logging.ClearProviders();
-		builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
-		builder.Services.AddSingleton<Issue260Gate>();
-		configureServices?.Invoke(builder.Services);
-		var razorComponents = builder.Services.AddRazorComponents();
-		if (htmxor)
-		{
-			razorComponents.AddHtmxor();
-		}
-
+		var builder = CreateBuilder<TRootComponent>(htmxor, configureBuilder, configureServices);
 		var app = builder.Build();
 		configurePipeline?.Invoke(app);
 		app.UseAntiforgery();
@@ -52,6 +43,31 @@ internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 
 		await app.StartAsync();
 		return new Issue260Host(app);
+	}
+
+	private static WebApplicationBuilder CreateBuilder<TRootComponent>(
+		bool htmxor,
+		Action<WebApplicationBuilder>? configureBuilder,
+		Action<IServiceCollection>? configureServices)
+		where TRootComponent : IComponent
+	{
+		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+		{
+			ApplicationName = typeof(TRootComponent).Assembly.GetName().Name,
+		});
+		builder.WebHost.UseTestServer();
+		builder.Logging.ClearProviders();
+		configureBuilder?.Invoke(builder);
+		builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
+		builder.Services.AddSingleton<Issue260Gate>();
+		configureServices?.Invoke(builder.Services);
+		var razorComponents = builder.Services.AddRazorComponents();
+		if (htmxor)
+		{
+			razorComponents.AddHtmxor();
+		}
+
+		return builder;
 	}
 
 	public async ValueTask DisposeAsync()
