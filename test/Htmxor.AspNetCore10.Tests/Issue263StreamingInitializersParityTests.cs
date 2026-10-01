@@ -1,6 +1,5 @@
 using System.Text;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 
 namespace Htmxor.AspNetCore10;
@@ -21,16 +20,17 @@ public sealed class Issue263StreamingInitializersTests
 		await using var stock = await Issue260Host.CreateAsync<Issue260App>(htmxor: false, configureBuilder: fixture.Configure);
 		await using var candidate = await Issue260Host.CreateAsync<Issue260App>(htmxor: true, configureBuilder: fixture.Configure);
 
-		var stockBody = await RunAsync(stock, enhancedNavigation: false);
-		var candidateBody = await RunAsync(candidate, enhancedNavigation: false);
+		var stockResult = await RunAsync(stock, enhancedNavigation: false);
+		var candidateResult = await RunAsync(candidate, enhancedNavigation: false);
 
-		// Stock's own oracle: EmitInitializersIfNecessary writes the base64-encoded modules.json contents once,
-		// immediately after the (possibly empty) streaming framing marker that opens SendStreamingUpdatesAsync's
-		// own write -- the same call this issue's streamed cases newly exercise, where only a completed,
-		// non-streamed response had paired coverage before.
+		// Stock's own oracle: a streamed response writes the base64-encoded modules.json contents once, at the
+		// start of its streaming updates, immediately after the (here empty) framing marker.
 		var expectedMarker = $"<!--Blazor-Web-Initializers:{Convert.ToBase64String(Encoding.UTF8.GetBytes(ModulesContent))}-->";
-		Assert.Contains(expectedMarker, stockBody, StringComparison.Ordinal);
-		Assert.Equal(stockBody, candidateBody);
+		Assert.Contains(expectedMarker, stockResult.Body, StringComparison.Ordinal);
+		AssertStreamed(stockResult.Body);
+		Assert.Equal(
+			Issue263FramingMarkup.Normalize(stockResult.Body, stockResult.FramingHeaderValue),
+			Issue263FramingMarkup.Normalize(candidateResult.Body, candidateResult.FramingHeaderValue));
 	}
 
 	[Fact]
@@ -40,29 +40,31 @@ public sealed class Issue263StreamingInitializersTests
 		await using var stock = await Issue260Host.CreateAsync<Issue260App>(htmxor: false, configureBuilder: fixture.Configure);
 		await using var candidate = await Issue260Host.CreateAsync<Issue260App>(htmxor: true, configureBuilder: fixture.Configure);
 
-		var stockBody = await RunAsync(stock, enhancedNavigation: true);
-		var candidateBody = await RunAsync(candidate, enhancedNavigation: true);
+		var stockResult = await RunAsync(stock, enhancedNavigation: true);
+		var candidateResult = await RunAsync(candidate, enhancedNavigation: true);
 
-		Assert.DoesNotContain("<!--Blazor-Web-Initializers:", stockBody, StringComparison.Ordinal);
-		Assert.Equal(Issue263FramingMarkup.Normalize(stockBody), Issue263FramingMarkup.Normalize(candidateBody));
+		Assert.DoesNotContain("<!--Blazor-Web-Initializers:", stockResult.Body, StringComparison.Ordinal);
+		AssertStreamed(stockResult.Body);
+		Assert.Equal(
+			Issue263FramingMarkup.Normalize(stockResult.Body, stockResult.FramingHeaderValue),
+			Issue263FramingMarkup.Normalize(candidateResult.Body, candidateResult.FramingHeaderValue));
 	}
 
-	private static async Task<string> RunAsync(Issue260Host host, bool enhancedNavigation)
+	// Proves each case actually exercised SendStreamingUpdatesAsync, the call this issue's own cases cover for
+	// the first time, rather than the non-streamed EmitInitializersIfNecessary branch #214 already pins: without
+	// this, a race that let the response complete before the body read would still pass with no initializer
+	// assertion ever having observed a streamed response.
+	private static void AssertStreamed(string body)
 	{
-		var gate = host.Services.GetRequiredService<Issue260Gate>();
-		using var request = new HttpRequestMessage(HttpMethod.Get, Path);
-		if (enhancedNavigation)
-		{
-			request.Headers.TryAddWithoutValidation("Accept", Issue264SwitchOnConstants.EnhancedNavigationAccept);
-		}
-
-		var responseTask = host.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-		await gate.WaitForReachedAsync("inherited-child");
-		gate.Release("inherited-child");
-
-		using var response = await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
-		return await response.Content.ReadAsStringAsync();
+		Assert.Contains("<blazor-ssr>", body, StringComparison.Ordinal);
+		Assert.Contains("<template blazor-component-id=", body, StringComparison.Ordinal);
 	}
+
+	// Shares Issue263FramingRun's release-after-headers ordering with the framing cases: releasing before the
+	// response starts would let the child finish inside the first render pass and silently fall back to the
+	// non-streamed EmitInitializersIfNecessary branch #214 already covers.
+	private static Task<Issue263FramingResult> RunAsync(Issue260Host host, bool enhancedNavigation)
+		=> Issue263FramingRun.RunReleasingAfterHeadersAsync(host, Path, enhancedNavigation);
 }
 
 // Configures a fresh, isolated WebRootFileProvider carrying one modules.json, the same mechanism Issue191's own
