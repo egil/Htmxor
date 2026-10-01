@@ -1,0 +1,19 @@
+@page "/issue-261/post-start-not-found"
+@attribute [StreamRendering]
+@inject NavigationManager Navigation
+@inject Issue261NotFoundGate Gate
+
+<main data-issue-261-post-start-not-found="@state">@state</main>
+<Issue261StrayUpdateChild />
+
+@code {
+    private string state = "initial";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The test releases this only after it has read the initial synchronous render off the wire, so the
+        // NotFound() below is genuinely "after the response has started" rather than a timing guess.
+        await Gate.NotFoundReleased;
+        Navigation.NotFound();
+    }
+}

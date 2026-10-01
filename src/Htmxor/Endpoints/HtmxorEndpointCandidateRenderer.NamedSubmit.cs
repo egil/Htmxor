@@ -2,7 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
-// synchronized 2026-09-05; OnNavigateTo added for #264, synchronized 2026-09-30 and identical at
+// synchronized 2026-09-05; OnNavigateTo added for #264, synchronized 2026-09-30, and
+// SetNotFoundWhenResponseHasStarted added for #261, synchronized 2026-10-01, both identical at
 // v11.0.0-rc.1.26425.128, commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e:
 // https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
@@ -53,6 +54,22 @@ internal partial class HtmxorEndpointCandidateRenderer
 			: Task.CompletedTask;
 	}
 
+	// The template is flushed before the renderer stops, as stock does. The stop is what keeps a later render,
+	// including work quiescence never tracked, from reaching the response after the template.
+	internal async Task SetNotFoundWhenResponseHasStarted()
+	{
+		var path = NotFoundEventArgs?.Path;
+		if (string.IsNullOrEmpty(path))
+		{
+			path = httpContext.Items["StatusCodePagesOptions"] as string
+				?? throw new InvalidOperationException("The Router NotFoundPage route must be specified or re-execution middleware has to be set to render not found content.");
+		}
+		var baseUri = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}{httpContext.Request.PathBase}/";
+		await WriteTemplateAfterResponseStartedAsync(template =>
+			WriteResponseTemplate(template, httpContext, "not-found", $"{baseUri}{path.TrimStart('/')}", useEnhancedNavigation: true));
+		SignalRendererToFinishRendering();
+	}
+
 	// Stock's navigation callback for non-throwing NavigateTo. Before the response starts, a navigation during the
 	// synchronous first render of an htmx request gets the bare redirect the throwing path gives it (kept by #230);
 	// every other navigation takes HandleNavigationBeforeResponseStarted, which answers htmx with HX-Redirect and
@@ -61,15 +78,8 @@ internal partial class HtmxorEndpointCandidateRenderer
 	{
 		if (httpContext.Response.HasStarted)
 		{
-			// Built whole before any of it is written, as stock's BufferedTextWriter does: if protecting the
-			// redirect fails partway, no partial template reaches the response.
-			using var template = new StringWriter(CultureInfo.InvariantCulture);
-			WriteNavigationAfterResponseStarted(template, httpContext, uri);
-			var defaultBufferSize = 16 * 1024;
-			await using var writer = new HttpResponseStreamWriter(
-				httpContext.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
-			await writer.WriteAsync(template.ToString());
-			await writer.FlushAsync();
+			await WriteTemplateAfterResponseStartedAsync(template =>
+				WriteNavigationAfterResponseStarted(template, httpContext, uri));
 		}
 		else if (inFirstRender && httpContext.GetHtmxContext().Request.IsHtmxRequest)
 		{
@@ -80,6 +90,20 @@ internal partial class HtmxorEndpointCandidateRenderer
 			HtmxorEndpointCandidateInvoker.HandleNavigationBeforeResponseStarted(httpContext, uri);
 		}
 		SignalRendererToFinishRendering();
+	}
+
+	// Built whole before any of it is written, as stock's BufferedTextWriter does: if protecting a redirect
+	// fails partway, no partial template reaches the response. It then goes out through its own writer and is
+	// flushed at once, as stock writes these templates.
+	private async Task WriteTemplateAfterResponseStartedAsync(Action<TextWriter> writeTemplate)
+	{
+		using var template = new StringWriter(CultureInfo.InvariantCulture);
+		writeTemplate(template);
+		var defaultBufferSize = 16 * 1024;
+		await using var writer = new HttpResponseStreamWriter(
+			httpContext.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
+		await writer.WriteAsync(template.ToString());
+		await writer.FlushAsync();
 	}
 
 	private string CreateMessageForAmbiguousNamedSubmitEvent(string scopeQualifiedName, IEnumerable<(int ComponentId, int FrameIndex)> locations)

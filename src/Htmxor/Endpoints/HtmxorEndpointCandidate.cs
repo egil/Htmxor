@@ -323,7 +323,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			await renderer.SendStreamingUpdatesAsync(context, quiesceTask, writer);
 			if (renderer.NotFoundEventArgs is not null)
 			{
-				renderer.WriteNotFoundAfterResponseStarted(context, writer);
+				await renderer.SetNotFoundWhenResponseHasStarted();
 			}
 		}
 		else
@@ -448,7 +448,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	}
 
 	// A deferred stop, as stock's SignalRendererToFinishRendering: it takes effect after the current batch,
-	// so nothing renders or streams after a navigation.
+	// so nothing renders or streams after a navigation or after a not-found raised once the response started.
 	private void SignalRendererToFinishRendering() => rendererIsStopped = true;
 
 	protected override void ProcessPendingRender()
