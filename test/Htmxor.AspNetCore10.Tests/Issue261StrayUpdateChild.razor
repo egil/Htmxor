@@ -28,8 +28,8 @@
         }
         catch (Exception exception)
         {
-            // This task is detached (see OnInitializedAsync below), so nothing else ever awaits it; without
-            // this, a render attempt that throws here -- for example by racing the response's own disposal --
+            // This task is detached (see OnInitializedAsync above), so nothing else ever awaits it; without
+            // this, a render attempt that throws here -- for example against an already-disposed response --
             // would become an unobserved task exception instead of a result the test can see and wait for.
             Gate.RecordStrayOutcome(exception);
         }

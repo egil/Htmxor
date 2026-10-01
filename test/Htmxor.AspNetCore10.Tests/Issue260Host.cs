@@ -13,6 +13,9 @@ namespace Htmxor.AspNetCore10;
 // widening its much larger surface (session, authentication, forms, TempData) to net11.0 would pull in
 // behavior this issue's cases never touch. This host carries only what #260 needs, and reuses
 // Issue264StreamingBodyReader for incremental reading rather than adding a second copy of that logic.
+// `configureServices` lets another same-shaped case (see #261) register its own additional per-request
+// service, such as a case-specific gate, without a second copy of this host's own TestServer/data-protection
+// wiring.
 internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 {
 	public HttpClient Client { get; } = app.GetTestClient();
@@ -20,7 +23,7 @@ internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 	public IServiceProvider Services => app.Services;
 
 	public static async Task<Issue260Host> CreateAsync<TRootComponent>(
-		bool htmxor, Action<WebApplication>? configurePipeline = null)
+		bool htmxor, Action<WebApplication>? configurePipeline = null, Action<IServiceCollection>? configureServices = null)
 		where TRootComponent : IComponent
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -31,6 +34,7 @@ internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 		builder.Logging.ClearProviders();
 		builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
 		builder.Services.AddSingleton<Issue260Gate>();
+		configureServices?.Invoke(builder.Services);
 		var razorComponents = builder.Services.AddRazorComponents();
 		if (htmxor)
 		{

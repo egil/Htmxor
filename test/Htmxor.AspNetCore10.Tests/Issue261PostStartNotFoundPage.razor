@@ -11,11 +11,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Fresh gates for this request: Issue261NotFoundGate is one process-wide singleton (see its own
-        // comment), so without this a second request on the same host would find both gates already completed
-        // from a previous one.
-        Gate.Reset();
-
         // The test releases this only after it has read the initial synchronous render off the wire, so the
         // NotFound() below is genuinely "after the response has started" rather than a timing guess.
         await Gate.NotFoundReleased;
