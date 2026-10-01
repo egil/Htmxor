@@ -4,8 +4,9 @@ namespace Htmxor.AspNetCore10;
 // started, exactly when the endpoint's own request-handling pipeline is allowed to finish and release its
 // request scope, and exactly when Issue261StrayUpdateChild's detached, quiescence-untracked continuation asks
 // the renderer for another render, instead of guessing with fixed sleeps. Registered per host (see
-// Issue260Host's configureServices hook): this test sends exactly one request per host, so one instance per
-// host is exactly one instance per request too.
+// Issue260Host's configureServices hook), so every signal is one-shot for the whole host: only the first
+// post-start-not-found request drives them, and any later request on the same host (such as the not-found
+// destination follow-up) passes the holding middleware only because ResponseReleased is already set.
 //
 // A bound on every signal, so a request that faults or returns before a page reaches its waypoint fails the
 // one test on that waypoint instead of hanging the whole test boundary (see Issue260Gate's own comment).

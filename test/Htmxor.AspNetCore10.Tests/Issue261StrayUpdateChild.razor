@@ -25,8 +25,8 @@
         // it, and #261's own evidence is that an update racing *inside* that wait already streams in stock
         // too (see the issue's "Evidence: the mechanism" section) -- not the gap this case targets. A
         // genuinely untracked continuation, kicked off here and resumed only once the page's own not-found
-        // has already been raised, is the shape stock's SignalRendererToFinishRendering (and the candidate's
-        // missing equivalent) is supposed to govern regardless of what the renderer was or was not tracking.
+        // has already been raised, is the shape a post-start not-found stop (stock's
+        // SignalRendererToFinishRendering) must govern regardless of what the renderer was or was not tracking.
         _ = DeferredUpdateAsync();
         return Task.CompletedTask;
     }

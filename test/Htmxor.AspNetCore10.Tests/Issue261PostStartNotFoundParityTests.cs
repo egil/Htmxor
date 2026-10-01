@@ -8,8 +8,8 @@ namespace Htmxor.AspNetCore10;
 // #261: a component that signals NotFound() after the response has already started streaming. Stock writes
 // its not-found template through a fresh writer, flushes it, and stops the renderer
 // (SignalRendererToFinishRendering), so ProcessPendingRender returns before building a new render tree for
-// any later, quiescence-untracked work (Issue261StrayUpdateChild's detached continuation). A fix for this
-// issue reuses that same stop, so the identical gate is expected to apply to it too.
+// any later, quiescence-untracked work (Issue261StrayUpdateChild's detached continuation). Htmxor's renderer
+// must gate that same work the same way.
 //
 // Both stock and the candidate check NotFoundEventArgs only once SendStreamingUpdatesAsync's quiescence wait
 // has resolved; a render that races *inside* that wait streams on both sides identically, as its own
