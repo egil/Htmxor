@@ -323,7 +323,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			await renderer.SendStreamingUpdatesAsync(context, quiesceTask, writer);
 			if (renderer.NotFoundEventArgs is not null)
 			{
-				renderer.WriteNotFoundAfterResponseStarted(context, writer);
+				await renderer.SetNotFoundWhenResponseHasStarted();
 			}
 		}
 		else

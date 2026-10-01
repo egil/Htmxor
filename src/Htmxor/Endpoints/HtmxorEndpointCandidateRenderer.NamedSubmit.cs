@@ -2,7 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
-// synchronized 2026-09-05; OnNavigateTo added for #264, synchronized 2026-09-30 and identical at
+// synchronized 2026-09-05; OnNavigateTo added for #264, synchronized 2026-09-30, and
+// SetNotFoundWhenResponseHasStarted added for #261, synchronized 2026-10-01, both identical at
 // v11.0.0-rc.1.26425.128, commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e:
 // https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
@@ -57,6 +58,27 @@ internal partial class HtmxorEndpointCandidateRenderer
 	// synchronous first render of an htmx request gets the bare redirect the throwing path gives it (kept by #230);
 	// every other navigation takes HandleNavigationBeforeResponseStarted, which answers htmx with HX-Redirect and
 	// otherwise matches stock. See #264's decisions on the htmx oracle and on navigation from pending work.
+	// The template gets its own writer and is flushed before the renderer stops, as stock does, so no later
+	// render reaches the response after it.
+	internal async Task SetNotFoundWhenResponseHasStarted()
+	{
+		var path = NotFoundEventArgs?.Path;
+		if (string.IsNullOrEmpty(path))
+		{
+			path = httpContext.Items["StatusCodePagesOptions"] as string
+				?? throw new InvalidOperationException("The Router NotFoundPage route must be specified or re-execution middleware has to be set to render not found content.");
+		}
+		var baseUri = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}{httpContext.Request.PathBase}/";
+		using var template = new StringWriter(CultureInfo.InvariantCulture);
+		WriteResponseTemplate(template, httpContext, "not-found", $"{baseUri}{path.TrimStart('/')}", useEnhancedNavigation: true);
+		var defaultBufferSize = 16 * 1024;
+		await using var writer = new HttpResponseStreamWriter(
+			httpContext.Response.Body, Encoding.UTF8, defaultBufferSize, ArrayPool<byte>.Shared, ArrayPool<char>.Shared);
+		await writer.WriteAsync(template.ToString());
+		await writer.FlushAsync();
+		SignalRendererToFinishRendering();
+	}
+
 	private async Task OnNavigateTo(string uri)
 	{
 		if (httpContext.Response.HasStarted)

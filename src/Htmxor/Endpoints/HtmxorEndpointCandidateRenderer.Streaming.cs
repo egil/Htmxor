@@ -215,18 +215,6 @@ internal partial class HtmxorEndpointCandidateRenderer
 			.Select(attribute => (bool?)attribute.Enabled)
 			.FirstOrDefault());
 
-	internal void WriteNotFoundAfterResponseStarted(HttpContext context, TextWriter writer)
-	{
-		var path = NotFoundEventArgs?.Path;
-		if (string.IsNullOrEmpty(path))
-		{
-			path = context.Items["StatusCodePagesOptions"] as string
-				?? throw new InvalidOperationException("The Router NotFoundPage route must be specified or re-execution middleware has to be set to render not found content.");
-		}
-		var baseUri = $"{context.Request.Scheme}://{context.Request.Host}{context.Request.PathBase}/";
-		WriteResponseTemplate(writer, context, "not-found", $"{baseUri}{path.TrimStart('/')}", useEnhancedNavigation: true);
-	}
-
 	private void SendBatchAsStreamingUpdate(in RenderBatch renderBatch, TextWriter writer)
 	{
 		var count = renderBatch.UpdatedComponents.Count;
