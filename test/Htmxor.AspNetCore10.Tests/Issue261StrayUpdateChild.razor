@@ -1,0 +1,37 @@
+@inject Issue261NotFoundGate Gate
+
+<p data-issue-261-stray="@state">@state</p>
+
+@code {
+    private string state = "stray-initial";
+
+    protected override Task OnInitializedAsync()
+    {
+        // Detached on purpose: returning this task instead would make the renderer's QuiescenceTask wait for
+        // it, and #261's own evidence is that an update racing *inside* that wait already streams in stock
+        // too (see the issue's "Evidence: the mechanism" section) -- not the gap this case targets. A
+        // genuinely untracked continuation, kicked off here and resumed only once the page's own not-found
+        // has already been raised, is the shape stock's SignalRendererToFinishRendering (and the candidate's
+        // missing equivalent) is supposed to govern regardless of what the renderer was or was not tracking.
+        _ = DeferredUpdateAsync();
+        return Task.CompletedTask;
+    }
+
+    private async Task DeferredUpdateAsync()
+    {
+        await Gate.StrayReleased;
+        state = "stray-updated";
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+            Gate.RecordStrayOutcome(null);
+        }
+        catch (Exception exception)
+        {
+            // This task is detached (see OnInitializedAsync below), so nothing else ever awaits it; without
+            // this, a render attempt that throws here -- for example by racing the response's own disposal --
+            // would become an unobserved task exception instead of a result the test can see and wait for.
+            Gate.RecordStrayOutcome(exception);
+        }
+    }
+}
