@@ -4,10 +4,10 @@ using Microsoft.Extensions.FileProviders;
 
 namespace Htmxor.AspNetCore10;
 
-// #263's own red-contract cases for streamed JavaScript initializers, compiled for both net10.0 and net11.0 (see
-// the csproj). Reuses Issue260App's existing inherited-streaming page and Issue260Gate's "inherited-child"
-// waypoint, and Issue260Host's configureBuilder hook to supply a configured modules.json the same way
-// Issue191's and Issue214's own hosts already do, rather than adding a fourth copy of that setup.
+// #263's paired stock-against-candidate cases for streamed JavaScript initializers, compiled for both net10.0 and
+// net11.0 (see the csproj). Reuses Issue260App's existing inherited-streaming page and Issue260Gate's
+// "inherited-child" waypoint, and Issue260Host's configureBuilder hook to supply a configured modules.json the same
+// way Issue191's and Issue214's own hosts already do, rather than adding a fourth copy of that setup.
 public sealed class Issue263StreamingInitializersTests
 {
 	private const string Path = "/issue-260/inherited-streaming";

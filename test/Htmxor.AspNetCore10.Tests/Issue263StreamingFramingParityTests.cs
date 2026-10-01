@@ -30,10 +30,10 @@ internal static class Issue263FramingMarkup
 	public static bool ContainsAnyMarker(string body) => AnyMarker.IsMatch(body);
 }
 
-// #263's own red-contract cases for streamed framing, compiled for both net10.0 and net11.0 (see the csproj).
-// Every case pairs a stock host against an AddHtmxor candidate host built by Issue260Host, reusing Issue260App's
-// existing inherited-streaming page and Issue260Gate's "inherited-child" waypoint instead of adding a third copy
-// of a plain [StreamRendering] page/child pair.
+// #263's paired stock-against-candidate cases for streamed framing, compiled for both net10.0 and net11.0 (see
+// the csproj). Every case pairs a stock host against an AddHtmxor candidate host built by Issue260Host, reusing
+// Issue260App's existing inherited-streaming page and Issue260Gate's "inherited-child" waypoint instead of
+// adding a third copy of a plain [StreamRendering] page/child pair.
 public sealed class Issue263EnhancedNavigationStreamingTests
 {
 	private const string Path = "/issue-260/inherited-streaming";
