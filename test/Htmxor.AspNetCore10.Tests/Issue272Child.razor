@@ -4,10 +4,8 @@
 <section data-issue272-child="rendered">issue 272 child</section>
 
 @code {
-    // Parameterized so each page using this fixture (see Issue272DeepIntermediate.razor) persists under its
-    // own key; the committed pages are one-per-route today, but a distinct key also lets an assertion name
-    // exactly which page's entry it is checking, and keeps a future page free to add a second instance
-    // without a silent key collision.
+    // Issue272DeepIntermediate.razor passes its own key so the deep-descendant case's oracle names that
+    // fixture's entry specifically; the usage-site and nested fixtures keep the default.
     [Parameter] public string PersistenceKey { get; set; } = "issue272-probe";
 
     private PersistingComponentStateSubscription subscription;

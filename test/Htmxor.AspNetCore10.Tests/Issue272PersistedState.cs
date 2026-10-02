@@ -9,8 +9,8 @@ namespace Htmxor.AspNetCore10;
 // Blazor-Server-Component-State with the host's own data-protection key, parses both the Server and
 // WebAssembly markers as JSON, and rewrites each marker's content as a sorted, decoded "key=value" list so
 // two separately keyed hosts compare by content instead of by opaque, per-host-random bytes. It is shared
-// rather than private to one test class so every persisted-state parity case decodes state the same way
-// (Issue214StateParityTests calls this directly rather than keeping its own copy).
+// rather than private to one test class so every parity case that compares decoded persisted state agrees on
+// what "decoded" means.
 internal static class Issue272PersistedState
 {
 	public static string Decode(string body, IDataProtectionProvider protection)

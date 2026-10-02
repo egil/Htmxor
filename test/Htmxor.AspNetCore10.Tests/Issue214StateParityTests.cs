@@ -186,9 +186,8 @@ public sealed class Issue214StateParityTests
 		return new(response.StatusCode, headers, normalized);
 	}
 
-	// Blazor-Configuration is independent of persisted state (browser options, not a component's own data), so
-	// it is decoded here and the rest is handed to the shared Issue272PersistedState.Decode, which every
-	// persisted-state parity case in this project now uses.
+	// Blazor-Configuration carries browser options, not persisted component state, so it is decoded here; the
+	// persisted-state markers are decoded by the shared Issue272PersistedState.Decode.
 	private static string NormalizeBody(string body, IDataProtectionProvider protection)
 	{
 		var normalized = Regex.Replace(body, "<!--Blazor-Configuration:(.*?)-->", match =>
