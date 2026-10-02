@@ -1,9 +1,6 @@
 using System.Net;
-using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -59,9 +56,7 @@ public sealed class Issue269StreamedBoundaryTests
 		// response has started, where stock writes the boundary marker again but sets the cache header only while
 		// the response has not started. ReadToEndAsync reports a torn-down connection as a bounded failure rather
 		// than a hang, and the decoded whole-body comparison below covers the persisted state written after that
-		// update for every render mode. On net10.0, persisted state for a render-mode-bound component is also
-		// governed by a separate, non-streaming render-mode-inference rule owned by its own tracked issue; #269's
-		// net10.0 rows depend on that issue as well as the started-response guard above.
+		// update for every render mode.
 		var stockWhole = await stockReader.ReadToEndAsync();
 		var candidateWhole = await candidateReader.ReadToEndAsync();
 
@@ -69,16 +64,15 @@ public sealed class Issue269StreamedBoundaryTests
 		Assert.Contains("data-issue-269-page=\"updated\"", stockWhole, StringComparison.Ordinal);
 		var stockUpdate = stockWhole[stockWhole.IndexOf("<template blazor-component-id=", StringComparison.Ordinal)..];
 		Assert.Contains($"<!--Blazor:{{\"type\":\"{mode}\"", stockUpdate, StringComparison.Ordinal);
-		Assert.Contains("issue269-probe=", Issue269PersistedState.Decode(stockWhole, stock.Protection), StringComparison.Ordinal);
+		var stockDecoded = Issue272PersistedState.Decode(stockWhole, stock.Protection);
+		AssertEntryInModeStore(stockDecoded, mode, Entry);
 
 		// Whole-body parity after decoding: each host carries its own ephemeral data-protection key, so the raw
 		// persisted-state payload bytes never match byte-for-byte across two separately keyed hosts even when
 		// the underlying persisted content is identical; descriptor, prerenderId and the framework's own
 		// antiforgery-token persisted value are per-render or per-host random tokens with no stock-vs-candidate
 		// meaning of their own. All three are normalized, each with the rationale above.
-		Assert.Equal(
-			Issue269PersistedState.Decode(stockWhole, stock.Protection),
-			Issue269PersistedState.Decode(candidateWhole, candidate.Protection));
+		Assert.Equal(stockDecoded, Issue272PersistedState.Decode(candidateWhole, candidate.Protection));
 	}
 
 	[Theory]
@@ -109,14 +103,13 @@ public sealed class Issue269StreamedBoundaryTests
 		// for a streaming page's boundary is suppressed or emitted under re-execution: net10.0 stock does not
 		// track re-executed pending work, so its response reflects the page's pre-release state, while net11.0
 		// stock tracks it. The candidate must match each target's own stock rather than one classification on both.
+		var stockDecoded = Issue272PersistedState.Decode(stockResult.Body, stock.Protection);
 #if NET11_0_OR_GREATER
-		Assert.Contains("issue269-probe=", Issue269PersistedState.Decode(stockResult.Body, stock.Protection), StringComparison.Ordinal);
+		AssertEntryInModeStore(stockDecoded, mode, Entry);
 #else
 		Assert.DoesNotContain("Component-State:", stockResult.Body, StringComparison.Ordinal);
 #endif
-		Assert.Equal(
-			Issue269PersistedState.Decode(stockResult.Body, stock.Protection),
-			Issue269PersistedState.Decode(candidateResult.Body, candidate.Protection));
+		Assert.Equal(stockDecoded, Issue272PersistedState.Decode(candidateResult.Body, candidate.Protection));
 	}
 
 	private static void ConfigureReexecutionPipeline(WebApplication app, string originPath, string reexecutedPath)
@@ -160,34 +153,37 @@ public sealed class Issue269StreamedBoundaryTests
 		var body = await response.Content.ReadAsStringAsync();
 		return (response.StatusCode, body, Issue260Snapshot.NormalizeHeaders(response));
 	}
-}
 
-// Decodes the persisted-state markers this fixture produces (Blazor-Server-Component-State, unprotected with the
-// host's own data-protection key, and Blazor-WebAssembly-Component-State) so two separately keyed hosts compare
-// by content. It mirrors Issue214StateParityTests' NormalizeBody, which compiles only for net11.0, without its
-// Blazor-Configuration decoding; this fixture's comparison takes that marker verbatim.
-internal static class Issue269PersistedState
-{
-	public static string Decode(string body, IDataProtectionProvider protection)
+	private const string Entry = "issue269-probe=\"issue269-persisted\"";
+
+	// Stock's own oracle, the same shape as Issue272StateParityTests' own AssertEntryInModeStore: the fixture
+	// child's persisted entry is filed under the selected mode's own store(s), never the other one, so neither
+	// a dropped entry nor a fixture that ignored the mode route value can hide behind the equality assertion
+	// that follows.
+	private static void AssertEntryInModeStore(string decodedBody, string mode, string entry)
 	{
-		var normalized = Regex.Replace(body, "\"(prerenderId|descriptor)\":\"[^\"]+\"", "\"$1\":\"<dynamic>\"");
-		return Regex.Replace(normalized, "<!--Blazor-(Server|WebAssembly)-Component-State:(.*?)-->", match =>
+		var serverStore = ExtractStore(decodedBody, "Server");
+		var webAssemblyStore = ExtractStore(decodedBody, "WebAssembly");
+		switch (mode)
 		{
-			var bytes = Convert.FromBase64String(match.Groups[2].Value);
-			if (match.Groups[1].Value == "Server")
-			{
-				bytes = protection.CreateProtector("Microsoft.AspNetCore.Components.Server.State").Unprotect(bytes);
-			}
-
-			var state = JsonSerializer.Deserialize<SortedDictionary<string, byte[]>>(bytes)!;
-			var decoded = string.Join(";", state.Select(item => $"{item.Key}={NormalizeAntiforgeryToken(Encoding.UTF8.GetString(item.Value))}"));
-			return $"<!--Blazor-{match.Groups[1].Value}-Component-State:{decoded}-->";
-		});
+			case "server":
+				Assert.Contains(entry, serverStore, StringComparison.Ordinal);
+				Assert.DoesNotContain(entry, webAssemblyStore, StringComparison.Ordinal);
+				break;
+			case "webassembly":
+				Assert.DoesNotContain(entry, serverStore, StringComparison.Ordinal);
+				Assert.Contains(entry, webAssemblyStore, StringComparison.Ordinal);
+				break;
+			default:
+				Assert.Contains(entry, serverStore, StringComparison.Ordinal);
+				Assert.Contains(entry, webAssemblyStore, StringComparison.Ordinal);
+				break;
+		}
 	}
 
-	// The framework's own AntiforgeryStateProvider registers an OnPersisting callback on every interactive
-	// endpoint (not something this fixture's own component persists), carrying a token value that is random per
-	// request and keyed per host, exactly like Issue191PersistedStateParityTests' own NormalizePersistedValue.
-	private static string NormalizeAntiforgeryToken(string value)
-		=> Regex.Replace(value, "\"value\":\"[^\"]+\"(?=,\"formFieldName\":\"__RequestVerificationToken\")", "\"value\":\"<antiforgery-token>\"");
+	private static string ExtractStore(string decodedBody, string store)
+	{
+		var match = Regex.Match(decodedBody, $"<!--Blazor-{store}-Component-State:(.*?)-->");
+		return match.Success ? match.Groups[1].Value : string.Empty;
+	}
 }
