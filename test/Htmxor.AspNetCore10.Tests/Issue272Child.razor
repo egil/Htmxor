@@ -1,0 +1,19 @@
+@implements IDisposable
+@inject PersistentComponentState State
+
+<section data-issue272-child="rendered">issue 272 child</section>
+
+@code {
+    private PersistingComponentStateSubscription subscription;
+
+    protected override void OnInitialized()
+    {
+        subscription = State.RegisterOnPersisting(() =>
+        {
+            State.PersistAsJson("issue272-probe", "issue272-persisted");
+            return Task.CompletedTask;
+        });
+    }
+
+    public void Dispose() => subscription.Dispose();
+}
