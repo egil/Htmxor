@@ -1,0 +1,6 @@
+@* The usage-site @rendermode target (see Issue272DeepPage.razor). This component itself is plain; it is the
+   boundary's own direct child, the one shape net10.0 already resolves correctly. Issue272DeepIntermediate and
+   Issue272Child below it are the two further, unmarked levels this fixture exists to reach. *@
+<section data-issue272-deep-wrapper="rendered">
+    <Issue272DeepIntermediate />
+</section>

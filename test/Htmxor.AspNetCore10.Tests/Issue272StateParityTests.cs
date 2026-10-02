@@ -11,7 +11,9 @@ namespace Htmxor.AspNetCore10;
 // configured with both interactive Server and WebAssembly so persistence goes through the composite store
 // (HtmxorEndpointCandidateRenderer.WritePersistedStateAsync's multi-mode branch). Each payload is decoded by
 // Issue272PersistedState rather than blanked, so a dropped or misrouted entry is visible instead of hidden
-// behind an opaque blob, unlike Issue191PersistedStateParityTests' own NormalizeDynamicState.
+// behind an opaque blob, unlike Issue191PersistedStateParityTests' own NormalizeDynamicState. Three shapes
+// are covered: a usage-site boundary's own direct child, a component with its own explicit mode nested
+// deeper than that, and a plain component with no render mode of its own nested deeper still.
 public sealed class Issue272StateParityTests
 {
 	[Theory]
@@ -28,9 +30,10 @@ public sealed class Issue272StateParityTests
 
 		Assert.Equal(HttpStatusCode.OK, stockResult.Status);
 
-		// Stock's own oracle: the child's own entry must actually be present in stock's decoded state, so a
-		// vacuous pass (both sides losing it the same way) cannot hide behind the equality assertion below.
-		Assert.Contains("issue272-probe=\"issue272-persisted\"", stockResult.DecodedBody, StringComparison.Ordinal);
+		// Stock's own oracle: the child's entry is filed under the selected mode's own store(s), so neither a
+		// dropped entry nor a fixture that ignored the mode header can hide behind the equality assertion
+		// below.
+		AssertEntryInModeStore(stockResult.DecodedBody, mode, Entry("issue272-probe"));
 
 		Assert.Equal(stockResult.Status, candidateResult.Status);
 		Assert.Equal(stockResult.Headers, candidateResult.Headers);
@@ -56,31 +59,57 @@ public sealed class Issue272StateParityTests
 		// Issue272NestedContent's own usage site -- is what "joins the ancestor boundary instead of opening a
 		// second one" means observably, for every ancestor mode.
 		Assert.Equal(2, Regex.Matches(stockResult.DecodedBody, "<!--Blazor:\\{").Count);
-		AssertEntryInAncestorStore(stockResult.DecodedBody, mode);
+		AssertEntryInModeStore(stockResult.DecodedBody, mode, Entry("issue272-probe"));
 
 		Assert.Equal(stockResult.Status, candidateResult.Status);
 		Assert.Equal(stockResult.Headers, candidateResult.Headers);
 		Assert.Equal(stockResult.DecodedBody, candidateResult.DecodedBody);
 	}
 
-	private static void AssertEntryInAncestorStore(string decodedBody, string mode)
+	[Theory]
+	[InlineData("server")]
+	[InlineData("wasm")]
+	[InlineData("auto")]
+	public async Task Deep_plain_descendant_without_its_own_rendermode_persists_its_own_state_like_stock(string mode)
 	{
-		const string entry = "issue272-probe=\"issue272-persisted\"";
+		await using var stock = await CreateHostAsync(htmxor: false);
+		await using var candidate = await CreateHostAsync(htmxor: true);
+
+		var stockResult = await ReadAsync(stock, "/issue-272/deep", mode);
+		var candidateResult = await ReadAsync(candidate, "/issue-272/deep", mode);
+
+		Assert.Equal(HttpStatusCode.OK, stockResult.Status);
+
+		// Stock's own oracle, same shape as the other two cases. Issue272Child here carries no render mode of
+		// its own and sits two levels below Issue272DeepWrapper, the boundary's own direct child -- the shape
+		// a fix that only widens the immediate-parent check (rather than walking to the closest ancestor
+		// boundary) still drops.
+		AssertEntryInModeStore(stockResult.DecodedBody, mode, Entry("issue272-deep-probe"));
+
+		Assert.Equal(stockResult.Status, candidateResult.Status);
+		Assert.Equal(stockResult.Headers, candidateResult.Headers);
+		Assert.Equal(stockResult.DecodedBody, candidateResult.DecodedBody);
+	}
+
+	private static string Entry(string persistenceKey) => $"{persistenceKey}=\"issue272-persisted\"";
+
+	private static void AssertEntryInModeStore(string decodedBody, string mode, string persistedEntry)
+	{
 		var serverStore = ExtractStore(decodedBody, "Server");
 		var webAssemblyStore = ExtractStore(decodedBody, "WebAssembly");
 		switch (mode)
 		{
 			case "server":
-				Assert.Contains(entry, serverStore, StringComparison.Ordinal);
-				Assert.DoesNotContain(entry, webAssemblyStore, StringComparison.Ordinal);
+				Assert.Contains(persistedEntry, serverStore, StringComparison.Ordinal);
+				Assert.DoesNotContain(persistedEntry, webAssemblyStore, StringComparison.Ordinal);
 				break;
 			case "wasm":
-				Assert.DoesNotContain(entry, serverStore, StringComparison.Ordinal);
-				Assert.Contains(entry, webAssemblyStore, StringComparison.Ordinal);
+				Assert.DoesNotContain(persistedEntry, serverStore, StringComparison.Ordinal);
+				Assert.Contains(persistedEntry, webAssemblyStore, StringComparison.Ordinal);
 				break;
 			default:
-				Assert.Contains(entry, serverStore, StringComparison.Ordinal);
-				Assert.Contains(entry, webAssemblyStore, StringComparison.Ordinal);
+				Assert.Contains(persistedEntry, serverStore, StringComparison.Ordinal);
+				Assert.Contains(persistedEntry, webAssemblyStore, StringComparison.Ordinal);
 				break;
 		}
 	}
@@ -118,11 +147,11 @@ public sealed class Issue272StateParityTests
 		return new(response.StatusCode, headers, decoded);
 	}
 
-	// Date varies on every response. The antiforgery middleware also issues its own
-	// ".AspNetCore.Antiforgery.*" cookie on each request that reads PersistentComponentState (not something
-	// either fixture page persists itself), carrying a value that is random per request and keyed per host,
-	// exactly like Issue214StateParityTests' own NormalizeHeader. No other header varies for these
-	// non-streamed, session-free pages.
+	// Date varies on every response. The framework's antiforgery state provider calls
+	// IAntiforgery.GetAndStoreTokens when interactive persisted state is written, which issues an
+	// ".AspNetCore.Antiforgery.*" cookie (not something either fixture page persists itself) whose value is
+	// random per request and keyed per host, exactly like Issue214StateParityTests' own NormalizeHeader. No
+	// other header varies for these non-streamed, session-free pages.
 	private static string NormalizeHeader(string name, string value)
 		=> name.ToLowerInvariant() switch
 		{

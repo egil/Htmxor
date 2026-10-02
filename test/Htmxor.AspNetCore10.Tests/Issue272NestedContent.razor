@@ -1,5 +1,10 @@
 @using Microsoft.AspNetCore.Components.Web
 
 <section data-issue272-nested="rendered">
+    @* Load-bearing: this explicit mode is deliberately fixed and deliberately differs from the ancestor
+       boundary's own selected mode. Stock ignores it and files the child's entry under the ancestor's mode
+       instead, which is what proves the child joined the existing boundary rather than opening a second one.
+       Removing this attribute would turn this fixture into the plain-descendant shape Issue272DeepIntermediate
+       already covers, and every stock oracle below would stay green without it. *@
     <Issue272Child @rendermode="RenderMode.InteractiveWebAssembly" />
 </section>

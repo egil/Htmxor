@@ -4,13 +4,19 @@
 <section data-issue272-child="rendered">issue 272 child</section>
 
 @code {
+    // Parameterized so each page using this fixture (see Issue272DeepIntermediate.razor) persists under its
+    // own key; the committed pages are one-per-route today, but a distinct key also lets an assertion name
+    // exactly which page's entry it is checking, and keeps a future page free to add a second instance
+    // without a silent key collision.
+    [Parameter] public string PersistenceKey { get; set; } = "issue272-probe";
+
     private PersistingComponentStateSubscription subscription;
 
     protected override void OnInitialized()
     {
         subscription = State.RegisterOnPersisting(() =>
         {
-            State.PersistAsJson("issue272-probe", "issue272-persisted");
+            State.PersistAsJson(PersistenceKey, "issue272-persisted");
             return Task.CompletedTask;
         });
     }

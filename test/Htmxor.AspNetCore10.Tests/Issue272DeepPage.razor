@@ -1,0 +1,15 @@
+@page "/issue-272/deep"
+@using Microsoft.AspNetCore.Components.Web
+
+<Issue272DeepWrapper @rendermode="SelectedMode" />
+
+@code {
+    [CascadingParameter] public HttpContext Context { get; set; } = default!;
+
+    private IComponentRenderMode SelectedMode => Context.Request.Headers["X-Issue-272-Mode"].ToString() switch
+    {
+        "wasm" => RenderMode.InteractiveWebAssembly,
+        "auto" => RenderMode.InteractiveAuto,
+        _ => RenderMode.InteractiveServer,
+    };
+}
