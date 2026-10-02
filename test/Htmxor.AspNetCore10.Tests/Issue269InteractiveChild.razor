@@ -1,0 +1,22 @@
+@implements IDisposable
+@inject PersistentComponentState State
+
+<p data-issue-269-child="rendered">interactive</p>
+
+@code {
+    private PersistingComponentStateSubscription? subscription;
+
+    // Carries no @rendermode of its own: the page above applies the mode dynamically at the usage site, the same
+    // way Issue214Page and Issue214NestedPage select a render mode per request without three near-duplicate
+    // components, so #270 can reuse this same child for its own interactive-component-in-a-streaming-page cases.
+    protected override void OnInitialized()
+    {
+        subscription = State.RegisterOnPersisting(() =>
+        {
+            State.PersistAsJson("issue269-probe", "issue269-persisted");
+            return Task.CompletedTask;
+        });
+    }
+
+    public void Dispose() => subscription?.Dispose();
+}
