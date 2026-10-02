@@ -1,0 +1,23 @@
+@implements IDisposable
+@inject PersistentComponentState State
+
+<section data-issue272-child="rendered">issue 272 child</section>
+
+@code {
+    // Issue272DeepIntermediate.razor passes its own key so the deep-descendant case's oracle names that
+    // fixture's entry specifically; the usage-site and nested fixtures keep the default.
+    [Parameter] public string PersistenceKey { get; set; } = "issue272-probe";
+
+    private PersistingComponentStateSubscription subscription;
+
+    protected override void OnInitialized()
+    {
+        subscription = State.RegisterOnPersisting(() =>
+        {
+            State.PersistAsJson(PersistenceKey, "issue272-persisted");
+            return Task.CompletedTask;
+        });
+    }
+
+    public void Dispose() => subscription.Dispose();
+}

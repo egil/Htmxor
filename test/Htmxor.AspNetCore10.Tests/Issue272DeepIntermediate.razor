@@ -1,0 +1,6 @@
+@* Plain: carries no render mode of its own, at any level. Issue272Child below is reached without ever
+   passing through ResolveComponentForRenderMode again, which is exactly the shape a fix that only widens
+   the immediate-parent check (rather than walking to the closest ancestor boundary) still drops. *@
+<section data-issue272-deep-intermediate="rendered">
+    <Issue272Child PersistenceKey="issue272-deep-probe" />
+</section>

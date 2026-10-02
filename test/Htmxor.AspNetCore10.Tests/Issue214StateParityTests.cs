@@ -1,7 +1,6 @@
 #if NET11_0_OR_GREATER
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.DataProtection;
 
@@ -187,27 +186,14 @@ public sealed class Issue214StateParityTests
 		return new(response.StatusCode, headers, normalized);
 	}
 
+	// Blazor-Configuration carries browser options, not persisted component state, so it is decoded here; the
+	// persisted-state markers are decoded by the shared Issue272PersistedState.Decode.
 	private static string NormalizeBody(string body, IDataProtectionProvider protection)
 	{
-		var normalized = Regex.Replace(body, "\"(prerenderId|descriptor)\":\"[^\"]+\"", "\"$1\":\"<dynamic>\"");
-		normalized = Regex.Replace(normalized, "<!--Blazor-Configuration:(.*?)-->", match =>
+		var normalized = Regex.Replace(body, "<!--Blazor-Configuration:(.*?)-->", match =>
 			$"<!--Blazor-Configuration:{Encoding.UTF8.GetString(Convert.FromBase64String(match.Groups[1].Value))}-->");
-		return Regex.Replace(normalized, "<!--Blazor-(Server|WebAssembly)-Component-State:(.*?)-->", match =>
-		{
-			var bytes = Convert.FromBase64String(match.Groups[2].Value);
-			if (match.Groups[1].Value == "Server")
-			{
-				bytes = protection.CreateProtector("Microsoft.AspNetCore.Components.Server.State").Unprotect(bytes);
-			}
-
-			var state = JsonSerializer.Deserialize<SortedDictionary<string, byte[]>>(bytes)!;
-			var decoded = string.Join(";", state.Select(item => $"{item.Key}={NormalizePersistedValue(Encoding.UTF8.GetString(item.Value))}"));
-			return $"<!--Blazor-{match.Groups[1].Value}-Component-State:{decoded}-->";
-		});
+		return Issue272PersistedState.Decode(normalized, protection);
 	}
-
-	private static string NormalizePersistedValue(string value)
-		=> Regex.Replace(value, "\"value\":\"[^\"]+\"(?=,\"formFieldName\":\"__RequestVerificationToken\")", "\"value\":\"<antiforgery-token>\"");
 
 	private static string NormalizeHeader(string name, string value)
 		=> name.ToLowerInvariant() switch

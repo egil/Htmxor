@@ -32,6 +32,10 @@
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// Render-mode resolution (#272, synchronized 2026-10-02): ResolveComponentForRenderMode and
+// GetComponentRenderMode reimplement the closest-render-mode-boundary walk in the same
+// EndpointHtmlRenderer.Prerendering.cs at both commits above, on both targets, so a component below a usage-site
+// boundary infers that boundary's render mode for persisted state.
 // Non-streaming quiescence in the invoker (#260, synchronized 2026-09-30): the full-quiescence wait and its
 // navigation handling reimplement WaitForResultReady and RenderEndpointComponent in the same
 // EndpointHtmlRenderer.Prerendering.cs at both commits above.
@@ -429,7 +433,6 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private bool rendererIsStopped;
 	private bool inFirstRender;
 	private ResourceAssetCollection? resourceCollection;
-	private readonly Dictionary<IComponent, IComponentRenderMode> componentRenderModes = new(ReferenceEqualityComparer.Instance);
 
 	public HtmxorEndpointCandidateRenderer(IServiceProvider services, ILoggerFactory loggerFactory)
 		: this(services, loggerFactory, new EndpointRoutingStateProvider())
@@ -499,7 +502,6 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		browserSettingsEmitted = false;
 		rendererIsStopped = false;
 		inFirstRender = false;
-		componentRenderModes.Clear();
 		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().InitializeResourceCollection(context);
 		var navigationManager = services.GetRequiredService<NavigationManager>();
 		if (navigationManager is IHostEnvironmentNavigationManager hostNavigationManager)
@@ -573,21 +575,11 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		IComponentActivator componentActivator,
 		IComponentRenderMode renderMode)
 	{
-#if NET11_0_OR_GREATER
 		if (parentComponentId.HasValue &&
 			FindRenderModeBoundary(GetComponentState(parentComponentId.Value)) is not null)
 		{
 			return componentActivator.CreateInstance(componentType);
 		}
-#else
-		if (parentComponentId.HasValue &&
-			GetComponentState(parentComponentId.Value).Component is HtmxorEndpointCandidateRenderModeBoundary boundary)
-		{
-			var component = componentActivator.CreateInstance(componentType);
-			componentRenderModes.Add(component, boundary.RenderMode);
-			return component;
-		}
-#endif
 
 		return new HtmxorEndpointCandidateRenderModeBoundary(
 			httpContext,
@@ -603,15 +595,8 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		=> WriteComponentHtml(componentFrame.ComponentId, output, componentFrame.Sequence, componentFrame.ComponentKey, allowStreamingMarkers: true);
 
 	protected override IComponentRenderMode? GetComponentRenderMode(IComponent component)
-#if NET11_0_OR_GREATER
 		=> FindRenderModeBoundary(GetComponentState(component))?.RenderMode;
-#else
-		=> component is HtmxorEndpointCandidateRenderModeBoundary boundary
-			? boundary.RenderMode
-			: componentRenderModes.GetValueOrDefault(component);
-#endif
 
-#if NET11_0_OR_GREATER
 	private static HtmxorEndpointCandidateRenderModeBoundary? FindRenderModeBoundary(ComponentState state)
 	{
 		for (ComponentState? current = state; current is not null; current = current.ParentComponentState)
@@ -624,7 +609,6 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 		return null;
 	}
-#endif
 
 	protected override ResourceAssetCollection Assets
 		=> resourceCollection ??= httpContext.GetEndpoint()?.Metadata.GetMetadata<ResourceAssetCollection>() ?? base.Assets;

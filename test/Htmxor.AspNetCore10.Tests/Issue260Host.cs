@@ -17,7 +17,11 @@ namespace Htmxor.AspNetCore10;
 // service, such as a case-specific gate, without a second copy of this host's own TestServer/data-protection
 // wiring. `configureBuilder` extends the same host for #263's own cases: a streamed response's configured
 // JavaScript initializers live on the builder's environment (`WebRootFileProvider`), the same seam Issue191's
-// and Issue214's own hosts already configure.
+// and Issue214's own hosts already configure. `configureRazorComponents` and `configureEndpoints` let a case
+// such as #272's add interactive Server and WebAssembly components and render modes through this same host;
+// both default to no-ops. These two hooks are deliberately named and shaped generally rather than after one
+// issue, so a later case can add its own component or endpoint configuration through the same seam instead of
+// a second copy of this host.
 internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 {
 	public HttpClient Client { get; } = app.GetTestClient();
@@ -28,14 +32,17 @@ internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 		bool htmxor,
 		Action<WebApplication>? configurePipeline = null,
 		Action<IServiceCollection>? configureServices = null,
-		Action<WebApplicationBuilder>? configureBuilder = null)
+		Action<WebApplicationBuilder>? configureBuilder = null,
+		Action<IRazorComponentsBuilder>? configureRazorComponents = null,
+		Action<RazorComponentsEndpointConventionBuilder>? configureEndpoints = null)
 		where TRootComponent : IComponent
 	{
-		var builder = CreateBuilder<TRootComponent>(htmxor, configureBuilder, configureServices);
+		var builder = CreateBuilder<TRootComponent>(htmxor, configureBuilder, configureServices, configureRazorComponents);
 		var app = builder.Build();
 		configurePipeline?.Invoke(app);
 		app.UseAntiforgery();
 		var endpoints = app.MapRazorComponents<TRootComponent>();
+		configureEndpoints?.Invoke(endpoints);
 		if (htmxor)
 		{
 			endpoints.AddHtmxorEndpoints();
@@ -48,7 +55,8 @@ internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 	private static WebApplicationBuilder CreateBuilder<TRootComponent>(
 		bool htmxor,
 		Action<WebApplicationBuilder>? configureBuilder,
-		Action<IServiceCollection>? configureServices)
+		Action<IServiceCollection>? configureServices,
+		Action<IRazorComponentsBuilder>? configureRazorComponents)
 		where TRootComponent : IComponent
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -62,6 +70,7 @@ internal sealed class Issue260Host(WebApplication app) : IAsyncDisposable
 		builder.Services.AddSingleton<Issue260Gate>();
 		configureServices?.Invoke(builder.Services);
 		var razorComponents = builder.Services.AddRazorComponents();
+		configureRazorComponents?.Invoke(razorComponents);
 		if (htmxor)
 		{
 			razorComponents.AddHtmxor();
