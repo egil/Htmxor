@@ -1,0 +1,39 @@
+@page "/issue-269/streaming/{mode}"
+@attribute [StreamRendering]
+@using Microsoft.AspNetCore.Components.Web
+@inject Issue260Gate Gate
+
+<main data-issue-269-page="@state">@state</main>
+<Issue269InteractiveChild @rendermode="SelectedMode" />
+
+@code {
+    [Parameter] public string Mode { get; set; } = "server";
+
+    private string state = "initial";
+
+    private IComponentRenderMode SelectedMode => Mode switch
+    {
+        "webassembly" => RenderMode.InteractiveWebAssembly,
+        "auto" => RenderMode.InteractiveAuto,
+        _ => RenderMode.InteractiveServer,
+    };
+
+    // This page itself -- not a separate gated sibling, as #260's own inherited-streaming cases use -- carries
+    // [StreamRendering] and the pending gate. Its own async continuation re-renders the page after the response
+    // has already started streaming, and that re-render cascades SetParametersAsync into every direct child,
+    // including the render-mode boundary wrapping the interactive child below
+    // (HtmxorEndpointCandidateRenderModeBoundary.SetParametersAsync re-renders on every call it receives, not
+    // only the first). That cascade is what makes the boundary descend into WriteComponentHtmlCore a second
+    // time after the response has started.
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached($"issue-269-page-{Mode}");
+        // Task.Yield() right after Reached, as Issue260Gate's own doc comment directs for a page whose exact
+        // pending-task registration matters: without it, a release landing before this await registers lets
+        // OnInitializedAsync complete synchronously, so the renderer never tracks it as pending work, and the
+        // response completes in one pass with no later streamed update to re-descend into the boundary.
+        await Task.Yield();
+        await Gate.WaitForReleaseAsync($"issue-269-page-{Mode}");
+        state = "updated";
+    }
+}
