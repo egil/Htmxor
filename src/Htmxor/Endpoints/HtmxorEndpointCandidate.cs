@@ -22,6 +22,13 @@
 // CacheView write-path coordination follows the same commit, synchronized 2026-09-16: the capture and
 // descendant-guard branches reimplement EndpointHtmlRenderer.WriteComponentHtml; approved #219 dependencies
 // and their exact sources are in docs/engineering/candidate-form-adapter.md.
+// The started-response guard on the Server/Auto Cache-Control header (#269, synchronized 2026-10-02)
+// reimplements EndpointHtmlRenderer.Streaming.cs WriteComponentHtml, identical at v10.0.11
+// (a5383385245bdacc20ec19f30e46090a8154d8da) and v11.0.0-rc.1.26425.128 (c3325eeb6b47bc6383c127d4f4827dc9642a2b6e):
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
 // Non-throwing navigation (#264), synchronized 2026-09-30: the renderer stop and GetErrorHandledTask
 // reimplement EndpointHtmlRenderer.cs and EndpointHtmlRenderer.Prerendering.cs at v10.0.11
 // (a5383385245bdacc20ec19f30e46090a8154d8da) and, identically, at v11.0.0-rc.1.26425.128
@@ -725,7 +732,8 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		}
 
 		var marker = boundary.CreateMarker(httpContext, sequence, key, ++invocationSequence, invocationId);
-		if (marker.Type is "server" or "auto")
+		// A streamed update can re-render a boundary after the response has started, when headers are read-only.
+		if (!httpContext.Response.HasStarted && marker.Type is "server" or "auto")
 		{
 			httpContext.Response.Headers.CacheControl = "no-cache, no-store, max-age=0";
 		}
