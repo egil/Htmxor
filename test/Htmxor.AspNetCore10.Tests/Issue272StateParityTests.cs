@@ -93,31 +93,18 @@ public sealed class Issue272StateParityTests
 
 	private static string Entry(string persistenceKey) => $"{persistenceKey}=\"issue272-persisted\"";
 
+	// Translates this file's own "server"/"wasm"/"auto" mode header values into the expected-stores shape the
+	// shared Issue272PersistedState.AssertEntryInStores takes, so the placement oracle itself does not need to
+	// agree with this file's mode vocabulary.
 	private static void AssertEntryInModeStore(string decodedBody, string mode, string persistedEntry)
 	{
-		var serverStore = ExtractStore(decodedBody, "Server");
-		var webAssemblyStore = ExtractStore(decodedBody, "WebAssembly");
-		switch (mode)
+		var (expectServer, expectWebAssembly) = mode switch
 		{
-			case "server":
-				Assert.Contains(persistedEntry, serverStore, StringComparison.Ordinal);
-				Assert.DoesNotContain(persistedEntry, webAssemblyStore, StringComparison.Ordinal);
-				break;
-			case "wasm":
-				Assert.DoesNotContain(persistedEntry, serverStore, StringComparison.Ordinal);
-				Assert.Contains(persistedEntry, webAssemblyStore, StringComparison.Ordinal);
-				break;
-			default:
-				Assert.Contains(persistedEntry, serverStore, StringComparison.Ordinal);
-				Assert.Contains(persistedEntry, webAssemblyStore, StringComparison.Ordinal);
-				break;
-		}
-	}
-
-	private static string ExtractStore(string decodedBody, string store)
-	{
-		var match = Regex.Match(decodedBody, $"<!--Blazor-{store}-Component-State:(.*?)-->");
-		return match.Success ? match.Groups[1].Value : string.Empty;
+			"server" => (true, false),
+			"wasm" => (false, true),
+			_ => (true, true),
+		};
+		Issue272PersistedState.AssertEntryInStores(decodedBody, persistedEntry, expectServer, expectWebAssembly);
 	}
 
 	private static Task<Issue260Host> CreateHostAsync(bool htmxor)

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,8 +57,6 @@ public sealed class Issue269StreamedBoundaryTests
 		// than a hang, and the decoded whole-body comparison below covers the persisted state written after that
 		// update for every render mode.
 		var stockWhole = await stockReader.ReadToEndAsync();
-		var candidateWhole = await candidateReader.ReadToEndAsync();
-
 		Assert.Contains("<template blazor-component-id=", stockWhole, StringComparison.Ordinal);
 		Assert.Contains("data-issue-269-page=\"updated\"", stockWhole, StringComparison.Ordinal);
 		var stockUpdate = stockWhole[stockWhole.IndexOf("<template blazor-component-id=", StringComparison.Ordinal)..];
@@ -67,11 +64,10 @@ public sealed class Issue269StreamedBoundaryTests
 		var stockDecoded = Issue272PersistedState.Decode(stockWhole, stock.Protection);
 		AssertEntryInModeStore(stockDecoded, mode, Entry);
 
-		// Whole-body parity after decoding: each host carries its own ephemeral data-protection key, so the raw
-		// persisted-state payload bytes never match byte-for-byte across two separately keyed hosts even when
-		// the underlying persisted content is identical; descriptor, prerenderId and the framework's own
-		// antiforgery-token persisted value are per-render or per-host random tokens with no stock-vs-candidate
-		// meaning of their own. All three are normalized, each with the rationale above.
+		var candidateWhole = await candidateReader.ReadToEndAsync();
+
+		// Whole-body parity on content, not bytes: the shared Issue272PersistedState decoder owns which
+		// per-host or per-render values are normalized and why.
 		Assert.Equal(stockDecoded, Issue272PersistedState.Decode(candidateWhole, candidate.Protection));
 	}
 
@@ -99,10 +95,11 @@ public sealed class Issue269StreamedBoundaryTests
 		Assert.Equal(stockResult.Headers, candidateResult.Headers);
 
 		// Re-execution never streams on either target (RenderComponentCore awaits full quiescence first), so no
-		// later <template> update re-renders the boundary here. This pairing instead pins whether persisted state
-		// for a streaming page's boundary is suppressed or emitted under re-execution: net10.0 stock does not
-		// track re-executed pending work, so its response reflects the page's pre-release state, while net11.0
-		// stock tracks it. The candidate must match each target's own stock rather than one classification on both.
+		// later <template> update re-renders the boundary here. This pairing instead pins each target's own stock
+		// persisted-state rule for a re-executed request: net10.0 stock writes no persisted state for any
+		// re-executed response (the rule Issue191PersistedStateParityTests pins for a page without pending work),
+		// while net11.0 stock writes the re-executed boundary's state. The candidate must match each target's own
+		// stock rather than one classification on both.
 		var stockDecoded = Issue272PersistedState.Decode(stockResult.Body, stock.Protection);
 #if NET11_0_OR_GREATER
 		AssertEntryInModeStore(stockDecoded, mode, Entry);
@@ -156,34 +153,17 @@ public sealed class Issue269StreamedBoundaryTests
 
 	private const string Entry = "issue269-probe=\"issue269-persisted\"";
 
-	// Stock's own oracle, the same shape as Issue272StateParityTests' own AssertEntryInModeStore: the fixture
-	// child's persisted entry is filed under the selected mode's own store(s), never the other one, so neither
-	// a dropped entry nor a fixture that ignored the mode route value can hide behind the equality assertion
-	// that follows.
+	// Translates this fixture's own "server"/"webassembly"/"auto" mode route value into the expected-stores
+	// shape the shared Issue272PersistedState.AssertEntryInStores takes, so the placement oracle itself does
+	// not need to agree with this fixture's mode vocabulary.
 	private static void AssertEntryInModeStore(string decodedBody, string mode, string entry)
 	{
-		var serverStore = ExtractStore(decodedBody, "Server");
-		var webAssemblyStore = ExtractStore(decodedBody, "WebAssembly");
-		switch (mode)
+		var (expectServer, expectWebAssembly) = mode switch
 		{
-			case "server":
-				Assert.Contains(entry, serverStore, StringComparison.Ordinal);
-				Assert.DoesNotContain(entry, webAssemblyStore, StringComparison.Ordinal);
-				break;
-			case "webassembly":
-				Assert.DoesNotContain(entry, serverStore, StringComparison.Ordinal);
-				Assert.Contains(entry, webAssemblyStore, StringComparison.Ordinal);
-				break;
-			default:
-				Assert.Contains(entry, serverStore, StringComparison.Ordinal);
-				Assert.Contains(entry, webAssemblyStore, StringComparison.Ordinal);
-				break;
-		}
-	}
-
-	private static string ExtractStore(string decodedBody, string store)
-	{
-		var match = Regex.Match(decodedBody, $"<!--Blazor-{store}-Component-State:(.*?)-->");
-		return match.Success ? match.Groups[1].Value : string.Empty;
+			"server" => (true, false),
+			"webassembly" => (false, true),
+			_ => (true, true),
+		};
+		Issue272PersistedState.AssertEntryInStores(decodedBody, entry, expectServer, expectWebAssembly);
 	}
 }

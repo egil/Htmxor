@@ -39,4 +39,38 @@ internal static class Issue272PersistedState
 	// request and keyed per host.
 	private static string NormalizeAntiforgeryToken(string value)
 		=> Regex.Replace(value, "\"value\":\"[^\"]+\"(?=,\"formFieldName\":\"__RequestVerificationToken\")", "\"value\":\"<antiforgery-token>\"");
+
+	// Stock's own oracle for a persisted entry's placement: it is filed under exactly the store(s) the caller
+	// expects, and absent from any store it does not expect, so neither a dropped entry nor a fixture that
+	// ignored the selected render mode can hide behind a bare "is it in the decoded body somewhere" check.
+	// Parameterized by expected stores rather than by a mode token, so a caller's own mode vocabulary (#272's
+	// "wasm", #269's "webassembly") never needs to agree with this decoder's.
+	public static void AssertEntryInStores(string decodedBody, string entry, bool expectServer, bool expectWebAssembly)
+	{
+		var serverStore = ExtractStore(decodedBody, "Server");
+		var webAssemblyStore = ExtractStore(decodedBody, "WebAssembly");
+		if (expectServer)
+		{
+			Assert.Contains(entry, serverStore, StringComparison.Ordinal);
+		}
+		else
+		{
+			Assert.DoesNotContain(entry, serverStore, StringComparison.Ordinal);
+		}
+
+		if (expectWebAssembly)
+		{
+			Assert.Contains(entry, webAssemblyStore, StringComparison.Ordinal);
+		}
+		else
+		{
+			Assert.DoesNotContain(entry, webAssemblyStore, StringComparison.Ordinal);
+		}
+	}
+
+	private static string ExtractStore(string decodedBody, string store)
+	{
+		var match = Regex.Match(decodedBody, $"<!--Blazor-{store}-Component-State:(.*?)-->");
+		return match.Success ? match.Groups[1].Value : string.Empty;
+	}
 }
