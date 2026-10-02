@@ -9,9 +9,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Htmxor.AspNetCore10;
 
-// #269's own red-contract cases, compiled for both net10.0 and net11.0 (see the csproj). Every case pairs a
-// stock host against an AddHtmxor candidate host built by Issue269Host, and every gate is a named Issue260Gate
-// signal rather than a fixed sleep (the Issue260Gate pattern).
+// #269's streamed interactive-boundary parity cases, compiled for both net10.0 and net11.0 (see the csproj).
+// Every case pairs a stock host against an AddHtmxor candidate host built by Issue269Host, and every gate is a
+// named Issue260Gate signal rather than a fixed sleep (the Issue260Gate pattern).
 public sealed class Issue269StreamedBoundaryTests
 {
 	[Theory]
@@ -55,23 +55,21 @@ public sealed class Issue269StreamedBoundaryTests
 		stockGate.Release(gateName);
 		candidateGate.Release(gateName);
 
-		// Stock's own oracle: the boundary re-descends into WriteComponentHtmlCore from this later <template>
-		// update, exactly where the started-response guard matters (`!_httpContext.Response.HasStarted` at
-		// EndpointHtmlRenderer.Streaming.cs, both upstream versions). A candidate missing that guard tears the
-		// connection down instead of completing, which Issue264StreamingBodyReader's ReadToEndAsync surfaces as
-		// a TimeoutException rather than a silent hang. webassembly never reaches the header-setting branch
-		// (marker.Type is "server" or "auto" only), so it never tears the connection down -- but on net10.0 it is
-		// not characterization either: a second, successful visit to the same boundary still silently drops this
-		// fixture's own persisted "issue269-probe" entry from the final Blazor-WebAssembly-Component-State marker
-		// on the candidate there (reproduced deterministically; stock always retains it). net10.0's own
-		// GetComponentRenderMode resolves a render-mode-bound component's mode through the componentRenderModes
-		// dictionary (HtmxorEndpointCandidate.cs); net11.0 walks the live ComponentState chain instead and does
-		// not reproduce this loss, so webassembly is characterization only on net11.0.
+		// Stock's own oracle: the page's later <template> update re-renders the render-mode boundary after the
+		// response has started, where stock writes the boundary marker again but sets the cache header only while
+		// the response has not started. ReadToEndAsync reports a torn-down connection as a bounded failure rather
+		// than a hang, and the decoded whole-body comparison below covers the persisted state written after that
+		// update for every render mode. On net10.0, persisted state for a render-mode-bound component is also
+		// governed by a separate, non-streaming render-mode-inference rule owned by its own tracked issue; #269's
+		// net10.0 rows depend on that issue as well as the started-response guard above.
 		var stockWhole = await stockReader.ReadToEndAsync();
 		var candidateWhole = await candidateReader.ReadToEndAsync();
 
 		Assert.Contains("<template blazor-component-id=", stockWhole, StringComparison.Ordinal);
 		Assert.Contains("data-issue-269-page=\"updated\"", stockWhole, StringComparison.Ordinal);
+		var stockUpdate = stockWhole[stockWhole.IndexOf("<template blazor-component-id=", StringComparison.Ordinal)..];
+		Assert.Contains($"<!--Blazor:{{\"type\":\"{mode}\"", stockUpdate, StringComparison.Ordinal);
+		Assert.Contains("issue269-probe=", Issue269PersistedState.Decode(stockWhole, stock.Protection), StringComparison.Ordinal);
 
 		// Whole-body parity after decoding: each host carries its own ephemeral data-protection key, so the raw
 		// persisted-state payload bytes never match byte-for-byte across two separately keyed hosts even when
@@ -102,16 +100,20 @@ public sealed class Issue269StreamedBoundaryTests
 
 		Assert.Equal(HttpStatusCode.NotFound, stockResult.Status);
 		Assert.Equal(stockResult.Status, candidateResult.Status);
+		Assert.Contains("data-issue-269-child=\"rendered\"", stockResult.Body, StringComparison.Ordinal);
+		Assert.Contains($"<!--Blazor:{{\"type\":\"{mode}\"", stockResult.Body, StringComparison.Ordinal);
 		Assert.Equal(stockResult.Headers, candidateResult.Headers);
 
 		// Re-execution never streams on either target (RenderComponentCore awaits full quiescence first), so no
-		// later <template> update exists here to re-descend into the boundary -- this pairing instead proves
-		// persisted-state suppression or emission for a *streaming* page's boundary under re-execution matches
-		// each target's own stock, the untested combination the issue's own evidence named ("mirrored for
-		// non-streaming responses, and unproved for streamed ones"). net10.0 stock's AddPendingTask does not
-		// track re-executed work at all, so its response reflects the page's pre-release state; net11.0 stock
-		// does track it. Whichever each target's stock does, the candidate must match that target, not a fixed
-		// classification applied on both (Issue260ReexecutionParityTests' own rationale for the same split).
+		// later <template> update re-renders the boundary here. This pairing instead pins whether persisted state
+		// for a streaming page's boundary is suppressed or emitted under re-execution: net10.0 stock does not
+		// track re-executed pending work, so its response reflects the page's pre-release state, while net11.0
+		// stock tracks it. The candidate must match each target's own stock rather than one classification on both.
+#if NET11_0_OR_GREATER
+		Assert.Contains("issue269-probe=", Issue269PersistedState.Decode(stockResult.Body, stock.Protection), StringComparison.Ordinal);
+#else
+		Assert.DoesNotContain("Component-State:", stockResult.Body, StringComparison.Ordinal);
+#endif
 		Assert.Equal(
 			Issue269PersistedState.Decode(stockResult.Body, stock.Protection),
 			Issue269PersistedState.Decode(candidateResult.Body, candidate.Protection));
@@ -160,13 +162,10 @@ public sealed class Issue269StreamedBoundaryTests
 	}
 }
 
-// A minimal, #269-owned persisted-state decoder: it only decodes the two marker shapes this issue's own fixture
-// produces (Blazor-Server-Component-State and Blazor-WebAssembly-Component-State), rather than reusing
-// Issue191PersistedStateParityTests' own NormalizeDynamicState (which blanks the payload instead of decoding
-// it) or copying Issue214StateParityTests' own NormalizeBody wholesale. Every #191/#214/#260/#269 normalization
-// helper is intentionally local to its own file, matching this repository's established per-issue-file
-// convention, rather than a single shared type whose scope would grow with each new issue that needs a
-// slightly different marker set.
+// Decodes the persisted-state markers this fixture produces (Blazor-Server-Component-State, unprotected with the
+// host's own data-protection key, and Blazor-WebAssembly-Component-State) so two separately keyed hosts compare
+// by content. It mirrors Issue214StateParityTests' NormalizeBody, which compiles only for net11.0, without its
+// Blazor-Configuration decoding; this fixture's comparison takes that marker verbatim.
 internal static class Issue269PersistedState
 {
 	public static string Decode(string body, IDataProtectionProvider protection)
