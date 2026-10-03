@@ -733,11 +733,6 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			WriteStaticComponentHtml(componentId, output, allowStreamingMarkers);
 			return;
 		}
-		if (httpContext.Features.Get<IExceptionHandlerFeature>() is not null)
-		{
-			WriteStaticComponentHtml(componentId, output, allowStreamingMarkers);
-			return;
-		}
 
 		var marker = boundary.CreateMarker(httpContext, sequence, key, ++invocationSequence, invocationId);
 		// A streamed update can re-render a boundary after the response has started, when headers are read-only.
