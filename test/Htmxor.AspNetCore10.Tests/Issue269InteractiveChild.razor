@@ -2,6 +2,7 @@
 @inject PersistentComponentState State
 
 <p data-issue-269-child="rendered">interactive</p>
+<p data-issue-269-child-render-mode="@(AssignedRenderMode?.GetType().Name ?? "none")">render-mode</p>
 
 @code {
     private PersistingComponentStateSubscription? subscription;
@@ -9,6 +10,9 @@
     // Carries no @rendermode of its own: the page above applies the mode dynamically at the usage site, the same
     // way Issue214Page and Issue214NestedPage select a render mode per request without three near-duplicate
     // components, so #270 can reuse this same child for its own interactive-component-in-a-streaming-page cases.
+    // The render-mode line exposes ComponentBase.AssignedRenderMode for #270's stock comparison as markup, not a
+    // parameter, because a parameter passed at the usage site (even its default value) joins the
+    // WebAssembly/Auto render-mode marker's parameterDefinitions and parameterValues.
     protected override void OnInitialized()
     {
         subscription = State.RegisterOnPersisting(() =>

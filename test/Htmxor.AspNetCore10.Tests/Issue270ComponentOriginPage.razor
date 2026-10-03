@@ -1,0 +1,16 @@
+@page "/issue-270/component-exception-origin"
+
+<main data-issue-270-component-exception-origin>unreachable</main>
+
+@code {
+    // Throws synchronously during initialization, before any response byte is written. Paired only with
+    // UseExceptionHandler(path, createScopeForErrors: true) -- the configuration this repository's own samples
+    // and docs/index.md use -- because the default createScopeForErrors: false re-executes in the same scope,
+    // and a component origin has already initialized that scope's NavigationManager by the time it throws, so
+    // the re-executed page's own component render fails with "RemoteNavigationManager already initialized" on
+    // stock itself.
+    protected override void OnInitialized()
+    {
+        throw new InvalidOperationException("issue-270 component-thrown exception-handler boundary probe");
+    }
+}
