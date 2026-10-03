@@ -42,7 +42,9 @@
 // Render-mode resolution (#272, synchronized 2026-10-02): ResolveComponentForRenderMode and
 // GetComponentRenderMode reimplement the closest-render-mode-boundary walk in the same
 // EndpointHtmlRenderer.Prerendering.cs at both commits above, on both targets, so a component below a usage-site
-// boundary infers that boundary's render mode for persisted state.
+// boundary infers that boundary's render mode for persisted state. While the exception handler renders (#270,
+// synchronized 2026-10-03), ResolveComponentForRenderMode creates no boundary, as stock's _isHandlingErrors
+// branch in the same file does at both commits.
 // Non-streaming quiescence in the invoker (#260, synchronized 2026-09-30): the full-quiescence wait and its
 // navigation handling reimplement WaitForResultReady and RenderEndpointComponent in the same
 // EndpointHtmlRenderer.Prerendering.cs at both commits above.
@@ -582,6 +584,12 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		IComponentActivator componentActivator,
 		IComponentRenderMode renderMode)
 	{
+		if (httpContext.Features.Get<IExceptionHandlerFeature>() is not null)
+		{
+			// Ignore the render mode boundary in error scenarios.
+			return componentActivator.CreateInstance(componentType);
+		}
+
 		if (parentComponentId.HasValue &&
 			FindRenderModeBoundary(GetComponentState(parentComponentId.Value)) is not null)
 		{
