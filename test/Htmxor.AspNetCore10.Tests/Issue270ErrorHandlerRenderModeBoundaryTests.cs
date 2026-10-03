@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Htmxor.AspNetCore10;
 
 // #270's paired stock-against-candidate exception-handler cases, compiled for both net10.0 and net11.0 (see
-// the csproj). UseExceptionHandler re-executes each request onto #270's own [StreamRendering] page with an
-// interactive child (Issue270StreamingPage / Issue270InteractiveChild, hosted by Issue269Host), where stock's
+// the csproj). UseExceptionHandler re-executes each request onto #269's own [StreamRendering] page with an
+// interactive child (Issue269StreamingPage / Issue269InteractiveChild, hosted by Issue269Host), where stock's
 // ResolveComponentForRenderMode ignores the render-mode boundary ("Ignore the render mode boundary in error
 // scenarios") and the candidate must render the same tree.
 public sealed class Issue270ErrorHandlerRenderModeBoundaryTests
@@ -29,8 +29,8 @@ public sealed class Issue270ErrorHandlerRenderModeBoundaryTests
 	[InlineData("auto")]
 	public async Task An_exception_handler_response_for_a_streaming_page_with_an_interactive_component_matches_stock(string mode)
 	{
-		var streamingPath = $"/issue-270/streaming/{mode}";
-		var gateName = $"issue-270-page-{mode}";
+		var streamingPath = $"/issue-269/streaming/{mode}";
+		var gateName = $"issue-269-page-{mode}";
 		await using var stock = await Issue269Host.CreateAsync(htmxor: false, app => ConfigureMiddlewareOriginPipeline(app, streamingPath));
 		await using var candidate = await Issue269Host.CreateAsync(htmxor: true, app => ConfigureMiddlewareOriginPipeline(app, streamingPath));
 
@@ -49,8 +49,8 @@ public sealed class Issue270ErrorHandlerRenderModeBoundaryTests
 	[InlineData("auto")]
 	public async Task A_component_thrown_exception_handler_response_with_a_fresh_error_scope_matches_stock(string mode)
 	{
-		var streamingPath = $"/issue-270/streaming/{mode}";
-		var gateName = $"issue-270-page-{mode}";
+		var streamingPath = $"/issue-269/streaming/{mode}";
+		var gateName = $"issue-269-page-{mode}";
 		await using var stock = await Issue269Host.CreateAsync(htmxor: false, app => ConfigureComponentOriginPipeline(app, streamingPath));
 		await using var candidate = await Issue269Host.CreateAsync(htmxor: true, app => ConfigureComponentOriginPipeline(app, streamingPath));
 
@@ -76,7 +76,7 @@ public sealed class Issue270ErrorHandlerRenderModeBoundaryTests
 		// render-mode boundary.
 		Assert.Equal(HttpStatusCode.InternalServerError, stockResult.Status);
 		Assert.Contains("data-issue-269-child=\"rendered\"", stockResult.Body, StringComparison.Ordinal);
-		Assert.Contains("data-issue-270-page=\"updated\"", stockResult.Body, StringComparison.Ordinal);
+		Assert.Contains("data-issue-269-page=\"updated\"", stockResult.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain("<!--Blazor:{", stockResult.Body, StringComparison.Ordinal);
 		Assert.DoesNotContain("Component-State:", stockResult.Body, StringComparison.Ordinal);
 		Assert.Equal("none", ExtractChildRenderMode(stockResult.Body));
@@ -85,7 +85,7 @@ public sealed class Issue270ErrorHandlerRenderModeBoundaryTests
 		Assert.Equal(stockResult.Headers, candidateResult.Headers);
 
 		// The render mode the component itself observes (ComponentBase.AssignedRenderMode, surfaced by
-		// Issue270InteractiveChild's own always-on marker) is a distinct, component-visible risk from the
+		// Issue269InteractiveChild's own always-on marker) is a distinct, component-visible risk from the
 		// streaming-marker shape: a fix could remove the extra marker pair while still leaving the component
 		// able to see an assigned render mode it should not have outside any boundary. Comparing it directly,
 		// not only inside the whole-body assertion below, keeps that risk visible on its own.
