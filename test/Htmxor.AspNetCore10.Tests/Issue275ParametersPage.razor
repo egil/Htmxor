@@ -1,0 +1,23 @@
+@page "/issue-275/parameters/{mode}"
+@using Microsoft.AspNetCore.Components.Web
+
+<main data-issue-275-page="rendered">ordinary output</main>
+<Issue275ParameterChild @rendermode="SelectedMode" Title="@Title" Subtitle="@Subtitle" Badge="@Badge" />
+
+@code {
+	[Parameter] public string Mode { get; set; } = "server";
+
+	// Fixed across every case so a paired stock/candidate run always serializes the same parameter set; only
+	// the render mode varies by route. An ordinary page -- no [StreamRendering] and no pending task -- because
+	// #275's own cases need no streamed re-render, unlike #269's and #270's own fixtures.
+	private const string Title = "Mission Control";
+	private const string? Subtitle = null;
+	private static readonly Issue275Badge Badge = new("primary", null);
+
+	private IComponentRenderMode SelectedMode => Mode switch
+	{
+		"webassembly" => RenderMode.InteractiveWebAssembly,
+		"auto" => RenderMode.InteractiveAuto,
+		_ => RenderMode.InteractiveServer,
+	};
+}
