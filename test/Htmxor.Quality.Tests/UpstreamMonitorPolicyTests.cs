@@ -117,9 +117,13 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Http/Routing/src/Matching/IEndpointSelectorPolicy.cs|file|interface|implements|src/Htmxor/Builder/ComponentEndpointMatcherPolicy.cs,src/Htmxor/Builder/HtmxorDirectEndpointMatcherPolicy.cs|",
 				"src/Http/Routing/src/Matching/MatcherPolicy.cs|file|subclass|subclasses|src/Htmxor/Builder/ComponentEndpointMatcherPolicy.cs,src/Htmxor/Builder/HtmxorDirectEndpointMatcherPolicy.cs|",
 				"src/Shared/Components/ComponentMarker.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs|",
+				"src/Shared/Components/ComponentParameter.cs|file|none|mirrors|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs|",
 				"src/Shared/Components/PrerenderComponentApplicationStore.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs|",
 				"src/Shared/Components/ProtectedPrerenderComponentApplicationStore.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs|",
+				"src/Shared/Components/ServerComponent.cs|file|none|mirrors|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs|",
+				"src/Shared/Components/ServerComponentSerializationSettings.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs|",
 				"src/Shared/Components/ServerComponentSerializer.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs|",
+				"src/Shared/Components/WebAssemblyComponentSerializationSettings.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs|",
 				"src/Shared/MiddlewareInvokedKeys.cs|file|none|mirrors|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs|net11.0",
 			],
 			ProjectWatches(manifest, root));

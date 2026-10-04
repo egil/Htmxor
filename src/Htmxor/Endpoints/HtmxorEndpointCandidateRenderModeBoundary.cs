@@ -2,17 +2,34 @@
 // Htmxor upstream dependency: src/Shared/Components/ComponentMarker.cs | reimplements
 // Htmxor upstream dependency: src/Shared/Components/ServerComponentSerializer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/WebAssemblyComponentSerializer.cs | reimplements
+// Htmxor upstream dependency: src/Shared/Components/WebAssemblyComponentSerializationSettings.cs | reimplements
+// Htmxor upstream dependency: src/Shared/Components/ServerComponentSerializationSettings.cs | reimplements
+// Htmxor upstream dependency: src/Shared/Components/ComponentParameter.cs | mirrors
+// Htmxor upstream dependency: src/Shared/Components/ServerComponent.cs | mirrors
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
 // synchronized 2026-09-06. Exact source inventory: docs/engineering/candidate-form-adapter.md.
+// The marker payload serializer options (#275, synchronized 2026-10-04) reimplement
+// WebAssemblyComponentSerializationSettings.cs and ServerComponentSerializationSettings.cs, whose naming and null
+// handling are identical at v10.0.11 (a5383385245bdacc20ec19f30e46090a8154d8da) and v11.0.0-rc.1.26425.128
+// (c3325eeb6b47bc6383c127d4f4827dc9642a2b6e); v11 only adds a source-generated resolver for the same shapes:
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Shared/Components/ServerComponentSerializationSettings.cs
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.DataProtection;
@@ -78,18 +95,39 @@ internal sealed class HtmxorEndpointCandidateRenderModeBoundary(
 				.CreateProtector("Microsoft.AspNetCore.Components.ComponentDescriptorSerializer,V1")
 				.ToTimeLimitedDataProtector();
 			marker.Sequence = invocationSequence;
-			marker.Descriptor = Convert.ToBase64String(protector.Protect(JsonSerializer.SerializeToUtf8Bytes(payload), TimeSpan.FromMinutes(5)));
+			marker.Descriptor = Convert.ToBase64String(protector.Protect(
+				JsonSerializer.SerializeToUtf8Bytes(payload, ServerComponentSerializationOptions), TimeSpan.FromMinutes(5)));
 		}
 
 		if (RenderMode is Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode or Microsoft.AspNetCore.Components.Web.InteractiveAutoRenderMode)
 		{
 			marker.Assembly = componentType.Assembly.GetName().Name!;
 			marker.TypeName = componentType.FullName!;
-			marker.ParameterDefinitions = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(definitions));
-			marker.ParameterValues = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(values));
+			marker.ParameterDefinitions = Convert.ToBase64String(
+				JsonSerializer.SerializeToUtf8Bytes(definitions, WebAssemblyComponentSerializationOptions));
+			marker.ParameterValues = Convert.ToBase64String(
+				JsonSerializer.SerializeToUtf8Bytes(values, WebAssemblyComponentSerializationOptions));
 		}
 		return marker;
 	}
+
+	// Each instance reimplements its own separately watched stock settings class. They are identical today, but
+	// .NET 11's ServerComponentSerializationSettings already adds a source-generated resolver, so drift in one must
+	// be adoptable without touching the other. Matching them makes the client read the same payload stock writes.
+	// PropertyNameCaseInsensitive affects only reads, which Htmxor never does; it keeps each copy faithful.
+	private static readonly JsonSerializerOptions WebAssemblyComponentSerializationOptions = new()
+	{
+		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+		PropertyNameCaseInsensitive = true,
+		DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+	};
+
+	private static readonly JsonSerializerOptions ServerComponentSerializationOptions = new()
+	{
+		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+		PropertyNameCaseInsensitive = true,
+		DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+	};
 
 	private static bool GetPrerender(IComponentRenderMode renderMode)
 		=> renderMode switch

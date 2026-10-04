@@ -1,0 +1,13 @@
+<p data-issue-275-child="rendered">parameters</p>
+
+@code {
+	// Three parameter kinds #275's marker-naming cases need: a non-null string, a parameter whose own value is
+	// null, and a complex value whose own member is null. Carries no @rendermode of its own: the page above
+	// applies the mode dynamically at the usage site, the same way Issue269InteractiveChild does, so one child
+	// serves every render mode instead of three near-duplicate components.
+	[Parameter] public string Title { get; set; } = "";
+
+	[Parameter] public string? Subtitle { get; set; }
+
+	[Parameter] public Issue275Badge? Badge { get; set; }
+}
