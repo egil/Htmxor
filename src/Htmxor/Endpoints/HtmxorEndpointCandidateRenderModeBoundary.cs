@@ -111,8 +111,10 @@ internal sealed class HtmxorEndpointCandidateRenderModeBoundary(
 		return marker;
 	}
 
-	// Stock's WebAssemblyComponentSerializationSettings and ServerComponentSerializationSettings: camelCase names,
-	// case-insensitive reads, and null members omitted, so the client reads the same payload stock writes.
+	// Each instance reimplements its own separately watched stock settings class. They are identical today, but
+	// .NET 11's ServerComponentSerializationSettings already adds a source-generated resolver, so drift in one must
+	// be adoptable without touching the other. Matching them makes the client read the same payload stock writes.
+	// PropertyNameCaseInsensitive affects only reads, which Htmxor never does; it keeps each copy faithful.
 	private static readonly JsonSerializerOptions WebAssemblyComponentSerializationOptions = new()
 	{
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
