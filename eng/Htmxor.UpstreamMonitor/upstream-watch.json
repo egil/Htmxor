@@ -337,6 +337,42 @@
       ]
     },
     {
+      "path": "src/Shared/Components/WebAssemblyComponentSerializationSettings.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/ServerComponentSerializationSettings.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/ComponentParameter.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "mirrors",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
+      "path": "src/Shared/Components/ServerComponent.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "mirrors",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
+      ]
+    },
+    {
       "path": "src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs",
       "match": "file",
       "api": "none",
