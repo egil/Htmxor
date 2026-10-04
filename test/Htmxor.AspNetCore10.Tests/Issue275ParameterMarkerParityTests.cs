@@ -51,7 +51,7 @@ public sealed class Issue275ParameterMarkerParityTests
 	[Theory]
 	[InlineData("auto")]
 	[InlineData("server")]
-	public async Task Unprotected_descriptor_matches_stock_field_by_field_for_a_string_null_and_complex_parameter(string mode)
+	public async Task Unprotected_descriptor_matches_stock_verbatim_for_a_string_null_and_complex_parameter(string mode)
 	{
 		await using var stock = await Issue269Host.CreateAsync(htmxor: false);
 		await using var candidate = await Issue269Host.CreateAsync(htmxor: true);
@@ -63,32 +63,19 @@ public sealed class Issue275ParameterMarkerParityTests
 		using var stockMarker = Issue275ComponentMarker.ExtractStartMarker(await stockResponse.Content.ReadAsStringAsync());
 		using var candidateMarker = Issue275ComponentMarker.ExtractStartMarker(await candidateResponse.Content.ReadAsStringAsync());
 
-		var stockFields = Issue275ComponentMarker.DecodeDescriptorFields(
+		var stockDescriptor = Issue275ComponentMarker.DecodeDescriptor(
 			Issue275ComponentMarker.GetStringField(stockMarker, "descriptor"), stock.Protection);
-		var candidateFields = Issue275ComponentMarker.DecodeDescriptorFields(
-			Issue275ComponentMarker.GetStringField(candidateMarker, "descriptor"), candidate.Protection);
 
 		// Stock's own oracle: the descriptor's own field names are camelCase (ServerComponentSerializationSettings),
 		// so this comparison cannot pass vacuously by both hosts sharing one bug.
-		Assert.Contains("assemblyName", stockFields.Keys);
-		Assert.Contains("parameterDefinitions", stockFields.Keys);
-		Assert.DoesNotContain("AssemblyName", stockFields.Keys);
+		Assert.Contains("\"assemblyName\":", stockDescriptor, StringComparison.Ordinal);
+		Assert.Contains("\"parameterDefinitions\":", stockDescriptor, StringComparison.Ordinal);
+		Assert.DoesNotContain("\"AssemblyName\":", stockDescriptor, StringComparison.Ordinal);
 
-		Assert.Equal(
-			stockFields.Keys.OrderBy(key => key, StringComparer.Ordinal),
-			candidateFields.Keys.OrderBy(key => key, StringComparer.Ordinal));
+		var candidateDescriptor = Issue275ComponentMarker.DecodeDescriptor(
+			Issue275ComponentMarker.GetStringField(candidateMarker, "descriptor"), candidate.Protection);
 
-		foreach (var key in stockFields.Keys)
-		{
-			if (string.Equals(key, "invocationId", StringComparison.Ordinal))
-			{
-				// Random per response (ServerComponentInvocationSequence/Guid.NewGuid(), never shared between two
-				// separately keyed hosts); every other field is compared verbatim.
-				continue;
-			}
-
-			Assert.Equal(stockFields[key], candidateFields[key]);
-		}
+		Assert.Equal(stockDescriptor, candidateDescriptor);
 	}
 
 	[Theory]
