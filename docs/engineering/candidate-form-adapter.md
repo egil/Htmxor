@@ -188,11 +188,13 @@ the htmx representation, a preserved fragment, a non-HTTP destination, and body 
 with the stock host, which writes the body it had already rendered before the submit
 rather than replacing it.
 
-The initial-render navigation path is deliberately unchanged. It still returns the
-bare stock redirect before write-back, which also discards Session values, so
-unifying it needs its own protected behavior and evidence; #230 owns that, together
+The initial-render navigation path answers as stock does since #266: an htmx request
+keeps the bare redirect, and every other request gets stock's representation,
+including the opaque enhanced-navigation redirect for an external destination. It
+still returns before write-back, which also discards Session values, so continuing
+the pipeline needs its own protected behavior and evidence; #230 owns that, together
 with the generated-action redirect, which is not a POST and therefore takes the same
-unchanged path.
+path.
 
 Synchronized **2026-09-15**, ASP.NET Core **v11.0.0-rc.1.26425.128**, commit
 **c3325eeb6b47bc6383c127d4f4827dc9642a2b6e**. Exact monitored sources:

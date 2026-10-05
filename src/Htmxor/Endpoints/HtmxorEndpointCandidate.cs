@@ -233,18 +233,9 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 		catch (NavigationException navigationException)
 		{
-			// As stock's first-render HandleNavigationException, except that an htmx request keeps the bare
-			// redirect (#264's htmx oracle); every other request gets stock's representation, including the opaque
-			// enhanced-navigation redirect for an external destination. Still before write-back: continuing the
-			// pipeline also has to stop discarding Session and TempData values, which #230 owns.
-			if (context.GetHtmxContext().Request.IsHtmxRequest)
-			{
-				context.Response.Redirect(navigationException.Location);
-			}
-			else
-			{
-				HandleNavigationBeforeResponseStarted(context, navigationException.Location);
-			}
+			// Still before write-back: continuing the pipeline also has to stop discarding Session and TempData
+			// values, which #230 owns.
+			HandleFirstRenderNavigation(context, navigationException.Location);
 			return;
 		}
 		Task quiesceTask;
@@ -373,6 +364,20 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			}
 		}
 		await writer.FlushAsync();
+	}
+
+	// A navigation during the synchronous first render, from either the throwing or the non-throwing path. An htmx
+	// request keeps the bare redirect (#264's htmx oracle); every other request gets stock's representation, as
+	// stock's HandleNavigationException does, including the opaque enhanced-navigation redirect.
+	internal static void HandleFirstRenderNavigation(HttpContext context, string destination)
+	{
+		if (context.GetHtmxContext().Request.IsHtmxRequest)
+		{
+			context.Response.Redirect(destination);
+			return;
+		}
+
+		HandleNavigationBeforeResponseStarted(context, destination);
 	}
 
 	// Mirrors stock EndpointHtmlRenderer.HandleNavigationBeforeResponseStarted, adding only the htmx branch:
@@ -567,8 +572,8 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		Type rootComponent,
 		ParameterView parameters)
 	{
-		// Marks the synchronous first render, where the throwing path's catch answers every navigation, including an
-		// htmx one, with a bare redirect (#230). OnNavigateTo mirrors that only here.
+		// Marks the synchronous first render, where OnNavigateTo answers a navigation the way the throwing path's
+		// first-render catch does (HandleFirstRenderNavigation).
 		inFirstRender = true;
 		try
 		{
