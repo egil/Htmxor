@@ -129,7 +129,7 @@ public sealed class PackedPackageConsumerTests
 		Assert.NotEqual(0, result.ExitCode);
 		Assert.Contains("HTMXOR003", output, StringComparison.Ordinal);
 		Assert.Contains(DisableHtmxDirectRoutingInImportsMessage, output, StringComparison.Ordinal);
-		Assert.Contains("_Imports.razor", output, StringComparison.Ordinal);
+		Assert.Contains("_Imports.razor(", output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}

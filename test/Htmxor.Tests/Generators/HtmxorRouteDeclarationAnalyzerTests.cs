@@ -678,10 +678,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	{
 		// Cause (b), the inheritance edge: a concrete base class carries the marker, and its derived
 		// component declares its own stock route. A check that treats the marker as effective through
-		// inheritance would stay silent here; the diagnostic belongs on the base's own declaration, not
-		// the derived class's type identifier (mapped back to the unmapped generated path via
-		// `#line default` immediately after the marker, so reporting at the type identifier fails both
-		// the path and the position assertion below).
+		// inheritance would stay silent here. Only the marker's own line maps to basePath; both type
+		// identifiers stay on the generated path, so a diagnostic anywhere but the base's marker
+		// attribute fails the path and position assertions below.
 		var basePath = ComponentPath("ItemComponentBase.razor");
 		var componentPath = ComponentPath("ItemComponent.razor");
 		var source = $$"""
