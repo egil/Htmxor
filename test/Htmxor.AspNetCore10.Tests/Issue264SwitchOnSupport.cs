@@ -93,11 +93,12 @@ internal static class Issue264SwitchOnRequests
 		return await SendAsync(client, request);
 	}
 
-	// Follows an opaque-redirect value on the same host that protected it: each process has its own ephemeral
-	// data-protection key, so the token is meaningful only against the host that issued it.
-	public static async Task<Uri?> FollowOpaqueRedirectAsync(Issue264SwitchOnHostProcess host, string opaqueUrl)
+	// Follows an opaque-redirect value on the same client that protected it: every host (an
+	// Issue264SwitchOnHostProcess here, or a #266 Issue260Host) owns its own ephemeral data-protection key, so
+	// the token is meaningful only against the client whose host issued it.
+	public static async Task<Uri?> FollowOpaqueRedirectAsync(HttpClient client, string opaqueUrl)
 	{
-		using var response = await host.Client.GetAsync(opaqueUrl);
+		using var response = await client.GetAsync(opaqueUrl);
 		return response.Headers.Location;
 	}
 

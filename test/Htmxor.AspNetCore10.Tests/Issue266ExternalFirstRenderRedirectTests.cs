@@ -5,128 +5,108 @@ namespace Htmxor.AspNetCore10;
 
 // #266's own paired stock-against-candidate first-render redirect-representation cases, compiled for both
 // net10.0 and net11.0 (see the csproj). The switch stays off throughout (this repository's default, throwing
-// NavigationManager); #264's separately hosted switch-on evidence is not reused here. These cases reuse
-// Issue190's external and internal navigation pages and lifecycle journal -- now a both-target fixture, see
-// Issue190NavigationFixtures.cs -- through Issue260Host/Issue260App rather than
-// Issue190NavigationParityTests.cs's own net10.0-only Issue187ParityHost, and reuse Issue264's
-// request-building, header-normalizing, and opaque-redirect-following helpers (Issue264SwitchOnSupport.cs),
-// which already compile for both targets.
+// NavigationManager). These cases reuse Issue190's external and internal navigation pages and lifecycle
+// journal -- now a both-target fixture, see Issue190NavigationFixtures.cs -- through Issue260Host/Issue260App
+// rather than Issue190NavigationParityTests.cs's own net10.0-only Issue187ParityHost, and reuse Issue264's
+// request-building, snapshot, and opaque-redirect-following helpers (Issue264SwitchOnSupport.cs), which
+// already compile for both targets.
 //
-// The observation seam is deliberately narrow: HTTP status plus the Location, blazor-enhanced-nav-redirect-
-// location, and HX-Redirect headers. Stock's own first-render NavigationException handling does not return
-// early (RazorComponentEndpointInvoker.RenderComponentCore keeps running after
-// EndpointHtmlRenderer.HandleNavigationException returns empty content), while the candidate's current catch
-// does. That gives stock a chance to write further body content and headers the candidate's early return never
-// reaches; matching those is #230's "continue the pipeline" work, not this issue's redirect-representation
-// split, and is called out in #266's own residual risk. Comparing the whole body or the whole header set here
-// would therefore fail for a reason unrelated to the protected behavior, on both sides of the real fix.
+// Each paired case compares the whole Issue264Snapshot -- status, Location, HX-Redirect, Content-Type,
+// ssr-framing presence, and the normalized body -- with the opaque-redirect header masked to null. That header
+// is masked because each Issue260Host owns an independent ephemeral data-protection key (see Issue260Host), so
+// its protected value is never equal across hosts even when both redirect to the same destination; it is
+// instead compared by following each host's own token through its own "_framework/opaque-redirect" endpoint.
 public sealed class Issue266ExternalFirstRenderRedirectTests
 {
-	// Issue190NavigationPage.razor's own hardcoded @page route; there is no shared constant for it because,
-	// unlike the external contract, no other test currently needs one.
+	// Issue190NavigationPage.razor's @page route. Issue190NavigationHost.Path holds the same value, but it lives in
+	// the net10.0-only Issue190NavigationParityTests.cs.
 	private const string InternalNavigationPath = "/issue-190/navigate";
 
-	// Blazor's NavigationManager resolves the page's relative "/issue-190/destination" literal to an absolute
-	// URI before it ever reaches Response.Redirect, so both stock and the candidate redirect to this exact
-	// absolute form, not the page's own relative literal.
+	// Issue190NavigationPage.razor's relative destination. NavigationManager resolves it against the request's base
+	// URI, so both stock and the candidate send an absolute Location whose path is this value.
 	private const string InternalNavigationDestinationPath = "/issue-190/destination";
 
-	// The red case: stock answers an external first-render destination under progressively-enhanced navigation
-	// with 200 and an opaque blazor-enhanced-nav-redirect-location header
-	// (EndpointHtmlRenderer.Prerendering.HandleNavigationBeforeResponseStarted); at HEAD the candidate's first-
-	// render catch always calls the bare context.Response.Redirect, so it answers 302 with no such header.
+	// Stock answers an external first-render destination under progressively-enhanced navigation with 200 and an
+	// opaque blazor-enhanced-nav-redirect-location header
+	// (EndpointHtmlRenderer.Prerendering.HandleNavigationBeforeResponseStarted) instead of a 302.
 	[Fact]
 	public async Task External_destination_first_render_navigation_under_enhanced_navigation_has_stock_opaque_redirect_parity()
 	{
 		await using var stock = await CreateHostAsync(htmxor: false);
 		await using var candidate = await CreateHostAsync(htmxor: true);
 
-		using var stockResponse = await SendAsync(stock, Issue190ExternalNavigationContract.Path, enhancedNavigation: true);
-		using var candidateResponse = await SendAsync(candidate, Issue190ExternalNavigationContract.Path, enhancedNavigation: true);
+		var stockSnapshot = await SendAsync(stock, Issue190ExternalNavigationContract.Path, enhancedNavigation: true);
+		var candidateSnapshot = await SendAsync(candidate, Issue190ExternalNavigationContract.Path, enhancedNavigation: true);
 
 		// Stock's own oracle, pinned before any parity comparison so this case never passes vacuously.
-		Assert.Equal(HttpStatusCode.OK, stockResponse.StatusCode);
-		Assert.Null(stockResponse.Headers.Location);
-		var stockOpaqueLocation = SingleOpaqueRedirectHeader(stockResponse);
-		Assert.NotNull(stockOpaqueLocation);
+		Assert.Equal(HttpStatusCode.OK, stockSnapshot.StatusCode);
+		Assert.Null(stockSnapshot.Location);
+		Assert.NotNull(stockSnapshot.EnhancedNavigationLocation);
 		Assert.Equal(
 			new Uri(Issue190ExternalNavigationContract.Destination),
-			await FollowOpaqueRedirectAsync(stock.Client, stockOpaqueLocation));
+			await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(stock.Client, stockSnapshot.EnhancedNavigationLocation!));
 
-		Assert.Equal(stockResponse.StatusCode, candidateResponse.StatusCode);
-		Assert.Equal(stockResponse.Headers.Location, candidateResponse.Headers.Location);
-		var candidateOpaqueLocation = SingleOpaqueRedirectHeader(candidateResponse);
-		Assert.NotNull(candidateOpaqueLocation);
-		// The protected value is host-specific (each host owns its own ephemeral data-protection key, see
-		// Issue260Host), so it is compared after unprotecting it through each host's own
-		// "_framework/opaque-redirect" endpoint rather than by string equality on the token itself.
+		Assert.NotNull(candidateSnapshot.EnhancedNavigationLocation);
+		AssertPairedSnapshotParity(stockSnapshot, candidateSnapshot);
 		Assert.Equal(
 			new Uri(Issue190ExternalNavigationContract.Destination),
-			await FollowOpaqueRedirectAsync(candidate.Client, candidateOpaqueLocation));
+			await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(candidate.Client, candidateSnapshot.EnhancedNavigationLocation!));
 	}
 
 	// Characterization: a same-origin destination never reaches stock's opaque-redirect branch
 	// (IsPossibleExternalDestination is false), so enhanced navigation makes no difference and both stock and
-	// the candidate already answer the same ordinary 302.
+	// the candidate answer the same ordinary 302.
 	[Fact]
-	public async Task Internal_destination_first_render_navigation_under_enhanced_navigation_already_matches_stock()
+	public async Task Internal_destination_first_render_navigation_under_enhanced_navigation_has_stock_redirect_parity()
 	{
 		await using var stock = await CreateHostAsync(htmxor: false);
 		await using var candidate = await CreateHostAsync(htmxor: true);
 
-		using var stockResponse = await SendAsync(stock, InternalNavigationPath, enhancedNavigation: true);
-		using var candidateResponse = await SendAsync(candidate, InternalNavigationPath, enhancedNavigation: true);
+		var stockSnapshot = await SendAsync(stock, InternalNavigationPath, enhancedNavigation: true);
+		var candidateSnapshot = await SendAsync(candidate, InternalNavigationPath, enhancedNavigation: true);
 
-		Assert.Equal(HttpStatusCode.Found, stockResponse.StatusCode);
-		Assert.NotNull(stockResponse.Headers.Location);
-		Assert.EndsWith(InternalNavigationDestinationPath, stockResponse.Headers.Location!.AbsolutePath, StringComparison.Ordinal);
-		Assert.Null(SingleOpaqueRedirectHeader(stockResponse));
+		Assert.Equal(HttpStatusCode.Found, stockSnapshot.StatusCode);
+		Assert.NotNull(stockSnapshot.Location);
+		Assert.EndsWith(InternalNavigationDestinationPath, stockSnapshot.Location!.AbsolutePath, StringComparison.Ordinal);
+		Assert.Null(stockSnapshot.EnhancedNavigationLocation);
 
-		Assert.Equal(stockResponse.StatusCode, candidateResponse.StatusCode);
-		Assert.Equal(stockResponse.Headers.Location, candidateResponse.Headers.Location);
-		Assert.Null(SingleOpaqueRedirectHeader(candidateResponse));
+		AssertPairedSnapshotParity(stockSnapshot, candidateSnapshot);
 	}
 
 	// Characterization: without progressively-enhanced navigation, IsProgressivelyEnhancedNavigation is false
 	// regardless of the destination, so stock's HandleNavigationBeforeResponseStarted falls through to the same
-	// ordinary 302 the candidate's current bare catch already produces.
+	// ordinary 302 the candidate's bare catch produces.
 	[Fact]
-	public async Task External_destination_first_render_navigation_without_enhanced_navigation_already_matches_stock()
+	public async Task External_destination_first_render_navigation_without_enhanced_navigation_has_stock_redirect_parity()
 	{
 		await using var stock = await CreateHostAsync(htmxor: false);
 		await using var candidate = await CreateHostAsync(htmxor: true);
 
-		using var stockResponse = await SendAsync(stock, Issue190ExternalNavigationContract.Path, enhancedNavigation: false);
-		using var candidateResponse = await SendAsync(candidate, Issue190ExternalNavigationContract.Path, enhancedNavigation: false);
+		var stockSnapshot = await SendAsync(stock, Issue190ExternalNavigationContract.Path, enhancedNavigation: false);
+		var candidateSnapshot = await SendAsync(candidate, Issue190ExternalNavigationContract.Path, enhancedNavigation: false);
 
-		Assert.Equal(HttpStatusCode.Found, stockResponse.StatusCode);
-		Assert.Equal(Issue190ExternalNavigationContract.Destination, stockResponse.Headers.Location?.OriginalString);
-		Assert.Null(SingleOpaqueRedirectHeader(stockResponse));
+		Assert.Equal(HttpStatusCode.Found, stockSnapshot.StatusCode);
+		Assert.Equal(Issue190ExternalNavigationContract.Destination, stockSnapshot.Location?.OriginalString);
+		Assert.Null(stockSnapshot.EnhancedNavigationLocation);
 
-		Assert.Equal(stockResponse.StatusCode, candidateResponse.StatusCode);
-		Assert.Equal(stockResponse.Headers.Location, candidateResponse.Headers.Location);
-		Assert.Null(SingleOpaqueRedirectHeader(candidateResponse));
+		AssertPairedSnapshotParity(stockSnapshot, candidateSnapshot);
 	}
 
-	// Guard, not a change: htmx has no stock counterpart (stock never inspects IsHtmxRequest), so -- as #264
-	// decided for its own htmx cases -- this pins the candidate's own current output instead of comparing to
-	// stock. It must still pass unchanged once #266 splits the first-render catch, because an htmx request
-	// keeps context.Response.Redirect; it exists so a wrong split -- routing htmx through
-	// HandleNavigationBeforeResponseStarted too (producing HX-Redirect instead), or always using that method
-	// regardless of IsHtmxRequest (producing the opaque-redirect header instead) -- fails here instead of only
-	// being caught by a browser.
+	// Guard: htmx has no stock counterpart (stock never inspects IsHtmxRequest), so, as #264 decided for its own
+	// htmx cases, this pins the candidate's own output instead of comparing to stock. A first-render htmx
+	// navigation keeps the bare redirect; sending it through HandleNavigationBeforeResponseStarted would answer
+	// 200 with HX-Redirect instead, and this case catches that rather than leaving it to a browser.
 	[Fact]
 	public async Task Htmx_external_destination_first_render_navigation_keeps_the_candidates_bare_redirect()
 	{
 		await using var candidate = await CreateHostAsync(htmxor: true);
 
-		using var response = await candidate.Client.SendAsync(
-			Issue264SwitchOnRequests.Create(HttpMethod.Get, Issue190ExternalNavigationContract.Path, htmx: true));
+		var snapshot = await SendAsync(candidate, Issue190ExternalNavigationContract.Path, htmx: true);
 
-		Assert.Equal(HttpStatusCode.Found, response.StatusCode);
-		Assert.Equal(Issue190ExternalNavigationContract.Destination, response.Headers.Location?.OriginalString);
-		Assert.False(response.Headers.Contains("HX-Redirect"));
-		Assert.Null(SingleOpaqueRedirectHeader(response));
+		Assert.Equal(HttpStatusCode.Found, snapshot.StatusCode);
+		Assert.Equal(Issue190ExternalNavigationContract.Destination, snapshot.Location?.OriginalString);
+		Assert.Null(snapshot.HxRedirect);
+		Assert.Null(snapshot.EnhancedNavigationLocation);
 	}
 
 	private static Task<Issue260Host> CreateHostAsync(bool htmxor) =>
@@ -134,18 +114,12 @@ public sealed class Issue266ExternalFirstRenderRedirectTests
 			htmxor,
 			configureServices: services => services.AddSingleton<Issue190LifecycleJournal>());
 
-	private static Task<HttpResponseMessage> SendAsync(Issue260Host host, string path, bool enhancedNavigation) =>
-		host.Client.SendAsync(Issue264SwitchOnRequests.Create(HttpMethod.Get, path, enhancedNavigation: enhancedNavigation));
+	private static Task<Issue264Snapshot> SendAsync(
+		Issue260Host host, string path, bool enhancedNavigation = false, bool htmx = false) =>
+		Issue264SwitchOnRequests.SendAsync(
+			host.Client, Issue264SwitchOnRequests.Create(HttpMethod.Get, path, htmx, enhancedNavigation));
 
-	private static string? SingleOpaqueRedirectHeader(HttpResponseMessage response) =>
-		response.Headers.TryGetValues("blazor-enhanced-nav-redirect-location", out var values) ? values.Single() : null;
-
-	// Follows the opaque redirect on the same host that protected it: each Issue260Host owns its own ephemeral
-	// data-protection key (see Issue260Host), so the token is meaningful only against the host that issued it.
-	private static async Task<Uri?> FollowOpaqueRedirectAsync(HttpClient client, string? opaqueUrl)
-	{
-		Assert.NotNull(opaqueUrl);
-		using var response = await client.GetAsync(opaqueUrl);
-		return response.Headers.Location;
-	}
+	// The opaque-redirect header is masked before comparison; see this file's header comment for why.
+	private static void AssertPairedSnapshotParity(Issue264Snapshot stock, Issue264Snapshot candidate) =>
+		Assert.Equal(stock with { EnhancedNavigationLocation = null }, candidate with { EnhancedNavigationLocation = null });
 }
