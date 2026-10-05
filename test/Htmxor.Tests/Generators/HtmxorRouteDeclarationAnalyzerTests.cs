@@ -606,6 +606,81 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
+	public async Task DisableHtmxDirectRouting_declared_in_Imports_builds_without_HTMXOR003()
+	{
+		// #175 red: HTMXOR003 ("Unsupported normal-only route declaration") does not exist yet.
+		// Once it does, cause (a) is the marker declared in _Imports.razor instead of the routed
+		// type's own declaration, mirroring the existing HtmxRoute-from-_Imports rule above.
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var importsPath = ComponentPath("_Imports.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			#line 1 "{{EscapePath(importsPath)}}"
+			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
+			#line 20 "{{EscapePath(componentPath)}}"
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/items/{Id:int}")]
+			#line default
+			public sealed class ItemComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath, importsPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
+	public async Task DisableHtmxDirectRouting_on_a_type_without_a_local_stock_route_builds_without_HTMXOR003()
+	{
+		// #175 red: cause (b) is the marker on a base, abstract, or non-component type that has no
+		// local stock route of its own. HtmxorRoutedComponent.FindAll only inspects types carrying
+		// HtmxRouteAttribute, so a type carrying only the marker is not inspected at all today --
+		// which is itself part of the red: nothing reports that this declaration is unsupported.
+		var componentPath = ComponentPath("ItemComponentBase.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
+			public abstract class ItemComponentBase : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
+	public async Task DisableHtmxDirectRouting_combined_with_HtmxRoute_builds_without_HTMXOR003()
+	{
+		// #175 red: cause (c) is the marker combined with HtmxRoute on the same type. The analyzer
+		// does not look for DisableHtmxDirectRoutingAttribute yet, so this still passes every
+		// existing HtmxRoute check. HtmxorAttributedRouteCatalogTests pins that the runtime
+		// counterpart (ValidateDeclaration) does not throw for the same combination either.
+		var componentPath = ComponentPath("MarkedReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Htmxor.HtmxRouteAttribute("/reports/{Id:int}", Methods = ["GET"])]
+			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("reports.read")]
+			public sealed class MarkedReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
 	public async Task Stock_route_without_a_local_page_declaration_fails_closed_for_an_action()
 	{
 		var componentPath = ComponentPath("ReportComponent.razor");
@@ -859,6 +934,40 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			""");
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor, includeRouteAnalyzer: true);
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
+	public async Task Inferred_binding_on_a_DisableHtmxDirectRouting_marked_component_builds_without_HTMXOR002()
+	{
+		// #175 red: the approved precedence rule ("any action on a marked component is a build
+		// error", reported through the existing HTMXOR002 with a cause-specific message) is not
+		// implemented yet. HtmxorActionDeclarationAnalyzer does not check for
+		// DisableHtmxDirectRoutingAttribute, so an inferred binding on a stock-routed, marked
+		// component still builds and the direct-request matrix in Htmxor.AspNetCore10.Tests shows
+		// its callback still runs.
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task PutReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			@page "/reports/{Id:int}"
+			<button @onput="PutReport">Save</button>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		Assert.Empty(diagnostics);
 	}

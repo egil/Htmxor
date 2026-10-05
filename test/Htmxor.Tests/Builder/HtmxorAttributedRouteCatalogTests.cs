@@ -120,6 +120,27 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
+	public void Build_does_not_yet_reject_HtmxRoute_combined_with_DisableHtmxDirectRouting()
+	{
+		// #175 red: this is cause (c) of the not-yet-implemented HTMXOR003 diagnostic and its
+		// runtime counterpart. ValidateDeclaration does not look for DisableHtmxDirectRoutingAttribute
+		// yet, so combining it with HtmxRoute on the same type builds a descriptor instead of the
+		// throw the brief requires once the catalog recognizes the marker.
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.MarkedReportComponent",
+				"/reports/{ReportId:int}",
+				"report.policy",
+				HasDisableHtmxDirectRouting: true));
+
+		var descriptors = HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest);
+
+		var descriptor = Assert.Single(descriptors);
+		Assert.Same(fixture.Types[0], descriptor.ComponentType);
+		Assert.Contains(descriptor.Metadata, static metadata => metadata is DisableHtmxDirectRoutingAttribute);
+	}
+
+	[Fact]
 	public void Build_rejects_a_route_declaration_outside_the_manifest()
 	{
 		var fixture = DynamicComponentAssembly.Create(
@@ -695,6 +716,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		bool UseNamedPolicy = false,
 		bool HasAdditionalRouteFilter = false,
 		bool HasThrowingMetadata = false,
+		bool HasDisableHtmxDirectRouting = false,
 		bool HasHtmxRoute = true,
 		IReadOnlyList<string>? StockRoutes = null,
 		bool ExplicitMethods = true,
@@ -736,6 +758,13 @@ public sealed class HtmxorAttributedRouteCatalogTests
 			{
 				type.SetCustomAttribute(new CustomAttributeBuilder(
 					typeof(ThrowingMetadataAttribute).GetConstructor(Type.EmptyTypes)!,
+					[]));
+			}
+
+			if (definition.HasDisableHtmxDirectRouting)
+			{
+				type.SetCustomAttribute(new CustomAttributeBuilder(
+					typeof(DisableHtmxDirectRoutingAttribute).GetConstructor(Type.EmptyTypes)!,
 					[]));
 			}
 

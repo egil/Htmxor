@@ -1,0 +1,41 @@
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+namespace Htmxor.AspNetCore10;
+
+[Route("/issue-175/csharp")]
+[DisableHtmxDirectRouting]
+public sealed class Issue175CSharpPage : ComponentBase
+{
+	[Inject]
+	private Issue175RequestProbe RequestProbe { get; set; } = default!;
+
+	[CascadingParameter]
+	private HttpContext HttpContext { get; set; } = default!;
+
+	private string? RouteMetadata
+		=> HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue175MetadataSentinel>()?.Value;
+
+	protected override void OnInitialized() => RequestProbe.RecordInitialization();
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "h1");
+		builder.AddAttribute(1, "data-issue-175-page", "csharp");
+		builder.AddContent(2, "Normal-only all-C# page");
+		builder.CloseElement();
+
+		builder.OpenElement(3, "p");
+		builder.AddAttribute(4, "data-route-metadata", RouteMetadata);
+		builder.AddContent(5, RouteMetadata);
+		builder.CloseElement();
+
+		builder.OpenElement(6, "p");
+		builder.AddAttribute(7, "data-issue-175-result", string.Empty);
+		builder.AddAttribute(8, "data-initialization-count", RequestProbe.InitializationCount.ToString());
+		builder.AddAttribute(9, "data-callback-count", RequestProbe.CallbackCount.ToString());
+		builder.CloseElement();
+	}
+}
