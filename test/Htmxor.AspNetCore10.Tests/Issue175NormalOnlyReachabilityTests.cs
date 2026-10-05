@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Hosting;
@@ -13,11 +12,21 @@ namespace Htmxor.AspNetCore10;
 
 /// <summary>
 /// #175 red: the behavior-neutral seam from commit 82fc101 (<see cref="DisableHtmxDirectRoutingAttribute"/>
-/// with no wiring) is staged. These tests pin today's -- still wrong -- runtime behavior for a marked
-/// component authored as .razor, .razor.cs, and all-C#, matching the issue's own "Meaningful red"
-/// paragraph. They are expected to start failing once the matcher policy, <c>ConfigureEndpoint</c>,
-/// and the generator/analyzer recognize the marker, at which point green-baseline flips each
-/// assertion to its approved outcome (404 for the direct cells, a build error for the action cell).
+/// with no wiring) is staged. The direct-request cases below assert the brief's approved target
+/// outcome (404, no lifecycle work) for a marked component authored as .razor, .razor.cs, and
+/// all-C#, so they fail today for the expected reason: <c>HtmxorDirectEndpointMatcherPolicy</c> and
+/// <c>ConfigureEndpoint</c>'s defense in depth do not yet invalidate a marked candidate, so the
+/// request is still selected and the component's lifecycle still runs. The stock-page, dual-route,
+/// and metadata cells assert behavior that is already correct and must stay that way (regression
+/// characterization).
+///
+/// There is no runtime action cell here. Per #172 point 5.4, any action on a marked component is a
+/// build error; a marked component that also compiles an inferred binding is therefore not a state
+/// this project can hold once that rule lands, so a runtime fixture for it would either not compile
+/// (once fixed) or never meaningfully exercise the matcher policy (an action-less marked component
+/// has no unsafe method registered at all, so an unsafe request against it already gets a stock 405
+/// today, independent of the marker). The build-error side of 5.4 is covered where it belongs:
+/// <see cref="Generators.Tests.HtmxorRouteDeclarationAnalyzerTests.Inferred_binding_on_a_DisableHtmxDirectRouting_marked_component_is_a_build_error"/>.
 /// </summary>
 public sealed class Issue175NormalOnlyReachabilityTests : IAsyncLifetime
 {
@@ -33,7 +42,7 @@ public sealed class Issue175NormalOnlyReachabilityTests : IAsyncLifetime
 		});
 		builder.WebHost.UseTestServer();
 		builder.Services.AddRazorComponents().AddHtmxor();
-		builder.Services.AddScoped<Issue175RequestProbe>();
+		builder.Services.AddSingleton<Issue175RequestProbe>();
 
 		app = builder.Build();
 		app.UseAntiforgery();
@@ -77,54 +86,26 @@ public sealed class Issue175NormalOnlyReachabilityTests : IAsyncLifetime
 
 	[Theory]
 	[MemberData(nameof(MarkedPages))]
-	public async Task Direct_partial_GET_still_answers_with_component_output(
+	public async Task Direct_partial_GET_is_not_selected_and_gets_404_with_no_lifecycle_work(
 		string path,
 		Type componentType,
 		string form)
 	{
 		_ = componentType;
+		_ = form;
 
-		// #175 red: HtmxorDirectEndpointMatcherPolicy does not invalidate a marked candidate yet,
-		// so a direct partial GET is still selected, runs the component's lifecycle, and renders
-		// its fragment -- the brief requires 404 with no lifecycle work once the policy recognizes
-		// the marker.
+		// #175 red: today HtmxorDirectEndpointMatcherPolicy still selects this candidate, so the
+		// request succeeds and OnInitialized runs. Once the policy (and ConfigureEndpoint's defense
+		// in depth) recognize the marker, the candidate is invalidated before any component work,
+		// and this assertion starts passing.
+		var probe = app.Services.GetRequiredService<Issue175RequestProbe>();
 		using var request = new HttpRequestMessage(HttpMethod.Get, path);
 		request.Headers.Add("HX-Request", "true");
 		request.Headers.Add("HX-Request-Type", "partial");
 		using var response = await client.SendAsync(request);
-		var body = await response.Content.ReadAsStringAsync();
 
-		Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200 OK, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
-		Assert.Contains($"data-issue-175-page=\"{form}\"", body, StringComparison.Ordinal);
-		Assert.Contains("data-initialization-count=\"1\"", body, StringComparison.Ordinal);
-		Assert.DoesNotContain("<html", body, StringComparison.OrdinalIgnoreCase);
-		Assert.DoesNotContain("data-stock-shell", body, StringComparison.Ordinal);
-	}
-
-	[Theory]
-	[InlineData("/issue-175/razor", "razor")]
-	[InlineData("/issue-175/codebehind", "codebehind")]
-	public async Task Direct_POST_still_invokes_the_marked_components_inferred_action(string path, string form)
-	{
-		_ = form;
-
-		// #175 red: today's generator/analyzer do not report HTMXOR002 for an action on a marked
-		// component (pinned separately in HtmxorRouteDeclarationAnalyzerTests), and the matcher
-		// policy does not 404 the marked endpoint, so this unsafe request still reaches the
-		// component instance and its callback still runs.
-		var (token, cookie) = await GetAntiforgeryCredentialsAsync(path);
-
-		using var request = new HttpRequestMessage(HttpMethod.Put, path);
-		request.Headers.Add("HX-Request", "true");
-		request.Headers.Add("HX-Request-Type", "partial");
-		request.Headers.Add("Cookie", cookie);
-		request.Headers.Add("RequestVerificationToken", token);
-		using var response = await client.SendAsync(request);
-		var body = await response.Content.ReadAsStringAsync();
-
-		Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200 OK, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
-		Assert.Contains("data-initialization-count=\"1\"", body, StringComparison.Ordinal);
-		Assert.Contains("data-callback-count=\"1\"", body, StringComparison.Ordinal);
+		Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+		Assert.Equal(0, probe.InitializationCount);
 	}
 
 	private void AssertSingleMarkedEndpoint(string path, Type componentType)
@@ -156,41 +137,6 @@ public sealed class Issue175NormalOnlyReachabilityTests : IAsyncLifetime
 		Assert.Contains("data-route-metadata=\"preserved\"", body, StringComparison.Ordinal);
 	}
 
-	private async Task<(string Token, string Cookie)> GetAntiforgeryCredentialsAsync(string path)
-	{
-		using var pageResponse = await client.GetAsync(path);
-		var pageBody = await pageResponse.Content.ReadAsStringAsync();
-		Assert.True(pageResponse.StatusCode == HttpStatusCode.OK, pageBody);
-
-		return (
-			ExtractAttribute(pageBody, "name=\"__RequestVerificationToken\"", "value"),
-			ExtractAntiforgeryCookie(pageResponse));
-	}
-
-	private static string ExtractAttribute(string html, string elementMarker, string attributeName)
-	{
-		var markerIndex = html.IndexOf(elementMarker, StringComparison.Ordinal);
-		Assert.True(markerIndex >= 0, $"Expected an element containing '{elementMarker}'.");
-		var elementStart = html.LastIndexOf('<', markerIndex);
-		var elementEnd = html.IndexOf('>', markerIndex);
-		Assert.True(elementStart >= 0 && elementEnd > elementStart, $"Expected complete markup around '{elementMarker}'.");
-		var element = html[elementStart..(elementEnd + 1)];
-		var match = Regex.Match(
-			element,
-			$"(?:^|\\s){Regex.Escape(attributeName)}=\"(?<value>[^\"]*)\"",
-			RegexOptions.CultureInvariant);
-		Assert.True(match.Success, $"Expected attribute '{attributeName}' in '{element}'.");
-		return WebUtility.HtmlDecode(match.Groups["value"].Value);
-	}
-
-	private static string ExtractAntiforgeryCookie(HttpResponseMessage response)
-	{
-		var cookie = Assert.Single(
-			response.Headers.GetValues("Set-Cookie"),
-			value => value.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal));
-		return cookie.Split(';', 2)[0];
-	}
-
 	public async Task DisposeAsync()
 	{
 		client?.Dispose();
@@ -205,11 +151,7 @@ internal sealed class Issue175RequestProbe
 {
 	public int InitializationCount { get; private set; }
 
-	public int CallbackCount { get; private set; }
-
 	public void RecordInitialization() => InitializationCount++;
-
-	public void RecordCallback() => CallbackCount++;
 }
 
 internal sealed record Issue175MetadataSentinel(string Value)

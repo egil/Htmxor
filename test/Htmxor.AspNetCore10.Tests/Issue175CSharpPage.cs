@@ -31,11 +31,5 @@ public sealed class Issue175CSharpPage : ComponentBase
 		builder.AddAttribute(4, "data-route-metadata", RouteMetadata);
 		builder.AddContent(5, RouteMetadata);
 		builder.CloseElement();
-
-		builder.OpenElement(6, "p");
-		builder.AddAttribute(7, "data-issue-175-result", string.Empty);
-		builder.AddAttribute(8, "data-initialization-count", RequestProbe.InitializationCount.ToString());
-		builder.AddAttribute(9, "data-callback-count", RequestProbe.CallbackCount.ToString());
-		builder.CloseElement();
 	}
 }

@@ -1,12 +1,5 @@
 @page "/issue-175/codebehind"
-@using Microsoft.AspNetCore.Components.Forms
 @inject Issue175RequestProbe RequestProbe
 
 <h1 data-issue-175-page="codebehind">Normal-only code-behind page</h1>
-<button hx-put="/issue-175/codebehind" @onput="PutItem">Put</button>
-<AntiforgeryToken />
 <p data-route-metadata="@RouteMetadata">@RouteMetadata</p>
-
-<p data-issue-175-result
-   data-initialization-count="@RequestProbe.InitializationCount"
-   data-callback-count="@RequestProbe.CallbackCount"></p>

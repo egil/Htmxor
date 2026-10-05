@@ -606,11 +606,12 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
-	public async Task DisableHtmxDirectRouting_declared_in_Imports_builds_without_HTMXOR003()
+	public async Task DisableHtmxDirectRouting_declared_in_Imports_reports_HTMXOR003()
 	{
-		// #175 red: HTMXOR003 ("Unsupported normal-only route declaration") does not exist yet.
-		// Once it does, cause (a) is the marker declared in _Imports.razor instead of the routed
-		// type's own declaration, mirroring the existing HtmxRoute-from-_Imports rule above.
+		// #175 red: HTMXOR003 ("Unsupported normal-only route declaration") does not exist yet, so
+		// this currently fails -- there is no diagnostic to find. Cause (a) is the marker declared
+		// in _Imports.razor instead of the routed type's own declaration, mirroring the existing
+		// HtmxRoute-from-_Imports rule above.
 		var componentPath = ComponentPath("ItemComponent.razor");
 		var importsPath = ComponentPath("_Imports.razor");
 		var source = $$"""
@@ -629,16 +630,20 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { source },
 			new[] { componentPath, importsPath });
 
-		Assert.Empty(diagnostics);
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR003", diagnostic.Id);
+		Assert.Contains("_Imports.razor", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Equal(importsPath, diagnostic.Location.GetMappedLineSpan().Path);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
 
 	[Fact]
-	public async Task DisableHtmxDirectRouting_on_a_type_without_a_local_stock_route_builds_without_HTMXOR003()
+	public async Task DisableHtmxDirectRouting_on_a_type_without_a_local_stock_route_reports_HTMXOR003()
 	{
 		// #175 red: cause (b) is the marker on a base, abstract, or non-component type that has no
-		// local stock route of its own. HtmxorRoutedComponent.FindAll only inspects types carrying
-		// HtmxRouteAttribute, so a type carrying only the marker is not inspected at all today --
-		// which is itself part of the red: nothing reports that this declaration is unsupported.
+		// local stock route of its own. This currently fails because HtmxorRoutedComponent.FindAll
+		// only inspects types carrying HtmxRouteAttribute, so a type carrying only the marker is not
+		// inspected at all today -- the approved fix must also widen discovery to marker-only types.
 		var componentPath = ComponentPath("ItemComponentBase.razor");
 		var source = $$"""
 			namespace {{RootNamespace}}
@@ -652,16 +657,19 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { source },
 			new[] { componentPath });
 
-		Assert.Empty(diagnostics);
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR003", diagnostic.Id);
+		Assert.Contains("local stock", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 	}
 
 	[Fact]
-	public async Task DisableHtmxDirectRouting_combined_with_HtmxRoute_builds_without_HTMXOR003()
+	public async Task DisableHtmxDirectRouting_combined_with_HtmxRoute_reports_HTMXOR003()
 	{
-		// #175 red: cause (c) is the marker combined with HtmxRoute on the same type. The analyzer
-		// does not look for DisableHtmxDirectRoutingAttribute yet, so this still passes every
-		// existing HtmxRoute check. HtmxorAttributedRouteCatalogTests pins that the runtime
-		// counterpart (ValidateDeclaration) does not throw for the same combination either.
+		// #175 red: cause (c) is the marker combined with HtmxRoute on the same type. This currently
+		// fails because the analyzer does not look for DisableHtmxDirectRoutingAttribute yet, so the
+		// declaration still passes every existing HtmxRoute check.
+		// HtmxorAttributedRouteCatalogTests pins that the runtime counterpart (ValidateDeclaration)
+		// must also throw for the same combination.
 		var componentPath = ComponentPath("MarkedReportComponent.razor");
 		var source = $$"""
 			namespace {{RootNamespace}}
@@ -677,7 +685,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { source },
 			new[] { componentPath });
 
-		Assert.Empty(diagnostics);
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR003", diagnostic.Id);
+		Assert.Contains("HtmxRoute", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -939,14 +949,12 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
-	public async Task Inferred_binding_on_a_DisableHtmxDirectRouting_marked_component_builds_without_HTMXOR002()
+	public async Task Inferred_binding_on_a_DisableHtmxDirectRouting_marked_component_is_a_build_error()
 	{
-		// #175 red: the approved precedence rule ("any action on a marked component is a build
-		// error", reported through the existing HTMXOR002 with a cause-specific message) is not
-		// implemented yet. HtmxorActionDeclarationAnalyzer does not check for
-		// DisableHtmxDirectRoutingAttribute, so an inferred binding on a stock-routed, marked
-		// component still builds and the direct-request matrix in Htmxor.AspNetCore10.Tests shows
-		// its callback still runs.
+		// #175 red (#172 point 5.4): any action on a marked component is a build error, reported
+		// through the existing HTMXOR002 with a cause-specific message. This currently fails because
+		// HtmxorActionDeclarationAnalyzer does not check for DisableHtmxDirectRoutingAttribute yet,
+		// so an inferred binding on a stock-routed, marked component still builds today.
 		var componentPath = ComponentPath("ReportComponent.razor");
 		var source = $$"""
 			namespace {{RootNamespace}}
@@ -969,7 +977,11 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
-		Assert.Empty(diagnostics);
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains("DisableHtmxDirectRouting", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
 
 	private static string ComponentPath(string relativePath)

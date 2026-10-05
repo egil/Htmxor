@@ -13,6 +13,4 @@ public partial class Issue175CodeBehindPage
 		=> HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue175MetadataSentinel>()?.Value;
 
 	protected override void OnInitialized() => RequestProbe.RecordInitialization();
-
-	private void PutItem(HtmxEventArgs _) => RequestProbe.RecordCallback();
 }

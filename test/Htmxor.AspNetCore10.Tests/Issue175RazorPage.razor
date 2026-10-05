@@ -1,17 +1,9 @@
 @page "/issue-175/razor"
 @attribute [Htmxor.DisableHtmxDirectRouting]
-@using Htmxor
-@using Microsoft.AspNetCore.Components.Forms
 @inject Issue175RequestProbe RequestProbe
 
 <h1 data-issue-175-page="razor">Normal-only razor page</h1>
-<button hx-put="/issue-175/razor" @onput="PutItem">Put</button>
-<AntiforgeryToken />
 <p data-route-metadata="@RouteMetadata">@RouteMetadata</p>
-
-<p data-issue-175-result
-   data-initialization-count="@RequestProbe.InitializationCount"
-   data-callback-count="@RequestProbe.CallbackCount"></p>
 
 @code {
     [CascadingParameter]
@@ -21,6 +13,4 @@
         => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue175MetadataSentinel>()?.Value;
 
     protected override void OnInitialized() => RequestProbe.RecordInitialization();
-
-    private void PutItem(HtmxEventArgs _) => RequestProbe.RecordCallback();
 }

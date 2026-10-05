@@ -120,12 +120,12 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
-	public void Build_does_not_yet_reject_HtmxRoute_combined_with_DisableHtmxDirectRouting()
+	public void Build_rejects_HtmxRoute_combined_with_DisableHtmxDirectRouting()
 	{
-		// #175 red: this is cause (c) of the not-yet-implemented HTMXOR003 diagnostic and its
-		// runtime counterpart. ValidateDeclaration does not look for DisableHtmxDirectRoutingAttribute
-		// yet, so combining it with HtmxRoute on the same type builds a descriptor instead of the
-		// throw the brief requires once the catalog recognizes the marker.
+		// #175 red: cause (c) of HTMXOR003 must also throw at runtime, per the brief ("the runtime
+		// also throws in HtmxorAttributedRouteCatalog.ValidateDeclaration"). This currently fails:
+		// ValidateDeclaration does not look for DisableHtmxDirectRoutingAttribute yet, so combining
+		// it with HtmxRoute on the same type still builds a descriptor instead of throwing.
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition(
 				"PackageConsumer.MarkedReportComponent",
@@ -133,11 +133,11 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				"report.policy",
 				HasDisableHtmxDirectRouting: true));
 
-		var descriptors = HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest);
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
 
-		var descriptor = Assert.Single(descriptors);
-		Assert.Same(fixture.Types[0], descriptor.ComponentType);
-		Assert.Contains(descriptor.Metadata, static metadata => metadata is DisableHtmxDirectRoutingAttribute);
+		Assert.Contains("DisableHtmxDirectRouting", exception.Message, StringComparison.Ordinal);
+		Assert.Contains(fixture.Types[0].FullName!, exception.Message, StringComparison.Ordinal);
 	}
 
 	[Fact]
