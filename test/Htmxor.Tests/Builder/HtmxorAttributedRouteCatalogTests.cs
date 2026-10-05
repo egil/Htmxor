@@ -138,6 +138,41 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
+	public async Task Bridge_fails_closed_when_a_generated_stock_route_action_targets_a_DisableHtmxDirectRouting_marked_component()
+	{
+		// When analyzer execution is bypassed, the generator still emits a stock-route action for a
+		// marked component (HtmxorActionGenerator only gates on the syntactic UnsupportedReason), and
+		// that action's owner shape -- one compiled stock route, no HtmxRoute -- is exactly what a
+		// UsesStockRoute action normally requires, so this must fail closed here rather than let
+		// ConfigureEndpoint silently drop the action later.
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.MarkedReportComponent",
+				"/unused",
+				"report.policy",
+				HasHtmxRoute: false,
+				StockRoutes: ["/reports/{ReportId:int}"],
+				HasDisableHtmxDirectRouting: true));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+		var generatedAction = new HtmxorGeneratedComponentAction(
+			fixture.Types[0],
+			HttpMethods.Put,
+			"PackageConsumer.MarkedReportComponent.PutReport",
+			usesStockRoute: true);
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[generatedAction]));
+
+		Assert.Contains(fixture.Types[0].FullName!, exception.Message, StringComparison.Ordinal);
+		Assert.Contains("DisableHtmxDirectRouting", exception.Message, StringComparison.Ordinal);
+		Assert.Empty(GetGeneratedEndpoints(app));
+	}
+
+	[Fact]
 	public void Build_rejects_a_route_declaration_outside_the_manifest()
 	{
 		var fixture = DynamicComponentAssembly.Create(
