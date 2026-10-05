@@ -367,8 +367,9 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 	}
 
 	// A navigation during the synchronous first render, from either the throwing or the non-throwing path. An htmx
-	// request keeps the bare redirect (#264's htmx oracle); every other request gets stock's representation, as
-	// stock's HandleNavigationException does, including the opaque enhanced-navigation redirect.
+	// request keeps the bare redirect (#264's htmx oracle) until #230 gives every entry point one representation;
+	// every other request gets stock's representation, as stock's HandleNavigationException does, including the
+	// opaque enhanced-navigation redirect.
 	internal static void HandleFirstRenderNavigation(HttpContext context, string destination)
 	{
 		if (context.GetHtmxContext().Request.IsHtmxRequest)
