@@ -122,8 +122,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	[Fact]
 	public void Build_rejects_HtmxRoute_combined_with_DisableHtmxDirectRouting()
 	{
-		// The brief requires ValidateDeclaration to throw for this combination, mirroring the
-		// analyzer's HTMXOR003 cause (c).
+		// Runtime counterpart of the analyzer's HTMXOR003 cause (c).
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition(
 				"PackageConsumer.MarkedReportComponent",

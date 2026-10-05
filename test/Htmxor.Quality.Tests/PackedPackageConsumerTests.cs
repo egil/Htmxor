@@ -22,6 +22,8 @@ public sealed class PackedPackageConsumerTests
 		"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods";
 	private const string MismatchedCSharpPartialMessage =
 		"a C# HtmxRoute declaration on a Razor component must use the matching .razor.cs partial";
+	private const string DisableHtmxDirectRoutingInImportsMessage =
+		"DisableHtmxDirectRouting declarations from _Imports.razor are not supported";
 
 	[Fact]
 	public async Task Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions()
@@ -126,7 +128,7 @@ public sealed class PackedPackageConsumerTests
 
 		Assert.NotEqual(0, result.ExitCode);
 		Assert.Contains("HTMXOR003", output, StringComparison.Ordinal);
-		Assert.Contains("Issue100ReportPage.razor", output, StringComparison.Ordinal);
+		Assert.Contains(DisableHtmxDirectRoutingInImportsMessage, output, StringComparison.Ordinal);
 		Assert.Contains("_Imports.razor", output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);

@@ -20,5 +20,6 @@ public sealed class PackedNormalOnlyConsumerTests
 			Environment.NewLine + $"TRX: {testRun}");
 		Assert.Equal(new TrxTestRun(9, 9, 9, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
 }

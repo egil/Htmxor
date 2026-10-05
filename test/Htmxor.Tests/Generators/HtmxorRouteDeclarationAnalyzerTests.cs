@@ -635,7 +635,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			"Unsupported normal-only route declaration: " +
 			"DisableHtmxDirectRouting declarations from _Imports.razor are not supported",
 			diagnostic.GetMessage());
-		Assert.Equal(importsPath, diagnostic.Location.GetMappedLineSpan().Path);
+		var mappedSpan = diagnostic.Location.GetMappedLineSpan();
+		Assert.Equal(importsPath, mappedSpan.Path);
+		Assert.Equal(new LinePosition(0, 1), mappedSpan.StartLinePosition);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
 
@@ -647,8 +649,10 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var source = $$"""
 			namespace {{RootNamespace}}
 			{
+			#line 1 "{{EscapePath(componentPath)}}"
 			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
 			public abstract class ItemComponentBase : global::Microsoft.AspNetCore.Components.ComponentBase;
+			#line default
 			}
 			""";
 
@@ -663,7 +667,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			"Unsupported normal-only route declaration: " +
 			"DisableHtmxDirectRouting requires a local stock @page or Route declaration",
 			diagnostic.GetMessage());
-		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
+		var mappedSpan = diagnostic.Location.GetMappedLineSpan();
+		Assert.Equal(componentPath, mappedSpan.Path);
+		Assert.Equal(new LinePosition(0, 1), mappedSpan.StartLinePosition);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
 
@@ -672,7 +678,10 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	{
 		// Cause (b), the inheritance edge: a concrete base class carries the marker, and its derived
 		// component declares its own stock route. A check that treats the marker as effective through
-		// inheritance would stay silent here; the diagnostic belongs on the base's own declaration.
+		// inheritance would stay silent here; the diagnostic belongs on the base's own declaration, not
+		// the derived class's type identifier (mapped back to the unmapped generated path via
+		// `#line default` immediately after the marker, so reporting at the type identifier fails both
+		// the path and the position assertion below).
 		var basePath = ComponentPath("ItemComponentBase.razor");
 		var componentPath = ComponentPath("ItemComponent.razor");
 		var source = $$"""
@@ -680,11 +689,12 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			{
 			#line 1 "{{EscapePath(basePath)}}"
 			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
+			#line default
 			public class ItemComponentBase : global::Microsoft.AspNetCore.Components.ComponentBase;
 			#line 1 "{{EscapePath(componentPath)}}"
 			[global::Microsoft.AspNetCore.Components.RouteAttribute("/items/{Id:int}")]
-			public sealed class ItemComponent : ItemComponentBase;
 			#line default
+			public sealed class ItemComponent : ItemComponentBase;
 			}
 			""";
 
@@ -699,25 +709,31 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			"Unsupported normal-only route declaration: " +
 			"DisableHtmxDirectRouting requires a local stock @page or Route declaration",
 			diagnostic.GetMessage());
-		Assert.Equal(basePath, diagnostic.Location.GetMappedLineSpan().Path);
+		var mappedSpan = diagnostic.Location.GetMappedLineSpan();
+		Assert.Equal(basePath, mappedSpan.Path);
+		Assert.Equal(new LinePosition(0, 1), mappedSpan.StartLinePosition);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
 
 	[Fact]
 	public async Task DisableHtmxDirectRouting_on_a_non_component_type_reports_HTMXOR003()
 	{
-		// Cause (b): a non-component type, which likewise has no local stock route.
-		var componentPath = ComponentPath("MarkedPlainClass.razor");
-		var source = $$"""
-			namespace {{RootNamespace}}
-			{
+		// Cause (b): a non-component type, which likewise has no local stock route. Its real source
+		// is a .cs file (a .razor file always compiles to a component), so this fixture compiles
+		// directly at componentPath instead of simulating a Razor-generated path.
+		var componentPath = ComponentPath("MarkedPlainClass.cs");
+		const string source = """
+			namespace Htmxor.Consumer;
+
 			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
 			public sealed class MarkedPlainClass;
-			}
 			""";
+		var expectedPosition = SourceText.From(source).Lines.GetLinePosition(
+			source.IndexOf("global::Htmxor.DisableHtmxDirectRoutingAttribute", StringComparison.Ordinal));
 
 		var diagnostics = await RunAnalyzerAsync(
 			new[] { source },
+			Array.Empty<string>(),
 			new[] { componentPath });
 
 		var diagnostic = Assert.Single(diagnostics);
@@ -727,14 +743,18 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			"Unsupported normal-only route declaration: " +
 			"DisableHtmxDirectRouting requires a local stock @page or Route declaration",
 			diagnostic.GetMessage());
-		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
+		var mappedSpan = diagnostic.Location.GetMappedLineSpan();
+		Assert.Equal(componentPath, mappedSpan.Path);
+		Assert.Equal(expectedPosition, mappedSpan.StartLinePosition);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
 
 	[Fact]
 	public async Task DisableHtmxDirectRouting_combined_with_HtmxRoute_reports_HTMXOR003()
 	{
-		// Cause (c): the marker combined with HtmxRoute on the same type.
+		// Cause (c): the marker combined with HtmxRoute on the same type. Only the marker's own line
+		// maps to componentPath; HtmxRoute and the class declaration stay on the unmapped generated
+		// path, so reporting at either of those fails both the path and the position assertion below.
 		// HtmxorAttributedRouteCatalogTests pins that the runtime counterpart (ValidateDeclaration)
 		// must also throw for the same combination.
 		var componentPath = ComponentPath("MarkedReportComponent.razor");
@@ -742,7 +762,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			namespace {{RootNamespace}}
 			{
 			[global::Htmxor.HtmxRouteAttribute("/reports/{Id:int}", Methods = ["GET"])]
+			#line 1 "{{EscapePath(componentPath)}}"
 			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
+			#line default
 			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("reports.read")]
 			public sealed class MarkedReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
 			}
@@ -759,7 +781,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			"Unsupported normal-only route declaration: " +
 			"DisableHtmxDirectRouting cannot be combined with HtmxRoute on the same type",
 			diagnostic.GetMessage());
-		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
+		var mappedSpan = diagnostic.Location.GetMappedLineSpan();
+		Assert.Equal(componentPath, mappedSpan.Path);
+		Assert.Equal(new LinePosition(0, 1), mappedSpan.StartLinePosition);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
 
