@@ -65,6 +65,15 @@ internal static class HtmxorGeneratedComponentActionCatalog
 				$"Generated component action '{action.HandlerIdentity}' does not belong to the project-root component manifest.");
 		}
 
+		if (action.ComponentType.CustomAttributes.Any(static attribute =>
+			attribute.AttributeType == typeof(DisableHtmxDirectRoutingAttribute)))
+		{
+			throw new InvalidOperationException(
+				$"Generated component action '{action.HandlerIdentity}' on component " +
+				$"'{action.ComponentType.FullName}' is not supported because the component is marked with " +
+				"DisableHtmxDirectRouting.");
+		}
+
 		var stockRouteCount = action.ComponentType.CustomAttributes.Count(
 			static attribute => attribute.AttributeType == typeof(RouteAttribute));
 		var htmxRouteCount = action.ComponentType.CustomAttributes.Count(
