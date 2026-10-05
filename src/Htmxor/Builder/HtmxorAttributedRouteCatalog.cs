@@ -116,6 +116,12 @@ internal static class HtmxorAttributedRouteCatalog
 			throw Unsupported(componentType, "exactly one HtmxRoute must be declared");
 		}
 
+		if (CustomAttributeData.GetCustomAttributes(componentType).Any(static attribute =>
+			attribute.AttributeType == typeof(DisableHtmxDirectRoutingAttribute)))
+		{
+			throw Unsupported(componentType, "DisableHtmxDirectRouting cannot be combined with HtmxRoute on the same type");
+		}
+
 		if (GetHierarchyAttributes(componentType).Any(static attribute =>
 			attribute.AttributeType == typeof(RouteAttribute)))
 		{

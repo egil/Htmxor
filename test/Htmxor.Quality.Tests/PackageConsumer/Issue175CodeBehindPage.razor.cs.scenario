@@ -1,0 +1,4 @@
+namespace Htmxor.PackageConsumer;
+
+[Htmxor.DisableHtmxDirectRouting]
+public partial class Issue175CodeBehindPage;

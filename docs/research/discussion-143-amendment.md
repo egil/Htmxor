@@ -71,10 +71,11 @@ Load the application-owned htmx asset before the Htmxor adapter:
 | Declaration | Normal request | Direct htmx GET |
 | --- | --- | --- |
 | `@page "/products"` | Stock page and layout | Same component |
-| `@page` plus the planned normal-only marker | Stock page and layout | Not mapped |
+| `@page` plus `[DisableHtmxDirectRouting]` | Stock page and layout | Not mapped |
 | Component-local `[HtmxRoute("/products")]` without `@page` | Not mapped | Component output |
 
-The normal-only marker still needs a final name. `HtmxRoute` can sit in the
+`[DisableHtmxDirectRouting]` belongs on the component that declares the stock
+route, like `HtmxRoute`. `HtmxRoute` can sit in the
 `.razor` file, on its `.razor.cs` partial, or on a component written in C#. It
 belongs to one component, so it does not belong in `_Imports.razor`.
 

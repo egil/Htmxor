@@ -65,6 +65,8 @@ TYPE Htmxor.DependencyInjection.HtmxorNavigationException [kind=class;abstract=F
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_RequestedLocation()
   Property [visibility=public|none;static=False;get=public,instance;set=none] Microsoft.AspNetCore.Components.NavigationOptions Options
   Property [visibility=public|none;static=False;get=public,instance;set=none] System.String RequestedLocation
+TYPE Htmxor.DisableHtmxDirectRoutingAttribute [kind=class;abstract=False;sealed=True;genericArity=0;base=System.Attribute]
+  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Void .ctor()
 TYPE Htmxor.Endpoints.IHtmxorGeneratedComponentActionRequest [kind=interface;abstract=True;sealed=False;genericArity=0;base=none]
   Method [visibility=public;static=False;abstract=True;virtual=True;final=False;genericArity=0;parameters=1] Boolean TryConsume(Htmxor.Builder.HtmxorGeneratedComponentAction)
 TYPE Htmxor.EventHandlers [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]

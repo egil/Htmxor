@@ -10,7 +10,8 @@ internal sealed class HtmxorRouteSymbols
 		INamedTypeSymbol? authorizeData,
 		INamedTypeSymbol? allowAnonymous,
 		INamedTypeSymbol? component,
-		INamedTypeSymbol? route)
+		INamedTypeSymbol? route,
+		INamedTypeSymbol? disableHtmxDirectRouting)
 	{
 		HtmxRoute = htmxRoute;
 		Authorize = authorize;
@@ -18,6 +19,7 @@ internal sealed class HtmxorRouteSymbols
 		AllowAnonymous = allowAnonymous;
 		Component = component;
 		Route = route;
+		DisableHtmxDirectRouting = disableHtmxDirectRouting;
 	}
 
 	public INamedTypeSymbol HtmxRoute { get; }
@@ -31,6 +33,8 @@ internal sealed class HtmxorRouteSymbols
 	public INamedTypeSymbol? Component { get; }
 
 	public INamedTypeSymbol? Route { get; }
+
+	public INamedTypeSymbol? DisableHtmxDirectRouting { get; }
 
 	public static HtmxorRouteSymbols? Resolve(Compilation compilation)
 	{
@@ -46,6 +50,7 @@ internal sealed class HtmxorRouteSymbols
 			compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Authorization.IAuthorizeData"),
 			compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Authorization.IAllowAnonymous"),
 			compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Components.IComponent"),
-			compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Components.RouteAttribute"));
+			compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Components.RouteAttribute"),
+			compilation.GetTypeByMetadataName("Htmxor.DisableHtmxDirectRoutingAttribute"));
 	}
 }

@@ -145,11 +145,19 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			return;
 		}
 
+		endpointBuilder.Metadata.Add(new HtmxorComponentRoutePatternMetadata(routeEndpointBuilder.RoutePattern));
+		if (endpointBuilder.Metadata.OfType<DisableHtmxDirectRoutingAttribute>().Any())
+		{
+			// The matcher policy already keeps direct requests away from a normal-only component; it also never
+			// takes the action or direct invocation paths here.
+			endpointBuilder.RequestDelegate = context => InvokeStockEndpoint(context, stockRequestDelegate);
+			return;
+		}
+
 		var endpointActions = GetEndpointActions(
 			routeEndpointBuilder,
 			actionDescriptors,
 			generatedActions);
-		endpointBuilder.Metadata.Add(new HtmxorComponentRoutePatternMetadata(routeEndpointBuilder.RoutePattern));
 		AddActionMetadata(endpointBuilder, endpointActions);
 		endpointBuilder.RequestDelegate = context => InvokeEndpoint(context, stockRequestDelegate, endpointActions);
 	}

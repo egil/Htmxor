@@ -12,8 +12,9 @@ internal sealed class HtmxorDirectEndpointMatcherPolicy : MatcherPolicy, IEndpoi
 	public bool AppliesToEndpoints(IReadOnlyList<Endpoint> endpoints)
 	{
 		ArgumentNullException.ThrowIfNull(endpoints);
-		return endpoints.Any(endpoint =>
-			endpoint.Metadata.GetMetadata<HtmxorDirectEndpointMetadata>() is not null);
+		return endpoints.Any(static endpoint =>
+			endpoint.Metadata.GetMetadata<HtmxorDirectEndpointMetadata>() is not null ||
+			endpoint.Metadata.GetMetadata<DisableHtmxDirectRoutingAttribute>() is not null);
 	}
 
 	public Task ApplyAsync(HttpContext httpContext, CandidateSet candidates)
@@ -25,8 +26,20 @@ internal sealed class HtmxorDirectEndpointMatcherPolicy : MatcherPolicy, IEndpoi
 		{
 			for (var index = 0; index < candidates.Count; index++)
 			{
-				if (!candidates.IsValidCandidate(index) ||
-					candidates[index].Endpoint.Metadata.GetMetadata<HtmxorDirectEndpointMetadata>() is null)
+				if (!candidates.IsValidCandidate(index))
+				{
+					continue;
+				}
+
+				// A normal-only component keeps its stock route but has no direct partial representation, so a
+				// direct request never selects it; authorization and the rest of the pipeline never run for it.
+				if (candidates[index].Endpoint.Metadata.GetMetadata<DisableHtmxDirectRoutingAttribute>() is not null)
+				{
+					candidates.SetValidity(index, false);
+					continue;
+				}
+
+				if (candidates[index].Endpoint.Metadata.GetMetadata<HtmxorDirectEndpointMetadata>() is null)
 				{
 					continue;
 				}

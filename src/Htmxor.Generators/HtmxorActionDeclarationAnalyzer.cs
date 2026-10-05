@@ -85,7 +85,7 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			compilation,
 			component,
 			declaration.HandlerName,
-			declaration.Path);
+			declaration.Path) ?? GetNormalOnlyUnsupportedReason(component!, symbols);
 		if (componentReason is not null)
 		{
 			return componentReason;
@@ -120,6 +120,12 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			: "explicit HtmxRoute.Methods is authoritative and does not allow the " +
 				declaration.HttpMethod + " binding";
 	}
+
+	private static string? GetNormalOnlyUnsupportedReason(INamedTypeSymbol component, HtmxorRouteSymbols symbols)
+		=> symbols.DisableHtmxDirectRouting is not null &&
+			GetExactAttributes(component, symbols.DisableHtmxDirectRouting).Length > 0
+			? "an inferred binding on a component marked with DisableHtmxDirectRouting is not supported"
+			: null;
 
 	private static ImmutableArray<AttributeData> GetExactAttributes(
 		INamedTypeSymbol component,

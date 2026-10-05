@@ -19,11 +19,10 @@ HTMX one component or one interaction at a time.
 
 ## Developer model
 
-A component can be available only through an HTMX route or through both normal
-Blazor routing and direct HTMX requests. A normal-only opt-out remains a deferred
-developer-model question in [#170](https://github.com/egil/Htmxor/issues/170),
-not an implementation requirement until its reopen criteria and goal
-reconciliation are approved.
+A component can be available only through an HTMX route, through both normal
+Blazor routing and direct HTMX requests, or only through normal Blazor routing.
+The normal-only opt-out is `[DisableHtmxDirectRouting]`, approved in
+[#170](https://github.com/egil/Htmxor/issues/170).
 
 - `@page` owns the normal Blazor route. By convention, it also makes the same
   component available to a direct HTMX GET.

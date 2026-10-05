@@ -1,0 +1,4 @@
+@page "/issue-175/codebehind"
+@namespace Htmxor.PackageConsumer
+
+<h1 data-issue-175-page="codebehind">Normal-only code-behind page</h1>
