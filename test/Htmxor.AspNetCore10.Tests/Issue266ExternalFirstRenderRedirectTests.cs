@@ -75,8 +75,8 @@ public sealed class Issue266ExternalFirstRenderRedirectTests
 	}
 
 	// Characterization: without progressively-enhanced navigation, IsProgressivelyEnhancedNavigation is false
-	// regardless of the destination, so stock's HandleNavigationBeforeResponseStarted falls through to the same
-	// ordinary 302 the candidate's bare catch produces.
+	// regardless of the destination, so HandleNavigationBeforeResponseStarted falls through to the same ordinary
+	// 302 on both stock and the candidate.
 	[Fact]
 	public async Task External_destination_first_render_navigation_without_enhanced_navigation_has_stock_redirect_parity()
 	{
