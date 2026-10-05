@@ -22,8 +22,21 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 			WellKnownDiagnosticTags.CompilationEnd,
 		});
 
+	private static readonly DiagnosticDescriptor UnsupportedNormalOnlyDeclaration = new(
+		"HTMXOR003",
+		"Unsupported normal-only route declaration",
+		"Unsupported normal-only route declaration: {0}",
+		"Htmxor.Generators",
+		DiagnosticSeverity.Error,
+		isEnabledByDefault: true,
+		customTags: new[]
+		{
+			WellKnownDiagnosticTags.NotConfigurable,
+			WellKnownDiagnosticTags.CompilationEnd,
+		});
+
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
-		ImmutableArray.Create(UnsupportedDeclaration);
+		ImmutableArray.Create(UnsupportedDeclaration, UnsupportedNormalOnlyDeclaration);
 
 	public override void Initialize(AnalysisContext context)
 	{
@@ -58,6 +71,25 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 				context.ReportDiagnostic(Diagnostic.Create(
 					UnsupportedDeclaration,
 					component.GetLocation(context.CancellationToken),
+					reason));
+			}
+		}
+
+		if (symbols.DisableHtmxDirectRouting is null)
+		{
+			return;
+		}
+
+		foreach (var declaration in HtmxorNormalOnlyDeclaration.FindAll(
+			context.Compilation.Assembly,
+			symbols.DisableHtmxDirectRouting))
+		{
+			var reason = declaration.GetUnsupportedReason(symbols, context.CancellationToken);
+			if (reason is not null)
+			{
+				context.ReportDiagnostic(Diagnostic.Create(
+					UnsupportedNormalOnlyDeclaration,
+					declaration.GetLocation(context.CancellationToken),
 					reason));
 			}
 		}

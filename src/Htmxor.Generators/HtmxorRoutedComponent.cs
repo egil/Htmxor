@@ -337,7 +337,7 @@ internal sealed class HtmxorRoutedComponent
 		}
 	}
 
-	private static IEnumerable<INamedTypeSymbol> GetTypes(INamespaceSymbol @namespace)
+	internal static IEnumerable<INamedTypeSymbol> GetTypes(INamespaceSymbol @namespace)
 		=> @namespace.GetTypeMembers()
 			.SelectMany(GetTypeAndNestedTypes)
 			.Concat(@namespace.GetNamespaceMembers().SelectMany(GetTypes));

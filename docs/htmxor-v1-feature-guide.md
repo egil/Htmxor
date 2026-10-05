@@ -119,10 +119,27 @@ state, lifecycle methods, and static SSR rendering stay under Blazor.
 
 ### A normal-only page
 
-V1 needs an explicit opt-out for a page that must not answer the conventional
-direct GET. The marker and its name are not yet settled. Until they are, do not
-invent an `hx-*` convention or use target headers as an opt-out. This gap belongs
-in Htmxor, not in each application.
+A page that must not answer the conventional direct GET applies
+`[DisableHtmxDirectRouting]` next to its stock route:
+
+```razor
+@page "/account/settings"
+@attribute [DisableHtmxDirectRouting]
+```
+
+The marker may also sit on the matching `.razor.cs` partial or on a component
+authored entirely in C# with `[Route]`. Normal, boosted, and
+`HX-Request-Type: full` requests still receive the stock page and layout. A
+direct partial request, GET or POST, is not selected and gets 404 before
+authorization or any component work runs.
+
+The marker removes a representation; it is not an authorization boundary, and it
+does not make htmx request headers trusted. A stock form on the page keeps its
+stock POST, and `HtmxLayout` has no effect. The build fails with HTMXOR003 when
+the marker is declared in `_Imports.razor`, on a type without its own stock
+route (such as a base class), or together with `HtmxRoute`, and with HTMXOR002
+when the page has an inferred `@onpost`, `@onput`, `@onpatch`, `@ondelete`, or
+`@onquery` binding.
 
 ### An HTMX-only component route
 
