@@ -39,6 +39,9 @@
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// First-render navigation (#266, synchronized 2026-10-05): the invoker's first-render catch answers non-htmx
+// requests through HandleNavigationBeforeResponseStarted, as RenderEndpointComponent's HandleNavigationException
+// does in the same EndpointHtmlRenderer.Prerendering.cs at both commits above.
 // Render-mode resolution (#272, synchronized 2026-10-02): ResolveComponentForRenderMode and
 // GetComponentRenderMode reimplement the closest-render-mode-boundary walk in the same
 // EndpointHtmlRenderer.Prerendering.cs at both commits above, on both targets, so a component below a usage-site
@@ -230,10 +233,9 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 		catch (NavigationException navigationException)
 		{
-			// Deliberately still the bare stock redirect, and deliberately still before write-back: unifying this
-			// with the submit path also has to stop discarding Session and TempData values, which needs its own
-			// protected behavior and evidence. Tracked by #230.
-			context.Response.Redirect(navigationException.Location);
+			// Still before write-back: continuing the pipeline also has to stop discarding Session and TempData
+			// values, which #230 owns.
+			HandleFirstRenderNavigation(context, navigationException.Location);
 			return;
 		}
 		Task quiesceTask;
@@ -362,6 +364,21 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			}
 		}
 		await writer.FlushAsync();
+	}
+
+	// A navigation during the synchronous first render, from either the throwing or the non-throwing path. An htmx
+	// request keeps the bare redirect (#264's htmx oracle) until #230 gives every entry point one representation;
+	// every other request gets stock's representation, as stock's HandleNavigationException does, including the
+	// opaque enhanced-navigation redirect.
+	internal static void HandleFirstRenderNavigation(HttpContext context, string destination)
+	{
+		if (context.GetHtmxContext().Request.IsHtmxRequest)
+		{
+			context.Response.Redirect(destination);
+			return;
+		}
+
+		HandleNavigationBeforeResponseStarted(context, destination);
 	}
 
 	// Mirrors stock EndpointHtmlRenderer.HandleNavigationBeforeResponseStarted, adding only the htmx branch:
@@ -556,8 +573,8 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		Type rootComponent,
 		ParameterView parameters)
 	{
-		// Marks the synchronous first render, where the throwing path's catch answers every navigation, including an
-		// htmx one, with a bare redirect (#230). OnNavigateTo mirrors that only here.
+		// Marks the synchronous first render, where OnNavigateTo answers a navigation the way the throwing path's
+		// first-render catch does (HandleFirstRenderNavigation).
 		inFirstRender = true;
 		try
 		{

@@ -261,8 +261,8 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		// value. See PR #265 review discussion_r4140656885.
 		await AssertExactlyOneErrorLoggedAsync(fixture.Stock);
 		await AssertExactlyOneErrorLoggedAsync(fixture.Candidate);
-		var stockDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Stock, stockValues[0]);
-		var candidateDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Candidate, candidateValues[0]);
+		var stockDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Stock.Client, stockValues[0]);
+		var candidateDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Candidate.Client, candidateValues[0]);
 		Assert.Equal(new Uri("https://example.invalid/issue-264/one"), stockDestination); // stock keeps the first
 		Assert.Equal(stockDestination, candidateDestination);
 		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
@@ -319,8 +319,8 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		Assert.NotNull(candidate.EnhancedNavigationLocation);
 		Assert.Null(candidate.Location);
 
-		var stockDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Stock, stock.EnhancedNavigationLocation!);
-		var candidateDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Candidate, candidate.EnhancedNavigationLocation!);
+		var stockDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Stock.Client, stock.EnhancedNavigationLocation!);
+		var candidateDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Candidate.Client, candidate.EnhancedNavigationLocation!);
 		Assert.Equal(new Uri(expectedDestination), stockDestination);
 		Assert.Equal(new Uri(expectedDestination), candidateDestination);
 	}
@@ -397,8 +397,8 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 	{
 		var stockUrl = Issue264SwitchOnRequests.ExtractRedirectionTemplateUrl(stock.BeforeResume);
 		var candidateUrl = Issue264SwitchOnRequests.ExtractRedirectionTemplateUrl(candidate.BeforeResume);
-		var stockDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Stock, stockUrl);
-		var candidateDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Candidate, candidateUrl);
+		var stockDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Stock.Client, stockUrl);
+		var candidateDestination = await Issue264SwitchOnRequests.FollowOpaqueRedirectAsync(fixture.Candidate.Client, candidateUrl);
 
 		Assert.Equal("issue-264/streaming-destination", RelativeToHost(fixture.Stock, stockDestination));
 		Assert.Equal(RelativeToHost(fixture.Stock, stockDestination), RelativeToHost(fixture.Candidate, candidateDestination));

@@ -74,12 +74,6 @@ public sealed class Issue190NavigationParityTests
 	}
 }
 
-internal static class Issue190ExternalNavigationContract
-{
-	public const string Destination = "https://example.invalid/issue-190/external-destination?source=navigation";
-	public const string Path = "/issue-190/navigate-external";
-}
-
 internal sealed class Issue190NavigationHost(Issue187ParityHost host, Issue190LifecycleJournal lifecycle) : IAsyncDisposable
 {
 	public const string Path = "/issue-190/navigate";
@@ -117,13 +111,4 @@ internal sealed class Issue190NavigationHost(Issue187ParityHost host, Issue190Li
 			await context.Response.WriteAsync(exception.GetType().FullName!);
 		}
 	}
-}
-
-internal sealed class Issue190LifecycleJournal
-{
-	private readonly List<string> events = [];
-
-	public IReadOnlyList<string> Events => events;
-
-	public void Record(string value) => events.Add(value);
 }

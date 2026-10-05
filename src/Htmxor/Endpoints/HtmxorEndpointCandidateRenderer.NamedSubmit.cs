@@ -71,9 +71,9 @@ internal partial class HtmxorEndpointCandidateRenderer
 	}
 
 	// Stock's navigation callback for non-throwing NavigateTo. Before the response starts, a navigation during the
-	// synchronous first render of an htmx request gets the bare redirect the throwing path gives it (kept by #230);
-	// every other navigation takes HandleNavigationBeforeResponseStarted, which answers htmx with HX-Redirect and
-	// otherwise matches stock. See #264's decisions on the htmx oracle and on navigation from pending work.
+	// synchronous first render answers as the throwing path's first-render catch does; every later navigation takes
+	// HandleNavigationBeforeResponseStarted, which answers htmx with HX-Redirect and otherwise matches stock. See
+	// #264's decisions on the htmx oracle and on navigation from pending work.
 	private async Task OnNavigateTo(string uri)
 	{
 		if (httpContext.Response.HasStarted)
@@ -81,9 +81,9 @@ internal partial class HtmxorEndpointCandidateRenderer
 			await WriteTemplateAfterResponseStartedAsync(template =>
 				WriteNavigationAfterResponseStarted(template, httpContext, uri));
 		}
-		else if (inFirstRender && httpContext.GetHtmxContext().Request.IsHtmxRequest)
+		else if (inFirstRender)
 		{
-			httpContext.Response.Redirect(uri);
+			HtmxorEndpointCandidateInvoker.HandleFirstRenderNavigation(httpContext, uri);
 		}
 		else
 		{
