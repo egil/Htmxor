@@ -1,0 +1,91 @@
+using System.Net;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+public sealed class Issue175NormalOnlyTests : IAsyncLifetime
+{
+    private WebApplication app = default!;
+    private HttpClient client = default!;
+
+    public async Task InitializeAsync()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddRazorComponents().AddHtmxor();
+        app = builder.Build();
+        app.UseAntiforgery();
+        app.MapRazorComponents<Issue175App>().AddHtmxorEndpoints();
+        await app.StartAsync();
+        client = app.GetTestClient();
+    }
+
+    [Theory]
+    [InlineData("/issue-175/razor", "razor")]
+    [InlineData("/issue-175/codebehind", "codebehind")]
+    [InlineData("/issue-175/csharp", "csharp")]
+    public async Task Normal_boosted_and_full_requests_get_the_stock_page(string path, string form)
+    {
+        await AssertStockResponseAsync(path, form, new HttpRequestMessage(HttpMethod.Get, path));
+
+        using var boosted = new HttpRequestMessage(HttpMethod.Get, path);
+        boosted.Headers.Add("HX-Request", "true");
+        boosted.Headers.Add("HX-Boosted", "true");
+        boosted.Headers.Add("HX-Request-Type", "full");
+        await AssertStockResponseAsync(path, form, boosted);
+
+        using var full = new HttpRequestMessage(HttpMethod.Get, path);
+        full.Headers.Add("HX-Request", "true");
+        full.Headers.Add("HX-Request-Type", "full");
+        await AssertStockResponseAsync(path, form, full);
+    }
+
+    [Theory]
+    [InlineData("/issue-175/razor")]
+    [InlineData("/issue-175/codebehind")]
+    [InlineData("/issue-175/csharp")]
+    public async Task Direct_partial_GET_is_not_selected_and_gets_404(string path)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("HX-Request", "true");
+        request.Headers.Add("HX-Request-Type", "partial");
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/issue-175/razor")]
+    [InlineData("/issue-175/codebehind")]
+    [InlineData("/issue-175/csharp")]
+    public async Task Direct_partial_POST_is_not_selected_and_gets_404(string path)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path);
+        request.Headers.Add("HX-Request", "true");
+        request.Headers.Add("HX-Request-Type", "partial");
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private async Task AssertStockResponseAsync(string path, string form, HttpRequestMessage request)
+    {
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200 OK for {path}, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        Assert.Contains("<html", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
+        Assert.Contains($"data-issue-175-page=\"{form}\"", body, StringComparison.Ordinal);
+    }
+
+    public async Task DisposeAsync()
+    {
+        client.Dispose();
+        await app.DisposeAsync();
+    }
+}

@@ -114,6 +114,25 @@ public sealed class PackedPackageConsumerTests
 	}
 
 	[Fact]
+	public async Task Package_only_application_rejects_a_DisableHtmxDirectRouting_marker_declared_in_Imports()
+	{
+		// Cause (a) through the packed consumer's own real _Imports.razor, which the in-repo
+		// analyzer tests can only simulate with #line remapping.
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseDisableHtmxDirectRoutingInImports();
+
+		var result = await workspace.BuildForDiagnosticAsync();
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+
+		Assert.NotEqual(0, result.ExitCode);
+		Assert.Contains("HTMXOR003", output, StringComparison.Ordinal);
+		Assert.Contains("Issue100ReportPage.razor", output, StringComparison.Ordinal);
+		Assert.Contains("_Imports.razor", output, StringComparison.Ordinal);
+		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+	}
+
+	[Fact]
 	public async Task Package_only_application_rejects_an_explicit_methods_conflict()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
@@ -247,6 +266,22 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 	public void UseIssue168SelectionScenario() => UseSelectionScenario("Issue168");
 
 	public void UseIssue169SelectionScenario() => UseSelectionScenario("Issue169");
+
+	public void UseIssue175NormalOnlyScenario() => UseSelectionScenario("Issue175");
+
+	public void UseDisableHtmxDirectRoutingInImports()
+	{
+		var importsPath = Path.Combine(consumerDirectory, "_Imports.razor");
+		var source = File.ReadAllText(importsPath);
+		const string marker = "@attribute [Htmxor.DisableHtmxDirectRouting]";
+		if (source.Contains(marker, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged _Imports.razor must not already declare the marker.");
+		}
+
+		File.WriteAllText(importsPath, source + Environment.NewLine + marker + Environment.NewLine);
+	}
 
 	private void UseSelectionScenario(string issue)
 	{

@@ -12,5 +12,5 @@ public partial class Issue175CodeBehindPage
 	private string? RouteMetadata
 		=> HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue175MetadataSentinel>()?.Value;
 
-	protected override void OnInitialized() => RequestProbe.RecordInitialization();
+	protected override void OnInitialized() => Probe.RecordInitialization();
 }

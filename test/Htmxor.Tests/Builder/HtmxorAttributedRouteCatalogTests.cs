@@ -122,10 +122,8 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	[Fact]
 	public void Build_rejects_HtmxRoute_combined_with_DisableHtmxDirectRouting()
 	{
-		// #175 red: cause (c) of HTMXOR003 must also throw at runtime, per the brief ("the runtime
-		// also throws in HtmxorAttributedRouteCatalog.ValidateDeclaration"). This currently fails:
-		// ValidateDeclaration does not look for DisableHtmxDirectRoutingAttribute yet, so combining
-		// it with HtmxRoute on the same type still builds a descriptor instead of throwing.
+		// The brief requires ValidateDeclaration to throw for this combination, mirroring the
+		// analyzer's HTMXOR003 cause (c).
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition(
 				"PackageConsumer.MarkedReportComponent",

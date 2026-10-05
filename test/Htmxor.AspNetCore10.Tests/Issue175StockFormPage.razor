@@ -1,0 +1,29 @@
+@page "/issue-175/stockform"
+@attribute [Htmxor.DisableHtmxDirectRouting]
+@using Microsoft.AspNetCore.Components.Forms
+
+<EditForm Model="Input" FormName="issue-175-stock-form" OnValidSubmit="HandleValidSubmit">
+    <InputText @bind-Value="Input.Value" data-issue-175-stock-form-input />
+    <button type="submit">Submit</button>
+</EditForm>
+
+<p data-issue-175-stock-form-result data-submitted-value="@submittedValue"></p>
+
+@code {
+    private Issue175StockFormInput input = new();
+    private string? submittedValue;
+
+    [SupplyParameterFromForm(FormName = "issue-175-stock-form")]
+    private Issue175StockFormInput Input
+    {
+        get => input;
+        set => input = value;
+    }
+
+    private void HandleValidSubmit() => submittedValue = Input.Value;
+
+    public sealed class Issue175StockFormInput
+    {
+        public string Value { get; set; } = string.Empty;
+    }
+}

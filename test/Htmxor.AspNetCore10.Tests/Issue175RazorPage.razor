@@ -1,6 +1,7 @@
 @page "/issue-175/razor"
 @attribute [Htmxor.DisableHtmxDirectRouting]
-@inject Issue175RequestProbe RequestProbe
+@attribute [Htmxor.HtmxLayout(typeof(Issue175HtmxLayoutComponent))]
+@inject Issue175ApplicationProbe Probe
 
 <h1 data-issue-175-page="razor">Normal-only razor page</h1>
 <p data-route-metadata="@RouteMetadata">@RouteMetadata</p>
@@ -12,5 +13,5 @@
     private string? RouteMetadata
         => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue175MetadataSentinel>()?.Value;
 
-    protected override void OnInitialized() => RequestProbe.RecordInitialization();
+    protected override void OnInitialized() => Probe.RecordInitialization();
 }

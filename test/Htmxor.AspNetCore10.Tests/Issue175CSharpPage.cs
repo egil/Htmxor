@@ -10,7 +10,7 @@ namespace Htmxor.AspNetCore10;
 public sealed class Issue175CSharpPage : ComponentBase
 {
 	[Inject]
-	private Issue175RequestProbe RequestProbe { get; set; } = default!;
+	private Issue175ApplicationProbe Probe { get; set; } = default!;
 
 	[CascadingParameter]
 	private HttpContext HttpContext { get; set; } = default!;
@@ -18,7 +18,7 @@ public sealed class Issue175CSharpPage : ComponentBase
 	private string? RouteMetadata
 		=> HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue175MetadataSentinel>()?.Value;
 
-	protected override void OnInitialized() => RequestProbe.RecordInitialization();
+	protected override void OnInitialized() => Probe.RecordInitialization();
 
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{

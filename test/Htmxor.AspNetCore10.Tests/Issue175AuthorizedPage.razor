@@ -1,0 +1,10 @@
+@page "/issue-175/authorized"
+@attribute [Htmxor.DisableHtmxDirectRouting]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "issue-175-policy")]
+@inject Issue175ApplicationProbe Probe
+
+<h1 data-issue-175-page="authorized">Normal-only authorized page</h1>
+
+@code {
+    protected override void OnInitialized() => Probe.RecordInitialization();
+}

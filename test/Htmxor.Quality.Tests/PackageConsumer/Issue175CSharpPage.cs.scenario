@@ -1,0 +1,19 @@
+using Htmxor;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Routing;
+
+namespace Htmxor.PackageConsumer;
+
+[Route("/issue-175/csharp")]
+[DisableHtmxDirectRouting]
+public sealed class Issue175CSharpPage : ComponentBase
+{
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "h1");
+		builder.AddAttribute(1, "data-issue-175-page", "csharp");
+		builder.AddContent(2, "Normal-only all-C# page");
+		builder.CloseElement();
+	}
+}
