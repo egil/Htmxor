@@ -642,6 +642,32 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
+	public async Task DisableHtmxDirectRouting_on_a_component_file_merely_ending_in_Imports_razor_is_not_cause_a()
+	{
+		// A component-local declaration in a file whose name merely ends with "_Imports.razor" (for
+		// example "Admin_Imports.razor") is not the special _Imports.razor; the marker and the stock
+		// Route both belong to this routed type's own declaration, which is exactly what cause (a)
+		// must not flag. Only a file actually named _Imports.razor is cause (a).
+		var adminImportsPath = ComponentPath("Admin_Imports.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			#line 1 "{{EscapePath(adminImportsPath)}}"
+			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/admin")]
+			#line default
+			public sealed class AdminImports : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { adminImportsPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
 	public async Task DisableHtmxDirectRouting_on_an_abstract_type_without_a_local_stock_route_reports_HTMXOR003()
 	{
 		// Cause (b): the marker on an abstract type that has no local stock route of its own.
