@@ -30,8 +30,7 @@ internal sealed class HtmxorNormalOnlyDeclaration
 
 	public string? GetUnsupportedReason(HtmxorRouteSymbols symbols, CancellationToken cancellationToken)
 	{
-		if (GetLocation(cancellationToken).GetMappedLineSpan().Path is { } path &&
-			path.EndsWith("_Imports.razor", StringComparison.OrdinalIgnoreCase))
+		if (IsImportsFile(GetLocation(cancellationToken).GetMappedLineSpan().Path))
 		{
 			return "DisableHtmxDirectRouting declarations from _Imports.razor are not supported";
 		}
@@ -54,6 +53,16 @@ internal sealed class HtmxorNormalOnlyDeclaration
 		=> Marker.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation()
 			?? Type.Locations.FirstOrDefault()
 			?? Location.None;
+
+	// Mapped paths may use either separator, whatever the host OS.
+	private static bool IsImportsFile(string? path)
+	{
+		const string ImportsFileName = "_Imports.razor";
+		return path is not null &&
+			path.EndsWith(ImportsFileName, StringComparison.OrdinalIgnoreCase) &&
+			(path.Length == ImportsFileName.Length ||
+				path[path.Length - ImportsFileName.Length - 1] is '/' or '\\');
+	}
 
 	private bool HasAttribute(INamedTypeSymbol attributeType)
 		=> Type.GetAttributes().Any(attribute =>
