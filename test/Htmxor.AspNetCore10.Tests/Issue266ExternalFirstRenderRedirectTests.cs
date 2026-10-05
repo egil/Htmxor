@@ -12,10 +12,11 @@ namespace Htmxor.AspNetCore10;
 // already compile for both targets.
 //
 // Each paired case compares the whole Issue264Snapshot -- status, Location, HX-Redirect, Content-Type,
-// ssr-framing presence, and the normalized body -- with the opaque-redirect header masked to null. That header
-// is masked because each Issue260Host owns an independent ephemeral data-protection key (see Issue260Host), so
-// its protected value is never equal across hosts even when both redirect to the same destination; it is
-// instead compared by following each host's own token through its own "_framework/opaque-redirect" endpoint.
+// ssr-framing presence, and the normalized body -- with the opaque-redirect header's value masked to null (its
+// presence is still compared). The value is masked because each Issue260Host owns an independent ephemeral
+// data-protection key (see Issue260Host), so it is never equal across hosts even when both redirect to the same
+// destination; where the header is present, its destination is instead compared by following each host's own
+// token through its own "_framework/opaque-redirect" endpoint.
 public sealed class Issue266ExternalFirstRenderRedirectTests
 {
 	// Issue190NavigationPage.razor's @page route. Issue190NavigationHost.Path holds the same value, but it lives in
@@ -119,7 +120,11 @@ public sealed class Issue266ExternalFirstRenderRedirectTests
 		Issue264SwitchOnRequests.SendAsync(
 			host.Client, Issue264SwitchOnRequests.Create(HttpMethod.Get, path, htmx, enhancedNavigation));
 
-	// The opaque-redirect header is masked before comparison; see this file's header comment for why.
-	private static void AssertPairedSnapshotParity(Issue264Snapshot stock, Issue264Snapshot candidate) =>
+	// The opaque-redirect value is host-specific (see this file's header comment), so only its presence is compared
+	// directly; everything else in the masked snapshots must match in full.
+	private static void AssertPairedSnapshotParity(Issue264Snapshot stock, Issue264Snapshot candidate)
+	{
+		Assert.Equal(stock.EnhancedNavigationLocation is null, candidate.EnhancedNavigationLocation is null);
 		Assert.Equal(stock with { EnhancedNavigationLocation = null }, candidate with { EnhancedNavigationLocation = null });
+	}
 }
