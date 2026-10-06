@@ -42,9 +42,9 @@ public sealed class Issue306BindingAnywhereTests : IAsyncLifetime
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.True(
-            response.StatusCode != HttpStatusCode.MethodNotAllowed,
-            $"Expected the @onpatch binding inside @foreach and HtmxFragment after @code to be " +
-            $"reachable, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+            response.StatusCode == HttpStatusCode.OK,
+            $"Expected the @onpatch binding inside @foreach and HtmxFragment after @code to " +
+            $"answer 200 OK, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
         Assert.Equal(1, Issue306Page.ToggleCount);
     }
 

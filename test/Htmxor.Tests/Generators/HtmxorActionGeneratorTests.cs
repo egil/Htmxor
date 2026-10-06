@@ -291,15 +291,14 @@ public sealed class HtmxorActionGeneratorTests
 	/// <summary>
 	/// A double-quoted binding generates its action from anywhere in the route owner's own
 	/// markup (#306), for both a <c>@page</c> owner and an omitted-<c>Methods</c>
-	/// <c>HtmxRoute</c> owner. Every position here fails closed before the fix: the scanner's
-	/// narrow earlier-lines or earlier-attribute window drops the binding silently.
+	/// <c>HtmxRoute</c> owner.
 	/// </summary>
 	public static IEnumerable<object[]> BindingAnywherePositionCases()
 	{
-		string[] routeDeclarations =
+		(string RouteDeclaration, bool UsesStockRoute)[] routeOwners =
 		{
-			"@page \"/reports/{ReportId:int}\"",
-			"@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]",
+			("@page \"/reports/{ReportId:int}\"", true),
+			("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", false),
 		};
 
 		(string Position, string Template)[] positions =
@@ -309,6 +308,15 @@ public sealed class HtmxorActionGeneratorTests
 				@foreach (var item in Items)
 				{
 					<button @onput="PutReport">Save</button>
+				}
+				"""),
+			("control_flow_switch", """
+				%ROUTE%
+				@switch (Selection)
+				{
+					case "a":
+						<button @onput="PutReport">Save</button>
+						break;
 				}
 				"""),
 			("child_content", """
@@ -328,11 +336,6 @@ public sealed class HtmxorActionGeneratorTests
 				<SomeWidget>
 					<span>Widget content</span>
 				</SomeWidget>
-				<button @onput="PutReport">Save</button>
-				"""),
-			("after_earlier_binding_of_another_method", """
-				%ROUTE%
-				<button @onpost="PostReport">Create</button>
 				<button @onput="PutReport">Save</button>
 				"""),
 			("after_code", """
@@ -356,16 +359,42 @@ public sealed class HtmxorActionGeneratorTests
 				%ROUTE%
 				<button hx-vals='{"foo":"bar"}' @onput="PutReport">Save</button>
 				"""),
+			("after_attribute_with_embedded_angle_bracket", """
+				%ROUTE%
+				<button onclick="@(() => Count++)" @onput="PutReport">Save</button>
+				"""),
+			("before_route_declaration", """
+				<button @onput="PutReport">Save</button>
+				%ROUTE%
+				"""),
+			("before_code", """
+				%ROUTE%
+				<button @onput="PutReport">Save</button>
+				@code {
+					private Task Placeholder() => Task.CompletedTask;
+				}
+				"""),
+			("before_inherits", """
+				%ROUTE%
+				<button @onput="PutReport">Save</button>
+				@inherits ReportComponentBase
+				"""),
+			("before_layout", """
+				%ROUTE%
+				<button @onput="PutReport">Save</button>
+				@layout ReportLayout
+				"""),
 		};
 
-		foreach (var routeDeclaration in routeDeclarations)
+		foreach (var owner in routeOwners)
 		{
 			foreach (var position in positions)
 			{
 				yield return new object[]
 				{
 					position.Position,
-					position.Template.Replace("%ROUTE%", routeDeclaration, StringComparison.Ordinal),
+					position.Template.Replace("%ROUTE%", owner.RouteDeclaration, StringComparison.Ordinal),
+					owner.UsesStockRoute,
 				};
 			}
 		}
@@ -375,7 +404,8 @@ public sealed class HtmxorActionGeneratorTests
 	[MemberData(nameof(BindingAnywherePositionCases))]
 	public void Binding_emits_its_action_from_anywhere_in_the_route_owners_markup(
 		string position,
-		string content)
+		string content,
+		bool usesStockRoute)
 	{
 		var run = RunGenerators(new RazorInput("ReportComponent.razor", content));
 
@@ -383,7 +413,83 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(run.RunResult.Diagnostics);
 		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
 		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		AssertChosenOwner(actionSource, "Htmxor.Consumer.ReportComponent.PUT.PutReport", usesStockRoute);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// A binding placed after an earlier binding of another method must not silently replace it:
+	/// both actions, each tied to its own HTTP method, must be generated (#306).
+	/// </summary>
+	[Theory]
+	[InlineData("@page \"/reports/{ReportId:int}\"", true)]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", false)]
+	public void Binding_after_an_earlier_binding_of_another_method_emits_both_actions(
+		string routeDeclaration,
+		bool usesStockRoute)
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			<button @onpost="PostReport">Create</button>
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("\"POST\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PostReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Equal(2, CountOccurrences(actionSource, "actions.Add("));
+		AssertChosenOwner(actionSource, "Htmxor.Consumer.ReportComponent.POST.PostReport", usesStockRoute);
+		AssertChosenOwner(actionSource, "Htmxor.Consumer.ReportComponent.PUT.PutReport", usesStockRoute);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
+	public void Dynamic_onput_inside_a_newly_reached_control_flow_position_fails_closed_at_its_own_span()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			@foreach (var item in Items)
+			{
+				<button @onput="@(() => PutReport(default!))">Save</button>
+			}
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		Assert.Contains("simple method-group", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertNoActionSource(run);
+	}
+
+	[Fact]
+	public void Two_onput_bindings_in_a_newly_reached_control_flow_position_still_trigger_the_at_most_one_rule()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			@foreach (var item in Items)
+			{
+				<button @onput="PutReport">Save</button>
+				<button @onput="PutReport">Save again</button>
+			}
+			"""));
+
+		Assert.Equal(2, run.RunResult.Diagnostics.Length);
+		Assert.All(run.RunResult.Diagnostics, diagnostic =>
+		{
+			Assert.Equal("HTMXOR002", diagnostic.Id);
+			Assert.Contains("at most one", diagnostic.GetMessage(), StringComparison.Ordinal);
+		});
+		AssertNoActionSource(run);
 	}
 
 	[Fact]
@@ -885,6 +991,49 @@ public sealed class HtmxorActionGeneratorTests
 		=> Assert.DoesNotContain(
 			run.RunResult.Results.SelectMany(static result => result.GeneratedSources),
 			static source => source.HintName == "HtmxorGeneratedActions.g.cs");
+
+	/// <summary>
+	/// Confirms which route owner the scanner attributed to a generated action: a <c>@page</c>
+	/// owner emits a <c>true</c> stock-route flag and no custom route processor; an omitted-
+	/// <c>Methods</c> <c>HtmxRoute</c> owner emits a <c>false</c> flag plus the generated
+	/// <c>RouteAttribute</c> and route-processor type. A whole-file owner reader that attributes
+	/// the wrong kind would still emit the action text alone, so this must be checked separately.
+	/// </summary>
+	private static void AssertChosenOwner(string actionSource, string handlerIdentity, bool usesStockRoute)
+	{
+		var marker = $"\"{handlerIdentity}\",";
+		var markerIndex = actionSource.IndexOf(marker, StringComparison.Ordinal);
+		Assert.True(markerIndex >= 0, $"Handler identity '{handlerIdentity}' was not found in the generated source.");
+		var afterMarker = actionSource[(markerIndex + marker.Length)..].TrimStart();
+
+		if (usesStockRoute)
+		{
+			Assert.StartsWith("true,", afterMarker, StringComparison.Ordinal);
+			Assert.DoesNotContain("RouteAttribute(", actionSource, StringComparison.Ordinal);
+		}
+		else
+		{
+			Assert.StartsWith("false,", afterMarker, StringComparison.Ordinal);
+			Assert.Contains(
+				"[global::Microsoft.AspNetCore.Components.RouteAttribute(\"/reports/{ReportId:int}\")]",
+				actionSource,
+				StringComparison.Ordinal);
+			Assert.Contains("typeof(__HtmxorRouteProcessor)", actionSource, StringComparison.Ordinal);
+		}
+	}
+
+	private static int CountOccurrences(string text, string value)
+	{
+		var count = 0;
+		var index = 0;
+		while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+		{
+			count++;
+			index += value.Length;
+		}
+
+		return count;
+	}
 
 	private static string GetGeneratedSource(GeneratorRun run, string hintName)
 		=> Assert.Single(

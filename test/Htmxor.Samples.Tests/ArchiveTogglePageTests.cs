@@ -1,11 +1,10 @@
 using System.Net;
-using Alba;
 using HtmxorExamples.Data;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Htmxor.Quality.Tests;
+namespace Htmxor.Samples.Tests;
 
 /// <summary>
 /// Protects <c>samples/HtmxorExamples/ArchiveTogglePage.razor</c> (#306): its
