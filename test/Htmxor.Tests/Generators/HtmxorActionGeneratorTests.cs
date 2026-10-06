@@ -510,6 +510,49 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
+	/// <summary>
+	/// A binding commented out with a Razor comment inside a start tag must never be mistaken for
+	/// a real declaration, even though the element also carries an unrelated attribute (#306).
+	/// </summary>
+	[Fact]
+	public void Binding_commented_out_inside_a_start_tag_emits_no_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<button hx-delete="/x" @* @ondelete="DeleteReport" *@>x</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// A binding commented out with a Razor comment inside a start tag must not count toward the
+	/// at-most-one rule for a real binding of the same kind on the same element (#306).
+	/// </summary>
+	[Fact]
+	public void Binding_after_a_Razor_commented_out_binding_in_the_same_start_tag_emits_only_the_real_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<button @* @onpatch="Old" *@ @onpatch="PatchReport">x</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PatchReport", actionSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("Old", actionSource, StringComparison.Ordinal);
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
 	[Fact]
 	public void Dynamic_onput_inside_control_flow_fails_closed_at_its_own_span()
 	{
@@ -583,6 +626,20 @@ public sealed class HtmxorActionGeneratorTests
 					}
 				}
 				"""),
+			("razor_template_inside_markup_expression_call", """
+				@page "/reports/{ReportId:int}"
+				<div>@(Wrap(@<button @onput="PutReport">x</button>))</div>
+				@code {
+					private RenderFragment Wrap(RenderFragment f) => f;
+				}
+				"""),
+			("razor_template_inside_markup_method_call", """
+				@page "/reports/{ReportId:int}"
+				<div>@Wrap(@<button @onput="PutReport">x</button>)</div>
+				@code {
+					private RenderFragment Wrap(RenderFragment f) => f;
+				}
+				"""),
 		}.Select(static scenario => new object[] { scenario.Scenario, scenario.Content });
 
 	[Theory]
@@ -596,16 +653,28 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("Razor template or @code markup", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.EndsWith(
+			"@onput in a Razor template or @code markup is not supported; " +
+			"put the binding in the component's own markup",
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
 		AssertNoActionSource(run);
 	}
 
-	[Fact]
-	public void Truncated_control_flow_markup_does_not_throw_the_generator()
+	/// <summary>
+	/// A generator must never throw while the document is mid-edit, whatever construct was left
+	/// open at the end of the buffer: an open tag, an unterminated C# string, an unterminated
+	/// char literal, or an unterminated string inside an <c>@attribute</c> directive's argument
+	/// list (#306).
+	/// </summary>
+	[Theory]
+	[InlineData("@page \"/x\"\n@if (Show) { <div ")]
+	[InlineData("@page \"/x\"\n@if (Show) { var s = \"abc\\")]
+	[InlineData("@page \"/x\"\n@if (Show) { var c = '")]
+	[InlineData("@page \"/x\"\n@attribute [Foo(\"abc\\")]
+	public void Truncated_control_flow_markup_does_not_throw_the_generator(string content)
 	{
-		var run = RunGenerators(new RazorInput(
-			"ReportComponent.razor",
-			"@page \"/x\"\n@if (Show) { <div "));
+		var run = RunGenerators(new RazorInput("ReportComponent.razor", content));
 
 		AssertNoGeneratorException(run);
 	}

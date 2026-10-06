@@ -917,9 +917,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	/// <summary>
 	/// A component with two <c>@page</c> directives and a binding must fail the build through
-	/// HTMXOR002, never silently drop the binding (#306). The scanner now reads
-	/// <c>PageDirectiveCount &gt; 0</c> from the whole file, so the action is generated; the
-	/// unchanged analyzer then requires exactly one compiled stock route.
+	/// HTMXOR002, never silently drop the binding (#306).
 	/// </summary>
 	[Fact]
 	public async Task Binding_in_a_component_with_two_page_directives_fails_closed_for_an_action()
