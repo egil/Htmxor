@@ -562,9 +562,9 @@ public sealed class HtmxorActionGeneratorTests
 	/// is never a comment: real Razor runs it to its next "*@" marker as literal text, across any
 	/// quotes in between, so the attribute value cannot end until that marker, and a real binding
 	/// name or attribute caught inside the span is never live. A comment whose body starts with
-	/// the same character as its own opener ("@*@..." or "/*/...") must still run to its real
-	/// closing marker, not the one that overlaps the opener itself, wherever it appears: at top
-	/// level, after an expression, inside a control-flow body, or as a C# comment in a markup
+	/// the same character as its own opener ("@*@..." or "/*/...") must still run past that
+	/// overlapping position to its real closing marker, wherever it appears: at top level, after
+	/// an expression, inside a control-flow body, in a start tag, or as a C# comment in a markup
 	/// "@{ }" block.
 	/// </summary>
 	public static IEnumerable<object[]> RazorCommentNeverBindsOrDesyncsCases() =>
@@ -615,19 +615,19 @@ public sealed class HtmxorActionGeneratorTests
 				<button title="@* x" @ondelete="DeleteReport" data-note="y *@" @onput="PutReport">x</button>
 				""",
 				new[] { "PutReport" }),
-			("comment_whose_body_starts_with_at_closes_at_its_opener_at_top_level", """
+			("comment_whose_body_starts_with_at_runs_past_its_opener_at_top_level", """
 				@page "/reports/{ReportId:int}"
 				@*@if (Show) { <b @ondelete="DeleteReport">x</b> }*@
 				<button @onput="PutReport">x</button>
 				""",
 				new[] { "PutReport" }),
-			("comment_whose_body_starts_with_at_closes_at_its_opener_after_an_expression", """
+			("comment_whose_body_starts_with_at_runs_past_its_opener_after_an_expression", """
 				@page "/reports/{ReportId:int}"
 				<td>@Name@*@if (Show) { <b @ondelete="DeleteReport">x</b> }*@</td>
 				<button @onput="PutReport">x</button>
 				""",
 				new[] { "PutReport" }),
-			("comment_whose_body_starts_with_at_closes_at_its_opener_inside_an_if_body", """
+			("comment_whose_body_starts_with_at_runs_past_its_opener_inside_an_if_body", """
 				@page "/reports/{ReportId:int}"
 				@if (Show)
 				{
@@ -636,7 +636,12 @@ public sealed class HtmxorActionGeneratorTests
 				}
 				""",
 				new[] { "PutReport" }),
-			("code_comment_whose_body_starts_with_a_slash_closes_at_its_opener", """
+			("comment_whose_body_starts_with_at_in_a_start_tag_runs_past_its_opener", """
+				@page "/reports/{ReportId:int}"
+				<button @*@title="x" @ondelete="DeleteReport" *@ @onput="PutReport">x</button>
+				""",
+				new[] { "PutReport" }),
+			("code_comment_whose_body_starts_with_a_slash_runs_past_its_opener", """
 				@page "/reports/{ReportId:int}"
 				@{
 					/*/ oops */
