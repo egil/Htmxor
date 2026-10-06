@@ -183,8 +183,9 @@ internal sealed class RazorMarkupScanner
 	{
 		while (index < source.Length && source[index] != quote)
 		{
-			// Razor reads "@*" inside a quoted attribute value as text, not as a comment.
-			if (source[index] == '@' && Peek(1) != '*' && !FollowsLetterOrDigit())
+			// Inside a quoted value Razor still runs "@*" to the next "*@", across quotes, and emits that span
+			// as literal text, so the value cannot end inside it.
+			if (source[index] == '@' && (Peek(1) == '*' || !FollowsLetterOrDigit()))
 			{
 				SkipExpressionTransition();
 			}
