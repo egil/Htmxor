@@ -559,9 +559,9 @@ public sealed class HtmxorActionGeneratorTests
 	/// markup, inside a statement header, or inside a markup expression wrapping a template. Each
 	/// row asserts exactly the expected real actions, with no diagnostics; the comment itself
 	/// never contributes an action or a diagnostic. Inside a quoted attribute value, "@* ... *@"
-	/// is never a comment at all: real Razor emits it as literal text there, so a row in that
-	/// position asserts the literal text is preserved and a real binding elsewhere in the tag is
-	/// still recognized.
+	/// is never a comment: real Razor runs it to its next "*@" marker as literal text, across any
+	/// quotes in between, so the attribute value cannot end until that marker, and a real binding
+	/// name or attribute caught inside the span is never live.
 	/// </summary>
 	public static IEnumerable<object[]> RazorCommentNeverBindsOrDesyncsCases() =>
 		new (string Scenario, string Content, string[] ExpectedHandlers)[]
@@ -606,9 +606,9 @@ public sealed class HtmxorActionGeneratorTests
 				<button @* @ondelete="Old" *@ @onput="PutReport">x</button>
 				""",
 				new[] { "PutReport" }),
-			("comment_syntax_inside_a_quoted_attribute_value_is_literal_text", """
+			("comment_syntax_in_a_quoted_attribute_value_runs_to_its_closing_marker", """
 				@page "/reports/{ReportId:int}"
-				<button title="@* literal *@" @onput="PutReport">x</button>
+				<button title="@* x" @ondelete="DeleteReport" data-note="y *@" @onput="PutReport">x</button>
 				""",
 				new[] { "PutReport" }),
 		}.Select(static scenario => new object[] { scenario.Scenario, scenario.Content, scenario.ExpectedHandlers });
