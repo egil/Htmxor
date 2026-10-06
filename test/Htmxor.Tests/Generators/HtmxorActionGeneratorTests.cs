@@ -561,7 +561,11 @@ public sealed class HtmxorActionGeneratorTests
 	/// never contributes an action or a diagnostic. Inside a quoted attribute value, "@* ... *@"
 	/// is never a comment: real Razor runs it to its next "*@" marker as literal text, across any
 	/// quotes in between, so the attribute value cannot end until that marker, and a real binding
-	/// name or attribute caught inside the span is never live.
+	/// name or attribute caught inside the span is never live. A comment whose body starts with
+	/// the same character as its own opener ("@*@..." or "/*/...") must still run to its real
+	/// closing marker, not the one that overlaps the opener itself, wherever it appears: at top
+	/// level, after an expression, inside a control-flow body, or as a C# comment in a markup
+	/// "@{ }" block.
 	/// </summary>
 	public static IEnumerable<object[]> RazorCommentNeverBindsOrDesyncsCases() =>
 		new (string Scenario, string Content, string[] ExpectedHandlers)[]
@@ -609,6 +613,35 @@ public sealed class HtmxorActionGeneratorTests
 			("comment_syntax_in_a_quoted_attribute_value_runs_to_its_closing_marker", """
 				@page "/reports/{ReportId:int}"
 				<button title="@* x" @ondelete="DeleteReport" data-note="y *@" @onput="PutReport">x</button>
+				""",
+				new[] { "PutReport" }),
+			("comment_whose_body_starts_with_at_closes_at_its_opener_at_top_level", """
+				@page "/reports/{ReportId:int}"
+				@*@if (Show) { <b @ondelete="DeleteReport">x</b> }*@
+				<button @onput="PutReport">x</button>
+				""",
+				new[] { "PutReport" }),
+			("comment_whose_body_starts_with_at_closes_at_its_opener_after_an_expression", """
+				@page "/reports/{ReportId:int}"
+				<td>@Name@*@if (Show) { <b @ondelete="DeleteReport">x</b> }*@</td>
+				<button @onput="PutReport">x</button>
+				""",
+				new[] { "PutReport" }),
+			("comment_whose_body_starts_with_at_closes_at_its_opener_inside_an_if_body", """
+				@page "/reports/{ReportId:int}"
+				@if (Show)
+				{
+					@*@if (Nested) { <b @ondelete="DeleteReport">x</b> }*@
+					<button @onput="PutReport">x</button>
+				}
+				""",
+				new[] { "PutReport" }),
+			("code_comment_whose_body_starts_with_a_slash_closes_at_its_opener", """
+				@page "/reports/{ReportId:int}"
+				@{
+					/*/ oops */
+					<button @onput="PutReport">x</button>
+				}
 				""",
 				new[] { "PutReport" }),
 		}.Select(static scenario => new object[] { scenario.Scenario, scenario.Content, scenario.ExpectedHandlers });
