@@ -170,6 +170,85 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
+	/// <summary>
+	/// Three spellings are approved and generate the same action (#307): quoted
+	/// <c>@onX="M"</c>, unquoted <c>@onX=M</c>, and <c>@onX="@M"</c>. This holds for both a
+	/// <c>@page</c> owner and an omitted-<c>Methods</c> <c>HtmxRoute</c> owner, and for all five
+	/// binding kinds.
+	/// </summary>
+	public static IEnumerable<object[]> ApprovedSpellingCases()
+	{
+		(string RouteDeclaration, bool UsesStockRoute)[] routeOwners =
+		{
+			("@page \"/reports/{ReportId:int}\"", true),
+			("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", false),
+		};
+
+		(string TagName, string Binding, string HttpMethod, string HandlerName)[] bindings =
+		{
+			("button", "@onpost", "POST", "PostReport"),
+			("button", "@onput", "PUT", "PutReport"),
+			("InputText", "@onpatch", "PATCH", "PatchReport"),
+			("InputText", "@ondelete", "DELETE", "DeleteReport"),
+			("form", "@onquery", "QUERY", "QueryReport"),
+		};
+
+		(string Spelling, Func<string, string, string> Attribute)[] spellings =
+		{
+			("quoted", static (binding, handler) => $"{binding}=\"{handler}\""),
+			("unquoted", static (binding, handler) => $"{binding}={handler}"),
+			("at_quoted", static (binding, handler) => $"{binding}=\"@{handler}\""),
+		};
+
+		foreach (var owner in routeOwners)
+		{
+			foreach (var binding in bindings)
+			{
+				foreach (var spelling in spellings)
+				{
+					yield return new object[]
+					{
+						spelling.Spelling,
+						owner.RouteDeclaration,
+						owner.UsesStockRoute,
+						binding.TagName,
+						spelling.Attribute(binding.Binding, binding.HandlerName),
+						binding.HttpMethod,
+						binding.HandlerName,
+					};
+				}
+			}
+		}
+	}
+
+	[Theory]
+	[MemberData(nameof(ApprovedSpellingCases))]
+	public void Approved_spelling_generates_its_action_for_every_binding_kind_and_route_owner(
+		string spelling,
+		string routeDeclaration,
+		bool usesStockRoute,
+		string tagName,
+		string attribute,
+		string httpMethod,
+		string handlerName)
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			<{tagName} {attribute} />
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains($"\"{httpMethod}\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		AssertChosenOwner(actionSource, $"Htmxor.Consumer.ReportComponent.{httpMethod}.{handlerName}", usesStockRoute);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
 	[Theory]
 	[InlineData("@page \"/reports/{ReportId:int}\"", "button", "@onpost", "POST", "PostReport")]
 	[InlineData("@page \"/reports/{ReportId:int}\"", "button", "@onput", "PUT", "PutReport")]
@@ -691,7 +770,116 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("simple method-group", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains("lambda or closure", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A lambda with a parameter is the same lambda cause as a parameterless lambda (#307), so it
+	/// gets the same "lambda or closure" message, not the generic method-group message.
+	/// </summary>
+	[Fact]
+	public void Lambda_binding_with_a_parameter_fails_closed_with_the_lambda_or_closure_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			<button @onput="@(e => PutReport(e))">Save</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		Assert.Contains("lambda or closure", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A lambda that captures a local, such as a <c>@foreach</c> loop variable, is a closure. Its
+	/// cause shares the "lambda or closure" message with a plain lambda (#307).
+	/// </summary>
+	[Fact]
+	public void Closure_capturing_the_loop_variable_fails_closed_with_the_lambda_or_closure_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			@foreach (var item in Items)
+			{
+				<button @onput="@(e => PutReport(item))">Save</button>
+			}
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		Assert.Contains("lambda or closure", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A method call, whether an implicit expression or wrapped in an explicit one, fails closed
+	/// with its own "method call" cause (#307), distinct from a lambda or a computed expression.
+	/// </summary>
+	[Theory]
+	[InlineData("@PutReport()")]
+	[InlineData("@(PutReport())")]
+	public void Method_call_binding_fails_closed_with_the_method_call_message(string value)
+	{
+		var content = """
+			@page "/reports/{ReportId:int}"
+			<button @onput="%VALUE%">Save</button>
+			""".Replace("%VALUE%", value, StringComparison.Ordinal);
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		Assert.Contains("method call", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A conditional expression is a computed expression (#307): neither a simple method-group name
+	/// nor a lambda nor a plain call, so it gets its own "computed expression" cause.
+	/// </summary>
+	[Fact]
+	public void Conditional_binding_fails_closed_with_the_computed_expression_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			@code {
+				private bool flag;
+			}
+			<button @onput="@(flag ? PutReport : PostReport)">Save</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		Assert.Contains("computed expression", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// GET is implicit for every htmx request: <c>onget</c> is a stock Razor event handler
+	/// (<c>EventHandlers.cs</c>), not a Htmxor action binding, so <c>@onget</c> must fail closed
+	/// with its own cause instead of being silently accepted (#307).
+	/// </summary>
+	[Fact]
+	public void Onget_binding_fails_closed_with_the_get_is_implicit_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			<button @onget="PostReport">Load</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onget", StringComparison.Ordinal));
+		Assert.Contains("GET is implicit", diagnostic.GetMessage(), StringComparison.Ordinal);
 		AssertNoActionSource(run);
 	}
 
@@ -1490,7 +1678,7 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("simple method-group", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains("lambda or closure", diagnostic.GetMessage(), StringComparison.Ordinal);
 		AssertNoActionSource(run);
 	}
 

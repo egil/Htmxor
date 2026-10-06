@@ -883,6 +883,39 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Empty(diagnostics);
 	}
 
+	/// <summary>
+	/// A binding in a component that owns no route at all (no local <c>@page</c> and no
+	/// <c>HtmxRoute</c>) gets its own "owns no route" cause (#307), not the generic
+	/// exactly-one-HtmxRoute message that also covers more than one declared HtmxRoute.
+	/// </summary>
+	[Fact]
+	public async Task Binding_in_a_component_that_owns_no_route_fails_closed_for_an_action()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task PutReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			<button @onput="PutReport">Save</button>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains("owns no route", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+	}
+
 	[Fact]
 	public async Task Stock_route_without_a_local_page_declaration_fails_closed_for_an_action()
 	{
