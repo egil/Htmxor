@@ -553,6 +553,88 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
+	/// <summary>
+	/// A Razor comment is never a binding and never desyncs the scan, wherever it appears in the
+	/// route owner's own file (#306): directly after an implicit expression or plain text in
+	/// markup, inside a statement header, inside a markup expression wrapping a template, or
+	/// inside a quoted attribute value. Each row asserts exactly the expected real actions, with
+	/// no diagnostics; the comment itself never contributes an action or a diagnostic.
+	/// </summary>
+	public static IEnumerable<object[]> RazorCommentNeverBindsOrDesyncsCases() =>
+		new (string Scenario, string Content, string[] ExpectedHandlers)[]
+		{
+			("comment_after_implicit_expression_in_markup", """
+				@page "/reports/{ReportId:int}"
+				<td>@Name@* <b @ondelete="DeleteReport">x</b> *@</td>
+				""",
+				Array.Empty<string>()),
+			("comment_after_plain_text_at_top_level", """
+				@page "/reports/{ReportId:int}"
+				Note@* <b @ondelete="DeleteReport">x</b> *@
+				""",
+				Array.Empty<string>()),
+			("comment_with_an_apostrophe_in_a_statement_header", """
+				@page "/reports/{ReportId:int}"
+				@foreach (var x in Items @* don't page yet *@)
+				{
+					<button @onput="PutReport">x</button>
+				}
+				""",
+				new[] { "PutReport" }),
+			("commented_out_template_inside_a_markup_expression", """
+				@page "/reports/{ReportId:int}"
+				<div>@(Wrap(@* @<b @onput="PutReport">x</b> *@ null))</div>
+				@code {
+					private RenderFragment Wrap(RenderFragment? f) => f ?? (__builder => { });
+				}
+				""",
+				Array.Empty<string>()),
+			("comment_on_its_own_line_inside_control_flow", """
+				@page "/reports/{ReportId:int}"
+				@foreach (var item in Items)
+				{
+					@* Don't render twice. *@
+					<button @onput="PutReport">Save</button>
+				}
+				""",
+				new[] { "PutReport" }),
+			("comment_in_the_same_start_tag_as_the_real_binding", """
+				@page "/reports/{ReportId:int}"
+				<button @* @ondelete="Old" *@ @onput="PutReport">x</button>
+				""",
+				new[] { "PutReport" }),
+			("quote_inside_an_in_tag_comment_does_not_end_the_attribute_value", """
+				@page "/reports/{ReportId:int}"
+				<button title="@* " *@" @onput="PutReport">x</button>
+				""",
+				new[] { "PutReport" }),
+		}.Select(static scenario => new object[] { scenario.Scenario, scenario.Content, scenario.ExpectedHandlers });
+
+	[Theory]
+	[MemberData(nameof(RazorCommentNeverBindsOrDesyncsCases))]
+	public void Razor_comment_is_never_a_binding_and_never_desyncs_the_scan(
+		string scenario,
+		string content,
+		string[] expectedHandlers)
+	{
+		var run = RunGenerators(new RazorInput("ReportComponent.razor", content));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		if (expectedHandlers.Length == 0)
+		{
+			AssertNoActionSource(run);
+			Assert.Empty(CompilationErrors(run.OutputCompilation));
+			return;
+		}
+
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Equal(expectedHandlers.Length, CountOccurrences(actionSource, "actions.Add("));
+		Assert.All(expectedHandlers, handler =>
+			Assert.Contains($"this, {handler}", actionSource, StringComparison.Ordinal));
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
 	[Fact]
 	public void Dynamic_onput_inside_control_flow_fails_closed_at_its_own_span()
 	{
