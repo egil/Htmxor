@@ -41,6 +41,7 @@ Each covers a different boundary, and the quality profiles run all of them:
 
 - `test/Htmxor.Tests` — the main suite: unit, bUnit component, Alba in-process HTTP against `test/Htmxor.TestApp`, and Playwright browser tests under `E2E/`.
 - `test/Htmxor.AspNetCore10.Tests` — component-endpoint behavior, one file set per tracked v1 issue number. It multi-targets `net10.0;net11.0` with pinned runtime versions and runs as two separate boundaries, so a change must hold on both.
+- `test/Htmxor.Samples.Tests` — Alba in-process HTTP against the unmodified sample apps, for sample regressions the other boundaries cannot reach. Each sample has a top-level `Program`, so a project here can reference only one sample.
 - `test/Htmxor.Quality.Tests` and `test/Htmxor.UpstreamMonitor.Tests` — the `eng/` tooling itself, including the code-metrics policy validator and the upstream watch fixtures.
 
 New projects declare a `CodeMetricsProfile` in their `.csproj` from the first commit (`tests` under `test/`, `production` elsewhere); the `legacy-*` profiles belong to the audited existing paths only.
