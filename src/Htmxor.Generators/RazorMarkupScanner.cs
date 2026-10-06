@@ -4,9 +4,9 @@ using System.Collections.Generic;
 namespace Htmxor.Generators;
 
 // A small Razor lexer: it follows markup, Razor transitions and enough C# lexing (strings, comments and
-// brackets) to find every attribute the Razor compiler would bind on the component's own elements, and it
-// reads the route-owner directives from the whole file. Markup inside @code/@functions blocks and Razor
-// templates (@<tag>) is lexed so it cannot desynchronize the scan, but its attributes are not reported.
+// brackets) to find every attribute the Razor compiler would bind, and it reads the route-owner directives
+// from the whole file. Attributes in @code/@functions markup and Razor templates (@<tag>) are reported as
+// outside the component's own markup. Incomplete text, as the IDE sends while typing, never throws.
 internal sealed class RazorMarkupScanner
 {
 	private const string PlaintextElement = "plaintext";
@@ -38,19 +38,19 @@ internal sealed class RazorMarkupScanner
 	public static RazorMarkupScan Scan(string source, ISet<string> attributeNames)
 	{
 		var scanner = new RazorMarkupScanner(source, attributeNames);
-		scanner.ScanMarkup(record: true, island: false);
+		scanner.ScanMarkup(ownerMarkup: true, island: false);
 		return new RazorMarkupScan(scanner.attributes, scanner.pageDirectiveCount, scanner.attributeDirectives);
 	}
 
 	// Scans to the end of the source, or for a markup island inside C# until its outermost element closes.
-	private void ScanMarkup(bool record, bool island)
+	private void ScanMarkup(bool ownerMarkup, bool island)
 	{
 		var depth = 0;
 		while (index < source.Length)
 		{
 			if (source[index] == '<')
 			{
-				depth += ScanTag(record);
+				depth += ScanTag(ownerMarkup);
 				if (island && depth <= 0)
 				{
 					return;
@@ -58,7 +58,7 @@ internal sealed class RazorMarkupScanner
 			}
 			else if (source[index] == '@')
 			{
-				ScanMarkupTransition(record, island);
+				ScanMarkupTransition(ownerMarkup, island);
 			}
 			else
 			{
@@ -67,7 +67,7 @@ internal sealed class RazorMarkupScanner
 		}
 	}
 
-	private int ScanTag(bool record)
+	private int ScanTag(bool ownerMarkup)
 	{
 		if (StartsWith("<!--"))
 		{
@@ -89,7 +89,7 @@ internal sealed class RazorMarkupScanner
 
 		index++;
 		var name = ReadName();
-		var selfClosing = ScanAttributes(record);
+		var selfClosing = ScanAttributes(ownerMarkup);
 		if (Array.Exists(RawTextElements, element => string.Equals(element, name, StringComparison.OrdinalIgnoreCase)))
 		{
 			SkipRawText(name);
@@ -99,7 +99,7 @@ internal sealed class RazorMarkupScanner
 		return selfClosing || Contains(VoidElements, name) ? 0 : 1;
 	}
 
-	private bool ScanAttributes(bool record)
+	private bool ScanAttributes(bool ownerMarkup)
 	{
 		while (index < source.Length)
 		{
@@ -116,13 +116,13 @@ internal sealed class RazorMarkupScanner
 				return true;
 			}
 
-			ScanAttribute(record);
+			ScanAttribute(ownerMarkup);
 		}
 
 		return false;
 	}
 
-	private void ScanAttribute(bool record)
+	private void ScanAttribute(bool ownerMarkup)
 	{
 		var nameStart = index;
 		while (index < source.Length && !IsAttributeNameEnd(source[index]))
@@ -132,14 +132,14 @@ internal sealed class RazorMarkupScanner
 
 		if (index == nameStart)
 		{
-			index++;
+			Advance(1);
 			return;
 		}
 
 		var name = source.Substring(nameStart, index - nameStart);
-		if (record && attributeNames.Contains(name))
+		if (attributeNames.Contains(name))
 		{
-			attributes.Add(new MarkupAttribute(nameStart, name));
+			attributes.Add(new MarkupAttribute(nameStart, name, ownerMarkup));
 		}
 
 		SkipWhitespace();
@@ -187,7 +187,7 @@ internal sealed class RazorMarkupScanner
 			}
 		}
 
-		index++;
+		Advance(1);
 	}
 
 	// An implicit or explicit Razor expression used as markup or attribute content.
@@ -227,7 +227,7 @@ internal sealed class RazorMarkupScanner
 		}
 	}
 
-	private void ScanMarkupTransition(bool record, bool island)
+	private void ScanMarkupTransition(bool ownerMarkup, bool island)
 	{
 		if (FollowsLetterOrDigit() || Peek(1) == '@' || Peek(1) == '(')
 		{
@@ -244,25 +244,25 @@ internal sealed class RazorMarkupScanner
 		if (Peek(1) == '{')
 		{
 			index++;
-			ScanCodeBlock(record);
+			ScanCodeBlock(ownerMarkup);
 			return;
 		}
 
-		ScanKeywordTransition(record, island);
+		ScanKeywordTransition(ownerMarkup, island);
 	}
 
-	private void ScanKeywordTransition(bool record, bool island)
+	private void ScanKeywordTransition(bool ownerMarkup, bool island)
 	{
 		var transitionStart = index;
 		index++;
 		var keyword = ReadIdentifier();
 		if (Contains(MemberBlockKeywords, keyword) && SkipWhitespaceTo('{'))
 		{
-			ScanCodeBlock(record: false);
+			ScanCodeBlock(ownerMarkup: false);
 		}
 		else if (IsStatement(keyword))
 		{
-			ScanStatement(record);
+			ScanStatement(ownerMarkup);
 		}
 		else if (!island && Contains(Directives, keyword) && StartsLine(transitionStart))
 		{
@@ -291,7 +291,7 @@ internal sealed class RazorMarkupScanner
 
 	// A control-flow statement written in markup: its header is C#, its body is a code block, and an
 	// else/catch/finally/while continuation belongs to the same statement.
-	private void ScanStatement(bool record)
+	private void ScanStatement(bool ownerMarkup)
 	{
 		while (true)
 		{
@@ -304,7 +304,7 @@ internal sealed class RazorMarkupScanner
 
 			if (Peek(0) == '{')
 			{
-				ScanCodeBlock(record);
+				ScanCodeBlock(ownerMarkup);
 			}
 
 			if (!TryReadContinuation())
@@ -371,20 +371,25 @@ internal sealed class RazorMarkupScanner
 	}
 
 	// C# statements between braces. Markup that starts a statement switches to markup until its
-	// outermost element closes; a Razor template (@<tag>) is lexed the same way but never reported.
-	private void ScanCodeBlock(bool record)
+	// outermost element closes; a Razor template (@<tag>) is never the component's own markup.
+	private void ScanCodeBlock(bool ownerMarkup)
 	{
 		var depth = 0;
 		var atStatementStart = true;
 		while (index < source.Length)
 		{
+			if (TrySkipComment(atStatementStart))
+			{
+				continue;
+			}
+
 			if (TrySkipCSharpLiteralOrComment())
 			{
 				atStatementStart = false;
 				continue;
 			}
 
-			if (TryScanCodeMarkup(record, atStatementStart))
+			if (TryScanCodeMarkup(ownerMarkup, atStatementStart))
 			{
 				atStatementStart = true;
 				continue;
@@ -405,18 +410,42 @@ internal sealed class RazorMarkupScanner
 		}
 	}
 
-	private bool TryScanCodeMarkup(bool record, bool atStatementStart)
+	// A comment is not a statement token, so the statement-start state before it still holds after it.
+	// A Razor comment may appear anywhere in a code block; an HTML comment, like an element, starts a statement.
+	private bool TrySkipComment(bool atStatementStart)
+	{
+		if (StartsWith("//"))
+		{
+			SkipTo('\n');
+		}
+		else if (StartsWith("/*") || StartsWith("@*"))
+		{
+			SkipPast(source[index] == '/' ? "*/" : "*@");
+		}
+		else if (atStatementStart && StartsWith("<!--"))
+		{
+			SkipPast("-->");
+		}
+		else
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	private bool TryScanCodeMarkup(bool ownerMarkup, bool atStatementStart)
 	{
 		if (source[index] == '<' && atStatementStart && IsNameStart(Peek(1)))
 		{
-			ScanMarkup(record, island: true);
+			ScanMarkup(ownerMarkup, island: true);
 			return true;
 		}
 
 		if (source[index] == '@' && Peek(1) == '<')
 		{
 			index++;
-			ScanMarkup(record: false, island: true);
+			ScanMarkup(ownerMarkup: false, island: true);
 			return true;
 		}
 
@@ -531,7 +560,7 @@ internal sealed class RazorMarkupScanner
 			}
 			else
 			{
-				index += source[index] == '\\' && !verbatim ? 2 : 1;
+				Advance(source[index] == '\\' && !verbatim ? 2 : 1);
 			}
 		}
 	}
@@ -557,10 +586,10 @@ internal sealed class RazorMarkupScanner
 		index++;
 		while (index < source.Length && source[index] is not '\'' and not '\n')
 		{
-			index += source[index] == '\\' ? 2 : 1;
+			Advance(source[index] == '\\' ? 2 : 1);
 		}
 
-		index++;
+		Advance(1);
 		return true;
 	}
 
@@ -636,6 +665,9 @@ internal sealed class RazorMarkupScanner
 		return true;
 	}
 
+	private void Advance(int count)
+		=> index = Math.Min(index + count, source.Length);
+
 	private bool FollowsLetterOrDigit()
 		=> index > 0 && char.IsLetterOrDigit(source[index - 1]);
 
@@ -679,13 +711,16 @@ internal sealed class RazorMarkupScan
 
 internal sealed class MarkupAttribute
 {
-	public MarkupAttribute(int index, string name)
+	public MarkupAttribute(int index, string name, bool inOwnerMarkup)
 	{
 		Index = index;
 		Name = name;
+		InOwnerMarkup = inOwnerMarkup;
 	}
 
 	public int Index { get; }
 
 	public string Name { get; }
+
+	public bool InOwnerMarkup { get; }
 }

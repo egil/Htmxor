@@ -104,7 +104,7 @@ internal sealed class HtmxorComponentActionDeclaration
 					text,
 					source,
 					binding,
-					candidate.Index,
+					candidate,
 					owner,
 					candidates.Count));
 			}
@@ -119,21 +119,16 @@ internal sealed class HtmxorComponentActionDeclaration
 		SourceText text,
 		string source,
 		ActionBinding binding,
-		int attributeIndex,
+		MarkupAttribute candidate,
 		RouteOwner owner,
 		int methodDeclarationCount)
 	{
+		var attributeIndex = candidate.Index;
 		var span = new TextSpan(attributeIndex, binding.AttributeName.Length);
-		if (methodDeclarationCount > 1)
+		var placementReason = GetPlacementReason(binding, candidate, methodDeclarationCount);
+		if (placementReason is not null)
 		{
-			return Unsupported(
-				componentTypeName,
-				binding,
-				owner,
-				path,
-				text,
-				span,
-				"at most one " + binding.AttributeName + " binding per component is supported");
+			return Unsupported(componentTypeName, binding, owner, path, text, span, placementReason);
 		}
 
 		var match = binding.SupportedBinding.Match(source, attributeIndex);
@@ -159,6 +154,17 @@ internal sealed class HtmxorComponentActionDeclaration
 				span,
 				binding.AttributeName + " must use one double-quoted simple method-group name");
 	}
+
+	private static string? GetPlacementReason(
+		ActionBinding binding,
+		MarkupAttribute candidate,
+		int methodDeclarationCount)
+		=> !candidate.InOwnerMarkup
+			? binding.AttributeName +
+				" in a Razor template or @code markup is not supported; put the binding in the component's own markup"
+			: methodDeclarationCount > 1
+				? "at most one " + binding.AttributeName + " binding per component is supported"
+				: null;
 
 	private static string? TryReadOmittedHtmxRoute(string attributeDirective)
 	{
