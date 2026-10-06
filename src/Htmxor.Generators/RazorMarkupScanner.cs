@@ -183,7 +183,8 @@ internal sealed class RazorMarkupScanner
 	{
 		while (index < source.Length && source[index] != quote)
 		{
-			if (source[index] == '@' && (Peek(1) == '*' || !FollowsLetterOrDigit()))
+			// Razor reads "@*" inside a quoted attribute value as text, not as a comment.
+			if (source[index] == '@' && Peek(1) != '*' && !FollowsLetterOrDigit())
 			{
 				SkipExpressionTransition();
 			}
