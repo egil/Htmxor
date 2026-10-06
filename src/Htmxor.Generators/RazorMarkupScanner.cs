@@ -183,7 +183,7 @@ internal sealed class RazorMarkupScanner
 	{
 		while (index < source.Length && source[index] != quote)
 		{
-			if (source[index] == '@' && !FollowsLetterOrDigit())
+			if (source[index] == '@' && (Peek(1) == '*' || !FollowsLetterOrDigit()))
 			{
 				SkipExpressionTransition();
 			}
@@ -199,6 +199,12 @@ internal sealed class RazorMarkupScanner
 	// An implicit or explicit Razor expression used as markup or attribute content.
 	private void SkipExpressionTransition()
 	{
+		if (StartsWith("@*"))
+		{
+			SkipPast("*@");
+			return;
+		}
+
 		index++;
 		if (Peek(0) == '@')
 		{
@@ -235,15 +241,10 @@ internal sealed class RazorMarkupScanner
 
 	private void ScanMarkupTransition(bool ownerMarkup, bool island)
 	{
-		if (FollowsLetterOrDigit() || Peek(1) == '@' || Peek(1) == '(')
+		// A Razor comment starts even right after text or an expression, unlike an email-like '@'.
+		if (Peek(1) is '*' or '@' or '(' || FollowsLetterOrDigit())
 		{
 			SkipExpressionTransition();
-			return;
-		}
-
-		if (Peek(1) == '*')
-		{
-			SkipPast("*@");
 			return;
 		}
 
@@ -420,6 +421,18 @@ internal sealed class RazorMarkupScanner
 	// A Razor comment may appear anywhere in a code block; an HTML comment, like an element, starts a statement.
 	private bool TrySkipComment(bool atStatementStart)
 	{
+		if (!atStatementStart || !StartsWith("<!--"))
+		{
+			return TrySkipCodeComment();
+		}
+
+		SkipPast("-->");
+		return true;
+	}
+
+	// C# line and block comments, and Razor comments, which Razor accepts inside C# too.
+	private bool TrySkipCodeComment()
+	{
 		if (StartsWith("//"))
 		{
 			SkipTo('\n');
@@ -427,10 +440,6 @@ internal sealed class RazorMarkupScanner
 		else if (StartsWith("/*") || StartsWith("@*"))
 		{
 			SkipPast(source[index] == '/' ? "*/" : "*@");
-		}
-		else if (atStatementStart && StartsWith("<!--"))
-		{
-			SkipPast("-->");
 		}
 		else
 		{
@@ -498,21 +507,7 @@ internal sealed class RazorMarkupScanner
 	}
 
 	private bool TrySkipCSharpLiteralOrComment()
-	{
-		if (StartsWith("//"))
-		{
-			SkipTo('\n');
-			return true;
-		}
-
-		if (StartsWith("/*"))
-		{
-			SkipPast("*/");
-			return true;
-		}
-
-		return TrySkipCSharpString() || TrySkipCharLiteral();
-	}
+		=> TrySkipCodeComment() || TrySkipCSharpString() || TrySkipCharLiteral();
 
 	private bool TrySkipCSharpString()
 	{
