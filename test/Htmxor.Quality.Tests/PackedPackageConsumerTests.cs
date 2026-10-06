@@ -271,6 +271,8 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 
 	public void UseIssue175NormalOnlyScenario() => UseSelectionScenario("Issue175");
 
+	public void UseIssue306BindingAnywhereScenario() => UseSelectionScenario("Issue306");
+
 	public void UseDisableHtmxDirectRoutingInImports()
 	{
 		var importsPath = Path.Combine(consumerDirectory, "_Imports.razor");

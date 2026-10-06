@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<CodeMetricsProfile>tests</CodeMetricsProfile>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Alba" Version="7.4.1" />
+		<!-- Alba resolves System.IdentityModel.Tokens.Jwt / Microsoft.IdentityModel.JsonWebTokens
+		     6.15.1 transitively (GHSA-59j7-ghrg-fj52, NU1902). Pin the fixed version, matching
+		     test/Htmxor.Tests/Htmxor.Tests.csproj. -->
+		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.5.1" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+		<PackageReference Include="xunit" Version="2.8.0" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="2.8.0">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="coverlet.collector" Version="6.0.2">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\samples\HtmxorExamples\HtmxorExamples.csproj" />
+	</ItemGroup>
+
+</Project>

@@ -45,6 +45,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Htmxor.Generators", "src\Ht
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Htmxor.AspNetCore10.SwitchOnHost", "test\Htmxor.AspNetCore10.SwitchOnHost\Htmxor.AspNetCore10.SwitchOnHost.csproj", "{4C6C9E2E-2C77-4B4B-9C4E-6E2B6E7B5C11}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Htmxor.Samples.Tests", "test\Htmxor.Samples.Tests\Htmxor.Samples.Tests.csproj", "{6DE41358-CA3C-4F91-A1ED-C7B560255B34}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -103,6 +105,10 @@ Global
 		{4C6C9E2E-2C77-4B4B-9C4E-6E2B6E7B5C11}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4C6C9E2E-2C77-4B4B-9C4E-6E2B6E7B5C11}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4C6C9E2E-2C77-4B4B-9C4E-6E2B6E7B5C11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6DE41358-CA3C-4F91-A1ED-C7B560255B34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DE41358-CA3C-4F91-A1ED-C7B560255B34}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6DE41358-CA3C-4F91-A1ED-C7B560255B34}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6DE41358-CA3C-4F91-A1ED-C7B560255B34}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -121,6 +127,7 @@ Global
 		{29758C0F-8B99-4557-92A3-A34EF6A8C4CD} = {BB63193F-EEC0-4EE6-B89E-9B4E1983E2FF}
 		{8D7B2E17-B483-47B6-8C8C-6848A71E8C73} = {A50FFB42-310B-45BC-BDDF-ADE3B61D61EB}
 		{4C6C9E2E-2C77-4B4B-9C4E-6E2B6E7B5C11} = {BB63193F-EEC0-4EE6-B89E-9B4E1983E2FF}
+		{6DE41358-CA3C-4F91-A1ED-C7B560255B34} = {BB63193F-EEC0-4EE6-B89E-9B4E1983E2FF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {430F7B4E-864E-44B7-84A0-A903E7386E3B}

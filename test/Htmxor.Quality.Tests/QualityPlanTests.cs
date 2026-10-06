@@ -13,9 +13,10 @@ public sealed class QualityPlanTests
 		var plan = Create(QualityAction.Check, QualityProfile.Fast);
 
 		AssertCommonPreparation(plan.Preparation);
-		Assert.Equal(5, plan.Tests.Count);
+		Assert.Equal(6, plan.Tests.Count);
 		AssertUpstreamMonitorBoundary(plan);
 		AssertAspNetCoreBoundaries(plan);
+		AssertSamplesBoundary(plan);
 		var quality = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj");
 		Assert.Equal(
 			["--filter", "Category!=Browser"],
@@ -50,9 +51,10 @@ public sealed class QualityPlanTests
 		var plan = Create(QualityAction.Check, QualityProfile.Full);
 
 		AssertCommonPreparation(plan.Preparation);
-		Assert.Equal(5, plan.Tests.Count);
+		Assert.Equal(6, plan.Tests.Count);
 		AssertUpstreamMonitorBoundary(plan);
 		AssertAspNetCoreBoundaries(plan);
+		AssertSamplesBoundary(plan);
 		var htmxor = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Tests/Htmxor.Tests.csproj");
 		Assert.Equal(
 			[
@@ -145,6 +147,16 @@ public sealed class QualityPlanTests
 	private void AssertUpstreamMonitorBoundary(QualityPlan plan)
 	{
 		var test = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.UpstreamMonitor.Tests/Htmxor.UpstreamMonitor.Tests.csproj");
+		Assert.DoesNotContain("--filter", test.Command.Arguments);
+		Assert.False(test.RequiresCoverage);
+	}
+
+	private void AssertSamplesBoundary(QualityPlan plan)
+	{
+		var test = Assert.Single(plan.Tests, test => test.Project == "test/Htmxor.Samples.Tests/Htmxor.Samples.Tests.csproj");
+		Assert.Equal(Path.Combine(resultsDirectory, "samples", "samples.trx"), test.TrxPath);
+		Assert.DoesNotContain("--framework", test.Command.Arguments);
+		Assert.DoesNotContain("--collect", test.Command.Arguments);
 		Assert.DoesNotContain("--filter", test.Command.Arguments);
 		Assert.False(test.RequiresCoverage);
 	}

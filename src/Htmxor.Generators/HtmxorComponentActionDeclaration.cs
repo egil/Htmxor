@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -19,13 +20,16 @@ internal sealed class HtmxorComponentActionDeclaration
 		new("@onquery", "QUERY"),
 	};
 
+	private static readonly ISet<string> SupportedAttributeNames = new HashSet<string>(
+		SupportedBindings.Select(static binding => binding.AttributeName),
+		StringComparer.Ordinal);
+
 	private HtmxorComponentActionDeclaration(
 		string componentTypeName,
 		string attributeName,
 		string httpMethod,
 		string? handlerName,
-		bool usesStockRoute,
-		string? routeTemplate,
+		RouteOwner owner,
 		string path,
 		TextSpan span,
 		LinePositionSpan lineSpan,
@@ -35,8 +39,8 @@ internal sealed class HtmxorComponentActionDeclaration
 		AttributeName = attributeName;
 		HttpMethod = httpMethod;
 		HandlerName = handlerName;
-		UsesStockRoute = usesStockRoute;
-		RouteTemplate = routeTemplate;
+		UsesStockRoute = owner.UsesStockRoute;
+		RouteTemplate = owner.RouteTemplate;
 		Path = path;
 		Span = span;
 		LineSpan = lineSpan;
@@ -80,10 +84,18 @@ internal sealed class HtmxorComponentActionDeclaration
 		}
 
 		var source = text.ToString();
+		var scan = RazorMarkupScanner.Scan(source, SupportedAttributeNames);
+		var owner = new RouteOwner(
+			usesStockRoute: scan.PageDirectiveCount > 0,
+			routeTemplate: scan.AttributeDirectives
+				.Select(TryReadOmittedHtmxRoute)
+				.FirstOrDefault(static template => template is not null));
 		var declarations = ImmutableArray.CreateBuilder<HtmxorComponentActionDeclaration>();
 		foreach (var binding in SupportedBindings)
 		{
-			var candidates = FindMarkupAttributes(source, binding.AttributeName);
+			var candidates = scan.Attributes
+				.Where(attribute => attribute.Name == binding.AttributeName)
+				.ToList();
 			foreach (var candidate in candidates)
 			{
 				declarations.Add(Parse(
@@ -93,6 +105,7 @@ internal sealed class HtmxorComponentActionDeclaration
 					source,
 					binding,
 					candidate,
+					owner,
 					candidates.Count));
 			}
 		}
@@ -107,33 +120,27 @@ internal sealed class HtmxorComponentActionDeclaration
 		string source,
 		ActionBinding binding,
 		MarkupAttribute candidate,
+		RouteOwner owner,
 		int methodDeclarationCount)
 	{
-		var span = new TextSpan(candidate.Index, binding.AttributeName.Length);
-		if (methodDeclarationCount > 1)
+		var attributeIndex = candidate.Index;
+		var span = new TextSpan(attributeIndex, binding.AttributeName.Length);
+		var placementReason = GetPlacementReason(binding, candidate, methodDeclarationCount);
+		if (placementReason is not null)
 		{
-			return Unsupported(
-				componentTypeName,
-				binding,
-				candidate.UsesStockRoute,
-				candidate.RouteTemplate,
-				path,
-				text,
-				span,
-				"at most one " + binding.AttributeName + " binding per component is supported");
+			return Unsupported(componentTypeName, binding, owner, path, text, span, placementReason);
 		}
 
-		var match = binding.SupportedBinding.Match(source, candidate.Index);
+		var match = binding.SupportedBinding.Match(source, attributeIndex);
 		return match.Success &&
-			match.Index == candidate.Index &&
+			match.Index == attributeIndex &&
 			IsBindingTerminator(source, match.Index + match.Length)
 			? new HtmxorComponentActionDeclaration(
 				componentTypeName,
 				binding.AttributeName,
 				binding.HttpMethod,
 				match.Groups["handler"].Value,
-				candidate.UsesStockRoute,
-				candidate.RouteTemplate,
+				owner,
 				path,
 				span,
 				text.Lines.GetLinePositionSpan(span),
@@ -141,472 +148,52 @@ internal sealed class HtmxorComponentActionDeclaration
 			: Unsupported(
 				componentTypeName,
 				binding,
-				candidate.UsesStockRoute,
-				candidate.RouteTemplate,
+				owner,
 				path,
 				text,
 				span,
 				binding.AttributeName + " must use one double-quoted simple method-group name");
 	}
 
-	private static IReadOnlyList<MarkupAttribute> FindMarkupAttributes(
-		string source,
-		string attributeName)
-	{
-		var attributes = new List<MarkupAttribute>();
-		var searchIndex = 0;
-		while ((searchIndex = source.IndexOf(attributeName, searchIndex, StringComparison.Ordinal)) >= 0)
-		{
-			if (IsMarkupAttribute(
-				source,
-				searchIndex,
-				attributeName,
-				out var usesStockRoute,
-				out var routeTemplate))
-			{
-				attributes.Add(new MarkupAttribute(searchIndex, usesStockRoute, routeTemplate));
-			}
+	private static string? GetPlacementReason(
+		ActionBinding binding,
+		MarkupAttribute candidate,
+		int methodDeclarationCount)
+		=> !candidate.InOwnerMarkup
+			? binding.AttributeName +
+				" in a Razor template or @code markup is not supported; put the binding in the component's own markup"
+			: methodDeclarationCount > 1
+				? "at most one " + binding.AttributeName + " binding per component is supported"
+				: null;
 
-			searchIndex += attributeName.Length;
-		}
-
-		return attributes;
-	}
-
-	private static bool IsMarkupAttribute(
-		string source,
-		int attributeIndex,
-		string attributeName,
-		out bool usesStockRoute,
-		out string? routeTemplate)
-	{
-		usesStockRoute = false;
-		routeTemplate = null;
-		var tagStart = source.LastIndexOf('<', attributeIndex);
-		return tagStart >= 0 &&
-			TryGetRouteOwner(source, tagStart, out usesStockRoute, out routeTemplate) &&
-			source.LastIndexOf('>', attributeIndex) < tagStart &&
-			!IsInsideDelimitedRegion(source, attributeIndex, "@*", "*@") &&
-			!IsInsideDelimitedRegion(source, attributeIndex, "<!--", "-->") &&
-			HasSupportedTagPrefix(source, tagStart, attributeIndex) &&
-			attributeIndex > 0 &&
-			char.IsWhiteSpace(source[attributeIndex - 1]) &&
-			IsAttributeNameTerminator(source, attributeIndex + attributeName.Length);
-	}
-
-	private static bool TryGetRouteOwner(
-		string source,
-		int tagStart,
-		out bool usesStockRoute,
-		out string? routeTemplate)
-	{
-		usesStockRoute = false;
-		routeTemplate = null;
-		var tagLineStart = source.LastIndexOf('\n', tagStart);
-		tagLineStart = tagLineStart < 0 ? 0 : tagLineStart + 1;
-		if (!IsWhitespace(source, tagLineStart, tagStart))
-		{
-			return false;
-		}
-
-		var lines = source
-			.Substring(0, tagLineStart)
-			.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-		var pageDirectiveCount = 0;
-		foreach (var line in lines)
-		{
-			var trimmed = line.Trim();
-			if (trimmed.Length == 0)
-			{
-				continue;
-			}
-
-			if (IsSupportedPageDirectiveLine(trimmed))
-			{
-				pageDirectiveCount++;
-				continue;
-			}
-
-			if (IsSupportedMarkupLine(trimmed))
-			{
-				continue;
-			}
-
-			if (!IsSupportedDirectiveLine(trimmed))
-			{
-				return false;
-			}
-
-			if (routeTemplate is null && TryReadOmittedHtmxRoute(trimmed, out var declaredRoute))
-			{
-				routeTemplate = declaredRoute;
-			}
-		}
-
-		usesStockRoute = pageDirectiveCount == 1;
-		return pageDirectiveCount <= 1;
-	}
-
-	private static bool TryReadOmittedHtmxRoute(string line, out string? routeTemplate)
+	private static string? TryReadOmittedHtmxRoute(string attributeDirective)
 	{
 		string[] prefixes =
 		{
-			"@attribute [HtmxRoute(\"",
-			"@attribute [Htmxor.HtmxRoute(\"",
-			"@attribute [global::Htmxor.HtmxRoute(\"",
+			"[HtmxRoute(\"",
+			"[Htmxor.HtmxRoute(\"",
+			"[global::Htmxor.HtmxRoute(\"",
 		};
 		const string suffix = "\")]";
 		foreach (var prefix in prefixes)
 		{
-			if (!line.StartsWith(prefix, StringComparison.Ordinal) ||
-				!line.EndsWith(suffix, StringComparison.Ordinal))
+			if (!attributeDirective.StartsWith(prefix, StringComparison.Ordinal) ||
+				!attributeDirective.EndsWith(suffix, StringComparison.Ordinal))
 			{
 				continue;
 			}
 
-			var value = line.Substring(prefix.Length, line.Length - prefix.Length - suffix.Length);
+			var value = attributeDirective.Substring(
+				prefix.Length,
+				attributeDirective.Length - prefix.Length - suffix.Length);
 			if (value.Length > 0 && value.IndexOf('"') < 0)
 			{
-				routeTemplate = value;
-				return true;
+				return value;
 			}
 		}
 
-		routeTemplate = null;
-		return false;
+		return null;
 	}
-
-	private static bool IsWhitespace(string source, int start, int end)
-	{
-		for (var index = start; index < end; index++)
-		{
-			if (!char.IsWhiteSpace(source[index]))
-			{
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	private static bool IsSupportedDirectiveLine(string line)
-	{
-		if (!HasOnlySingleLineLexicalContent(line) ||
-			line.IndexOf('<') >= 0 ||
-			line.IndexOf('>') >= 0)
-		{
-			return false;
-		}
-
-		var isAttributeDirective = line.StartsWith("@attribute [", StringComparison.Ordinal) &&
-			line.EndsWith("]", StringComparison.Ordinal);
-		var isUsingDirective = line.StartsWith("@using ", StringComparison.Ordinal) &&
-			line.IndexOf('(') < 0;
-		var isInjectDirective = line.StartsWith("@inject ", StringComparison.Ordinal) &&
-			line.IndexOf('(') < 0;
-		return isAttributeDirective || isUsingDirective || isInjectDirective;
-	}
-
-	private static bool IsSupportedMarkupLine(string line)
-	{
-		if (!HasSupportedMarkupBounds(line))
-		{
-			return false;
-		}
-
-		const int nameStart = 1;
-		var nameEnd = SkipName(line, nameStart, line.Length - 1, allowRazorPrefix: false);
-		if (!HasSupportedMarkupNameBoundary(line, nameStart, nameEnd))
-		{
-			return false;
-		}
-
-		var openingTagEnd = line.IndexOf('>', nameEnd);
-		return openingTagEnd >= 0 &&
-			(IsSelfClosingMarkupLine(line, nameStart, nameEnd, openingTagEnd) ||
-			IsPlainMarkupElementLine(line, nameStart, nameEnd, openingTagEnd));
-	}
-
-	private static bool HasSupportedMarkupNameBoundary(
-		string line,
-		int nameStart,
-		int nameEnd)
-		=> nameEnd > nameStart &&
-			(nameEnd == line.Length - 1 ||
-			char.IsWhiteSpace(line[nameEnd]) ||
-			line[nameEnd] == '>');
-
-	private static bool IsSelfClosingMarkupLine(
-		string line,
-		int nameStart,
-		int nameEnd,
-		int openingTagEnd)
-	{
-		if (openingTagEnd != line.Length - 1 ||
-			!IsVoidHtmlElement(line, nameStart, nameEnd))
-		{
-			return false;
-		}
-
-		var index = openingTagEnd - 1;
-		while (index >= 0 && char.IsWhiteSpace(line[index]))
-		{
-			index--;
-		}
-
-		return index >= 0 && line[index] == '/';
-	}
-
-	private static bool IsVoidHtmlElement(string line, int nameStart, int nameEnd)
-	{
-		const string voidElementNames = "|area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr|";
-		var name = "|" + line.Substring(nameStart, nameEnd - nameStart).ToLowerInvariant() + "|";
-		return voidElementNames.IndexOf(name, StringComparison.Ordinal) >= 0;
-	}
-
-	private static bool IsPlainMarkupElementLine(
-		string line,
-		int nameStart,
-		int nameEnd,
-		int openingTagEnd)
-	{
-		var name = line.Substring(nameStart, nameEnd - nameStart);
-		if (string.Equals(name, "plaintext", StringComparison.OrdinalIgnoreCase))
-		{
-			return false;
-		}
-
-		var closingTag = "</" + name + ">";
-		var closingTagStart = line.Length - closingTag.Length;
-		return closingTagStart > openingTagEnd &&
-			line.EndsWith(closingTag, StringComparison.OrdinalIgnoreCase) &&
-			line.IndexOf('<', openingTagEnd + 1) == closingTagStart &&
-			line.IndexOf('>', openingTagEnd + 1) == line.Length - 1;
-	}
-
-	private static bool HasSupportedMarkupBounds(string line)
-		=> HasOnlySingleLineLexicalContent(line) &&
-			line.Length >= 3 &&
-			line[0] == '<' &&
-			line[line.Length - 1] == '>' &&
-			line[1] != '!' &&
-			line[1] != '?' &&
-			line[1] != '/';
-
-	private static bool IsSupportedPageDirectiveLine(string line)
-	{
-		const string prefix = "@page \"";
-		return HasOnlySingleLineLexicalContent(line) &&
-			line.StartsWith(prefix, StringComparison.Ordinal) &&
-			line.EndsWith("\"", StringComparison.Ordinal) &&
-			line.IndexOf('\"', prefix.Length) == line.Length - 1;
-	}
-
-	private static bool HasOnlySingleLineLexicalContent(string line)
-		=> line.IndexOf("/*", StringComparison.Ordinal) < 0 &&
-			line.IndexOf("*/", StringComparison.Ordinal) < 0 &&
-			line.IndexOf("//", StringComparison.Ordinal) < 0 &&
-			line.IndexOf("\"\"\"", StringComparison.Ordinal) < 0 &&
-			line.IndexOf('$') < 0 &&
-			line.IndexOf('@', 1) < 0;
-
-	private static bool HasSupportedTagPrefix(string source, int tagStart, int attributeIndex)
-	{
-		var index = SkipName(source, tagStart + 1, attributeIndex, allowRazorPrefix: false);
-		if (index < 0)
-		{
-			return false;
-		}
-
-		while (index < attributeIndex)
-		{
-			index = SkipWhitespace(source, index, attributeIndex);
-			if (index == attributeIndex)
-			{
-				return true;
-			}
-
-			var attributeNameStart = index;
-			index = SkipName(source, index, attributeIndex, allowRazorPrefix: true);
-			if (index < 0)
-			{
-				return false;
-			}
-
-			if (index < attributeIndex && source[index] == '=')
-			{
-				index = SkipSupportedAttributeValue(
-					source,
-					index + 1,
-					attributeIndex,
-					attributeNameStart,
-					index);
-				if (index < 0)
-				{
-					return false;
-				}
-			}
-		}
-
-		return true;
-	}
-
-	private static int SkipName(string source, int start, int end, bool allowRazorPrefix)
-	{
-		var index = start;
-		if (allowRazorPrefix && index < end && source[index] == '@')
-		{
-			index++;
-		}
-
-		var nameStart = index;
-		while (index < end && IsNameCharacter(source[index]))
-		{
-			index++;
-		}
-
-		return index == nameStart ? -1 : index;
-	}
-
-	private static int SkipWhitespace(string source, int start, int end)
-	{
-		var index = start;
-		while (index < end && char.IsWhiteSpace(source[index]))
-		{
-			index++;
-		}
-
-		return index;
-	}
-
-	private static int SkipSupportedAttributeValue(
-		string source,
-		int start,
-		int end,
-		int attributeNameStart,
-		int attributeNameEnd)
-	{
-		if (start >= end || source[start] != '"')
-		{
-			return -1;
-		}
-
-		if (IsStaticIdTarget(source, start, end, attributeNameStart, attributeNameEnd))
-		{
-			return SkipStaticIdSelector(source, start + 2, end);
-		}
-
-		var index = start + 1;
-		while (index < end)
-		{
-			if (source[index] == '"')
-			{
-				return index + 1;
-			}
-
-			if (source[index] == '@')
-			{
-				index = SkipSimpleRazorIdentifier(source, index + 1, end);
-				if (index < 0)
-				{
-					return -1;
-				}
-
-				continue;
-			}
-
-			if (!IsSupportedAttributeValueCharacter(source[index]))
-			{
-				return -1;
-			}
-
-			index++;
-		}
-
-		return -1;
-	}
-
-	private static bool IsStaticIdTarget(
-		string source,
-		int valueStart,
-		int valueEnd,
-		int attributeNameStart,
-		int attributeNameEnd)
-		=> attributeNameEnd - attributeNameStart == "hx-target".Length &&
-			string.CompareOrdinal(
-				source,
-				attributeNameStart,
-				"hx-target",
-				0,
-				"hx-target".Length) == 0 &&
-			valueStart + 1 < valueEnd &&
-			source[valueStart + 1] == '#';
-
-	private static int SkipStaticIdSelector(string source, int start, int end)
-	{
-		if (start >= end || !IsIdentifierStart(source[start]))
-		{
-			return -1;
-		}
-
-		var index = start + 1;
-		while (index < end &&
-			(IsIdentifierPart(source[index]) || source[index] == '-'))
-		{
-			index++;
-		}
-
-		return index < end && source[index] == '"' ? index + 1 : -1;
-	}
-
-	private static int SkipSimpleRazorIdentifier(string source, int start, int end)
-	{
-		if (start >= end || !IsIdentifierStart(source[start]))
-		{
-			return -1;
-		}
-
-		var index = start + 1;
-		while (index < end &&
-			(IsIdentifierPart(source[index]) || source[index] == '.'))
-		{
-			index++;
-		}
-
-		return index;
-	}
-
-	private static bool IsNameCharacter(char value)
-		=> char.IsLetterOrDigit(value) || value == '-' || value == '_' || value == ':';
-
-	private static bool IsIdentifierStart(char value)
-		=> char.IsLetter(value) || value == '_';
-
-	private static bool IsIdentifierPart(char value)
-		=> char.IsLetterOrDigit(value) || value == '_';
-
-	private static bool IsSupportedAttributeValueCharacter(char value)
-		=> char.IsLetterOrDigit(value) ||
-			value == '/' ||
-			value == '-' ||
-			value == '_' ||
-			value == '.' ||
-			value == '?' ||
-			value == '=' ||
-			value == '&' ||
-			value == ':' ||
-			value == '%';
-
-	private static bool IsInsideDelimitedRegion(
-		string source,
-		int index,
-		string openingDelimiter,
-		string closingDelimiter)
-		=> source.LastIndexOf(openingDelimiter, index, StringComparison.Ordinal) >
-			source.LastIndexOf(closingDelimiter, index, StringComparison.Ordinal);
-
-	private static bool IsAttributeNameTerminator(string source, int index)
-		=> index == source.Length || source[index] == '=' || char.IsWhiteSpace(source[index]);
 
 	private static bool IsBindingTerminator(string source, int index)
 		=> index == source.Length ||
@@ -617,8 +204,7 @@ internal sealed class HtmxorComponentActionDeclaration
 	private static HtmxorComponentActionDeclaration Unsupported(
 		string componentTypeName,
 		ActionBinding binding,
-		bool usesStockRoute,
-		string? routeTemplate,
+		RouteOwner owner,
 		string path,
 		SourceText text,
 		TextSpan span,
@@ -628,8 +214,7 @@ internal sealed class HtmxorComponentActionDeclaration
 			binding.AttributeName,
 			binding.HttpMethod,
 			handlerName: null,
-			usesStockRoute,
-			routeTemplate,
+			owner,
 			path,
 			span,
 			text.Lines.GetLinePositionSpan(span),
@@ -653,16 +238,14 @@ internal sealed class HtmxorComponentActionDeclaration
 		public Regex SupportedBinding { get; }
 	}
 
-	private sealed class MarkupAttribute
+	// The route owner is read from the whole file: a local @page, or an HtmxRoute literal without Methods.
+	private sealed class RouteOwner
 	{
-		public MarkupAttribute(int index, bool usesStockRoute, string? routeTemplate)
+		public RouteOwner(bool usesStockRoute, string? routeTemplate)
 		{
-			Index = index;
 			UsesStockRoute = usesStockRoute;
 			RouteTemplate = routeTemplate;
 		}
-
-		public int Index { get; }
 
 		public bool UsesStockRoute { get; }
 
