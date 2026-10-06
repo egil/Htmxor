@@ -118,7 +118,7 @@ internal sealed class RazorMarkupScanner
 
 			if (StartsWith("@*"))
 			{
-				SkipPast("*@");
+				SkipBlockComment("*@");
 				continue;
 			}
 
@@ -203,7 +203,7 @@ internal sealed class RazorMarkupScanner
 	{
 		if (StartsWith("@*"))
 		{
-			SkipPast("*@");
+			SkipBlockComment("*@");
 			return;
 		}
 
@@ -441,7 +441,7 @@ internal sealed class RazorMarkupScanner
 		}
 		else if (StartsWith("/*") || StartsWith("@*"))
 		{
-			SkipPast(source[index] == '/' ? "*/" : "*@");
+			SkipBlockComment(source[index] == '/' ? "*/" : "*@");
 		}
 		else
 		{
@@ -656,11 +656,15 @@ internal sealed class RazorMarkupScanner
 		index = found < 0 ? source.Length : found;
 	}
 
-	private void SkipPast(string value)
+	private void SkipPast(string value, int openingLength = 1)
 	{
-		var found = source.IndexOf(value, Math.Min(index + 1, source.Length), StringComparison.Ordinal);
+		var found = source.IndexOf(value, Math.Min(index + openingLength, source.Length), StringComparison.Ordinal);
 		index = found < 0 ? source.Length : found + value.Length;
 	}
+
+	// The closing marker of "@*" or "/*" cannot overlap its two-character opening marker.
+	private void SkipBlockComment(string closing)
+		=> SkipPast(closing, openingLength: 2);
 
 	private bool StartsLine(int position)
 	{
