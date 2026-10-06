@@ -607,7 +607,7 @@ public sealed class HtmxorActionGeneratorTests
 			"ReportComponent.razor",
 			"@page \"/x\"\n@if (Show) { <div "));
 
-		Assert.Empty(run.DriverDiagnostics);
+		AssertNoGeneratorException(run);
 	}
 
 	/// <summary>
@@ -695,9 +695,9 @@ public sealed class HtmxorActionGeneratorTests
 		{
 			var run = RunGenerators(new RazorInput("ReportComponent.razor", source[..length]));
 			Assert.True(
-				run.DriverDiagnostics.IsEmpty,
-				$"Prefix length {length} produced driver diagnostics: " +
-				string.Join("; ", run.DriverDiagnostics));
+				run.DriverDiagnostics.All(static diagnostic => diagnostic.Id != "CS8785"),
+				$"Prefix length {length} made the generator throw: " +
+				string.Join("; ", run.DriverDiagnostics.Where(static diagnostic => diagnostic.Id == "CS8785")));
 		}
 	}
 
@@ -1270,6 +1270,14 @@ public sealed class HtmxorActionGeneratorTests
 		=> Assert.DoesNotContain(
 			run.RunResult.Results.SelectMany(static result => result.GeneratedSources),
 			static source => source.HintName == "HtmxorGeneratedActions.g.cs");
+
+	/// <summary>
+	/// The protected behavior for incomplete, mid-edit Razor text is that the generator does not
+	/// throw (CS8785), not that it reports no diagnostics at all: a recognized-but-unsupported
+	/// binding still correctly reports its own HTMXOR002, truncated or not.
+	/// </summary>
+	private static void AssertNoGeneratorException(GeneratorRun run)
+		=> Assert.DoesNotContain(run.DriverDiagnostics, static diagnostic => diagnostic.Id == "CS8785");
 
 	/// <summary>
 	/// Confirms which route owner the scanner attributed to a generated action: a <c>@page</c>
