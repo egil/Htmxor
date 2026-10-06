@@ -608,9 +608,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	[Fact]
 	public async Task Htmx_route_mapped_to_a_backslash_separated_Imports_path_fails_closed()
 	{
-		// Mapped paths may use either separator regardless of host OS (razor-to-C# line mapping
-		// is independent of the file system that later compiles the output), so a backslash
-		// before "_Imports.razor" must still be recognized as the special file on this (Linux) host.
+		// Mapped paths may use either separator, whatever the host OS. On a Unix host this
+		// backslash path catches a check built on Path.GetFileName, which splits only on '/'.
 		var componentPath = ComponentPath("BackslashImportsComponent.razor");
 		var importsPath = "C:\\Proj\\_Imports.razor";
 		var source = $$"""
