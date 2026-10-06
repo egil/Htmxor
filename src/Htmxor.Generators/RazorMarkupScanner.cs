@@ -609,10 +609,25 @@ internal sealed class RazorMarkupScanner
 	{
 		var closingTag = string.Equals(elementName, PlaintextElement, StringComparison.OrdinalIgnoreCase)
 			? -1
-			: source.IndexOf("</" + elementName, index, StringComparison.OrdinalIgnoreCase);
+			: FindClosingTag("</" + elementName);
 		index = closingTag < 0 ? source.Length : closingTag;
 		SkipPast(">");
 	}
+
+	// "</script" only closes script when the name ends there, so "</scripture>" stays raw text.
+	private int FindClosingTag(string prefix)
+	{
+		var found = source.IndexOf(prefix, index, StringComparison.OrdinalIgnoreCase);
+		while (found >= 0 && !IsTagNameEnd(found + prefix.Length))
+		{
+			found = source.IndexOf(prefix, found + 1, StringComparison.OrdinalIgnoreCase);
+		}
+
+		return found;
+	}
+
+	private bool IsTagNameEnd(int position)
+		=> position >= source.Length || char.IsWhiteSpace(source[position]) || source[position] is '/' or '>';
 
 	private string ReadName()
 	{
