@@ -1410,6 +1410,30 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
+	/// <summary>
+	/// A script's closing tag name also ends at trailing whitespace before the ">", not only at
+	/// the ">" itself: "&lt;/script &gt;" is a valid closing tag in HTML and in Razor. A real
+	/// binding after it must still be found.
+	/// </summary>
+	[Fact]
+	public void Binding_after_a_script_whose_closing_tag_has_trailing_whitespace_emits_its_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<script>var t = 1;</script >
+			<button @onput="PutReport">x</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
 	[Fact]
 	public void Stock_page_onput_emits_an_action_without_copying_route_text()
 	{
