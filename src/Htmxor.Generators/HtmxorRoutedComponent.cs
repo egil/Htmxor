@@ -227,7 +227,7 @@ internal sealed class HtmxorRoutedComponent
 			.GetLocation()
 			.GetMappedLineSpan()
 			.Path;
-		return path is not null && path.EndsWith("_Imports.razor", StringComparison.OrdinalIgnoreCase)
+		return RazorImportsFile.Matches(path)
 			? "HtmxRoute declarations from _Imports.razor are not supported"
 			: null;
 	}

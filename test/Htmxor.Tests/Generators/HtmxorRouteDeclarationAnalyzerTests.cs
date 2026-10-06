@@ -606,6 +606,53 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
+	public async Task Htmx_route_mapped_to_a_backslash_separated_Imports_path_fails_closed()
+	{
+		// Mapped paths may use either separator, whatever the host OS. On a Unix host this
+		// backslash path catches a check built on Path.GetFileName, which splits only on '/'.
+		var componentPath = ComponentPath("BackslashImportsComponent.razor");
+		var importsPath = "C:\\Proj\\_Imports.razor";
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			#line 1 "{{EscapePath(importsPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/backslash-imports/{Id:int}")]
+			#line 20 "{{EscapePath(componentPath)}}"
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("backslash.read")]
+			#line default
+			public sealed class BackslashImportsComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath, importsPath });
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Contains("HtmxRoute declarations from _Imports.razor are not supported", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Equal(importsPath, diagnostic.Location.GetMappedLineSpan().Path);
+	}
+
+	[Fact]
+	public async Task Htmx_route_on_a_component_file_merely_ending_in_Imports_razor_reports_no_diagnostics()
+	{
+		// "Admin_Imports.razor" ends with "_Imports.razor" but is an ordinary component file, not
+		// the special _Imports.razor, so its HtmxRoute is the component's own declaration.
+		var adminImportsPath = ComponentPath("Admin_Imports.razor");
+		var source = ComponentSource(
+			Path.GetFileNameWithoutExtension(adminImportsPath),
+			adminImportsPath,
+			"""[global::Htmxor.HtmxRouteAttribute("/admin/{Id:int}", Methods = ["GET"])]""",
+			"""[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("admin.read")]""");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { adminImportsPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
 	public async Task DisableHtmxDirectRouting_declared_in_Imports_reports_HTMXOR003()
 	{
 		// Cause (a): the marker declared in _Imports.razor instead of the routed type's own
