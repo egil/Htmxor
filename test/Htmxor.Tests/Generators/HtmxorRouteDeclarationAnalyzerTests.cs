@@ -606,6 +606,28 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
+	public async Task Htmx_route_on_a_component_file_merely_ending_in_Imports_razor_is_not_cause_a()
+	{
+		// A component-local HtmxRoute declared in a file whose name merely ends with
+		// "_Imports.razor" (for example "Admin_Imports.razor") is not the special _Imports.razor;
+		// the route belongs to this routed type's own declaration, which is exactly what the
+		// HTMXOR001 _Imports-origin rule above must not flag. Only a file actually named
+		// _Imports.razor is that special case. Mirrors the HTMXOR003 regression test below.
+		var adminImportsPath = ComponentPath("Admin_Imports.razor");
+		var source = ComponentSource(
+			Path.GetFileNameWithoutExtension(adminImportsPath),
+			adminImportsPath,
+			"""[global::Htmxor.HtmxRouteAttribute("/admin/{Id:int}", Methods = ["GET"])]""",
+			"""[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("admin.read")]""");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { adminImportsPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Fact]
 	public async Task DisableHtmxDirectRouting_declared_in_Imports_reports_HTMXOR003()
 	{
 		// Cause (a): the marker declared in _Imports.razor instead of the routed type's own
