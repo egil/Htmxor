@@ -116,6 +116,12 @@ internal sealed class RazorMarkupScanner
 				return true;
 			}
 
+			if (StartsWith("@*"))
+			{
+				SkipPast("*@");
+				continue;
+			}
+
 			ScanAttribute(ownerMarkup);
 		}
 
@@ -463,6 +469,7 @@ internal sealed class RazorMarkupScanner
 			? atStatementStart
 			: value is '{' or '}' or ';' or ':' or ')';
 
+	// Balanced C#, such as an expression or a statement header. A Razor template inside it is markup.
 	private void SkipBalanced(char open, char close)
 	{
 		var depth = 0;
@@ -470,6 +477,13 @@ internal sealed class RazorMarkupScanner
 		{
 			if (TrySkipCSharpLiteralOrComment())
 			{
+				continue;
+			}
+
+			if (StartsWith("@<"))
+			{
+				index++;
+				ScanMarkup(ownerMarkup: false, island: true);
 				continue;
 			}
 
