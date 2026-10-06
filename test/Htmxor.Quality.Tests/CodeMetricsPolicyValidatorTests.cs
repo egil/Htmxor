@@ -142,6 +142,15 @@ public sealed class CodeMetricsPolicyValidatorTests
 	}
 
 	[Fact]
+	public void Validate_ignores_projects_inside_a_nested_claude_worktree()
+	{
+		using var repository = RepositoryPolicyFixture.Create(
+			(".claude/worktrees/issue-1/src/NewProduct/NewProduct.csproj", "production", false));
+
+		ValidateWithAssignments(repository);
+	}
+
+	[Fact]
 	public void Validate_rejects_a_solution_project_missing_from_the_repository()
 	{
 		const string path = "src/NewProduct/NewProduct.csproj";
