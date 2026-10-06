@@ -271,7 +271,7 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	[Fact]
-	public void Binding_after_prior_self_closing_component_markup_fails_closed()
+	public void Binding_after_prior_self_closing_component_markup_emits_a_compiling_action()
 	{
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
@@ -283,7 +283,106 @@ public sealed class HtmxorActionGeneratorTests
 
 		Assert.Empty(run.DriverDiagnostics);
 		Assert.Empty(run.RunResult.Diagnostics);
-		AssertNoActionSource(run);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// A double-quoted binding generates its action from anywhere in the route owner's own
+	/// markup (#306), for both a <c>@page</c> owner and an omitted-<c>Methods</c>
+	/// <c>HtmxRoute</c> owner. Every position here fails closed before the fix: the scanner's
+	/// narrow earlier-lines or earlier-attribute window drops the binding silently.
+	/// </summary>
+	public static IEnumerable<object[]> BindingAnywherePositionCases()
+	{
+		string[] routeDeclarations =
+		{
+			"@page \"/reports/{ReportId:int}\"",
+			"@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]",
+		};
+
+		(string Position, string Template)[] positions =
+		{
+			("control_flow", """
+				%ROUTE%
+				@foreach (var item in Items)
+				{
+					<button @onput="PutReport">Save</button>
+				}
+				"""),
+			("child_content", """
+				%ROUTE%
+				<SomeWrapper>
+					<button @onput="PutReport">Save</button>
+				</SomeWrapper>
+				"""),
+			("htmx_fragment", """
+				%ROUTE%
+				<HtmxFragment Name="save">
+					<button @onput="PutReport">Save</button>
+				</HtmxFragment>
+				"""),
+			("after_component_markup", """
+				%ROUTE%
+				<SomeWidget>
+					<span>Widget content</span>
+				</SomeWidget>
+				<button @onput="PutReport">Save</button>
+				"""),
+			("after_earlier_binding_of_another_method", """
+				%ROUTE%
+				<button @onpost="PostReport">Create</button>
+				<button @onput="PutReport">Save</button>
+				"""),
+			("after_code", """
+				%ROUTE%
+				@code {
+					private Task Placeholder() => Task.CompletedTask;
+				}
+				<button @onput="PutReport">Save</button>
+				"""),
+			("after_inherits", """
+				%ROUTE%
+				@inherits ReportComponentBase
+				<button @onput="PutReport">Save</button>
+				"""),
+			("after_layout", """
+				%ROUTE%
+				@layout ReportLayout
+				<button @onput="PutReport">Save</button>
+				"""),
+			("after_arbitrary_earlier_attribute", """
+				%ROUTE%
+				<button hx-vals='{"foo":"bar"}' @onput="PutReport">Save</button>
+				"""),
+		};
+
+		foreach (var routeDeclaration in routeDeclarations)
+		{
+			foreach (var position in positions)
+			{
+				yield return new object[]
+				{
+					position.Position,
+					position.Template.Replace("%ROUTE%", routeDeclaration, StringComparison.Ordinal),
+				};
+			}
+		}
+	}
+
+	[Theory]
+	[MemberData(nameof(BindingAnywherePositionCases))]
+	public void Binding_emits_its_action_from_anywhere_in_the_route_owners_markup(
+		string position,
+		string content)
+	{
+		var run = RunGenerators(new RazorInput("ReportComponent.razor", content));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 

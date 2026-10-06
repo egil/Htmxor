@@ -1,0 +1,22 @@
+@page "/issue-306/items"
+@namespace Htmxor.PackageConsumer
+@using Htmxor.Components
+
+@code {
+    public static int ToggleCount;
+    private static readonly string[] Items = ["alpha", "beta"];
+
+    private void Toggle()
+    {
+        ToggleCount++;
+    }
+}
+
+<main>
+@foreach (var item in Items)
+{
+    <HtmxFragment Name="@item">
+        <button @onpatch="Toggle">@item</button>
+    </HtmxFragment>
+}
+</main>
