@@ -1385,6 +1385,31 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
+	/// <summary>
+	/// A script's raw text ends only at its own real closing tag, never at a tag name that merely
+	/// starts with the same letters, such as "&lt;/scripture&gt;" inside a string. A real binding
+	/// after the script must still be found: a closing-tag lookalike must not end the script early
+	/// and strand a dangling quote that swallows the rest of the file.
+	/// </summary>
+	[Fact]
+	public void Binding_after_a_script_containing_a_closing_tag_lookalike_emits_its_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<script>var t = "</scripture><div title='";</script>
+			<button @onput="PutReport">x</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
 	[Fact]
 	public void Stock_page_onput_emits_an_action_without_copying_route_text()
 	{
