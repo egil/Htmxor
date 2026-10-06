@@ -98,7 +98,7 @@ public sealed class QualityCommandTests
 			"summary.json");
 		using var summary = JsonDocument.Parse(File.ReadAllText(summaryPath));
 		var testRuns = summary.RootElement.GetProperty("testRuns").EnumerateArray().ToArray();
-		Assert.Equal(5, testRuns.Length);
+		Assert.Equal(6, testRuns.Length);
 		Assert.All(testRuns, run => Assert.Equal(1, run.GetProperty("total").GetInt32()));
 		var upstreamMonitor = Assert.Single(testRuns, run => run.GetProperty("project").GetString() == "test/Htmxor.UpstreamMonitor.Tests/Htmxor.UpstreamMonitor.Tests.csproj");
 		Assert.False(upstreamMonitor.GetProperty("coverageRequired").GetBoolean());
@@ -112,6 +112,10 @@ public sealed class QualityCommandTests
 			Assert.Equal(JsonValueKind.Null, run.GetProperty("coverageReport").ValueKind);
 			Assert.Equal(0, run.GetProperty("coverageReportCopies").GetInt32());
 		});
+		var samples = Assert.Single(testRuns, run => run.GetProperty("project").GetString() == "test/Htmxor.Samples.Tests/Htmxor.Samples.Tests.csproj");
+		Assert.False(samples.GetProperty("coverageRequired").GetBoolean());
+		Assert.Equal(JsonValueKind.Null, samples.GetProperty("coverageReport").ValueKind);
+		Assert.Equal(0, samples.GetProperty("coverageReportCopies").GetInt32());
 		var htmxor = Assert.Single(testRuns, run => run.GetProperty("project").GetString() == "test/Htmxor.Tests/Htmxor.Tests.csproj");
 		Assert.True(htmxor.GetProperty("coverageRequired").GetBoolean());
 		Assert.Equal(JsonValueKind.Null, htmxor.GetProperty("coverageReport").ValueKind);

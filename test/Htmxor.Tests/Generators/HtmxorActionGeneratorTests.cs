@@ -451,7 +451,7 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	[Fact]
-	public void Dynamic_onput_inside_a_newly_reached_control_flow_position_fails_closed_at_its_own_span()
+	public void Dynamic_onput_inside_control_flow_fails_closed_at_its_own_span()
 	{
 		const string content = """
 			@page "/reports/{ReportId:int}"
@@ -470,7 +470,7 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	[Fact]
-	public void Two_onput_bindings_in_a_newly_reached_control_flow_position_still_trigger_the_at_most_one_rule()
+	public void Two_onput_bindings_inside_control_flow_trigger_the_at_most_one_rule()
 	{
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
@@ -490,6 +490,77 @@ public sealed class HtmxorActionGeneratorTests
 			Assert.Contains("at most one", diagnostic.GetMessage(), StringComparison.Ordinal);
 		});
 		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// Binding-like text inside a C# lexical region of the route owner's own file — a comment,
+	/// string, char literal, or the C# surrounding a control-flow body or an <c>@{ }</c> block —
+	/// must not emit an action (#306). A whole-file scanner has to classify these regions itself;
+	/// it cannot rely on the earlier-lines window to keep them out of consideration. A char
+	/// literal containing a brace is included because misreading it would desynchronize the
+	/// scanner's brace-depth tracking and let the comment below it leak through as a real action.
+	/// </summary>
+	public static IEnumerable<object[]> NonbindingCSharpLexicalCases() =>
+		new (string Scenario, string Content)[]
+		{
+			("code_line_comment", """
+				@page "/reports/{ReportId:int}"
+				@code {
+					// <button @onput="PutReport">Save</button>
+				}
+				"""),
+			("code_block_comment", """
+				@page "/reports/{ReportId:int}"
+				@code {
+					/* <button @onput="PutReport">Save</button> */
+				}
+				"""),
+			("code_verbatim_string", """
+				@page "/reports/{ReportId:int}"
+				@code {
+					private const string Sample = @"<button @onput=""PutReport"">";
+				}
+				"""),
+			("code_escaped_string", """
+				@page "/reports/{ReportId:int}"
+				@code {
+					private const string Sample = "<button @onput=\"PutReport\">";
+				}
+				"""),
+			("foreach_line_comment", """
+				@page "/reports/{ReportId:int}"
+				@foreach (var item in Items)
+				{
+					// <button @onput="PutReport">Save</button>
+				}
+				"""),
+			("block_escaped_string", """
+				@page "/reports/{ReportId:int}"
+				@{
+					var sample = "<button @onput=\"PutReport\">";
+				}
+				"""),
+			("code_char_literal_with_brace", """
+				@page "/reports/{ReportId:int}"
+				@code {
+					private const char Brace = '}';
+					// <button @onput="PutReport">Save</button>
+				}
+				"""),
+		}.Select(static scenario => new object[] { scenario.Scenario, scenario.Content });
+
+	[Theory]
+	[MemberData(nameof(NonbindingCSharpLexicalCases))]
+	public void Binding_like_text_inside_a_Csharp_lexical_region_does_not_emit_an_action(
+		string scenario,
+		string content)
+	{
+		var run = RunGenerators(new RazorInput("ReportComponent.razor", content));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
 	[Fact]

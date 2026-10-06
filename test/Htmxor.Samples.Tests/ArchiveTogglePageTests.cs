@@ -9,10 +9,8 @@ namespace Htmxor.Samples.Tests;
 /// <summary>
 /// Protects <c>samples/HtmxorExamples/ArchiveTogglePage.razor</c> (#306): its
 /// <c>@onpatch="ToggleArchive"</c> binding sits after <c>@inherits</c> and <c>@code</c>, inside
-/// <c>@foreach</c>, inside <c>HtmxFragment</c>. No existing harness hosts
-/// <c>samples/HtmxorExamples</c> requests, so this hosts the sample's own real, compiled entry
-/// point directly, the narrowest boundary that exercises the deployed application's actual
-/// generated routing without new application infrastructure.
+/// <c>@foreach</c>, inside <c>HtmxFragment</c>, and a PATCH to the sample's own unmodified entry point
+/// reaches <c>ToggleArchive</c>.
 /// </summary>
 public sealed class ArchiveTogglePageTests : IAsyncLifetime
 {
