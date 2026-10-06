@@ -915,6 +915,71 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
 
+	/// <summary>
+	/// A component with two <c>@page</c> directives and a binding must fail the build through
+	/// HTMXOR002, never silently drop the binding (#306). The scanner now reads
+	/// <c>PageDirectiveCount &gt; 0</c> from the whole file, so the action is generated; the
+	/// unchanged analyzer then requires exactly one compiled stock route.
+	/// </summary>
+	[Fact]
+	public async Task Binding_in_a_component_with_two_page_directives_fails_closed_for_an_action()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}/alt")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task PutReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			@page "/reports/{Id:int}"
+			@page "/reports/{Id:int}/alt"
+			<button @onput="PutReport">Save</button>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains(
+			"exactly one stock route and no HtmxRoute",
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// The analyzer must never throw while the document is mid-edit (#306): the same truncated,
+	/// mid-token Razor text that must not crash the generator must not crash the analyzer either,
+	/// since both run <c>HtmxorComponentActionDeclaration.ParseAll</c> over every keystroke in an
+	/// IDE.
+	/// </summary>
+	[Fact]
+	public async Task Truncated_control_flow_markup_does_not_throw_the_analyzer()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"@page \"/x\"\n@if (Show) { <div ");
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "AD0001");
+	}
+
 	[Fact]
 	public async Task Static_handler_is_rejected_as_a_nonconfigurable_action_declaration()
 	{

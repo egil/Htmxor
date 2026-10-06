@@ -384,6 +384,38 @@ public sealed class HtmxorActionGeneratorTests
 				<button @onput="PutReport">Save</button>
 				@layout ReportLayout
 				"""),
+			("line_comment_before_binding_in_control_flow", """
+				%ROUTE%
+				@foreach (var item in Items)
+				{
+					// A per-row comment.
+					<button @onput="PutReport">Save</button>
+				}
+				"""),
+			("block_comment_before_binding_in_control_flow", """
+				%ROUTE%
+				@foreach (var item in Items)
+				{
+					/* A per-row comment. */
+					<button @onput="PutReport">Save</button>
+				}
+				"""),
+			("razor_comment_before_binding_in_control_flow", """
+				%ROUTE%
+				@foreach (var item in Items)
+				{
+					@* Don't render archived rows twice. *@
+					<button @onput="PutReport">Save</button>
+				}
+				"""),
+			("html_comment_before_binding_in_control_flow", """
+				%ROUTE%
+				@foreach (var item in Items)
+				{
+					<!-- A per-row comment. -->
+					<button @onput="PutReport">Save</button>
+				}
+				"""),
 		};
 
 		foreach (var owner in routeOwners)
@@ -450,6 +482,34 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
+	/// <summary>
+	/// A binding commented out with a Razor comment must never be mistaken for a real
+	/// declaration, and must never suppress the real binding that follows it inside the same
+	/// control-flow body (#306).
+	/// </summary>
+	[Fact]
+	public void Binding_after_a_Razor_commented_out_binding_of_another_handler_emits_only_the_real_action()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			@foreach (var item in Items)
+			{
+				@* <button @onput="Old"> *@
+				<button @onput="PutReport">Save</button>
+			}
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("Old", actionSource, StringComparison.Ordinal);
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
 	[Fact]
 	public void Dynamic_onput_inside_control_flow_fails_closed_at_its_own_span()
 	{
@@ -493,12 +553,160 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	/// <summary>
+	/// The owner decided fail closed for these positions
+	/// (https://github.com/egil/Htmxor/issues/306#issuecomment-6021458497): a binding inside a
+	/// Razor template (<c>@&lt;tag&gt;</c>), whether the template sits in <c>@code</c> or in a
+	/// markup <c>@{ }</c> block, or inside markup rendered by an <c>@code</c> helper method, must
+	/// fail the build with HTMXOR002 at its own span and never generate an action.
+	/// </summary>
+	public static IEnumerable<object[]> TemplateOrCodeMarkupBindingCases() =>
+		new (string Scenario, string Content)[]
+		{
+			("razor_template_inside_code", """
+				@page "/reports/{ReportId:int}"
+				@code {
+					RenderFragment F => @<button @onput="PutReport">x</button>;
+				}
+				"""),
+			("razor_template_inside_markup_block", """
+				@page "/reports/{ReportId:int}"
+				@{
+					RenderFragment f = @<button @onput="PutReport">x</button>;
+				}
+				"""),
+			("markup_inside_code_helper_method", """
+				@page "/reports/{ReportId:int}"
+				@code {
+					void RenderRow(RenderTreeBuilder __builder)
+					{
+						<button @onput="PutReport">x</button>
+					}
+				}
+				"""),
+		}.Select(static scenario => new object[] { scenario.Scenario, scenario.Content });
+
+	[Theory]
+	[MemberData(nameof(TemplateOrCodeMarkupBindingCases))]
+	public void Binding_in_a_Razor_template_or_code_markup_fails_closed_at_its_own_span(
+		string scenario,
+		string content)
+	{
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		Assert.Contains("Razor template or @code markup", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertNoActionSource(run);
+	}
+
+	[Fact]
+	public void Truncated_control_flow_markup_does_not_throw_the_generator()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"@page \"/x\"\n@if (Show) { <div "));
+
+		Assert.Empty(run.DriverDiagnostics);
+	}
+
+	/// <summary>
+	/// A generator must never throw while the document is mid-edit, for example when a tag,
+	/// quote, string escape or char literal is still open at the end of the buffer (#306). This
+	/// sweeps every eighth prefix of a component shaped like
+	/// <c>samples/HtmxorExamples/ArchiveTogglePage.razor</c> (multi-line quoted attributes, a
+	/// control-flow body, a nested component and an <c>@if</c>/<c>else</c> markup split) so the
+	/// scan index is exercised stopping at hundreds of realistic mid-token positions, without
+	/// sweeping every single character.
+	/// </summary>
+	[Fact]
+	public void Every_eighth_prefix_of_a_representative_component_does_not_throw_the_generator()
+	{
+		const string source = """
+			@inherits ConditionalComponentBase
+			@page "/examples/archive-toggle/{Id:guid?}"
+			@code {
+				private IEnumerable<Contact> data = Enumerable.Empty<Contact>();
+
+				[Parameter]
+				public Guid Id { get; set; } = Guid.Empty;
+
+				protected override void OnInitialized()
+				{
+					data = Id == Guid.Empty
+						? Contacts.Data.Values.Take(30)
+						: Contacts.Data.Values.Where(c => c.Id == Id);
+				}
+
+				private void ToggleArchive()
+				{
+					if (!Contacts.Data.TryGetValue(Id, out var contact))
+					{
+						throw new Microsoft.AspNetCore.Http.BadHttpRequestException(
+							"A known contact id is required.");
+					}
+
+					contact.Archived = !contact.Archived;
+				}
+			}
+			<PageTitle>Htmxor - Examples - Contact Archived Toggle</PageTitle>
+			<AntiforgeryToken />
+			<h1>Contact Archived Toggle</h1>
+			<p>This is a Htmxor version of the <a href="https://htmx.org/essays/template-fragments/" title="Template Fragments article">contact archive toggle</a> example in the Template Fragments article.</p>
+			<table class="table">
+				<thead>
+					<tr>
+						<th>First Name</th>
+						<th>Last Name</th>
+						<th>Email</th>
+						<th>Status</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var contact in data)
+					{
+						<tr>
+							<td>@contact.FirstName</td>
+							<td>@contact.LastName</td>
+							<td>@contact.Email</td>
+							<td>
+								<HtmxFragment>
+									<button hx-patch="/examples/archive-toggle/@contact.Id"
+											hx-swap="outerHTML"
+											@onpatch="ToggleArchive">
+										@if (contact.Archived)
+										{
+											<text>Unarchive</text>
+										}
+										else
+										{
+											<text>Archive</text>
+										}
+									</button>
+								</HtmxFragment>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+			""";
+
+		for (var length = 0; length <= source.Length; length += 8)
+		{
+			var run = RunGenerators(new RazorInput("ReportComponent.razor", source[..length]));
+			Assert.True(
+				run.DriverDiagnostics.IsEmpty,
+				$"Prefix length {length} produced driver diagnostics: " +
+				string.Join("; ", run.DriverDiagnostics));
+		}
+	}
+
+	/// <summary>
 	/// Binding-like text inside a C# lexical region of the route owner's own file — a comment,
 	/// string, char literal, or the C# surrounding a control-flow body or an <c>@{ }</c> block —
-	/// must not emit an action (#306). A whole-file scanner has to classify these regions itself;
-	/// it cannot rely on the earlier-lines window to keep them out of consideration. A char
-	/// literal containing a brace is included because misreading it would desynchronize the
-	/// scanner's brace-depth tracking and let the comment below it leak through as a real action.
+	/// must not emit an action (#306). A char literal containing a brace is included because
+	/// misreading it would desynchronize the scanner's brace-depth tracking and let the comment
+	/// below it leak through as a real action.
 	/// </summary>
 	public static IEnumerable<object[]> NonbindingCSharpLexicalCases() =>
 		new (string Scenario, string Content)[]
