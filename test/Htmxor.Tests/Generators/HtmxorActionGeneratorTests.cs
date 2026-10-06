@@ -556,9 +556,12 @@ public sealed class HtmxorActionGeneratorTests
 	/// <summary>
 	/// A Razor comment is never a binding and never desyncs the scan, wherever it appears in the
 	/// route owner's own file (#306): directly after an implicit expression or plain text in
-	/// markup, inside a statement header, inside a markup expression wrapping a template, or
-	/// inside a quoted attribute value. Each row asserts exactly the expected real actions, with
-	/// no diagnostics; the comment itself never contributes an action or a diagnostic.
+	/// markup, inside a statement header, or inside a markup expression wrapping a template. Each
+	/// row asserts exactly the expected real actions, with no diagnostics; the comment itself
+	/// never contributes an action or a diagnostic. Inside a quoted attribute value, "@* ... *@"
+	/// is never a comment at all: real Razor emits it as literal text there, so a row in that
+	/// position asserts the literal text is preserved and a real binding elsewhere in the tag is
+	/// still recognized.
 	/// </summary>
 	public static IEnumerable<object[]> RazorCommentNeverBindsOrDesyncsCases() =>
 		new (string Scenario, string Content, string[] ExpectedHandlers)[]
@@ -603,9 +606,9 @@ public sealed class HtmxorActionGeneratorTests
 				<button @* @ondelete="Old" *@ @onput="PutReport">x</button>
 				""",
 				new[] { "PutReport" }),
-			("quote_inside_an_in_tag_comment_does_not_end_the_attribute_value", """
+			("comment_syntax_inside_a_quoted_attribute_value_is_literal_text", """
 				@page "/reports/{ReportId:int}"
-				<button title="@* " *@" @onput="PutReport">x</button>
+				<button title="@* literal *@" @onput="PutReport">x</button>
 				""",
 				new[] { "PutReport" }),
 		}.Select(static scenario => new object[] { scenario.Scenario, scenario.Content, scenario.ExpectedHandlers });
