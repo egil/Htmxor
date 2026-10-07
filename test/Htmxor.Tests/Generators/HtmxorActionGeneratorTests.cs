@@ -1197,8 +1197,13 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
+	/// <summary>
+	/// Two agreeing bindings nested in the same control-flow body collapse into exactly one
+	/// generated action, one registration and one dispatch (#309): the removed "at most one" rule
+	/// used to reject this exact pairing outright, even though both bindings name the same handler.
+	/// </summary>
 	[Fact]
-	public void Two_onput_bindings_inside_control_flow_trigger_the_at_most_one_rule()
+	public void Two_agreeing_onput_bindings_inside_control_flow_collapse_into_one_action()
 	{
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
@@ -1211,13 +1216,246 @@ public sealed class HtmxorActionGeneratorTests
 			}
 			"""));
 
-		Assert.Equal(2, run.RunResult.Diagnostics.Length);
-		Assert.All(run.RunResult.Diagnostics, diagnostic =>
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		Assert.Equal(1, CountOccurrences(actionSource, "TryConsume("));
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Two or more bindings that name the same handler for one method collapse into exactly one
+	/// generated action, one registration and one dispatch (#309), across mixed approved spellings
+	/// (#307: <c>M</c>, <c>this.M</c>, <c>@(M)</c>, <c>@M</c>), separate and nested positions, and
+	/// both route-owner shapes.
+	/// </summary>
+	public static IEnumerable<object[]> AgreeingBindingCases()
+	{
+		(string RouteDeclaration, bool UsesStockRoute)[] routeOwners =
 		{
-			Assert.Equal("HTMXOR002", diagnostic.Id);
-			Assert.Contains("at most one", diagnostic.GetMessage(), StringComparison.Ordinal);
-		});
+			("@page \"/reports/{ReportId:int}\"", true),
+			("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", false),
+		};
+
+		(string Scenario, string Markup)[] scenarios =
+		{
+			("two_separate_elements_same_spelling", """
+				<button @onput="PutReport">A</button>
+				<button @onput="PutReport">B</button>
+				"""),
+			("two_separate_elements_this_qualified_spelling", """
+				<button @onput="PutReport">A</button>
+				<button @onput="this.PutReport">B</button>
+				"""),
+			("two_separate_elements_at_expression_spellings", """
+				<button @onput="@(PutReport)">A</button>
+				<button @onput="@PutReport">B</button>
+				"""),
+			("earlier_top_level_and_later_nested_element", """
+				<button @onput="PutReport">A</button>
+				@foreach (var item in Items)
+				{
+					<button @onput="PutReport">B</button>
+				}
+				"""),
+			("three_agreeing_bindings_mixed_spellings_and_positions", """
+				<button @onput="PutReport">A</button>
+				@foreach (var item in Items)
+				{
+					<button @onput="this.PutReport">B</button>
+				}
+				<button @onput="@(PutReport)">C</button>
+				"""),
+		};
+
+		foreach (var owner in routeOwners)
+		{
+			foreach (var scenario in scenarios)
+			{
+				yield return new object[]
+				{
+					scenario.Scenario,
+					owner.RouteDeclaration,
+					owner.UsesStockRoute,
+					scenario.Markup,
+				};
+			}
+		}
+	}
+
+	[Theory]
+	[MemberData(nameof(AgreeingBindingCases))]
+	public void Agreeing_bindings_for_one_method_collapse_into_one_action(
+		string scenario,
+		string routeDeclaration,
+		bool usesStockRoute,
+		string markup)
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			{markup}
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		Assert.Equal(1, CountOccurrences(actionSource, "TryConsume("));
+		AssertChosenOwner(actionSource, "Htmxor.Consumer.ReportComponent.PUT.PutReport", usesStockRoute);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Different handlers bound to one method fail the build: each conflicting binding gets its own
+	/// HTMXOR002 at its own span, with a message that names both competing handlers, and no action is
+	/// generated for that method (#309). This replaces the removed "at most one" rule, which rejected
+	/// every multiplicity identically whether or not the bindings agreed.
+	/// </summary>
+	[Theory]
+	[InlineData("@page \"/reports/{ReportId:int}\"")]
+	[InlineData("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]")]
+	public void Different_handlers_for_one_method_fail_with_a_conflict_diagnostic_at_each_binding(
+		string routeDeclaration)
+	{
+		var content = $"""
+			{routeDeclaration}
+			<button @onput="PutReport">A</button>
+			<button @onput="PostReport">B</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		Assert.Equal(2, run.RunResult.Diagnostics.Length);
+		var firstSpan = content.IndexOf("@onput", StringComparison.Ordinal);
+		var secondSpan = content.IndexOf("@onput", firstSpan + 1, StringComparison.Ordinal);
+		var bySpan = run.RunResult.Diagnostics.ToDictionary(static d => d.Location.SourceSpan.Start);
+		AssertConflictDiagnostic(bySpan[firstSpan], input, firstSpan, "PutReport", "PostReport");
+		AssertConflictDiagnostic(bySpan[secondSpan], input, secondSpan, "PutReport", "PostReport");
 		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// A conflicting method's failure is scoped to that method: another method on the same component
+	/// still generates its own action (#309), rather than one bad method suppressing every action the
+	/// whole component would otherwise generate.
+	/// </summary>
+	[Fact]
+	public void Conflicting_bindings_fail_closed_while_another_method_on_the_same_component_still_generates()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			<button @onput="PutReport">A</button>
+			<button @onput="PostReport">B</button>
+			<button @onpost="PostReport">C</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		Assert.Equal(2, run.RunResult.Diagnostics.Length);
+		var firstSpan = content.IndexOf("@onput", StringComparison.Ordinal);
+		var secondSpan = content.IndexOf("@onput", firstSpan + 1, StringComparison.Ordinal);
+		var bySpan = run.RunResult.Diagnostics.ToDictionary(static d => d.Location.SourceSpan.Start);
+		AssertConflictDiagnostic(bySpan[firstSpan], input, firstSpan, "PutReport", "PostReport");
+		AssertConflictDiagnostic(bySpan[secondSpan], input, secondSpan, "PutReport", "PostReport");
+
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("\"POST\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PostReport", actionSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		Assert.Equal(1, CountOccurrences(actionSource, "TryConsume("));
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Three bindings for one method, two agreeing and one different, make every one of them
+	/// conflicting (#309): agreement is evaluated across the whole method, not pairwise, so the two
+	/// bindings that agree with each other do not get a pass just because they outnumber the third.
+	/// </summary>
+	[Fact]
+	public void Three_bindings_two_agreeing_and_one_different_all_fail_with_the_conflict_diagnostic()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			<button @onput="PutReport">A</button>
+			<button @onput="PutReport">B</button>
+			<button @onput="PostReport">C</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		Assert.Equal(3, run.RunResult.Diagnostics.Length);
+		var firstSpan = content.IndexOf("@onput", StringComparison.Ordinal);
+		var secondSpan = content.IndexOf("@onput", firstSpan + 1, StringComparison.Ordinal);
+		var thirdSpan = content.IndexOf("@onput", secondSpan + 1, StringComparison.Ordinal);
+		var bySpan = run.RunResult.Diagnostics.ToDictionary(static d => d.Location.SourceSpan.Start);
+		foreach (var span in new[] { firstSpan, secondSpan, thirdSpan })
+		{
+			AssertConflictDiagnostic(bySpan[span], input, span, "PutReport", "PostReport");
+		}
+
+		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// A binding that names no handler keeps its own #307 cause even next to a binding that does name
+	/// one (#309): a lambda is not a "different handler" for conflict purposes, so it must never
+	/// trigger the conflict message, and the valid sibling binding still generates its action normally.
+	/// </summary>
+	[Fact]
+	public void Lambda_binding_next_to_a_valid_binding_keeps_its_own_cause_and_does_not_conflict()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			<button @onput="@(() => PutReport(default!))">A</button>
+			<button @onput="PutReport">B</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
+		Assert.DoesNotContain("binds both", diagnostic.GetMessage(), StringComparison.Ordinal);
+
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		Assert.Equal(1, CountOccurrences(actionSource, "TryConsume("));
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Characterization (#309 AC4): one handler bound to several methods still generates one action
+	/// per method, unchanged by this slice's per-method multiplicity rule, because each binding kind
+	/// remains its own declaration group. This must already hold at this slice's starting revision.
+	/// </summary>
+	[Fact]
+	public void One_handler_bound_to_several_methods_still_generates_one_action_per_method()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<button @onput="PutReport" @onpatch="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("\"PATCH\"", actionSource, StringComparison.Ordinal);
+		Assert.Equal(2, CountOccurrences(actionSource, "this, PutReport"));
+		Assert.Equal(2, CountOccurrences(actionSource, "actions.Add("));
+		Assert.Equal(2, CountOccurrences(actionSource, "TryConsume("));
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
 	/// <summary>
@@ -2030,6 +2268,28 @@ public sealed class HtmxorActionGeneratorTests
 				Assert.DoesNotContain(otherFragment, message, StringComparison.Ordinal);
 			}
 		}
+	}
+
+	/// <summary>
+	/// Shared assertion for the #309 conflict diagnostic: the ID, severity, non-configurable tag and
+	/// span every HTMXOR002 already carries (<see cref="AssertUnsupportedDiagnostic"/>), plus the
+	/// exact proposed message naming both competing handlers and the now-removed "at most one"
+	/// fragment's absence.
+	/// </summary>
+	private static void AssertConflictDiagnostic(
+		Diagnostic diagnostic,
+		RazorInput input,
+		int expectedStart,
+		string first,
+		string second)
+	{
+		AssertUnsupportedDiagnostic(diagnostic, input, expectedStart);
+		var message = diagnostic.GetMessage();
+		Assert.DoesNotContain("at most one", message, StringComparison.Ordinal);
+		Assert.EndsWith(
+			$"@onput binds both '{first}' and '{second}'; exactly one handler is supported per method",
+			message,
+			StringComparison.Ordinal);
 	}
 
 	private static void AssertNoActionSource(GeneratorRun run)
