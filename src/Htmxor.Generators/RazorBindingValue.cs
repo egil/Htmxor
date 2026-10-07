@@ -1,36 +1,51 @@
 using System;
-using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Htmxor.Generators;
 
-// Reads an action binding's raw attribute value. A value that names one method group is a handler:
-// "M", M and "@M" (and the same inside @(...)). Anything else is classified by why it is not one.
+// Reads an action binding's raw attribute value as the C# expression Razor compiles. A bare method-group
+// name (M or this.M, quoted or not, behind the Razor @ and any parentheses) is a handler; anything else is
+// classified by why it is not one.
 internal static class RazorBindingValue
 {
-	private static readonly Regex Identifier = new(
-		"^[A-Za-z_][A-Za-z0-9_]*$",
-		RegexOptions.CultureInvariant);
-
-	private static readonly Regex MethodCall = new(
-		"^[A-Za-z_][A-Za-z0-9_.]*\\s*\\(.*\\)$",
-		RegexOptions.CultureInvariant | RegexOptions.Singleline);
-
 	public static string? TryReadHandler(string? value)
-	{
-		var expression = Unwrap(Unquote(value));
-		return Identifier.IsMatch(expression) ? expression : null;
-	}
+		=> Parse(value) switch
+		{
+			IdentifierNameSyntax name => name.Identifier.ValueText,
+			MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax name }
+				=> name.Identifier.ValueText,
+			_ => null,
+		};
 
 	public static string GetUnsupportedCause(string? value)
-	{
-		var expression = Unwrap(Unquote(value));
-		if (expression.IndexOf("=>", StringComparison.Ordinal) >= 0 ||
-			expression.StartsWith("delegate", StringComparison.Ordinal))
+		=> Parse(value) switch
 		{
-			return "a lambda or closure";
+			LambdaExpressionSyntax or AnonymousMethodExpressionSyntax => "a lambda or closure",
+			InvocationExpressionSyntax => "a method call",
+			_ => "a computed expression",
+		};
+
+	private static ExpressionSyntax? Parse(string? value)
+	{
+		var expression = StripRazorTransition(Unquote(value));
+		if (expression.Length == 0)
+		{
+			return null;
 		}
 
-		return MethodCall.IsMatch(expression) ? "a method call" : "a computed expression";
+		var syntax = SyntaxFactory.ParseExpression(expression);
+		if (syntax.ContainsDiagnostics || syntax.FullSpan.Length != expression.Length)
+		{
+			return null;
+		}
+
+		while (syntax is ParenthesizedExpressionSyntax parenthesized)
+		{
+			syntax = parenthesized.Expression;
+		}
+
+		return syntax;
 	}
 
 	private static string Unquote(string? value)
@@ -41,13 +56,6 @@ internal static class RazorBindingValue
 			: trimmed;
 	}
 
-	private static string Unwrap(string value)
-	{
-		if (value.StartsWith("@(", StringComparison.Ordinal) && value.EndsWith(")", StringComparison.Ordinal))
-		{
-			return value.Substring(2, value.Length - 3).Trim();
-		}
-
-		return value.StartsWith("@", StringComparison.Ordinal) ? value.Substring(1) : value;
-	}
+	private static string StripRazorTransition(string value)
+		=> value.StartsWith("@", StringComparison.Ordinal) ? value.Substring(1).Trim() : value;
 }
