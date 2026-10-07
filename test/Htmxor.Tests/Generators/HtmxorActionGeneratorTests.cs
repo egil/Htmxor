@@ -1083,15 +1083,16 @@ public sealed class HtmxorActionGeneratorTests
 
 	/// <summary>
 	/// A binding with no value at all (<c>@onX</c>, with no <c>=</c>) or an empty quoted value
-	/// (<c>@onX=""</c>) has no expression to classify, so it must report its own "an empty value"
-	/// cause (#307), not the generic "a computed expression" fallback that an absent expression
-	/// would otherwise fall into. <c>@onX="@"</c> (a bare Razor transition with nothing after it) is
-	/// not covered here: it is invalid Razor on its own (RZ1005), confirmed in the TestApp harness.
+	/// (<c>@onX=""</c>) is not a binding (#307, owner decision): real Razor builds both with no
+	/// errors and drops the attribute, so Htmxor must report nothing and generate nothing rather than
+	/// add a diagnostic for a case Razor already decided. <c>@onX="@"</c> (a bare Razor transition
+	/// with nothing after it) is not covered here: Razor itself rejects that page (RZ1005), so there
+	/// is no case to classify.
 	/// </summary>
 	[Theory]
 	[InlineData("missing_value", "<button @onput>Save</button>")]
 	[InlineData("empty_value", "<button @onput=\"\">Save</button>")]
-	public void Empty_or_missing_binding_value_fails_closed_with_the_empty_value_message(
+	public void Empty_or_missing_binding_value_is_not_a_binding(
 		string scenario,
 		string elementMarkup)
 	{
@@ -1099,13 +1100,12 @@ public sealed class HtmxorActionGeneratorTests
 			@page "/reports/{ReportId:int}"
 			%ELEMENT%
 			""".Replace("%ELEMENT%", elementMarkup, StringComparison.Ordinal);
-		var input = new RazorInput("ReportComponent.razor", content);
-		var run = RunGenerators(input);
+		var run = RunGenerators(new RazorInput("ReportComponent.razor", content));
 
-		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		AssertCauseSpecificMessage(diagnostic, "an empty value");
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
 		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
 	[Fact]
@@ -1921,14 +1921,14 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	/// <summary>
-	/// A lambda or closure, a method call, a conditional (computed expression), and an empty value
-	/// are distinct value-grammar causes (#307) that must never share a message: a catch-all message
+	/// A lambda or closure, a method call, and a conditional (computed expression) are three
+	/// distinct value-grammar causes (#307) that must never share a message: a catch-all message
 	/// naming every cause would make every value-error test pass regardless of which cause actually
-	/// fired. Asserting the expected fragment's presence and the other fragments' absence rules that
-	/// out.
+	/// fired. Asserting the expected fragment's presence and the other two fragments' absence rules
+	/// that out.
 	/// </summary>
 	private static readonly string[] ValueGrammarCauseFragments =
-		{ "lambda or closure", "method call", "computed expression", "an empty value" };
+		{ "lambda or closure", "method call", "computed expression" };
 
 	private static void AssertCauseSpecificMessage(Diagnostic diagnostic, string expectedFragment)
 	{
