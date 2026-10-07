@@ -1025,23 +1025,29 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			{
 				private static global::System.Threading.Tasks.Task DeleteReport(global::Htmxor.HtmxEventArgs args)
 					=> global::System.Threading.Tasks.Task.CompletedTask;
+
+				{{BindMethod("DeleteReport")}}
 			}
 			}
 			""";
-		var razor = new SourceAdditionalText(
-			componentPath,
-			"""
+		const string razorContent = """
 			@page "/reports/{Id:int}"
 			<button @ondelete="DeleteReport">Delete</button>
-			""");
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
-		Assert.Contains("handler 'DeleteReport' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		// A static method gets its own "static" cause (#308), not the generic
+		// instance-method message shared by every other unsupported handler.
+		HtmxorActionHandlerShapeAnalyzerTests.AssertHandlerCauseSpecificMessage(diagnostic, "static");
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(razorContent.IndexOf("@ondelete", StringComparison.Ordinal), "@ondelete".Length),
+			diagnostic.Location.SourceSpan);
 	}
 
 	[Fact]
@@ -1056,23 +1062,29 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			{
 				private static readonly global::System.Func<global::Htmxor.HtmxEventArgs, global::System.Threading.Tasks.Task> DeleteReport =
 					_ => global::System.Threading.Tasks.Task.CompletedTask;
+
+				{{BindMethod("DeleteReport")}}
 			}
 			}
 			""";
-		var razor = new SourceAdditionalText(
-			componentPath,
-			"""
+		const string razorContent = """
 			@page "/reports/{Id:int}"
 			<button @ondelete="DeleteReport">Delete</button>
-			""");
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
-		Assert.Contains("handler 'DeleteReport' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		// A static delegate field is a non-method member, the same "not a method" cause (#308) as
+		// an EventCallback field or an Action property, regardless of it also being static.
+		HtmxorActionHandlerShapeAnalyzerTests.AssertHandlerCauseSpecificMessage(diagnostic, "not a method");
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(razorContent.IndexOf("@ondelete", StringComparison.Ordinal), "@ondelete".Length),
+			diagnostic.Location.SourceSpan);
 	}
 
 	[Fact]
@@ -1091,23 +1103,41 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			namespace {{RootNamespace}}
 			{
 			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
-			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				{{BindMethod("DeleteReport")}}
+			}
 			}
 			""";
-		var razor = new SourceAdditionalText(
-			componentPath,
-			"""
+		const string razorContent = """
 			@page "/reports/{Id:int}"
 			<button @ondelete="DeleteReport">Delete</button>
-			""");
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
-		Assert.Contains("handler 'DeleteReport' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		// No member named DeleteReport exists anywhere on the component's own type hierarchy. Real
+		// Razor still binds the call: a real Htmxor.TestApp probe at this HEAD confirms C# simple-name
+		// lookup finds the `global using static` import's public DeleteReport and compiles cleanly.
+		// The imported method is not a member of the component at all, so Htmxor's compiled-symbol
+		// resolution never considers it "present" there; the owner's decision (#308, "Decision and
+		// correction") is that this stays "absent", not "the wrong shape", keeping the generic
+		// instance-method message instead of one of the eight shape causes.
+		var message = diagnostic.GetMessage();
+		Assert.Contains("handler 'DeleteReport' must be an instance method", message, StringComparison.Ordinal);
+		foreach (var fragment in HtmxorActionHandlerShapeAnalyzerTests.HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, message, StringComparison.Ordinal);
+		}
+
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(razorContent.IndexOf("@ondelete", StringComparison.Ordinal), "@ondelete".Length),
+			diagnostic.Location.SourceSpan);
 	}
 
 	[Fact]
@@ -1132,23 +1162,41 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			}
 
 			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
-			public sealed class ReportComponent : ReportComponentBase;
+			public sealed class ReportComponent : ReportComponentBase
+			{
+				{{BindMethod("DeleteReport")}}
+			}
 			}
 			""";
-		var razor = new SourceAdditionalText(
-			componentPath,
-			"""
+		const string razorContent = """
 			@page "/reports/{Id:int}"
 			<button @ondelete="DeleteReport">Delete</button>
-			""");
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
-		Assert.Contains("handler 'DeleteReport' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		// The private base member cannot rescue this binding by itself, but it does not need to:
+		// C# simple-name lookup skips the inaccessible private base DeleteReport and continues to the
+		// `global using static` import's public DeleteReport, which real Razor binds instead (a real
+		// Htmxor.TestApp probe at this HEAD confirms the page compiles cleanly). The owner's
+		// correction (#308, "Decision and correction") is that both imported-static cases - with or
+		// without a colliding inaccessible base member - keep the same generic instance-method
+		// message, because the bound handler is still not a member of the component.
+		var message = diagnostic.GetMessage();
+		Assert.Contains("handler 'DeleteReport' must be an instance method", message, StringComparison.Ordinal);
+		foreach (var fragment in HtmxorActionHandlerShapeAnalyzerTests.HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, message, StringComparison.Ordinal);
+		}
+
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(razorContent.IndexOf("@ondelete", StringComparison.Ordinal), "@ondelete".Length),
+			diagnostic.Location.SourceSpan);
 	}
 
 	[Fact]
@@ -1281,6 +1329,19 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	private static string ComponentPath(string relativePath)
 		=> Path.Combine(ProjectDirectory, relativePath);
+
+	/// <summary>
+	/// The exact call real Razor generates for an <c>@onX="handlerName"</c> binding: production finds
+	/// this call directly in the Razor-generated declaration's own syntax and reads it with the real
+	/// semantic model, so a fixture with no such call present gives production nothing to read and it
+	/// can never diagnose it. Every fixture below that relies on a cause-specific or absence diagnostic
+	/// must declare one, the same fidelity <c>HtmxorActionHandlerShapeAnalyzerTests.BindMethod</c>
+	/// already gives its own fixtures.
+	/// </summary>
+	private static string BindMethod(string handlerName)
+		=> "private void Bind() => " +
+			"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, " +
+			handlerName + ");";
 
 	private static string ComponentSource(
 		string componentName,

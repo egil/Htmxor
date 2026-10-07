@@ -71,14 +71,30 @@ public sealed class HtmxorActionGeneratorTests
 				public static EventCallbackFactory Factory { get; } = new();
 			}
 
+			// Mirrors the four delegate-typed Create<TValue> overloads of the real factory
+			// (Microsoft.AspNetCore.Components 10.0.11, verified by reflection), which has six
+			// overloads in total. The two EventCallback-typed overloads are omitted: a method group
+			// never converts to them, so a handler of any of the four approved shapes binds through
+			// plain C# overload resolution exactly as it would against the real framework.
 			public sealed class EventCallbackFactory
 			{
+				public EventCallback<T> Create<T>(object receiver, Action callback) =>
+					new(_ => { callback(); return Task.CompletedTask; });
+
+				public EventCallback<T> Create<T>(object receiver, Action<T> callback) =>
+					new(value => { callback(value); return Task.CompletedTask; });
+
+				public EventCallback<T> Create<T>(object receiver, Func<Task> callback) =>
+					new(_ => callback());
+
 				public EventCallback<T> Create<T>(object receiver, Func<T, Task> callback) => new(callback);
 			}
 
 			public readonly struct EventCallback<T>(Func<T, Task> callback)
 			{
 				public Task InvokeAsync(T value) => callback(value);
+
+				public Task InvokeAsync() => callback(default!);
 			}
 		}
 
@@ -128,6 +144,14 @@ public sealed class HtmxorActionGeneratorTests
 				private Task QueryReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
 
 				private Task GemÆndring(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+
+				// The four approved handler signatures (#308), under names distinct from the
+				// Task<HtmxEventArgs> handlers above.
+				private void VoidNoParamHandler() { }
+
+				private void VoidEventArgsParamHandler(Htmxor.HtmxEventArgs args) { }
+
+				private Task TaskNoParamHandler() => Task.CompletedTask;
 			}
 		}
 		""";
@@ -318,6 +342,71 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
 		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
 		AssertChosenOwner(actionSource, $"Htmxor.Consumer.ReportComponent.{httpMethod}.{handlerName}", usesStockRoute);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Each of the three approved handler signatures not already covered by
+	/// <see cref="Route_owner_and_component_binding_emit_one_compiling_action"/>'s
+	/// <c>Task M(HtmxEventArgs)</c> rows (#308) reaches its callback: it generates its action with no
+	/// diagnostics, and the whole pipeline compiles. <c>Create&lt;HtmxEventArgs&gt;</c> has one real
+	/// overload per shape (verified by reflection against Microsoft.AspNetCore.Components), so
+	/// ordinary C# overload resolution binds a <c>void</c> or parameterless handler exactly as it
+	/// binds the existing shape. This holds for both a <c>@page</c> owner and an omitted-<c>Methods</c>
+	/// <c>HtmxRoute</c> owner (#308 AC1), the same two owners
+	/// <see cref="Route_owner_and_component_binding_emit_one_compiling_action"/>'s rows use, and
+	/// <see cref="AssertChosenOwner"/> confirms each row picked the right one.
+	/// </summary>
+	public static IEnumerable<object[]> ApprovedHandlerSignatureCases()
+	{
+		(string Shape, string HandlerName)[] signatures =
+		{
+			("void_no_param", "VoidNoParamHandler"),
+			("void_event_args_param", "VoidEventArgsParamHandler"),
+			("task_no_param", "TaskNoParamHandler"),
+		};
+
+		(string RouteDeclaration, bool UsesStockRoute)[] routeOwners =
+		{
+			("@page \"/reports/{ReportId:int}\"", true),
+			("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", false),
+		};
+
+		foreach (var signature in signatures)
+		{
+			foreach (var owner in routeOwners)
+			{
+				yield return new object[]
+				{
+					signature.Shape,
+					signature.HandlerName,
+					owner.RouteDeclaration,
+					owner.UsesStockRoute,
+				};
+			}
+		}
+	}
+
+	[Theory]
+	[MemberData(nameof(ApprovedHandlerSignatureCases))]
+	public void Approved_handler_signature_emits_a_compiling_action(
+		string shape,
+		string handlerName,
+		string routeDeclaration,
+		bool usesStockRoute)
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			<button @onput="{handlerName}">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
+		AssertChosenOwner(actionSource, $"Htmxor.Consumer.ReportComponent.PUT.{handlerName}", usesStockRoute);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 

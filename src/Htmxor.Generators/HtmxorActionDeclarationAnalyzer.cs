@@ -84,7 +84,7 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 		var componentReason = GetComponentUnsupportedReason(
 			compilation,
 			component,
-			declaration.HandlerName,
+			declaration,
 			declaration.Path) ?? GetNormalOnlyUnsupportedReason(component!, symbols);
 		if (componentReason is not null)
 		{
@@ -149,7 +149,7 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 	private static string? GetComponentUnsupportedReason(
 		Compilation compilation,
 		INamedTypeSymbol? component,
-		string? handlerName,
+		HtmxorComponentActionDeclaration declaration,
 		string razorPath)
 	{
 		if (component is null ||
@@ -158,37 +158,9 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			return "the action owner must compile from the matching project-root Razor component";
 		}
 
-		return handlerName is not null && HasUnsupportedHandlerMember(compilation, component, handlerName)
-			? "handler '" + handlerName + "' must be an instance method on the request-owned component"
-			: null;
-	}
-
-	private static bool HasUnsupportedHandlerMember(
-		Compilation compilation,
-		INamedTypeSymbol component,
-		string handlerName)
-	{
-		var hasInstanceMethod = false;
-
-		for (var current = component; current is not null; current = current.BaseType)
-		{
-			foreach (var member in current.GetMembers(handlerName))
-			{
-				if (!compilation.IsSymbolAccessibleWithin(member, component))
-				{
-					continue;
-				}
-
-				if (member is not IMethodSymbol method || method.IsStatic)
-				{
-					return true;
-				}
-
-				hasInstanceMethod = true;
-			}
-		}
-
-		return !hasInstanceMethod;
+		return declaration.HandlerName is null || declaration.HandlerAccess is null
+			? null
+			: HtmxorActionHandler.GetUnsupportedReason(compilation, component, declaration);
 	}
 
 	private static bool ContainsMethod(TypedConstant methods, string httpMethod)
