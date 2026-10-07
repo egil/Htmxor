@@ -18,11 +18,31 @@ namespace Htmxor.Generators.Tests;
 ///
 /// This seam compiles a real component (plus, where needed, a real base type) directly as C#, the
 /// same way <see cref="HtmxorRouteDeclarationAnalyzerTests"/> does: handler resolution reads
-/// compiled symbols, not Razor-scanned text, so only a real compiled member exercises it.
+/// compiled symbols, not Razor-scanned text, so only a real compiled member exercises it. Every
+/// fixture also includes <see cref="BindMethod"/>, the exact call real Razor generates for
+/// <c>@onput="M"</c>: that ties the "Razor decides" contract to real C# overload resolution against
+/// the real <c>Microsoft.AspNetCore.Components</c> assembly, instead of letting a member-only
+/// compilation accept a binding no real component could ever contain.
 /// </summary>
 public sealed class HtmxorActionHandlerShapeAnalyzerTests
 {
 	private const string RootNamespace = "Htmxor.Consumer";
+
+	/// <summary>
+	/// The exact call real Razor generates for <c>@onput="M"</c> (confirmed against the real
+	/// <c>Microsoft.AspNetCore.Components</c> assembly's <c>_razor.g.cs</c> output). Every fixture
+	/// below adds this to the class that owns the binding, so real C# overload resolution — not this
+	/// suite's own guess — decides whether <c>M</c> is bindable.
+	/// </summary>
+	private const string BindMethod =
+		"private void Bind() => " +
+		"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, M);";
+
+	private const string HandlerRazorContent = """
+		@page "/reports/{Id:int}"
+		<button @onput="M">Save</button>
+		""";
+
 	private static readonly string ProjectDirectory = Path.GetFullPath(
 		Path.Combine(Path.GetTempPath(), "htmxor-action-handler-shape-tests"));
 	private static readonly ImmutableArray<MetadataReference> References = CreateReferences();
@@ -79,20 +99,21 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
-	/// A private handler on a base type is not accessible from the derived, request-owned
-	/// component: it must be reported as inaccessible, not silently treated as absent and not
-	/// silently accepted (#308).
+	/// A private handler on a base type is inaccessible from the derived, request-owned component,
+	/// so real Razor itself rejects the binding at the call site (CS0122, confirmed by a real
+	/// Htmxor.TestApp probe at `main` `bd14996` and independently by both test-contract reviewers):
+	/// Htmxor adds no diagnostic for a case the Razor compiler already decided (#308's "Decision and
+	/// correction"). AC3 ("reported as an error and not accepted") is met by Razor's own CS0122.
 	/// </summary>
 	[Fact]
-	public async Task Private_handler_on_a_base_type_is_rejected_as_inaccessible()
+	public async Task Private_handler_on_a_base_type_is_not_flagged_by_Htmxor()
 	{
 		var diagnostics = await RunWithBaseHandlerAsync(
 			"private global::System.Threading.Tasks.Task M(global::Htmxor.HtmxEventArgs args) " +
-				"=> global::System.Threading.Tasks.Task.CompletedTask;");
+				"=> global::System.Threading.Tasks.Task.CompletedTask;",
+			expectedCompilerErrorCode: "CS0122");
 
-		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
-		AssertHandlerCauseSpecificMessage(diagnostic, "not accessible");
+		Assert.Empty(diagnostics);
 	}
 
 	/// <summary>
@@ -159,22 +180,72 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 		Assert.Equal("HTMXOR002", diagnostic.Id);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		Assert.Equal(ComponentPath("ReportComponent.razor"), diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(HandlerRazorContent.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
+			diagnostic.Location.SourceSpan);
 		AssertHandlerCauseSpecificMessage(diagnostic, expectedCauseFragment);
 	}
 
 	/// <summary>
-	/// A shape real Razor itself rejects at the binding (here, <c>ValueTask</c>, confirmed CS1503 by
-	/// the owner's real Htmxor.TestApp probe) gets no Htmxor diagnostic at all: the owner's amended
-	/// scope decision (#308) is that Htmxor adds nothing for a case the Razor compiler already
-	/// decided. <c>ValueTask</c> stands for the whole Razor-rejected group (wrong parameter type, two
-	/// or more parameters, generic, <c>ref</c>/<c>in</c>, ambiguous overloads); each shares the same
-	/// "Htmxor must stay silent" contract, so one representative is enough.
+	/// A shape real Razor itself rejects at the binding gets no Htmxor diagnostic at all: the owner's
+	/// amended scope decision (#308) is that Htmxor adds nothing for a case the Razor compiler
+	/// already decided. Each row's fixture carries <see cref="BindMethod"/>, the real Razor-generated
+	/// call, so real C# overload resolution produces the asserted compiler-error code (confirmed by
+	/// the owner's real Htmxor.TestApp probe at `main` `bd14996`) instead of this suite assuming it.
+	/// One row per rejection branch that sits beside a diagnosed shape: <c>ValueTask</c> and a
+	/// non-<c>int</c>-return (CS1503, beside the diagnosed "returns a value" row), a non-
+	/// <c>HtmxEventArgs</c>-compatible parameter (CS1503, beside the diagnosed <c>EventArgs</c>/
+	/// <c>object</c> rows), two parameters (CS1503), a generic method (CS1503), a <c>ref</c> or
+	/// <c>in</c> parameter (CS1503), and an ambiguous overload pair (CS0121, beside the diagnosed
+	/// resolvable overloads).
 	/// </summary>
-	[Fact]
-	public async Task ValueTask_handler_is_not_flagged_by_Htmxor()
+	public static IEnumerable<object[]> RazorRejectedHandlerShapeCases() =>
+		new (string Scenario, string HandlerMember, string ExpectedCompilerErrorCode)[]
+		{
+			(
+				"value_task",
+				"private global::System.Threading.Tasks.ValueTask M(global::Htmxor.HtmxEventArgs args) => default;",
+				"CS1503"),
+			(
+				"int_return",
+				"private int M() => 0;",
+				"CS1503"),
+			(
+				"int_parameter",
+				"private void M(int value) { }",
+				"CS1503"),
+			(
+				"two_parameters",
+				"private void M(global::Htmxor.HtmxEventArgs args, int value) { }",
+				"CS1503"),
+			(
+				"generic",
+				"private void M<T>() { }",
+				"CS1503"),
+			(
+				"ref_parameter",
+				"private void M(ref global::Htmxor.HtmxEventArgs args) { }",
+				"CS1503"),
+			(
+				"in_parameter",
+				"private void M(in global::Htmxor.HtmxEventArgs args) { }",
+				"CS1503"),
+			(
+				"ambiguous_overloads",
+				"private void M() { }\n\tprivate void M(global::Htmxor.HtmxEventArgs args) { }",
+				"CS0121"),
+		}.Select(static scenario => new object[]
+			{ scenario.Scenario, scenario.HandlerMember, scenario.ExpectedCompilerErrorCode });
+
+	[Theory]
+	[MemberData(nameof(RazorRejectedHandlerShapeCases))]
+	public async Task Razor_rejected_handler_shape_is_not_flagged_by_Htmxor(
+		string scenario,
+		string handlerMember,
+		string expectedCompilerErrorCode)
 	{
-		var diagnostics = await RunForHandlerAsync(
-			"private global::System.Threading.Tasks.ValueTask M(global::Htmxor.HtmxEventArgs args) => default;");
+		var diagnostics = await RunForHandlerAsync(handlerMember, expectedCompilerErrorCode);
 
 		Assert.Empty(diagnostics);
 	}
@@ -184,14 +255,18 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// handler-shape causes pinned by #308 are a disjoint set, so this list deliberately only needs to
 	/// rule out other handler-shape causes, not the value-grammar ones (a value-grammar cause can
 	/// never fire here: every fixture below binds a plain method-group identifier).
+	///
+	/// This is the one owner of the cause-fragment list; <see cref="HtmxorRouteDeclarationAnalyzerTests"/>
+	/// references it directly instead of keeping its own copy, so a cause rename or addition cannot
+	/// silently weaken one file's absence check while the other is updated.
 	/// </summary>
-	private static readonly string[] HandlerShapeCauseFragments =
+	internal static readonly string[] HandlerShapeCauseFragments =
 	{
 		"returns a value", "async void", "parameter must be HtmxEventArgs", "optional parameter",
 		"static", "overloaded", "not a method", "not accessible",
 	};
 
-	private static void AssertHandlerCauseSpecificMessage(Diagnostic diagnostic, string expectedFragment)
+	internal static void AssertHandlerCauseSpecificMessage(Diagnostic diagnostic, string expectedFragment)
 	{
 		var message = diagnostic.GetMessage();
 		Assert.Contains(expectedFragment, message, StringComparison.Ordinal);
@@ -206,7 +281,9 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 
 	private static string ComponentPath(string relativePath) => Path.Combine(ProjectDirectory, relativePath);
 
-	private static async Task<ImmutableArray<Diagnostic>> RunForHandlerAsync(string handlerMember)
+	private static async Task<ImmutableArray<Diagnostic>> RunForHandlerAsync(
+		string handlerMember,
+		string? expectedCompilerErrorCode = null)
 	{
 		var componentPath = ComponentPath("ReportComponent.razor");
 		var source = $$"""
@@ -216,20 +293,19 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
 			{
 				{{handlerMember}}
+
+				{{BindMethod}}
 			}
 			}
 			""";
-		var razor = new SourceAdditionalText(
-			componentPath,
-			"""
-			@page "/reports/{Id:int}"
-			<button @onput="M">Save</button>
-			""");
+		var razor = new SourceAdditionalText(componentPath, HandlerRazorContent);
 
-		return await RunActionAnalyzerAsync(source, razor);
+		return await RunActionAnalyzerAsync(source, razor, expectedCompilerErrorCode);
 	}
 
-	private static async Task<ImmutableArray<Diagnostic>> RunWithBaseHandlerAsync(string baseHandlerMember)
+	private static async Task<ImmutableArray<Diagnostic>> RunWithBaseHandlerAsync(
+		string baseHandlerMember,
+		string? expectedCompilerErrorCode = null)
 	{
 		var componentPath = ComponentPath("ReportComponent.razor");
 		var source = $$"""
@@ -241,22 +317,29 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			}
 
 			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
-			public sealed class ReportComponent : ReportComponentBase;
+			public sealed class ReportComponent : ReportComponentBase
+			{
+				{{BindMethod}}
+			}
 			}
 			""";
-		var razor = new SourceAdditionalText(
-			componentPath,
-			"""
-			@page "/reports/{Id:int}"
-			<button @onput="M">Save</button>
-			""");
+		var razor = new SourceAdditionalText(componentPath, HandlerRazorContent);
 
-		return await RunActionAnalyzerAsync(source, razor);
+		return await RunActionAnalyzerAsync(source, razor, expectedCompilerErrorCode);
 	}
 
+	/// <summary>
+	/// Compiles the fixture (which always carries <see cref="BindMethod"/>, the real Razor-generated
+	/// binding call) and asserts real C#'s own verdict first: a clean compile when
+	/// <paramref name="expectedCompilerErrorCode"/> is <see langword="null"/> (every shape real Razor
+	/// itself compiles), or that exact compiler-error code when it is not (every shape real Razor
+	/// itself rejects). Only then does it run the Htmxor analyzer, so a passing case can never be the
+	/// product of this suite re-deriving C# binding rules on its own.
+	/// </summary>
 	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
 		string source,
-		AdditionalText razor)
+		AdditionalText razor,
+		string? expectedCompilerErrorCode = null)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 		var compilation = CSharpCompilation.Create(
@@ -264,8 +347,18 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			new[] { CSharpSyntaxTree.ParseText(source, parseOptions, RazorGeneratedPath("ReportComponent")) },
 			References,
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-		Assert.Empty(compilation.GetDiagnostics().Where(
-			static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var compilerErrors = compilation.GetDiagnostics()
+			.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+			.ToImmutableArray();
+		if (expectedCompilerErrorCode is null)
+		{
+			Assert.Empty(compilerErrors);
+		}
+		else
+		{
+			Assert.Contains(compilerErrors, diagnostic => diagnostic.Id == expectedCompilerErrorCode);
+		}
+
 		var analyzerOptions = new AnalyzerOptions(
 			ImmutableArray.Create(razor),
 			new TestAnalyzerConfigOptionsProvider(ProjectDirectory));
