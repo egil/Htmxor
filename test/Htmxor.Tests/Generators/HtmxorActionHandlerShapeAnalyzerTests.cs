@@ -631,9 +631,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// an instance member, and real C# compiles it. An extension method is not an instance method of
 	/// the component or a base type, so it is outside the approved-shape contract: Htmxor must still
 	/// reject it with the generic "request-owned component" message, the same cause as any other
-	/// non-member handler (LR-25c5baf-S002). A standards review found this case currently passes
-	/// through unflagged, so this row is red until production classifies a reduced extension method the
-	/// same way it already classifies a local function.
+	/// non-member handler (LR-25c5baf-S002).
 	/// </summary>
 	[Fact]
 	public async Task This_qualified_handler_naming_an_extension_method_is_rejected_as_a_nonconfigurable_action_declaration()
@@ -978,11 +976,10 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// The binding's own call is the nearest one at or after its attribute, so a later binding of the same
 	/// name is never chosen in its place: here <c>@onput="Go"</c> binds the component's <c>Go()</c>, and a
 	/// later <c>@onquery="Go"</c> inside a <c>@foreach</c> binds the loop variable. Only the loop binding is
-	/// rejected: reversing the position-selection order (choosing the nearest mapped call at or before the
-	/// binding rather than at or after it) would make this approved binding fail closed with a false,
-	/// non-suppressible diagnostic, and would also let the loop binding below escape its own diagnostic —
-	/// the opposite direction from every existing <c>#line</c>-mapped row, none of which had a real binding
-	/// followed by a later, same-named decoy call (LR-25c5baf-S001).
+	/// rejected. If the farthest mapped call at or after the binding won instead of the nearest, this approved
+	/// binding would select the later loop call and fail closed with a false, non-suppressible diagnostic; if
+	/// the nearest call at or before the binding won, the loop binding would select the earlier approved call
+	/// and escape its own diagnostic (LR-25c5baf-S001).
 	/// </summary>
 	[Fact]
 	public async Task Later_binding_of_the_same_name_does_not_replace_the_earlier_binding()
