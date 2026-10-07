@@ -627,6 +627,23 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
+	/// <c>@onput="this.M"</c> reaches the same shape rules as <c>M</c>: an <c>async void</c> instance
+	/// handler written through <c>this</c> compiles in Razor, so Htmxor must still fail closed with
+	/// its cause.
+	/// </summary>
+	[Fact]
+	public async Task This_qualified_async_void_handler_fails_closed_as_async_void()
+	{
+		var diagnostics = await RunForThisQualifiedHandlerAsync(
+			"private async void M() => await global::System.Threading.Tasks.Task.Yield();",
+			usings: "");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		AssertHandlerCauseSpecificMessage(diagnostic, "async void");
+	}
+
+	/// <summary>
 	/// A lambda or closure, a method call, and a conditional are the #307 value-grammar causes; the
 	/// handler-shape causes pinned by #308 are a disjoint set, so this list deliberately only needs to
 	/// rule out other handler-shape causes, not the value-grammar ones (a value-grammar cause can
@@ -819,10 +836,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// <summary>
 	/// A single-tree fixture whose Razor binding value is the caller's own spelling (for example
 	/// <c>this.M</c>), instead of the fixed <c>M</c> every other <see cref="RunForHandlerAsync"/>
-	/// fixture uses: <c>RazorBindingValue.TryReadHandler</c> reduces every slice-2 spelling to the
-	/// simple name <c>M</c>, so production's own speculative call never sees <c>this.M</c> as written
-	/// (LR-a6f7218-P002) - this fixture's explicit bind call does, which is what proves real Razor's
-	/// own verdict for that exact spelling.
+	/// fixture uses. Its explicit bind call uses the same spelling, so the compile step proves real
+	/// C#'s verdict for exactly the expression Razor emits and Htmxor binds.
 	/// </summary>
 	private static async Task<ImmutableArray<Diagnostic>> RunForThisQualifiedHandlerAsync(
 		string handlerMember,
