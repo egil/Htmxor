@@ -94,6 +94,16 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 		var resolvedComponent = component!;
 		var stockRoutes = GetExactAttributes(resolvedComponent, symbols.Route!);
 		var htmxRoutes = GetExactAttributes(resolvedComponent, symbols.HtmxRoute);
+		return stockRoutes.Length == 0 && htmxRoutes.Length == 0
+			? "the component owns no route, so the binding has no action to declare; add @page or HtmxRoute, or remove the binding"
+			: GetRouteShapeUnsupportedReason(declaration, stockRoutes, htmxRoutes);
+	}
+
+	private static string? GetRouteShapeUnsupportedReason(
+		HtmxorComponentActionDeclaration declaration,
+		ImmutableArray<AttributeData> stockRoutes,
+		ImmutableArray<AttributeData> htmxRoutes)
+	{
 		if (declaration.UsesStockRoute)
 		{
 			return stockRoutes.Length == 1 && htmxRoutes.Length == 0

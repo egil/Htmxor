@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -11,8 +10,12 @@ namespace Htmxor.Generators;
 
 internal sealed class HtmxorComponentActionDeclaration
 {
+	private const string ImplicitMethod = "GET";
+
+	// @onget is listed only so it is reported: Razor compiles it, but GET needs no declaration.
 	private static readonly ActionBinding[] SupportedBindings =
 	{
+		new("@onget", ImplicitMethod),
 		new("@onpost", "POST"),
 		new("@onput", "PUT"),
 		new("@onpatch", "PATCH"),
@@ -102,7 +105,6 @@ internal sealed class HtmxorComponentActionDeclaration
 					componentTypeName,
 					additionalFile.Path,
 					text,
-					source,
 					binding,
 					candidate,
 					owner,
@@ -117,54 +119,55 @@ internal sealed class HtmxorComponentActionDeclaration
 		string componentTypeName,
 		string path,
 		SourceText text,
-		string source,
 		ActionBinding binding,
 		MarkupAttribute candidate,
 		RouteOwner owner,
 		int methodDeclarationCount)
 	{
-		var attributeIndex = candidate.Index;
-		var span = new TextSpan(attributeIndex, binding.AttributeName.Length);
-		var placementReason = GetPlacementReason(binding, candidate, methodDeclarationCount);
-		if (placementReason is not null)
-		{
-			return Unsupported(componentTypeName, binding, owner, path, text, span, placementReason);
-		}
-
-		var match = binding.SupportedBinding.Match(source, attributeIndex);
-		return match.Success &&
-			match.Index == attributeIndex &&
-			IsBindingTerminator(source, match.Index + match.Length)
+		var span = new TextSpan(candidate.Index, binding.AttributeName.Length);
+		var handlerName = RazorBindingValue.TryReadHandler(candidate.Value);
+		var reason = GetUnsupportedReason(binding, candidate, methodDeclarationCount, handlerName);
+		return reason is null
 			? new HtmxorComponentActionDeclaration(
 				componentTypeName,
 				binding.AttributeName,
 				binding.HttpMethod,
-				match.Groups["handler"].Value,
+				handlerName,
 				owner,
 				path,
 				span,
 				text.Lines.GetLinePositionSpan(span),
 				unsupportedReason: null)
-			: Unsupported(
-				componentTypeName,
-				binding,
-				owner,
-				path,
-				text,
-				span,
-				binding.AttributeName + " must use one double-quoted simple method-group name");
+			: Unsupported(componentTypeName, binding, owner, path, text, span, reason);
 	}
 
-	private static string? GetPlacementReason(
+	private static string? GetUnsupportedReason(
 		ActionBinding binding,
 		MarkupAttribute candidate,
-		int methodDeclarationCount)
-		=> !candidate.InOwnerMarkup
-			? binding.AttributeName +
-				" in a Razor template or @code markup is not supported; put the binding in the component's own markup"
-			: methodDeclarationCount > 1
-				? "at most one " + binding.AttributeName + " binding per component is supported"
-				: null;
+		int methodDeclarationCount,
+		string? handlerName)
+	{
+		if (binding.HttpMethod == ImplicitMethod)
+		{
+			return binding.AttributeName + " declares nothing: GET is implicit, so remove the binding";
+		}
+
+		if (!candidate.InOwnerMarkup)
+		{
+			return binding.AttributeName +
+				" in a Razor template or @code markup is not supported; put the binding in the component's own markup";
+		}
+
+		if (methodDeclarationCount > 1)
+		{
+			return "at most one " + binding.AttributeName + " binding per component is supported";
+		}
+
+		return handlerName is null
+			? binding.AttributeName + " must name a handler method, not " +
+				RazorBindingValue.GetUnsupportedCause(candidate.Value)
+			: null;
+	}
 
 	private static string? TryReadOmittedHtmxRoute(string attributeDirective)
 	{
@@ -195,12 +198,6 @@ internal sealed class HtmxorComponentActionDeclaration
 		return null;
 	}
 
-	private static bool IsBindingTerminator(string source, int index)
-		=> index == source.Length ||
-			source[index] == '>' ||
-			source[index] == '/' ||
-			char.IsWhiteSpace(source[index]);
-
 	private static HtmxorComponentActionDeclaration Unsupported(
 		string componentTypeName,
 		ActionBinding binding,
@@ -226,16 +223,11 @@ internal sealed class HtmxorComponentActionDeclaration
 		{
 			AttributeName = attributeName;
 			HttpMethod = httpMethod;
-			SupportedBinding = new Regex(
-				Regex.Escape(attributeName) + "\\s*=\\s*\"(?<handler>[A-Za-z_][A-Za-z0-9_]*)\"",
-				RegexOptions.CultureInvariant);
 		}
 
 		public string AttributeName { get; }
 
 		public string HttpMethod { get; }
-
-		public Regex SupportedBinding { get; }
 	}
 
 	// The route owner is read from the whole file: a local @page, or an HtmxRoute literal without Methods.

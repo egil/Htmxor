@@ -143,18 +143,27 @@ internal sealed class RazorMarkupScanner
 		}
 
 		var name = source.Substring(nameStart, index - nameStart);
+		var value = ScanAttributeValue();
 		if (attributeNames.Contains(name))
 		{
-			attributes.Add(new MarkupAttribute(nameStart, name, ownerMarkup));
+			attributes.Add(new MarkupAttribute(nameStart, name, value, ownerMarkup));
+		}
+	}
+
+	// The raw value text, quotes included, or null for an attribute without a value.
+	private string? ScanAttributeValue()
+	{
+		SkipWhitespace();
+		if (Peek(0) != '=')
+		{
+			return null;
 		}
 
+		index++;
 		SkipWhitespace();
-		if (Peek(0) == '=')
-		{
-			index++;
-			SkipWhitespace();
-			SkipAttributeValue();
-		}
+		var valueStart = index;
+		SkipAttributeValue();
+		return source.Substring(valueStart, index - valueStart);
 	}
 
 	private void SkipAttributeValue()
@@ -741,16 +750,19 @@ internal sealed class RazorMarkupScan
 
 internal sealed class MarkupAttribute
 {
-	public MarkupAttribute(int index, string name, bool inOwnerMarkup)
+	public MarkupAttribute(int index, string name, string? value, bool inOwnerMarkup)
 	{
 		Index = index;
 		Name = name;
+		Value = value;
 		InOwnerMarkup = inOwnerMarkup;
 	}
 
 	public int Index { get; }
 
 	public string Name { get; }
+
+	public string? Value { get; }
 
 	public bool InOwnerMarkup { get; }
 }
