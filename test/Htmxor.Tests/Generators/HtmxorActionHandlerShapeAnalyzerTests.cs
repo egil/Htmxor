@@ -644,6 +644,79 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
+	/// Razor binds the handler name at the attribute's own position in <c>BuildRenderTree</c>, not at
+	/// the top of the method: inside a <c>@foreach</c>, that position is the nested block the loop
+	/// becomes. A loop variable with no matching component member is a non-member handler, the same
+	/// "request-owned component" cause as any other name that is not an instance member — not a
+	/// silent accept (LR-72dcffe-P001).
+	/// </summary>
+	[Fact]
+	public async Task Foreach_loop_variable_with_no_component_member_is_rejected_as_a_nonconfigurable_action_declaration()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "save",
+			members: "private global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs>[] Saves " +
+				"{ get; } = new global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs>[0];",
+			wrapOpen: "foreach (var save in Saves)\n\t\t\t{",
+			wrapClose: "}");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		var message = diagnostic.GetMessage();
+		Assert.Contains("handler 'save' must be an instance method", message, StringComparison.Ordinal);
+		foreach (var fragment in HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, message, StringComparison.Ordinal);
+		}
+	}
+
+	/// <summary>
+	/// The same nested-scope rule applies when the loop variable happens to share its name with an
+	/// approved component member: C# resolves the bare name inside the loop body to the local loop
+	/// variable, never to the member, so the binding is still to a non-member and still gets the
+	/// generic cause — not the member's own (approved) shape (LR-72dcffe-P001).
+	/// </summary>
+	[Fact]
+	public async Task Foreach_loop_variable_shadowing_an_approved_component_member_is_rejected_as_a_nonconfigurable_action_declaration()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "save",
+			members: "private global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs>[] Saves " +
+				"{ get; } = new global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs>[0];\n\n\t\t" +
+				"private void save() { }",
+			wrapOpen: "foreach (var save in Saves)\n\t\t\t{",
+			wrapClose: "}");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		var message = diagnostic.GetMessage();
+		Assert.Contains("handler 'save' must be an instance method", message, StringComparison.Ordinal);
+		foreach (var fragment in HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, message, StringComparison.Ordinal);
+		}
+	}
+
+	/// <summary>
+	/// A regression guard for the <c>BuildRenderTree</c> preference in <c>FindRazorAnchor</c>: an
+	/// earlier instance method with a parameter that shadows the handler's name must not become the
+	/// anchor instead of <c>BuildRenderTree</c> itself, or the shadowing parameter would hide the real,
+	/// approved member the way it does in the code-behind rows above. This is a characterization row,
+	/// not a regression: it is already green, because <c>FindRazorAnchor</c> already prefers
+	/// <c>BuildRenderTree</c> by name over the first direct member (LR-72dcffe-P001 observation).
+	/// </summary>
+	[Fact]
+	public async Task BuildRenderTree_is_preferred_over_an_earlier_method_with_a_shadowing_parameter()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "private void M() { }",
+			earlierMember: "private void Init(int M) { }");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
 	/// A lambda or closure, a method call, and a conditional are the #307 value-grammar causes; the
 	/// handler-shape causes pinned by #308 are a disjoint set, so this list deliberately only needs to
 	/// rule out other handler-shape causes, not the value-grammar ones (a value-grammar cause can
@@ -859,6 +932,52 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			}
 			""";
 		var razorContent = "@page \"/reports/{Id:int}\"\n<button @onput=\"this.M\">Save</button>\n";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
+
+		return await RunActionAnalyzerAsync(source, razor, expectedCompilerErrorCode);
+	}
+
+	/// <summary>
+	/// A fixture shaped exactly like real Razor's generated declaration: a <c>BuildRenderTree</c>
+	/// override containing the binding at the attribute's own position, instead of a <c>Bind()</c>
+	/// expression-bodied stand-in. <paramref name="wrapOpen"/>/<paramref name="wrapClose"/> nest that
+	/// position inside a block, the way markup control flow (a <c>@foreach</c>, for example) becomes a
+	/// nested C# block in the generated method — Razor binds the handler name at that exact nested
+	/// position, not at the top of the method. <paramref name="earlierMember"/> is declared before
+	/// <c>BuildRenderTree</c>, to exercise <c>FindRazorAnchor</c>'s preference for <c>BuildRenderTree</c>
+	/// over the first direct member (LR-72dcffe-P001).
+	/// </summary>
+	private static async Task<ImmutableArray<Diagnostic>> RunWithBuildRenderTreeAsync(
+		string handlerValue,
+		string members,
+		string wrapOpen = "",
+		string wrapClose = "",
+		string earlierMember = "",
+		string? expectedCompilerErrorCode = null)
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				{{earlierMember}}
+
+				protected override void BuildRenderTree(global::Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
+				{
+					{{wrapOpen}}
+					__builder.OpenElement(0, "button");
+					__builder.AddAttribute(1, "onput", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, {{handlerValue}}));
+					__builder.CloseElement();
+					{{wrapClose}}
+				}
+
+				{{members}}
+			}
+			}
+			""";
+		var razorContent = "@page \"/reports/{Id:int}\"\n<button @onput=\"" + handlerValue + "\">Save</button>\n";
 		var razor = new SourceAdditionalText(componentPath, razorContent);
 
 		return await RunActionAnalyzerAsync(source, razor, expectedCompilerErrorCode);
