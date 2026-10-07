@@ -1041,7 +1041,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Equal("HTMXOR002", diagnostic.Id);
 		// A static method gets its own "static" cause (#308), not the generic
 		// instance-method message shared by every other unsupported handler.
-		Assert.Contains("static", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertHandlerCauseSpecificMessage(diagnostic, "static");
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
@@ -1072,7 +1072,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
-		Assert.Contains("handler 'DeleteReport' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		// A static delegate field is a non-method member, the same "not a method" cause (#308) as
+		// an EventCallback field or an Action property, regardless of it also being static.
+		AssertHandlerCauseSpecificMessage(diagnostic, "not a method");
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
@@ -1107,7 +1109,18 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
-		Assert.Contains("handler 'DeleteReport' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		// No member named DeleteReport exists anywhere on the component's own type hierarchy: the
+		// binding resolves only through the unrelated `global using static` import, which Htmxor's
+		// compiled-symbol resolution never considers. That is "absent", not "the wrong shape", so
+		// this keeps the generic instance-method message instead of one of the eight shape causes
+		// (#308).
+		var message = diagnostic.GetMessage();
+		Assert.Contains("handler 'DeleteReport' must be an instance method", message, StringComparison.Ordinal);
+		foreach (var fragment in HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, message, StringComparison.Ordinal);
+		}
+
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
@@ -1148,7 +1161,10 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
-		Assert.Contains("handler 'DeleteReport' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		// The only same-named member on the component's own chain is the private base method: the
+		// unrelated `global using static` import cannot rescue it, so this is the "not accessible"
+		// cause (#308), not the generic message.
+		AssertHandlerCauseSpecificMessage(diagnostic, "not accessible");
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
@@ -1333,6 +1349,32 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	private static string EscapePath(string path) => path.Replace("\"", "\\\"");
+
+	/// <summary>
+	/// The eight handler-shape causes (#308,
+	/// https://github.com/egil/Htmxor/issues/308#issuecomment-6040725984), duplicated from
+	/// <see cref="HtmxorActionHandlerShapeAnalyzerTests"/>'s own copy so each file's assertions stay
+	/// independently readable. Asserting the expected fragment's presence and every other fragment's
+	/// absence rules out a message that would pass regardless of which cause actually fired.
+	/// </summary>
+	private static readonly string[] HandlerShapeCauseFragments =
+	{
+		"returns a value", "async void", "parameter must be HtmxEventArgs", "optional parameter",
+		"static", "overloaded", "not a method", "not accessible",
+	};
+
+	private static void AssertHandlerCauseSpecificMessage(Diagnostic diagnostic, string expectedFragment)
+	{
+		var message = diagnostic.GetMessage();
+		Assert.Contains(expectedFragment, message, StringComparison.Ordinal);
+		foreach (var otherFragment in HandlerShapeCauseFragments)
+		{
+			if (!string.Equals(otherFragment, expectedFragment, StringComparison.Ordinal))
+			{
+				Assert.DoesNotContain(otherFragment, message, StringComparison.Ordinal);
+			}
+		}
+	}
 
 	private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(
 		IEnumerable<string> sources,

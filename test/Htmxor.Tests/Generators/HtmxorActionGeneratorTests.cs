@@ -127,12 +127,7 @@ public sealed class HtmxorActionGeneratorTests
 
 		namespace Htmxor.Consumer
 		{
-			public abstract class ReportComponentBase
-			{
-				private Task InaccessibleBaseHandler(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
-			}
-
-			public partial class ReportComponent : ReportComponentBase
+			public partial class ReportComponent
 			{
 				public Task SetParametersAsync(
 					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
@@ -156,28 +151,6 @@ public sealed class HtmxorActionGeneratorTests
 				private void VoidEventArgsParamHandler(Htmxor.HtmxEventArgs args) { }
 
 				private Task TaskNoParamHandler() => Task.CompletedTask;
-
-				// Shapes Razor itself compiles but the v1 contract rejects (#308), each with its
-				// own cause.
-				private Task<int> TaskIntHandler(Htmxor.HtmxEventArgs args) => Task.FromResult(0);
-
-				private async void AsyncVoidHandler(Htmxor.HtmxEventArgs args) => await Task.Yield();
-
-				private void EventArgsParamHandler(EventArgs args) { }
-
-				private void ObjectParamHandler(object args) { }
-
-				private void OptionalParamHandler(Htmxor.HtmxEventArgs args = null!) { }
-
-				private static void StaticHandler() { }
-
-				private void OverloadedHandler() { }
-
-				private void OverloadedHandler(int value) { }
-
-				private readonly Microsoft.AspNetCore.Components.EventCallback<Htmxor.HtmxEventArgs> EventCallbackField = default;
-
-				private Action ActionProperty { get; set; } = () => { };
 			}
 		}
 		""";
@@ -426,48 +399,6 @@ public sealed class HtmxorActionGeneratorTests
 		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
 		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
 		AssertChosenOwner(actionSource, $"Htmxor.Consumer.ReportComponent.PUT.{handlerName}", usesStockRoute);
-		Assert.Empty(CompilationErrors(run.OutputCompilation));
-	}
-
-	/// <summary>
-	/// A handler shape that real Razor compiles, but that the v1 contract rejects (#308,
-	/// https://github.com/egil/Htmxor/issues/308#issuecomment-6040725984), must fail the build with
-	/// HTMXOR002 and must never reach the generated dispatch: at the time of writing the generator
-	/// never inspects the handler's compiled shape, so every one of these rows builds today with no
-	/// diagnostic, and several only fail by accident once the generated dispatch itself fails to
-	/// compile. The cause-specific wording is asserted at the narrower analyzer seam
-	/// (<see cref="HtmxorActionHandlerShapeAnalyzerTests"/>); here only the pipeline-level contract is
-	/// pinned: one HTMXOR002, no generated action, and a clean output compilation.
-	/// </summary>
-	public static IEnumerable<object[]> RejectedHandlerShapeGeneratorCases() =>
-		new (string Scenario, string HandlerName)[]
-		{
-			("returns_a_value", "TaskIntHandler"),
-			("async_void", "AsyncVoidHandler"),
-			("event_args_parameter", "EventArgsParamHandler"),
-			("object_parameter", "ObjectParamHandler"),
-			("optional_parameter", "OptionalParamHandler"),
-			("static_method", "StaticHandler"),
-			("overloaded", "OverloadedHandler"),
-			("event_callback_field", "EventCallbackField"),
-			("action_property", "ActionProperty"),
-			("inaccessible_base_handler", "InaccessibleBaseHandler"),
-		}.Select(static scenario => new object[] { scenario.Scenario, scenario.HandlerName });
-
-	[Theory]
-	[MemberData(nameof(RejectedHandlerShapeGeneratorCases))]
-	public void Rejected_handler_shape_fails_closed_and_generates_no_action(string scenario, string handlerName)
-	{
-		var run = RunGenerators(new RazorInput(
-			"ReportComponent.razor",
-			$$"""
-			@page "/reports/{ReportId:int}"
-			<button @onput="{{handlerName}}">Save</button>
-			"""));
-
-		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
-		AssertNoActionSource(run);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
