@@ -175,6 +175,11 @@ public sealed class HtmxorActionGeneratorTests
 	/// spelling (#307, covered by <see cref="Route_owner_and_component_binding_emit_one_compiling_action"/>):
 	/// unquoted <c>@onX=M</c> and <c>@onX="@M"</c>. This holds for both a <c>@page</c> owner and an
 	/// omitted-<c>Methods</c> <c>HtmxRoute</c> owner, and for all five binding kinds.
+	///
+	/// A parenthesized method group, <c>@onX="@(M)"</c>, and an unquoted explicit expression,
+	/// <c>@onX=@M</c>, are also accepted: both compile to the same method group as the spellings
+	/// above, so one representative row each is enough green coverage, validated as real Razor in
+	/// <c>test/Htmxor.TestApp</c> before being added here.
 	/// </summary>
 	public static IEnumerable<object[]> ApprovedSpellingCases()
 	{
@@ -218,6 +223,27 @@ public sealed class HtmxorActionGeneratorTests
 				}
 			}
 		}
+
+		yield return new object[]
+		{
+			"paren_quoted",
+			"@page \"/reports/{ReportId:int}\"",
+			true,
+			"button",
+			"@onput=\"@(PutReport)\"",
+			"PUT",
+			"PutReport",
+		};
+		yield return new object[]
+		{
+			"at_unquoted",
+			"@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]",
+			false,
+			"button",
+			"@onput=@PutReport",
+			"PUT",
+			"PutReport",
+		};
 	}
 
 	[Theory]
