@@ -778,10 +778,14 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// Razor maps a handler's generated argument to the binding attribute's own value, which can sit on
 	/// a later line than the attribute name — here, an earlier <c>@foreach</c> binds the same handler
 	/// name to a DOM event's loop variable, and the real <c>@onput</c> value is split across two lines.
-	/// A faithful two-<c>Create</c>-call declaration, with the real <c>#line (l,c)-(l,c)</c> directives
-	/// Razor itself emits for this exact shape, must still resolve to the approved component method
-	/// <c>Go()</c>, not the earlier loop-local candidate: the approved handler must stay approved
-	/// (LR-88fa9d8-S002).
+	/// Both calls carry the <c>HtmxEventArgs</c> type argument (a plausible shape when the same handler
+	/// name is reused for two different htmx-tracked verbs, not just a DOM event), so the type-argument
+	/// guard alone cannot tell them apart and position is what must: a green-finalization mutation
+	/// sweep found that an earlier, differently-typed decoy call never exercises this selection at all,
+	/// because the type guard already excludes it. A faithful two-<c>Create</c>-call declaration, with
+	/// the real <c>#line (l,c)-(l,c)</c> directives Razor itself emits for this exact shape, must still
+	/// resolve to the approved component method <c>Go()</c>, not the earlier loop-local candidate: the
+	/// approved handler must stay approved (LR-88fa9d8-S002).
 	/// </summary>
 	[Fact]
 	public async Task Earlier_foreach_variable_split_across_lines_does_not_shadow_the_binding()
@@ -801,7 +805,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 					foreach (var Go in Actions)
 					{
 						__builder.OpenElement(0, "a");
-						__builder.AddAttribute(1, "onclick", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Microsoft.AspNetCore.Components.ChangeEventArgs>(this,
+						__builder.AddAttribute(1, "onclick", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
 			#line (4,14)-(4,16) "{{componentPath}}"
 			Go
 
@@ -846,9 +850,11 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// The same mapped-selection rule when the loop and the binding sit on one line: both the earlier
 	/// <c>@onclick</c> call and the real <c>@onput</c> call map to the same line as the <c>@onput</c>
 	/// attribute name itself, so a line-only comparison can match both — the real binding's own,
-	/// later position within that line is what must win. A faithful declaration with the real
-	/// <c>#line (l,c)-(l,c)</c> directives Razor emits for this exact shape must still resolve to the
-	/// approved component method <c>Go()</c> (LR-88fa9d8-S002).
+	/// later position within that line is what must win. Both calls carry the <c>HtmxEventArgs</c> type
+	/// argument, the same as the row above, so the type-argument guard alone cannot distinguish them
+	/// and position is what must. A faithful declaration with the real <c>#line (l,c)-(l,c)</c>
+	/// directives Razor emits for this exact shape must still resolve to the approved component method
+	/// <c>Go()</c> (LR-88fa9d8-S002).
 	/// </summary>
 	[Fact]
 	public async Task Earlier_foreach_variable_on_the_same_line_does_not_shadow_the_binding()
@@ -868,7 +874,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 					foreach (var Go in Actions)
 					{
 						__builder.OpenElement(0, "a");
-						__builder.AddAttribute(1, "onclick", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Microsoft.AspNetCore.Components.ChangeEventArgs>(this,
+						__builder.AddAttribute(1, "onclick", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
 			#line (2,45)-(2,47) "{{componentPath}}"
 			Go
 
