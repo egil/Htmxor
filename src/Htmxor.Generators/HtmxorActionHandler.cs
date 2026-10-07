@@ -1,41 +1,44 @@
+using System;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Htmxor.Generators;
 
-// Resolves an inferred binding's handler the way Razor does: by binding EventCallback.Factory.Create<HtmxEventArgs>(this, M)
-// inside the component, so overload resolution, hiding and `using static` imports are the compiler's own. When that binding
-// fails, Razor reports the error itself and Htmxor adds nothing. Otherwise the bound handler must be one of void M(),
-// void M(HtmxEventArgs), Task M() or Task M(HtmxEventArgs) on an instance method of the component or a base type.
+// Resolves an inferred binding's handler from the call Razor itself generated for it,
+// EventCallback.Factory.Create<HtmxEventArgs>(this, M), with the compilation's semantic model. Scope, overloads, hiding,
+// locals and `using static` imports are therefore exactly the compiler's. When that call does not compile, Razor reports
+// the error itself and Htmxor adds nothing. Otherwise the bound handler must be one of void M(), void M(HtmxEventArgs),
+// Task M() or Task M(HtmxEventArgs) on an instance method of the component or a base type.
 internal static class HtmxorActionHandler
 {
+	private const string NotAComponentMember = "must be an instance method on the request-owned component";
+
 	public static string? GetUnsupportedReason(
 		Compilation compilation,
 		INamedTypeSymbol component,
-		string handlerName,
-		string handlerAccess)
+		HtmxorComponentActionDeclaration declaration)
 	{
-		var anchor = FindRazorAnchor(component);
-		if (anchor is not null && handlerAccess == handlerName && DeclaresName(anchor, handlerName))
-		{
-			// Razor binds the name where the attribute sits, so a @foreach variable, lambda parameter or local with that name
-			// is what it binds to, not a component member.
-			return Reason(handlerName, "must be an instance method on the request-owned component");
-		}
-
-		var binding = anchor is null ? null : Bind(compilation, anchor, handlerAccess);
-		if (binding is null)
+		var invocation = FindGeneratedCreateCall(component, declaration);
+		if (invocation is null)
 		{
 			return null;
 		}
 
-		var (symbol, group) = binding.Value;
-		return symbol switch
+		var model = compilation.GetSemanticModel(invocation.SyntaxTree);
+		if (HasError(model, invocation))
 		{
-			IMethodSymbol method when !HasDelegateCompatibleParameters(compilation, method) => null,
-			IMethodSymbol method => GetMethodReason(compilation, component, handlerName, method, group),
+			return null;
+		}
+
+		var argument = HandlerArgument(invocation);
+
+		var handlerName = declaration.HandlerName!;
+		return model.GetSymbolInfo(argument).Symbol switch
+		{
+			IMethodSymbol { MethodKind: MethodKind.LocalFunction } => Reason(handlerName, NotAComponentMember),
+			IMethodSymbol method => GetMethodReason(compilation, component, handlerName, method, model.GetMemberGroup(argument).Length),
+			ILocalSymbol or IParameterSymbol or IRangeVariableSymbol => Reason(handlerName, NotAComponentMember),
 			null => null,
 			_ => Reason(handlerName, "is not a method"),
 		};
@@ -50,7 +53,7 @@ internal static class HtmxorActionHandler
 	{
 		if (method.IsStatic && !IsInComponentChain(method.ContainingType, component))
 		{
-			return Reason(handlerName, "must be an instance method on the request-owned component");
+			return Reason(handlerName, NotAComponentMember);
 		}
 
 		if (groupSize > 1)
@@ -102,91 +105,43 @@ internal static class HtmxorActionHandler
 			: "has a parameter that is not HtmxEventArgs; its parameter must be HtmxEventArgs";
 	}
 
-	// Returns the symbol the handler argument binds to and the size of its method group, or null when the binding fails,
-	// which Razor reports itself.
-	private static (ISymbol? Symbol, int GroupSize)? Bind(
-		Compilation compilation,
-		MethodDeclarationSyntax method,
-		string handlerAccess)
-	{
-		var invocation = (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(
-			"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, " +
-			handlerAccess + ")");
-		var speculative = Speculate(compilation, method, invocation);
-		if (speculative is null)
-		{
-			return null;
-		}
-
-		var bound = (InvocationExpressionSyntax)speculative.SyntaxTree.GetRoot()
-			.DescendantNodesAndSelf()
-			.First(static node => node is InvocationExpressionSyntax);
-		var argument = bound.ArgumentList.Arguments[1].Expression;
-		return speculative.GetSymbolInfo(bound).Symbol is null || !speculative.GetConversion(argument).Exists
-			? null
-			: (speculative.GetSymbolInfo(argument).Symbol, speculative.GetMemberGroup(argument).Length);
-	}
-
-	// Binds the invocation inside an instance method of the component, where `this` and the component's members are in scope.
-	private static SemanticModel? Speculate(
-		Compilation compilation,
-		MethodDeclarationSyntax method,
-		InvocationExpressionSyntax invocation)
-	{
-		var model = compilation.GetSemanticModel(method.SyntaxTree);
-		SemanticModel? speculative;
-		var bound = method.Body is { } body
-			? model.TryGetSpeculativeSemanticModel(
-				body.SpanStart + 1,
-				SyntaxFactory.ExpressionStatement(invocation),
-				out speculative)
-			: model.TryGetSpeculativeSemanticModel(
-				method.ExpressionBody!.Expression.SpanStart,
-				SyntaxFactory.ArrowExpressionClause(invocation),
-				out speculative);
-		return bound ? speculative : null;
-	}
-
-	// Razor binds the handler inside BuildRenderTree in its generated declaration, with that file's usings. Only direct
-	// members of that declaration are considered, so a code-behind or a nested type never supplies the scope.
-	private static MethodDeclarationSyntax? FindRazorAnchor(INamedTypeSymbol component)
+	// The Create<HtmxEventArgs> call Razor generated for this binding, in the component's Razor-generated declaration.
+	// Razor maps the handler argument to the binding's line, which picks the call when one handler is bound more than once.
+	private static InvocationExpressionSyntax? FindGeneratedCreateCall(
+		INamedTypeSymbol component,
+		HtmxorComponentActionDeclaration declaration)
 	{
 		var candidates = component.DeclaringSyntaxReferences
 			.Where(static reference => HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath))
-			.Select(static reference => reference.GetSyntax())
-			.OfType<TypeDeclarationSyntax>()
-			.SelectMany(static declaration => declaration.Members.OfType<MethodDeclarationSyntax>())
-			.Where(static method =>
-				!method.Modifiers.Any(SyntaxKind.StaticKeyword) &&
-				(method.Body is not null || method.ExpressionBody is not null))
+			.SelectMany(static reference => reference.GetSyntax().DescendantNodes().OfType<InvocationExpressionSyntax>())
+			.Where(invocation => IsEventCallbackCreate(invocation) &&
+				HandlerArgument(invocation).ToString() == declaration.HandlerAccess)
 			.ToList();
-		return candidates.FirstOrDefault(static method => method.Identifier.ValueText == "BuildRenderTree") ??
+		return candidates.FirstOrDefault(invocation => IsMappedToBinding(HandlerArgument(invocation), declaration)) ??
 			candidates.FirstOrDefault();
 	}
 
-	private static bool DeclaresName(MethodDeclarationSyntax anchor, string name)
-		=> anchor.DescendantNodes().Any(node => node switch
-		{
-			VariableDeclaratorSyntax variable => variable.Identifier.ValueText == name,
-			ForEachStatementSyntax loop => loop.Identifier.ValueText == name,
-			ParameterSyntax parameter => parameter.Identifier.ValueText == name,
-			SingleVariableDesignationSyntax designation => designation.Identifier.ValueText == name,
-			_ => false,
-		});
+	private static ExpressionSyntax HandlerArgument(InvocationExpressionSyntax invocation)
+		=> invocation.ArgumentList.Arguments[1].Expression;
 
-	// Overload resolution can pick Create through a user-defined parameter conversion, but the method-group conversion
-	// then fails (CS0123): a delegate parameter only converts by identity or implicit reference.
-	private static bool HasDelegateCompatibleParameters(Compilation compilation, IMethodSymbol method)
+	private static bool IsEventCallbackCreate(InvocationExpressionSyntax invocation)
+		=> invocation.ArgumentList.Arguments.Count == 2 &&
+			invocation.Expression is MemberAccessExpressionSyntax
+			{
+				Name: GenericNameSyntax { Identifier.ValueText: "Create" },
+				Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Factory" },
+			};
+
+	private static bool IsMappedToBinding(ExpressionSyntax argument, HtmxorComponentActionDeclaration declaration)
 	{
-		var eventArgs = compilation.GetTypeByMetadataName("Htmxor.HtmxEventArgs");
-		if (method.Parameters.Length == 0 || eventArgs is null)
-		{
-			return true;
-		}
-
-		var conversion = compilation.ClassifyCommonConversion(eventArgs, method.Parameters[0].Type);
-		return conversion.IsIdentity || (conversion.IsImplicit && conversion.IsReference);
+		var mapped = argument.SyntaxTree.GetMappedLineSpan(argument.Span);
+		return mapped.HasMappedPath &&
+			string.Equals(mapped.Path, declaration.Path, StringComparison.OrdinalIgnoreCase) &&
+			mapped.StartLinePosition.Line == declaration.LineSpan.Start.Line;
 	}
+
+	private static bool HasError(SemanticModel model, SyntaxNode node)
+		=> model.GetDiagnostics(node.Span).Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
 	private static bool IsInComponentChain(INamedTypeSymbol? type, INamedTypeSymbol component)
 	{

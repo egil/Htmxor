@@ -160,11 +160,7 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 
 		return declaration.HandlerName is null || declaration.HandlerAccess is null
 			? null
-			: HtmxorActionHandler.GetUnsupportedReason(
-				compilation,
-				component,
-				declaration.HandlerName,
-				declaration.HandlerAccess);
+			: HtmxorActionHandler.GetUnsupportedReason(compilation, component, declaration);
 	}
 
 	private static bool ContainsMethod(TypedConstant methods, string httpMethod)
