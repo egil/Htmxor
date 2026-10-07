@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Htmxor.Generators;
 
@@ -106,7 +107,8 @@ internal static class HtmxorActionHandler
 	}
 
 	// The Create<HtmxEventArgs> call Razor generated for this binding, in the component's Razor-generated declaration.
-	// Razor maps the handler argument to the binding's line, which picks the call when one handler is bound more than once.
+	// Razor maps the handler argument to the binding's position, which picks the call when one handler is bound more
+	// than once; the nearest mapped argument after the binding attribute on its line is the binding's own.
 	private static InvocationExpressionSyntax? FindGeneratedCreateCall(
 		INamedTypeSymbol component,
 		HtmxorComponentActionDeclaration declaration)
@@ -114,30 +116,61 @@ internal static class HtmxorActionHandler
 		var candidates = component.DeclaringSyntaxReferences
 			.Where(static reference => HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath))
 			.SelectMany(static reference => reference.GetSyntax().DescendantNodes().OfType<InvocationExpressionSyntax>())
-			.Where(invocation => IsEventCallbackCreate(invocation) &&
-				HandlerArgument(invocation).ToString() == declaration.HandlerAccess)
+			.Where(invocation => IsHtmxEventCallbackCreate(invocation) &&
+				NamesHandler(HandlerArgument(invocation), declaration.HandlerAccess))
 			.ToList();
-		return candidates.FirstOrDefault(invocation => IsMappedToBinding(HandlerArgument(invocation), declaration)) ??
-			candidates.FirstOrDefault();
+		return candidates
+			.Select(invocation => (Invocation: invocation, Position: MappedPositionAfterBinding(HandlerArgument(invocation), declaration)))
+			.Where(static candidate => candidate.Position is not null)
+			.OrderBy(static candidate => candidate.Position!.Value.Line)
+			.ThenBy(static candidate => candidate.Position!.Value.Character)
+			.Select(static candidate => candidate.Invocation)
+			.FirstOrDefault() ?? candidates.FirstOrDefault();
 	}
 
-	private static ExpressionSyntax HandlerArgument(InvocationExpressionSyntax invocation)
-		=> invocation.ArgumentList.Arguments[1].Expression;
+	// Compares structurally, so whitespace Razor keeps from the markup (`this . M`) still matches.
+	private static bool NamesHandler(ExpressionSyntax argument, string? handlerAccess)
+		=> argument switch
+		{
+			IdentifierNameSyntax name => handlerAccess == name.Identifier.ValueText,
+			MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax name }
+				=> handlerAccess == "this." + name.Identifier.ValueText,
+			_ => false,
+		};
 
-	private static bool IsEventCallbackCreate(InvocationExpressionSyntax invocation)
+	// The handler expression without the parentheses Razor keeps from spellings such as "(M)".
+	private static ExpressionSyntax HandlerArgument(InvocationExpressionSyntax invocation)
+	{
+		var argument = invocation.ArgumentList.Arguments[1].Expression;
+		while (argument is ParenthesizedExpressionSyntax parenthesized)
+		{
+			argument = parenthesized.Expression;
+		}
+
+		return argument;
+	}
+
+	private static bool IsHtmxEventCallbackCreate(InvocationExpressionSyntax invocation)
 		=> invocation.ArgumentList.Arguments.Count == 2 &&
 			invocation.Expression is MemberAccessExpressionSyntax
 			{
-				Name: GenericNameSyntax { Identifier.ValueText: "Create" },
+				Name: GenericNameSyntax { Identifier.ValueText: "Create" } create,
 				Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Factory" },
-			};
+			} &&
+			create.TypeArgumentList.Arguments.Count == 1 &&
+			create.TypeArgumentList.Arguments[0].ToString().EndsWith("HtmxEventArgs", StringComparison.Ordinal);
 
-	private static bool IsMappedToBinding(ExpressionSyntax argument, HtmxorComponentActionDeclaration declaration)
+	// Where Razor maps the argument in the .razor file, when that is at or after the binding attribute (the value may
+	// follow on a later line); otherwise null.
+	private static LinePosition? MappedPositionAfterBinding(
+		ExpressionSyntax argument,
+		HtmxorComponentActionDeclaration declaration)
 	{
 		var mapped = argument.SyntaxTree.GetMappedLineSpan(argument.Span);
-		return mapped.HasMappedPath &&
+		var afterBinding = mapped.HasMappedPath &&
 			string.Equals(mapped.Path, declaration.Path, StringComparison.OrdinalIgnoreCase) &&
-			mapped.StartLinePosition.Line == declaration.LineSpan.Start.Line;
+			mapped.StartLinePosition >= declaration.LineSpan.Start;
+		return afterBinding ? mapped.StartLinePosition : null;
 	}
 
 	private static bool HasError(SemanticModel model, SyntaxNode node)
