@@ -717,6 +717,141 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
+	/// C# only binds a bare name to a local, loop variable, or lambda parameter when the binding sits
+	/// inside that declaration's own scope. A same-named local in a sibling <c>@if</c> block, which
+	/// never encloses the binding, does not change what the attribute's position binds to: the
+	/// approved member is still what Razor — and Htmxor — must resolve (LR-555fbcf-S001/P001).
+	/// </summary>
+	[Fact]
+	public async Task Same_named_local_in_a_block_that_does_not_enclose_the_binding_leaves_the_member_handler_approved()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "private bool Show { get; set; }\n\n\t\tprivate void M() { }",
+			wrapOpen: "if (Show)\n\t\t\t{\n\t\t\t\tvar M = 1;\n\t\t\t\t__builder.AddContent(2, M);\n\t\t\t}");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// The same sibling-scope rule for a <c>@foreach</c> loop variable that does not enclose the
+	/// binding: the loop's own scope ends before the button is rendered, so it cannot shadow the
+	/// approved member at the binding's position (LR-555fbcf-S001/P001).
+	/// </summary>
+	[Fact]
+	public async Task Same_named_foreach_variable_in_a_loop_that_does_not_enclose_the_binding_leaves_the_member_handler_approved()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "private void M() { }",
+			wrapOpen: "foreach (var M in new int[0])\n\t\t\t{\n\t\t\t\t__builder.AddContent(2, M);\n\t\t\t}");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// The same sibling-scope rule for a lambda parameter declared elsewhere in the method: a lambda's
+	/// parameter is in scope only inside that lambda's own body, never at the binding's position
+	/// (LR-555fbcf-S001/P001).
+	/// </summary>
+	[Fact]
+	public async Task Same_named_lambda_parameter_elsewhere_leaves_the_member_handler_approved()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "private void M() { }",
+			wrapOpen: "__builder.AddContent(2, global::System.Linq.Enumerable.Count(new[] { 1 }, M => M > 0));");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A same-named local of a type that cannot convert to <c>EventCallback&lt;HtmxEventArgs&gt;</c>,
+	/// declared before the binding with no component member, makes Razor itself reject the binding
+	/// (CS1503): Htmxor must add nothing, the same "Razor decides" contract as every other
+	/// Razor-rejected row, not a second, duplicate diagnostic (LR-555fbcf-S002/P001).
+	/// </summary>
+	[Fact]
+	public async Task Same_named_local_of_a_non_handler_type_is_left_to_Razor()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "",
+			wrapOpen: "var M = 1;",
+			expectedCompilerErrorCode: "CS1503");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A same-named local declared after the binding, with an approved member of the same name, puts
+	/// the binding before its own local's declaration point: C# already rejects that (CS0841, "cannot
+	/// use local variable before it is declared"). Htmxor must add nothing (LR-555fbcf-S002/P001).
+	/// </summary>
+	[Fact]
+	public async Task Same_named_local_declared_after_the_binding_is_left_to_Razor()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "private void M() { }",
+			wrapClose: "global::System.Action M = () => { };",
+			expectedCompilerErrorCode: "CS0841");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A local function declared in the Razor markup (<c>@{ void M() { } }</c>) is still a local
+	/// declaration, the same family as a loop variable or a local: real Razor binds it, and with no
+	/// component member of that name, Htmxor must report the generic "request-owned component" cause
+	/// instead of silently accepting it (LR-555fbcf-S003/P002).
+	/// </summary>
+	[Fact]
+	public async Task Local_function_with_the_handler_name_is_rejected_as_a_nonconfigurable_action_declaration()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "",
+			wrapOpen: "void M() { }");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		var message = diagnostic.GetMessage();
+		Assert.Contains("handler 'M' must be an instance method", message, StringComparison.Ordinal);
+		foreach (var fragment in HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, message, StringComparison.Ordinal);
+		}
+	}
+
+	/// <summary>
+	/// A local function with the handler's name is in scope throughout its whole enclosing block, so
+	/// it is what the binding actually resolves to even when an approved-but-differently-shaped
+	/// component member shares the same name: the real generated dispatch calls the component member,
+	/// while the markup binds the local function, so neither the local function's own shape nor the
+	/// member's shape is the right cause — the generic "request-owned component" message is, the same
+	/// as any other local declaration (LR-555fbcf-S003/P002).
+	/// </summary>
+	[Fact]
+	public async Task Local_function_shadowing_an_async_void_member_is_rejected_as_a_nonconfigurable_action_declaration()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "private async void M(global::Htmxor.HtmxEventArgs a) " +
+				"=> await global::System.Threading.Tasks.Task.Yield();",
+			wrapOpen: "void M() { }");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		var message = diagnostic.GetMessage();
+		Assert.Contains("handler 'M' must be an instance method", message, StringComparison.Ordinal);
+		foreach (var fragment in HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, message, StringComparison.Ordinal);
+		}
+	}
+
+	/// <summary>
 	/// A lambda or closure, a method call, and a conditional are the #307 value-grammar causes; the
 	/// handler-shape causes pinned by #308 are a disjoint set, so this list deliberately only needs to
 	/// rule out other handler-shape causes, not the value-grammar ones (a value-grammar cause can
