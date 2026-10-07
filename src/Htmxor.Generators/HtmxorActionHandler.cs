@@ -37,7 +37,8 @@ internal static class HtmxorActionHandler
 		var handlerName = declaration.HandlerName!;
 		return model.GetSymbolInfo(argument).Symbol switch
 		{
-			IMethodSymbol { MethodKind: MethodKind.LocalFunction } => Reason(handlerName, NotAComponentMember),
+			IMethodSymbol { MethodKind: MethodKind.LocalFunction or MethodKind.ReducedExtension } =>
+				Reason(handlerName, NotAComponentMember),
 			IMethodSymbol method => GetMethodReason(compilation, component, handlerName, method, model.GetMemberGroup(argument).Length),
 			ILocalSymbol or IParameterSymbol or IRangeVariableSymbol => Reason(handlerName, NotAComponentMember),
 			null => null,
@@ -107,8 +108,9 @@ internal static class HtmxorActionHandler
 	}
 
 	// The Create<HtmxEventArgs> call Razor generated for this binding, in the component's Razor-generated declaration.
-	// Razor maps the handler argument to the binding's position, which picks the call when one handler is bound more
-	// than once; the nearest mapped argument after the binding attribute on its line is the binding's own.
+	// Razor maps the handler argument to the binding's position, so when one handler is bound more than once the nearest
+	// mapped argument at or after the binding attribute, on its line or a later one, is the binding's own. A tree without
+	// #line mapping falls back to the first matching call.
 	private static InvocationExpressionSyntax? FindGeneratedCreateCall(
 		INamedTypeSymbol component,
 		HtmxorComponentActionDeclaration declaration)
