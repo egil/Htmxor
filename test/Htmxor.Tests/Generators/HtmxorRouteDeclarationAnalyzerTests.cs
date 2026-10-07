@@ -902,11 +902,10 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			}
 			}
 			""";
-		var razor = new SourceAdditionalText(
-			componentPath,
-			"""
+		const string razorContent = """
 			<button @onput="PutReport">Save</button>
-			""");
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
@@ -914,6 +913,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Equal("HTMXOR002", diagnostic.Id);
 		Assert.Contains("owns no route", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(razorContent.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
+			diagnostic.Location.SourceSpan);
 	}
 
 	[Fact]

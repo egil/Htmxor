@@ -171,10 +171,10 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	/// <summary>
-	/// Three spellings are approved and generate the same action (#307): quoted
-	/// <c>@onX="M"</c>, unquoted <c>@onX=M</c>, and <c>@onX="@M"</c>. This holds for both a
-	/// <c>@page</c> owner and an omitted-<c>Methods</c> <c>HtmxRoute</c> owner, and for all five
-	/// binding kinds.
+	/// Two more spellings are approved and generate the same action as the existing quoted
+	/// spelling (#307, covered by <see cref="Route_owner_and_component_binding_emit_one_compiling_action"/>):
+	/// unquoted <c>@onX=M</c> and <c>@onX="@M"</c>. This holds for both a <c>@page</c> owner and an
+	/// omitted-<c>Methods</c> <c>HtmxRoute</c> owner, and for all five binding kinds.
 	/// </summary>
 	public static IEnumerable<object[]> ApprovedSpellingCases()
 	{
@@ -195,7 +195,6 @@ public sealed class HtmxorActionGeneratorTests
 
 		(string Spelling, Func<string, string, string> Attribute)[] spellings =
 		{
-			("quoted", static (binding, handler) => $"{binding}=\"{handler}\""),
 			("unquoted", static (binding, handler) => $"{binding}={handler}"),
 			("at_quoted", static (binding, handler) => $"{binding}=\"@{handler}\""),
 		};
@@ -770,7 +769,7 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("lambda or closure", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
 		AssertNoActionSource(run);
 	}
 
@@ -790,7 +789,7 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("lambda or closure", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
 		AssertNoActionSource(run);
 	}
 
@@ -813,21 +812,27 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("lambda or closure", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
 		AssertNoActionSource(run);
 	}
 
 	/// <summary>
 	/// A method call, whether an implicit expression or wrapped in an explicit one, fails closed
 	/// with its own "method call" cause (#307), distinct from a lambda or a computed expression.
+	/// The call target returns a delegate (<c>Func&lt;HtmxEventArgs, Task&gt;</c>): a call to a
+	/// <c>Task</c>-returning handler, such as <c>PutReport()</c>, is not valid Razor for an
+	/// <c>@onX</c> attribute and would not compile in a real component.
 	/// </summary>
 	[Theory]
-	[InlineData("@PutReport()")]
-	[InlineData("@(PutReport())")]
+	[InlineData("@MakeHandler()")]
+	[InlineData("@(MakeHandler())")]
 	public void Method_call_binding_fails_closed_with_the_method_call_message(string value)
 	{
 		var content = """
 			@page "/reports/{ReportId:int}"
+			@code {
+				private Func<HtmxEventArgs, Task> MakeHandler() => PutReport;
+			}
 			<button @onput="%VALUE%">Save</button>
 			""".Replace("%VALUE%", value, StringComparison.Ordinal);
 		var input = new RazorInput("ReportComponent.razor", content);
@@ -835,7 +840,7 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("method call", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertCauseSpecificMessage(diagnostic, "method call");
 		AssertNoActionSource(run);
 	}
 
@@ -858,14 +863,15 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("computed expression", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertCauseSpecificMessage(diagnostic, "computed expression");
 		AssertNoActionSource(run);
 	}
 
 	/// <summary>
-	/// GET is implicit for every htmx request: <c>onget</c> is a stock Razor event handler
-	/// (<c>EventHandlers.cs</c>), not a Htmxor action binding, so <c>@onget</c> must fail closed
-	/// with its own cause instead of being silently accepted (#307).
+	/// GET is implicit for every htmx request, so <c>@onget</c> is not an action binding. Htmxor
+	/// still registers <c>onget</c> as a Razor event handler (<c>src/Htmxor/EventHandlers.cs</c>), so
+	/// the binding compiles and must fail closed with its own cause instead of being silently
+	/// accepted (#307).
 	/// </summary>
 	[Fact]
 	public void Onget_binding_fails_closed_with_the_get_is_implicit_message()
@@ -1678,7 +1684,7 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("lambda or closure", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
 		AssertNoActionSource(run);
 	}
 
@@ -1693,6 +1699,29 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Equal(input.FullPath, diagnostic.Location.GetLineSpan().Path);
 		Assert.Equal(new TextSpan(expectedStart, "@onput".Length), diagnostic.Location.SourceSpan);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+	}
+
+	/// <summary>
+	/// A lambda or closure, a method call, and a conditional (computed expression) are three
+	/// distinct value-grammar causes (#307) that must never share a message: a catch-all message
+	/// naming every cause would make every value-error test pass regardless of which cause actually
+	/// fired. Asserting the expected fragment's presence and the other two fragments' absence rules
+	/// that out.
+	/// </summary>
+	private static readonly string[] ValueGrammarCauseFragments =
+		{ "lambda or closure", "method call", "computed expression" };
+
+	private static void AssertCauseSpecificMessage(Diagnostic diagnostic, string expectedFragment)
+	{
+		var message = diagnostic.GetMessage();
+		Assert.Contains(expectedFragment, message, StringComparison.Ordinal);
+		foreach (var otherFragment in ValueGrammarCauseFragments)
+		{
+			if (!string.Equals(otherFragment, expectedFragment, StringComparison.Ordinal))
+			{
+				Assert.DoesNotContain(otherFragment, message, StringComparison.Ordinal);
+			}
+		}
 	}
 
 	private static void AssertNoActionSource(GeneratorRun run)
