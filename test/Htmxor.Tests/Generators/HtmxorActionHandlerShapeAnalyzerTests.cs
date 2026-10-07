@@ -483,10 +483,10 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
-	/// Razor always binds the handler inside its own generated <c>BuildRenderTree</c>, never inside a
-	/// code-behind file. A nested type in the code-behind that happens to declare a same-named,
-	/// approved-shaped method (here, a plain <c>void Save()</c> on a nested <c>Row</c>) must not
-	/// become the speculation anchor instead: the real handler is the Razor tree's <c>async void
+	/// Production finds Razor's own generated <c>Create</c> call only in the Razor-generated
+	/// declaration, never in a code-behind file. A nested type in the code-behind that happens to
+	/// declare a same-named, approved-shaped method (here, a plain <c>void Save()</c> on a nested
+	/// <c>Row</c>) is never searched at all: the real handler is the Razor tree's <c>async void
 	/// Save</c>, and that is the shape Htmxor must classify (LR-a6f7218-P001/S001).
 	/// </summary>
 	[Fact]
@@ -513,8 +513,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// A <c>using static</c> declared only in the code-behind file is not in scope where Razor itself
 	/// binds the handler, so real Razor's own build already fails (CS0103) when the component has no
 	/// <c>M</c> of its own. Htmxor must add nothing: the owner's "Razor decides" rule, not a second,
-	/// misleading diagnostic from a speculation that (incorrectly) anchored in the code-behind's scope
-	/// instead of the Razor tree's (LR-a6f7218-P001/S001).
+	/// misleading diagnostic from reading the Razor-generated call's own scope correctly
+	/// (LR-a6f7218-P001/S001).
 	/// </summary>
 	[Fact]
 	public async Task Using_static_declared_only_in_the_code_behind_is_not_flagged_by_Htmxor()
@@ -563,12 +563,12 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
-	/// The code-behind's first instance method declares a parameter named <c>M</c>, which is in scope
-	/// at the very position production's speculative bind inserts its synthetic call — if that method
-	/// is (wrongly) the anchor, the parameter shadows the real handler and the speculative call never
-	/// even sees it. The Razor tree's actual handler, <c>Task&lt;int&gt; M()</c>, is what Razor itself
-	/// binds and is the shape Htmxor must classify (LR-a6f7218-P001/S001). A same-named local inside
-	/// the first method's body has the identical effect, for the same reason.
+	/// The code-behind's first instance method declares a parameter named <c>M</c>. Production never
+	/// looks at the code-behind at all: it reads Razor's own generated <c>Create</c> call directly out
+	/// of the Razor-generated declaration, so a same-named parameter in a different file's method can
+	/// never be in scope for it. The Razor tree's actual handler, <c>Task&lt;int&gt; M()</c>, is what
+	/// Razor itself binds and is the shape Htmxor must classify (LR-a6f7218-P001/S001). A same-named
+	/// local inside the first method's body has the identical effect, for the same reason.
 	/// </summary>
 	[Fact]
 	public async Task Code_behind_parameter_sharing_the_handlers_name_does_not_shadow_the_razor_tree_handler()
@@ -593,8 +593,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// <c>Create&lt;HtmxEventArgs&gt;(this, this.M)</c> for it — member access through <c>this</c>,
 	/// not a simple name. A static <c>M</c> on the component is not a valid target of <c>this.M</c>
 	/// (CS1503: member access requires an instance), so real Razor already rejects this binding.
-	/// Htmxor's own speculative call must use the exact spelling the author wrote, not the simple name
-	/// <c>RazorBindingValue.TryReadHandler</c> reduces it to, or it adds a second, misleading
+	/// Production reads the exact spelling Razor itself generated, not the simple name
+	/// <c>RazorBindingValue.TryReadHandler</c> reduces it to, or it would add a second, misleading
 	/// diagnostic for a binding Razor already rejected (LR-a6f7218-P002).
 	/// </summary>
 	[Fact]
@@ -698,33 +698,17 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
-	/// A regression guard for the <c>BuildRenderTree</c> preference in <c>FindRazorAnchor</c>: an
-	/// earlier instance method with a parameter that shadows the handler's name must not become the
-	/// anchor instead of <c>BuildRenderTree</c> itself, or the shadowing parameter would hide the real,
-	/// approved member the way it does in the code-behind rows above. This is a characterization row,
-	/// not a regression: it is already green, because <c>FindRazorAnchor</c> already prefers
-	/// <c>BuildRenderTree</c> by name over the first direct member (LR-72dcffe-P001 observation).
-	/// </summary>
-	[Fact]
-	public async Task BuildRenderTree_is_preferred_over_an_earlier_method_with_a_shadowing_parameter()
-	{
-		var diagnostics = await RunWithBuildRenderTreeAsync(
-			handlerValue: "M",
-			members: "private void M() { }",
-			earlierMember: "private void Init(int M) { }");
-
-		Assert.Empty(diagnostics);
-	}
-
-	/// <summary>
 	/// A component can bind more than one handler, so more than one Razor-generated
 	/// <c>Create&lt;HtmxEventArgs&gt;</c> call can exist in the same declaration. Production must find
-	/// the one call that actually corresponds to this binding — by the handler's own text and its
-	/// mapped position — not merely "the first such call in the file": an unrelated, earlier binding to
-	/// an approved handler must never substitute for the real, differently-shaped handler this
-	/// declaration names. A green-finalization mutation sweep found no existing row with more than one
-	/// <c>Create</c> call in one declaration to catch a regression here, so this row is a deliberate
-	/// regression guard, not evidence of a defect.
+	/// the one call whose argument text matches this binding's handler, not merely "the first such call
+	/// in the file": an unrelated, earlier binding to an approved, differently-named handler must never
+	/// substitute for the real, differently-shaped handler this declaration names. This row's two calls
+	/// bind different handler names (<c>Other</c> and <c>M</c>), so only the text match distinguishes
+	/// them — it says nothing about line- or column-mapped selection between two calls that bind the
+	/// <em>same</em> text, which is a separate risk (see the <c>#line</c>-mapped rows above). A
+	/// green-finalization mutation sweep found no existing row with more than one <c>Create</c> call in
+	/// one declaration to catch a regression here, so this row is a deliberate regression guard, not
+	/// evidence of a defect.
 	/// </summary>
 	[Fact]
 	public async Task Multiple_create_calls_in_one_declaration_resolve_by_the_binding_not_by_order()
@@ -739,6 +723,185 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
 		AssertHandlerCauseSpecificMessage(diagnostic, "async void");
+	}
+
+	/// <summary>
+	/// Real Razor copies a parenthesized or whitespace-separated approved spelling into the generated
+	/// call exactly as written: <c>@onput="(M)"</c> emits <c>Create&lt;HtmxEventArgs&gt;(this, (M))</c>,
+	/// and <c>@onput="this . M"</c> emits <c>Create&lt;HtmxEventArgs&gt;(this, this . M)</c> — neither
+	/// the parentheses nor the extra whitespace disappear. Both are approved #307 spellings (the
+	/// <c>paren_without_at</c> row in <see cref="HtmxorActionGeneratorTests.ApprovedSpellingCases"/>
+	/// pins <c>(M)</c> specifically), so an <c>async void</c> handler reached through either spelling
+	/// must still fail closed with its own cause, the same as the plain <c>M</c> spelling
+	/// (LR-88fa9d8-S001/P001).
+	/// </summary>
+	[Theory]
+	[InlineData("(M)")]
+	[InlineData("this . M")]
+	public async Task Approved_spelling_of_an_async_void_handler_fails_closed_as_async_void(string handlerValue)
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: handlerValue,
+			members: "private async void M(global::Htmxor.HtmxEventArgs a) " +
+				"=> await global::System.Threading.Tasks.Task.Yield();");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		AssertHandlerCauseSpecificMessage(diagnostic, "async void");
+	}
+
+	/// <summary>
+	/// One element can bind the same handler name to a DOM event and to an htmx verb
+	/// (<c>&lt;input @onchange="M" @onput="M" /&gt;</c>), so the Razor-generated declaration carries
+	/// two <c>Create</c> calls with identical argument text but different type arguments
+	/// (<c>Create&lt;ChangeEventArgs&gt;</c> for <c>onchange</c>, <c>Create&lt;HtmxEventArgs&gt;</c> for
+	/// <c>onput</c>). <c>void M(ChangeEventArgs)</c> satisfies the <c>onchange</c> call but not the
+	/// <c>onput</c> one, so real Razor's own <c>@onput</c> binding already fails with CS1503: Htmxor
+	/// must add nothing for it, not classify the unrelated, successfully-bound <c>onchange</c> call
+	/// instead (LR-88fa9d8-P002).
+	/// </summary>
+	[Fact]
+	public async Task Handler_bound_to_a_different_event_on_the_same_element_is_left_to_Razor()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "private void M(global::Microsoft.AspNetCore.Components.ChangeEventArgs e) { }",
+			wrapOpen: "__builder.OpenElement(5, \"input\");\n\t\t\t__builder.AddAttribute(6, \"onchange\", " +
+				"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Microsoft.AspNetCore.Components.ChangeEventArgs>(this, M));",
+			wrapClose: "__builder.CloseElement();",
+			expectedCompilerErrorCode: "CS1503");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Razor maps a handler's generated argument to the binding attribute's own value, which can sit on
+	/// a later line than the attribute name — here, an earlier <c>@foreach</c> binds the same handler
+	/// name to a DOM event's loop variable, and the real <c>@onput</c> value is split across two lines.
+	/// A faithful two-<c>Create</c>-call declaration, with the real <c>#line (l,c)-(l,c)</c> directives
+	/// Razor itself emits for this exact shape, must still resolve to the approved component method
+	/// <c>Go()</c>, not the earlier loop-local candidate: the approved handler must stay approved
+	/// (LR-88fa9d8-S002).
+	/// </summary>
+	[Fact]
+	public async Task Earlier_foreach_variable_split_across_lines_does_not_shadow_the_binding()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Action[] Actions { get; } = new global::System.Action[0];
+				private void Go() { }
+
+				protected override void BuildRenderTree(global::Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
+				{
+					foreach (var Go in Actions)
+					{
+						__builder.OpenElement(0, "a");
+						__builder.AddAttribute(1, "onclick", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Microsoft.AspNetCore.Components.ChangeEventArgs>(this,
+			#line (4,14)-(4,16) "{{componentPath}}"
+			Go
+
+			#line default
+			#line hidden
+						));
+						__builder.AddContent(2, "x");
+						__builder.CloseElement();
+					}
+
+					__builder.OpenElement(3, "button");
+					__builder.AddAttribute(4, "onput", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
+			#line (7,2)-(7,4) "{{componentPath}}"
+			Go
+
+			#line default
+			#line hidden
+					));
+					__builder.AddContent(5, "x");
+					__builder.CloseElement();
+				}
+			}
+			}
+			""";
+		const string razorContent = """
+			@page "/reports/{Id:int}"
+			@foreach (var Go in Actions)
+			{
+			<a @onclick="Go">x</a>
+			}
+			<button @onput=
+			"Go">x</button>
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// The same mapped-selection rule when the loop and the binding sit on one line: both the earlier
+	/// <c>@onclick</c> call and the real <c>@onput</c> call map to the same line as the <c>@onput</c>
+	/// attribute name itself, so a line-only comparison can match both — the real binding's own,
+	/// later position within that line is what must win. A faithful declaration with the real
+	/// <c>#line (l,c)-(l,c)</c> directives Razor emits for this exact shape must still resolve to the
+	/// approved component method <c>Go()</c> (LR-88fa9d8-S002).
+	/// </summary>
+	[Fact]
+	public async Task Earlier_foreach_variable_on_the_same_line_does_not_shadow_the_binding()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Action[] Actions { get; } = new global::System.Action[0];
+				private void Go() { }
+
+				protected override void BuildRenderTree(global::Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
+				{
+					foreach (var Go in Actions)
+					{
+						__builder.OpenElement(0, "a");
+						__builder.AddAttribute(1, "onclick", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Microsoft.AspNetCore.Components.ChangeEventArgs>(this,
+			#line (2,45)-(2,47) "{{componentPath}}"
+			Go
+
+			#line default
+			#line hidden
+						));
+						__builder.AddContent(2, "x");
+						__builder.CloseElement();
+					}
+
+					__builder.OpenElement(3, "button");
+					__builder.AddAttribute(4, "onput", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
+			#line (2,73)-(2,75) "{{componentPath}}"
+			Go
+
+			#line default
+			#line hidden
+					));
+					__builder.AddContent(5, "x");
+					__builder.CloseElement();
+				}
+			}
+			}
+			""";
+		const string razorContent = """
+			@page "/reports/{Id:int}"
+			@foreach (var Go in Actions) { <a @onclick="Go">x</a> } <button @onput="Go">x</button>
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		Assert.Empty(diagnostics);
 	}
 
 	/// <summary>
@@ -1015,9 +1178,10 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// generator output, the order a real build uses. Only the Razor-generated partial carries
 	/// <c>[RouteAttribute]</c> and the <c>: ComponentBase</c> base list, matching what Razor itself
 	/// emits; the code-behind partial carries none of that, matching a real <c>.razor.cs</c> file.
-	/// This is the seam for every finding that depends on which tree production's speculative bind
-	/// anchors on (LR-a6f7218-P001/S001): the wrong anchor sees the wrong <c>using</c> directives, or
-	/// a parameter/local that happens to share the handler's name.
+	/// This is the seam for every finding about which tree production reads Razor's generated
+	/// <c>Create</c> call from (LR-a6f7218-P001/S001): production must find that call only in the
+	/// Razor-generated declaration, never in the code-behind's own <c>using</c> directives, parameters,
+	/// or locals.
 	/// </summary>
 	private static async Task<ImmutableArray<Diagnostic>> RunWithCodeBehindAsync(
 		string codeBehindUsings,
@@ -1103,16 +1267,13 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// expression-bodied stand-in. <paramref name="wrapOpen"/>/<paramref name="wrapClose"/> nest that
 	/// position inside a block, the way markup control flow (a <c>@foreach</c>, for example) becomes a
 	/// nested C# block in the generated method — Razor binds the handler name at that exact nested
-	/// position, not at the top of the method. <paramref name="earlierMember"/> is declared before
-	/// <c>BuildRenderTree</c>, to exercise <c>FindRazorAnchor</c>'s preference for <c>BuildRenderTree</c>
-	/// over the first direct member (LR-72dcffe-P001).
+	/// position, not at the top of the method.
 	/// </summary>
 	private static async Task<ImmutableArray<Diagnostic>> RunWithBuildRenderTreeAsync(
 		string handlerValue,
 		string members,
 		string wrapOpen = "",
 		string wrapClose = "",
-		string earlierMember = "",
 		string? expectedCompilerErrorCode = null)
 	{
 		var componentPath = ComponentPath("ReportComponent.razor");
@@ -1122,8 +1283,6 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
 			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
 			{
-				{{earlierMember}}
-
 				protected override void BuildRenderTree(global::Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
 				{
 					{{wrapOpen}}
@@ -1164,8 +1323,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// The multi-tree overload: a real component compilation can carry more than one syntax tree for
 	/// the same partial type (a code-behind file plus the Razor-generated declaration), each at its
 	/// own path and in declaration order (user sources before generator output, matching a real
-	/// build). Every fixture that needs to show which tree production's speculative bind actually
-	/// anchors on (LR-a6f7218-P001/S001) uses this overload directly instead of
+	/// build). Every fixture that needs to show which tree production reads Razor's generated
+	/// <c>Create</c> call from (LR-a6f7218-P001/S001) uses this overload directly instead of
 	/// <see cref="RunActionAnalyzerAsync(string, AdditionalText, string?)"/>.
 	/// </summary>
 	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(

@@ -1331,13 +1331,12 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		=> Path.Combine(ProjectDirectory, relativePath);
 
 	/// <summary>
-	/// The exact call real Razor generates for an <c>@onX="handlerName"</c> binding, placed in an
-	/// instance method with a body: production resolves a handler the way Razor does, by
-	/// speculatively binding this call inside an instance method of the component
-	/// (<c>HtmxorActionHandler.Bind</c>), so a fixture with no instance method at all has nowhere for
-	/// that speculation to anchor and production can never diagnose it. Every fixture below that
-	/// relies on a cause-specific or absence diagnostic must declare one, the same fidelity
-	/// <c>HtmxorActionHandlerShapeAnalyzerTests.BindMethod</c> already gives its own fixtures.
+	/// The exact call real Razor generates for an <c>@onX="handlerName"</c> binding: production finds
+	/// this call directly in the Razor-generated declaration's own syntax and reads it with the real
+	/// semantic model, so a fixture with no such call present gives production nothing to read and it
+	/// can never diagnose it. Every fixture below that relies on a cause-specific or absence diagnostic
+	/// must declare one, the same fidelity <c>HtmxorActionHandlerShapeAnalyzerTests.BindMethod</c>
+	/// already gives its own fixtures.
 	/// </summary>
 	private static string BindMethod(string handlerName)
 		=> "private void Bind() => " +
