@@ -37,8 +37,7 @@ internal static class HtmxorActionHandler
 		var handlerName = declaration.HandlerName!;
 		return model.GetSymbolInfo(argument).Symbol switch
 		{
-			IMethodSymbol { MethodKind: MethodKind.LocalFunction or MethodKind.ReducedExtension } =>
-				Reason(handlerName, NotAComponentMember),
+			IMethodSymbol { MethodKind: MethodKind.LocalFunction } => Reason(handlerName, NotAComponentMember),
 			IMethodSymbol method => GetMethodReason(compilation, component, handlerName, method, model.GetMemberGroup(argument).Length),
 			ILocalSymbol or IParameterSymbol or IRangeVariableSymbol => Reason(handlerName, NotAComponentMember),
 			null => null,
@@ -53,7 +52,8 @@ internal static class HtmxorActionHandler
 		IMethodSymbol method,
 		int groupSize)
 	{
-		if (method.IsStatic && !IsInComponentChain(method.ContainingType, component))
+		// Covers `using static` imports and both extension forms, whose containing type is not the component's.
+		if (!IsInComponentChain(method.ContainingType, component))
 		{
 			return Reason(handlerName, NotAComponentMember);
 		}
