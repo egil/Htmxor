@@ -19,16 +19,21 @@ internal static class RazorBindingValue
 		};
 
 	public static string GetUnsupportedCause(string? value)
-		=> Parse(value) switch
-		{
-			LambdaExpressionSyntax or AnonymousMethodExpressionSyntax => "a lambda or closure",
-			InvocationExpressionSyntax => "a method call",
-			_ => "a computed expression",
-		};
+		=> ReadExpression(value).Length == 0
+			? "an empty value"
+			: Parse(value) switch
+			{
+				LambdaExpressionSyntax or AnonymousMethodExpressionSyntax => "a lambda or closure",
+				InvocationExpressionSyntax => "a method call",
+				_ => "a computed expression",
+			};
+
+	private static string ReadExpression(string? value)
+		=> StripRazorTransition(Unquote(value));
 
 	private static ExpressionSyntax? Parse(string? value)
 	{
-		var expression = StripRazorTransition(Unquote(value));
+		var expression = ReadExpression(value);
 		if (expression.Length == 0)
 		{
 			return null;
