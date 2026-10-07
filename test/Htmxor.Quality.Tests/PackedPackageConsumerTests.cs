@@ -12,8 +12,10 @@ namespace Htmxor.Quality.Tests;
 [Collection(PackageConsumerCollection.Name)]
 public sealed class PackedPackageConsumerTests
 {
-	private const string UnsupportedPutHandlerMessage =
-		"@onput must use one double-quoted simple method-group name";
+	// The staged computed handler (UseComputedPutHandler) is a lambda, so its cause-specific
+	// HTMXOR002 message shares the "lambda or closure" fragment with every other lambda or
+	// closure binding (#307).
+	private const string UnsupportedPutHandlerMessage = "lambda or closure";
 	private const string AmbiguousStockRouteMessage =
 		"exactly one stock route and no HtmxRoute";
 	private const string ExplicitMethodsConflictMessage =

@@ -126,6 +126,8 @@ public sealed class HtmxorActionGeneratorTests
 				private Task DeleteReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
 
 				private Task QueryReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+
+				private Task GemÆndring(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
 			}
 		}
 		""";
@@ -167,6 +169,155 @@ public sealed class HtmxorActionGeneratorTests
 			.ToString();
 		Assert.Contains($"\"{httpMethod}\"", actionSource, StringComparison.Ordinal);
 		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Two more spellings are approved and generate the same action as the existing quoted
+	/// spelling (#307, covered by <see cref="Route_owner_and_component_binding_emit_one_compiling_action"/>):
+	/// unquoted <c>@onX=M</c> and <c>@onX="@M"</c>. This holds for both a <c>@page</c> owner and an
+	/// omitted-<c>Methods</c> <c>HtmxRoute</c> owner, and for all five binding kinds.
+	///
+	/// A parenthesized method group, <c>@onX="@(M)"</c>, and an unquoted explicit expression,
+	/// <c>@onX=@M</c>, are also accepted: both compile to the same method group as the spellings
+	/// above and take the same classification path, so one representative row each is enough.
+	///
+	/// Any bare method-group name is an approved spelling (#307): the expression, after the Razor
+	/// <c>@</c> and any parentheses, is a simple identifier or <c>this.Identifier</c>, whatever the
+	/// quoting. So a single-quoted value (<c>@onX='M'</c>), a qualified <c>this.M</c>, a bare
+	/// parenthesized group without an explicit <c>@</c> expression (<c>@onX="(M)"</c>), and a handler
+	/// name containing a non-ASCII identifier letter each get one representative row.
+	/// </summary>
+	public static IEnumerable<object[]> ApprovedSpellingCases()
+	{
+		(string RouteDeclaration, bool UsesStockRoute)[] routeOwners =
+		{
+			("@page \"/reports/{ReportId:int}\"", true),
+			("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", false),
+		};
+
+		(string TagName, string Binding, string HttpMethod, string HandlerName)[] bindings =
+		{
+			("button", "@onpost", "POST", "PostReport"),
+			("button", "@onput", "PUT", "PutReport"),
+			("InputText", "@onpatch", "PATCH", "PatchReport"),
+			("InputText", "@ondelete", "DELETE", "DeleteReport"),
+			("form", "@onquery", "QUERY", "QueryReport"),
+		};
+
+		(string Spelling, Func<string, string, string> Attribute)[] spellings =
+		{
+			("unquoted", static (binding, handler) => $"{binding}={handler}"),
+			("at_quoted", static (binding, handler) => $"{binding}=\"@{handler}\""),
+		};
+
+		foreach (var owner in routeOwners)
+		{
+			foreach (var binding in bindings)
+			{
+				foreach (var spelling in spellings)
+				{
+					yield return new object[]
+					{
+						spelling.Spelling,
+						owner.RouteDeclaration,
+						owner.UsesStockRoute,
+						binding.TagName,
+						spelling.Attribute(binding.Binding, binding.HandlerName),
+						binding.HttpMethod,
+						binding.HandlerName,
+					};
+				}
+			}
+		}
+
+		yield return new object[]
+		{
+			"paren_quoted",
+			"@page \"/reports/{ReportId:int}\"",
+			true,
+			"button",
+			"@onput=\"@(PutReport)\"",
+			"PUT",
+			"PutReport",
+		};
+		yield return new object[]
+		{
+			"at_unquoted",
+			"@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]",
+			false,
+			"button",
+			"@onput=@PutReport",
+			"PUT",
+			"PutReport",
+		};
+		yield return new object[]
+		{
+			"single_quoted",
+			"@page \"/reports/{ReportId:int}\"",
+			true,
+			"button",
+			"@onput='PutReport'",
+			"PUT",
+			"PutReport",
+		};
+		yield return new object[]
+		{
+			"this_qualified",
+			"@page \"/reports/{ReportId:int}\"",
+			true,
+			"button",
+			"@onput=\"this.PutReport\"",
+			"PUT",
+			"PutReport",
+		};
+		yield return new object[]
+		{
+			"paren_without_at",
+			"@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]",
+			false,
+			"button",
+			"@onput=\"(PutReport)\"",
+			"PUT",
+			"PutReport",
+		};
+		yield return new object[]
+		{
+			"non_ascii_handler",
+			"@page \"/reports/{ReportId:int}\"",
+			true,
+			"button",
+			"@onpost=\"GemÆndring\"",
+			"POST",
+			"GemÆndring",
+		};
+	}
+
+	[Theory]
+	[MemberData(nameof(ApprovedSpellingCases))]
+	public void Approved_spelling_generates_its_action_for_every_binding_kind_and_route_owner(
+		string spelling,
+		string routeDeclaration,
+		bool usesStockRoute,
+		string tagName,
+		string attribute,
+		string httpMethod,
+		string handlerName)
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			$"""
+			{routeDeclaration}
+			<{tagName} {attribute} />
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains($"\"{httpMethod}\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
+		Assert.Equal(1, CountOccurrences(actionSource, "actions.Add("));
+		AssertChosenOwner(actionSource, $"Htmxor.Consumer.ReportComponent.{httpMethod}.{handlerName}", usesStockRoute);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
@@ -691,8 +842,270 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("simple method-group", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
 		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A lambda with a parameter is the same lambda cause as a parameterless lambda (#307), so it
+	/// gets the same "lambda or closure" message, not the generic method-group message.
+	/// </summary>
+	[Fact]
+	public void Lambda_binding_with_a_parameter_fails_closed_with_the_lambda_or_closure_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			<button @onput="@(e => PutReport(e))">Save</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A lambda that captures a local, such as a <c>@foreach</c> loop variable, is a closure. Its
+	/// cause shares the "lambda or closure" message with a plain lambda (#307).
+	/// </summary>
+	[Fact]
+	public void Closure_capturing_the_loop_variable_fails_closed_with_the_lambda_or_closure_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			@foreach (var item in Items)
+			{
+				<button @onput="@(e => PutReport(item))">Save</button>
+			}
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A method call, whether an implicit expression or wrapped in an explicit one, fails closed
+	/// with its own "method call" cause (#307), distinct from a lambda or a computed expression.
+	/// The call target returns a delegate (<c>Func&lt;HtmxEventArgs, Task&gt;</c>): a call to a
+	/// <c>Task</c>-returning handler, such as <c>PutReport()</c>, is not valid Razor for an
+	/// <c>@onX</c> attribute and would not compile in a real component.
+	/// </summary>
+	[Theory]
+	[InlineData("@MakeHandler()")]
+	[InlineData("@(MakeHandler())")]
+	public void Method_call_binding_fails_closed_with_the_method_call_message(string value)
+	{
+		var content = """
+			@page "/reports/{ReportId:int}"
+			@code {
+				private Func<HtmxEventArgs, Task> MakeHandler() => PutReport;
+			}
+			<button @onput="%VALUE%">Save</button>
+			""".Replace("%VALUE%", value, StringComparison.Ordinal);
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "method call");
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A conditional expression is a computed expression (#307): neither a simple method-group name
+	/// nor a lambda nor a plain call, so it gets its own "computed expression" cause.
+	/// </summary>
+	[Fact]
+	public void Conditional_binding_fails_closed_with_the_computed_expression_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			@code {
+				private bool flag;
+			}
+			<button @onput="@(flag ? PutReport : PostReport)">Save</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "computed expression");
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// GET is implicit for every htmx request, so <c>@onget</c> is not an action binding. Htmxor
+	/// still registers <c>onget</c> as a Razor event handler (<c>src/Htmxor/EventHandlers.cs</c>), so
+	/// the binding compiles and must fail closed with its own cause instead of being silently
+	/// accepted (#307).
+	/// </summary>
+	[Fact]
+	public void Onget_binding_fails_closed_with_the_get_is_implicit_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			<button @onget="PostReport">Load</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onget", StringComparison.Ordinal));
+		Assert.Contains("GET is implicit", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A switch expression that picks between two method groups is the switch form of the
+	/// conditional this slice already reports as "a computed expression" (#307): it is neither a
+	/// lambda nor a plain call, even though its arms are written with <c>=&gt;</c>.
+	/// </summary>
+	[Fact]
+	public void Switch_expression_binding_fails_closed_with_the_computed_expression_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			@code {
+				private int Mode;
+			}
+			<button @onput="@(Mode switch { 0 => PutReport, _ => PostReport })">Save</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "computed expression");
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// Combining two delegate-returning calls with <c>+</c> is a computed expression (#307), not a
+	/// method call: the value as a whole is a binary expression, even though each operand is itself
+	/// a call.
+	/// </summary>
+	[Fact]
+	public void Delegate_combination_binding_fails_closed_with_the_computed_expression_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			@code {
+				private Func<HtmxEventArgs, Task> MakeA(int x) => PutReport;
+				private Func<HtmxEventArgs, Task> MakeB(int x) => PostReport;
+			}
+			<button @onput="@(MakeA(1) + MakeB(2))">Save</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "computed expression");
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A conditional whose branches are themselves delegate-returning calls is still a computed
+	/// expression (#307), not a method call: the value as a whole is the conditional, even though it
+	/// ends with a call's closing parenthesis.
+	/// </summary>
+	[Fact]
+	public void Conditional_of_method_calls_binding_fails_closed_with_the_computed_expression_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			@code {
+				private bool IsAdmin() => true;
+				private Func<HtmxEventArgs, Task> MakePut() => PutReport;
+				private Func<HtmxEventArgs, Task> MakePost() => PostReport;
+			}
+			<button @onput="@(IsAdmin() ? MakePut() : MakePost())">Save</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "computed expression");
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A method call is still a method call when the callee's name happens to start with the word
+	/// "delegate" (#307): the cause is decided by what the expression is, not by a substring of its
+	/// spelling.
+	/// </summary>
+	[Fact]
+	public void Lowercase_delegate_prefixed_method_call_binding_fails_closed_with_the_method_call_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			@code {
+				private Func<HtmxEventArgs, Task> delegateFactory() => PutReport;
+			}
+			<button @onput="@(delegateFactory())">Save</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "method call");
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// An anonymous method is the same lambda cause as a lambda expression (#307), so it gets the
+	/// same "lambda or closure" message.
+	/// </summary>
+	[Fact]
+	public void Anonymous_method_binding_fails_closed_with_the_lambda_or_closure_message()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			<button @onput="@(delegate (HtmxEventArgs e) { return PutReport(e); })">Save</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
+		AssertNoActionSource(run);
+	}
+
+	/// <summary>
+	/// A binding with no value at all (<c>@onX</c>, with no <c>=</c>) or an empty quoted value
+	/// (<c>@onX=""</c>) is not a binding (#307, owner decision): real Razor builds both with no
+	/// errors and drops the attribute, so Htmxor must report nothing and generate nothing rather than
+	/// add a diagnostic for a case Razor already decided. <c>@onX="@"</c> (a bare Razor transition
+	/// with nothing after it) is not covered here: Razor itself rejects that page (RZ1005), so there
+	/// is no case to classify.
+	/// </summary>
+	[Theory]
+	[InlineData("missing_value", "<button @onput>Save</button>")]
+	[InlineData("empty_value", "<button @onput=\"\">Save</button>")]
+	public void Empty_or_missing_binding_value_is_not_a_binding(
+		string scenario,
+		string elementMarkup)
+	{
+		var content = """
+			@page "/reports/{ReportId:int}"
+			%ELEMENT%
+			""".Replace("%ELEMENT%", elementMarkup, StringComparison.Ordinal);
+		var run = RunGenerators(new RazorInput("ReportComponent.razor", content));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
 	[Fact]
@@ -1490,7 +1903,7 @@ public sealed class HtmxorActionGeneratorTests
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.Contains("simple method-group", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertCauseSpecificMessage(diagnostic, "lambda or closure");
 		AssertNoActionSource(run);
 	}
 
@@ -1505,6 +1918,29 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Equal(input.FullPath, diagnostic.Location.GetLineSpan().Path);
 		Assert.Equal(new TextSpan(expectedStart, "@onput".Length), diagnostic.Location.SourceSpan);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+	}
+
+	/// <summary>
+	/// A lambda or closure, a method call, and a conditional (computed expression) are three
+	/// distinct value-grammar causes (#307) that must never share a message: a catch-all message
+	/// naming every cause would make every value-error test pass regardless of which cause actually
+	/// fired. Asserting the expected fragment's presence and the other two fragments' absence rules
+	/// that out.
+	/// </summary>
+	private static readonly string[] ValueGrammarCauseFragments =
+		{ "lambda or closure", "method call", "computed expression" };
+
+	private static void AssertCauseSpecificMessage(Diagnostic diagnostic, string expectedFragment)
+	{
+		var message = diagnostic.GetMessage();
+		Assert.Contains(expectedFragment, message, StringComparison.Ordinal);
+		foreach (var otherFragment in ValueGrammarCauseFragments)
+		{
+			if (!string.Equals(otherFragment, expectedFragment, StringComparison.Ordinal))
+			{
+				Assert.DoesNotContain(otherFragment, message, StringComparison.Ordinal);
+			}
+		}
 	}
 
 	private static void AssertNoActionSource(GeneratorRun run)
