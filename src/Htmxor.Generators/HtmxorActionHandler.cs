@@ -1,55 +1,64 @@
-using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Htmxor.Generators;
 
-// Resolves an inferred binding's handler from compiled symbols. The accepted shapes are void M(), void M(HtmxEventArgs),
-// Task M() and Task M(HtmxEventArgs) on an accessible instance method. A shape the Razor compiler already rejects at the
-// binding (no bindable overload, or more than one) gets no reason here, so Htmxor never duplicates Razor's error.
+// Resolves an inferred binding's handler the way Razor does: by binding EventCallback.Factory.Create<HtmxEventArgs>(this, M)
+// inside the component, so overload resolution, hiding and `using static` imports are the compiler's own. When that binding
+// fails, Razor reports the error itself and Htmxor adds nothing. Otherwise the bound handler must be one of void M(),
+// void M(HtmxEventArgs), Task M() or Task M(HtmxEventArgs) on an instance method of the component or a base type.
 internal static class HtmxorActionHandler
 {
 	public static string? GetUnsupportedReason(Compilation compilation, INamedTypeSymbol component, string handlerName)
 	{
-		var accessible = FindMembers(component, handlerName)
-			.Where(member => compilation.IsSymbolAccessibleWithin(member, component))
-			.ToList();
-		if (accessible.Count == 0)
-		{
-			// Razor reports a missing or inaccessible member itself, unless a static method imported with
-			// `using static` is what the binding resolves to.
-			return HasImportableStaticMethod(compilation, component, handlerName)
-				? Reason(handlerName, "must be an instance method on the request-owned component")
-				: null;
-		}
-
-		return accessible.All(static member => member is IMethodSymbol)
-			? GetMethodReason(compilation, handlerName, accessible.Cast<IMethodSymbol>().ToList())
-			: Reason(handlerName, "is not a method");
-	}
-
-	private static string? GetMethodReason(Compilation compilation, string handlerName, IReadOnlyList<IMethodSymbol> declared)
-	{
-		var eventArgs = compilation.GetTypeByMetadataName("Htmxor.HtmxEventArgs");
-		var task = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
-		var methods = WithoutOverridden(declared);
-		var bindable = methods.Where(method => IsRazorBindable(compilation, method, eventArgs, task)).ToList();
-		if (bindable.Count != 1)
+		var binding = Bind(compilation, component, handlerName);
+		if (binding is null)
 		{
 			return null;
 		}
 
-		return methods.Count > 1
-			? Reason(handlerName, "is overloaded; give the handler a unique name")
-			: GetShapeCause(bindable[0], eventArgs, task) is { } cause ? Reason(handlerName, cause) : null;
+		var (symbol, group) = binding.Value;
+		return symbol switch
+		{
+			IMethodSymbol method when !HasDelegateCompatibleParameters(compilation, method) => null,
+			IMethodSymbol method => GetMethodReason(compilation, component, handlerName, method, group),
+			null => null,
+			_ => Reason(handlerName, "is not a method"),
+		};
 	}
 
-	private static string? GetShapeCause(IMethodSymbol method, INamedTypeSymbol? eventArgs, INamedTypeSymbol? task)
+	private static string? GetMethodReason(
+		Compilation compilation,
+		INamedTypeSymbol component,
+		string handlerName,
+		IMethodSymbol method,
+		int groupSize)
+	{
+		if (method.IsStatic && !IsInComponentChain(method.ContainingType, component))
+		{
+			return Reason(handlerName, "must be an instance method on the request-owned component");
+		}
+
+		if (groupSize > 1)
+		{
+			return Reason(handlerName, "is overloaded; give the handler a unique name");
+		}
+
+		return GetShapeCause(compilation, method) is { } cause ? Reason(handlerName, cause) : null;
+	}
+
+	private static string? GetShapeCause(Compilation compilation, IMethodSymbol method)
 	{
 		if (method.IsStatic)
 		{
 			return "is static; make it an instance method";
+		}
+
+		if (method.IsGenericMethod)
+		{
+			return "is generic; make it non-generic";
 		}
 
 		if (method.IsAsync && method.ReturnsVoid)
@@ -57,6 +66,7 @@ internal static class HtmxorActionHandler
 			return "is async void; return Task instead";
 		}
 
+		var task = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
 		if (!method.ReturnsVoid && !SymbolEqualityComparer.Default.Equals(method.ReturnType, task))
 		{
 			return "returns a value; return void or Task";
@@ -64,74 +74,98 @@ internal static class HtmxorActionHandler
 
 		return method.Parameters.Length == 0
 			? null
-			: GetParameterCause(method.Parameters[0], eventArgs);
+			: GetParameterCause(compilation, method.Parameters[0]);
 	}
 
-	private static string? GetParameterCause(IParameterSymbol parameter, INamedTypeSymbol? eventArgs)
+	private static string? GetParameterCause(Compilation compilation, IParameterSymbol parameter)
 	{
 		if (parameter.IsOptional)
 		{
 			return "has an optional parameter; make it required";
 		}
 
+		var eventArgs = compilation.GetTypeByMetadataName("Htmxor.HtmxEventArgs");
 		return SymbolEqualityComparer.Default.Equals(parameter.Type, eventArgs)
 			? null
 			: "has a parameter that is not HtmxEventArgs; its parameter must be HtmxEventArgs";
 	}
 
-	// The shapes EventCallbackFactory.Create<HtmxEventArgs> accepts as a method group, which is what Razor compiles.
-	private static bool IsRazorBindable(
-		Compilation compilation,
-		IMethodSymbol method,
-		INamedTypeSymbol? eventArgs,
-		INamedTypeSymbol? task)
-		=> !method.IsGenericMethod &&
-			ReturnsBindable(compilation, method, task) &&
-			AcceptsBindable(compilation, method.Parameters, eventArgs);
-
-	private static bool ReturnsBindable(Compilation compilation, IMethodSymbol method, INamedTypeSymbol? task)
-		=> method.ReturnsVoid ||
-			(task is not null && method.ReturnType.IsReferenceType && compilation.HasImplicitConversion(method.ReturnType, task));
-
-	private static bool AcceptsBindable(
-		Compilation compilation,
-		ImmutableArray<IParameterSymbol> parameters,
-		INamedTypeSymbol? eventArgs)
-		=> parameters.Length == 0 ||
-			(parameters.Length == 1 &&
-				parameters[0].RefKind == RefKind.None &&
-				parameters[0].Type.IsReferenceType &&
-				eventArgs is not null &&
-				compilation.HasImplicitConversion(eventArgs, parameters[0].Type));
-
-	private static bool HasImportableStaticMethod(Compilation compilation, INamedTypeSymbol component, string handlerName)
-		=> compilation.GetSymbolsWithName(handlerName, SymbolFilter.Member)
-			.OfType<IMethodSymbol>()
-			.Any(method => method.IsStatic && compilation.IsSymbolAccessibleWithin(method, component));
-
-	private static List<ISymbol> FindMembers(INamedTypeSymbol component, string handlerName)
+	// Returns the symbol the handler argument binds to and the size of its method group, or null when the binding fails,
+	// which Razor reports itself.
+	private static (ISymbol? Symbol, int GroupSize)? Bind(Compilation compilation, INamedTypeSymbol component, string handlerName)
 	{
-		var members = new List<ISymbol>();
-		for (var current = component; current is not null; current = current.BaseType)
+		var method = FindInstanceMethod(component);
+		var invocation = (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(
+			"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, " +
+			handlerName + ")");
+		var speculative = method is null ? null : Speculate(compilation, method, invocation);
+		if (speculative is null)
 		{
-			members.AddRange(current.GetMembers(handlerName));
+			return null;
 		}
 
-		return members;
+		var bound = (InvocationExpressionSyntax)speculative.SyntaxTree.GetRoot()
+			.DescendantNodesAndSelf()
+			.First(static node => node is InvocationExpressionSyntax);
+		var argument = bound.ArgumentList.Arguments[1].Expression;
+		return speculative.GetSymbolInfo(bound).Symbol is null || !speculative.GetConversion(argument).Exists
+			? null
+			: (speculative.GetSymbolInfo(argument).Symbol, speculative.GetMemberGroup(argument).Length);
 	}
 
-	private static List<IMethodSymbol> WithoutOverridden(IReadOnlyList<IMethodSymbol> methods)
+	// Binds the invocation inside an instance method of the component, where `this` and the component's members are in scope.
+	private static SemanticModel? Speculate(
+		Compilation compilation,
+		MethodDeclarationSyntax method,
+		InvocationExpressionSyntax invocation)
 	{
-		var overridden = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
-		foreach (var method in methods)
+		var model = compilation.GetSemanticModel(method.SyntaxTree);
+		SemanticModel? speculative;
+		var bound = method.Body is { } body
+			? model.TryGetSpeculativeSemanticModel(
+				body.SpanStart + 1,
+				SyntaxFactory.ExpressionStatement(invocation),
+				out speculative)
+			: model.TryGetSpeculativeSemanticModel(
+				method.ExpressionBody!.Expression.SpanStart,
+				SyntaxFactory.ArrowExpressionClause(invocation),
+				out speculative);
+		return bound ? speculative : null;
+	}
+
+	private static MethodDeclarationSyntax? FindInstanceMethod(INamedTypeSymbol component)
+		=> component.DeclaringSyntaxReferences
+			.Select(static reference => reference.GetSyntax())
+			.SelectMany(static node => node.DescendantNodes().OfType<MethodDeclarationSyntax>())
+			.FirstOrDefault(static method =>
+				!method.Modifiers.Any(SyntaxKind.StaticKeyword) &&
+				(method.Body is not null || method.ExpressionBody is not null));
+
+	// Overload resolution can pick Create through a user-defined parameter conversion, but the method-group conversion
+	// then fails (CS0123): a delegate parameter only converts by identity or implicit reference.
+	private static bool HasDelegateCompatibleParameters(Compilation compilation, IMethodSymbol method)
+	{
+		var eventArgs = compilation.GetTypeByMetadataName("Htmxor.HtmxEventArgs");
+		if (method.Parameters.Length == 0 || eventArgs is null)
 		{
-			for (var current = method.OverriddenMethod; current is not null; current = current.OverriddenMethod)
+			return true;
+		}
+
+		var conversion = compilation.ClassifyCommonConversion(eventArgs, method.Parameters[0].Type);
+		return conversion.IsIdentity || (conversion.IsImplicit && conversion.IsReference);
+	}
+
+	private static bool IsInComponentChain(INamedTypeSymbol? type, INamedTypeSymbol component)
+	{
+		for (var current = component; current is not null; current = current.BaseType)
+		{
+			if (SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, type?.OriginalDefinition))
 			{
-				overridden.Add(current);
+				return true;
 			}
 		}
 
-		return methods.Where(method => !overridden.Contains(method)).ToList();
+		return false;
 	}
 
 	private static string Reason(string handlerName, string cause)
