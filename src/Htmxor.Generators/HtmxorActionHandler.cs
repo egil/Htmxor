@@ -17,7 +17,15 @@ internal static class HtmxorActionHandler
 		string handlerName,
 		string handlerAccess)
 	{
-		var binding = Bind(compilation, component, handlerAccess);
+		var anchor = FindRazorAnchor(component);
+		if (anchor is not null && handlerAccess == handlerName && DeclaresName(anchor, handlerName))
+		{
+			// Razor binds the name where the attribute sits, so a @foreach variable, lambda parameter or local with that name
+			// is what it binds to, not a component member.
+			return Reason(handlerName, "must be an instance method on the request-owned component");
+		}
+
+		var binding = anchor is null ? null : Bind(compilation, anchor, handlerAccess);
 		if (binding is null)
 		{
 			return null;
@@ -96,13 +104,15 @@ internal static class HtmxorActionHandler
 
 	// Returns the symbol the handler argument binds to and the size of its method group, or null when the binding fails,
 	// which Razor reports itself.
-	private static (ISymbol? Symbol, int GroupSize)? Bind(Compilation compilation, INamedTypeSymbol component, string handlerAccess)
+	private static (ISymbol? Symbol, int GroupSize)? Bind(
+		Compilation compilation,
+		MethodDeclarationSyntax method,
+		string handlerAccess)
 	{
-		var method = FindRazorAnchor(component);
 		var invocation = (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(
 			"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, " +
 			handlerAccess + ")");
-		var speculative = method is null ? null : Speculate(compilation, method, invocation);
+		var speculative = Speculate(compilation, method, invocation);
 		if (speculative is null)
 		{
 			return null;
@@ -153,6 +163,16 @@ internal static class HtmxorActionHandler
 		return candidates.FirstOrDefault(static method => method.Identifier.ValueText == "BuildRenderTree") ??
 			candidates.FirstOrDefault();
 	}
+
+	private static bool DeclaresName(MethodDeclarationSyntax anchor, string name)
+		=> anchor.DescendantNodes().Any(node => node switch
+		{
+			VariableDeclaratorSyntax variable => variable.Identifier.ValueText == name,
+			ForEachStatementSyntax loop => loop.Identifier.ValueText == name,
+			ParameterSyntax parameter => parameter.Identifier.ValueText == name,
+			SingleVariableDesignationSyntax designation => designation.Identifier.ValueText == name,
+			_ => false,
+		});
 
 	// Overload resolution can pick Create through a user-defined parameter conversion, but the method-group conversion
 	// then fails (CS0123): a delegate parameter only converts by identity or implicit reference.
