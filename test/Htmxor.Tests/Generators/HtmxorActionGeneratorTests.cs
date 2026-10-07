@@ -182,13 +182,11 @@ public sealed class HtmxorActionGeneratorTests
 	/// <c>@onX=@M</c>, are also accepted: both compile to the same method group as the spellings
 	/// above and take the same classification path, so one representative row each is enough.
 	///
-	/// The owner's wider decision (#307) is that any bare method-group name is an approved
-	/// spelling: the expression, after the Razor <c>@</c> and any parentheses, is a simple
-	/// identifier or <c>this.Identifier</c>, whatever the quoting. A single-quoted value
-	/// (<c>@onX='M'</c>) is already accepted by the current `Unquote`, so it is pinned as green.
-	/// A qualified <c>this.M</c> reference and a bare parenthesized group written without an
-	/// explicit <c>@</c> expression (<c>@onX="(M)"</c>) are not yet accepted and are red until the
-	/// classifier is widened; so is a handler name containing a non-ASCII identifier letter.
+	/// Any bare method-group name is an approved spelling (#307): the expression, after the Razor
+	/// <c>@</c> and any parentheses, is a simple identifier or <c>this.Identifier</c>, whatever the
+	/// quoting. So a single-quoted value (<c>@onX='M'</c>), a qualified <c>this.M</c>, a bare
+	/// parenthesized group without an explicit <c>@</c> expression (<c>@onX="(M)"</c>), and a handler
+	/// name containing a non-ASCII identifier letter each get one representative row.
 	/// </summary>
 	public static IEnumerable<object[]> ApprovedSpellingCases()
 	{
@@ -1083,6 +1081,33 @@ public sealed class HtmxorActionGeneratorTests
 		AssertNoActionSource(run);
 	}
 
+	/// <summary>
+	/// A binding with no value at all (<c>@onX</c>, with no <c>=</c>) or an empty quoted value
+	/// (<c>@onX=""</c>) has no expression to classify, so it must report its own "an empty value"
+	/// cause (#307), not the generic "a computed expression" fallback that an absent expression
+	/// would otherwise fall into. <c>@onX="@"</c> (a bare Razor transition with nothing after it) is
+	/// not covered here: it is invalid Razor on its own (RZ1005), confirmed in the TestApp harness.
+	/// </summary>
+	[Theory]
+	[InlineData("missing_value", "<button @onput>Save</button>")]
+	[InlineData("empty_value", "<button @onput=\"\">Save</button>")]
+	public void Empty_or_missing_binding_value_fails_closed_with_the_empty_value_message(
+		string scenario,
+		string elementMarkup)
+	{
+		var content = """
+			@page "/reports/{ReportId:int}"
+			%ELEMENT%
+			""".Replace("%ELEMENT%", elementMarkup, StringComparison.Ordinal);
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertCauseSpecificMessage(diagnostic, "an empty value");
+		AssertNoActionSource(run);
+	}
+
 	[Fact]
 	public void Two_onput_bindings_inside_control_flow_trigger_the_at_most_one_rule()
 	{
@@ -1896,14 +1921,14 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	/// <summary>
-	/// A lambda or closure, a method call, and a conditional (computed expression) are three
-	/// distinct value-grammar causes (#307) that must never share a message: a catch-all message
+	/// A lambda or closure, a method call, a conditional (computed expression), and an empty value
+	/// are distinct value-grammar causes (#307) that must never share a message: a catch-all message
 	/// naming every cause would make every value-error test pass regardless of which cause actually
-	/// fired. Asserting the expected fragment's presence and the other two fragments' absence rules
-	/// that out.
+	/// fired. Asserting the expected fragment's presence and the other fragments' absence rules that
+	/// out.
 	/// </summary>
 	private static readonly string[] ValueGrammarCauseFragments =
-		{ "lambda or closure", "method call", "computed expression" };
+		{ "lambda or closure", "method call", "computed expression", "an empty value" };
 
 	private static void AssertCauseSpecificMessage(Diagnostic diagnostic, string expectedFragment)
 	{
