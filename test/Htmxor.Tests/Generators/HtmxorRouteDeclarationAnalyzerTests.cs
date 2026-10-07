@@ -1039,7 +1039,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
-		Assert.Contains("handler 'DeleteReport' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		// A static method gets its own "static" cause (#308), not the generic
+		// instance-method message shared by every other unsupported handler.
+		Assert.Contains("static", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
