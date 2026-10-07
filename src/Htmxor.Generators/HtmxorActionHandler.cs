@@ -11,9 +11,13 @@ namespace Htmxor.Generators;
 // void M(HtmxEventArgs), Task M() or Task M(HtmxEventArgs) on an instance method of the component or a base type.
 internal static class HtmxorActionHandler
 {
-	public static string? GetUnsupportedReason(Compilation compilation, INamedTypeSymbol component, string handlerName)
+	public static string? GetUnsupportedReason(
+		Compilation compilation,
+		INamedTypeSymbol component,
+		string handlerName,
+		string handlerAccess)
 	{
-		var binding = Bind(compilation, component, handlerName);
+		var binding = Bind(compilation, component, handlerAccess);
 		if (binding is null)
 		{
 			return null;
@@ -92,12 +96,12 @@ internal static class HtmxorActionHandler
 
 	// Returns the symbol the handler argument binds to and the size of its method group, or null when the binding fails,
 	// which Razor reports itself.
-	private static (ISymbol? Symbol, int GroupSize)? Bind(Compilation compilation, INamedTypeSymbol component, string handlerName)
+	private static (ISymbol? Symbol, int GroupSize)? Bind(Compilation compilation, INamedTypeSymbol component, string handlerAccess)
 	{
-		var method = FindInstanceMethod(component);
+		var method = FindRazorAnchor(component);
 		var invocation = (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(
 			"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, " +
-			handlerName + ")");
+			handlerAccess + ")");
 		var speculative = method is null ? null : Speculate(compilation, method, invocation);
 		if (speculative is null)
 		{
@@ -133,13 +137,22 @@ internal static class HtmxorActionHandler
 		return bound ? speculative : null;
 	}
 
-	private static MethodDeclarationSyntax? FindInstanceMethod(INamedTypeSymbol component)
-		=> component.DeclaringSyntaxReferences
+	// Razor binds the handler inside BuildRenderTree in its generated declaration, with that file's usings. Only direct
+	// members of that declaration are considered, so a code-behind or a nested type never supplies the scope.
+	private static MethodDeclarationSyntax? FindRazorAnchor(INamedTypeSymbol component)
+	{
+		var candidates = component.DeclaringSyntaxReferences
+			.Where(static reference => HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath))
 			.Select(static reference => reference.GetSyntax())
-			.SelectMany(static node => node.DescendantNodes().OfType<MethodDeclarationSyntax>())
-			.FirstOrDefault(static method =>
+			.OfType<TypeDeclarationSyntax>()
+			.SelectMany(static declaration => declaration.Members.OfType<MethodDeclarationSyntax>())
+			.Where(static method =>
 				!method.Modifiers.Any(SyntaxKind.StaticKeyword) &&
-				(method.Body is not null || method.ExpressionBody is not null));
+				(method.Body is not null || method.ExpressionBody is not null))
+			.ToList();
+		return candidates.FirstOrDefault(static method => method.Identifier.ValueText == "BuildRenderTree") ??
+			candidates.FirstOrDefault();
+	}
 
 	// Overload resolution can pick Create through a user-defined parameter conversion, but the method-group conversion
 	// then fails (CS0123): a delegate parameter only converts by identity or implicit reference.

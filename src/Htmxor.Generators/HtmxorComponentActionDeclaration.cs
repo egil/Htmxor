@@ -32,6 +32,7 @@ internal sealed class HtmxorComponentActionDeclaration
 		string attributeName,
 		string httpMethod,
 		string? handlerName,
+		string? handlerAccess,
 		RouteOwner owner,
 		string path,
 		TextSpan span,
@@ -42,6 +43,7 @@ internal sealed class HtmxorComponentActionDeclaration
 		AttributeName = attributeName;
 		HttpMethod = httpMethod;
 		HandlerName = handlerName;
+		HandlerAccess = handlerAccess;
 		UsesStockRoute = owner.UsesStockRoute;
 		RouteTemplate = owner.RouteTemplate;
 		Path = path;
@@ -57,6 +59,9 @@ internal sealed class HtmxorComponentActionDeclaration
 	public string HttpMethod { get; }
 
 	public string? HandlerName { get; }
+
+	// The handler as the author wrote it (M or this.M), which is the expression Razor binds.
+	public string? HandlerAccess { get; }
 
 	public bool UsesStockRoute { get; }
 
@@ -133,6 +138,7 @@ internal sealed class HtmxorComponentActionDeclaration
 				binding.AttributeName,
 				binding.HttpMethod,
 				handlerName,
+				RazorBindingValue.TryReadHandlerAccess(candidate.Value),
 				owner,
 				path,
 				span,
@@ -211,6 +217,7 @@ internal sealed class HtmxorComponentActionDeclaration
 			binding.AttributeName,
 			binding.HttpMethod,
 			handlerName: null,
+			handlerAccess: null,
 			owner,
 			path,
 			span,

@@ -9,6 +9,12 @@ namespace Htmxor.Generators;
 // classified by why it is not one.
 internal static class RazorBindingValue
 {
+	// The handler as written, M or this.M, which is what Razor binds.
+	public static string? TryReadHandlerAccess(string? value)
+		=> TryReadHandler(value) is { } name
+			? Parse(value) is MemberAccessExpressionSyntax ? "this." + name : name
+			: null;
+
 	public static string? TryReadHandler(string? value)
 		=> Parse(value) switch
 		{
