@@ -490,7 +490,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// Save</c>, and that is the shape Htmxor must classify (LR-a6f7218-P001/S001).
 	/// </summary>
 	[Fact]
-	public async Task Nested_type_in_code_behind_does_not_steal_the_bind_anchor_from_the_razor_tree()
+	public async Task Nested_type_in_code_behind_does_not_replace_the_razor_tree_handler()
 	{
 		var diagnostics = await RunWithCodeBehindAsync(
 			codeBehindUsings: "",
@@ -512,8 +512,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// <summary>
 	/// A <c>using static</c> declared only in the code-behind file is not in scope where Razor itself
 	/// binds the handler, so real Razor's own build already fails (CS0103) when the component has no
-	/// <c>M</c> of its own. Htmxor must add nothing: the owner's "Razor decides" rule, not a second,
-	/// misleading diagnostic from reading the Razor-generated call's own scope correctly
+	/// <c>M</c> of its own. Razor decides, so Htmxor adds no diagnostic of its own
 	/// (LR-a6f7218-P001/S001).
 	/// </summary>
 	[Fact]
@@ -627,6 +626,33 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
+	/// <c>this.M</c> also binds to a reduced extension method when the component has no instance
+	/// <c>M</c> of its own: Razor emits <c>Create&lt;HtmxEventArgs&gt;(this, this.M)</c> exactly as for
+	/// an instance member, and real C# compiles it. An extension method is not an instance method of
+	/// the component or a base type, so it is outside the approved-shape contract: Htmxor must still
+	/// reject it with the generic "request-owned component" message, the same cause as any other
+	/// non-member handler (LR-25c5baf-S002). A standards review found this case currently passes
+	/// through unflagged, so this row is red until production classifies a reduced extension method the
+	/// same way it already classifies a local function.
+	/// </summary>
+	[Fact]
+	public async Task This_qualified_handler_naming_an_extension_method_is_rejected_as_a_nonconfigurable_action_declaration()
+	{
+		var diagnostics = await RunForThisQualifiedHandlerAsync(
+			"",
+			usings: "namespace " + RootNamespace + "\n{\n" +
+				"public static class Extensions { public static void M(this ReportComponent c) { } }\n}\n");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains("handler 'M' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+		foreach (var fragment in HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, diagnostic.GetMessage(), StringComparison.Ordinal);
+		}
+	}
+
+	/// <summary>
 	/// <c>@onput="this.M"</c> reaches the same shape rules as <c>M</c>: an <c>async void</c> instance
 	/// handler written through <c>this</c> compiles in Razor, so Htmxor must still fail closed with
 	/// its cause.
@@ -705,7 +731,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// substitute for the real, differently-shaped handler this declaration names. This row's two calls
 	/// bind different handler names (<c>Other</c> and <c>M</c>), so only the text match distinguishes
 	/// them — it says nothing about line- or column-mapped selection between two calls that bind the
-	/// <em>same</em> text, which is a separate risk (see the <c>#line</c>-mapped rows above). A
+	/// <em>same</em> text, which is a separate risk (see the <c>#line</c>-mapped rows below). A
 	/// green-finalization mutation sweep found no existing row with more than one <c>Create</c> call in
 	/// one declaration to catch a regression here, so this row is a deliberate regression guard, not
 	/// evidence of a defect.
@@ -777,15 +803,16 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// <summary>
 	/// Razor maps a handler's generated argument to the binding attribute's own value, which can sit on
 	/// a later line than the attribute name — here, an earlier <c>@foreach</c> binds the same handler
-	/// name to a DOM event's loop variable, and the real <c>@onput</c> value is split across two lines.
-	/// Both calls carry the <c>HtmxEventArgs</c> type argument (a plausible shape when the same handler
-	/// name is reused for two different htmx-tracked verbs, not just a DOM event), so the type-argument
-	/// guard alone cannot tell them apart and position is what must: a green-finalization mutation
-	/// sweep found that an earlier, differently-typed decoy call never exercises this selection at all,
-	/// because the type guard already excludes it. A faithful two-<c>Create</c>-call declaration, with
-	/// the real <c>#line (l,c)-(l,c)</c> directives Razor itself emits for this exact shape, must still
-	/// resolve to the approved component method <c>Go()</c>, not the earlier loop-local candidate: the
-	/// approved handler must stay approved (LR-88fa9d8-S002).
+	/// name to a second htmx-tracked verb, <c>@onquery</c>, on the loop variable, and the real
+	/// <c>@onput</c> value is split across two lines. Both calls carry the <c>HtmxEventArgs</c> type
+	/// argument because both are real htmx bindings, not a DOM event, so the type-argument guard alone
+	/// cannot tell them apart and position is what must. Razor compiles the loop binding (it is a
+	/// delegate-compatible <c>Action</c> local), so this is not a case Razor already decides: Htmxor
+	/// must reject the loop's own binding as a non-member handler while still resolving the real
+	/// <c>@onput</c> binding to the approved component method <c>Go()</c>, not the earlier loop-local
+	/// candidate (LR-88fa9d8-S002, LR-25c5baf-S004). A faithful two-<c>Create</c>-call declaration, with
+	/// the real <c>#line (l,c)-(l,c)</c> directives Razor itself emits for this exact shape, pins both
+	/// halves of that outcome.
 	/// </summary>
 	[Fact]
 	public async Task Earlier_foreach_variable_split_across_lines_does_not_shadow_the_binding()
@@ -805,7 +832,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 					foreach (var Go in Actions)
 					{
 						__builder.OpenElement(0, "a");
-						__builder.AddAttribute(1, "onclick", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
+						__builder.AddAttribute(1, "onquery", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
 			#line (4,14)-(4,16) "{{componentPath}}"
 			Go
 
@@ -834,7 +861,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			@page "/reports/{Id:int}"
 			@foreach (var Go in Actions)
 			{
-			<a @onclick="Go">x</a>
+			<a @onquery="Go">x</a>
 			}
 			<button @onput=
 			"Go">x</button>
@@ -843,18 +870,22 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
-		Assert.Empty(diagnostics);
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal(3, diagnostic.Location.GetLineSpan().StartLinePosition.Line);
+		Assert.Contains("handler 'Go' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
 	/// <summary>
 	/// The same mapped-selection rule when the loop and the binding sit on one line: both the earlier
-	/// <c>@onclick</c> call and the real <c>@onput</c> call map to the same line as the <c>@onput</c>
-	/// attribute name itself, so a line-only comparison can match both — the real binding's own,
-	/// later position within that line is what must win. Both calls carry the <c>HtmxEventArgs</c> type
-	/// argument, the same as the row above, so the type-argument guard alone cannot distinguish them
-	/// and position is what must. A faithful declaration with the real <c>#line (l,c)-(l,c)</c>
-	/// directives Razor emits for this exact shape must still resolve to the approved component method
-	/// <c>Go()</c> (LR-88fa9d8-S002).
+	/// <c>@onquery</c> call and the real <c>@onput</c> call map to the same line as the <c>@onput</c>
+	/// attribute name itself, so a line-only comparison can match both — the real binding's own, later
+	/// position within that line is what must win. Both calls carry the <c>HtmxEventArgs</c> type
+	/// argument, the same as the row above, so the type-argument guard alone cannot distinguish them and
+	/// position is what must. Razor compiles the loop binding, so Htmxor must reject it as a non-member
+	/// handler while the real <c>@onput</c> binding still resolves to the approved component method
+	/// <c>Go()</c> (LR-88fa9d8-S002, LR-25c5baf-S004). A faithful declaration with the real
+	/// <c>#line (l,c)-(l,c)</c> directives Razor emits for this exact shape pins both halves of that
+	/// outcome.
 	/// </summary>
 	[Fact]
 	public async Task Earlier_foreach_variable_on_the_same_line_does_not_shadow_the_binding()
@@ -874,7 +905,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 					foreach (var Go in Actions)
 					{
 						__builder.OpenElement(0, "a");
-						__builder.AddAttribute(1, "onclick", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
+						__builder.AddAttribute(1, "onquery", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
 			#line (2,45)-(2,47) "{{componentPath}}"
 			Go
 
@@ -901,13 +932,82 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			""";
 		const string razorContent = """
 			@page "/reports/{Id:int}"
-			@foreach (var Go in Actions) { <a @onclick="Go">x</a> } <button @onput="Go">x</button>
+			@foreach (var Go in Actions) { <a @onquery="Go">x</a> } <button @onput="Go">x</button>
 			""";
 		var razor = new SourceAdditionalText(componentPath, razorContent);
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
-		Assert.Empty(diagnostics);
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal(1, diagnostic.Location.GetLineSpan().StartLinePosition.Line);
+		Assert.Contains("handler 'Go' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// The binding's own call is the nearest one at or after its attribute, so a later binding of the same
+	/// name is never chosen in its place: here <c>@onput="Go"</c> binds the component's <c>Go()</c>, and a
+	/// later <c>@onquery="Go"</c> inside a <c>@foreach</c> binds the loop variable. Only the loop binding is
+	/// rejected: reversing the position-selection order (choosing the nearest mapped call at or before the
+	/// binding rather than at or after it) would make this approved binding fail closed with a false,
+	/// non-suppressible diagnostic, and would also let the loop binding below escape its own diagnostic —
+	/// the opposite direction from every existing <c>#line</c>-mapped row, none of which had a real binding
+	/// followed by a later, same-named decoy call (LR-25c5baf-S001).
+	/// </summary>
+	[Fact]
+	public async Task Later_binding_of_the_same_name_does_not_replace_the_earlier_binding()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Action[] Actions { get; } = new global::System.Action[0];
+				private void Go() { }
+
+				protected override void BuildRenderTree(global::Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
+				{
+					__builder.OpenElement(0, "button");
+					__builder.AddAttribute(1, "onput", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
+			#line (2,17)-(2,19) "{{componentPath}}"
+			Go
+
+			#line default
+			#line hidden
+					));
+					__builder.CloseElement();
+					foreach (var Go in Actions)
+					{
+						__builder.OpenElement(2, "a");
+						__builder.AddAttribute(3, "onquery", global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this,
+			#line (5,14)-(5,16) "{{componentPath}}"
+			Go
+
+			#line default
+			#line hidden
+						));
+						__builder.CloseElement();
+					}
+				}
+			}
+			}
+			""";
+		const string razorContent = """
+			@page "/reports/{Id:int}"
+			<button @onput="Go">x</button>
+			@foreach (var Go in Actions)
+			{
+			<a @onquery="Go">x</a>
+			}
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal(4, diagnostic.Location.GetLineSpan().StartLinePosition.Line);
+		Assert.Contains("handler 'Go' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
 	/// <summary>
