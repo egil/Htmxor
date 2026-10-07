@@ -18,15 +18,17 @@ internal static class RazorBindingValue
 			_ => null,
 		};
 
+	// Razor compiles a missing or empty value and drops the attribute, so there is no binding to declare.
+	public static bool IsEmpty(string? value)
+		=> ReadExpression(value).Length == 0;
+
 	public static string GetUnsupportedCause(string? value)
-		=> ReadExpression(value).Length == 0
-			? "an empty value"
-			: Parse(value) switch
-			{
-				LambdaExpressionSyntax or AnonymousMethodExpressionSyntax => "a lambda or closure",
-				InvocationExpressionSyntax => "a method call",
-				_ => "a computed expression",
-			};
+		=> Parse(value) switch
+		{
+			LambdaExpressionSyntax or AnonymousMethodExpressionSyntax => "a lambda or closure",
+			InvocationExpressionSyntax => "a method call",
+			_ => "a computed expression",
+		};
 
 	private static string ReadExpression(string? value)
 		=> StripRazorTransition(Unquote(value));

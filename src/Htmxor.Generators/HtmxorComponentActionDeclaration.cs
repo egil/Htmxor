@@ -97,7 +97,7 @@ internal sealed class HtmxorComponentActionDeclaration
 		foreach (var binding in SupportedBindings)
 		{
 			var candidates = scan.Attributes
-				.Where(attribute => attribute.Name == binding.AttributeName)
+				.Where(attribute => attribute.Name == binding.AttributeName && !RazorBindingValue.IsEmpty(attribute.Value))
 				.ToList();
 			foreach (var candidate in candidates)
 			{
