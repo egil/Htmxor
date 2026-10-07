@@ -350,12 +350,9 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
-	/// An <c>override</c> member is already resolved correctly today: <see cref="BindMethod"/>
-	/// proves it compiles, and the analyzer's <c>WithoutOverridden</c> step removes the overridden
-	/// base method from the candidate list, leaving only the derived override. This row pins that
-	/// behavior as a regression guard: the complete-change review found that removing
-	/// <c>WithoutOverridden</c> left every existing test green (LR-5192587-S004), so nothing before
-	/// this row would have caught a regression here.
+	/// An <c>override</c> of a virtual base handler is the member C# binds, so its own shape decides
+	/// the cause: an approved virtual base method does not make an <c>async void</c> override
+	/// acceptable.
 	/// </summary>
 	[Fact]
 	public async Task Override_of_a_virtual_base_handler_fails_closed_as_async_void()
@@ -406,10 +403,9 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// <summary>
 	/// A static method reached only through a metadata assembly's <c>using static</c> import (here,
 	/// <c>System.Console.Beep</c>) must still be classified "not a member of the component", the same
-	/// as a source-declared import (#308's "Decision and correction"):
-	/// <c>Compilation.GetSymbolsWithName</c> only returns source-declared symbols, so a purely
-	/// metadata import is a regression distinct from the source-declared imported-static pins in
-	/// <see cref="HtmxorRouteDeclarationAnalyzerTests"/> (LR-5192587-P003).
+	/// as a source-declared import (#308's "Decision and correction"): the imported method is not a
+	/// member of the component at all, whether declared in source or in metadata, which is distinct
+	/// from the source-declared imported-static pins in <see cref="HtmxorRouteDeclarationAnalyzerTests"/>.
 	/// </summary>
 	[Fact]
 	public async Task Imported_static_handler_from_metadata_is_rejected_as_a_nonconfigurable_action_declaration()
@@ -455,9 +451,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// An unrelated accessible static method of the same name elsewhere in source, with no
 	/// <c>using static</c> bringing it into scope and no member of that name anywhere on the
 	/// component's own chain, must not add a second, misleading HTMXOR002 alongside Razor's own
-	/// CS0103 (#308's duplicate-diagnostic rule, #307 comment 6039651773):
-	/// <c>HasImportableStaticMethod</c> must not treat "an accessible static method exists somewhere
-	/// in source" as "is in scope for this binding" (LR-5192587-P004).
+	/// CS0103 (#308's duplicate-diagnostic rule, #307 comment 6039651773): an accessible static method
+	/// existing somewhere in source is not the same as being in scope for this binding.
 	/// </summary>
 	[Fact]
 	public async Task Missing_handler_with_an_unrelated_unimported_static_of_the_same_name_is_not_flagged_by_Htmxor()
@@ -483,6 +478,150 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 		var razor = new SourceAdditionalText(componentPath, HandlerRazorContent);
 
 		var diagnostics = await RunActionAnalyzerAsync(source, razor, expectedCompilerErrorCode: "CS0103");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Razor always binds the handler inside its own generated <c>BuildRenderTree</c>, never inside a
+	/// code-behind file. A nested type in the code-behind that happens to declare a same-named,
+	/// approved-shaped method (here, a plain <c>void Save()</c> on a nested <c>Row</c>) must not
+	/// become the speculation anchor instead: the real handler is the Razor tree's <c>async void
+	/// Save</c>, and that is the shape Htmxor must classify (LR-a6f7218-P001/S001).
+	/// </summary>
+	[Fact]
+	public async Task Nested_type_in_code_behind_does_not_steal_the_bind_anchor_from_the_razor_tree()
+	{
+		var diagnostics = await RunWithCodeBehindAsync(
+			codeBehindUsings: "",
+			codeBehindMembers: "private sealed class Row { public void Save() { } }",
+			codeBehindExtra: "",
+			razorUsings: "",
+			razorMembers: "private async void Save(global::Htmxor.HtmxEventArgs a) " +
+				"=> await global::System.Threading.Tasks.Task.Yield();\n\n\t\t" +
+				"private void Bind() => global::Microsoft.AspNetCore.Components.EventCallback.Factory." +
+				"Create<global::Htmxor.HtmxEventArgs>(this, Save);",
+			razorExtra: "",
+			handlerValue: "Save");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		AssertHandlerCauseSpecificMessage(diagnostic, "async void");
+	}
+
+	/// <summary>
+	/// A <c>using static</c> declared only in the code-behind file is not in scope where Razor itself
+	/// binds the handler, so real Razor's own build already fails (CS0103) when the component has no
+	/// <c>M</c> of its own. Htmxor must add nothing: the owner's "Razor decides" rule, not a second,
+	/// misleading diagnostic from a speculation that (incorrectly) anchored in the code-behind's scope
+	/// instead of the Razor tree's (LR-a6f7218-P001/S001).
+	/// </summary>
+	[Fact]
+	public async Task Using_static_declared_only_in_the_code_behind_is_not_flagged_by_Htmxor()
+	{
+		var diagnostics = await RunWithCodeBehindAsync(
+			codeBehindUsings: "using static " + RootNamespace + ".Helpers;",
+			codeBehindMembers: "private void Helper() { }",
+			codeBehindExtra: "",
+			razorUsings: "",
+			razorMembers: BindMethod,
+			razorExtra: "public static class Helpers { public static void M() { } }",
+			handlerValue: "M",
+			expectedCompilerErrorCode: "CS0103");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// The mirror of the row above: a <c>using static</c> declared only in the Razor-generated tree
+	/// (what Razor itself emits for a page-level <c>@using static</c>) is exactly where Razor binds
+	/// the handler, so this compiles cleanly and the imported static is not a member of the component
+	/// — the owner's decision keeps the generic "request-owned component" message. Production must
+	/// not go silent just because a code-behind file also exists and happens to hold the first
+	/// instance method across every tree (LR-a6f7218-P001/S001).
+	/// </summary>
+	[Fact]
+	public async Task Using_static_declared_only_in_the_razor_tree_is_rejected_as_a_nonconfigurable_action_declaration()
+	{
+		var diagnostics = await RunWithCodeBehindAsync(
+			codeBehindUsings: "",
+			codeBehindMembers: "private void Helper() { }",
+			codeBehindExtra: "",
+			razorUsings: "using static " + RootNamespace + ".Helpers;",
+			razorMembers: BindMethod,
+			razorExtra: "public static class Helpers { public static void M() { } }",
+			handlerValue: "M");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		var message = diagnostic.GetMessage();
+		Assert.Contains("handler 'M' must be an instance method", message, StringComparison.Ordinal);
+		foreach (var fragment in HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, message, StringComparison.Ordinal);
+		}
+	}
+
+	/// <summary>
+	/// The code-behind's first instance method declares a parameter named <c>M</c>, which is in scope
+	/// at the very position production's speculative bind inserts its synthetic call — if that method
+	/// is (wrongly) the anchor, the parameter shadows the real handler and the speculative call never
+	/// even sees it. The Razor tree's actual handler, <c>Task&lt;int&gt; M()</c>, is what Razor itself
+	/// binds and is the shape Htmxor must classify (LR-a6f7218-P001/S001). A same-named local inside
+	/// the first method's body has the identical effect, for the same reason.
+	/// </summary>
+	[Fact]
+	public async Task Code_behind_parameter_sharing_the_handlers_name_does_not_shadow_the_razor_tree_handler()
+	{
+		var diagnostics = await RunWithCodeBehindAsync(
+			codeBehindUsings: "",
+			codeBehindMembers: "private void Load(int M) { }",
+			codeBehindExtra: "",
+			razorUsings: "",
+			razorMembers: "private global::System.Threading.Tasks.Task<int> M() " +
+				"=> global::System.Threading.Tasks.Task.FromResult(1);\n\n\t\t" + BindMethod,
+			razorExtra: "",
+			handlerValue: "M");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		AssertHandlerCauseSpecificMessage(diagnostic, "returns a value");
+	}
+
+	/// <summary>
+	/// <c>@onput="this.M"</c> is an approved slice-2 spelling (#307), and Razor emits
+	/// <c>Create&lt;HtmxEventArgs&gt;(this, this.M)</c> for it — member access through <c>this</c>,
+	/// not a simple name. A static <c>M</c> on the component is not a valid target of <c>this.M</c>
+	/// (CS1503: member access requires an instance), so real Razor already rejects this binding.
+	/// Htmxor's own speculative call must use the exact spelling the author wrote, not the simple name
+	/// <c>RazorBindingValue.TryReadHandler</c> reduces it to, or it adds a second, misleading
+	/// diagnostic for a binding Razor already rejected (LR-a6f7218-P002).
+	/// </summary>
+	[Fact]
+	public async Task This_qualified_static_handler_is_not_flagged_by_Htmxor()
+	{
+		var diagnostics = await RunForThisQualifiedHandlerAsync(
+			"private static void M() { }",
+			usings: "",
+			expectedCompilerErrorCode: "CS1503");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// The same spelling rule for an imported static: member access through <c>this</c> never sees a
+	/// <c>using static</c> import (CS1061: <c>ReportComponent</c> has no member <c>M</c>), so real
+	/// Razor already rejects <c>this.M</c> here too, even though the simple name <c>M</c> would have
+	/// bound to the import. Htmxor must add nothing (LR-a6f7218-P002).
+	/// </summary>
+	[Fact]
+	public async Task This_qualified_imported_static_handler_is_not_flagged_by_Htmxor()
+	{
+		var diagnostics = await RunForThisQualifiedHandlerAsync(
+			"",
+			usings: "global using static " + RootNamespace + ".Helpers;\n\n" +
+				"namespace " + RootNamespace + "\n{\npublic static class Helpers { public static void M() { } }\n}\n",
+			expectedCompilerErrorCode: "CS1061");
 
 		Assert.Empty(diagnostics);
 	}
@@ -621,6 +760,96 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
+	/// Compiles a code-behind tree (<c>ReportComponent.razor.cs</c>) and the Razor-generated tree as
+	/// two separate partial declarations of the same component, in that order - user sources before
+	/// generator output, the order a real build uses. Only the Razor-generated partial carries
+	/// <c>[RouteAttribute]</c> and the <c>: ComponentBase</c> base list, matching what Razor itself
+	/// emits; the code-behind partial carries none of that, matching a real <c>.razor.cs</c> file.
+	/// This is the seam for every finding that depends on which tree production's speculative bind
+	/// anchors on (LR-a6f7218-P001/S001): the wrong anchor sees the wrong <c>using</c> directives, or
+	/// a parameter/local that happens to share the handler's name.
+	/// </summary>
+	private static async Task<ImmutableArray<Diagnostic>> RunWithCodeBehindAsync(
+		string codeBehindUsings,
+		string codeBehindMembers,
+		string codeBehindExtra,
+		string razorUsings,
+		string razorMembers,
+		string razorExtra,
+		string handlerValue,
+		string? expectedCompilerErrorCode = null)
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var codeBehindSource = $$"""
+			{{codeBehindUsings}}
+			namespace {{RootNamespace}}
+			{
+			{{codeBehindExtra}}
+			public partial class ReportComponent
+			{
+				{{codeBehindMembers}}
+			}
+			}
+			""";
+		var razorSource = $$"""
+			{{razorUsings}}
+			namespace {{RootNamespace}}
+			{
+			{{razorExtra}}
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public partial class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				{{razorMembers}}
+			}
+			}
+			""";
+		var razorContent = "@page \"/reports/{Id:int}\"\n<button @onput=\"" + handlerValue + "\">Save</button>\n";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
+
+		return await RunActionAnalyzerAsync(
+			new[]
+			{
+				(codeBehindSource, ComponentPath("ReportComponent.razor.cs")),
+				(razorSource, RazorGeneratedPath("ReportComponent")),
+			},
+			razor,
+			expectedCompilerErrorCode);
+	}
+
+	/// <summary>
+	/// A single-tree fixture whose Razor binding value is the caller's own spelling (for example
+	/// <c>this.M</c>), instead of the fixed <c>M</c> every other <see cref="RunForHandlerAsync"/>
+	/// fixture uses: <c>RazorBindingValue.TryReadHandler</c> reduces every slice-2 spelling to the
+	/// simple name <c>M</c>, so production's own speculative call never sees <c>this.M</c> as written
+	/// (LR-a6f7218-P002) - this fixture's explicit bind call does, which is what proves real Razor's
+	/// own verdict for that exact spelling.
+	/// </summary>
+	private static async Task<ImmutableArray<Diagnostic>> RunForThisQualifiedHandlerAsync(
+		string handlerMember,
+		string usings,
+		string? expectedCompilerErrorCode = null)
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			{{usings}}
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				{{handlerMember}}
+
+				private void Bind() => global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, this.M);
+			}
+			}
+			""";
+		var razorContent = "@page \"/reports/{Id:int}\"\n<button @onput=\"this.M\">Save</button>\n";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
+
+		return await RunActionAnalyzerAsync(source, razor, expectedCompilerErrorCode);
+	}
+
+	/// <summary>
 	/// Compiles the fixture (which always carries <see cref="BindMethod"/>, the real Razor-generated
 	/// binding call) and asserts real C#'s own verdict first: a clean compile when
 	/// <paramref name="expectedCompilerErrorCode"/> is <see langword="null"/> (every shape real Razor
@@ -632,11 +861,28 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 		string source,
 		AdditionalText razor,
 		string? expectedCompilerErrorCode = null)
+		=> await RunActionAnalyzerAsync(
+			new[] { (source, RazorGeneratedPath("ReportComponent")) },
+			razor,
+			expectedCompilerErrorCode);
+
+	/// <summary>
+	/// The multi-tree overload: a real component compilation can carry more than one syntax tree for
+	/// the same partial type (a code-behind file plus the Razor-generated declaration), each at its
+	/// own path and in declaration order (user sources before generator output, matching a real
+	/// build). Every fixture that needs to show which tree production's speculative bind actually
+	/// anchors on (LR-a6f7218-P001/S001) uses this overload directly instead of
+	/// <see cref="RunActionAnalyzerAsync(string, AdditionalText, string?)"/>.
+	/// </summary>
+	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
+		IReadOnlyList<(string Source, string FilePath)> sources,
+		AdditionalText razor,
+		string? expectedCompilerErrorCode = null)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 		var compilation = CSharpCompilation.Create(
 			"Htmxor.ActionHandlerShapeAnalyzer.Tests",
-			new[] { CSharpSyntaxTree.ParseText(source, parseOptions, RazorGeneratedPath("ReportComponent")) },
+			sources.Select(pair => CSharpSyntaxTree.ParseText(pair.Source, parseOptions, pair.FilePath)),
 			References,
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		var compilerErrors = compilation.GetDiagnostics()
