@@ -1370,11 +1370,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	private static string EscapePath(string path) => path.Replace("\"", "\\\"");
 
-	// The eight handler-shape causes (#308) and the shared
-	// `AssertHandlerCauseSpecificMessage`/`HandlerShapeCauseFragments` helper have one owner,
-	// `HtmxorActionHandlerShapeAnalyzerTests`, referenced directly below instead of duplicated here
-	// (#308 test-contract review).
-
 	private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(
 		IEnumerable<string> sources,
 		IEnumerable<string> razorPaths,

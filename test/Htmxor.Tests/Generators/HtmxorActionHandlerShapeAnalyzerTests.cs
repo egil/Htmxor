@@ -12,9 +12,12 @@ namespace Htmxor.Generators.Tests;
 /// https://github.com/egil/Htmxor/issues/308#issuecomment-6040725984): Htmxor accepts exactly
 /// <c>void M()</c>, <c>void M(HtmxEventArgs)</c>, <c>Task M()</c> and <c>Task M(HtmxEventArgs)</c>,
 /// on an accessible instance method of the component or a base type, at any accessibility. Every
-/// other shape that real Razor itself compiles fails with its own cause-specific HTMXOR002. A shape
-/// real Razor itself rejects (<c>ValueTask</c>, wrong parameter type, two or more parameters,
-/// generic, <c>ref</c>/<c>in</c>, ambiguous overloads) gets no Htmxor diagnostic at all.
+/// other shape that real Razor itself compiles fails with its own cause-specific HTMXOR002,
+/// including an overload pair C# resolves to one applicable method, a member hidden with
+/// <c>new</c>, and a generic method whose type parameter C# can infer from <c>HtmxEventArgs</c>. A
+/// shape real Razor itself rejects (<c>ValueTask</c>, wrong parameter type, two or more parameters,
+/// an uninferable generic, <c>ref</c>/<c>in</c>, ambiguous overloads) gets no Htmxor diagnostic at
+/// all.
 ///
 /// This seam compiles a real component (plus, where needed, a real base type) directly as C#, the
 /// same way <see cref="HtmxorRouteDeclarationAnalyzerTests"/> does: handler resolution reads
@@ -176,15 +179,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	{
 		var diagnostics = await RunForHandlerAsync(handlerMember);
 
-		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
-		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
-		Assert.Equal(ComponentPath("ReportComponent.razor"), diagnostic.Location.GetLineSpan().Path);
-		Assert.Equal(
-			new TextSpan(HandlerRazorContent.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
-			diagnostic.Location.SourceSpan);
-		AssertHandlerCauseSpecificMessage(diagnostic, expectedCauseFragment);
+		AssertSingleCauseAtBinding(diagnostics, expectedCauseFragment);
 	}
 
 	/// <summary>
@@ -196,9 +191,12 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// One row per rejection branch that sits beside a diagnosed shape: <c>ValueTask</c> and a
 	/// non-<c>int</c>-return (CS1503, beside the diagnosed "returns a value" row), a non-
 	/// <c>HtmxEventArgs</c>-compatible parameter (CS1503, beside the diagnosed <c>EventArgs</c>/
-	/// <c>object</c> rows), two parameters (CS1503), a generic method (CS1503), a <c>ref</c> or
-	/// <c>in</c> parameter (CS1503), and an ambiguous overload pair (CS0121, beside the diagnosed
-	/// resolvable overloads).
+	/// <c>object</c> rows), two parameters (CS1503), an uninferable generic method with no parameter
+	/// to infer a type argument from (CS1503; a generic method whose type parameter C# <em>can</em>
+	/// infer from <c>HtmxEventArgs</c>, such as <c>M&lt;TArg&gt;(TArg)</c>, compiles instead and gets
+	/// its own "generic" cause — see <see cref="Inferred_generic_handler_fails_closed_as_generic"/>),
+	/// a <c>ref</c> or <c>in</c> parameter (CS1503), and an ambiguous overload pair (CS0121, beside
+	/// the diagnosed resolvable overloads).
 	/// </summary>
 	public static IEnumerable<object[]> RazorRejectedHandlerShapeCases() =>
 		new (string Scenario, string HandlerMember, string ExpectedCompilerErrorCode)[]
@@ -251,10 +249,252 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
+	/// Amended AC2 requires "overloads Razor resolves to one method" to fail with HTMXOR002
+	/// "overloaded" (#308), the same cause as the existing <c>M()</c> plus <c>M(int)</c> row. C#
+	/// method-group conversion does not require every overload to be individually bindable on its
+	/// own: it runs ordinary overload resolution and can pick the better candidate whenever more than
+	/// one declared method converts to a <c>Create&lt;HtmxEventArgs&gt;</c> parameter type, so each of
+	/// these compiles cleanly under <see cref="BindMethod"/> exactly like the existing row
+	/// (complete-change review finding LR-5192587-P001).
+	/// </summary>
+	public static IEnumerable<object[]> ResolvableOverloadPairCases() =>
+		new (string Scenario, string HandlerMember)[]
+		{
+			(
+				"approved_plus_object",
+				"private void M(global::Htmxor.HtmxEventArgs a) { }\n\tprivate void M(object a) { }"),
+			(
+				"approved_plus_event_args",
+				"private void M(global::Htmxor.HtmxEventArgs a) { }\n\t" +
+					"private void M(global::System.EventArgs a) { }"),
+			(
+				"void_plus_task_event_args",
+				"private void M() { }\n\tprivate global::System.Threading.Tasks.Task M(" +
+					"global::Htmxor.HtmxEventArgs a) => global::System.Threading.Tasks.Task.CompletedTask;"),
+		}.Select(static scenario => new object[] { scenario.Scenario, scenario.HandlerMember });
+
+	[Theory]
+	[MemberData(nameof(ResolvableOverloadPairCases))]
+	public async Task Resolvable_overload_pair_fails_closed_as_overloaded(
+		string scenario,
+		string handlerMember)
+	{
+		var diagnostics = await RunForHandlerAsync(handlerMember);
+
+		AssertSingleCauseAtBinding(diagnostics, "overloaded");
+	}
+
+	/// <summary>
+	/// The same "overloaded" cause applies across a base/derived pair: C# member lookup still
+	/// resolves the method group to exactly one applicable candidate (the derived <c>M(object)</c>,
+	/// because a same-named derived candidate that applies hides the base ones from overload
+	/// resolution), so this compiles cleanly and is an "overload Razor resolves to one method" under
+	/// amended AC2, not a silently accepted shape (LR-5192587-P001).
+	/// </summary>
+	[Fact]
+	public async Task Resolvable_overload_pair_across_base_and_derived_fails_closed_as_overloaded()
+	{
+		var diagnostics = await RunWithBaseAndDerivedHandlerAsync(
+			"public void M(global::Htmxor.HtmxEventArgs a) { }",
+			"private void M(object a) { }");
+
+		AssertSingleCauseAtBinding(diagnostics, "overloaded");
+	}
+
+	/// <summary>
+	/// A derived member declared <c>new</c> hides the base member of the same name from C# lookup
+	/// entirely (#308): Htmxor must classify the member C# actually binds, not every same-named
+	/// member up the base chain. A rejected shape reached only through the derived, hiding member
+	/// must still get its own cause (LR-5192587-P002/S002), the same way an un-hidden declaration
+	/// would.
+	/// </summary>
+	[Fact]
+	public async Task Hiding_member_with_a_rejected_shape_fails_closed_as_async_void()
+	{
+		var diagnostics = await RunWithBaseAndDerivedHandlerAsync(
+			"public void M() { }",
+			"private new async void M() => await global::System.Threading.Tasks.Task.Yield();");
+
+		AssertSingleCauseAtBinding(diagnostics, "async void");
+	}
+
+	/// <summary>
+	/// The same hiding rule for a value-returning handler: the base <c>Task M()</c> is hidden, and
+	/// the derived <c>Task&lt;int&gt; M()</c> is the only member C# binds (LR-5192587-P002/S002).
+	/// </summary>
+	[Fact]
+	public async Task Hiding_member_with_a_rejected_shape_fails_closed_as_returns_a_value()
+	{
+		var diagnostics = await RunWithBaseAndDerivedHandlerAsync(
+			"public global::System.Threading.Tasks.Task M() => global::System.Threading.Tasks.Task.CompletedTask;",
+			"private new global::System.Threading.Tasks.Task<int> M() " +
+				"=> global::System.Threading.Tasks.Task.FromResult(1);");
+
+		AssertSingleCauseAtBinding(diagnostics, "returns a value");
+	}
+
+	/// <summary>
+	/// Hiding also runs the other way: a derived method declared <c>new</c> hides a non-method base
+	/// member of the same name, so the approved method is the only member C# binds and must be
+	/// accepted, not rejected as "not a method" for a base property that is no longer part of lookup
+	/// (LR-5192587-P002/S002).
+	/// </summary>
+	[Fact]
+	public async Task Hiding_a_non_method_base_member_with_an_approved_method_is_supported()
+	{
+		var diagnostics = await RunWithBaseAndDerivedHandlerAsync(
+			"protected global::System.Action M { get; set; } = () => { };",
+			"private new void M() { }");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// An <c>override</c> member is already resolved correctly today: <see cref="BindMethod"/>
+	/// proves it compiles, and the analyzer's <c>WithoutOverridden</c> step removes the overridden
+	/// base method from the candidate list, leaving only the derived override. This row pins that
+	/// behavior as a regression guard: the complete-change review found that removing
+	/// <c>WithoutOverridden</c> left every existing test green (LR-5192587-S004), so nothing before
+	/// this row would have caught a regression here.
+	/// </summary>
+	[Fact]
+	public async Task Override_of_a_virtual_base_handler_fails_closed_as_async_void()
+	{
+		var diagnostics = await RunWithBaseAndDerivedHandlerAsync(
+			"public virtual void M(global::Htmxor.HtmxEventArgs a) { }",
+			"public override async void M(global::Htmxor.HtmxEventArgs a) " +
+				"=> await global::System.Threading.Tasks.Task.Yield();");
+
+		AssertSingleCauseAtBinding(diagnostics, "async void");
+	}
+
+	/// <summary>
+	/// A generic method whose type parameter C# can infer from <c>HtmxEventArgs</c> is not the same
+	/// as the Razor-rejected, uninferable <c>M&lt;T&gt;()</c> row above: method-group conversion
+	/// infers the type argument from the delegate's own parameter type, so
+	/// <c>M&lt;TArg&gt;(TArg)</c> binds with <c>TArg = HtmxEventArgs</c> and compiles cleanly under
+	/// <see cref="BindMethod"/>. A generic handler is still outside the four approved signatures, so
+	/// it needs its own "generic" cause rather than being silently accepted (LR-5192587-S003).
+	/// </summary>
+	[Fact]
+	public async Task Inferred_generic_handler_fails_closed_as_generic()
+	{
+		var diagnostics = await RunForHandlerAsync("private void M<TArg>(TArg a) { }");
+
+		AssertSingleCauseAtBinding(diagnostics, "generic");
+	}
+
+	/// <summary>
+	/// A method-group conversion exists only through an identity or implicit reference conversion on
+	/// the method's parameter type (#308): a user-defined implicit conversion from
+	/// <c>HtmxEventArgs</c> does not make the method a valid <c>Create&lt;HtmxEventArgs&gt;</c>
+	/// candidate, so real Razor itself rejects this binding and Htmxor must add nothing, the same
+	/// "Razor decides" contract as the other Razor-rejected rows above (LR-5192587-S005).
+	/// </summary>
+	[Fact]
+	public async Task Parameter_type_with_a_user_defined_conversion_is_not_flagged_by_Htmxor()
+	{
+		var diagnostics = await RunForHandlerAsync(
+			"private sealed class Wrapper { public static implicit operator Wrapper(" +
+				"global::Htmxor.HtmxEventArgs a) => new Wrapper(); }\n" +
+				"\tprivate void M(Wrapper w) { }",
+			expectedCompilerErrorCode: "CS0123");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A static method reached only through a metadata assembly's <c>using static</c> import (here,
+	/// <c>System.Console.Beep</c>) must still be classified "not a member of the component", the same
+	/// as a source-declared import (#308's "Decision and correction"):
+	/// <c>Compilation.GetSymbolsWithName</c> only returns source-declared symbols, so a purely
+	/// metadata import is a regression distinct from the source-declared imported-static pins in
+	/// <see cref="HtmxorRouteDeclarationAnalyzerTests"/> (LR-5192587-P003).
+	/// </summary>
+	[Fact]
+	public async Task Imported_static_handler_from_metadata_is_rejected_as_a_nonconfigurable_action_declaration()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			global using static System.Console;
+
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private void Bind() => global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, Beep);
+			}
+			}
+			""";
+		const string razorContent = """
+			@page "/reports/{Id:int}"
+			<button @onput="Beep">Save</button>
+			""";
+		var razor = new SourceAdditionalText(ComponentPath("ReportComponent.razor"), razorContent);
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		var message = diagnostic.GetMessage();
+		Assert.Contains("handler 'Beep' must be an instance method", message, StringComparison.Ordinal);
+		foreach (var fragment in HandlerShapeCauseFragments)
+		{
+			Assert.DoesNotContain(fragment, message, StringComparison.Ordinal);
+		}
+
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(razorContent.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
+			diagnostic.Location.SourceSpan);
+	}
+
+	/// <summary>
+	/// An unrelated accessible static method of the same name elsewhere in source, with no
+	/// <c>using static</c> bringing it into scope and no member of that name anywhere on the
+	/// component's own chain, must not add a second, misleading HTMXOR002 alongside Razor's own
+	/// CS0103 (#308's duplicate-diagnostic rule, #307 comment 6039651773):
+	/// <c>HasImportableStaticMethod</c> must not treat "an accessible static method exists somewhere
+	/// in source" as "is in scope for this binding" (LR-5192587-P004).
+	/// </summary>
+	[Fact]
+	public async Task Missing_handler_with_an_unrelated_unimported_static_of_the_same_name_is_not_flagged_by_Htmxor()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			public abstract class ReportComponentBase : global::Microsoft.AspNetCore.Components.ComponentBase;
+
+			public static class UnrelatedHelpers
+			{
+				public static void M() { }
+			}
+
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : ReportComponentBase
+			{
+				{{BindMethod}}
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(componentPath, HandlerRazorContent);
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor, expectedCompilerErrorCode: "CS0103");
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
 	/// A lambda or closure, a method call, and a conditional are the #307 value-grammar causes; the
 	/// handler-shape causes pinned by #308 are a disjoint set, so this list deliberately only needs to
 	/// rule out other handler-shape causes, not the value-grammar ones (a value-grammar cause can
-	/// never fire here: every fixture below binds a plain method-group identifier).
+	/// never fire here: every fixture below binds a plain method-group identifier). "Not accessible"
+	/// is not a cause any production code path reports — the owner's "Decision and correction" has
+	/// Razor's own CS0122 cover an inaccessible handler, so Htmxor never needs its own cause for it
+	/// (complete-change review finding LR-5192587-S006) — and is therefore absent from this list.
 	///
 	/// This is the one owner of the cause-fragment list; <see cref="HtmxorRouteDeclarationAnalyzerTests"/>
 	/// references it directly instead of keeping its own copy, so a cause rename or addition cannot
@@ -263,7 +503,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	internal static readonly string[] HandlerShapeCauseFragments =
 	{
 		"returns a value", "async void", "parameter must be HtmxEventArgs", "optional parameter",
-		"static", "overloaded", "not a method", "not accessible",
+		"static", "overloaded", "not a method", "generic",
 	};
 
 	internal static void AssertHandlerCauseSpecificMessage(Diagnostic diagnostic, string expectedFragment)
@@ -277,6 +517,24 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 				Assert.DoesNotContain(otherFragment, message, StringComparison.Ordinal);
 			}
 		}
+	}
+
+	/// <summary>
+	/// Shared assertion for every cause-specific HTMXOR002 pinned in this file: the ID, severity, the
+	/// non-configurable tag, the binding's own <c>.razor</c> path and <c>@onput</c> span (never the
+	/// member's own declaration location), and the exclusive cause fragment.
+	/// </summary>
+	private static void AssertSingleCauseAtBinding(ImmutableArray<Diagnostic> diagnostics, string expectedCauseFragment)
+	{
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		Assert.Equal(ComponentPath("ReportComponent.razor"), diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(HandlerRazorContent.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
+			diagnostic.Location.SourceSpan);
+		AssertHandlerCauseSpecificMessage(diagnostic, expectedCauseFragment);
 	}
 
 	private static string ComponentPath(string relativePath) => Path.Combine(ProjectDirectory, relativePath);
@@ -319,6 +577,40 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
 			public sealed class ReportComponent : ReportComponentBase
 			{
+				{{BindMethod}}
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(componentPath, HandlerRazorContent);
+
+		return await RunActionAnalyzerAsync(source, razor, expectedCompilerErrorCode);
+	}
+
+	/// <summary>
+	/// Declares a base member and a separate derived member under the same name, for hiding,
+	/// overload-resolution-across-inheritance, and override fixtures: <see cref="RunWithBaseHandlerAsync"/>
+	/// only declares one member, which cannot express "the base has one shape and the derived
+	/// component adds a second, different declaration of the same name".
+	/// </summary>
+	private static async Task<ImmutableArray<Diagnostic>> RunWithBaseAndDerivedHandlerAsync(
+		string baseMember,
+		string derivedMember,
+		string? expectedCompilerErrorCode = null)
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			public abstract class ReportComponentBase : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				{{baseMember}}
+			}
+
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : ReportComponentBase
+			{
+				{{derivedMember}}
+
 				{{BindMethod}}
 			}
 			}
