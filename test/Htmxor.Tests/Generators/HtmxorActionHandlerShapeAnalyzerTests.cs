@@ -717,6 +717,31 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
+	/// A component can bind more than one handler, so more than one Razor-generated
+	/// <c>Create&lt;HtmxEventArgs&gt;</c> call can exist in the same declaration. Production must find
+	/// the one call that actually corresponds to this binding — by the handler's own text and its
+	/// mapped position — not merely "the first such call in the file": an unrelated, earlier binding to
+	/// an approved handler must never substitute for the real, differently-shaped handler this
+	/// declaration names. A green-finalization mutation sweep found no existing row with more than one
+	/// <c>Create</c> call in one declaration to catch a regression here, so this row is a deliberate
+	/// regression guard, not evidence of a defect.
+	/// </summary>
+	[Fact]
+	public async Task Multiple_create_calls_in_one_declaration_resolve_by_the_binding_not_by_order()
+	{
+		var diagnostics = await RunWithBuildRenderTreeAsync(
+			handlerValue: "M",
+			members: "private void Other() { }\n\n\t\tprivate async void M(global::Htmxor.HtmxEventArgs a) " +
+				"=> await global::System.Threading.Tasks.Task.Yield();",
+			wrapOpen: "__builder.OpenElement(5, \"button\");\n\t\t\t__builder.AddAttribute(6, \"onput\", " +
+				"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, Other));\n\t\t\t__builder.CloseElement();");
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		AssertHandlerCauseSpecificMessage(diagnostic, "async void");
+	}
+
+	/// <summary>
 	/// C# only binds a bare name to a local, loop variable, or lambda parameter when the binding sits
 	/// inside that declaration's own scope. A same-named local in a sibling <c>@if</c> block, which
 	/// never encloses the binding, does not change what the attribute's position binds to: the
