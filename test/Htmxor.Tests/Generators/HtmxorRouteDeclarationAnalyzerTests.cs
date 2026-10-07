@@ -1025,6 +1025,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			{
 				private static global::System.Threading.Tasks.Task DeleteReport(global::Htmxor.HtmxEventArgs args)
 					=> global::System.Threading.Tasks.Task.CompletedTask;
+
+				{{BindMethod("DeleteReport")}}
 			}
 			}
 			""";
@@ -1060,6 +1062,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			{
 				private static readonly global::System.Func<global::Htmxor.HtmxEventArgs, global::System.Threading.Tasks.Task> DeleteReport =
 					_ => global::System.Threading.Tasks.Task.CompletedTask;
+
+				{{BindMethod("DeleteReport")}}
 			}
 			}
 			""";
@@ -1099,7 +1103,10 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			namespace {{RootNamespace}}
 			{
 			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
-			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				{{BindMethod("DeleteReport")}}
+			}
 			}
 			""";
 		const string razorContent = """
@@ -1155,7 +1162,10 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			}
 
 			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
-			public sealed class ReportComponent : ReportComponentBase;
+			public sealed class ReportComponent : ReportComponentBase
+			{
+				{{BindMethod("DeleteReport")}}
+			}
 			}
 			""";
 		const string razorContent = """
@@ -1319,6 +1329,20 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	private static string ComponentPath(string relativePath)
 		=> Path.Combine(ProjectDirectory, relativePath);
+
+	/// <summary>
+	/// The exact call real Razor generates for an <c>@onX="handlerName"</c> binding, placed in an
+	/// instance method with a body: production resolves a handler the way Razor does, by
+	/// speculatively binding this call inside an instance method of the component
+	/// (<c>HtmxorActionHandler.Bind</c>), so a fixture with no instance method at all has nowhere for
+	/// that speculation to anchor and production can never diagnose it. Every fixture below that
+	/// relies on a cause-specific or absence diagnostic must declare one, the same fidelity
+	/// <c>HtmxorActionHandlerShapeAnalyzerTests.BindMethod</c> already gives its own fixtures.
+	/// </summary>
+	private static string BindMethod(string handlerName)
+		=> "private void Bind() => " +
+			"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, " +
+			handlerName + ");";
 
 	private static string ComponentSource(
 		string componentName,
