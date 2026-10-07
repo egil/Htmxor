@@ -655,14 +655,11 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// of its own: Razor emits <c>Create&lt;HtmxEventArgs&gt;(this, this.M)</c> exactly as for an
 	/// instance member, and real C# compiles it under the default language version on <c>net10.0</c>.
 	/// Roslyn binds this to an <c>Ordinary</c>, non-static <c>IMethodSymbol</c> whose containing type is
-	/// the extension block, not the component — a different shape from the classic
-	/// <c>ReducedExtension</c> form (LR-25c5baf-S002), so the existing fix for that form does not reach
-	/// it. An extension member is still not an instance method of the component or a base type, so it is
-	/// outside the approved-shape contract: Htmxor must reject it with the generic "request-owned
-	/// component" message, the same cause as any other non-member handler (LR-03b5a30-P001). A spec
-	/// review found this case currently passes through unflagged (the generator's bare-name dispatch
-	/// then fails with an unlocated CS0103), so this row is red until production checks component-chain
-	/// containment for every bound method, not only static ones.
+	/// the extension block, not the component. An extension member is still not an instance method of the
+	/// component or a base type, so it is outside the approved-shape contract: Htmxor must reject it with
+	/// the generic "request-owned component" message, the same cause as any other non-member handler,
+	/// instead of letting the generator's bare-name dispatch fail with an unlocated CS0103
+	/// (LR-03b5a30-P001).
 	/// </summary>
 	[Fact]
 	public async Task This_qualified_handler_naming_an_extension_member_is_rejected_as_a_nonconfigurable_action_declaration()
