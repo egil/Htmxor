@@ -352,9 +352,10 @@ public sealed class HtmxorActionGeneratorTests
 	/// diagnostics, and the whole pipeline compiles. <c>Create&lt;HtmxEventArgs&gt;</c> has one real
 	/// overload per shape (verified by reflection against Microsoft.AspNetCore.Components), so
 	/// ordinary C# overload resolution binds a <c>void</c> or parameterless handler exactly as it
-	/// binds the existing shape. One route owner is enough: owner selection is already pinned
-	/// elsewhere (<see cref="AssertChosenOwner"/>), and the generator emits the same
-	/// <c>Create&lt;HtmxEventArgs&gt;(this, handler)</c> call regardless of which owner it binds to.
+	/// binds the existing shape. This holds for both a <c>@page</c> owner and an omitted-<c>Methods</c>
+	/// <c>HtmxRoute</c> owner (#308 AC1), the same two owners
+	/// <see cref="Route_owner_and_component_binding_emit_one_compiling_action"/>'s rows use, and
+	/// <see cref="AssertChosenOwner"/> confirms each row picked the right one.
 	/// </summary>
 	public static IEnumerable<object[]> ApprovedHandlerSignatureCases()
 	{
@@ -365,9 +366,24 @@ public sealed class HtmxorActionGeneratorTests
 			("task_no_param", "TaskNoParamHandler"),
 		};
 
+		(string RouteDeclaration, bool UsesStockRoute)[] routeOwners =
+		{
+			("@page \"/reports/{ReportId:int}\"", true),
+			("@attribute [Htmxor.HtmxRoute(\"/reports/{ReportId:int}\")]", false),
+		};
+
 		foreach (var signature in signatures)
 		{
-			yield return new object[] { signature.Shape, signature.HandlerName };
+			foreach (var owner in routeOwners)
+			{
+				yield return new object[]
+				{
+					signature.Shape,
+					signature.HandlerName,
+					owner.RouteDeclaration,
+					owner.UsesStockRoute,
+				};
+			}
 		}
 	}
 
@@ -375,9 +391,10 @@ public sealed class HtmxorActionGeneratorTests
 	[MemberData(nameof(ApprovedHandlerSignatureCases))]
 	public void Approved_handler_signature_emits_a_compiling_action(
 		string shape,
-		string handlerName)
+		string handlerName,
+		string routeDeclaration,
+		bool usesStockRoute)
 	{
-		const string routeDeclaration = "@page \"/reports/{ReportId:int}\"";
 		var run = RunGenerators(new RazorInput(
 			"ReportComponent.razor",
 			$"""
@@ -389,7 +406,7 @@ public sealed class HtmxorActionGeneratorTests
 		Assert.Empty(run.RunResult.Diagnostics);
 		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
 		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
-		AssertChosenOwner(actionSource, $"Htmxor.Consumer.ReportComponent.PUT.{handlerName}", usesStockRoute: true);
+		AssertChosenOwner(actionSource, $"Htmxor.Consumer.ReportComponent.PUT.{handlerName}", usesStockRoute);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 
