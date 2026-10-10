@@ -179,6 +179,13 @@ builder.Services.AddAuthorization(options =>
         .Build());
 ```
 
+Conventions chained onto `MapRazorComponents<App>()`, such as
+`.RequireAuthorization()`, do not yet reach `HtmxRoute` endpoints
+([#316](https://github.com/egil/Htmxor/issues/316)). Until they do, protect these
+components with `FallbackPolicy`, a route group such as
+`app.MapGroup("").RequireAuthorization()` around `MapRazorComponents`, or
+attributes on the component.
+
 GET is implicit for Razor-authored declarations. A C#-authored declaration must
 specify its complete method allow-list because Razor callback inference is not
 available:
