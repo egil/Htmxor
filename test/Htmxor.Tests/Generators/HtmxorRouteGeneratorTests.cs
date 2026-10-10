@@ -295,6 +295,60 @@ public sealed class HtmxorRouteGeneratorTests
 		Assert.Equal(IncrementalStepRunReason.Unchanged, output.Reason);
 	}
 
+	/// <summary>
+	/// Each Razor file's derived type name is computed once, per file, in the generator pipeline
+	/// (S003): editing one component's own markup, without touching any <c>@namespace</c> line,
+	/// is content neither the per-file name derivation nor <c>RazorComponentTypeNames.CreateProvider</c>
+	/// depends on, so the manifest output step must not re-emit, and the provider must not
+	/// recompute at all.
+	/// </summary>
+	[Fact]
+	public void Markup_only_edit_to_a_Razor_component_leaves_the_manifest_output_and_the_type_names_provider_cached()
+	{
+		var run = RunGeneratorIncrementallyWithRazorContent(
+			("Components/Pages/AlphaComponent.razor", "<p>Hi</p>\n"),
+			("Components/Pages/AlphaComponent.razor", "<p>Hi there</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		var sourceOutputStep = Assert.Single(result.TrackedSteps["SourceOutput"]);
+		var outputReason = Assert.Single(sourceOutputStep.Outputs).Reason;
+		Assert.True(
+			outputReason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged,
+			$"Expected the manifest output step to be Cached or Unchanged, was {outputReason}.");
+
+		var typeNamesStep = FindStepByOutputTypeName(sourceOutputStep, "RazorComponentTypeNames") ??
+			throw new InvalidOperationException("No incremental step producing a RazorComponentTypeNames value was found.");
+		var typeNamesReason = Assert.Single(typeNamesStep.Outputs).Reason;
+		Assert.Equal(IncrementalStepRunReason.Cached, typeNamesReason);
+	}
+
+	/// <summary>
+	/// Walks an incremental step's inputs to find the step whose own output value is an instance
+	/// of the named (possibly <c>internal</c>) type, since <c>RazorComponentTypeNames</c> has no
+	/// explicit <c>WithTrackingName</c> and is not visible to this assembly by its compile-time
+	/// type.
+	/// </summary>
+	private static IncrementalGeneratorRunStep? FindStepByOutputTypeName(
+		IncrementalGeneratorRunStep step,
+		string typeName)
+	{
+		if (step.Outputs.Any(output => output.Value?.GetType().Name == typeName))
+		{
+			return step;
+		}
+
+		foreach (var (source, _) in step.Inputs)
+		{
+			if (FindStepByOutputTypeName(source, typeName) is { } found)
+			{
+				return found;
+			}
+		}
+
+		return null;
+	}
+
 	[Fact]
 	public void Manual_render_tree_intent_does_not_emit_an_action()
 	{
@@ -853,6 +907,43 @@ public sealed class HtmxorRouteGeneratorTests
 		var updatedCompilation = compilation.ReplaceSyntaxTree(initialTree, updatedTree);
 		driver = driver.RunGeneratorsAndUpdateCompilation(
 			updatedCompilation,
+			out var outputCompilation,
+			out var driverDiagnostics);
+
+		return new GeneratorRun(driver.GetRunResult(), outputCompilation, driverDiagnostics);
+	}
+
+	/// <summary>
+	/// Runs the route generator once with the initial content at <paramref name="relativePath"/>,
+	/// then replaces only that file's content and reruns incrementally, with step tracking on, so
+	/// a row can inspect each step's <see cref="IncrementalStepRunReason"/>.
+	/// </summary>
+	private static GeneratorRun RunGeneratorIncrementallyWithRazorContent(
+		(string RelativePath, string Content) initial,
+		(string RelativePath, string Content) updated)
+	{
+		var projectDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "htmxor-generator-probe"));
+		var parseOptions = (CSharpParseOptions)CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var compilation = CreateCompilation(CSharpSyntaxTree.ParseText(RuntimeStubs, parseOptions));
+		var initialFile = new TextAdditionalText(
+			Path.Combine(projectDirectory, initial.RelativePath),
+			initial.Content);
+		GeneratorDriver driver = CSharpGeneratorDriver.Create(
+			new[] { new HtmxorRouteGenerator().AsSourceGenerator() },
+			new AdditionalText[] { initialFile },
+			parseOptions,
+			new TestAnalyzerConfigOptionsProvider(projectDirectory),
+			new GeneratorDriverOptions(
+				IncrementalGeneratorOutputKind.None,
+				trackIncrementalGeneratorSteps: true));
+
+		driver = driver.RunGenerators(compilation);
+		var updatedFile = new TextAdditionalText(
+			Path.Combine(projectDirectory, updated.RelativePath),
+			updated.Content);
+		driver = driver.ReplaceAdditionalText(initialFile, updatedFile);
+		driver = driver.RunGeneratorsAndUpdateCompilation(
+			compilation,
 			out var outputCompilation,
 			out var driverDiagnostics);
 
