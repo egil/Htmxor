@@ -280,42 +280,21 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 	public void UseIssue284AuthorizationParityScenario() => UseSelectionScenario("Issue284");
 
 	/// <summary>
-	/// Issue #285 needs real subfolders in the staged consumer (<c>Components/Pages</c>,
-	/// <c>Components/Admin/Reports</c>, an <c>Areas/*</c> same-name pair) so the real Razor SDK
-	/// assigns each component its real default namespace. <see cref="UseSelectionScenario"/>
-	/// only ever stages flat files, so this scenario is staged separately, preserving the
-	/// relative layout under its own <c>PackageConsumer/Issue285</c> asset folder.
+	/// Unlike the flat scenarios, this one needs a real folder tree, because the Razor SDK derives
+	/// a component's namespace from its folder and from ancestor <c>_Imports.razor</c> files. The
+	/// flat root-level <c>Issue285*.scenario</c> files -- including the scenario's own test class
+	/// -- are staged first through the established <see cref="UseSelectionScenario"/> path, then
+	/// the <c>PackageConsumer/Issue285</c> subtree is copied with its relative layout preserved.
 	/// </summary>
 	public void UseIssue285AnyFolderScenario()
 	{
-		ClearStagedSourceTree();
+		UseSelectionScenario("Issue285");
 
 		var assets = Path.Combine(
 			repositoryRoot, "test", "Htmxor.Quality.Tests", "PackageConsumer", "Issue285");
 		foreach (var sourcePath in Directory.EnumerateFiles(assets, "*.scenario", SearchOption.AllDirectories))
 		{
 			CopyScenarioAsset(assets, sourcePath);
-		}
-	}
-
-	private void ClearStagedSourceTree()
-	{
-		foreach (var path in Directory.EnumerateFiles(consumerDirectory, "*", SearchOption.AllDirectories)
-			.Where(static path =>
-				path.EndsWith(".cs", StringComparison.Ordinal) ||
-				path.EndsWith(".razor", StringComparison.Ordinal)))
-		{
-			File.Delete(path);
-		}
-
-		foreach (var directory in Directory
-			.EnumerateDirectories(consumerDirectory, "*", SearchOption.AllDirectories)
-			.OrderByDescending(static directory => directory.Length))
-		{
-			if (!Directory.EnumerateFileSystemEntries(directory).Any())
-			{
-				Directory.Delete(directory);
-			}
 		}
 	}
 

@@ -1,5 +1,14 @@
 using System.Linq;
 using System.Net;
+using Htmxor.PackageConsumer.Components.Admin.Reports;
+using Htmxor.PackageConsumer.Components.My_Feature;
+using Htmxor.PackageConsumer.Components.Pages;
+using Issue285.Gap.Far.Mid.Leaf;
+using Issue285.ImportsNs.Deep;
+using Issue285.InFile.Override;
+using Issue285.InFileOverride;
+using Issue285.LateNs;
+using Issue285.Nearer.Override.Deep;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -91,12 +100,20 @@ public sealed class Issue285AnyFolderScenarioTests : IAsyncLifetime
     [Fact]
     public async Task Same_named_components_in_different_namespaces_each_resolve_their_own_route_and_action()
     {
+        Areas.Alpha.Issue285SameNameComponent.PatchCount = 0;
+        Areas.Beta.Issue285SameNameComponent.PatchCount = 0;
+
         await AssertDirectGetAsync("/issue-285/same-name/alpha/1", "data-issue-285-same-name-alpha");
         await AssertDirectGetAsync("/issue-285/same-name/beta/1", "data-issue-285-same-name-beta");
+        await AssertPatchAsync("/issue-285/same-name/alpha/1");
 
-        using var alphaResponse = await client.GetAsync("/issue-285/same-name/beta/1");
-        var alphaBody = await alphaResponse.Content.ReadAsStringAsync();
-        Assert.DoesNotContain("data-issue-285-same-name-alpha", alphaBody, StringComparison.Ordinal);
+        Assert.Equal(1, Areas.Alpha.Issue285SameNameComponent.PatchCount);
+        Assert.Equal(0, Areas.Beta.Issue285SameNameComponent.PatchCount);
+
+        await AssertPatchAsync("/issue-285/same-name/beta/1");
+
+        Assert.Equal(1, Areas.Alpha.Issue285SameNameComponent.PatchCount);
+        Assert.Equal(1, Areas.Beta.Issue285SameNameComponent.PatchCount);
     }
 
     [Fact]
@@ -143,13 +160,39 @@ public sealed class Issue285AnyFolderScenarioTests : IAsyncLifetime
         Assert.Equal(1, Issue285InFileWinsComponent.PatchCount);
     }
 
-    /// <summary>
-    /// Issue #285's required behavioral red: <c>Components/Pages/Counter.razor</c> declares
-    /// <c>@page "/counter"</c> with <c>@onput="IncrementCount"</c>. Today
-    /// <c>ProjectRootComponentManifest.GetTypeName</c> returns <c>null</c> for any path below the
-    /// project directory, so no action is generated at all and <c>PUT /counter</c> answers 404 or
-    /// 405 instead of calling <c>IncrementCount</c>.
-    /// </summary>
+    [Fact]
+    public async Task Farther_ancestor_Imports_namespace_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285GapComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/gap/1", "data-issue-285-gap");
+        await AssertPatchAsync("/issue-285/gap/1");
+
+        Assert.Equal(1, Issue285GapComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Namespace_directive_not_on_the_first_line_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285LateComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/late-ns/1", "data-issue-285-late-ns");
+        await AssertPatchAsync("/issue-285/late-ns/1");
+
+        Assert.Equal(1, Issue285LateComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Sanitized_folder_segment_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285HyphenComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/hyphen/1", "data-issue-285-hyphen");
+        await AssertPatchAsync("/issue-285/hyphen/1");
+
+        Assert.Equal(1, Issue285HyphenComponent.PatchCount);
+    }
+
     [Fact]
     public async Task Counter_PUT_calls_IncrementCount_exactly_once()
     {

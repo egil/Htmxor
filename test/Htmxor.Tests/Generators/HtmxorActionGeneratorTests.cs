@@ -273,14 +273,10 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	/// <summary>
-	/// Issue #285's own named placement: a stock <c>@page</c> component one folder below the
-	/// project directory (default namespace) must still get its <c>@onput</c> action, naming the
-	/// real compiled type at <c>Htmxor.Consumer.Components.Pages.ReportComponent</c>. Today
-	/// <c>HtmxorActionGenerator</c> asks the path-only manifest generator for this component's
-	/// type name and gets back <c>null</c> for anything below the project directory, so
-	/// <c>HtmxorComponentActionDeclaration.ParseAll</c> silently returns no declarations at all --
-	/// this is the exact defect evidence the brief quotes for
-	/// <c>Components/Pages/Counter.razor</c>'s <c>PUT /counter</c>.
+	/// A stock <c>@page</c> component one folder below the project directory (default namespace)
+	/// still gets its <c>@onput</c> action, naming the real compiled type at
+	/// <c>Htmxor.Consumer.Components.Pages.ReportComponent</c>. This is the brief's own named
+	/// placement, matching <c>Components/Pages/Counter.razor</c>'s <c>PUT /counter</c>.
 	/// </summary>
 	[Fact]
 	public void Stock_page_action_in_Components_Pages_emits_one_compiling_action_naming_the_real_type()
@@ -343,8 +339,7 @@ public sealed class HtmxorActionGeneratorTests
 	/// <summary>
 	/// Issue #285 owner decision, placement: an <c>@namespace</c> override declared directly in
 	/// the component's own file names the generated action's partial, used verbatim with no
-	/// folder suffix (matching the SDK 10.0.400 behavior empirically confirmed in
-	/// <c>HtmxorRouteGeneratorTests</c>).
+	/// folder suffix.
 	/// </summary>
 	[Fact]
 	public void Stock_page_action_with_an_InFile_namespace_override_emits_one_compiling_action_naming_the_real_type()

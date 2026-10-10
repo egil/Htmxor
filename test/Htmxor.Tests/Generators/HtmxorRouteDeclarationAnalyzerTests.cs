@@ -656,11 +656,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
-	/// Issue #285: a nested-folder <c>HtmxRoute</c> component is now in scope. The tree's own
-	/// (unmapped) path must be the real SDK 10.0.400 Razor-generated path for a component below
-	/// the project directory -- the generator mirrors the component's relative folder under its
-	/// own output directory (confirmed with <c>EmitCompilerGeneratedFiles</c> against a throwaway
-	/// page in <c>test/Htmxor.TestApp</c>), not the flat <c>&lt;name&gt;_razor.g.cs</c> shape a
+	/// A nested-folder <c>HtmxRoute</c> component's tree has the real Razor-generated path for a
+	/// component below the project directory: the generator mirrors the component's relative
+	/// folder under its own output directory, not the flat <c>&lt;name&gt;_razor.g.cs</c> shape a
 	/// project-root file gets. A lookalike attribute type from an unrelated namespace must stay
 	/// ignored either way.
 	/// </summary>
@@ -734,8 +732,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
-	/// Issue #285: an all-C# component is a real compiled symbol regardless of namespace, so only
-	/// the current exact-root-namespace gate (not any path guess) keeps it unsupported today.
+	/// An all-C# component is a real compiled symbol regardless of namespace: no path guessing is
+	/// ever involved.
 	/// </summary>
 	[Fact]
 	public async Task All_CSharp_HtmxRoute_component_outside_the_root_namespace_reports_no_diagnostics()
@@ -759,8 +757,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
-	/// Issue #285: a <c>.razor.cs</c> partial carrying the attribute is also a real compiled
-	/// symbol; only its sibling <c>.razor</c> file's project-root-only path currently blocks it.
+	/// A <c>.razor.cs</c> partial carrying the attribute is also a real compiled symbol; its
+	/// sibling <c>.razor</c> file may live anywhere below the project directory.
 	/// </summary>
 	[Fact]
 	public async Task Razor_code_behind_HtmxRoute_declaration_outside_project_root_reports_no_diagnostics()
@@ -793,10 +791,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
-	/// Issue #285 owner decision, placement: an <c>@namespace</c> override declared directly in
-	/// the component's own file. The compiled namespace is exactly the override, with no folder
-	/// suffix, matching the SDK 10.0.400 behavior observed for
-	/// <c>Components/NsOverride/Probe285NsOverride.razor</c>.
+	/// An <c>@namespace</c> override declared directly in the component's own file: the compiled
+	/// namespace is exactly the override, with no folder suffix, and the analyzer confirms it
+	/// against the component's own real content.
 	/// </summary>
 	[Fact]
 	public async Task InFile_namespace_override_component_reports_no_diagnostics()
@@ -816,23 +813,23 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostics = await RunAnalyzerAsync(
 			new[] { source },
-			new[] { componentPath },
+			new[] { (componentPath, "@namespace Totally.Different\n<p>Hi</p>\n") },
 			new[] { generatedPath });
 
 		Assert.Empty(diagnostics);
 	}
 
 	/// <summary>
-	/// Issue #285 owner decision, placement: an ancestor <c>_Imports.razor</c>'s
-	/// <c>@namespace</c> composed with a two-level-deep relative folder, matching the SDK
-	/// 10.0.400 composition rule observed for <c>Components/ImportsNs/_Imports.razor</c> plus
-	/// <c>Components/ImportsNs/Deep/Probe285ImportsNs.razor</c>.
+	/// An ancestor <c>_Imports.razor</c>'s <c>@namespace</c> composed with a two-level-deep
+	/// relative folder: the analyzer confirms the compiled namespace against the component's own
+	/// plain content plus the ancestor file's real <c>@namespace</c> content.
 	/// </summary>
 	[Fact]
 	public async Task Ancestor_Imports_namespace_component_reports_no_diagnostics()
 	{
 		var componentPath = ComponentPath(
 			Path.Combine("Components", "ImportsNs", "Deep", "Deeper", "ImportsComponent.razor"));
+		var importsPath = ComponentPath(Path.Combine("Components", "ImportsNs", "_Imports.razor"));
 		var generatedPath = RazorGeneratedPath(
 			Path.Combine("Components", "ImportsNs", "Deep", "Deeper", "ImportsComponent"));
 		var source = $$"""
@@ -848,22 +845,27 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostics = await RunAnalyzerAsync(
 			new[] { source },
-			new[] { componentPath },
+			new[]
+			{
+				(componentPath, PlainRazorContent),
+				(importsPath, "@namespace Probe.ImportsNs\n"),
+			},
 			new[] { generatedPath });
 
 		Assert.Empty(diagnostics);
 	}
 
 	/// <summary>
-	/// Issue #285 owner decision, placement: the nearest ancestor <c>_Imports.razor</c> wins over
-	/// a farther one, matching the SDK 10.0.400 behavior observed with <c>@namespace Root.Override</c>
-	/// at the project root and <c>@namespace Nearer.Override</c> one level down.
+	/// The nearest ancestor <c>_Imports.razor</c> wins over a farther one: the analyzer confirms
+	/// the compiled namespace against both ancestor files' real content.
 	/// </summary>
 	[Fact]
 	public async Task Nearer_ancestor_Imports_namespace_component_reports_no_diagnostics()
 	{
 		var componentPath = ComponentPath(
 			Path.Combine("Nearer", "Deep", "PrecedenceComponent.razor"));
+		var rootImportsPath = ComponentPath("_Imports.razor");
+		var nearerImportsPath = ComponentPath(Path.Combine("Nearer", "_Imports.razor"));
 		var generatedPath = RazorGeneratedPath(Path.Combine("Nearer", "Deep", "PrecedenceComponent"));
 		var source = $$"""
 			namespace Nearer.Override.Deep
@@ -878,21 +880,27 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostics = await RunAnalyzerAsync(
 			new[] { source },
-			new[] { componentPath },
+			new[]
+			{
+				(componentPath, PlainRazorContent),
+				(rootImportsPath, "@namespace Root.Override\n"),
+				(nearerImportsPath, "@namespace Nearer.Override\n"),
+			},
 			new[] { generatedPath });
 
 		Assert.Empty(diagnostics);
 	}
 
 	/// <summary>
-	/// Issue #285 owner decision, placement: an in-file <c>@namespace</c> wins over an ancestor
-	/// <c>_Imports.razor</c>'s value, matching the SDK 10.0.400 behavior observed for
-	/// <c>Components/InFileWins/Probe285InFileWins.razor</c>.
+	/// An in-file <c>@namespace</c> wins over an ancestor <c>_Imports.razor</c>'s value: the
+	/// analyzer confirms the compiled namespace against the component's own override content,
+	/// ignoring the ancestor's different value.
 	/// </summary>
 	[Fact]
 	public async Task InFile_namespace_wins_over_ancestor_Imports_component_reports_no_diagnostics()
 	{
 		var componentPath = ComponentPath(Path.Combine("InFileWins", "OverrideComponent.razor"));
+		var importsPath = ComponentPath("_Imports.razor");
 		var generatedPath = RazorGeneratedPath(Path.Combine("InFileWins", "OverrideComponent"));
 		var source = $$"""
 			namespace InFile.Override
@@ -907,30 +915,30 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostics = await RunAnalyzerAsync(
 			new[] { source },
-			new[] { componentPath },
+			new[]
+			{
+				(componentPath, "@namespace InFile.Override\n<p>Hi</p>\n"),
+				(importsPath, "@namespace Ignored.Value\n"),
+			},
 			new[] { generatedPath });
 
 		Assert.Empty(diagnostics);
 	}
 
 	/// <summary>
-	/// Issue #285 (owner decision: a narrow <c>@namespace</c> scan, confirmed by the analyzer): a
-	/// generator-derived guess that still diverges from the real compiled declaration -- for any
-	/// reason, including a scan miss on a shape this contract does not cover -- must fail closed,
-	/// never silently registering the wrong type or cross-wiring onto an unrelated one. This
-	/// fixture's compiled namespace ("Totally.Different") does not match either the path's default
-	/// convention or any modeled <c>@namespace</c> source, standing in for "the guess was wrong."
+	/// A derived name that diverges from the real compiled declaration -- for any reason,
+	/// including a scan miss on a shape this contract does not cover -- must fail closed, never
+	/// silently registering the wrong type or cross-wiring onto an unrelated one. Here the
+	/// component's real content has no <c>@namespace</c> and no ancestor <c>_Imports.razor</c>
+	/// declares one either, so the correct derivation is the default convention
+	/// (<c>Htmxor.Consumer.Components.Pages.OverrideComponent</c>), while the compiled
+	/// declaration sits in an unrelated namespace.
 	/// </summary>
 	[Fact]
 	public async Task Namespace_override_divorced_from_the_path_guess_fails_closed_instead_of_cross_wiring()
 	{
 		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "OverrideComponent.razor"));
 		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "OverrideComponent"));
-		// The real file declares "@namespace Totally.Different" (empirically confirmed: the
-		// override's value is used verbatim, with no relative-folder suffix, when it is declared
-		// in the component's own file rather than an ancestor _Imports.razor), so the compiled
-		// namespace below is what the real Razor SDK would produce -- not the path-guessed
-		// "Htmxor.Consumer.Components.Pages" a path-only generator could ever compute.
 		var source = $$"""
 			namespace Totally.Different
 			{
@@ -944,12 +952,104 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostics = await RunAnalyzerAsync(
 			new[] { source },
-			new[] { componentPath },
+			new[] { (componentPath, PlainRazorContent) },
 			new[] { generatedPath });
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR001", diagnostic.Id);
 		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
+	}
+
+	/// <summary>
+	/// An ancestor <c>_Imports.razor</c> with no <c>@namespace</c> directive (only <c>@using</c>
+	/// lines) does not stop the walk: the nearest ancestor that actually declares <c>@namespace</c>
+	/// wins, composed with the relative folder from that file down to the component.
+	/// </summary>
+	[Fact]
+	public async Task Farther_ancestor_Imports_namespace_wins_when_the_nearer_one_only_has_using_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Gap", "Mid", "Leaf", "GapComponent.razor"));
+		var farImportsPath = ComponentPath(Path.Combine("Gap", "_Imports.razor"));
+		var midImportsPath = ComponentPath(Path.Combine("Gap", "Mid", "_Imports.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Gap", "Mid", "Leaf", "GapComponent"));
+		var source = $$"""
+			namespace Gap.Far.Mid.Leaf
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/gap/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("gap.read")]
+			#line default
+			public sealed class GapComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[]
+			{
+				(componentPath, PlainRazorContent),
+				(farImportsPath, "@namespace Gap.Far\n"),
+				(midImportsPath, "@using System\n"),
+			},
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// An <c>@namespace</c> directive is honoured even when it is not the file's first line.
+	/// </summary>
+	[Fact]
+	public async Task Namespace_directive_not_on_the_first_line_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath("LateComponent.razor");
+		var generatedPath = RazorGeneratedPath("LateComponent");
+		var source = $$"""
+			namespace Late.Ns
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/late-ns/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("late-ns.read")]
+			#line default
+			public sealed class LateComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, "@using System\n@namespace Late.Ns\n<p>Hi</p>\n") },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A folder segment that is not a valid C# identifier (a hyphen) gets the same sanitized
+	/// identifier form in both the compiled namespace and the generator's mirrored path that the
+	/// real Razor SDK gives it.
+	/// </summary>
+	[Fact]
+	public async Task Sanitized_folder_segment_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "My-Feature", "HyphenComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "My_Feature", "HyphenComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components.My_Feature
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/hyphen/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("hyphen.read")]
+			#line default
+			public sealed class HyphenComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, PlainRazorContent) },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
 	}
 
 	/// <summary>
@@ -1940,20 +2040,40 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	private static string EscapePath(string path) => path.Replace("\"", "\\\"");
 
-	private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(
+	/// <summary>
+	/// Plain, directive-free markup for a <c>.razor</c> fixture whose content is irrelevant to
+	/// the row: no <c>@namespace</c> for the analyzer's own namespace scan to find.
+	/// </summary>
+	private const string PlainRazorContent = "<p></p>\n";
+
+	private static Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(
 		IEnumerable<string> sources,
 		IEnumerable<string> razorPaths,
 		IEnumerable<string>? sourcePaths = null)
+		=> RunAnalyzerAsync(
+			sources,
+			razorPaths.Select(static path => (path, PlainRazorContent)),
+			sourcePaths);
+
+	/// <summary>
+	/// The analyzer reads each <c>.razor</c> additional file's content (its own and any ancestor
+	/// <c>_Imports.razor</c>) to derive a namespace, which it then confirms against the compiled
+	/// declaration; this overload supplies that content explicitly.
+	/// </summary>
+	private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(
+		IEnumerable<string> sources,
+		IEnumerable<(string Path, string Content)> razorFiles,
+		IEnumerable<string>? sourcePaths = null)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
-		var additionalPaths = razorPaths.ToArray();
+		var additionalFileEntries = razorFiles.ToArray();
 		var paths = sourcePaths?.ToArray();
 		var trees = sources
 			.Select((source, index) => CSharpSyntaxTree.ParseText(
 				source,
 				parseOptions,
 				paths is null
-					? RazorGeneratedPath(Path.GetFileNameWithoutExtension(additionalPaths[index]))
+					? RazorGeneratedPath(Path.GetFileNameWithoutExtension(additionalFileEntries[index].Path))
 					: paths[index]))
 			.ToImmutableArray();
 		var compilation = CSharpCompilation.Create(
@@ -1963,8 +2083,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		Assert.Empty(compilation.GetDiagnostics().Where(
 			static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
-		var additionalFiles = additionalPaths
-			.Select(static path => new ThrowingAdditionalText(path))
+		var additionalFiles = additionalFileEntries
+			.Select(static file => new SourceAdditionalText(file.Path, file.Content))
 			.ToImmutableArray<AdditionalText>();
 		var analyzerOptions = new AnalyzerOptions(
 			additionalFiles,
@@ -2039,14 +2159,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			.Distinct(StringComparer.OrdinalIgnoreCase)
 			.Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
 			.ToImmutableArray();
-	}
-
-	private sealed class ThrowingAdditionalText(string path) : AdditionalText
-	{
-		public override string Path { get; } = path;
-
-		public override SourceText GetText(CancellationToken cancellationToken = default)
-			=> throw new InvalidOperationException("The analyzer must not read Razor content.");
 	}
 
 	private sealed class SourceAdditionalText(string path, string content) : AdditionalText

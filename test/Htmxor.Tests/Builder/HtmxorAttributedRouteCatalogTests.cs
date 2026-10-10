@@ -344,9 +344,9 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		var exception = Assert.Throws<InvalidOperationException>(() =>
 			HtmxorAttributedRouteCatalog.Build(fixture.Assembly, []));
 
-		// Issue #285 renames the generated manifest away from "project-root"; this defensive
-		// membership guard is unrelated to that rename (an empty manifest rejects any routed type
-		// regardless of where it lives), so only the stable fragment and the type name are pinned.
+		// This defensive membership guard is unrelated to the manifest's name (an empty manifest
+		// rejects any routed type regardless of where it lives), so only the stable fragment and
+		// the type name are pinned, not the "project-root" wording the manifest no longer carries.
 		Assert.Contains("outside the", exception.Message, StringComparison.Ordinal);
 		Assert.Contains("manifest", exception.Message, StringComparison.Ordinal);
 		Assert.DoesNotContain("project-root", exception.Message, StringComparison.Ordinal);
@@ -472,8 +472,8 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				fixture.Manifest,
 				[generatedAction]));
 
-		// Issue #285 renames the generated manifest away from "project-root"; this defensive
-		// membership guard is unrelated to the rename, so only the stable fragment is pinned.
+		// This defensive membership guard is unrelated to the manifest's name, so only the stable
+		// fragment is pinned, not the "project-root" wording the manifest no longer carries.
 		Assert.Contains("does not belong to the", exception.Message, StringComparison.Ordinal);
 		Assert.Contains("manifest", exception.Message, StringComparison.Ordinal);
 		Assert.DoesNotContain("project-root", exception.Message, StringComparison.Ordinal);
