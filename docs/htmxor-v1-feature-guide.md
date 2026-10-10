@@ -143,7 +143,8 @@ when the page has an inferred `@onpost`, `@onput`, `@onpatch`, `@ondelete`, or
 
 ### An HTMX-only component route
 
-A component without `@page` declares its route on that component:
+A component without `@page` declares its route on that component, here in
+`Components/Products/ProductCard.razor`:
 
 ```razor
 @attribute [HtmxRoute("/products/{Id:int}")]
@@ -221,6 +222,26 @@ missing or invalid `HX-Current-URL`, or a nonmatching `HX-Target`, leaves the
 route unselected. These values choose among component representations only;
 they never widen the route or method allow-list and never grant action,
 authentication, authorization, antiforgery, or other security authority.
+
+### Where components live
+
+An `HtmxRoute` component or a component that declares actions may live in any
+folder and namespace of the application project: the project root,
+`Components/Pages`, a nested folder such as `Components/Admin/Reports`, or a
+namespace set with `@namespace`. Htmxor names a Razor component the way Razor
+does. An `@namespace` in the component file is used as written. Otherwise the
+nearest ancestor `_Imports.razor` that declares `@namespace` supplies the
+namespace, extended with the folders below it. Otherwise the project's
+`RootNamespace` is extended with the folders below the project directory. Htmxor
+reads only the `@namespace` directive for this. The build confirms each name
+against the type Razor compiled from the same file and fails with HTMXOR001 or
+HTMXOR002 if they differ, so a component is never registered under another
+component's name. Components authored entirely in C#, and `.razor.cs`
+partials, may also live in any folder and namespace.
+
+Components in a referenced Razor class library are not claimed. Endpoint
+registration reads only the application assembly's generated manifest, so an
+`HtmxRoute` or action binding in a library is not registered.
 
 ## Declare component actions
 
