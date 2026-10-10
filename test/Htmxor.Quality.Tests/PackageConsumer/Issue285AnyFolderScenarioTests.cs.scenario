@@ -13,8 +13,8 @@ using Issue285.Nearer.Override.Deep;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -42,13 +42,19 @@ public sealed class Issue285AnyFolderScenarioTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
+        builder.WebHost.UseKestrel(options => options.Listen(IPAddress.Loopback, 0));
         builder.Services.AddRazorComponents().AddHtmxor();
         app = builder.Build();
         app.UseAntiforgery();
         app.MapRazorComponents<Issue285App>().AddHtmxorEndpoints();
         await app.StartAsync();
-        client = app.GetTestClient();
+
+        var addressesFeature = app.Services
+            .GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
+            .Features
+            .Get<IServerAddressesFeature>()!;
+        var boundAddress = addressesFeature.Addresses.Single();
+        client = new HttpClient { BaseAddress = new Uri(boundAddress) };
     }
 
     [Fact]
