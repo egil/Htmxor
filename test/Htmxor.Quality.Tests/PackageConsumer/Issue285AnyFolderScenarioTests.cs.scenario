@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Net;
 using Htmxor.PackageConsumer.Components.Admin.Reports;
+using Htmxor.PackageConsumer.Components.CommentNs;
 using Htmxor.PackageConsumer.Components.My_Feature;
 using Htmxor.PackageConsumer.Components.Pages;
 using Issue285.Gap.Far.Mid.Leaf;
@@ -29,7 +30,8 @@ namespace Htmxor.PackageConsumer;
 /// <c>_Imports.razor</c> winning over a farther one; an in-file override winning over an
 /// ancestor one; an ancestor <c>_Imports.razor</c> with only <c>@using</c> lines deferring to a
 /// farther one that declares <c>@namespace</c>; an <c>@namespace</c> directive that is not a
-/// file's first line; a folder segment needing identifier sanitization; a stock <c>@page</c>
+/// file's first line; a folder segment needing identifier sanitization; a <c>@namespace</c>
+/// directive inside a Razor comment, which is not a directive at all; a stock <c>@page</c>
 /// with <c>@onput</c>; and two components sharing a class name in different namespaces.
 /// </summary>
 public sealed class Issue285AnyFolderScenarioTests : IAsyncLifetime
@@ -195,6 +197,17 @@ public sealed class Issue285AnyFolderScenarioTests : IAsyncLifetime
         await AssertPatchAsync("/issue-285/hyphen/1");
 
         Assert.Equal(1, Issue285HyphenComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Commented_out_namespace_directive_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285CommentNsComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/comment-ns/1", "data-issue-285-comment-ns");
+        await AssertPatchAsync("/issue-285/comment-ns/1");
+
+        Assert.Equal(1, Issue285CommentNsComponent.PatchCount);
     }
 
     [Fact]

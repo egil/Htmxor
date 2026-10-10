@@ -704,17 +704,9 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	/// <summary>
 	/// Guards <c>HtmxorRouteManifest.HasCompiledRazorDeclaration</c>'s generated-paths overload
-	/// against cross-wiring: two real <c>.razor</c> files with the same leaf name, in different
-	/// folders, whose <em>derived</em> names collide on the exact same string. <c>Components/A/X.razor</c>
-	/// is the real, attributed component, compiled to a namespace its own evidence never guesses.
-	/// <c>Components/B/X.razor</c> is an unrelated, non-routed file whose evidence hides an
-	/// <c>@namespace</c> line inside a Razor comment -- real Razor ignores a commented-out directive
-	/// like this (confirmed empirically: an SDK build of this exact shape compiles to the ordinary
-	/// folder-default namespace instead), but the narrow, comment-unaware scan this analyzer uses to
-	/// avoid reading full Razor content does not, so it wrongly guesses A's real namespace for B.
-	/// That makes the manifest lookup group both files' generated paths under one key: only the
-	/// mirrored-folder comparison, not the shared leaf file name, can tell A's own declaration apart
-	/// from B's. A must fail closed rather than being confirmed through B's generated path.
+	/// against cross-wiring: <c>Components/B/X.razor</c>'s evidence names a type it does not
+	/// compile to, so the manifest groups both generated paths under A's compiled name; only the
+	/// mirrored-folder comparison keeps A from being confirmed through B's path.
 	/// </summary>
 	[Fact]
 	public async Task Colliding_guess_from_a_different_real_file_fails_closed_instead_of_cross_wiring()
@@ -737,7 +729,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[]
 			{
 				(pathA, PlainRazorContent),
-				(pathB, "@*\n@namespace Confusable\n*@\n<p>Hi</p>\n"),
+				(pathB, "@namespace Confusable\n<p>Hi</p>\n"),
 			},
 			new[] { generatedPathA });
 
@@ -862,6 +854,34 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunAnalyzerAsync(
 			new[] { source },
 			new[] { (componentPath, "@namespace Totally.Different\n<p>Hi</p>\n") },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A <c>@namespace</c> line written inside a Razor comment is not a directive: Razor ignores
+	/// it, and the component compiles under its ordinary folder-default namespace with no
+	/// diagnostic.
+	/// </summary>
+	[Fact]
+	public async Task Commented_out_namespace_directive_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "CommentNs", "CommentNsComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "CommentNs", "CommentNsComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components.CommentNs
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/comment-ns/{Id:int}", Methods = ["GET"])]
+			#line default
+			public sealed class CommentNsComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, "@*\n@namespace Should.Be.Ignored\n*@\n<p>Hi</p>\n") },
 			new[] { generatedPath });
 
 		Assert.Empty(diagnostics);
@@ -1964,19 +1984,51 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
-	/// The action analyzer resolves a binding's owner by the guessed name
-	/// (<c>RazorComponentTypeNames.GetTypeName</c>) and looks that name up with
-	/// <c>GetTypeByMetadataName</c>, so a wrong guess can resolve to someone else's real, compiled
-	/// component. <c>Components/A/X.razor</c> hides an <c>@namespace Collide</c> line inside a Razor
-	/// comment -- real Razor ignores a commented-out directive like this (confirmed empirically: an
-	/// SDK build of this exact shape compiles to the ordinary folder-default namespace instead), but
-	/// the narrow, comment-unaware scan this analyzer uses to avoid reading full Razor content does
-	/// not, so A's binding resolves to <c>Collide.X</c> -- which is <c>Components/B/X.razor</c>'s
-	/// real, unrelated compiled component, not A's own (different) compiled declaration. The
-	/// generated-path check must refuse to let A's binding attach to B's component just because the
-	/// two files share a leaf name: A fails closed, and B's own, identically-shaped binding -- which
-	/// resolves to the very same component by the very same guess, but at its own real generated
-	/// path -- stays accepted.
+	/// A <c>@namespace</c> line written inside a Razor comment is not a directive: Razor ignores
+	/// it, and the component's action binding resolves under its ordinary folder-default namespace
+	/// with no diagnostic.
+	/// </summary>
+	[Fact]
+	public async Task Commented_out_namespace_directive_action_component_is_supported()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "CommentNs", "CommentNsActionComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "CommentNs", "CommentNsActionComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components.CommentNs
+			{
+			[global::Htmxor.HtmxRouteAttribute("/comment-ns-action/{Id:int}", Methods = ["GET", "QUERY"])]
+			public sealed class CommentNsActionComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task QueryReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			@*
+			@namespace Should.Be.Ignored
+			*@
+			@attribute [Htmxor.HtmxRoute("/comment-ns-action/{Id:int}", Methods = ["GET", "QUERY"])]
+			<form @onquery="QueryReport"></form>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(
+			source,
+			razor,
+			includeRouteAnalyzer: true,
+			sourcePath: generatedPath);
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A's evidence names a type it does not compile to, which is B's real compiled name, so
+	/// resolving A's binding by that guessed name finds B's component instead of A's own; the
+	/// generated-path check must still refuse it, while B's own identically-shaped binding, which
+	/// resolves to the same component by the same guess but at its own real generated path, stays
+	/// accepted.
 	/// </summary>
 	[Fact]
 	public async Task Action_binding_whose_guessed_owner_collides_with_a_different_real_component_fails_closed()
@@ -2007,9 +2059,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			}
 			""";
 		const string razorContentA = """
-			@*
 			@namespace Collide
-			*@
 			@attribute [Htmxor.HtmxRoute("/a/{Id:int}", Methods = ["GET", "PUT"])]
 			<button @onput="PutIt">Save</button>
 			""";

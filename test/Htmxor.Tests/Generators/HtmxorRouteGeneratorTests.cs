@@ -471,6 +471,30 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	/// <summary>
+	/// A <c>@namespace</c> line written inside a Razor comment is not a directive: Razor ignores
+	/// it, so the component keeps its ordinary folder-default namespace.
+	/// </summary>
+	[Fact]
+	public void Commented_out_namespace_directive_is_ignored_like_real_Razor()
+	{
+		var run = RunGeneratorWithRazorContent(
+			("Components/CommentNs/CommentNsComponent.razor", "@*\n@namespace Should.Be.Ignored\n*@\n<p>Hi</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.Components.CommentNs.CommentNsComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("Should.Be.Ignored", generatedSource, StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
 	/// An ancestor <c>_Imports.razor</c>'s <c>@namespace</c> composes with the relative folder
 	/// path from that file down to the component, exactly like the default-namespace convention
 	/// does for <c>RootNamespace</c>. This row goes two folder levels deep to exercise

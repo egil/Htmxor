@@ -11,8 +11,9 @@ namespace Htmxor.Quality.Tests;
 /// <c>_Imports.razor</c> <c>@namespace</c> (the nearest ancestor wins, and an in-file value wins
 /// over any ancestor), an ancestor <c>_Imports.razor</c> with no <c>@namespace</c> directive that
 /// defers to a farther one that declares it, an <c>@namespace</c> directive that is not a file's
-/// first line, a folder segment that needs sanitizing into a valid identifier, and two components
-/// that share a class name in different namespaces. See <c>Issue285AnyFolderScenarioTests.cs.scenario</c>.
+/// first line, a folder segment that needs sanitizing into a valid identifier, a <c>@namespace</c>
+/// directive inside a Razor comment, and two components that share a class name in different
+/// namespaces. See <c>Issue285AnyFolderScenarioTests.cs.scenario</c>.
 /// </summary>
 [Collection(PackageConsumerCollection.Name)]
 public sealed class PackedAnyFolderConsumerTests
@@ -30,7 +31,7 @@ public sealed class PackedAnyFolderConsumerTests
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(14, 14, 14, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(15, 15, 15, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
