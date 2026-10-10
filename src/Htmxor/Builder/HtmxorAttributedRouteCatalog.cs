@@ -1,6 +1,5 @@
 using System.Reflection;
 using Htmxor;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing.Patterns;
@@ -142,11 +141,9 @@ internal static class HtmxorAttributedRouteCatalog
 				$"explicit HtmxRoute.Methods is authoritative and does not allow the {conflictingAction.HttpMethod} binding");
 		}
 
-		var policy = ReadAuthorizationPolicy(componentType);
 		return new ValidatedDeclaration(
 			componentType,
 			route.Template,
-			policy,
 			route.ExplicitMethods,
 			route.CurrentUrl,
 			route.Target,
@@ -313,53 +310,6 @@ internal static class HtmxorAttributedRouteCatalog
 		return normalized is not null;
 	}
 
-	private static string ReadAuthorizationPolicy(Type componentType)
-	{
-		var attributes = GetHierarchyAttributes(componentType);
-		if (attributes.Any(static attribute =>
-			typeof(IAllowAnonymous).IsAssignableFrom(attribute.AttributeType)))
-		{
-			throw Unsupported(componentType, "AllowAnonymous is not supported");
-		}
-
-		var authorization = attributes
-			.Where(static attribute => typeof(IAuthorizeData).IsAssignableFrom(attribute.AttributeType))
-			.ToArray();
-		if (authorization.Length != 1 || authorization[0].AttributeType != typeof(AuthorizeAttribute))
-		{
-			throw Unsupported(componentType, "exactly one standard Authorize policy must be effective");
-		}
-
-		var attribute = authorization[0];
-		if (attribute.ConstructorArguments.Count > 1)
-		{
-			throw Unsupported(componentType, "the Authorize declaration is not supported");
-		}
-
-		var policy = attribute.ConstructorArguments.Count == 1
-			? attribute.ConstructorArguments[0].Value as string
-			: null;
-		foreach (var argument in attribute.NamedArguments)
-		{
-			if (!string.Equals(argument.MemberName, nameof(AuthorizeAttribute.Policy), StringComparison.Ordinal) ||
-				argument.TypedValue.Value is not string namedPolicy)
-			{
-				throw Unsupported(
-					componentType,
-					"Authorize must contain only one policy without roles or authentication schemes");
-			}
-
-			policy = namedPolicy;
-		}
-
-		if (string.IsNullOrWhiteSpace(policy))
-		{
-			throw Unsupported(componentType, "Authorize must declare a non-blank policy");
-		}
-
-		return policy;
-	}
-
 	private static CustomAttributeData[] GetHierarchyAttributes(Type componentType)
 	{
 		var attributes = new List<CustomAttributeData>();
@@ -403,14 +353,6 @@ internal static class HtmxorAttributedRouteCatalog
 				"its constructed HtmxRoute metadata does not match the validated declaration");
 		}
 
-		if (!metadata.OfType<AuthorizeAttribute>().Any(authorize =>
-			string.Equals(authorize.Policy, declaration.Policy, StringComparison.Ordinal)))
-		{
-			throw Unsupported(
-				declaration.ComponentType,
-				"its constructed Authorize metadata does not match the validated declaration");
-		}
-
 		return new HtmxorComponentRouteDescriptor(
 			declaration.ComponentType,
 			declaration.Route,
@@ -443,7 +385,6 @@ internal static class HtmxorAttributedRouteCatalog
 	private sealed record ValidatedDeclaration(
 		Type ComponentType,
 		string Route,
-		string Policy,
 		string[]? ExplicitMethods,
 		string? CurrentUrl,
 		string? Target,

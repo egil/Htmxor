@@ -317,8 +317,13 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Empty(diagnostics);
 	}
 
+	/// <summary>
+	/// A second authorization declaration -- here a custom type that is itself an
+	/// <c>IAuthorizeData</c> -- combines with the standard policy exactly as stock <c>@page</c>
+	/// combines multiple authorization attributes.
+	/// </summary>
 	[Fact]
-	public async Task Custom_authorization_metadata_alongside_standard_policy_fails_closed()
+	public async Task Custom_authorization_metadata_alongside_standard_policy_combines_without_diagnostics()
 	{
 		var componentPath = ComponentPath("ItemComponent.razor");
 		var source = $$"""
@@ -343,12 +348,15 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { source },
 			new[] { componentPath });
 
-		var diagnostic = Assert.Single(diagnostics);
-		Assert.Contains("exactly one effective authorization", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Empty(diagnostics);
 	}
 
+	/// <summary>
+	/// A custom <c>IAllowAnonymous</c> type allows anonymous access exactly as stock does when any
+	/// <c>IAllowAnonymous</c> metadata is present.
+	/// </summary>
 	[Fact]
-	public async Task Custom_anonymous_metadata_fails_closed()
+	public async Task Custom_anonymous_metadata_allows_anonymous_without_diagnostics()
 	{
 		var componentPath = ComponentPath("ItemComponent.razor");
 		var source = $$"""
@@ -375,8 +383,48 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { source },
 			new[] { componentPath });
 
-		var diagnostic = Assert.Single(diagnostics);
-		Assert.Contains("anonymous", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Stock <c>@page</c> honors any <c>IAuthorizeData</c>, not only the standard <c>Authorize</c>
+	/// attribute: a lone custom type that implements <c>IAuthorizeData</c> directly, without
+	/// deriving from <c>AuthorizeAttribute</c>, is accepted as the component's sole authorization
+	/// declaration. This is stock metadata read by the stock authorization middleware, not a
+	/// custom <c>IAuthorizationHandler</c> or requirement.
+	/// </summary>
+	[Fact]
+	public async Task Custom_IAuthorizeData_only_metadata_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = $$"""
+			namespace CustomSecurity
+			{
+			public sealed class CustomAuthorizeDataAttribute :
+				global::System.Attribute,
+				global::Microsoft.AspNetCore.Authorization.IAuthorizeData
+			{
+				public string? Policy { get; set; }
+				public string? Roles { get; set; }
+				public string? AuthenticationSchemes { get; set; }
+			}
+			}
+
+			namespace {{RootNamespace}}
+			{
+			#line 30 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/items/{Id:int}", Methods = ["GET"])]
+			[global::CustomSecurity.CustomAuthorizeDataAttribute(Policy = "items.read")]
+			#line default
+			public sealed class ItemComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
 	}
 
 	[Fact]
@@ -452,14 +500,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"exactly one HtmxRoute")]
 	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\", Roles = \"admin\")]",
-		"Roles")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\", AuthenticationSchemes = \"scheme\")]",
-		"AuthenticationSchemes")]
-	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items\", Methods = [\"GET\"])]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"constrained")]
@@ -479,10 +519,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Microsoft.AspNetCore.Components.RouteAttribute(\"/normal/{Id:int}\")]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"normal Blazor route")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]\n[global::Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute]",
-		"anonymous")]
 	public async Task Unsupported_bound_metadata_fails_closed(
 		string routeAttribute,
 		string authorizationAttribute,
@@ -501,6 +537,99 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Contains(expectedReason, diagnostic.GetMessage(), StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// <c>HtmxRoute</c> authorization metadata is accepted exactly as on a stock <c>@page</c>: any
+	/// stock authorization metadata, or none, and the application's <c>FallbackPolicy</c> covers
+	/// the no-metadata case as it does for any other endpoint.
+	/// </summary>
+	[Theory]
+	[InlineData("", "no authorization metadata")]
+	[InlineData(
+		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute]",
+		"bare [Authorize]")]
+	[InlineData(
+		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(Policy = \"items.read\")]",
+		"[Authorize(Policy = ...)]")]
+	[InlineData(
+		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(Roles = \"admin\")]",
+		"[Authorize(Roles = ...)]")]
+	[InlineData(
+		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(AuthenticationSchemes = \"custom-scheme\")]",
+		"[Authorize(AuthenticationSchemes = ...)]")]
+	[InlineData(
+		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(Roles = \"admin\")]\n[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(Policy = \"items.read\")]",
+		"two [Authorize]")]
+	[InlineData(
+		"[global::Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute]",
+		"[AllowAnonymous]")]
+	public async Task Supported_authorization_metadata_shapes_report_no_diagnostics(
+		string authorizationAttribute,
+		string shape)
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]",
+			authorizationAttribute);
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.True(diagnostics.IsEmpty, $"Shape '{shape}' must not report a diagnostic: {string.Join(", ", diagnostics.Select(d => d.GetMessage()))}");
+	}
+
+	/// <summary>
+	/// An <c>[Authorize(Policy = ...)]</c> declared on a base component is effective for a derived
+	/// <c>HtmxRoute</c> component, regardless of which type in the hierarchy declares it.
+	/// </summary>
+	[Fact]
+	public async Task Authorize_inherited_from_a_base_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("items.read")]
+			public abstract class ItemComponentBase : global::Microsoft.AspNetCore.Components.ComponentBase;
+
+			#line 20 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/items/{Id:int}", Methods = ["GET"])]
+			#line default
+			public sealed class ItemComponent : ItemComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Combining <c>[Authorize]</c> with <c>[AllowAnonymous]</c> matches stock: any
+	/// <c>IAllowAnonymous</c> metadata allows anonymous access regardless of any
+	/// <c>IAuthorizeData</c> also present.
+	/// </summary>
+	[Fact]
+	public async Task Authorize_combined_with_AllowAnonymous_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]\n[global::Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
 	}
 
 	[Fact]

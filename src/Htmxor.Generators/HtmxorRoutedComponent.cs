@@ -43,8 +43,7 @@ internal sealed class HtmxorRoutedComponent
 			ValidateComponent(symbols) ??
 			ValidateRoute() ??
 			ValidateRouteOrigin(cancellationToken) ??
-			ValidateNormalRoute(symbols) ??
-			ValidateAuthorization(symbols);
+			ValidateNormalRoute(symbols);
 
 	public Location GetLocation(CancellationToken cancellationToken)
 	{
@@ -245,59 +244,6 @@ internal sealed class HtmxorRoutedComponent
 			: null;
 	}
 
-	private string? ValidateAuthorization(HtmxorRouteSymbols symbols)
-	{
-		if (symbols.Authorize is null ||
-			symbols.AuthorizeData is null ||
-			symbols.AllowAnonymous is null)
-		{
-			return "the ASP.NET Core authorization symbols could not be resolved";
-		}
-
-		var attributes = GetHierarchyAttributes(Type).ToImmutableArray();
-		if (attributes.Any(attribute => Implements(attribute, symbols.AllowAnonymous)))
-		{
-			return "an HTMX-only component cannot allow anonymous access";
-		}
-
-		var authorizations = attributes
-			.Where(attribute => Implements(attribute, symbols.AuthorizeData))
-			.ToImmutableArray();
-		if (authorizations.Length != 1)
-		{
-			return "each component must have exactly one effective authorization declaration";
-		}
-
-		return SymbolEqualityComparer.Default.Equals(
-			authorizations[0].AttributeClass,
-			symbols.Authorize)
-			? ValidatePolicy(authorizations[0])
-			: "the effective authorization declaration must be the standard Authorize attribute";
-	}
-
-	private static string? ValidatePolicy(AttributeData authorization)
-	{
-		var unsupportedArgument = authorization.NamedArguments
-			.Select(static argument => argument.Key)
-			.Where(static name => !string.Equals(name, "Policy", StringComparison.Ordinal))
-			.OrderBy(static name => name, StringComparer.Ordinal)
-			.FirstOrDefault();
-		if (unsupportedArgument is not null)
-		{
-			return "Authorize named argument '" + unsupportedArgument + "' is not supported";
-		}
-
-		if (authorization.ConstructorArguments.Length > 1)
-		{
-			return "Authorize must declare one policy through its constructor or Policy property";
-		}
-
-		var policy = GetEffectivePolicy(authorization);
-		return !string.IsNullOrWhiteSpace(policy)
-			? null
-			: "Authorize must resolve one nonblank policy through its constructor or Policy property";
-	}
-
 	private string GetMetadataName() => GetMetadataName(Type);
 
 	private static string GetMetadataName(INamedTypeSymbol type)
@@ -322,10 +268,6 @@ internal sealed class HtmxorRoutedComponent
 				attributeType))
 			.ToImmutableArray();
 
-	private static bool Implements(AttributeData attribute, INamedTypeSymbol interfaceType)
-		=> attribute.AttributeClass?.AllInterfaces.Any(implemented =>
-			SymbolEqualityComparer.Default.Equals(implemented, interfaceType)) == true;
-
 	private static IEnumerable<AttributeData> GetHierarchyAttributes(INamedTypeSymbol type)
 	{
 		for (var current = type; current is not null; current = current.BaseType)
@@ -344,20 +286,6 @@ internal sealed class HtmxorRoutedComponent
 
 	private static IEnumerable<INamedTypeSymbol> GetTypeAndNestedTypes(INamedTypeSymbol type)
 		=> new[] { type }.Concat(type.GetTypeMembers().SelectMany(GetTypeAndNestedTypes));
-
-	private static string? GetEffectivePolicy(AttributeData authorization)
-	{
-		var namedPolicy = authorization.NamedArguments
-			.Where(static argument => string.Equals(argument.Key, "Policy", StringComparison.Ordinal))
-			.Select(static argument => argument.Value.Value as string)
-			.FirstOrDefault();
-		return authorization.NamedArguments.Any(static argument =>
-			string.Equals(argument.Key, "Policy", StringComparison.Ordinal))
-			? namedPolicy
-			: authorization.ConstructorArguments.Length == 1
-				? authorization.ConstructorArguments[0].Value as string
-				: null;
-	}
 
 	private static bool HasSupportedExplicitMethods(TypedConstant methods)
 	{

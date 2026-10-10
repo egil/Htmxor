@@ -1,0 +1,17 @@
+@attribute [Htmxor.HtmxRoute("/issue-284/unsafe-action/{Id:int}", Methods = new[] { "GET", "PUT" })]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "issue-284-admin")]
+@namespace Htmxor.PackageConsumer
+@inject Issue284UnsafeActionProbe Probe
+
+<button @onput="PutItem">Put</button>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override void OnInitialized() => Probe.RecordInitialization();
+
+    protected override void OnParametersSet() => Probe.RecordBinding();
+
+    private void PutItem(Htmxor.HtmxEventArgs _) => Probe.RecordCallback();
+}

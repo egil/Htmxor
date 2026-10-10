@@ -1,0 +1,369 @@
+using System.Net;
+using System.Net.Http;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+/// <summary>
+/// An <c>HtmxRoute</c> component's direct request is authorized exactly as a stock <c>@page</c>
+/// with the same authorization metadata, across every accepted shape, a spread of identities that
+/// separate each shape's requirements from one another, and with and without the application's
+/// <c>FallbackPolicy</c>. Real authentication and authorization middleware run in-process, driven
+/// by a request header, exactly as the rest of this suite's security fixtures do. Every cell also
+/// sends the stock twin's request with HTMX headers present, pinning that those headers never
+/// change the authorized outcome.
+/// </summary>
+public sealed class Issue284AuthorizationParityTests : IClassFixture<Issue284ParityHosts>
+{
+	private readonly Issue284ParityHosts hosts;
+
+	private static readonly string[] Shapes =
+		["none", "bare", "policy", "roles", "schemes", "two", "inherited", "anonymous"];
+
+	private static readonly string?[] Users =
+	[
+		null,
+		Issue284AuthenticationHandler.LimitedUser,
+		Issue284AuthenticationHandler.RoleOnlyUser,
+		Issue284AuthenticationHandler.PolicyOnlyUser,
+		Issue284AuthenticationHandler.FullUser,
+		Issue284AuthenticationHandler.AltSchemeUser,
+	];
+
+	private static readonly Dictionary<string, (string Htmx, string Stock)> Paths = new()
+	{
+		["none"] = ("/issue-284/none/htmx/1", "/issue-284/none/stock/1"),
+		["bare"] = ("/issue-284/bare/htmx/1", "/issue-284/bare/stock/1"),
+		["policy"] = ("/issue-284/policy/htmx/1", "/issue-284/policy/stock/1"),
+		["roles"] = ("/issue-284/roles/htmx/1", "/issue-284/roles/stock/1"),
+		["schemes"] = ("/issue-284/schemes/htmx/1", "/issue-284/schemes/stock/1"),
+		["two"] = ("/issue-284/two/htmx/1", "/issue-284/two/stock/1"),
+		["inherited"] = ("/issue-284/inherited/htmx/1", "/issue-284/inherited/stock/1"),
+		["anonymous"] = ("/issue-284/anonymous/htmx/1", "/issue-284/anonymous/stock/1"),
+	};
+
+	public Issue284AuthorizationParityTests(Issue284ParityHosts hosts) => this.hosts = hosts;
+
+	public static IEnumerable<object[]> Cells()
+	{
+		foreach (var useFallbackPolicy in new[] { false, true })
+		{
+			foreach (var shape in Shapes)
+			{
+				foreach (var user in Users)
+				{
+					yield return new object[] { useFallbackPolicy, shape, user! };
+				}
+			}
+		}
+	}
+
+	[Theory]
+	[MemberData(nameof(Cells))]
+	public async Task Htmx_route_matches_its_stock_twin_and_htmx_headers_never_change_the_outcome(
+		bool useFallbackPolicy,
+		string shape,
+		string? user)
+	{
+		var expected = (int)ExpectedStatus(shape, useFallbackPolicy, user);
+		var host = useFallbackPolicy ? hosts.Fallback : hosts.NoFallback;
+		var (htmxPath, stockPath) = Paths[shape];
+
+		using var stockPlain = await SendAsync(host, stockPath, user, direct: false);
+		using var stockDirect = await SendAsync(host, stockPath, user, direct: true);
+		using var htmxDirect = await SendAsync(host, htmxPath, user, direct: true);
+
+		Assert.True(
+			expected == (int)stockPlain.StatusCode,
+			$"Stock '{shape}' (fallback={useFallbackPolicy}, user={user ?? "anonymous"}) expected {expected}, got {(int)stockPlain.StatusCode}.");
+		Assert.True(
+			expected == (int)stockDirect.StatusCode,
+			$"Stock '{shape}' with HTMX headers (fallback={useFallbackPolicy}, user={user ?? "anonymous"}) expected {expected}, got {(int)stockDirect.StatusCode}; HTMX headers must never change the authorized outcome.");
+		Assert.True(
+			expected == (int)htmxDirect.StatusCode,
+			$"HtmxRoute twin of '{shape}' (fallback={useFallbackPolicy}, user={user ?? "anonymous"}) expected {expected}, got {(int)htmxDirect.StatusCode}; it must match its stock twin.");
+	}
+
+	/// <summary>
+	/// "none" is the only shape whose outcome depends on <c>FallbackPolicy</c>: every other shape
+	/// carries explicit authorization (or <c>AllowAnonymous</c>) metadata, which ASP.NET Core
+	/// always evaluates ahead of the fallback. "schemes" names a second, non-default scheme, so
+	/// only <see cref="Issue284AuthenticationHandler.AltSchemeUser"/> -- who authenticates through
+	/// that scheme's own header instead of the default scheme's -- reaches it; every identity that
+	/// authenticates only through the default scheme gets 401 on "schemes" while still getting 200
+	/// on "bare", which accepts any default-scheme identity regardless of claims or roles. "two"
+	/// requires both the role and the policy claim, so a role-only or policy-only identity
+	/// separates it from "roles" and "policy".
+	/// </summary>
+	private static HttpStatusCode ExpectedStatus(string shape, bool useFallbackPolicy, string? user)
+	{
+		switch (shape)
+		{
+			case "anonymous":
+				return HttpStatusCode.OK;
+			case "schemes":
+				return Issue284AuthenticationHandler.AuthenticatesViaAltScheme(user)
+					? HttpStatusCode.OK
+					: HttpStatusCode.Unauthorized;
+			case "bare":
+				return Issue284AuthenticationHandler.AuthenticatesViaDefaultScheme(user)
+					? HttpStatusCode.OK
+					: HttpStatusCode.Unauthorized;
+			case "roles":
+				return RequireRole(user);
+			case "two":
+				return RequireRoleAndClaim(user);
+			case "none" when !useFallbackPolicy:
+				return HttpStatusCode.OK;
+			default:
+				// "policy", "inherited", and fallback-protected "none" all require the claim only.
+				return RequireClaim(user);
+		}
+	}
+
+	private static HttpStatusCode RequireClaim(string? user)
+		=> !Issue284AuthenticationHandler.AuthenticatesViaDefaultScheme(user)
+			? HttpStatusCode.Unauthorized
+			: Issue284AuthenticationHandler.HasClaim(user!) ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
+
+	private static HttpStatusCode RequireRole(string? user)
+		=> !Issue284AuthenticationHandler.AuthenticatesViaDefaultScheme(user)
+			? HttpStatusCode.Unauthorized
+			: Issue284AuthenticationHandler.HasRole(user!) ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
+
+	private static HttpStatusCode RequireRoleAndClaim(string? user)
+		=> !Issue284AuthenticationHandler.AuthenticatesViaDefaultScheme(user)
+			? HttpStatusCode.Unauthorized
+			: Issue284AuthenticationHandler.HasRole(user!) && Issue284AuthenticationHandler.HasClaim(user!)
+				? HttpStatusCode.OK
+				: HttpStatusCode.Forbidden;
+
+	private static async Task<HttpResponseMessage> SendAsync(
+		Issue284TestHost host,
+		string path,
+		string? user,
+		bool direct)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		if (direct)
+		{
+			request.Headers.Add("HX-Request", "true");
+			request.Headers.Add("HX-Request-Type", "partial");
+		}
+
+		if (string.Equals(user, Issue284AuthenticationHandler.AltSchemeUser, StringComparison.Ordinal))
+		{
+			request.Headers.Add(Issue284AuthenticationHandler.AltUserHeaderName, user);
+		}
+		else if (user is not null)
+		{
+			request.Headers.Add(Issue284AuthenticationHandler.UserHeaderName, user);
+		}
+
+		return await host.Client.SendAsync(request);
+	}
+}
+
+/// <summary>
+/// Builds and starts the two hosts the parity matrix needs -- one with the application's
+/// <c>FallbackPolicy</c> configured, one without -- exactly once for the whole test class. Neither
+/// host holds per-request state, so sharing them across every theory case does not reduce
+/// isolation.
+/// </summary>
+public sealed class Issue284ParityHosts : IAsyncLifetime
+{
+	public Issue284TestHost NoFallback { get; private set; } = default!;
+
+	public Issue284TestHost Fallback { get; private set; } = default!;
+
+	public async Task InitializeAsync()
+	{
+		NoFallback = await Issue284TestHost.CreateAsync(useFallbackPolicy: false);
+		Fallback = await Issue284TestHost.CreateAsync(useFallbackPolicy: true);
+	}
+
+	public async Task DisposeAsync()
+	{
+		await NoFallback.DisposeAsync();
+		await Fallback.DisposeAsync();
+	}
+}
+
+public sealed class Issue284TestHost : IAsyncDisposable
+{
+	public WebApplication App { get; }
+
+	public HttpClient Client { get; }
+
+	private Issue284TestHost(WebApplication app, HttpClient client)
+	{
+		App = app;
+		Client = client;
+	}
+
+	public static async Task<Issue284TestHost> CreateAsync(bool useFallbackPolicy)
+	{
+		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+		{
+			ApplicationName = typeof(Issue284TestHost).Assembly.GetName().Name,
+			EnvironmentName = Environments.Development,
+		});
+		builder.WebHost.UseTestServer();
+		builder.Logging.ClearProviders();
+		builder.Services.AddAuthentication(Issue284AuthenticationHandler.SchemeName)
+			.AddScheme<AuthenticationSchemeOptions, Issue284AuthenticationHandler>(
+				Issue284AuthenticationHandler.SchemeName,
+				_ => { })
+			.AddScheme<AuthenticationSchemeOptions, Issue284AltAuthenticationHandler>(
+				Issue284AuthenticationHandler.AltSchemeName,
+				_ => { });
+		builder.Services.AddAuthorization(options =>
+		{
+			options.AddPolicy(
+				Issue284Policy.Name,
+				policy => policy.RequireClaim(Issue284Policy.ClaimType, Issue284Policy.ClaimValue));
+			if (useFallbackPolicy)
+			{
+				options.FallbackPolicy = new AuthorizationPolicyBuilder()
+					.RequireClaim(Issue284Policy.ClaimType, Issue284Policy.ClaimValue)
+					.Build();
+			}
+		});
+		builder.Services.AddRazorComponents().AddHtmxor();
+
+		var app = builder.Build();
+		app.UseAuthentication();
+		app.UseAuthorization();
+		app.UseAntiforgery();
+		app.MapRazorComponents<Issue284App>().AddHtmxorEndpoints();
+
+		await app.StartAsync();
+		return new Issue284TestHost(app, app.GetTestClient());
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		Client.Dispose();
+		await App.DisposeAsync();
+	}
+}
+
+internal sealed class Issue284AuthenticationHandler(
+	IOptionsMonitor<AuthenticationSchemeOptions> options,
+	ILoggerFactory logger,
+	UrlEncoder encoder)
+	: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+	public const string SchemeName = "issue-284-test";
+
+	/// <summary>
+	/// A second, non-default scheme, handled by <see cref="Issue284AltAuthenticationHandler"/>
+	/// through its own header. A request that presents only the default scheme's credentials is
+	/// rejected on an endpoint that names this scheme specifically -- separating scheme-restricted
+	/// authorization from bare authentication.
+	/// </summary>
+	public const string AltSchemeName = "issue-284-alt-test";
+
+	public const string UserHeaderName = "X-Issue-284-User";
+	public const string AltUserHeaderName = "X-Issue-284-Alt-User";
+	public const string LimitedUser = "limited-user";
+	public const string RoleOnlyUser = "role-only-user";
+	public const string PolicyOnlyUser = "policy-only-user";
+	public const string FullUser = "full-user";
+	public const string AltSchemeUser = "alt-scheme-user";
+
+	public static bool HasRole(string user)
+		=> string.Equals(user, RoleOnlyUser, StringComparison.Ordinal) ||
+			string.Equals(user, FullUser, StringComparison.Ordinal);
+
+	public static bool HasClaim(string user)
+		=> string.Equals(user, PolicyOnlyUser, StringComparison.Ordinal) ||
+			string.Equals(user, FullUser, StringComparison.Ordinal);
+
+	/// <summary>
+	/// True when the identity authenticates through the default scheme's own header. Anonymous
+	/// (<c>null</c>) is never authenticated, and neither is <see cref="AltSchemeUser"/>, who presents
+	/// only the alternate scheme's header.
+	/// </summary>
+	public static bool AuthenticatesViaDefaultScheme(string? user)
+		=> user is not null && !string.Equals(user, AltSchemeUser, StringComparison.Ordinal);
+
+	public static bool AuthenticatesViaAltScheme(string? user)
+		=> string.Equals(user, AltSchemeUser, StringComparison.Ordinal);
+
+	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+	{
+		if (!Request.Headers.TryGetValue(UserHeaderName, out var userHeader))
+		{
+			return Task.FromResult(AuthenticateResult.NoResult());
+		}
+
+		var ticket = new AuthenticationTicket(CreatePrincipal(userHeader.ToString()), SchemeName);
+		return Task.FromResult(AuthenticateResult.Success(ticket));
+	}
+
+	/// <summary>
+	/// Shared with <c>Issue284UnsafeActionOrderingTests</c>'s synthetic antiforgery-token context,
+	/// so a manufactured token is scoped to exactly the identity the real request later presents.
+	/// </summary>
+	public static ClaimsPrincipal CreatePrincipal(string user)
+	{
+		var claims = new List<Claim>
+		{
+			new(ClaimTypes.NameIdentifier, user),
+			new(ClaimTypes.Name, user),
+		};
+		if (HasClaim(user))
+		{
+			claims.Add(new Claim(Issue284Policy.ClaimType, Issue284Policy.ClaimValue));
+		}
+
+		if (HasRole(user))
+		{
+			claims.Add(new Claim(ClaimTypes.Role, Issue284Policy.Role));
+		}
+
+		return new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));
+	}
+}
+
+/// <summary>
+/// Registered as <see cref="Issue284AuthenticationHandler.AltSchemeName"/>: it authenticates only
+/// a request carrying <see cref="Issue284AuthenticationHandler.AltUserHeaderName"/>, independent
+/// of the default scheme's own header.
+/// </summary>
+internal sealed class Issue284AltAuthenticationHandler(
+	IOptionsMonitor<AuthenticationSchemeOptions> options,
+	ILoggerFactory logger,
+	UrlEncoder encoder)
+	: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+	{
+		if (!Request.Headers.TryGetValue(Issue284AuthenticationHandler.AltUserHeaderName, out var userHeader))
+		{
+			return Task.FromResult(AuthenticateResult.NoResult());
+		}
+
+		var user = userHeader.ToString();
+		var claims = new[]
+		{
+			new Claim(ClaimTypes.NameIdentifier, user),
+			new Claim(ClaimTypes.Name, user),
+		};
+		var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Issue284AuthenticationHandler.AltSchemeName));
+		var ticket = new AuthenticationTicket(principal, Issue284AuthenticationHandler.AltSchemeName);
+		return Task.FromResult(AuthenticateResult.Success(ticket));
+	}
+}

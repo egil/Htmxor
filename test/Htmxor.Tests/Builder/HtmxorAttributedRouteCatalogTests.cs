@@ -28,6 +28,166 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		Assert.NotNull(constructor);
 	}
 
+	/// <summary>
+	/// <see cref="HtmxorAttributedRouteCatalog"/> accepts any stock authorization metadata, or
+	/// none, exactly as it is accepted on a stock <c>@page</c>.
+	/// </summary>
+	[Fact]
+	public void Build_accepts_no_authorization_metadata()
+	{
+		var fixture = DynamicComponentAssembly.Create(new ComponentDefinition(
+			"PackageConsumer.Issue284NoneComponent",
+			"/issue-284-shapes/none/{Id:int}",
+			Policy: "unused",
+			Authorization: static _ => { }));
+
+		var descriptor = Assert.Single(HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		Assert.Empty(descriptor.Metadata.OfType<AuthorizeAttribute>());
+		Assert.Empty(descriptor.Metadata.OfType<AllowAnonymousAttribute>());
+	}
+
+	[Fact]
+	public void Build_accepts_bare_Authorize()
+	{
+		var fixture = DynamicComponentAssembly.Create(new ComponentDefinition(
+			"PackageConsumer.Issue284BareComponent",
+			"/issue-284-shapes/bare/{Id:int}",
+			Policy: "unused",
+			Authorization: static type => type.SetCustomAttribute(new CustomAttributeBuilder(
+				typeof(AuthorizeAttribute).GetConstructor(Type.EmptyTypes)!,
+				[]))));
+
+		var descriptor = Assert.Single(HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		var authorize = Assert.Single(descriptor.Metadata.OfType<AuthorizeAttribute>());
+		Assert.Null(authorize.Policy);
+	}
+
+	[Fact]
+	public void Build_accepts_Authorize_with_Roles()
+	{
+		var fixture = DynamicComponentAssembly.Create(new ComponentDefinition(
+			"PackageConsumer.Issue284RolesComponent",
+			"/issue-284-shapes/roles/{Id:int}",
+			Policy: "unused",
+			Authorization: static type => type.SetCustomAttribute(new CustomAttributeBuilder(
+				typeof(AuthorizeAttribute).GetConstructor(Type.EmptyTypes)!,
+				[],
+				[typeof(AuthorizeAttribute).GetProperty(nameof(AuthorizeAttribute.Roles))!],
+				["admin"]))));
+
+		var descriptor = Assert.Single(HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		var authorize = Assert.Single(descriptor.Metadata.OfType<AuthorizeAttribute>());
+		Assert.Equal("admin", authorize.Roles);
+	}
+
+	[Fact]
+	public void Build_accepts_Authorize_with_AuthenticationSchemes()
+	{
+		var fixture = DynamicComponentAssembly.Create(new ComponentDefinition(
+			"PackageConsumer.Issue284SchemesComponent",
+			"/issue-284-shapes/schemes/{Id:int}",
+			Policy: "unused",
+			Authorization: static type => type.SetCustomAttribute(new CustomAttributeBuilder(
+				typeof(AuthorizeAttribute).GetConstructor(Type.EmptyTypes)!,
+				[],
+				[typeof(AuthorizeAttribute).GetProperty(nameof(AuthorizeAttribute.AuthenticationSchemes))!],
+				["custom-scheme"]))));
+
+		var descriptor = Assert.Single(HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		var authorize = Assert.Single(descriptor.Metadata.OfType<AuthorizeAttribute>());
+		Assert.Equal("custom-scheme", authorize.AuthenticationSchemes);
+	}
+
+	[Fact]
+	public void Build_accepts_two_Authorize_attributes()
+	{
+		var fixture = DynamicComponentAssembly.Create(new ComponentDefinition(
+			"PackageConsumer.Issue284TwoComponent",
+			"/issue-284-shapes/two/{Id:int}",
+			Policy: "unused",
+			Authorization: static type =>
+			{
+				type.SetCustomAttribute(new CustomAttributeBuilder(
+					typeof(AuthorizeAttribute).GetConstructor(Type.EmptyTypes)!,
+					[],
+					[typeof(AuthorizeAttribute).GetProperty(nameof(AuthorizeAttribute.Roles))!],
+					["admin"]));
+				type.SetCustomAttribute(new CustomAttributeBuilder(
+					typeof(AuthorizeAttribute).GetConstructor(Type.EmptyTypes)!,
+					[],
+					[typeof(AuthorizeAttribute).GetProperty(nameof(AuthorizeAttribute.Policy))!],
+					["issue-284.read"]));
+			}));
+
+		var descriptor = Assert.Single(HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		Assert.Equal(2, descriptor.Metadata.OfType<AuthorizeAttribute>().Count());
+	}
+
+	[Fact]
+	public void Build_accepts_Authorize_inherited_from_a_base_component()
+	{
+		var fixture = DynamicComponentAssembly.Create(new ComponentDefinition(
+			"PackageConsumer.Issue284InheritedComponent",
+			"/issue-284-shapes/inherited/{Id:int}",
+			Policy: "unused",
+			Authorization: static _ => { },
+			BaseAuthorization: static type => type.SetCustomAttribute(new CustomAttributeBuilder(
+				typeof(AuthorizeAttribute).GetConstructor(Type.EmptyTypes)!,
+				[],
+				[typeof(AuthorizeAttribute).GetProperty(nameof(AuthorizeAttribute.Policy))!],
+				["issue-284.read"]))));
+
+		var descriptor = Assert.Single(HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		var authorize = Assert.Single(descriptor.Metadata.OfType<AuthorizeAttribute>());
+		Assert.Equal("issue-284.read", authorize.Policy);
+	}
+
+	[Fact]
+	public void Build_accepts_AllowAnonymous()
+	{
+		var fixture = DynamicComponentAssembly.Create(new ComponentDefinition(
+			"PackageConsumer.Issue284AnonymousComponent",
+			"/issue-284-shapes/anonymous/{Id:int}",
+			Policy: "unused",
+			Authorization: static type => type.SetCustomAttribute(new CustomAttributeBuilder(
+				typeof(AllowAnonymousAttribute).GetConstructor(Type.EmptyTypes)!,
+				[]))));
+
+		var descriptor = Assert.Single(HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		Assert.Single(descriptor.Metadata.OfType<AllowAnonymousAttribute>());
+		Assert.Empty(descriptor.Metadata.OfType<AuthorizeAttribute>());
+	}
+
+	/// <summary>
+	/// Stock <c>@page</c> honors any <see cref="IAuthorizeData"/>, not only <see
+	/// cref="AuthorizeAttribute"/> itself.
+	/// </summary>
+	[Fact]
+	public void Build_accepts_a_custom_IAuthorizeData_attribute()
+	{
+		var fixture = DynamicComponentAssembly.Create(new ComponentDefinition(
+			"PackageConsumer.Issue284CustomAuthorizeDataComponent",
+			"/issue-284-shapes/custom-authorize-data/{Id:int}",
+			Policy: "unused",
+			Authorization: static type => type.SetCustomAttribute(new CustomAttributeBuilder(
+				typeof(CustomAuthorizeDataAttribute).GetConstructor(Type.EmptyTypes)!,
+				[],
+				[typeof(CustomAuthorizeDataAttribute).GetProperty(nameof(CustomAuthorizeDataAttribute.Policy))!],
+				["custom.read"]))));
+
+		var descriptor = Assert.Single(HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		var authorize = Assert.Single(descriptor.Metadata.OfType<CustomAuthorizeDataAttribute>());
+		Assert.Equal("custom.read", authorize.Policy);
+	}
+
 	[Fact]
 	public void Build_preserves_arbitrary_declarations_in_type_name_order()
 	{
@@ -755,7 +915,9 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		IReadOnlyList<string>? Methods = null,
 		string? CurrentUrl = null,
 		string? Target = null,
-		IReadOnlyList<string>? Targets = null);
+		IReadOnlyList<string>? Targets = null,
+		Action<TypeBuilder>? Authorization = null,
+		Action<TypeBuilder>? BaseAuthorization = null);
 
 	private sealed record DynamicComponentAssembly(Assembly Assembly, Type[] Types, string[] Manifest)
 	{
@@ -775,17 +937,37 @@ public sealed class HtmxorAttributedRouteCatalogTests
 
 		private static Type CreateComponent(ModuleBuilder module, ComponentDefinition definition)
 		{
+			var baseType = typeof(ComponentBase);
+			if (definition.BaseAuthorization is not null)
+			{
+				var baseBuilder = module.DefineType(
+					definition.TypeName + "Base",
+					TypeAttributes.Public | TypeAttributes.Abstract | TypeAttributes.Class,
+					typeof(ComponentBase));
+				baseBuilder.DefineDefaultConstructor(MethodAttributes.Family);
+				definition.BaseAuthorization(baseBuilder);
+				baseType = baseBuilder.CreateType()!;
+			}
+
 			var type = module.DefineType(
 				definition.TypeName,
 				TypeAttributes.Public | TypeAttributes.Class,
-				typeof(ComponentBase));
+				baseType);
 			type.DefineDefaultConstructor(MethodAttributes.Public);
 			if (definition.HasHtmxRoute)
 			{
 				AddRoute(type, definition);
 			}
 			AddStockRoutes(type, definition.StockRoutes);
-			AddAuthorization(type, definition);
+			if (definition.Authorization is not null)
+			{
+				definition.Authorization(type);
+			}
+			else
+			{
+				AddAuthorization(type, definition);
+			}
+
 			if (definition.HasThrowingMetadata)
 			{
 				type.SetCustomAttribute(new CustomAttributeBuilder(
@@ -863,5 +1045,20 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	public sealed class ThrowingMetadataAttribute : Attribute
 	{
 		public ThrowingMetadataAttribute() => throw new InvalidOperationException("metadata constructor control");
+	}
+
+	/// <summary>
+	/// An authorization attribute that is stock metadata read by the stock authorization
+	/// middleware, not an <see cref="IAuthorizationHandler"/> or requirement. It deliberately does
+	/// not derive from <see cref="AuthorizeAttribute"/>.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Class)]
+	public sealed class CustomAuthorizeDataAttribute : Attribute, IAuthorizeData
+	{
+		public string? Policy { get; set; }
+
+		public string? Roles { get; set; }
+
+		public string? AuthenticationSchemes { get; set; }
 	}
 }

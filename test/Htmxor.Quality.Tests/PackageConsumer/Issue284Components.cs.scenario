@@ -1,0 +1,204 @@
+using Htmxor;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Routing;
+
+namespace Htmxor.PackageConsumer;
+
+/// <summary>
+/// Eight accepted authorization shapes, each as a paired <c>HtmxRoute</c> component and a
+/// stock-routed twin carrying the identical metadata. Only the authorization outcome is under
+/// test, so every component renders the same trivial markup. Every template carries a
+/// constrained <c>{Id:int}</c> parameter, as every <c>HtmxRoute</c> template requires.
+/// </summary>
+internal static class Issue284Markup
+{
+	public static void Render(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "p");
+		builder.AddAttribute(1, "data-issue-284-result", string.Empty);
+		builder.AddContent(2, "ok");
+		builder.CloseElement();
+	}
+}
+
+internal static class Issue284Policy
+{
+	public const string Name = "issue-284-access";
+	public const string Role = "issue-284-admin";
+	public const string ClaimType = "issue-284-access";
+	public const string ClaimValue = "granted";
+}
+
+// Shape: no authorization metadata at all.
+[HtmxRoute("/issue-284/none/htmx/{Id:int}", Methods = ["GET"])]
+public sealed class Issue284NoneHtmxPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+[Route("/issue-284/none/stock/{Id:int}")]
+public sealed class Issue284NoneStockPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+// Shape: bare [Authorize].
+[HtmxRoute("/issue-284/bare/htmx/{Id:int}", Methods = ["GET"])]
+[Authorize]
+public sealed class Issue284BareHtmxPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+[Route("/issue-284/bare/stock/{Id:int}")]
+[Authorize]
+public sealed class Issue284BareStockPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+// Shape: [Authorize(Policy = ...)].
+[HtmxRoute("/issue-284/policy/htmx/{Id:int}", Methods = ["GET"])]
+[Authorize(Policy = Issue284Policy.Name)]
+public sealed class Issue284PolicyHtmxPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+[Route("/issue-284/policy/stock/{Id:int}")]
+[Authorize(Policy = Issue284Policy.Name)]
+public sealed class Issue284PolicyStockPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+// Shape: [Authorize(Roles = ...)].
+[HtmxRoute("/issue-284/roles/htmx/{Id:int}", Methods = ["GET"])]
+[Authorize(Roles = Issue284Policy.Role)]
+public sealed class Issue284RolesHtmxPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+[Route("/issue-284/roles/stock/{Id:int}")]
+[Authorize(Roles = Issue284Policy.Role)]
+public sealed class Issue284RolesStockPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+// Shape: [Authorize(AuthenticationSchemes = ...)].
+[HtmxRoute("/issue-284/schemes/htmx/{Id:int}", Methods = ["GET"])]
+[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.AltSchemeName)]
+public sealed class Issue284SchemesHtmxPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+[Route("/issue-284/schemes/stock/{Id:int}")]
+[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.AltSchemeName)]
+public sealed class Issue284SchemesStockPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+// Shape: two [Authorize] attributes -- both the role and the policy must hold.
+[HtmxRoute("/issue-284/two/htmx/{Id:int}", Methods = ["GET"])]
+[Authorize(Roles = Issue284Policy.Role)]
+[Authorize(Policy = Issue284Policy.Name)]
+public sealed class Issue284TwoHtmxPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+[Route("/issue-284/two/stock/{Id:int}")]
+[Authorize(Roles = Issue284Policy.Role)]
+[Authorize(Policy = Issue284Policy.Name)]
+public sealed class Issue284TwoStockPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+// Shape: [Authorize(Policy = ...)] inherited from a base component.
+[Authorize(Policy = Issue284Policy.Name)]
+public abstract class Issue284InheritedHtmxBase : ComponentBase;
+
+[HtmxRoute("/issue-284/inherited/htmx/{Id:int}", Methods = ["GET"])]
+public sealed class Issue284InheritedHtmxPage : Issue284InheritedHtmxBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+[Authorize(Policy = Issue284Policy.Name)]
+public abstract class Issue284InheritedStockBase : ComponentBase;
+
+[Route("/issue-284/inherited/stock/{Id:int}")]
+public sealed class Issue284InheritedStockPage : Issue284InheritedStockBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+// Shape: [AllowAnonymous].
+[HtmxRoute("/issue-284/anonymous/htmx/{Id:int}", Methods = ["GET"])]
+[AllowAnonymous]
+public sealed class Issue284AnonymousHtmxPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
+
+[Route("/issue-284/anonymous/stock/{Id:int}")]
+[AllowAnonymous]
+public sealed class Issue284AnonymousStockPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder) => Issue284Markup.Render(builder);
+}
