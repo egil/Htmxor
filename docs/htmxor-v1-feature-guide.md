@@ -164,6 +164,21 @@ not select this representation. Any HTTP client can forge `HX-*` headers and
 thereby look like htmx, so the route must never be treated as an authentication
 or authorization boundary.
 
+Authorization is ordinary ASP.NET Core endpoint metadata. The direct request is
+authorized exactly as a stock `@page` endpoint with the same metadata would be.
+That holds for `[Authorize]` with or without a policy, roles or authentication
+schemes, for several `[Authorize]` attributes, for attributes inherited from a
+base component, and for `[AllowAnonymous]`. A component without authorization
+metadata gets the application's `FallbackPolicy`, like any endpoint. Set one to
+make every route secure by default:
+
+```csharp
+builder.Services.AddAuthorization(options =>
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
+```
+
 GET is implicit for Razor-authored declarations. A C#-authored declaration must
 specify its complete method allow-list because Razor callback inference is not
 available:
