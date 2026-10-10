@@ -43,11 +43,16 @@ public sealed class HtmxorActionGenerator : IIncrementalGenerator
 			return;
 		}
 
-		if (ordered.Length > 0)
+		// An action is (component, HTTP method); agreeing bindings for one method name the same handler.
+		var actions = ordered
+			.GroupBy(static declaration => declaration.ComponentTypeName + " " + declaration.HttpMethod, StringComparer.Ordinal)
+			.Select(static bindings => bindings.First())
+			.ToArray();
+		if (actions.Length > 0)
 		{
 			context.AddSource(
 				"HtmxorGeneratedActions.g.cs",
-				SourceText.From(Render(ordered), Encoding.UTF8));
+				SourceText.From(Render(actions), Encoding.UTF8));
 		}
 	}
 

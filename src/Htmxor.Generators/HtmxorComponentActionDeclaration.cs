@@ -101,23 +101,50 @@ internal sealed class HtmxorComponentActionDeclaration
 		var declarations = ImmutableArray.CreateBuilder<HtmxorComponentActionDeclaration>();
 		foreach (var binding in SupportedBindings)
 		{
-			var candidates = scan.Attributes
+			var methodDeclarations = scan.Attributes
 				.Where(attribute => attribute.Name == binding.AttributeName && !RazorBindingValue.IsEmpty(attribute.Value))
+				.Select(candidate => Parse(componentTypeName, additionalFile.Path, text, binding, candidate, owner))
 				.ToList();
-			foreach (var candidate in candidates)
-			{
-				declarations.Add(Parse(
-					componentTypeName,
-					additionalFile.Path,
-					text,
-					binding,
-					candidate,
-					owner,
-					candidates.Count));
-			}
+			declarations.AddRange(RejectDifferentHandlers(methodDeclarations, binding, owner));
 		}
 
 		return declarations.ToImmutable();
+	}
+
+	// One HTTP method maps to one handler. Bindings that name the same handler are one action; when they name
+	// different handlers, every binding that names one fails, so no handler is chosen silently.
+	private static IEnumerable<HtmxorComponentActionDeclaration> RejectDifferentHandlers(
+		IReadOnlyList<HtmxorComponentActionDeclaration> declarations,
+		ActionBinding binding,
+		RouteOwner owner)
+	{
+		var handlers = declarations
+			.Select(static declaration => declaration.HandlerName)
+			.OfType<string>()
+			.Distinct(StringComparer.Ordinal)
+			.Select(static handler => "'" + handler + "'")
+			.ToList();
+		if (handlers.Count < 2)
+		{
+			return declarations;
+		}
+
+		var reason = binding.AttributeName + " binds different handlers " +
+			string.Join(", ", handlers.Take(handlers.Count - 1)) + " and " + handlers[handlers.Count - 1] +
+			"; bind one handler per HTTP method";
+		return declarations.Select(declaration => declaration.HandlerName is null
+			? declaration
+			: new HtmxorComponentActionDeclaration(
+				declaration.ComponentTypeName,
+				declaration.AttributeName,
+				declaration.HttpMethod,
+				handlerName: null,
+				handlerAccess: null,
+				owner,
+				declaration.Path,
+				declaration.Span,
+				declaration.LineSpan,
+				reason));
 	}
 
 	private static HtmxorComponentActionDeclaration Parse(
@@ -126,12 +153,11 @@ internal sealed class HtmxorComponentActionDeclaration
 		SourceText text,
 		ActionBinding binding,
 		MarkupAttribute candidate,
-		RouteOwner owner,
-		int methodDeclarationCount)
+		RouteOwner owner)
 	{
 		var span = new TextSpan(candidate.Index, binding.AttributeName.Length);
 		var handlerName = RazorBindingValue.TryReadHandler(candidate.Value);
-		var reason = GetUnsupportedReason(binding, candidate, methodDeclarationCount, handlerName);
+		var reason = GetUnsupportedReason(binding, candidate, handlerName);
 		return reason is null
 			? new HtmxorComponentActionDeclaration(
 				componentTypeName,
@@ -150,7 +176,6 @@ internal sealed class HtmxorComponentActionDeclaration
 	private static string? GetUnsupportedReason(
 		ActionBinding binding,
 		MarkupAttribute candidate,
-		int methodDeclarationCount,
 		string? handlerName)
 	{
 		if (binding.HttpMethod == ImplicitMethod)
@@ -162,11 +187,6 @@ internal sealed class HtmxorComponentActionDeclaration
 		{
 			return binding.AttributeName +
 				" in a Razor template or @code markup is not supported; put the binding in the component's own markup";
-		}
-
-		if (methodDeclarationCount > 1)
-		{
-			return "at most one " + binding.AttributeName + " binding per component is supported";
 		}
 
 		return handlerName is null
