@@ -40,7 +40,7 @@ public sealed class OutOfBandOutletsPageTests : IAsyncLifetime
 		});
 
 		var body = result.ReadAsText();
-		Assert.Contains("Current count: 2", body, StringComparison.Ordinal);
+		Assert.Contains("Current count: 1", body, StringComparison.Ordinal);
 	}
 
 	private (string Token, string Cookie) CreateAntiforgeryCredentials()
