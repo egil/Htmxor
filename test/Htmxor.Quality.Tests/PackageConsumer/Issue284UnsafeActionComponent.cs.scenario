@@ -1,0 +1,48 @@
+using Htmxor;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+
+namespace Htmxor.PackageConsumer;
+
+/// <summary>
+/// #284's "unsafe actions keep authorization before antiforgery, binding and callback"
+/// acceptance criterion: an <c>[Authorize(Roles = ...)]</c> <c>HtmxRoute</c> component with an
+/// unsafe <c>@onput</c>-equivalent binding. An all-C# component mirrors the real <c>@onput</c>
+/// binding through the same manual <c>EventCallback.Factory.Create</c> call the Razor compiler
+/// itself emits for one, exactly as the existing #97 all-C# action fixture does for
+/// <c>@ondelete</c>.
+/// </summary>
+[HtmxRoute("/issue-284/unsafe-action/{Id:int}", Methods = ["GET", "PUT"])]
+[Authorize(Roles = Issue284Policy.Role)]
+public sealed class Issue284UnsafeActionPage : ComponentBase
+{
+	[Parameter]
+	public int Id { get; set; }
+
+	[Inject]
+	private Issue284UnsafeActionProbe Probe { get; set; } = default!;
+
+	protected override void BuildRenderTree(RenderTreeBuilder builder)
+	{
+		builder.OpenElement(0, "button");
+		builder.AddAttribute(1, "hx-put", "/issue-284/unsafe-action/" + Id);
+		builder.AddAttribute(
+			2,
+			"onput",
+			EventCallback.Factory.Create<HtmxEventArgs>(this, PutItem));
+		builder.AddContent(3, "Put");
+		builder.CloseElement();
+	}
+
+	private void PutItem(HtmxEventArgs _) => Probe.RecordCallback();
+}
+
+internal sealed class Issue284UnsafeActionProbe
+{
+	private int callbackCount;
+
+	public int CallbackCount => Volatile.Read(ref callbackCount);
+
+	public void RecordCallback() => Interlocked.Increment(ref callbackCount);
+}

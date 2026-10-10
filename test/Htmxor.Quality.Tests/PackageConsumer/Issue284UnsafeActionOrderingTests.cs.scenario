@@ -1,0 +1,128 @@
+using System.Net;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+/// <summary>
+/// #284's "unsafe actions keep authorization before antiforgery, binding and callback"
+/// acceptance criterion, through a package-only consumer: a request that fails
+/// <see cref="Issue284UnsafeActionPage"/>'s <c>[Authorize(Roles = ...)]</c> check is rejected with
+/// 401/403 before antiforgery, binding, or the callback run, even though it carries no
+/// antiforgery token at all. If authorization ran after antiforgery, a missing token would
+/// surface as 400 Bad Request instead.
+/// </summary>
+public sealed class Issue284UnsafeActionOrderingTests : IAsyncLifetime
+{
+	private WebApplication app = default!;
+	private HttpClient client = default!;
+	private Issue284UnsafeActionProbe probe = default!;
+
+	public async Task InitializeAsync()
+	{
+		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+		{
+			ApplicationName = typeof(Issue284UnsafeActionOrderingTests).Assembly.GetName().Name,
+			EnvironmentName = Environments.Development,
+		});
+		builder.WebHost.UseTestServer();
+		builder.Services.AddAuthentication(Issue284AuthenticationHandler.SchemeName)
+			.AddScheme<AuthenticationSchemeOptions, Issue284AuthenticationHandler>(
+				Issue284AuthenticationHandler.SchemeName,
+				_ => { });
+		builder.Services.AddAuthorization();
+		builder.Services.AddRazorComponents().AddHtmxor();
+		builder.Services.AddSingleton<Issue284UnsafeActionProbe>();
+
+		app = builder.Build();
+		app.UseAuthentication();
+		app.UseAuthorization();
+		app.UseAntiforgery();
+		app.MapRazorComponents<Issue284App>().AddHtmxorEndpoints();
+
+		await app.StartAsync();
+		client = app.GetTestClient();
+		probe = app.Services.GetRequiredService<Issue284UnsafeActionProbe>();
+	}
+
+	[Theory]
+	[InlineData(null, HttpStatusCode.Unauthorized)]
+	[InlineData(Issue284AuthenticationHandler.LimitedUser, HttpStatusCode.Forbidden)]
+	public async Task Unauthorized_PUT_without_an_antiforgery_token_is_rejected_before_binding_or_callback(
+		string? user,
+		HttpStatusCode expected)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Put, "/issue-284/unsafe-action/1");
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		if (user is not null)
+		{
+			request.Headers.Add(Issue284AuthenticationHandler.UserHeaderName, user);
+		}
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == expected,
+			$"Expected {expected}, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+		Assert.Equal(0, probe.CallbackCount);
+	}
+
+	[Fact]
+	public async Task Authorized_PUT_with_a_valid_token_runs_the_callback()
+	{
+		// Positive control: proves the route and action genuinely work when both checks pass, so
+		// the negative cases above are not merely failing for an unrelated reason.
+		var (token, cookie) = CreateAntiforgeryCredentials(Issue284AuthenticationHandler.FullUser);
+
+		using var request = new HttpRequestMessage(HttpMethod.Put, "/issue-284/unsafe-action/1");
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		request.Headers.Add(Issue284AuthenticationHandler.UserHeaderName, Issue284AuthenticationHandler.FullUser);
+		request.Headers.Add("Cookie", cookie);
+		request.Headers.Add("RequestVerificationToken", token);
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(response.StatusCode == HttpStatusCode.OK, body);
+		Assert.Equal(1, probe.CallbackCount);
+	}
+
+	/// <summary>
+	/// Generates a token/cookie pair in-process, scoped to the same identity the real request
+	/// authenticates as via <see cref="Issue284AuthenticationHandler.CreatePrincipal"/>, so no
+	/// separate round trip is needed to read a page's rendered token.
+	/// </summary>
+	private (string Token, string Cookie) CreateAntiforgeryCredentials(string user)
+	{
+		var antiforgery = app.Services.GetRequiredService<IAntiforgery>();
+		var context = new DefaultHttpContext
+		{
+			RequestServices = app.Services,
+			User = Issue284AuthenticationHandler.CreatePrincipal(user),
+		};
+		var tokenSet = antiforgery.GetAndStoreTokens(context);
+		var setCookie = context.Response.Headers["Set-Cookie"]
+			.Single(value => value!.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal))!;
+
+		return (tokenSet.RequestToken!, setCookie.Split(';')[0]);
+	}
+
+	public async Task DisposeAsync()
+	{
+		client?.Dispose();
+		if (app is not null)
+		{
+			await app.DisposeAsync();
+		}
+	}
+}
