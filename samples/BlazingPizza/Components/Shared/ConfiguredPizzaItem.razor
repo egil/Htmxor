@@ -1,6 +1,5 @@
 ﻿<div class="cart-item rounded-3">
-    <button @onput="() => OnRemoved.InvokeAsync()"
-            role="button"
+    <button role="button"
             hx-put="?removePizza=@(Pizza.Id)"
             hx-target="#sidebar"
             hx-confirm=@($"Remove {Pizza.Special?.Name} pizza from the order?")
