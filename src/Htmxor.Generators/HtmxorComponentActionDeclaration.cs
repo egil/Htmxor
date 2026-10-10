@@ -134,17 +134,7 @@ internal sealed class HtmxorComponentActionDeclaration
 			"; bind one handler per HTTP method";
 		return declarations.Select(declaration => declaration.HandlerName is null
 			? declaration
-			: new HtmxorComponentActionDeclaration(
-				declaration.ComponentTypeName,
-				declaration.AttributeName,
-				declaration.HttpMethod,
-				handlerName: null,
-				handlerAccess: null,
-				owner,
-				declaration.Path,
-				declaration.Span,
-				declaration.LineSpan,
-				reason));
+			: Unsupported(declaration.ComponentTypeName, binding, owner, declaration.Path, declaration.Span, declaration.LineSpan, reason));
 	}
 
 	private static HtmxorComponentActionDeclaration Parse(
@@ -156,6 +146,7 @@ internal sealed class HtmxorComponentActionDeclaration
 		RouteOwner owner)
 	{
 		var span = new TextSpan(candidate.Index, binding.AttributeName.Length);
+		var lineSpan = text.Lines.GetLinePositionSpan(span);
 		var handlerName = RazorBindingValue.TryReadHandler(candidate.Value);
 		var reason = GetUnsupportedReason(binding, candidate, handlerName);
 		return reason is null
@@ -168,9 +159,9 @@ internal sealed class HtmxorComponentActionDeclaration
 				owner,
 				path,
 				span,
-				text.Lines.GetLinePositionSpan(span),
+				lineSpan,
 				unsupportedReason: null)
-			: Unsupported(componentTypeName, binding, owner, path, text, span, reason);
+			: Unsupported(componentTypeName, binding, owner, path, span, lineSpan, reason);
 	}
 
 	private static string? GetUnsupportedReason(
@@ -229,8 +220,8 @@ internal sealed class HtmxorComponentActionDeclaration
 		ActionBinding binding,
 		RouteOwner owner,
 		string path,
-		SourceText text,
 		TextSpan span,
+		LinePositionSpan lineSpan,
 		string reason)
 		=> new(
 			componentTypeName,
@@ -241,7 +232,7 @@ internal sealed class HtmxorComponentActionDeclaration
 			owner,
 			path,
 			span,
-			text.Lines.GetLinePositionSpan(span),
+			lineSpan,
 			reason);
 
 	private sealed class ActionBinding
