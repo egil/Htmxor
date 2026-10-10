@@ -1,11 +1,4 @@
 ﻿<div class="cart-item rounded-3">
-    <button role="button"
-            hx-put="?removePizza=@(Pizza.Id)"
-            hx-target="#sidebar"
-            hx-confirm=@($"Remove {Pizza.Special?.Name} pizza from the order?")
-            class="btn btn-sm float-end text-white lh-1">
-        x
-    </button>
     <h3 class="fs-6 p-3 m-0">@(Pizza.Size)" @Pizza.Special?.Name</h3>
     @if (Pizza.Toppings.Any())
     {
@@ -23,5 +16,4 @@
 
 @code {
     [Parameter, EditorRequired] public Pizza Pizza { get; set; } = new();
-    [Parameter, EditorRequired] public EventCallback OnRemoved { get; set; }
 }
