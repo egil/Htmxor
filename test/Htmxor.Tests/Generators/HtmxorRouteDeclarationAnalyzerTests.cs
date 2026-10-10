@@ -793,11 +793,133 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
-	/// Issue #285 split signal: an <c>@namespace</c> override divorces the path-only manifest
-	/// generator's guessed name (it must keep working without reading Razor content) from the
-	/// real compiled declaration. There is no supported seam for the generator to learn the
-	/// override, so this must keep failing closed -- never silently registering the wrong type or
-	/// cross-wiring onto an unrelated one -- until a seam is approved.
+	/// Issue #285 owner decision, placement: an <c>@namespace</c> override declared directly in
+	/// the component's own file. The compiled namespace is exactly the override, with no folder
+	/// suffix, matching the SDK 10.0.400 behavior observed for
+	/// <c>Components/NsOverride/Probe285NsOverride.razor</c>.
+	/// </summary>
+	[Fact]
+	public async Task InFile_namespace_override_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "OverrideComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "OverrideComponent"));
+		var source = $$"""
+			namespace Totally.Different
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/override/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("override.read")]
+			#line default
+			public sealed class OverrideComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Issue #285 owner decision, placement: an ancestor <c>_Imports.razor</c>'s
+	/// <c>@namespace</c> composed with a two-level-deep relative folder, matching the SDK
+	/// 10.0.400 composition rule observed for <c>Components/ImportsNs/_Imports.razor</c> plus
+	/// <c>Components/ImportsNs/Deep/Probe285ImportsNs.razor</c>.
+	/// </summary>
+	[Fact]
+	public async Task Ancestor_Imports_namespace_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(
+			Path.Combine("Components", "ImportsNs", "Deep", "Deeper", "ImportsComponent.razor"));
+		var generatedPath = RazorGeneratedPath(
+			Path.Combine("Components", "ImportsNs", "Deep", "Deeper", "ImportsComponent"));
+		var source = $$"""
+			namespace Probe.ImportsNs.Deep.Deeper
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/imports-ns/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("imports-ns.read")]
+			#line default
+			public sealed class ImportsComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Issue #285 owner decision, placement: the nearest ancestor <c>_Imports.razor</c> wins over
+	/// a farther one, matching the SDK 10.0.400 behavior observed with <c>@namespace Root.Override</c>
+	/// at the project root and <c>@namespace Nearer.Override</c> one level down.
+	/// </summary>
+	[Fact]
+	public async Task Nearer_ancestor_Imports_namespace_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(
+			Path.Combine("Nearer", "Deep", "PrecedenceComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Nearer", "Deep", "PrecedenceComponent"));
+		var source = $$"""
+			namespace Nearer.Override.Deep
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/nearer/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("nearer.read")]
+			#line default
+			public sealed class PrecedenceComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Issue #285 owner decision, placement: an in-file <c>@namespace</c> wins over an ancestor
+	/// <c>_Imports.razor</c>'s value, matching the SDK 10.0.400 behavior observed for
+	/// <c>Components/InFileWins/Probe285InFileWins.razor</c>.
+	/// </summary>
+	[Fact]
+	public async Task InFile_namespace_wins_over_ancestor_Imports_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("InFileWins", "OverrideComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("InFileWins", "OverrideComponent"));
+		var source = $$"""
+			namespace InFile.Override
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/infile-wins/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("infile-wins.read")]
+			#line default
+			public sealed class OverrideComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Issue #285 (owner decision: a narrow <c>@namespace</c> scan, confirmed by the analyzer): a
+	/// generator-derived guess that still diverges from the real compiled declaration -- for any
+	/// reason, including a scan miss on a shape this contract does not cover -- must fail closed,
+	/// never silently registering the wrong type or cross-wiring onto an unrelated one. This
+	/// fixture's compiled namespace ("Totally.Different") does not match either the path's default
+	/// convention or any modeled <c>@namespace</c> source, standing in for "the guess was wrong."
 	/// </summary>
 	[Fact]
 	public async Task Namespace_override_divorced_from_the_path_guess_fails_closed_instead_of_cross_wiring()

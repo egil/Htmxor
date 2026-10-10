@@ -13,9 +13,11 @@ namespace Htmxor.PackageConsumer;
 /// <summary>
 /// Issue #285: an <c>HtmxRoute</c> component or an action-owning component anywhere in the
 /// application project -- project root, a one-level subfolder, a two-level subfolder, a
-/// <c>.razor.cs</c> partial, and an all-C# component outside the root namespace -- gets exactly
-/// the same route and action support a project-root file gets, with no cross-wiring between two
-/// components that merely share a class name in different namespaces.
+/// <c>.razor.cs</c> partial, an all-C# component outside the root namespace, an in-file
+/// <c>@namespace</c> override, an ancestor <c>_Imports.razor</c> override (including a nearer
+/// one winning over a farther one, and an in-file override winning over an ancestor one) --
+/// gets exactly the same route and action support a project-root file gets, with no cross-wiring
+/// between two components that merely share a class name in different namespaces.
 /// </summary>
 public sealed class Issue285AnyFolderScenarioTests : IAsyncLifetime
 {
@@ -95,6 +97,50 @@ public sealed class Issue285AnyFolderScenarioTests : IAsyncLifetime
         using var alphaResponse = await client.GetAsync("/issue-285/same-name/beta/1");
         var alphaBody = await alphaResponse.Content.ReadAsStringAsync();
         Assert.DoesNotContain("data-issue-285-same-name-alpha", alphaBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InFile_namespace_override_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285NsOverrideComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/ns-override/1", "data-issue-285-ns-override");
+        await AssertPatchAsync("/issue-285/ns-override/1");
+
+        Assert.Equal(1, Issue285NsOverrideComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Ancestor_Imports_namespace_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285ImportsComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/imports-ns/1", "data-issue-285-imports-ns");
+        await AssertPatchAsync("/issue-285/imports-ns/1");
+
+        Assert.Equal(1, Issue285ImportsComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Nearer_ancestor_Imports_namespace_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285NearerComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/nearer/1", "data-issue-285-nearer");
+        await AssertPatchAsync("/issue-285/nearer/1");
+
+        Assert.Equal(1, Issue285NearerComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task InFile_namespace_winning_over_ancestor_Imports_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285InFileWinsComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/infile-wins/1", "data-issue-285-infile-wins");
+        await AssertPatchAsync("/issue-285/infile-wins/1");
+
+        Assert.Equal(1, Issue285InFileWinsComponent.PatchCount);
     }
 
     /// <summary>
