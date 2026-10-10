@@ -1,0 +1,387 @@
+using System.Net;
+using System.Text.Encodings.Web;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+/// <summary>
+/// Every convention chained onto <c>MapRazorComponents&lt;App&gt;()</c> -- whether added before or
+/// after <c>AddHtmxorEndpoints()</c> -- applies to a generated <c>HtmxRoute</c> endpoint exactly as
+/// it applies to its stock <c>@page</c> twin: <c>RequireAuthorization()</c>, a non-authorization
+/// marker added through <c>WithMetadata</c>, and the framework's own <c>WithStaticAssets()</c>
+/// convention (which attaches <see cref="Microsoft.AspNetCore.Components.ResourceAssetCollection"/>
+/// metadata). An anonymous unsafe action on an otherwise unprotected <c>HtmxRoute</c> component is
+/// also rejected by the chained <c>RequireAuthorization()</c> before antiforgery, parameter binding,
+/// or its callback run. A route group's <c>RequireAuthorization()</c>
+/// (<c>MapGroup("").RequireAuthorization()</c>) already reaches the HtmxRoute endpoint today and is
+/// kept here only as a green guard, isolating the defect to conventions chained directly onto
+/// <c>MapRazorComponents</c>. Every host is real Kestrel on loopback, driven by a real
+/// <see cref="HttpClient"/>, so authorization, antiforgery, and routing all run as real middleware.
+/// </summary>
+public sealed class Issue316ConventionsTests : IClassFixture<Issue316ConventionHosts>
+{
+	public const string MarkerHeaderName = "X-Issue-316-Marker";
+	public const string StaticAssetsHeaderName = "X-Issue-316-Static-Assets";
+
+	private const string NoAttrStockPath = "/issue-316/no-attr/stock/1";
+	private const string NoAttrHtmxPath = "/issue-316/no-attr/htmx/1";
+	private const string UnsafeActionPath = "/issue-316/unsafe-action/1";
+
+	private readonly Issue316ConventionHosts hosts;
+
+	public Issue316ConventionsTests(Issue316ConventionHosts hosts) => this.hosts = hosts;
+
+	public static IEnumerable<object[]> ChainedConfigurations()
+	{
+		yield return new object[] { Issue316Configuration.Before };
+		yield return new object[] { Issue316Configuration.After };
+	}
+
+	[Theory]
+	[MemberData(nameof(ChainedConfigurations))]
+	public async Task HtmxRoute_component_with_no_attributes_matches_its_stock_twin_under_chained_RequireAuthorization(
+		Issue316Configuration configuration)
+	{
+		var host = hosts.Get(configuration);
+
+		using var stockPlain = await SendAsync(host.Client, NoAttrStockPath, HttpMethod.Get, direct: false);
+		using var stockDirect = await SendAsync(host.Client, NoAttrStockPath, HttpMethod.Get, direct: true);
+		using var htmxDirect = await SendAsync(host.Client, NoAttrHtmxPath, HttpMethod.Get, direct: true);
+
+		Assert.True(
+			stockPlain.StatusCode == HttpStatusCode.Unauthorized,
+			$"Stock twin ({configuration}) expected 401, got {(int)stockPlain.StatusCode}.");
+		Assert.True(
+			stockDirect.StatusCode == HttpStatusCode.Unauthorized,
+			$"Stock twin with HTMX headers ({configuration}) expected 401, got {(int)stockDirect.StatusCode}; " +
+			"HTMX headers must never change the authorized outcome.");
+		Assert.True(
+			htmxDirect.StatusCode == HttpStatusCode.Unauthorized,
+			$"HtmxRoute twin ({configuration}) expected 401 to match its stock twin, got {(int)htmxDirect.StatusCode}. " +
+			"RequireAuthorization() chained onto MapRazorComponents must also protect generated HtmxRoute endpoints.");
+	}
+
+	[Theory]
+	[MemberData(nameof(ChainedConfigurations))]
+	public async Task Chained_WithMetadata_marker_reaches_the_HtmxRoute_endpoint_exactly_as_the_stock_twin(
+		Issue316Configuration configuration)
+	{
+		var host = hosts.Get(configuration);
+
+		using var stockResponse = await SendAsync(host.Client, NoAttrStockPath, HttpMethod.Get, direct: false);
+		using var htmxResponse = await SendAsync(host.Client, NoAttrHtmxPath, HttpMethod.Get, direct: true);
+
+		Assert.True(
+			stockResponse.Headers.Contains(MarkerHeaderName),
+			$"Stock twin ({configuration}) must carry the marker chained onto MapRazorComponents.");
+		Assert.True(
+			htmxResponse.Headers.Contains(MarkerHeaderName),
+			$"HtmxRoute twin ({configuration}) must carry the same WithMetadata marker as its stock twin; " +
+			"a non-authorization convention chained onto MapRazorComponents must also reach generated " +
+			"HtmxRoute endpoints.");
+	}
+
+	[Theory]
+	[MemberData(nameof(ChainedConfigurations))]
+	public async Task Chained_WithStaticAssets_reaches_the_HtmxRoute_endpoint_exactly_as_the_stock_twin(
+		Issue316Configuration configuration)
+	{
+		var host = hosts.Get(configuration);
+
+		using var stockResponse = await SendAsync(host.Client, NoAttrStockPath, HttpMethod.Get, direct: false);
+		using var htmxResponse = await SendAsync(host.Client, NoAttrHtmxPath, HttpMethod.Get, direct: true);
+
+		Assert.True(
+			stockResponse.Headers.Contains(StaticAssetsHeaderName),
+			$"Stock twin ({configuration}) must carry the ResourceAssetCollection metadata " +
+			"WithStaticAssets() attaches.");
+		Assert.True(
+			htmxResponse.Headers.Contains(StaticAssetsHeaderName),
+			$"HtmxRoute twin ({configuration}) must carry the same ResourceAssetCollection metadata as its " +
+			"stock twin; the framework's own WithStaticAssets() convention, chained onto MapRazorComponents, " +
+			"must also reach generated HtmxRoute endpoints.");
+	}
+
+	[Theory]
+	[MemberData(nameof(ChainedConfigurations))]
+	public async Task Anonymous_unsafe_action_on_a_no_attribute_HtmxRoute_component_is_rejected_before_antiforgery_binding_and_callback(
+		Issue316Configuration configuration)
+	{
+		var host = hosts.Get(configuration);
+		host.Probe.Reset();
+
+		using var response = await SendAsync(host.Client, UnsafeActionPath, HttpMethod.Delete, direct: true);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.Unauthorized,
+			$"({configuration}) expected 401 from RequireAuthorization() before antiforgery, binding, or the " +
+			$"callback ran; got {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+		Assert.Equal(0, host.Probe.InitializationCount);
+		Assert.Equal(0, host.Probe.BindingCount);
+		Assert.Equal(0, host.Probe.CallbackCount);
+	}
+
+	[Fact]
+	public async Task Route_group_RequireAuthorization_already_protects_the_HtmxRoute_endpoint()
+	{
+		// Green guard (already correct at the starting revision): isolates the defect to conventions
+		// chained directly onto MapRazorComponents, rather than to RequireAuthorization() in general.
+		using var response = await SendAsync(hosts.Group.Client, NoAttrHtmxPath, HttpMethod.Get, direct: true);
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.Unauthorized,
+			$"Expected 401 under MapGroup(\"\").RequireAuthorization(), got {(int)response.StatusCode}.");
+	}
+
+	private static async Task<HttpResponseMessage> SendAsync(
+		HttpClient client,
+		string path,
+		HttpMethod method,
+		bool direct)
+	{
+		using var request = new HttpRequestMessage(method, path);
+		if (direct)
+		{
+			request.Headers.Add("HX-Request", "true");
+			request.Headers.Add("HX-Request-Type", "partial");
+		}
+
+		return await client.SendAsync(request);
+	}
+}
+
+public enum Issue316Configuration
+{
+	/// <summary>RequireAuthorization() is chained before AddHtmxorEndpoints().</summary>
+	Before,
+
+	/// <summary>RequireAuthorization() is chained after AddHtmxorEndpoints(), as in the issue's own example.</summary>
+	After,
+}
+
+/// <summary>
+/// Builds and starts the three hosts the contract needs -- <see cref="Issue316Configuration.Before"/>,
+/// <see cref="Issue316Configuration.After"/>, and the route-group guard -- exactly once for the whole
+/// test class. Neither host holds per-request state beyond <see cref="Issue316UnsafeActionProbe"/>,
+/// which each test resets before use.
+/// </summary>
+public sealed class Issue316ConventionHosts : IAsyncLifetime
+{
+	private Issue316ConventionHost before = default!;
+	private Issue316ConventionHost after = default!;
+
+	public Issue316ConventionHost Group { get; private set; } = default!;
+
+	public async Task InitializeAsync()
+	{
+		before = await Issue316ConventionHost.CreateAsync(Issue316Configuration.Before);
+		after = await Issue316ConventionHost.CreateAsync(Issue316Configuration.After);
+		Group = await Issue316ConventionHost.CreateGroupGuardAsync();
+	}
+
+	public Issue316ConventionHost Get(Issue316Configuration configuration) => configuration switch
+	{
+		Issue316Configuration.Before => before,
+		Issue316Configuration.After => after,
+		_ => throw new ArgumentOutOfRangeException(nameof(configuration), configuration, message: null),
+	};
+
+	public async Task DisposeAsync()
+	{
+		await before.DisposeAsync();
+		await after.DisposeAsync();
+		await Group.DisposeAsync();
+	}
+}
+
+public sealed class Issue316ConventionHost : IAsyncDisposable
+{
+	public WebApplication App { get; }
+
+	public HttpClient Client { get; }
+
+	public Issue316UnsafeActionProbe Probe { get; }
+
+	private Issue316ConventionHost(WebApplication app, HttpClient client, Issue316UnsafeActionProbe probe)
+	{
+		App = app;
+		Client = client;
+		Probe = probe;
+	}
+
+	/// <summary>
+	/// A chained-conventions host: RequireAuthorization(), a WithMetadata() marker, and the
+	/// framework's own WithStaticAssets() all ride on the same
+	/// RazorComponentsEndpointConventionBuilder returned by MapRazorComponents, placed either
+	/// before or after AddHtmxorEndpoints() per <paramref name="configuration"/>.
+	/// </summary>
+	public static Task<Issue316ConventionHost> CreateAsync(Issue316Configuration configuration) =>
+		CreateAsync(configuration, useGroup: false);
+
+	/// <summary>
+	/// The route-group guard: RequireAuthorization() comes from MapGroup("") wrapping
+	/// MapRazorComponents, not from a convention chained directly onto it.
+	/// </summary>
+	public static Task<Issue316ConventionHost> CreateGroupGuardAsync() =>
+		CreateAsync(configuration: null, useGroup: true);
+
+	private static async Task<Issue316ConventionHost> CreateAsync(Issue316Configuration? configuration, bool useGroup)
+	{
+		var builder = WebApplication.CreateBuilder();
+		builder.WebHost.UseKestrel(options => options.Listen(IPAddress.Loopback, 0));
+		builder.Logging.ClearProviders();
+		builder.Services.AddAuthentication(Issue316AuthenticationHandler.SchemeName)
+			.AddScheme<AuthenticationSchemeOptions, Issue316AuthenticationHandler>(
+				Issue316AuthenticationHandler.SchemeName,
+				_ => { });
+		builder.Services.AddAuthorization();
+		builder.Services.AddRazorComponents().AddHtmxor();
+		builder.Services.AddSingleton<Issue316UnsafeActionProbe>();
+
+		var app = builder.Build();
+		EnsureEntryAssemblyStaticWebAssetsManifest();
+		app.MapStaticAssets();
+		app.UseRouting();
+		app.Use(async (context, next) =>
+		{
+			var metadata = context.GetEndpoint()?.Metadata;
+			if (metadata?.GetMetadata<Issue316ConventionMarker>() is not null)
+			{
+				context.Response.Headers[Issue316ConventionsTests.MarkerHeaderName] = "present";
+			}
+
+			if (metadata?.GetMetadata<Microsoft.AspNetCore.Components.ResourceAssetCollection>() is not null)
+			{
+				context.Response.Headers[Issue316ConventionsTests.StaticAssetsHeaderName] = "present";
+			}
+
+			await next();
+		});
+		app.UseAuthentication();
+		app.UseAuthorization();
+		app.UseAntiforgery();
+
+		if (useGroup)
+		{
+			app.MapGroup(string.Empty)
+				.RequireAuthorization()
+				.MapRazorComponents<Issue316App>()
+				.AddHtmxorEndpoints();
+		}
+		else if (configuration == Issue316Configuration.Before)
+		{
+			app.MapRazorComponents<Issue316App>()
+				.RequireAuthorization()
+				.WithMetadata(new Issue316ConventionMarker())
+				.WithStaticAssets()
+				.AddHtmxorEndpoints();
+		}
+		else
+		{
+			app.MapRazorComponents<Issue316App>()
+				.AddHtmxorEndpoints()
+				.RequireAuthorization()
+				.WithMetadata(new Issue316ConventionMarker())
+				.WithStaticAssets();
+		}
+
+		await app.StartAsync();
+
+		var addressesFeature = app.Services
+			.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
+			.Features
+			.Get<IServerAddressesFeature>()!;
+		var boundAddress = addressesFeature.Addresses.Single();
+		var client = new HttpClient { BaseAddress = new Uri(boundAddress) };
+		var probe = app.Services.GetRequiredService<Issue316UnsafeActionProbe>();
+
+		return new Issue316ConventionHost(app, client, probe);
+	}
+
+	/// <summary>
+	/// WithStaticAssets() resolves its manifest independently of any path passed to
+	/// MapStaticAssets(): it locates <c>{Assembly.GetEntryAssembly().Name}.staticwebassets.endpoints.json</c>
+	/// next to the running binaries. Under `dotnet test`, the entry assembly is the VSTest host
+	/// (for example `testhost`), not this project, so the manifest this project's build actually
+	/// generated -- named after its own assembly -- is copied once under the entry assembly's
+	/// expected name. This is a real-middleware test accommodating a documented framework
+	/// resolution detail, not a stand-in for WithStaticAssets() itself.
+	/// </summary>
+	private static void EnsureEntryAssemblyStaticWebAssetsManifest()
+	{
+		var sourcePath = Path.Combine(
+			AppContext.BaseDirectory,
+			$"{typeof(Issue316App).Assembly.GetName().Name}.staticwebassets.endpoints.json");
+		var entryAssemblyName = System.Reflection.Assembly.GetEntryAssembly()!.GetName().Name;
+		var destinationPath = Path.Combine(
+			AppContext.BaseDirectory,
+			$"{entryAssemblyName}.staticwebassets.endpoints.json");
+		if (!File.Exists(destinationPath))
+		{
+			File.Copy(sourcePath, destinationPath);
+		}
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		Client.Dispose();
+		await App.DisposeAsync();
+	}
+}
+
+/// <summary>A deliberately trivial, non-authorization marker chained through WithMetadata().</summary>
+public sealed class Issue316ConventionMarker
+{
+}
+
+/// <summary>
+/// Every request in this contract is anonymous, so this handler never authenticates anyone; it only
+/// exists so RequireAuthorization()'s default challenge has a scheme to run (producing 401 instead
+/// of throwing for lack of a configured default scheme).
+/// </summary>
+internal sealed class Issue316AuthenticationHandler(
+	IOptionsMonitor<AuthenticationSchemeOptions> options,
+	ILoggerFactory logger,
+	UrlEncoder encoder)
+	: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+	public const string SchemeName = "issue-316-test";
+
+	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+		=> Task.FromResult(AuthenticateResult.NoResult());
+}
+
+public sealed class Issue316UnsafeActionProbe
+{
+	private int initializationCount;
+	private int bindingCount;
+	private int callbackCount;
+
+	public int InitializationCount => Volatile.Read(ref initializationCount);
+
+	public int BindingCount => Volatile.Read(ref bindingCount);
+
+	public int CallbackCount => Volatile.Read(ref callbackCount);
+
+	public void RecordInitialization() => Interlocked.Increment(ref initializationCount);
+
+	public void RecordBinding() => Interlocked.Increment(ref bindingCount);
+
+	public void RecordCallback() => Interlocked.Increment(ref callbackCount);
+
+	public void Reset()
+	{
+		Volatile.Write(ref initializationCount, 0);
+		Volatile.Write(ref bindingCount, 0);
+		Volatile.Write(ref callbackCount, 0);
+	}
+}
