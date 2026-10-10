@@ -295,6 +295,59 @@ public sealed class HtmxorRouteGeneratorTests
 		Assert.Equal(IncrementalStepRunReason.Unchanged, output.Reason);
 	}
 
+	/// <summary>
+	/// A markup-only edit to one component re-derives that file's type name to the same string, so
+	/// the collected names compare equal and the manifest output step is not re-emitted; the edit
+	/// touches no <c>_Imports.razor</c>, so the <c>RazorComponentTypeNames</c> provider is not
+	/// recomputed at all.
+	/// </summary>
+	[Fact]
+	public void Markup_only_edit_to_a_Razor_component_leaves_the_manifest_output_and_the_type_names_provider_cached()
+	{
+		var run = RunGeneratorIncrementallyWithRazorContent(
+			("Components/Pages/AlphaComponent.razor", "<p>Hi</p>\n"),
+			("Components/Pages/AlphaComponent.razor", "<p>Hi there</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		var sourceOutputStep = Assert.Single(result.TrackedSteps["SourceOutput"]);
+		var outputReason = Assert.Single(sourceOutputStep.Outputs).Reason;
+		Assert.True(
+			outputReason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged,
+			$"Expected the manifest output step to be Cached or Unchanged, was {outputReason}.");
+
+		var typeNamesStep = FindStepByOutputTypeName(sourceOutputStep, "RazorComponentTypeNames") ??
+			throw new InvalidOperationException("No incremental step producing a RazorComponentTypeNames value was found.");
+		var typeNamesReason = Assert.Single(typeNamesStep.Outputs).Reason;
+		Assert.Equal(IncrementalStepRunReason.Cached, typeNamesReason);
+	}
+
+	/// <summary>
+	/// Walks an incremental step's inputs to find the step whose own output value is an instance
+	/// of the named (possibly <c>internal</c>) type, since <c>RazorComponentTypeNames</c> has no
+	/// explicit <c>WithTrackingName</c> and is not visible to this assembly by its compile-time
+	/// type.
+	/// </summary>
+	private static IncrementalGeneratorRunStep? FindStepByOutputTypeName(
+		IncrementalGeneratorRunStep step,
+		string typeName)
+	{
+		if (step.Outputs.Any(output => output.Value?.GetType().Name == typeName))
+		{
+			return step;
+		}
+
+		foreach (var (source, _) in step.Inputs)
+		{
+			if (FindStepByOutputTypeName(source, typeName) is { } found)
+			{
+				return found;
+			}
+		}
+
+		return null;
+	}
+
 	[Fact]
 	public void Manual_render_tree_intent_does_not_emit_an_action()
 	{
@@ -342,23 +395,26 @@ public sealed class HtmxorRouteGeneratorTests
 			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 	}
 
+	/// <summary>
+	/// The manifest is one deterministic, ordinally sorted set of type names, independent of
+	/// input order.
+	/// </summary>
 	[Fact]
-	public void Project_root_paths_emit_one_sorted_runtime_manifest_without_reading_Razor_content()
+	public void Project_root_paths_emit_one_sorted_runtime_manifest_in_ordinal_order()
 	{
-		var forward = RunGenerator(
-			"ZetaComponent.razor",
-			"DeltaComponent.razor",
-			"Nested/NestedComponent.razor",
-			"_Imports.razor",
-			"AlphaComponent.razor",
-			"GammaComponent.razor");
-		var reverse = RunGenerator(
-			"GammaComponent.razor",
-			"AlphaComponent.razor",
-			"_Imports.razor",
-			"Nested/NestedComponent.razor",
-			"DeltaComponent.razor",
-			"ZetaComponent.razor");
+		const string plainComponent = "<p>Plain</p>\n";
+		var forward = RunGeneratorWithRazorContent(
+			("ZetaComponent.razor", plainComponent),
+			("DeltaComponent.razor", plainComponent),
+			("_Imports.razor", "@using System\n"),
+			("AlphaComponent.razor", plainComponent),
+			("GammaComponent.razor", plainComponent));
+		var reverse = RunGeneratorWithRazorContent(
+			("GammaComponent.razor", plainComponent),
+			("AlphaComponent.razor", plainComponent),
+			("_Imports.razor", "@using System\n"),
+			("DeltaComponent.razor", plainComponent),
+			("ZetaComponent.razor", plainComponent));
 
 		Assert.Empty(forward.DriverDiagnostics);
 		var result = Assert.Single(forward.RunResult.Results);
@@ -383,14 +439,12 @@ public sealed class HtmxorRouteGeneratorTests
 			"typeof(HtmxorGeneratedRouteRegistrationExtensions).Assembly",
 			generatedSource,
 			StringComparison.Ordinal);
-		Assert.Contains("ProjectRootComponentTypeNames", generatedSource, StringComparison.Ordinal);
 		Assert.Contains("AddGeneratedActions(generatedActions)", generatedSource, StringComparison.Ordinal);
 		Assert.Contains(
 			"ComponentEndpointConventionBuilderHelper.GetEndpointRouteBuilder(builder)",
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.DoesNotContain("RouteGroupBuilder", generatedSource, StringComparison.Ordinal);
-		Assert.DoesNotContain("NestedComponent", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("_Imports", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("HtmxRoute", generatedSource, StringComparison.Ordinal);
 		Assert.DoesNotContain("Authorize", generatedSource, StringComparison.Ordinal);
@@ -400,6 +454,386 @@ public sealed class HtmxorRouteGeneratorTests
 		Assert.DoesNotContain("typeof(global::Htmxor.Consumer.ZetaComponent)", generatedSource, StringComparison.Ordinal);
 		Assert.Empty(forward.OutputCompilation.GetDiagnostics().Where(
 			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// The generated manifest is not named after the project root, because it covers components
+	/// anywhere in the project.
+	/// </summary>
+	[Fact]
+	public void Generated_manifest_identifier_does_not_say_project_root()
+	{
+		var run = RunGenerator("AlphaComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.DoesNotContain("ProjectRoot", generatedSource, StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// A component's <c>@namespace</c> directive is honoured even when the rest of the file would
+	/// break a broader parse.
+	/// </summary>
+	[Fact]
+	public void Namespace_directive_is_honoured_even_when_the_rest_of_the_file_is_unparseable()
+	{
+		const string garbageWithOverride =
+			"@namespace Totally.Override\n" +
+			"<p>@{ unbalanced {{{ ]]] ((( not valid Razor or C# at all\n";
+		var run = RunGeneratorWithRazorContent(
+			("GarbageOverrideComponent.razor", garbageWithOverride));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Equal(
+			1,
+			Count(generatedSource, "\"Totally.Override.GarbageOverrideComponent\""));
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// An <c>@namespace</c> directive declared directly in the component's own file is used
+	/// verbatim, with no folder suffix.
+	/// </summary>
+	[Fact]
+	public void InFile_namespace_override_names_the_manifest_entry_verbatim()
+	{
+		var run = RunGeneratorWithRazorContent(
+			("Components/Pages/OverrideComponent.razor", "@namespace Totally.Different\n<p>Hi</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Totally.Different.OverrideComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// A <c>@namespace</c> line written inside a Razor comment is not a directive: Razor ignores
+	/// it, so the component keeps its ordinary folder-default namespace.
+	/// </summary>
+	[Fact]
+	public void Commented_out_namespace_directive_is_ignored_like_real_Razor()
+	{
+		var run = RunGeneratorWithRazorContent(
+			("Components/CommentNs/CommentNsComponent.razor", "@*\n@namespace Should.Be.Ignored\n*@\n<p>Hi</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.Components.CommentNs.CommentNsComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("Should.Be.Ignored", generatedSource, StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// An ancestor <c>_Imports.razor</c>'s <c>@namespace</c> composes with the relative folder
+	/// path from that file down to the component, exactly like the default-namespace convention
+	/// does for <c>RootNamespace</c>. This row goes two folder levels deep to exercise
+	/// multi-segment composition, not just one.
+	/// </summary>
+	[Fact]
+	public void Ancestor_Imports_namespace_composes_with_the_relative_folder_to_the_component()
+	{
+		var run = RunGeneratorWithRazorContent(
+			("Components/ImportsNs/_Imports.razor", "@namespace Probe.ImportsNs\n"),
+			("Components/ImportsNs/Deep/Deeper/ImportsComponent.razor", "<p>Hi</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Probe.ImportsNs.Deep.Deeper.ImportsComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// The nearest ancestor <c>_Imports.razor</c> that declares <c>@namespace</c> wins over a
+	/// farther one that also declares it.
+	/// </summary>
+	[Fact]
+	public void Nearer_ancestor_Imports_namespace_wins_over_a_farther_one()
+	{
+		var run = RunGeneratorWithRazorContent(
+			("_Imports.razor", "@namespace Root.Override\n"),
+			("Nearer/_Imports.razor", "@namespace Nearer.Override\n"),
+			("Nearer/Deep/PrecedenceComponent.razor", "<p>Hi</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Nearer.Override.Deep.PrecedenceComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("Root.Override", generatedSource, StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// An ancestor <c>_Imports.razor</c> with no <c>@namespace</c> directive (only <c>@using</c>
+	/// lines, the stock Blazor Web App template shape for <c>Components/_Imports.razor</c>) does
+	/// not stop the walk: the nearest ancestor that actually declares <c>@namespace</c> wins,
+	/// composed with the relative folder from <em>that</em> file down to the component.
+	/// </summary>
+	[Fact]
+	public void Nearer_Imports_without_a_namespace_directive_is_skipped_for_a_farther_one_that_declares_it()
+	{
+		var run = RunGeneratorWithRazorContent(
+			("Gap/_Imports.razor", "@namespace Gap.Far\n"),
+			("Gap/Mid/_Imports.razor", "@using System\n"),
+			("Gap/Mid/Leaf/GapComponent.razor", "<p>Hi</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Gap.Far.Mid.Leaf.GapComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// An <c>@namespace</c> directive is honoured even when it is not the file's first line.
+	/// </summary>
+	[Fact]
+	public void Namespace_directive_is_honoured_when_it_is_not_the_files_first_line()
+	{
+		var run = RunGeneratorWithRazorContent(
+			("LateComponent.razor", "@using System\n@namespace Late.Ns\n<p>Hi</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Late.Ns.LateComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// A hyphenated folder segment, which is not a valid C# identifier, gets the same
+	/// underscore-joined identifier form in the default namespace that the real Razor SDK gives
+	/// it.
+	/// </summary>
+	[Fact]
+	public void Sanitized_folder_segment_gets_its_Razor_identifier_form_in_the_manifest()
+	{
+		var run = RunGenerator("Components/My-Feature/HyphenComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.Components.My_Feature.HyphenComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// A folder segment starting with a digit, which is not a valid C# identifier, gets the
+	/// underscore-prefixed identifier form in the default namespace that the real Razor SDK
+	/// gives it.
+	/// </summary>
+	[Fact]
+	public void Folder_segment_starting_with_a_digit_gets_an_underscore_prefix_in_the_manifest()
+	{
+		var run = RunGenerator("Components/1st/DigitComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.Components._1st.DigitComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// An in-file <c>@namespace</c> wins over an ancestor <c>_Imports.razor</c>'s value, used
+	/// verbatim.
+	/// </summary>
+	[Fact]
+	public void InFile_namespace_wins_over_an_ancestor_Imports_namespace()
+	{
+		var run = RunGeneratorWithRazorContent(
+			("_Imports.razor", "@namespace Ignored.Value\n"),
+			("InFileWins/OverrideComponent.razor", "@namespace InFile.Override\n<p>Hi</p>\n"));
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"InFile.Override.OverrideComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.DoesNotContain("Ignored.Value", generatedSource, StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// A Razor component below the project directory gets the default namespace the Razor SDK
+	/// assigns it: <c>RootNamespace</c> plus the dotted relative folder path.
+	/// </summary>
+	[Fact]
+	public void One_level_nested_folder_Razor_component_gets_the_default_dotted_subfolder_namespace_in_the_manifest()
+	{
+		var run = RunGenerator("Components/Pages/AlphaComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.Components.Pages.AlphaComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	[Fact]
+	public void Two_level_nested_folder_Razor_component_gets_the_default_dotted_subfolder_namespace_in_the_manifest()
+	{
+		var run = RunGenerator("Components/Admin/Reports/NestedComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.Components.Admin.Reports.NestedComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// Issue #285 cross-wiring: two Razor files sharing a leaf name but sitting in different
+	/// folders (so the real Razor SDK gives them different default namespaces) must each get
+	/// their own distinct manifest entry; neither name may be dropped or merged into the other.
+	/// </summary>
+	[Fact]
+	public void Same_named_Razor_components_in_different_folders_each_get_their_own_manifest_entry()
+	{
+		var run = RunGenerator(
+			"Areas/Alpha/ReportComponent.razor",
+			"Areas/Beta/ReportComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Equal(
+			1,
+			Count(generatedSource, "\"Htmxor.Consumer.Areas.Alpha.ReportComponent\""));
+		Assert.Equal(
+			1,
+			Count(generatedSource, "\"Htmxor.Consumer.Areas.Beta.ReportComponent\""));
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// An all-C# component is a real compiled symbol, so its namespace never needs path guessing.
+	/// </summary>
+	[Fact]
+	public void All_CSharp_component_outside_the_root_namespace_is_in_generated_registration()
+	{
+		var source = AllCSharpComponent.Replace(
+			"namespace Htmxor.Consumer;",
+			"namespace Other.Namespace;",
+			StringComparison.Ordinal);
+		var run = RunGeneratorWithCSharpSource(source);
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Other.Namespace.AllCSharpComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// Issue #285: a <c>.razor.cs</c> partial carrying the attribute is also a real compiled
+	/// symbol; moving its sibling <c>.razor</c> file below the project directory must not remove
+	/// it from the manifest.
+	/// </summary>
+	[Fact]
+	public void Matching_Razor_code_behind_outside_project_root_emits_one_manifest_entry()
+	{
+		var run = RunGeneratorWithCSharpSourceAtPath(
+			AllCSharpComponent,
+			"Components/Pages/AllCSharpComponent.razor.cs",
+			"Components/Pages/AllCSharpComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Equal(
+			1,
+			Count(generatedSource, "\"Htmxor.Consumer.AllCSharpComponent\""));
 	}
 
 	private static void AssertInOrder(string source, params string[] values)
@@ -478,6 +912,43 @@ public sealed class HtmxorRouteGeneratorTests
 		return new GeneratorRun(driver.GetRunResult(), outputCompilation, driverDiagnostics);
 	}
 
+	/// <summary>
+	/// Runs the route generator once with the initial content at <paramref name="relativePath"/>,
+	/// then replaces only that file's content and reruns incrementally, with step tracking on, so
+	/// a row can inspect each step's <see cref="IncrementalStepRunReason"/>.
+	/// </summary>
+	private static GeneratorRun RunGeneratorIncrementallyWithRazorContent(
+		(string RelativePath, string Content) initial,
+		(string RelativePath, string Content) updated)
+	{
+		var projectDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "htmxor-generator-probe"));
+		var parseOptions = (CSharpParseOptions)CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var compilation = CreateCompilation(CSharpSyntaxTree.ParseText(RuntimeStubs, parseOptions));
+		var initialFile = new TextAdditionalText(
+			Path.Combine(projectDirectory, initial.RelativePath),
+			initial.Content);
+		GeneratorDriver driver = CSharpGeneratorDriver.Create(
+			new[] { new HtmxorRouteGenerator().AsSourceGenerator() },
+			new AdditionalText[] { initialFile },
+			parseOptions,
+			new TestAnalyzerConfigOptionsProvider(projectDirectory),
+			new GeneratorDriverOptions(
+				IncrementalGeneratorOutputKind.None,
+				trackIncrementalGeneratorSteps: true));
+
+		driver = driver.RunGenerators(compilation);
+		var updatedFile = new TextAdditionalText(
+			Path.Combine(projectDirectory, updated.RelativePath),
+			updated.Content);
+		driver = driver.ReplaceAdditionalText(initialFile, updatedFile);
+		driver = driver.RunGeneratorsAndUpdateCompilation(
+			compilation,
+			out var outputCompilation,
+			out var driverDiagnostics);
+
+		return new GeneratorRun(driver.GetRunResult(), outputCompilation, driverDiagnostics);
+	}
+
 	private static GeneratorRun RunGeneratorCore(
 		string? csharpSource,
 		string csharpRelativePath,
@@ -509,9 +980,39 @@ public sealed class HtmxorRouteGeneratorTests
 		GeneratorDriver driver = CSharpGeneratorDriver.Create(
 			generators,
 			relativePaths
-				.Select(relativePath => new ThrowingAdditionalText(
-					Path.Combine(projectDirectory, relativePath)))
-				.ToArray<AdditionalText>(),
+				.Select(relativePath => (AdditionalText)new TextAdditionalText(
+					Path.Combine(projectDirectory, relativePath),
+					"<p></p>\n"))
+				.ToArray(),
+			parseOptions,
+			new TestAnalyzerConfigOptionsProvider(projectDirectory));
+
+		driver = driver.RunGeneratorsAndUpdateCompilation(
+			compilation,
+			out var outputCompilation,
+			out var driverDiagnostics);
+
+		return new GeneratorRun(driver.GetRunResult(), outputCompilation, driverDiagnostics);
+	}
+
+	/// <summary>
+	/// The manifest generator reads the <c>@namespace</c> directive from a component's own file
+	/// and from its ancestor <c>_Imports.razor</c> files; this runner supplies each file's exact
+	/// content so a row can exercise that directly.
+	/// </summary>
+	private static GeneratorRun RunGeneratorWithRazorContent(
+		params (string RelativePath, string Content)[] files)
+	{
+		var projectDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "htmxor-generator-probe"));
+		var parseOptions = (CSharpParseOptions)CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var compilation = CreateCompilation(CSharpSyntaxTree.ParseText(RuntimeStubs, parseOptions));
+		GeneratorDriver driver = CSharpGeneratorDriver.Create(
+			new[] { new HtmxorRouteGenerator().AsSourceGenerator() },
+			files
+				.Select(file => (AdditionalText)new TextAdditionalText(
+					Path.Combine(projectDirectory, file.RelativePath),
+					file.Content))
+				.ToArray(),
 			parseOptions,
 			new TestAnalyzerConfigOptionsProvider(projectDirectory));
 
@@ -535,12 +1036,12 @@ public sealed class HtmxorRouteGeneratorTests
 		Compilation OutputCompilation,
 		ImmutableArray<Diagnostic> DriverDiagnostics);
 
-	private sealed class ThrowingAdditionalText(string path) : AdditionalText
+	private sealed class TextAdditionalText(string path, string content) : AdditionalText
 	{
 		public override string Path { get; } = path;
 
 		public override SourceText GetText(CancellationToken cancellationToken = default)
-			=> throw new InvalidOperationException("The path-only generator must not read Razor content.");
+			=> SourceText.From(content);
 	}
 
 	private sealed class TestAnalyzerConfigOptionsProvider(string projectDirectory)

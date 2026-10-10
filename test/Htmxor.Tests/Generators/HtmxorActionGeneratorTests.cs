@@ -154,6 +154,80 @@ public sealed class HtmxorActionGeneratorTests
 				private Task TaskNoParamHandler() => Task.CompletedTask;
 			}
 		}
+
+		// Issue #285 placements: the real Razor SDK default-namespace convention is RootNamespace
+		// plus the dotted relative folder path, so these backing partials sit at the exact
+		// namespace a real "Components/Pages/ReportComponent.razor" or
+		// "Components/Admin/Reports/ReportComponent.razor" file would compile to.
+		namespace Htmxor.Consumer.Components.Pages
+		{
+			public partial class ReportComponent
+			{
+				public Task SetParametersAsync(
+					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
+
+				private Task PutReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+			}
+		}
+
+		namespace Htmxor.Consumer.Components.Admin.Reports
+		{
+			public partial class ReportComponent
+			{
+				public Task SetParametersAsync(
+					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
+
+				private Task PutReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+			}
+		}
+
+		// These backing partials sit at the exact namespace each placement's real composition
+		// rule gives it: an in-file override used verbatim, an ancestor _Imports.razor override
+		// composed with the relative folder to the component, the nearest ancestor override
+		// winning over a farther one, and an in-file override winning over an ancestor one.
+		namespace Totally.Different
+		{
+			public partial class OverrideActionComponent
+			{
+				public Task SetParametersAsync(
+					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
+
+				private Task PutReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+			}
+		}
+
+		namespace Probe.ImportsNs.Deep.Deeper
+		{
+			public partial class ImportsActionComponent
+			{
+				public Task SetParametersAsync(
+					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
+
+				private Task PutReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+			}
+		}
+
+		namespace Nearer.Override.Deep
+		{
+			public partial class PrecedenceActionComponent
+			{
+				public Task SetParametersAsync(
+					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
+
+				private Task PutReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+			}
+		}
+
+		namespace InFile.Override
+		{
+			public partial class OverrideActionComponent
+			{
+				public Task SetParametersAsync(
+					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
+
+				private Task PutReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+			}
+		}
 		""";
 	private static readonly string ProjectDirectory = Path.GetFullPath(
 		Path.Combine(Path.GetTempPath(), "htmxor-action-generator-tests"));
@@ -193,6 +267,197 @@ public sealed class HtmxorActionGeneratorTests
 			.ToString();
 		Assert.Contains($"\"{httpMethod}\"", actionSource, StringComparison.Ordinal);
 		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// A stock <c>@page</c> component one folder below the project directory (default namespace)
+	/// still gets its <c>@onput</c> action, naming the real compiled type at
+	/// <c>Htmxor.Consumer.Components.Pages.ReportComponent</c>. This is the brief's own named
+	/// placement, matching <c>Components/Pages/Counter.razor</c>'s <c>PUT /counter</c>.
+	/// </summary>
+	[Fact]
+	public void Stock_page_action_in_Components_Pages_emits_one_compiling_action_naming_the_real_type()
+	{
+		var run = RunGenerators(new RazorInput(
+			"Components/Pages/ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = Assert.Single(
+			run.RunResult.Results
+				.SelectMany(static result => result.GeneratedSources)
+				.Where(static source => source.HintName != "HtmxorGeneratedRouteRegistration.g.cs"))
+			.SourceText
+			.ToString();
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains(
+			"namespace Htmxor.Consumer.Components.Pages",
+			actionSource,
+			StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Issue #285: a two-level nested folder such as <c>Components/Admin/Reports</c> must behave
+	/// the same way as the one-level <c>Components/Pages</c> placement above.
+	/// </summary>
+	[Fact]
+	public void Stock_page_action_in_a_two_level_nested_folder_emits_one_compiling_action_naming_the_real_type()
+	{
+		var run = RunGenerators(new RazorInput(
+			"Components/Admin/Reports/ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = Assert.Single(
+			run.RunResult.Results
+				.SelectMany(static result => result.GeneratedSources)
+				.Where(static source => source.HintName != "HtmxorGeneratedRouteRegistration.g.cs"))
+			.SourceText
+			.ToString();
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains(
+			"namespace Htmxor.Consumer.Components.Admin.Reports",
+			actionSource,
+			StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Issue #285 owner decision, placement: an <c>@namespace</c> override declared directly in
+	/// the component's own file names the generated action's partial, used verbatim with no
+	/// folder suffix.
+	/// </summary>
+	[Fact]
+	public void Stock_page_action_with_an_InFile_namespace_override_emits_one_compiling_action_naming_the_real_type()
+	{
+		var run = RunGenerators(new RazorInput(
+			"Components/Pages/OverrideActionComponent.razor",
+			"""
+			@namespace Totally.Different
+			@page "/reports/{ReportId:int}"
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = Assert.Single(
+			run.RunResult.Results
+				.SelectMany(static result => result.GeneratedSources)
+				.Where(static source => source.HintName != "HtmxorGeneratedRouteRegistration.g.cs"))
+			.SourceText
+			.ToString();
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains("namespace Totally.Different", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Issue #285 owner decision, placement: an ancestor <c>_Imports.razor</c>'s
+	/// <c>@namespace</c> composes with the two-level-deep relative folder to the component.
+	/// </summary>
+	[Fact]
+	public void Stock_page_action_under_an_ancestor_Imports_namespace_emits_one_compiling_action_naming_the_real_type()
+	{
+		var run = RunGenerators(
+			new RazorInput("Components/ImportsNs/_Imports.razor", "@namespace Probe.ImportsNs\n"),
+			new RazorInput(
+				"Components/ImportsNs/Deep/Deeper/ImportsActionComponent.razor",
+				"""
+				@page "/reports/{ReportId:int}"
+				<button @onput="PutReport">Save</button>
+				"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = Assert.Single(
+			run.RunResult.Results
+				.SelectMany(static result => result.GeneratedSources)
+				.Where(static source => source.HintName != "HtmxorGeneratedRouteRegistration.g.cs"))
+			.SourceText
+			.ToString();
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains(
+			"namespace Probe.ImportsNs.Deep.Deeper",
+			actionSource,
+			StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Issue #285 owner decision, placement: the nearest ancestor <c>_Imports.razor</c> wins over
+	/// a farther one.
+	/// </summary>
+	[Fact]
+	public void Stock_page_action_under_the_nearer_ancestor_Imports_namespace_emits_one_compiling_action_naming_the_real_type()
+	{
+		var run = RunGenerators(
+			new RazorInput("_Imports.razor", "@namespace Root.Override\n"),
+			new RazorInput("Nearer/_Imports.razor", "@namespace Nearer.Override\n"),
+			new RazorInput(
+				"Nearer/Deep/PrecedenceActionComponent.razor",
+				"""
+				@page "/reports/{ReportId:int}"
+				<button @onput="PutReport">Save</button>
+				"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = Assert.Single(
+			run.RunResult.Results
+				.SelectMany(static result => result.GeneratedSources)
+				.Where(static source => source.HintName != "HtmxorGeneratedRouteRegistration.g.cs"))
+			.SourceText
+			.ToString();
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains("namespace Nearer.Override.Deep", actionSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("Root.Override", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Issue #285 owner decision, placement: an in-file <c>@namespace</c> wins over an ancestor
+	/// <c>_Imports.razor</c>'s value.
+	/// </summary>
+	[Fact]
+	public void Stock_page_action_with_an_InFile_namespace_winning_over_an_ancestor_emits_one_compiling_action_naming_the_real_type()
+	{
+		var run = RunGenerators(
+			new RazorInput("_Imports.razor", "@namespace Ignored.Value\n"),
+			new RazorInput(
+				"InFileWins/OverrideActionComponent.razor",
+				"""
+				@namespace InFile.Override
+				@page "/reports/{ReportId:int}"
+				<button @onput="PutReport">Save</button>
+				"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = Assert.Single(
+			run.RunResult.Results
+				.SelectMany(static result => result.GeneratedSources)
+				.Where(static source => source.HintName != "HtmxorGeneratedRouteRegistration.g.cs"))
+			.SourceText
+			.ToString();
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains("namespace InFile.Override", actionSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("Ignored.Value", actionSource, StringComparison.Ordinal);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 

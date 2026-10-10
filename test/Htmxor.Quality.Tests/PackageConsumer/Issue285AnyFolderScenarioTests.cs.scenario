@@ -1,0 +1,289 @@
+using System.Linq;
+using System.Net;
+using Htmxor.PackageConsumer.Components.Admin.Reports;
+using Htmxor.PackageConsumer.Components.CommentNs;
+using Htmxor.PackageConsumer.Components.My_Feature;
+using Htmxor.PackageConsumer.Components.Pages;
+using Issue285.Gap.Far.Mid.Leaf;
+using Issue285.ImportsNs.Deep;
+using Issue285.InFile.Override;
+using Issue285.InFileOverride;
+using Issue285.LateNs;
+using Issue285.Nearer.Override.Deep;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+/// <summary>
+/// An <c>HtmxRoute</c> component or an action-owning component anywhere in the application
+/// project gets exactly the same route and action support a project-root file gets, with no
+/// cross-wiring between two components that merely share a class name in different namespaces.
+/// Placements covered: project root; a one-level subfolder; a two-level subfolder; a
+/// <c>.razor.cs</c> partial; an all-C# component outside the root namespace; an in-file
+/// <c>@namespace</c> override; an ancestor <c>_Imports.razor</c> override; the nearest ancestor
+/// <c>_Imports.razor</c> winning over a farther one; an in-file override winning over an
+/// ancestor one; an ancestor <c>_Imports.razor</c> with only <c>@using</c> lines deferring to a
+/// farther one that declares <c>@namespace</c>; an <c>@namespace</c> directive that is not a
+/// file's first line; a folder segment needing identifier sanitization; a <c>@namespace</c>
+/// directive inside a Razor comment, which is not a directive at all; a stock <c>@page</c>
+/// with <c>@onput</c>; and two components sharing a class name in different namespaces.
+/// </summary>
+public sealed class Issue285AnyFolderScenarioTests : IAsyncLifetime
+{
+    private WebApplication app = default!;
+    private HttpClient client = default!;
+
+    public async Task InitializeAsync()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        builder.Services.AddRazorComponents().AddHtmxor();
+        app = builder.Build();
+        app.UseAntiforgery();
+        app.MapRazorComponents<Issue285App>().AddHtmxorEndpoints();
+        await app.StartAsync();
+
+        var addressesFeature = app.Services
+            .GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
+            .Features
+            .Get<IServerAddressesFeature>()!;
+        var boundAddress = addressesFeature.Addresses.Single();
+        client = new HttpClient { BaseAddress = new Uri(boundAddress) };
+    }
+
+    [Fact]
+    public async Task Project_root_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285RootComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/root/1", "data-issue-285-root");
+        await AssertPatchAsync("/issue-285/root/1");
+
+        Assert.Equal(1, Issue285RootComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Components_Pages_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285PagesComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/pages/1", "data-issue-285-pages");
+        await AssertPatchAsync("/issue-285/pages/1");
+
+        Assert.Equal(1, Issue285PagesComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Two_level_nested_folder_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285NestedComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/nested/1", "data-issue-285-nested");
+        await AssertPatchAsync("/issue-285/nested/1");
+
+        Assert.Equal(1, Issue285NestedComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Razor_code_behind_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285CodeBehindComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/code-behind/1", "data-issue-285-code-behind");
+        await AssertPatchAsync("/issue-285/code-behind/1");
+
+        Assert.Equal(1, Issue285CodeBehindComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task All_CSharp_component_outside_the_root_namespace_serves_its_direct_GET()
+    {
+        // An all-C# component has no .razor markup and therefore no declared @onX action
+        // (HtmxorActionGenerator only scans .razor additional files); only GET is exercised here.
+        await AssertDirectGetAsync("/issue-285/all-csharp/1", "data-issue-285-all-csharp");
+    }
+
+    [Fact]
+    public async Task Same_named_components_in_different_namespaces_each_resolve_their_own_route_and_action()
+    {
+        Areas.Alpha.Issue285SameNameComponent.PatchCount = 0;
+        Areas.Beta.Issue285SameNameComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/same-name/alpha/1", "data-issue-285-same-name-alpha");
+        await AssertDirectGetAsync("/issue-285/same-name/beta/1", "data-issue-285-same-name-beta");
+        await AssertPatchAsync("/issue-285/same-name/alpha/1");
+
+        Assert.Equal(1, Areas.Alpha.Issue285SameNameComponent.PatchCount);
+        Assert.Equal(0, Areas.Beta.Issue285SameNameComponent.PatchCount);
+
+        await AssertPatchAsync("/issue-285/same-name/beta/1");
+
+        Assert.Equal(1, Areas.Alpha.Issue285SameNameComponent.PatchCount);
+        Assert.Equal(1, Areas.Beta.Issue285SameNameComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task InFile_namespace_override_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285NsOverrideComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/ns-override/1", "data-issue-285-ns-override");
+        await AssertPatchAsync("/issue-285/ns-override/1");
+
+        Assert.Equal(1, Issue285NsOverrideComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Ancestor_Imports_namespace_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285ImportsComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/imports-ns/1", "data-issue-285-imports-ns");
+        await AssertPatchAsync("/issue-285/imports-ns/1");
+
+        Assert.Equal(1, Issue285ImportsComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Nearer_ancestor_Imports_namespace_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285NearerComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/nearer/1", "data-issue-285-nearer");
+        await AssertPatchAsync("/issue-285/nearer/1");
+
+        Assert.Equal(1, Issue285NearerComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task InFile_namespace_winning_over_ancestor_Imports_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285InFileWinsComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/infile-wins/1", "data-issue-285-infile-wins");
+        await AssertPatchAsync("/issue-285/infile-wins/1");
+
+        Assert.Equal(1, Issue285InFileWinsComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Farther_ancestor_Imports_namespace_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285GapComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/gap/1", "data-issue-285-gap");
+        await AssertPatchAsync("/issue-285/gap/1");
+
+        Assert.Equal(1, Issue285GapComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Namespace_directive_not_on_the_first_line_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285LateComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/late-ns/1", "data-issue-285-late-ns");
+        await AssertPatchAsync("/issue-285/late-ns/1");
+
+        Assert.Equal(1, Issue285LateComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Sanitized_folder_segment_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285HyphenComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/hyphen/1", "data-issue-285-hyphen");
+        await AssertPatchAsync("/issue-285/hyphen/1");
+
+        Assert.Equal(1, Issue285HyphenComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Commented_out_namespace_directive_component_serves_its_direct_GET_and_its_declared_action_once()
+    {
+        Issue285CommentNsComponent.PatchCount = 0;
+
+        await AssertDirectGetAsync("/issue-285/comment-ns/1", "data-issue-285-comment-ns");
+        await AssertPatchAsync("/issue-285/comment-ns/1");
+
+        Assert.Equal(1, Issue285CommentNsComponent.PatchCount);
+    }
+
+    [Fact]
+    public async Task Counter_PUT_calls_IncrementCount_exactly_once()
+    {
+        Counter.CurrentCount = 0;
+        var (token, cookie) = CreateAntiforgeryCredentials();
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, "/counter");
+        request.Headers.Add("HX-Request", "true");
+        request.Headers.Add("HX-Request-Type", "partial");
+        request.Headers.Add("Cookie", cookie);
+        request.Headers.Add("RequestVerificationToken", token);
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"Expected PUT /counter to answer 200 OK and call IncrementCount, received " +
+            $"{(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        Assert.Equal(1, Counter.CurrentCount);
+    }
+
+    private async Task AssertDirectGetAsync(string path, string marker)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("HX-Request", "true");
+        request.Headers.Add("HX-Request-Type", "partial");
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"Expected GET {path} to answer 200 OK, received {(int)response.StatusCode} " +
+            $"{response.StatusCode}. Body: {body}");
+        Assert.Contains(marker, body, StringComparison.Ordinal);
+    }
+
+    private async Task AssertPatchAsync(string path)
+    {
+        var (token, cookie) = CreateAntiforgeryCredentials();
+
+        using var request = new HttpRequestMessage(HttpMethod.Patch, path);
+        request.Headers.Add("HX-Request", "true");
+        request.Headers.Add("HX-Request-Type", "partial");
+        request.Headers.Add("Cookie", cookie);
+        request.Headers.Add("RequestVerificationToken", token);
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"Expected PATCH {path} to answer 200 OK, received {(int)response.StatusCode} " +
+            $"{response.StatusCode}. Body: {body}");
+    }
+
+    private (string Token, string Cookie) CreateAntiforgeryCredentials()
+    {
+        var antiforgery = app.Services.GetRequiredService<IAntiforgery>();
+        var context = new DefaultHttpContext { RequestServices = app.Services };
+        var tokenSet = antiforgery.GetAndStoreTokens(context);
+        var setCookie = context.Response.Headers["Set-Cookie"]
+            .Single(value => value!.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal))!;
+
+        return (tokenSet.RequestToken!, setCookie.Split(';')[0]);
+    }
+
+    public async Task DisposeAsync()
+    {
+        client.Dispose();
+        await app.DisposeAsync();
+    }
+}

@@ -8,11 +8,11 @@ internal static class HtmxorGeneratedComponentActionCatalog
 {
 	public static void Validate(
 		Assembly applicationAssembly,
-		IReadOnlyList<string> projectRootComponentTypeNames,
+		IReadOnlyList<string> routedComponentTypeNames,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
 	{
 		ArgumentNullException.ThrowIfNull(applicationAssembly);
-		ArgumentNullException.ThrowIfNull(projectRootComponentTypeNames);
+		ArgumentNullException.ThrowIfNull(routedComponentTypeNames);
 		ArgumentNullException.ThrowIfNull(generatedActions);
 		if (generatedActions.Count == 0)
 		{
@@ -24,7 +24,7 @@ internal static class HtmxorGeneratedComponentActionCatalog
 			ValidateAction(
 				action ?? throw new InvalidOperationException("A generated component action cannot be null."),
 				applicationAssembly,
-				projectRootComponentTypeNames);
+				routedComponentTypeNames);
 		}
 
 		var duplicate = generatedActions
@@ -45,7 +45,7 @@ internal static class HtmxorGeneratedComponentActionCatalog
 	private static void ValidateAction(
 		HtmxorGeneratedComponentAction action,
 		Assembly applicationAssembly,
-		IReadOnlyList<string> projectRootComponentTypeNames)
+		IReadOnlyList<string> routedComponentTypeNames)
 	{
 		if (!IsSupportedActionMethod(action.HttpMethod))
 		{
@@ -59,10 +59,10 @@ internal static class HtmxorGeneratedComponentActionCatalog
 			applicationAssembly.FullName,
 			StringComparison.Ordinal) ||
 			componentTypeName is null ||
-			!projectRootComponentTypeNames.Contains(componentTypeName, StringComparer.Ordinal))
+			!routedComponentTypeNames.Contains(componentTypeName, StringComparer.Ordinal))
 		{
 			throw new InvalidOperationException(
-				$"Generated component action '{action.HandlerIdentity}' does not belong to the project-root component manifest.");
+				$"Generated component action '{action.HandlerIdentity}' does not belong to the generated component manifest.");
 		}
 
 		if (action.ComponentType.CustomAttributes.Any(static attribute =>

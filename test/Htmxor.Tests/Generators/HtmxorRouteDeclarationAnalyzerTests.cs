@@ -246,10 +246,14 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
+		// Issue #285: the "project-root" eligibility gate is gone, but a same-named Razor
+		// file still must not cross-wire onto an unrelated compiled type that merely shares its
+		// guessed name; this remains a fail-closed mismatch regardless of wording.
 		Assert.Contains(
-			"the action owner must compile from the matching project-root Razor component",
+			"the action owner must compile from the matching",
 			diagnostic.GetMessage(),
 			StringComparison.Ordinal);
+		Assert.DoesNotContain("project-root", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(razorPath, diagnostic.Location.GetLineSpan().Path);
 	}
@@ -651,10 +655,18 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Contains("Blazor component", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
+	/// <summary>
+	/// A nested-folder <c>HtmxRoute</c> component's tree has the real Razor-generated path for a
+	/// component below the project directory: the generator mirrors the component's relative
+	/// folder under its own output directory, not the flat <c>&lt;name&gt;_razor.g.cs</c> shape a
+	/// project-root file gets. A lookalike attribute type from an unrelated namespace must stay
+	/// ignored either way.
+	/// </summary>
 	[Fact]
-	public async Task Exact_route_outside_project_root_fails_closed_while_lookalike_is_ignored()
+	public async Task Nested_folder_HtmxRoute_component_is_discovered_through_its_real_mirrored_generated_path_while_lookalike_is_ignored()
 	{
 		var nestedPath = ComponentPath(Path.Combine("Nested", "NestedComponent.razor"));
+		var nestedGeneratedPath = RazorGeneratedPath(Path.Combine("Nested", "NestedComponent"));
 		var lookalikePath = ComponentPath("LookalikeComponent.razor");
 		var nested = $$"""
 			namespace {{RootNamespace}}.Nested
@@ -684,11 +696,546 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostics = await RunAnalyzerAsync(
 			new[] { lookalike, nested },
-			new[] { lookalikePath, nestedPath });
+			new[] { lookalikePath, nestedPath },
+			new[] { RazorGeneratedPath("LookalikeComponent"), nestedGeneratedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Guards <c>HtmxorRouteManifest.HasCompiledRazorDeclaration</c>'s generated-paths overload
+	/// against cross-wiring: <c>Components/B/X.razor</c>'s evidence names a type it does not
+	/// compile to, so the manifest groups both generated paths under A's compiled name; only the
+	/// mirrored-folder comparison keeps A from being confirmed through B's path.
+	/// </summary>
+	[Fact]
+	public async Task Colliding_guess_from_a_different_real_file_fails_closed_instead_of_cross_wiring()
+	{
+		var pathA = ComponentPath(Path.Combine("Components", "A", "X.razor"));
+		var pathB = ComponentPath(Path.Combine("Components", "B", "X.razor"));
+		var generatedPathA = RazorGeneratedPath(Path.Combine("Components", "A", "X"));
+		var source = $$"""
+			namespace Confusable
+			{
+			#line 1 "{{EscapePath(pathA)}}"
+			[global::Htmxor.HtmxRouteAttribute("/confusable/{Id:int}", Methods = ["GET"])]
+			#line default
+			public sealed class X : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[]
+			{
+				(pathA, PlainRazorContent),
+				(pathB, "@namespace Confusable\n<p>Hi</p>\n"),
+			},
+			new[] { generatedPathA });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Contains("project-root", diagnostic.GetMessage(), StringComparison.Ordinal);
-		Assert.Equal(nestedPath, diagnostic.Location.GetMappedLineSpan().Path);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Contains(
+			"the HtmxRoute component must compile from the matching Razor component",
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
+		Assert.Equal(pathA, diagnostic.Location.GetMappedLineSpan().Path);
+	}
+
+	/// <summary>
+	/// Issue #285's own named placement: a <c>Components/Pages</c> component (one folder below
+	/// the project directory, default namespace) must be discovered exactly like a project-root
+	/// file, using the component's real one-level mirrored generated path.
+	/// </summary>
+	[Fact]
+	public async Task HtmxRoute_component_in_Components_Pages_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "AlphaComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "AlphaComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components.Pages
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/alpha/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("alpha.read")]
+			#line default
+			public sealed class AlphaComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// An all-C# component is a real compiled symbol regardless of namespace: no path guessing is
+	/// ever involved.
+	/// </summary>
+	[Fact]
+	public async Task All_CSharp_HtmxRoute_component_outside_the_root_namespace_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath("OutsideComponent.cs");
+		var source = """
+			namespace Other.Namespace
+			{
+			[global::Htmxor.HtmxRouteAttribute("/outside/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("outside.read")]
+			public sealed class OutsideComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			Array.Empty<string>(),
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A <c>.razor.cs</c> partial carrying the attribute is also a real compiled symbol; its
+	/// sibling <c>.razor</c> file may live anywhere below the project directory.
+	/// </summary>
+	[Fact]
+	public async Task Razor_code_behind_HtmxRoute_declaration_outside_project_root_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "CodeBehindComponent.razor.cs"));
+		var razorPath = ComponentPath(Path.Combine("Components", "Pages", "CodeBehindComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "CodeBehindComponent"));
+		var generatedSource = $$"""
+			namespace {{RootNamespace}}.Components.Pages;
+
+			public partial class CodeBehindComponent :
+				global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+			}
+			""";
+		var codeBehindSource = $$"""
+			namespace {{RootNamespace}}.Components.Pages;
+
+			[global::Htmxor.HtmxRouteAttribute("/code-behind/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("code-behind.read")]
+			public sealed partial class CodeBehindComponent;
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { generatedSource, codeBehindSource },
+			new[] { razorPath },
+			new[] { generatedPath, componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// An <c>@namespace</c> override declared directly in the component's own file: the compiled
+	/// namespace is exactly the override, with no folder suffix, and the analyzer confirms it
+	/// against the component's own real content.
+	/// </summary>
+	[Fact]
+	public async Task InFile_namespace_override_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "OverrideComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "OverrideComponent"));
+		var source = $$"""
+			namespace Totally.Different
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/override/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("override.read")]
+			#line default
+			public sealed class OverrideComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, "@namespace Totally.Different\n<p>Hi</p>\n") },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A <c>@namespace</c> line written inside a Razor comment is not a directive: Razor ignores
+	/// it, and the component compiles under its ordinary folder-default namespace with no
+	/// diagnostic.
+	/// </summary>
+	[Fact]
+	public async Task Commented_out_namespace_directive_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "CommentNs", "CommentNsComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "CommentNs", "CommentNsComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components.CommentNs
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/comment-ns/{Id:int}", Methods = ["GET"])]
+			#line default
+			public sealed class CommentNsComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, "@*\n@namespace Should.Be.Ignored\n*@\n<p>Hi</p>\n") },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A repeated <c>@namespace</c> directive is itself a Razor error (RZ2001), but Razor still
+	/// compiles the component under the last one, not the first; Htmxor must not add its own
+	/// diagnostic on top of Razor's.
+	/// </summary>
+	[Fact]
+	public async Task Repeated_namespace_directive_component_compiled_under_the_last_one_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "RepeatedNsComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "RepeatedNsComponent"));
+		var source = $$"""
+			namespace Second.Ns
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/repeated-ns/{Id:int}", Methods = ["GET"])]
+			#line default
+			public sealed class RepeatedNsComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, "@namespace First.Ns\n@namespace Second.Ns\n<p>Hi</p>\n") },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// An ancestor <c>_Imports.razor</c>'s <c>@namespace</c> composed with a two-level-deep
+	/// relative folder: the analyzer confirms the compiled namespace against the component's own
+	/// plain content plus the ancestor file's real <c>@namespace</c> content.
+	/// </summary>
+	[Fact]
+	public async Task Ancestor_Imports_namespace_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(
+			Path.Combine("Components", "ImportsNs", "Deep", "Deeper", "ImportsComponent.razor"));
+		var importsPath = ComponentPath(Path.Combine("Components", "ImportsNs", "_Imports.razor"));
+		var generatedPath = RazorGeneratedPath(
+			Path.Combine("Components", "ImportsNs", "Deep", "Deeper", "ImportsComponent"));
+		var source = $$"""
+			namespace Probe.ImportsNs.Deep.Deeper
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/imports-ns/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("imports-ns.read")]
+			#line default
+			public sealed class ImportsComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[]
+			{
+				(componentPath, PlainRazorContent),
+				(importsPath, "@namespace Probe.ImportsNs\n"),
+			},
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// The nearest ancestor <c>_Imports.razor</c> wins over a farther one: the analyzer confirms
+	/// the compiled namespace against both ancestor files' real content.
+	/// </summary>
+	[Fact]
+	public async Task Nearer_ancestor_Imports_namespace_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(
+			Path.Combine("Nearer", "Deep", "PrecedenceComponent.razor"));
+		var rootImportsPath = ComponentPath("_Imports.razor");
+		var nearerImportsPath = ComponentPath(Path.Combine("Nearer", "_Imports.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Nearer", "Deep", "PrecedenceComponent"));
+		var source = $$"""
+			namespace Nearer.Override.Deep
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/nearer/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("nearer.read")]
+			#line default
+			public sealed class PrecedenceComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[]
+			{
+				(componentPath, PlainRazorContent),
+				(rootImportsPath, "@namespace Root.Override\n"),
+				(nearerImportsPath, "@namespace Nearer.Override\n"),
+			},
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// An in-file <c>@namespace</c> wins over an ancestor <c>_Imports.razor</c>'s value: the
+	/// analyzer confirms the compiled namespace against the component's own override content,
+	/// ignoring the ancestor's different value.
+	/// </summary>
+	[Fact]
+	public async Task InFile_namespace_wins_over_ancestor_Imports_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("InFileWins", "OverrideComponent.razor"));
+		var importsPath = ComponentPath("_Imports.razor");
+		var generatedPath = RazorGeneratedPath(Path.Combine("InFileWins", "OverrideComponent"));
+		var source = $$"""
+			namespace InFile.Override
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/infile-wins/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("infile-wins.read")]
+			#line default
+			public sealed class OverrideComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[]
+			{
+				(componentPath, "@namespace InFile.Override\n<p>Hi</p>\n"),
+				(importsPath, "@namespace Ignored.Value\n"),
+			},
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A derived name that diverges from the real compiled declaration -- for any reason,
+	/// including a scan miss on a shape this contract does not cover -- must fail closed, never
+	/// silently registering the wrong type or cross-wiring onto an unrelated one. Here the
+	/// component's real content has no <c>@namespace</c> and no ancestor <c>_Imports.razor</c>
+	/// declares one either, so the correct derivation is the default convention
+	/// (<c>Htmxor.Consumer.Components.Pages.OverrideComponent</c>), while the compiled
+	/// declaration sits in an unrelated namespace.
+	/// </summary>
+	[Fact]
+	public async Task Namespace_override_divorced_from_the_path_guess_fails_closed_instead_of_cross_wiring()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "OverrideComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "OverrideComponent"));
+		var source = $$"""
+			namespace Totally.Different
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/override/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("override.read")]
+			#line default
+			public sealed class OverrideComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, PlainRazorContent) },
+			new[] { generatedPath });
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
+	}
+
+	/// <summary>
+	/// An ancestor <c>_Imports.razor</c> with no <c>@namespace</c> directive (only <c>@using</c>
+	/// lines) does not stop the walk: the nearest ancestor that actually declares <c>@namespace</c>
+	/// wins, composed with the relative folder from that file down to the component.
+	/// </summary>
+	[Fact]
+	public async Task Farther_ancestor_Imports_namespace_wins_when_the_nearer_one_only_has_using_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Gap", "Mid", "Leaf", "GapComponent.razor"));
+		var farImportsPath = ComponentPath(Path.Combine("Gap", "_Imports.razor"));
+		var midImportsPath = ComponentPath(Path.Combine("Gap", "Mid", "_Imports.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Gap", "Mid", "Leaf", "GapComponent"));
+		var source = $$"""
+			namespace Gap.Far.Mid.Leaf
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/gap/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("gap.read")]
+			#line default
+			public sealed class GapComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[]
+			{
+				(componentPath, PlainRazorContent),
+				(farImportsPath, "@namespace Gap.Far\n"),
+				(midImportsPath, "@using System\n"),
+			},
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// An <c>@namespace</c> directive is honoured even when it is not the file's first line.
+	/// </summary>
+	[Fact]
+	public async Task Namespace_directive_not_on_the_first_line_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath("LateComponent.razor");
+		var generatedPath = RazorGeneratedPath("LateComponent");
+		var source = $$"""
+			namespace Late.Ns
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/late-ns/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("late-ns.read")]
+			#line default
+			public sealed class LateComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, "@using System\n@namespace Late.Ns\n<p>Hi</p>\n") },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A folder segment that is not a valid C# identifier (a hyphen) gets the same sanitized
+	/// identifier form in both the compiled namespace and the generator's mirrored path that the
+	/// real Razor SDK gives it.
+	/// </summary>
+	[Fact]
+	public async Task Sanitized_folder_segment_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "My-Feature", "HyphenComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "My_Feature", "HyphenComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components.My_Feature
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/hyphen/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("hyphen.read")]
+			#line default
+			public sealed class HyphenComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, PlainRazorContent) },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A folder segment starting with a digit, which is not a valid C# identifier, diverges from
+	/// the hyphen case above: the real Razor SDK sanitizes only the compiled namespace
+	/// (<c>_1st</c>) and keeps the raw folder name (<c>1st</c>) in its own mirrored generated
+	/// path. The analyzer must confirm the sanitized namespace against that raw-path declaration
+	/// rather than expect both to sanitize together.
+	/// </summary>
+	[Fact]
+	public async Task Leading_digit_folder_segment_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "1st", "DigitComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "1st", "DigitComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components._1st
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/digit/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("digit.read")]
+			#line default
+			public sealed class DigitComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, PlainRazorContent) },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Issue #285 acceptance criterion: "the two 'project-root' messages are gone." Both
+	/// HTMXOR001 and HTMXOR002 still fail closed on a mismatch (proven above and in
+	/// <see cref="Same_named_Razor_binding_cannot_attach_to_all_CSharp_component"/>); neither may
+	/// explain that failure by naming "project-root" as the eligibility rule.
+	/// </summary>
+	[Fact]
+	public async Task Project_root_wording_is_gone_from_both_fail_closed_diagnostics()
+	{
+		var overridePath = ComponentPath(Path.Combine("Components", "Pages", "WordingComponent.razor"));
+		var overrideGeneratedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "WordingComponent"));
+		var overrideSource = $$"""
+			namespace Totally.Different.Wording
+			{
+			#line 1 "{{EscapePath(overridePath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/wording/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("wording.read")]
+			#line default
+			public sealed class WordingComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+		var routeDiagnostics = await RunAnalyzerAsync(
+			new[] { overrideSource },
+			new[] { overridePath },
+			new[] { overrideGeneratedPath });
+
+		var actionComponentPath = ComponentPath("WordingActionComponent.cs");
+		var actionRazorPath = ComponentPath("WordingActionComponent.razor");
+		var actionSource = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Htmxor.HtmxRouteAttribute("/wording-action/{Id:int}", Methods = ["GET", "DELETE"])]
+			public sealed class WordingActionComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task DeleteWording(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var actionRazor = new SourceAdditionalText(
+			actionRazorPath,
+			"""
+			<button @ondelete="DeleteWording">Delete</button>
+			""");
+		var actionDiagnostics = await RunActionAnalyzerAsync(
+			actionSource,
+			actionRazor,
+			sourcePath: actionComponentPath);
+
+		Assert.NotEmpty(routeDiagnostics);
+		Assert.NotEmpty(actionDiagnostics);
+		Assert.All(
+			routeDiagnostics.Concat(actionDiagnostics),
+			diagnostic => Assert.DoesNotContain(
+				"project-root",
+				diagnostic.GetMessage(),
+				StringComparison.Ordinal));
 	}
 
 	[Fact]
@@ -1464,6 +2011,114 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Empty(diagnostics);
 	}
 
+	/// <summary>
+	/// A <c>@namespace</c> line written inside a Razor comment is not a directive: Razor ignores
+	/// it, and the component's action binding resolves under its ordinary folder-default namespace
+	/// with no diagnostic.
+	/// </summary>
+	[Fact]
+	public async Task Commented_out_namespace_directive_action_component_is_supported()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "CommentNs", "CommentNsActionComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "CommentNs", "CommentNsActionComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components.CommentNs
+			{
+			[global::Htmxor.HtmxRouteAttribute("/comment-ns-action/{Id:int}", Methods = ["GET", "QUERY"])]
+			public sealed class CommentNsActionComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task QueryReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var razor = new SourceAdditionalText(
+			componentPath,
+			"""
+			@*
+			@namespace Should.Be.Ignored
+			*@
+			@attribute [Htmxor.HtmxRoute("/comment-ns-action/{Id:int}", Methods = ["GET", "QUERY"])]
+			<form @onquery="QueryReport"></form>
+			""");
+
+		var diagnostics = await RunActionAnalyzerAsync(
+			source,
+			razor,
+			includeRouteAnalyzer: true,
+			sourcePath: generatedPath);
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// A's evidence names a type it does not compile to, which is B's real compiled name, so
+	/// resolving A's binding by that guessed name finds B's component instead of A's own; the
+	/// generated-path check must still refuse it, while B's own identically-shaped binding, which
+	/// resolves to the same component by the same guess but at its own real generated path, stays
+	/// accepted.
+	/// </summary>
+	[Fact]
+	public async Task Action_binding_whose_guessed_owner_collides_with_a_different_real_component_fails_closed()
+	{
+		var pathA = ComponentPath(Path.Combine("Components", "A", "X.razor"));
+		var pathB = ComponentPath(Path.Combine("Components", "B", "X.razor"));
+		var generatedPathA = RazorGeneratedPath(Path.Combine("Components", "A", "X"));
+		var generatedPathB = RazorGeneratedPath(Path.Combine("Components", "B", "X"));
+		var sourceA = $$"""
+			namespace {{RootNamespace}}.Components.A
+			{
+			#line 1 "{{EscapePath(pathA)}}"
+			public sealed class X : global::Microsoft.AspNetCore.Components.ComponentBase;
+			#line default
+			}
+			""";
+		var sourceB = $$"""
+			namespace Collide
+			{
+			#line 1 "{{EscapePath(pathB)}}"
+			[global::Htmxor.HtmxRouteAttribute("/b/{Id:int}", Methods = ["GET", "PUT"])]
+			#line default
+			public sealed class X : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task PutIt(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		const string razorContentA = """
+			@namespace Collide
+			@attribute [Htmxor.HtmxRoute("/a/{Id:int}", Methods = ["GET", "PUT"])]
+			<button @onput="PutIt">Save</button>
+			""";
+		const string razorContentB = """
+			@namespace Collide
+			@attribute [Htmxor.HtmxRoute("/b/{Id:int}", Methods = ["GET", "PUT"])]
+			<button @onput="PutIt">Save</button>
+			""";
+
+		var diagnostics = await RunActionAnalyzerAsync(
+			new[] { sourceA, sourceB },
+			new[] { generatedPathA, generatedPathB },
+			new AdditionalText[]
+			{
+				new SourceAdditionalText(pathA, razorContentA),
+				new SourceAdditionalText(pathB, razorContentB),
+			});
+
+		// Exactly one diagnostic total: A fails closed and B is fully accepted, not just A.
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains(
+			"the action owner must compile from the matching Razor component",
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
+		Assert.Equal(pathA, diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(razorContentA.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
+			diagnostic.Location.SourceSpan);
+	}
+
 	[Fact]
 	public async Task Inferred_binding_on_a_DisableHtmxDirectRouting_marked_component_is_a_build_error()
 	{
@@ -1620,20 +2275,40 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	private static string EscapePath(string path) => path.Replace("\"", "\\\"");
 
-	private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(
+	/// <summary>
+	/// Plain, directive-free markup for a <c>.razor</c> fixture whose content is irrelevant to
+	/// the row: no <c>@namespace</c> for the analyzer's own namespace scan to find.
+	/// </summary>
+	private const string PlainRazorContent = "<p></p>\n";
+
+	private static Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(
 		IEnumerable<string> sources,
 		IEnumerable<string> razorPaths,
 		IEnumerable<string>? sourcePaths = null)
+		=> RunAnalyzerAsync(
+			sources,
+			razorPaths.Select(static path => (path, PlainRazorContent)),
+			sourcePaths);
+
+	/// <summary>
+	/// The analyzer reads each <c>.razor</c> additional file's content (its own and any ancestor
+	/// <c>_Imports.razor</c>) to derive a namespace, which it then confirms against the compiled
+	/// declaration; this overload supplies that content explicitly.
+	/// </summary>
+	private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(
+		IEnumerable<string> sources,
+		IEnumerable<(string Path, string Content)> razorFiles,
+		IEnumerable<string>? sourcePaths = null)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
-		var additionalPaths = razorPaths.ToArray();
+		var additionalFileEntries = razorFiles.ToArray();
 		var paths = sourcePaths?.ToArray();
 		var trees = sources
 			.Select((source, index) => CSharpSyntaxTree.ParseText(
 				source,
 				parseOptions,
 				paths is null
-					? RazorGeneratedPath(Path.GetFileNameWithoutExtension(additionalPaths[index]))
+					? RazorGeneratedPath(Path.GetFileNameWithoutExtension(additionalFileEntries[index].Path))
 					: paths[index]))
 			.ToImmutableArray();
 		var compilation = CSharpCompilation.Create(
@@ -1643,8 +2318,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		Assert.Empty(compilation.GetDiagnostics().Where(
 			static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
-		var additionalFiles = additionalPaths
-			.Select(static path => new ThrowingAdditionalText(path))
+		var additionalFiles = additionalFileEntries
+			.Select(static file => new SourceAdditionalText(file.Path, file.Content))
 			.ToImmutableArray<AdditionalText>();
 		var analyzerOptions = new AnalyzerOptions(
 			additionalFiles,
@@ -1662,25 +2337,43 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			.ToImmutableArray();
 	}
 
-	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
+	private static Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
 		string source,
 		AdditionalText razor,
 		bool includeRouteAnalyzer = false,
 		string? sourcePath = null)
+		=> RunActionAnalyzerAsync(
+			new[] { source },
+			new[] { sourcePath ?? RazorGeneratedPath("ReportComponent") },
+			new[] { razor },
+			includeRouteAnalyzer);
+
+	/// <summary>
+	/// A multi-file overload: each compiled source gets its own generated-path identity (the thing
+	/// <c>HtmxorRouteManifest.HasCompiledRazorDeclaration</c> compares against), and every razor
+	/// additional file is visible to the action analyzer's own per-file scan, so a binding in one
+	/// file can be checked against a component resolved from a different file's guessed name.
+	/// </summary>
+	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
+		IEnumerable<string> sources,
+		IEnumerable<string> sourcePaths,
+		IEnumerable<AdditionalText> razorFiles,
+		bool includeRouteAnalyzer = false)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var paths = sourcePaths.ToArray();
+		var trees = sources
+			.Select((source, index) => CSharpSyntaxTree.ParseText(source, parseOptions, paths[index]))
+			.ToImmutableArray();
 		var compilation = CSharpCompilation.Create(
 			"Htmxor.ActionAnalyzer.Tests",
-			new[] { CSharpSyntaxTree.ParseText(
-				source,
-				parseOptions,
-				sourcePath ?? RazorGeneratedPath("ReportComponent")) },
+			trees,
 			References,
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		Assert.Empty(compilation.GetDiagnostics().Where(
 			static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 		var analyzerOptions = new AnalyzerOptions(
-			ImmutableArray.Create(razor),
+			razorFiles.ToImmutableArray(),
 			new TestAnalyzerConfigOptionsProvider(ProjectDirectory));
 
 		var analyzers = includeRouteAnalyzer
@@ -1719,14 +2412,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			.Distinct(StringComparer.OrdinalIgnoreCase)
 			.Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
 			.ToImmutableArray();
-	}
-
-	private sealed class ThrowingAdditionalText(string path) : AdditionalText
-	{
-		public override string Path { get; } = path;
-
-		public override SourceText GetText(CancellationToken cancellationToken = default)
-			=> throw new InvalidOperationException("The analyzer must not read Razor content.");
 	}
 
 	private sealed class SourceAdditionalText(string path, string content) : AdditionalText

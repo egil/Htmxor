@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using Htmxor;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Htmxor.Generators;
 
@@ -36,10 +35,9 @@ internal sealed class HtmxorRoutedComponent
 
 	public string? GetUnsupportedReason(
 		HtmxorRouteSymbols symbols,
-		ImmutableHashSet<string> manifest,
-		AnalyzerConfigOptionsProvider optionsProvider,
+		ILookup<string, string?> razorManifest,
 		CancellationToken cancellationToken)
-		=> ValidateManifest(manifest, optionsProvider) ??
+		=> ValidateManifest(razorManifest) ??
 			ValidateComponent(symbols) ??
 			ValidateRoute() ??
 			ValidateRouteOrigin(cancellationToken) ??
@@ -57,28 +55,22 @@ internal sealed class HtmxorRoutedComponent
 		return attributeLocation ?? Type.Locations.FirstOrDefault() ?? Location.None;
 	}
 
-	private string? ValidateManifest(
-		ImmutableHashSet<string> manifest,
-		AnalyzerConfigOptionsProvider optionsProvider)
+	private string? ValidateManifest(ILookup<string, string?> razorManifest)
 	{
 		if (Routes.All(static route =>
 			route.ApplicationSyntaxReference is { } reference &&
 			HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath)))
 		{
-			return manifest.Contains(GetMetadataName())
+			return HtmxorRouteManifest.HasCompiledRazorDeclaration(Type, razorManifest[GetMetadataName()])
 				? null
-				: "the HtmxRoute component must be a project-root Razor component";
+				: "the HtmxRoute component must compile from the matching Razor component; " +
+					"its type name is derived from the file's folder and @namespace";
 		}
 
 		var csharpComponent = GetCSharpComponent();
 		if (csharpComponent is null)
 		{
-			return "the HtmxRoute component must be a project-root Razor component";
-		}
-
-		if (!HtmxorRouteManifest.IsProjectRoot(csharpComponent, optionsProvider))
-		{
-			return "the HtmxRoute component must be a project-root Razor component";
+			return "the HtmxRoute component must be a top-level class";
 		}
 
 		var csharpRouteOriginReason = ValidateCSharpRouteOrigin(csharpComponent);
@@ -111,7 +103,6 @@ internal sealed class HtmxorRoutedComponent
 
 		return new CSharpRoutedComponent(
 			GetMetadataName(),
-			Type.ContainingNamespace.ToDisplayString(),
 			path,
 			Routes.Length == 1 && Routes[0].NamedArguments.Any(static argument =>
 				string.Equals(argument.Key, "Methods", StringComparison.Ordinal)));

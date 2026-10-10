@@ -1,0 +1,10 @@
+@page "/counter"
+
+<button @onput="IncrementCount">Increment</button>
+<p data-issue-285-counter>@CurrentCount</p>
+
+@code {
+    public static int CurrentCount;
+
+    private void IncrementCount(Htmxor.HtmxEventArgs _) => CurrentCount++;
+}

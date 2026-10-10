@@ -40,7 +40,7 @@
                                 hx-put="/configure-pizza?specialId=@SpecialId"
                                 hx-target="#configure-pizza-modal"
                                 hx-swap="outerHTML"
-                                @onput=AddTopping>
+                                @onput=UpdatePizza>
                             <option value="0" disabled selected=@(ConfigurePizzaForm.SelectTopping == 0)>(select)</option>
                             @foreach (var topping in toppings)
                             {
@@ -74,7 +74,7 @@
                                     hx-swap="outerHTML"
                                     name="ConfigurePizzaForm.RemoveTopping"
                                     value=@(topping.ToppingId)
-                                    @onput=RemoveTopping>
+                                    @onput=UpdatePizza>
                                 x
                             </button>
                         </div>
@@ -132,6 +132,19 @@
                 topping => topping.Id,
                 (id, topping) => new PizzaTopping { ToppingId = id, Topping = topping }).ToList()
             : [];
+    }
+
+    // One PUT action serves the topping selector and the remove buttons; a remove button posts its topping id.
+    private void UpdatePizza()
+    {
+        if (ConfigurePizzaForm.RemoveTopping != 0)
+        {
+            RemoveTopping();
+        }
+        else
+        {
+            AddTopping();
+        }
     }
 
     private void AddTopping()

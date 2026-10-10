@@ -169,7 +169,15 @@ public sealed class PackedPackageConsumerTests
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		var routeRegistration = workspace.ReadGeneratedRouteRegistration();
 		Assert.Contains("Issue97ReportComponent", routeRegistration, StringComparison.Ordinal);
-		Assert.DoesNotContain("Issue97SummaryComponent", routeRegistration, StringComparison.Ordinal);
+		// The staged scenario also adds an unrelated same-named Razor file under
+		// "@namespace Htmxor.PackageConsumer.Other" (Issue97SummaryComponent.razor.scenario), so a
+		// bare "Issue97SummaryComponent" substring check would also match that unrelated, correctly
+		// distinct entry. Pin the exact fully qualified name of the all-C# component this test means
+		// -- the one with its explicit Methods removed -- in the project's default namespace.
+		Assert.DoesNotContain(
+			"\"Htmxor.PackageConsumer.Issue97SummaryComponent\"",
+			routeRegistration,
+			StringComparison.Ordinal);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 
@@ -278,6 +286,37 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 	public void UseIssue309MultiplicityScenario() => UseSelectionScenario("Issue309");
 
 	public void UseIssue284AuthorizationParityScenario() => UseSelectionScenario("Issue284");
+
+	/// <summary>
+	/// Unlike the flat scenarios, this one needs a real folder tree, because the Razor SDK derives
+	/// a component's namespace from its folder and from ancestor <c>_Imports.razor</c> files. The
+	/// flat root-level <c>Issue285*.scenario</c> files -- including the scenario's own test class
+	/// -- are staged first through the established <see cref="UseSelectionScenario"/> path, then
+	/// the <c>PackageConsumer/Issue285</c> subtree is copied with its relative layout preserved.
+	/// </summary>
+	public void UseIssue285AnyFolderScenario()
+	{
+		UseSelectionScenario("Issue285");
+
+		var assets = Path.Combine(
+			repositoryRoot, "test", "Htmxor.Quality.Tests", "PackageConsumer", "Issue285");
+		foreach (var sourcePath in Directory.EnumerateFiles(assets, "*.scenario", SearchOption.AllDirectories))
+		{
+			CopyScenarioAsset(assets, sourcePath);
+		}
+	}
+
+	private void CopyScenarioAsset(string assets, string sourcePath)
+	{
+		var relativeDirectory = Path.GetDirectoryName(Path.GetRelativePath(assets, sourcePath));
+		var destinationDirectory = string.IsNullOrEmpty(relativeDirectory)
+			? consumerDirectory
+			: Path.Combine(consumerDirectory, relativeDirectory);
+		Directory.CreateDirectory(destinationDirectory);
+		File.Copy(
+			sourcePath,
+			Path.Combine(destinationDirectory, Path.GetFileNameWithoutExtension(sourcePath)));
+	}
 
 	public void UseDisableHtmxDirectRoutingInImports()
 	{

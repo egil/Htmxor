@@ -26,6 +26,7 @@ internal sealed class RazorMarkupScanner
 	private readonly ISet<string> attributeNames;
 	private readonly List<MarkupAttribute> attributes = new();
 	private readonly List<string> attributeDirectives = new();
+	private string? namespaceDirective;
 	private int pageDirectiveCount;
 	private int index;
 
@@ -39,7 +40,11 @@ internal sealed class RazorMarkupScanner
 	{
 		var scanner = new RazorMarkupScanner(source, attributeNames);
 		scanner.ScanMarkup(ownerMarkup: true, island: false);
-		return new RazorMarkupScan(scanner.attributes, scanner.pageDirectiveCount, scanner.attributeDirectives);
+		return new RazorMarkupScan(
+			scanner.attributes,
+			scanner.pageDirectiveCount,
+			scanner.attributeDirectives,
+			scanner.namespaceDirective);
 	}
 
 	// Scans to the end of the source, or for a markup island inside C# until its outermost element closes.
@@ -365,6 +370,11 @@ internal sealed class RazorMarkupScanner
 		else if (keyword == "attribute")
 		{
 			attributeDirectives.Add(body);
+		}
+		else if (keyword == "namespace")
+		{
+			// Razor reports a repeated @namespace (RZ2001) and compiles the class under the last one.
+			namespaceDirective = body;
 		}
 	}
 
@@ -734,11 +744,13 @@ internal sealed class RazorMarkupScan
 	public RazorMarkupScan(
 		IReadOnlyList<MarkupAttribute> attributes,
 		int pageDirectiveCount,
-		IReadOnlyList<string> attributeDirectives)
+		IReadOnlyList<string> attributeDirectives,
+		string? namespaceDirective)
 	{
 		Attributes = attributes;
 		PageDirectiveCount = pageDirectiveCount;
 		AttributeDirectives = attributeDirectives;
+		NamespaceDirective = namespaceDirective;
 	}
 
 	public IReadOnlyList<MarkupAttribute> Attributes { get; }
@@ -746,6 +758,8 @@ internal sealed class RazorMarkupScan
 	public int PageDirectiveCount { get; }
 
 	public IReadOnlyList<string> AttributeDirectives { get; }
+
+	public string? NamespaceDirective { get; }
 }
 
 internal sealed class MarkupAttribute

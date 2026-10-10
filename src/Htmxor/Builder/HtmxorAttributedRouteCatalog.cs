@@ -10,19 +10,19 @@ internal static class HtmxorAttributedRouteCatalog
 {
 	public static IReadOnlyList<HtmxorComponentRouteDescriptor> Build(
 		Assembly applicationAssembly,
-		IReadOnlyList<string> projectRootComponentTypeNames)
-		=> Build(applicationAssembly, projectRootComponentTypeNames, []);
+		IReadOnlyList<string> routedComponentTypeNames)
+		=> Build(applicationAssembly, routedComponentTypeNames, []);
 
 	public static IReadOnlyList<HtmxorComponentRouteDescriptor> Build(
 		Assembly applicationAssembly,
-		IReadOnlyList<string> projectRootComponentTypeNames,
+		IReadOnlyList<string> routedComponentTypeNames,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
 	{
 		ArgumentNullException.ThrowIfNull(applicationAssembly);
-		ArgumentNullException.ThrowIfNull(projectRootComponentTypeNames);
+		ArgumentNullException.ThrowIfNull(routedComponentTypeNames);
 		ArgumentNullException.ThrowIfNull(generatedActions);
 
-		var manifestTypeNames = ValidateManifest(projectRootComponentTypeNames);
+		var manifestTypeNames = ValidateManifest(routedComponentTypeNames);
 		var routedTypes = GetRoutedTypes(applicationAssembly);
 		ValidateRoutedTypesBelongToManifest(routedTypes, manifestTypeNames);
 
@@ -41,23 +41,23 @@ internal static class HtmxorAttributedRouteCatalog
 	}
 
 	private static HashSet<string> ValidateManifest(
-		IReadOnlyList<string> projectRootComponentTypeNames)
+		IReadOnlyList<string> routedComponentTypeNames)
 	{
 		var result = new HashSet<string>(StringComparer.Ordinal);
 		string? previousTypeName = null;
-		for (var index = 0; index < projectRootComponentTypeNames.Count; index++)
+		for (var index = 0; index < routedComponentTypeNames.Count; index++)
 		{
-			var typeName = projectRootComponentTypeNames[index];
+			var typeName = routedComponentTypeNames[index];
 			if (string.IsNullOrWhiteSpace(typeName))
 			{
-				throw new InvalidOperationException("The project-root component manifest contains a blank type name.");
+				throw new InvalidOperationException("The generated component manifest contains a blank type name.");
 			}
 
 			if (previousTypeName is not null &&
 				StringComparer.Ordinal.Compare(previousTypeName, typeName) >= 0)
 			{
 				throw new InvalidOperationException(
-					"The project-root component manifest must contain unique type names in ordinal order.");
+					"The generated component manifest must contain unique type names in ordinal order.");
 			}
 
 			result.Add(typeName);
@@ -90,7 +90,7 @@ internal static class HtmxorAttributedRouteCatalog
 		{
 			throw Unsupported(
 				outsideManifest.ComponentType,
-				"its HtmxRoute is declared outside the project-root component manifest");
+				"its HtmxRoute is declared outside the generated component manifest");
 		}
 	}
 
@@ -101,7 +101,7 @@ internal static class HtmxorAttributedRouteCatalog
 		{
 			throw Unsupported(
 				componentType,
-				"project-root components must be concrete, closed classes implementing IComponent");
+				"HtmxRoute components must be concrete, closed classes implementing IComponent");
 		}
 	}
 

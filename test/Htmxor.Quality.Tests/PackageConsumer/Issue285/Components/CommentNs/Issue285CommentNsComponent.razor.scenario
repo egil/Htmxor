@@ -1,0 +1,16 @@
+@*
+@namespace Should.Be.Ignored
+*@
+@attribute [Htmxor.HtmxRoute("/issue-285/comment-ns/{Id:int}", Methods = ["GET", "PATCH"])]
+
+<button @onpatch="Patch">Patch</button>
+<p data-issue-285-comment-ns>@Id|@PatchCount</p>
+
+@code {
+    public static int PatchCount;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private void Patch(Htmxor.HtmxEventArgs _) => PatchCount++;
+}

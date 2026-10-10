@@ -26,12 +26,12 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		this RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints,
 		Assembly applicationAssembly,
-		IReadOnlyList<string> projectRootComponentTypeNames)
+		IReadOnlyList<string> routedComponentTypeNames)
 		=> AddHtmxorAttributedComponentEndpoints(
 			builder,
 			endpoints,
 			applicationAssembly,
-			projectRootComponentTypeNames,
+			routedComponentTypeNames,
 			[]);
 
 	[EditorBrowsable(EditorBrowsableState.Never)]
@@ -39,21 +39,21 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		this RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints,
 		Assembly applicationAssembly,
-		IReadOnlyList<string> projectRootComponentTypeNames,
+		IReadOnlyList<string> routedComponentTypeNames,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(endpoints);
 		ArgumentNullException.ThrowIfNull(applicationAssembly);
-		ArgumentNullException.ThrowIfNull(projectRootComponentTypeNames);
+		ArgumentNullException.ThrowIfNull(routedComponentTypeNames);
 		ArgumentNullException.ThrowIfNull(generatedActions);
 		HtmxorGeneratedComponentActionCatalog.Validate(
 			applicationAssembly,
-			projectRootComponentTypeNames,
+			routedComponentTypeNames,
 			generatedActions);
 		var descriptors = HtmxorAttributedRouteCatalog.Build(
 			applicationAssembly,
-			projectRootComponentTypeNames,
+			routedComponentTypeNames,
 			generatedActions);
 
 		AddHtmxorComponentEndpoints(builder, endpoints, [], generatedActions);

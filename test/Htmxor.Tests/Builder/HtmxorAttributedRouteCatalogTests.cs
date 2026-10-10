@@ -344,7 +344,12 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		var exception = Assert.Throws<InvalidOperationException>(() =>
 			HtmxorAttributedRouteCatalog.Build(fixture.Assembly, []));
 
-		Assert.Contains("outside the project-root component manifest", exception.Message, StringComparison.Ordinal);
+		// This defensive membership guard is unrelated to the manifest's name (an empty manifest
+		// rejects any routed type regardless of where it lives), so only the stable fragment and
+		// the type name are pinned, not the "project-root" wording the manifest no longer carries.
+		Assert.Contains("outside the", exception.Message, StringComparison.Ordinal);
+		Assert.Contains("manifest", exception.Message, StringComparison.Ordinal);
+		Assert.DoesNotContain("project-root", exception.Message, StringComparison.Ordinal);
 		Assert.Contains("PackageConsumer.ReportComponent", exception.Message, StringComparison.Ordinal);
 	}
 
@@ -449,7 +454,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
-	public async Task Bridge_maps_nothing_when_a_generated_action_is_outside_the_project_root_manifest()
+	public async Task Bridge_maps_nothing_when_a_generated_action_is_outside_the_manifest()
 	{
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition("PackageConsumer.ReportComponent", "/reports/{ReportId:int}", "report.policy"));
@@ -467,7 +472,11 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				fixture.Manifest,
 				[generatedAction]));
 
-		Assert.Contains("does not belong to the project-root component manifest", exception.Message, StringComparison.Ordinal);
+		// This defensive membership guard is unrelated to the manifest's name, so only the stable
+		// fragment is pinned, not the "project-root" wording the manifest no longer carries.
+		Assert.Contains("does not belong to the", exception.Message, StringComparison.Ordinal);
+		Assert.Contains("manifest", exception.Message, StringComparison.Ordinal);
+		Assert.DoesNotContain("project-root", exception.Message, StringComparison.Ordinal);
 		Assert.Empty(GetGeneratedEndpoints(app));
 	}
 

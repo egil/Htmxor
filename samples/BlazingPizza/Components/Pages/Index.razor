@@ -34,7 +34,7 @@
             @for (var i = 0; i < order.Pizzas.Count; i++)
             {
                 var pizza = @order.Pizzas[i];
-                <ConfiguredPizzaItem Pizza=@pizza OnRemoved="() => RemovePizza(pizza)" />
+                <ConfiguredPizzaItem Pizza=@pizza />
 
                 <input type="hidden" name="OrderForm.Pizzas[@(i)].SpecialId" value="@pizza.SpecialId" />
                 <input type="hidden" name="OrderForm.Pizzas[@(i)].Size" value="@pizza.Size" />
@@ -112,10 +112,5 @@
                 Topping = toppings.Single(x => x.Id == toppingId)
             }).ToList() ?? [],
         });
-    }
-
-    private void RemovePizza(Pizza pizza)
-    {
-        order.Pizzas.Remove(pizza);
     }
 }
