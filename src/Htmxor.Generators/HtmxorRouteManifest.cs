@@ -1,18 +1,23 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Htmxor.Generators;
 
 internal static class HtmxorRouteManifest
 {
+	private const string RazorGeneratorDirectory =
+		"Microsoft.CodeAnalysis.Razor.Compiler/Microsoft.NET.Sdk.Razor.SourceGenerators.RazorSourceGenerator/";
+
 	public static ImmutableArray<string> GetTypeNames(
 		ImmutableArray<AdditionalText> razorComponents,
 		ImmutableArray<CSharpRoutedComponent> csharpComponents,
-		AnalyzerConfigOptionsProvider optionsProvider)
+		RazorComponentTypeNames? razorComponentTypeNames,
+		CancellationToken cancellationToken)
 	{
 		var omittedCSharpComponents = csharpComponents
 			.Where(static component =>
@@ -20,14 +25,15 @@ internal static class HtmxorRouteManifest
 				!IsRazorGeneratedPath(component.Path))
 			.Select(static component => component.TypeName)
 			.ToImmutableHashSet(StringComparer.Ordinal);
+		var razorTypeNames = razorComponentTypeNames?.GetTypeNames(razorComponents, cancellationToken) ??
+			ImmutableArray<string>.Empty;
 
-		return ProjectRootComponentManifest.GetTypeNames(razorComponents, optionsProvider)
+		return razorTypeNames
 			.Where(typeName => !omittedCSharpComponents.Contains(typeName))
 			.Concat(csharpComponents
 				.Where(component =>
 					component.HasExplicitMethods &&
-					!omittedCSharpComponents.Contains(component.TypeName) &&
-					IsProjectRoot(component, optionsProvider))
+					!omittedCSharpComponents.Contains(component.TypeName))
 				.Select(static component => component.TypeName))
 			.Distinct(StringComparer.Ordinal)
 			.OrderBy(static typeName => typeName, StringComparer.Ordinal)
@@ -52,46 +58,35 @@ internal static class HtmxorRouteManifest
 
 		return new CSharpRoutedComponent(
 			typeName,
-			namespaceName,
 			attributeContext.TargetNode.SyntaxTree.FilePath,
 			hasExplicitMethods);
 	}
 
-	public static bool IsProjectRoot(
-		CSharpRoutedComponent component,
-		AnalyzerConfigOptionsProvider optionsProvider)
-		=> IsProjectRoot(
-			component.Namespace,
-			component.Path,
-			optionsProvider);
-
-	public static bool IsProjectRoot(
-		string namespaceName,
-		string path,
-		AnalyzerConfigOptionsProvider optionsProvider)
-		=> ProjectRootComponentManifest.TryGetProject(
-				optionsProvider,
-				out var projectDirectory,
-				out var rootNamespace) &&
-			ProjectRootComponentManifest.PathsEqual(
-			Path.GetDirectoryName(path),
-				projectDirectory) &&
-			string.Equals(namespaceName, rootNamespace, StringComparison.Ordinal);
-
-	public static bool HasCompiledRazorDeclaration(
-		INamedTypeSymbol type,
-		string? razorPath = null)
+	// Any Razor-generated declaration of the type, wherever its .razor file sits.
+	public static bool HasCompiledRazorDeclaration(INamedTypeSymbol type)
 	{
-		var componentName = razorPath is null
-			? type.Name
-			: Path.GetFileNameWithoutExtension(razorPath);
-		var generatedFileName = componentName + "_razor.g.cs";
+		var generatedFileName = type.Name + "_razor.g.cs";
 		return type.DeclaringSyntaxReferences.Any(reference =>
 			IsRazorGeneratedPath(reference.SyntaxTree.FilePath) &&
 			string.Equals(
 				Path.GetFileName(reference.SyntaxTree.FilePath),
 				generatedFileName,
 				StringComparison.Ordinal));
+	}
+
+	// Confirms a derived type name: the type must have a Razor-generated declaration at the hint path
+	// Razor writes for the claimed .razor file, so two same-named components in different folders each
+	// match only their own file.
+	public static bool HasCompiledRazorDeclaration(
+		INamedTypeSymbol type,
+		IEnumerable<string?> generatedPaths)
+	{
+		var declaredPaths = type.DeclaringSyntaxReferences
+			.Select(static reference => GetRazorGeneratedHintPath(reference.SyntaxTree.FilePath))
+			.Where(static path => path is not null)
+			.ToImmutableArray();
+		return generatedPaths.Any(generatedPath => declaredPaths.Any(declaredPath =>
+			RazorComponentTypeNames.GeneratedPathsEqual(declaredPath, generatedPath)));
 	}
 
 	public static bool IsMatchingRazorCodeBehind(
@@ -105,18 +100,26 @@ internal static class HtmxorRouteManifest
 				: StringComparison.Ordinal);
 
 	public static bool IsRazorGeneratedPath(string path)
+		=> GetRazorGeneratedHintPath(path) is not null;
+
+	// This compiler-owned path is the ownership fence when a same-named Razor file compiles into
+	// another namespace. Razor mirrors the component's folder below its generator directory, so the
+	// remainder is the hint path. Revalidate the marker with each supported SDK.
+	private static string? GetRazorGeneratedHintPath(string path)
 	{
-		// This compiler-owned path is the ownership fence when a same-named Razor file
-		// compiles into another namespace. Revalidate the marker with each supported SDK.
-		var generatorDirectory = Path.Combine(
-			"Microsoft.CodeAnalysis.Razor.Compiler",
-			"Microsoft.NET.Sdk.Razor.SourceGenerators.RazorSourceGenerator");
-		var directory = Path.GetDirectoryName(path);
-		return directory is not null && directory.EndsWith(
-			generatorDirectory,
+		var normalizedPath = path.Replace('\\', '/');
+		var index = normalizedPath.LastIndexOf(
+			RazorGeneratorDirectory,
 			Path.DirectorySeparatorChar == '\\'
 				? StringComparison.OrdinalIgnoreCase
 				: StringComparison.Ordinal);
+		if (index < 0 || (index > 0 && normalizedPath[index - 1] != '/'))
+		{
+			return null;
+		}
+
+		var hintPath = normalizedPath.Substring(index + RazorGeneratorDirectory.Length);
+		return hintPath.Length == 0 ? null : hintPath;
 	}
 }
 
@@ -124,19 +127,15 @@ internal sealed class CSharpRoutedComponent : IEquatable<CSharpRoutedComponent>
 {
 	public CSharpRoutedComponent(
 		string typeName,
-		string @namespace,
 		string path,
 		bool hasExplicitMethods)
 	{
 		TypeName = typeName;
-		Namespace = @namespace;
 		Path = path;
 		HasExplicitMethods = hasExplicitMethods;
 	}
 
 	public string TypeName { get; }
-
-	public string Namespace { get; }
 
 	public string Path { get; }
 
@@ -145,7 +144,6 @@ internal sealed class CSharpRoutedComponent : IEquatable<CSharpRoutedComponent>
 	public bool Equals(CSharpRoutedComponent? other)
 		=> other is not null &&
 			string.Equals(TypeName, other.TypeName, StringComparison.Ordinal) &&
-			string.Equals(Namespace, other.Namespace, StringComparison.Ordinal) &&
 			string.Equals(Path, other.Path, StringComparison.Ordinal) &&
 			HasExplicitMethods == other.HasExplicitMethods;
 
@@ -157,7 +155,6 @@ internal sealed class CSharpRoutedComponent : IEquatable<CSharpRoutedComponent>
 		unchecked
 		{
 			var hash = StringComparer.Ordinal.GetHashCode(TypeName);
-			hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(Namespace);
 			hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(Path);
 			return (hash * 397) ^ HasExplicitMethods.GetHashCode();
 		}

@@ -42,7 +42,11 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			return;
 		}
 
-		foreach (var declaration in GetDeclarations(context))
+		var typeNames = RazorComponentTypeNames.Create(
+			context.Options.AnalyzerConfigOptionsProvider,
+			context.Options.AdditionalFiles,
+			context.CancellationToken);
+		foreach (var declaration in GetDeclarations(context, typeNames))
 		{
 			if (declaration.UnsupportedReason is not null)
 			{
@@ -53,6 +57,7 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 				context.Compilation,
 				context.Compilation.Assembly.GetTypeByMetadataName(declaration.ComponentTypeName),
 				declaration,
+				typeNames?.GetGeneratedPath(declaration.Path),
 				symbols);
 			if (reason is not null)
 			{
@@ -65,27 +70,27 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 	}
 
 	private static IEnumerable<HtmxorComponentActionDeclaration> GetDeclarations(
-		CompilationAnalysisContext context)
+		CompilationAnalysisContext context,
+		RazorComponentTypeNames? typeNames)
 		=> context.Options.AdditionalFiles
 			.Where(static file => file.Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase))
 			.SelectMany(file => HtmxorComponentActionDeclaration.ParseAll(
 				file,
-				ProjectRootComponentManifest.GetTypeName(
-					file,
-					context.Options.AnalyzerConfigOptionsProvider),
+				typeNames?.GetTypeName(file, context.CancellationToken),
 				context.CancellationToken));
 
 	private static string? GetUnsupportedReason(
 		Compilation compilation,
 		INamedTypeSymbol? component,
 		HtmxorComponentActionDeclaration declaration,
+		string? generatedPath,
 		HtmxorRouteSymbols symbols)
 	{
 		var componentReason = GetComponentUnsupportedReason(
 			compilation,
 			component,
 			declaration,
-			declaration.Path) ?? GetNormalOnlyUnsupportedReason(component!, symbols);
+			generatedPath) ?? GetNormalOnlyUnsupportedReason(component!, symbols);
 		if (componentReason is not null)
 		{
 			return componentReason;
@@ -150,12 +155,13 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 		Compilation compilation,
 		INamedTypeSymbol? component,
 		HtmxorComponentActionDeclaration declaration,
-		string razorPath)
+		string? generatedPath)
 	{
 		if (component is null ||
-			!HtmxorRouteManifest.HasCompiledRazorDeclaration(component, razorPath))
+			!HtmxorRouteManifest.HasCompiledRazorDeclaration(component, new[] { generatedPath }))
 		{
-			return "the action owner must compile from the matching project-root Razor component";
+			return "the action owner must compile from the matching Razor component; " +
+				"its type name is derived from the file's folder and @namespace";
 		}
 
 		return declaration.HandlerName is null || declaration.HandlerAccess is null

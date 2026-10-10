@@ -15,10 +15,10 @@ public sealed class HtmxorActionGenerator : IIncrementalGenerator
 	{
 		var declarationSets = context.AdditionalTextsProvider
 			.Where(static file => file.Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase))
-			.Combine(context.AnalyzerConfigOptionsProvider)
+			.Combine(RazorComponentTypeNames.CreateProvider(context))
 			.Select(static (input, cancellationToken) => HtmxorComponentActionDeclaration.ParseAll(
 				input.Left,
-				ProjectRootComponentManifest.GetTypeName(input.Left, input.Right),
+				input.Right?.GetTypeName(input.Left, cancellationToken),
 				cancellationToken))
 			.Collect();
 

@@ -54,9 +54,7 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 			return;
 		}
 
-		var manifest = ProjectRootComponentManifest
-			.GetTypeNames(context.Options.AdditionalFiles, context.Options.AnalyzerConfigOptionsProvider)
-			.ToImmutableHashSet(StringComparer.Ordinal);
+		var manifest = GetRazorManifest(context);
 		var components = HtmxorRoutedComponent.FindAll(context.Compilation.Assembly, symbols);
 
 		foreach (var component in components)
@@ -64,7 +62,6 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 			var reason = component.GetUnsupportedReason(
 				symbols,
 				manifest,
-				context.Options.AnalyzerConfigOptionsProvider,
 				context.CancellationToken);
 			if (reason is not null)
 			{
@@ -93,5 +90,20 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 					reason));
 			}
 		}
+	}
+
+	// Each derived Razor component type name with the generated hint path of the file that claims it.
+	private static ILookup<string, string?> GetRazorManifest(CompilationAnalysisContext context)
+	{
+		var typeNames = RazorComponentTypeNames.Create(
+			context.Options.AnalyzerConfigOptionsProvider,
+			context.Options.AdditionalFiles,
+			context.CancellationToken);
+		return context.Options.AdditionalFiles
+			.Select(file => (
+				TypeName: typeNames?.GetTypeName(file, context.CancellationToken),
+				GeneratedPath: typeNames?.GetGeneratedPath(file.Path)))
+			.Where(static entry => entry.TypeName is not null)
+			.ToLookup(static entry => entry.TypeName!, static entry => entry.GeneratedPath, StringComparer.Ordinal);
 	}
 }
