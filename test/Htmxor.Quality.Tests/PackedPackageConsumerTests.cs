@@ -169,7 +169,15 @@ public sealed class PackedPackageConsumerTests
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		var routeRegistration = workspace.ReadGeneratedRouteRegistration();
 		Assert.Contains("Issue97ReportComponent", routeRegistration, StringComparison.Ordinal);
-		Assert.DoesNotContain("Issue97SummaryComponent", routeRegistration, StringComparison.Ordinal);
+		// The staged scenario also adds an unrelated same-named Razor file under
+		// "@namespace Htmxor.PackageConsumer.Other" (Issue97SummaryComponent.razor.scenario), so a
+		// bare "Issue97SummaryComponent" substring check would also match that unrelated, correctly
+		// distinct entry. Pin the exact fully qualified name of the all-C# component this test means
+		// -- the one with its explicit Methods removed -- in the project's default namespace.
+		Assert.DoesNotContain(
+			"\"Htmxor.PackageConsumer.Issue97SummaryComponent\"",
+			routeRegistration,
+			StringComparison.Ordinal);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 
