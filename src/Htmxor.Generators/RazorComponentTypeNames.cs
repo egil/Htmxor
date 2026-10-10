@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
@@ -19,9 +20,10 @@ internal sealed class RazorComponentTypeNames : IEquatable<RazorComponentTypeNam
 {
 	private const string ProjectDirectoryOption = "build_property.MSBuildProjectDirectory";
 	private const string RootNamespaceOption = "build_property.RootNamespace";
-	private const string NamespaceDirective = "@namespace";
 
 	private static readonly char[] DirectorySeparators = { '/', '\\' };
+
+	private static readonly ISet<string> NoAttributeNames = new HashSet<string>(StringComparer.Ordinal);
 
 	private static readonly StringComparison PathComparison = Path.DirectorySeparatorChar == '\\'
 		? StringComparison.OrdinalIgnoreCase
@@ -79,17 +81,6 @@ internal sealed class RazorComponentTypeNames : IEquatable<RazorComponentTypeNam
 					.ToImmutableArray())
 			: null;
 	}
-
-	public ImmutableArray<string> GetTypeNames(
-		ImmutableArray<AdditionalText> additionalFiles,
-		CancellationToken cancellationToken)
-		=> additionalFiles
-			.Select(file => GetTypeName(file, cancellationToken))
-			.Where(static typeName => typeName is not null)
-			.Select(static typeName => typeName!)
-			.Distinct(StringComparer.Ordinal)
-			.OrderBy(static typeName => typeName, StringComparer.Ordinal)
-			.ToImmutableArray();
 
 	public string? GetTypeName(AdditionalText additionalFile, CancellationToken cancellationToken)
 	{
@@ -184,27 +175,18 @@ internal sealed class RazorComponentTypeNames : IEquatable<RazorComponentTypeNam
 			: new RazorImportsNamespace(directory, namespaceName);
 	}
 
-	// Reads only the @namespace directive, which Razor accepts on any line of the file.
+	// Reads only the @namespace directive. The markup scanner applies Razor's directive rules, so a
+	// directive inside a comment, a code block, or mid-line is not one.
 	private static string? FindNamespaceDirective(SourceText? text)
-		=> text?.Lines
-			.Select(static line => ParseNamespaceDirective(line.ToString()))
-			.FirstOrDefault(static namespaceName => namespaceName is not null);
-
-	private static string? ParseNamespaceDirective(string line)
 	{
-		var directive = line.TrimStart();
-		if (!directive.StartsWith(NamespaceDirective, StringComparison.Ordinal) ||
-			directive.Length == NamespaceDirective.Length ||
-			!char.IsWhiteSpace(directive[NamespaceDirective.Length]))
-		{
-			return null;
-		}
-
-		var namespaceName = new string(directive
-			.Substring(NamespaceDirective.Length)
-			.TrimStart()
-			.TakeWhile(static character => character == '.' || IsIdentifierPart(character))
-			.ToArray());
+		var body = text is null
+			? null
+			: RazorMarkupScanner.Scan(text.ToString(), NoAttributeNames).NamespaceDirective;
+		var namespaceName = body is null
+			? string.Empty
+			: new string(body
+				.TakeWhile(static character => character == '.' || IsIdentifierPart(character))
+				.ToArray());
 		return namespaceName.Length == 0 ? null : namespaceName;
 	}
 

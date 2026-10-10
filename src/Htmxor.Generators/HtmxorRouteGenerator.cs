@@ -12,8 +12,12 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 {
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
-		var razorComponents = context.AdditionalTextsProvider
+		var razorComponentTypeNames = context.AdditionalTextsProvider
 			.Where(static file => file.Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase))
+			.Combine(RazorComponentTypeNames.CreateProvider(context))
+			.Select(static (input, cancellationToken) => input.Right?.GetTypeName(input.Left, cancellationToken))
+			.Where(static typeName => typeName is not null)
+			.Select(static (typeName, _) => typeName!)
 			.Collect();
 		var csharpComponents = context.SyntaxProvider
 			.ForAttributeWithMetadataName(
@@ -25,19 +29,13 @@ public sealed class HtmxorRouteGenerator : IIncrementalGenerator
 			.Where(static component => component is not null)
 			.Select(static (component, _) => component!)
 			.Collect();
-		var routedComponents = razorComponents
-			.Combine(csharpComponents)
-			.Combine(RazorComponentTypeNames.CreateProvider(context));
+		var routedComponents = razorComponentTypeNames.Combine(csharpComponents);
 
 		context.RegisterSourceOutput(
 			routedComponents,
 			static (productionContext, input) => Emit(
 				productionContext,
-				HtmxorRouteManifest.GetTypeNames(
-					input.Left.Left,
-					input.Left.Right,
-					input.Right,
-					productionContext.CancellationToken)));
+				HtmxorRouteManifest.GetTypeNames(input.Left, input.Right)));
 	}
 
 	private static void Emit(

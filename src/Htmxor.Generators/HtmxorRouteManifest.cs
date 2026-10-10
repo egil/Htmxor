@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using Microsoft.CodeAnalysis;
 
 namespace Htmxor.Generators;
@@ -14,10 +13,8 @@ internal static class HtmxorRouteManifest
 		"Microsoft.CodeAnalysis.Razor.Compiler/Microsoft.NET.Sdk.Razor.SourceGenerators.RazorSourceGenerator/";
 
 	public static ImmutableArray<string> GetTypeNames(
-		ImmutableArray<AdditionalText> razorComponents,
-		ImmutableArray<CSharpRoutedComponent> csharpComponents,
-		RazorComponentTypeNames? razorComponentTypeNames,
-		CancellationToken cancellationToken)
+		ImmutableArray<string> razorTypeNames,
+		ImmutableArray<CSharpRoutedComponent> csharpComponents)
 	{
 		var omittedCSharpComponents = csharpComponents
 			.Where(static component =>
@@ -25,8 +22,6 @@ internal static class HtmxorRouteManifest
 				!IsRazorGeneratedPath(component.Path))
 			.Select(static component => component.TypeName)
 			.ToImmutableHashSet(StringComparer.Ordinal);
-		var razorTypeNames = razorComponentTypeNames?.GetTypeNames(razorComponents, cancellationToken) ??
-			ImmutableArray<string>.Empty;
 
 		return razorTypeNames
 			.Where(typeName => !omittedCSharpComponents.Contains(typeName))
