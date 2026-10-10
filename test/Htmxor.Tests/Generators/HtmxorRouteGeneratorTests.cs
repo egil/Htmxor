@@ -296,11 +296,10 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	/// <summary>
-	/// Each Razor file's derived type name is computed once, per file, in the generator pipeline
-	/// (S003): editing one component's own markup, without touching any <c>@namespace</c> line,
-	/// is content neither the per-file name derivation nor <c>RazorComponentTypeNames.CreateProvider</c>
-	/// depends on, so the manifest output step must not re-emit, and the provider must not
-	/// recompute at all.
+	/// A markup-only edit to one component re-derives that file's type name to the same string, so
+	/// the collected names compare equal and the manifest output step is not re-emitted; the edit
+	/// touches no <c>_Imports.razor</c>, so the <c>RazorComponentTypeNames</c> provider is not
+	/// recomputed at all.
 	/// </summary>
 	[Fact]
 	public void Markup_only_edit_to_a_Razor_component_leaves_the_manifest_output_and_the_type_names_provider_cached()

@@ -888,6 +888,34 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
+	/// A repeated <c>@namespace</c> directive is itself a Razor error (RZ2001), but Razor still
+	/// compiles the component under the last one, not the first; Htmxor must not add its own
+	/// diagnostic on top of Razor's.
+	/// </summary>
+	[Fact]
+	public async Task Repeated_namespace_directive_component_compiled_under_the_last_one_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "RepeatedNsComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "RepeatedNsComponent"));
+		var source = $$"""
+			namespace Second.Ns
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/repeated-ns/{Id:int}", Methods = ["GET"])]
+			#line default
+			public sealed class RepeatedNsComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, "@namespace First.Ns\n@namespace Second.Ns\n<p>Hi</p>\n") },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
 	/// An ancestor <c>_Imports.razor</c>'s <c>@namespace</c> composed with a two-level-deep
 	/// relative folder: the analyzer confirms the compiled namespace against the component's own
 	/// plain content plus the ancestor file's real <c>@namespace</c> content.
