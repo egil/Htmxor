@@ -373,7 +373,8 @@ internal sealed class RazorMarkupScanner
 		}
 		else if (keyword == "namespace")
 		{
-			namespaceDirective ??= body;
+			// Razor reports a repeated @namespace (RZ2001) and compiles the class under the last one.
+			namespaceDirective = body;
 		}
 	}
 
