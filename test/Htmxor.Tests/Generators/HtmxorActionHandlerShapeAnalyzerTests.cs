@@ -183,6 +183,58 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
+	/// Two agreeing bindings to a handler with a rejected #308 shape
+	/// (<c>Task&lt;int&gt; M(HtmxEventArgs)</c>, "returns a value" - the same shape
+	/// <see cref="RejectedHandlerShapeCases"/>'s own <c>returns_a_value</c> row proves compiles
+	/// cleanly under <see cref="BindMethod"/>) each fail with that cause at their own span (#309
+	/// test-contract remediation, LR-4628ce4-P002): agreement between the two bindings' handler
+	/// names does not exempt either one from #308's own handler-shape validation, so the
+	/// multiplicity collapse this slice adds never lets a rejected shape through just because it is
+	/// bound twice.
+	/// </summary>
+	[Fact]
+	public async Task Two_agreeing_bindings_to_a_rejected_handler_shape_each_fail_at_their_own_span()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task<int> M(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.FromResult(0);
+
+				{{BindMethod}}
+			}
+			}
+			""";
+		const string razorContent = """
+			@page "/reports/{Id:int}"
+			<button @onput="M">A</button>
+			<button @onput="M">B</button>
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		Assert.Equal(2, diagnostics.Length);
+		var firstSpan = razorContent.IndexOf("@onput", StringComparison.Ordinal);
+		var secondSpan = razorContent.IndexOf("@onput", firstSpan + 1, StringComparison.Ordinal);
+		var bySpan = diagnostics.ToDictionary(static d => d.Location.SourceSpan.Start);
+		foreach (var span in new[] { firstSpan, secondSpan })
+		{
+			var diagnostic = bySpan[span];
+			Assert.Equal("HTMXOR002", diagnostic.Id);
+			Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+			Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+			Assert.Equal(new TextSpan(span, "@onput".Length), diagnostic.Location.SourceSpan);
+			AssertHandlerCauseSpecificMessage(diagnostic, "returns a value");
+		}
+	}
+
+	/// <summary>
 	/// A shape real Razor itself rejects at the binding gets no Htmxor diagnostic at all: the owner's
 	/// amended scope decision (#308) is that Htmxor adds nothing for a case the Razor compiler
 	/// already decided. Each row's fixture carries <see cref="BindMethod"/>, the real Razor-generated

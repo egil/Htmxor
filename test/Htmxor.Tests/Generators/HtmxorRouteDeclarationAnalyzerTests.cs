@@ -1259,6 +1259,54 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
 
+	/// <summary>
+	/// Two agreeing bindings outside an explicit <c>HtmxRoute.Methods</c> allow-list each fail with
+	/// the explicit-Methods HTMXOR002 at their own span (#309 test-contract remediation,
+	/// LR-4628ce4-P002): the multiplicity collapse this slice adds never widens what an explicit
+	/// <c>Methods</c> list already excludes, so agreement between the two bindings' handler names
+	/// does not let either one through. The real <see cref="HtmxorActionDeclarationAnalyzer"/> runs
+	/// here, the same as the single-binding row above, so this exercises the analyzer half of the
+	/// #309 contract that the generator-only test suite never reaches.
+	/// </summary>
+	[Fact]
+	public async Task Two_agreeing_bindings_outside_explicit_htmx_route_methods_each_fail_at_their_own_span()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Htmxor.HtmxRouteAttribute("/reports/{Id:int}", Methods = ["GET"])]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task QueryReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		const string razorContent = """
+			@attribute [Htmxor.HtmxRoute("/reports/{Id:int}", Methods = ["GET"])]
+			<form @onquery="QueryReport"></form>
+			<form @onquery="QueryReport"></form>
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		Assert.Equal(2, diagnostics.Length);
+		var firstSpan = razorContent.IndexOf("@onquery", StringComparison.Ordinal);
+		var secondSpan = razorContent.IndexOf("@onquery", firstSpan + 1, StringComparison.Ordinal);
+		var bySpan = diagnostics.ToDictionary(static d => d.Location.SourceSpan.Start);
+		foreach (var span in new[] { firstSpan, secondSpan })
+		{
+			var diagnostic = bySpan[span];
+			Assert.Equal("HTMXOR002", diagnostic.Id);
+			Assert.Contains("explicit HtmxRoute.Methods is authoritative", diagnostic.GetMessage(), StringComparison.Ordinal);
+			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+			Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+			Assert.Equal(new TextSpan(span, "@onquery".Length), diagnostic.Location.SourceSpan);
+		}
+	}
+
 	[Fact]
 	public async Task Binding_inside_explicit_htmx_route_methods_is_supported()
 	{
@@ -1325,6 +1373,56 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new TextSpan(razorContent.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
 			diagnostic.Location.SourceSpan);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+	}
+
+	/// <summary>
+	/// Two agreeing bindings on a <c>DisableHtmxDirectRouting</c>-marked component each fail with
+	/// that HTMXOR002 at their own span (#309 test-contract remediation, LR-4628ce4-P002): #172
+	/// point 5.4's "any action on a marked component is a build error" still applies to every
+	/// agreeing occurrence, not just the first.
+	/// </summary>
+	[Fact]
+	public async Task Two_agreeing_bindings_on_a_DisableHtmxDirectRouting_marked_component_each_fail_at_their_own_span()
+	{
+		var componentPath = ComponentPath("ReportComponent.razor");
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			[global::Htmxor.DisableHtmxDirectRoutingAttribute]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task PutReport(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		const string razorContent = """
+			@page "/reports/{Id:int}"
+			<button @onput="PutReport">Save</button>
+			<button @onput="PutReport">Save again</button>
+			""";
+		var razor = new SourceAdditionalText(componentPath, razorContent);
+
+		var diagnostics = await RunActionAnalyzerAsync(source, razor);
+
+		Assert.Equal(2, diagnostics.Length);
+		var firstSpan = razorContent.IndexOf("@onput", StringComparison.Ordinal);
+		var secondSpan = razorContent.IndexOf("@onput", firstSpan + 1, StringComparison.Ordinal);
+		var bySpan = diagnostics.ToDictionary(static d => d.Location.SourceSpan.Start);
+		foreach (var span in new[] { firstSpan, secondSpan })
+		{
+			var diagnostic = bySpan[span];
+			Assert.Equal("HTMXOR002", diagnostic.Id);
+			Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+			Assert.Equal(
+				"Unsupported component action declaration: " +
+				"an inferred binding on a component marked with DisableHtmxDirectRouting is not supported",
+				diagnostic.GetMessage());
+			Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+			Assert.Equal(new TextSpan(span, "@onput".Length), diagnostic.Location.SourceSpan);
+			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		}
 	}
 
 	private static string ComponentPath(string relativePath)
