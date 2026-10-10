@@ -1,5 +1,5 @@
-@* Deliberately no [Authorize] attribute: protection must come entirely from RequireAuthorization() *@
-@* chained onto MapRazorComponents, which is exactly the contract #316 verifies. *@
+@* Deliberately no [Authorize] attribute: protection must come entirely from a RequireAuthorization() *@
+@* chained onto MapRazorComponents. *@
 @attribute [Htmxor.HtmxRoute("/issue-316/unsafe-action/{Id:int}", Methods = new[] { "GET", "DELETE" })]
 @namespace Htmxor.PackageConsumer
 @inject Issue316UnsafeActionProbe Probe

@@ -1,0 +1,10 @@
+@page "/issue-316/ordering/stock/{Id:int}"
+@attribute [Issue316OrderingMetadata("component")]
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-316-ordering>ok</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

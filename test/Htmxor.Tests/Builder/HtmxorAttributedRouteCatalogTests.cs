@@ -512,7 +512,9 @@ public sealed class HtmxorAttributedRouteCatalogTests
 			[HttpMethods.Get],
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
 		Assert.Empty(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
-		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
+		// A GET-only HtmxRoute endpoint carries the same antiforgery metadata its stock twin does
+		// (#316): antiforgery middleware does not validate GET regardless of this metadata's presence.
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 	}
 
 	[Fact]
@@ -547,7 +549,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
-	public async Task Bridge_widens_an_omitted_methods_htmx_route_for_query_without_antiforgery()
+	public async Task Bridge_widens_an_omitted_methods_htmx_route_for_query_with_antiforgery_matching_stock()
 	{
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition(
@@ -574,7 +576,9 @@ public sealed class HtmxorAttributedRouteCatalogTests
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
 		var action = Assert.Single(endpoint.Metadata.GetOrderedMetadata<HtmxorComponentActionDescriptor>());
 		Assert.Equal(HttpMethods.Query, action.HttpMethod);
-		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
+		// QUERY is a safe method, like GET: antiforgery middleware does not validate it, but the
+		// endpoint still carries the same antiforgery metadata its stock twin does (#316).
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 	}
 
 	[Fact]
@@ -609,7 +613,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
-	public async Task Bridge_binds_query_allowed_by_explicit_htmx_route_methods_without_antiforgery()
+	public async Task Bridge_binds_query_allowed_by_explicit_htmx_route_methods_with_antiforgery_matching_stock()
 	{
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition(
@@ -634,7 +638,9 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		Assert.Equal(
 			[HttpMethods.Get, HttpMethods.Query],
 			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
-		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
+		// QUERY is a safe method, like GET: antiforgery middleware does not validate it, but the
+		// endpoint still carries the same antiforgery metadata its stock twin does (#316).
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 	}
 
 	[Fact]

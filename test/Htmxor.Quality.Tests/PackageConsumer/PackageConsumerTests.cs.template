@@ -1148,7 +1148,9 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			"section",
 			[]);
 		AssertHost(endpoint, SummaryHost);
-		Assert.Null(endpoint.Metadata.GetMetadata<IAntiforgeryMetadata>());
+		// A GET-only HtmxRoute endpoint carries the same antiforgery metadata its stock twin does
+		// (#316): antiforgery middleware does not validate GET regardless of this metadata's presence.
+		Assert.True(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 #endif
 
 		await AssertUnavailableAsync(
