@@ -1,0 +1,23 @@
+using Htmxor;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+
+namespace Other.Namespace;
+
+// An all-C# component has no .razor markup, so there is no @onX binding for the action generator
+// to discover (HtmxorActionGenerator only scans .razor additional files); this placement proves
+// route discovery only, with Methods declared explicitly on the attribute.
+[HtmxRoute("/issue-285/all-csharp/{Id:int}", Methods = ["GET"])]
+public sealed class Issue285AllCSharpComponent : ComponentBase
+{
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override void BuildRenderTree(RenderTreeBuilder builder)
+    {
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "data-issue-285-all-csharp", "true");
+        builder.AddContent(2, Id);
+        builder.CloseElement();
+    }
+}

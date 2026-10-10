@@ -1,0 +1,13 @@
+@attribute [Htmxor.HtmxRoute("/issue-285/pages/{Id:int}", Methods = ["GET", "PATCH"])]
+
+<button @onpatch="Patch">Patch</button>
+<p data-issue-285-pages>@Id|@PatchCount</p>
+
+@code {
+    public static int PatchCount;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private void Patch(Htmxor.HtmxEventArgs _) => PatchCount++;
+}

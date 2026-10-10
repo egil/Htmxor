@@ -402,6 +402,127 @@ public sealed class HtmxorRouteGeneratorTests
 			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 	}
 
+	/// <summary>
+	/// Issue #285: a Razor component below the project directory gets the same default namespace
+	/// the real Razor SDK assigns it (<c>RootNamespace</c> plus the dotted relative folder path,
+	/// confirmed against an actual SDK 10.0.400 build under <c>test/Htmxor.TestApp</c>), so the
+	/// path-only manifest generator -- which must keep working without reading Razor content --
+	/// can still name it correctly.
+	/// </summary>
+	[Fact]
+	public void One_level_nested_folder_Razor_component_gets_the_default_dotted_subfolder_namespace_in_the_manifest()
+	{
+		var run = RunGenerator("Components/Pages/AlphaComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.Components.Pages.AlphaComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	[Fact]
+	public void Two_level_nested_folder_Razor_component_gets_the_default_dotted_subfolder_namespace_in_the_manifest()
+	{
+		var run = RunGenerator("Components/Admin/Reports/NestedComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.Components.Admin.Reports.NestedComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// Issue #285 cross-wiring: two Razor files sharing a leaf name but sitting in different
+	/// folders (so the real Razor SDK gives them different default namespaces) must each get
+	/// their own distinct manifest entry; neither name may be dropped or merged into the other.
+	/// </summary>
+	[Fact]
+	public void Same_named_Razor_components_in_different_folders_each_get_their_own_manifest_entry()
+	{
+		var run = RunGenerator(
+			"Areas/Alpha/ReportComponent.razor",
+			"Areas/Beta/ReportComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Equal(
+			1,
+			Count(generatedSource, "\"Htmxor.Consumer.Areas.Alpha.ReportComponent\""));
+		Assert.Equal(
+			1,
+			Count(generatedSource, "\"Htmxor.Consumer.Areas.Beta.ReportComponent\""));
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// Issue #285: an all-C# component is a real compiled symbol, so its namespace never needs
+	/// path guessing; only the current project-root gate keeps it out of the manifest.
+	/// </summary>
+	[Fact]
+	public void All_CSharp_component_outside_the_root_namespace_is_in_generated_registration()
+	{
+		var source = AllCSharpComponent.Replace(
+			"namespace Htmxor.Consumer;",
+			"namespace Other.Namespace;",
+			StringComparison.Ordinal);
+		var run = RunGeneratorWithCSharpSource(source);
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Other.Namespace.AllCSharpComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// Issue #285: a <c>.razor.cs</c> partial carrying the attribute is also a real compiled
+	/// symbol; moving its sibling <c>.razor</c> file below the project directory must not remove
+	/// it from the manifest.
+	/// </summary>
+	[Fact]
+	public void Matching_Razor_code_behind_outside_project_root_emits_one_manifest_entry()
+	{
+		var run = RunGeneratorWithCSharpSourceAtPath(
+			AllCSharpComponent,
+			"Components/Pages/AllCSharpComponent.razor.cs",
+			"Components/Pages/AllCSharpComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Equal(
+			1,
+			Count(generatedSource, "\"Htmxor.Consumer.AllCSharpComponent\""));
+	}
+
 	private static void AssertInOrder(string source, params string[] values)
 	{
 		var indexes = values

@@ -154,6 +154,32 @@ public sealed class HtmxorActionGeneratorTests
 				private Task TaskNoParamHandler() => Task.CompletedTask;
 			}
 		}
+
+		// Issue #285 placements: the real Razor SDK default-namespace convention is RootNamespace
+		// plus the dotted relative folder path, so these backing partials sit at the exact
+		// namespace a real "Components/Pages/ReportComponent.razor" or
+		// "Components/Admin/Reports/ReportComponent.razor" file would compile to.
+		namespace Htmxor.Consumer.Components.Pages
+		{
+			public partial class ReportComponent
+			{
+				public Task SetParametersAsync(
+					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
+
+				private Task PutReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+			}
+		}
+
+		namespace Htmxor.Consumer.Components.Admin.Reports
+		{
+			public partial class ReportComponent
+			{
+				public Task SetParametersAsync(
+					Microsoft.AspNetCore.Components.ParameterView parameters) => Task.CompletedTask;
+
+				private Task PutReport(Htmxor.HtmxEventArgs args) => Task.CompletedTask;
+			}
+		}
 		""";
 	private static readonly string ProjectDirectory = Path.GetFullPath(
 		Path.Combine(Path.GetTempPath(), "htmxor-action-generator-tests"));
@@ -193,6 +219,74 @@ public sealed class HtmxorActionGeneratorTests
 			.ToString();
 		Assert.Contains($"\"{httpMethod}\"", actionSource, StringComparison.Ordinal);
 		Assert.Contains($"this, {handlerName}", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Issue #285's own named placement: a stock <c>@page</c> component one folder below the
+	/// project directory (default namespace) must still get its <c>@onput</c> action, naming the
+	/// real compiled type at <c>Htmxor.Consumer.Components.Pages.ReportComponent</c>. Today
+	/// <c>HtmxorActionGenerator</c> asks the path-only manifest generator for this component's
+	/// type name and gets back <c>null</c> for anything below the project directory, so
+	/// <c>HtmxorComponentActionDeclaration.ParseAll</c> silently returns no declarations at all --
+	/// this is the exact defect evidence the brief quotes for
+	/// <c>Components/Pages/Counter.razor</c>'s <c>PUT /counter</c>.
+	/// </summary>
+	[Fact]
+	public void Stock_page_action_in_Components_Pages_emits_one_compiling_action_naming_the_real_type()
+	{
+		var run = RunGenerators(new RazorInput(
+			"Components/Pages/ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = Assert.Single(
+			run.RunResult.Results
+				.SelectMany(static result => result.GeneratedSources)
+				.Where(static source => source.HintName != "HtmxorGeneratedRouteRegistration.g.cs"))
+			.SourceText
+			.ToString();
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains(
+			"namespace Htmxor.Consumer.Components.Pages",
+			actionSource,
+			StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
+	/// Issue #285: a two-level nested folder such as <c>Components/Admin/Reports</c> must behave
+	/// the same way as the one-level <c>Components/Pages</c> placement above.
+	/// </summary>
+	[Fact]
+	public void Stock_page_action_in_a_two_level_nested_folder_emits_one_compiling_action_naming_the_real_type()
+	{
+		var run = RunGenerators(new RazorInput(
+			"Components/Admin/Reports/ReportComponent.razor",
+			"""
+			@page "/reports/{ReportId:int}"
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = Assert.Single(
+			run.RunResult.Results
+				.SelectMany(static result => result.GeneratedSources)
+				.Where(static source => source.HintName != "HtmxorGeneratedRouteRegistration.g.cs"))
+			.SourceText
+			.ToString();
+		Assert.Contains("\"PUT\"", actionSource, StringComparison.Ordinal);
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.Contains(
+			"namespace Htmxor.Consumer.Components.Admin.Reports",
+			actionSource,
+			StringComparison.Ordinal);
 		Assert.Empty(CompilationErrors(run.OutputCompilation));
 	}
 

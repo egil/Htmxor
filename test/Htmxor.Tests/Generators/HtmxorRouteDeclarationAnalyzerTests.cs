@@ -246,10 +246,14 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal("HTMXOR002", diagnostic.Id);
+		// Issue #285: the "project-root" eligibility gate is gone, but a same-named Razor
+		// file still must not cross-wire onto an unrelated compiled type that merely shares its
+		// guessed name; this remains a fail-closed mismatch regardless of wording.
 		Assert.Contains(
-			"the action owner must compile from the matching project-root Razor component",
+			"the action owner must compile from the matching",
 			diagnostic.GetMessage(),
 			StringComparison.Ordinal);
+		Assert.DoesNotContain("project-root", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(razorPath, diagnostic.Location.GetLineSpan().Path);
 	}
@@ -651,10 +655,20 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Contains("Blazor component", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
+	/// <summary>
+	/// Issue #285: a nested-folder <c>HtmxRoute</c> component is now in scope. The tree's own
+	/// (unmapped) path must be the real SDK 10.0.400 Razor-generated path for a component below
+	/// the project directory -- the generator mirrors the component's relative folder under its
+	/// own output directory (confirmed with <c>EmitCompilerGeneratedFiles</c> against a throwaway
+	/// page in <c>test/Htmxor.TestApp</c>), not the flat <c>&lt;name&gt;_razor.g.cs</c> shape a
+	/// project-root file gets. A lookalike attribute type from an unrelated namespace must stay
+	/// ignored either way.
+	/// </summary>
 	[Fact]
-	public async Task Exact_route_outside_project_root_fails_closed_while_lookalike_is_ignored()
+	public async Task Nested_folder_HtmxRoute_component_is_discovered_through_its_real_mirrored_generated_path_while_lookalike_is_ignored()
 	{
 		var nestedPath = ComponentPath(Path.Combine("Nested", "NestedComponent.razor"));
+		var nestedGeneratedPath = RazorGeneratedPath(Path.Combine("Nested", "NestedComponent"));
 		var lookalikePath = ComponentPath("LookalikeComponent.razor");
 		var nested = $$"""
 			namespace {{RootNamespace}}.Nested
@@ -684,11 +698,195 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostics = await RunAnalyzerAsync(
 			new[] { lookalike, nested },
-			new[] { lookalikePath, nestedPath });
+			new[] { lookalikePath, nestedPath },
+			new[] { RazorGeneratedPath("LookalikeComponent"), nestedGeneratedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Issue #285's own named placement: a <c>Components/Pages</c> component (one folder below
+	/// the project directory, default namespace) must be discovered exactly like a project-root
+	/// file, using the component's real one-level mirrored generated path.
+	/// </summary>
+	[Fact]
+	public async Task HtmxRoute_component_in_Components_Pages_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "AlphaComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "AlphaComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components.Pages
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/alpha/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("alpha.read")]
+			#line default
+			public sealed class AlphaComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Issue #285: an all-C# component is a real compiled symbol regardless of namespace, so only
+	/// the current exact-root-namespace gate (not any path guess) keeps it unsupported today.
+	/// </summary>
+	[Fact]
+	public async Task All_CSharp_HtmxRoute_component_outside_the_root_namespace_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath("OutsideComponent.cs");
+		var source = """
+			namespace Other.Namespace
+			{
+			[global::Htmxor.HtmxRouteAttribute("/outside/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("outside.read")]
+			public sealed class OutsideComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			Array.Empty<string>(),
+			new[] { componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Issue #285: a <c>.razor.cs</c> partial carrying the attribute is also a real compiled
+	/// symbol; only its sibling <c>.razor</c> file's project-root-only path currently blocks it.
+	/// </summary>
+	[Fact]
+	public async Task Razor_code_behind_HtmxRoute_declaration_outside_project_root_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "CodeBehindComponent.razor.cs"));
+		var razorPath = ComponentPath(Path.Combine("Components", "Pages", "CodeBehindComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "CodeBehindComponent"));
+		var generatedSource = $$"""
+			namespace {{RootNamespace}}.Components.Pages;
+
+			public partial class CodeBehindComponent :
+				global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+			}
+			""";
+		var codeBehindSource = $$"""
+			namespace {{RootNamespace}}.Components.Pages;
+
+			[global::Htmxor.HtmxRouteAttribute("/code-behind/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("code-behind.read")]
+			public sealed partial class CodeBehindComponent;
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { generatedSource, codeBehindSource },
+			new[] { razorPath },
+			new[] { generatedPath, componentPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
+	/// Issue #285 split signal: an <c>@namespace</c> override divorces the path-only manifest
+	/// generator's guessed name (it must keep working without reading Razor content) from the
+	/// real compiled declaration. There is no supported seam for the generator to learn the
+	/// override, so this must keep failing closed -- never silently registering the wrong type or
+	/// cross-wiring onto an unrelated one -- until a seam is approved.
+	/// </summary>
+	[Fact]
+	public async Task Namespace_override_divorced_from_the_path_guess_fails_closed_instead_of_cross_wiring()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "Pages", "OverrideComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "OverrideComponent"));
+		// The real file declares "@namespace Totally.Different" (empirically confirmed: the
+		// override's value is used verbatim, with no relative-folder suffix, when it is declared
+		// in the component's own file rather than an ancestor _Imports.razor), so the compiled
+		// namespace below is what the real Razor SDK would produce -- not the path-guessed
+		// "Htmxor.Consumer.Components.Pages" a path-only generator could ever compute.
+		var source = $$"""
+			namespace Totally.Different
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/override/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("override.read")]
+			#line default
+			public sealed class OverrideComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath },
+			new[] { generatedPath });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Contains("project-root", diagnostic.GetMessage(), StringComparison.Ordinal);
-		Assert.Equal(nestedPath, diagnostic.Location.GetMappedLineSpan().Path);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
+	}
+
+	/// <summary>
+	/// Issue #285 acceptance criterion: "the two 'project-root' messages are gone." Both
+	/// HTMXOR001 and HTMXOR002 still fail closed on a mismatch (proven above and in
+	/// <see cref="Same_named_Razor_binding_cannot_attach_to_all_CSharp_component"/>); neither may
+	/// explain that failure by naming "project-root" as the eligibility rule.
+	/// </summary>
+	[Fact]
+	public async Task Project_root_wording_is_gone_from_both_fail_closed_diagnostics()
+	{
+		var overridePath = ComponentPath(Path.Combine("Components", "Pages", "WordingComponent.razor"));
+		var overrideGeneratedPath = RazorGeneratedPath(Path.Combine("Components", "Pages", "WordingComponent"));
+		var overrideSource = $$"""
+			namespace Totally.Different.Wording
+			{
+			#line 1 "{{EscapePath(overridePath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/wording/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("wording.read")]
+			#line default
+			public sealed class WordingComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+		var routeDiagnostics = await RunAnalyzerAsync(
+			new[] { overrideSource },
+			new[] { overridePath },
+			new[] { overrideGeneratedPath });
+
+		var actionComponentPath = ComponentPath("WordingActionComponent.cs");
+		var actionRazorPath = ComponentPath("WordingActionComponent.razor");
+		var actionSource = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Htmxor.HtmxRouteAttribute("/wording-action/{Id:int}", Methods = ["GET", "DELETE"])]
+			public sealed class WordingActionComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task DeleteWording(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		var actionRazor = new SourceAdditionalText(
+			actionRazorPath,
+			"""
+			<button @ondelete="DeleteWording">Delete</button>
+			""");
+		var actionDiagnostics = await RunActionAnalyzerAsync(
+			actionSource,
+			actionRazor,
+			sourcePath: actionComponentPath);
+
+		Assert.NotEmpty(routeDiagnostics);
+		Assert.NotEmpty(actionDiagnostics);
+		Assert.All(
+			routeDiagnostics.Concat(actionDiagnostics),
+			diagnostic => Assert.DoesNotContain(
+				"project-root",
+				diagnostic.GetMessage(),
+				StringComparison.Ordinal));
 	}
 
 	[Fact]

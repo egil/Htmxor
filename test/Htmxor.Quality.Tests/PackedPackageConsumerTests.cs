@@ -279,6 +279,58 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 
 	public void UseIssue284AuthorizationParityScenario() => UseSelectionScenario("Issue284");
 
+	/// <summary>
+	/// Issue #285 needs real subfolders in the staged consumer (<c>Components/Pages</c>,
+	/// <c>Components/Admin/Reports</c>, an <c>Areas/*</c> same-name pair) so the real Razor SDK
+	/// assigns each component its real default namespace. <see cref="UseSelectionScenario"/>
+	/// only ever stages flat files, so this scenario is staged separately, preserving the
+	/// relative layout under its own <c>PackageConsumer/Issue285</c> asset folder.
+	/// </summary>
+	public void UseIssue285AnyFolderScenario()
+	{
+		ClearStagedSourceTree();
+
+		var assets = Path.Combine(
+			repositoryRoot, "test", "Htmxor.Quality.Tests", "PackageConsumer", "Issue285");
+		foreach (var sourcePath in Directory.EnumerateFiles(assets, "*.scenario", SearchOption.AllDirectories))
+		{
+			CopyScenarioAsset(assets, sourcePath);
+		}
+	}
+
+	private void ClearStagedSourceTree()
+	{
+		foreach (var path in Directory.EnumerateFiles(consumerDirectory, "*", SearchOption.AllDirectories)
+			.Where(static path =>
+				path.EndsWith(".cs", StringComparison.Ordinal) ||
+				path.EndsWith(".razor", StringComparison.Ordinal)))
+		{
+			File.Delete(path);
+		}
+
+		foreach (var directory in Directory
+			.EnumerateDirectories(consumerDirectory, "*", SearchOption.AllDirectories)
+			.OrderByDescending(static directory => directory.Length))
+		{
+			if (!Directory.EnumerateFileSystemEntries(directory).Any())
+			{
+				Directory.Delete(directory);
+			}
+		}
+	}
+
+	private void CopyScenarioAsset(string assets, string sourcePath)
+	{
+		var relativeDirectory = Path.GetDirectoryName(Path.GetRelativePath(assets, sourcePath));
+		var destinationDirectory = string.IsNullOrEmpty(relativeDirectory)
+			? consumerDirectory
+			: Path.Combine(consumerDirectory, relativeDirectory);
+		Directory.CreateDirectory(destinationDirectory);
+		File.Copy(
+			sourcePath,
+			Path.Combine(destinationDirectory, Path.GetFileNameWithoutExtension(sourcePath)));
+	}
+
 	public void UseDisableHtmxDirectRoutingInImports()
 	{
 		var importsPath = Path.Combine(consumerDirectory, "_Imports.razor");
