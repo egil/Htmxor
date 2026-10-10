@@ -703,6 +703,54 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
+	/// Guards <c>HtmxorRouteManifest.HasCompiledRazorDeclaration</c>'s generated-paths overload
+	/// against cross-wiring: two real <c>.razor</c> files with the same leaf name, in different
+	/// folders, whose <em>derived</em> names collide on the exact same string. <c>Components/A/X.razor</c>
+	/// is the real, attributed component, compiled to a namespace its own evidence never guesses.
+	/// <c>Components/B/X.razor</c> is an unrelated, non-routed file whose evidence hides an
+	/// <c>@namespace</c> line inside a Razor comment -- real Razor ignores a commented-out directive
+	/// like this (confirmed empirically: an SDK build of this exact shape compiles to the ordinary
+	/// folder-default namespace instead), but the narrow, comment-unaware scan this analyzer uses to
+	/// avoid reading full Razor content does not, so it wrongly guesses A's real namespace for B.
+	/// That makes the manifest lookup group both files' generated paths under one key: only the
+	/// mirrored-folder comparison, not the shared leaf file name, can tell A's own declaration apart
+	/// from B's. A must fail closed rather than being confirmed through B's generated path.
+	/// </summary>
+	[Fact]
+	public async Task Colliding_guess_from_a_different_real_file_fails_closed_instead_of_cross_wiring()
+	{
+		var pathA = ComponentPath(Path.Combine("Components", "A", "X.razor"));
+		var pathB = ComponentPath(Path.Combine("Components", "B", "X.razor"));
+		var generatedPathA = RazorGeneratedPath(Path.Combine("Components", "A", "X"));
+		var source = $$"""
+			namespace Confusable
+			{
+			#line 1 "{{EscapePath(pathA)}}"
+			[global::Htmxor.HtmxRouteAttribute("/confusable/{Id:int}", Methods = ["GET"])]
+			#line default
+			public sealed class X : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[]
+			{
+				(pathA, PlainRazorContent),
+				(pathB, "@*\n@namespace Confusable\n*@\n<p>Hi</p>\n"),
+			},
+			new[] { generatedPathA });
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Contains(
+			"the HtmxRoute component must compile from the matching Razor component",
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
+		Assert.Equal(pathA, diagnostic.Location.GetMappedLineSpan().Path);
+	}
+
+	/// <summary>
 	/// Issue #285's own named placement: a <c>Components/Pages</c> component (one folder below
 	/// the project directory, default namespace) must be discovered exactly like a project-root
 	/// file, using the component's real one-level mirrored generated path.
@@ -1915,6 +1963,84 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Empty(diagnostics);
 	}
 
+	/// <summary>
+	/// The action analyzer resolves a binding's owner by the guessed name
+	/// (<c>RazorComponentTypeNames.GetTypeName</c>) and looks that name up with
+	/// <c>GetTypeByMetadataName</c>, so a wrong guess can resolve to someone else's real, compiled
+	/// component. <c>Components/A/X.razor</c> hides an <c>@namespace Collide</c> line inside a Razor
+	/// comment -- real Razor ignores a commented-out directive like this (confirmed empirically: an
+	/// SDK build of this exact shape compiles to the ordinary folder-default namespace instead), but
+	/// the narrow, comment-unaware scan this analyzer uses to avoid reading full Razor content does
+	/// not, so A's binding resolves to <c>Collide.X</c> -- which is <c>Components/B/X.razor</c>'s
+	/// real, unrelated compiled component, not A's own (different) compiled declaration. The
+	/// generated-path check must refuse to let A's binding attach to B's component just because the
+	/// two files share a leaf name: A fails closed, and B's own, identically-shaped binding -- which
+	/// resolves to the very same component by the very same guess, but at its own real generated
+	/// path -- stays accepted.
+	/// </summary>
+	[Fact]
+	public async Task Action_binding_whose_guessed_owner_collides_with_a_different_real_component_fails_closed()
+	{
+		var pathA = ComponentPath(Path.Combine("Components", "A", "X.razor"));
+		var pathB = ComponentPath(Path.Combine("Components", "B", "X.razor"));
+		var generatedPathA = RazorGeneratedPath(Path.Combine("Components", "A", "X"));
+		var generatedPathB = RazorGeneratedPath(Path.Combine("Components", "B", "X"));
+		var sourceA = $$"""
+			namespace {{RootNamespace}}.Components.A
+			{
+			#line 1 "{{EscapePath(pathA)}}"
+			public sealed class X : global::Microsoft.AspNetCore.Components.ComponentBase;
+			#line default
+			}
+			""";
+		var sourceB = $$"""
+			namespace Collide
+			{
+			#line 1 "{{EscapePath(pathB)}}"
+			[global::Htmxor.HtmxRouteAttribute("/b/{Id:int}", Methods = ["GET", "PUT"])]
+			#line default
+			public sealed class X : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private global::System.Threading.Tasks.Task PutIt(global::Htmxor.HtmxEventArgs args)
+					=> global::System.Threading.Tasks.Task.CompletedTask;
+			}
+			}
+			""";
+		const string razorContentA = """
+			@*
+			@namespace Collide
+			*@
+			@attribute [Htmxor.HtmxRoute("/a/{Id:int}", Methods = ["GET", "PUT"])]
+			<button @onput="PutIt">Save</button>
+			""";
+		const string razorContentB = """
+			@namespace Collide
+			@attribute [Htmxor.HtmxRoute("/b/{Id:int}", Methods = ["GET", "PUT"])]
+			<button @onput="PutIt">Save</button>
+			""";
+
+		var diagnostics = await RunActionAnalyzerAsync(
+			new[] { sourceA, sourceB },
+			new[] { generatedPathA, generatedPathB },
+			new AdditionalText[]
+			{
+				new SourceAdditionalText(pathA, razorContentA),
+				new SourceAdditionalText(pathB, razorContentB),
+			});
+
+		// Exactly one diagnostic total: A fails closed and B is fully accepted, not just A.
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Contains(
+			"the action owner must compile from the matching Razor component",
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
+		Assert.Equal(pathA, diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(
+			new TextSpan(razorContentA.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
+			diagnostic.Location.SourceSpan);
+	}
+
 	[Fact]
 	public async Task Inferred_binding_on_a_DisableHtmxDirectRouting_marked_component_is_a_build_error()
 	{
@@ -2133,25 +2259,43 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			.ToImmutableArray();
 	}
 
-	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
+	private static Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
 		string source,
 		AdditionalText razor,
 		bool includeRouteAnalyzer = false,
 		string? sourcePath = null)
+		=> RunActionAnalyzerAsync(
+			new[] { source },
+			new[] { sourcePath ?? RazorGeneratedPath("ReportComponent") },
+			new[] { razor },
+			includeRouteAnalyzer);
+
+	/// <summary>
+	/// A multi-file overload: each compiled source gets its own generated-path identity (the thing
+	/// <c>HtmxorRouteManifest.HasCompiledRazorDeclaration</c> compares against), and every razor
+	/// additional file is visible to the action analyzer's own per-file scan, so a binding in one
+	/// file can be checked against a component resolved from a different file's guessed name.
+	/// </summary>
+	private static async Task<ImmutableArray<Diagnostic>> RunActionAnalyzerAsync(
+		IEnumerable<string> sources,
+		IEnumerable<string> sourcePaths,
+		IEnumerable<AdditionalText> razorFiles,
+		bool includeRouteAnalyzer = false)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var paths = sourcePaths.ToArray();
+		var trees = sources
+			.Select((source, index) => CSharpSyntaxTree.ParseText(source, parseOptions, paths[index]))
+			.ToImmutableArray();
 		var compilation = CSharpCompilation.Create(
 			"Htmxor.ActionAnalyzer.Tests",
-			new[] { CSharpSyntaxTree.ParseText(
-				source,
-				parseOptions,
-				sourcePath ?? RazorGeneratedPath("ReportComponent")) },
+			trees,
 			References,
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		Assert.Empty(compilation.GetDiagnostics().Where(
 			static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 		var analyzerOptions = new AnalyzerOptions(
-			ImmutableArray.Create(razor),
+			razorFiles.ToImmutableArray(),
 			new TestAnalyzerConfigOptionsProvider(ProjectDirectory));
 
 		var analyzers = includeRouteAnalyzer
