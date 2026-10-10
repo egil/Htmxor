@@ -1588,6 +1588,40 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	/// <summary>
+	/// The same lambda-keeps-its-own-cause guarantee when the lambda sits alongside a genuine
+	/// conflict, not just a single valid sibling (green-finalization mutation sweep, complete-change
+	/// review): with only one named handler among the bindings, production's own handler-count gate
+	/// already returns early before the conflict rewrite runs, so the row above alone never reaches
+	/// the line that protects a lambda from being overwritten by the conflict message. This row adds
+	/// a second, differently-named valid handler so that rewrite path actually executes, and still
+	/// expects the lambda to keep its own #307 cause rather than being renamed to a conflict.
+	/// </summary>
+	[Fact]
+	public void Lambda_binding_next_to_two_differently_named_valid_bindings_keeps_its_own_cause_and_does_not_conflict()
+	{
+		const string content = """
+			@page "/reports/{ReportId:int}"
+			<button @onput="@(() => PutReport(default!))">A</button>
+			<button @onput="PutReport">B</button>
+			<button @onput="PostReport">C</button>
+			""";
+		var input = new RazorInput("ReportComponent.razor", content);
+		var run = RunGenerators(input);
+
+		Assert.Equal(3, run.RunResult.Diagnostics.Length);
+		var lambdaSpan = content.IndexOf("@onput", StringComparison.Ordinal);
+		var secondSpan = content.IndexOf("@onput", lambdaSpan + 1, StringComparison.Ordinal);
+		var thirdSpan = content.IndexOf("@onput", secondSpan + 1, StringComparison.Ordinal);
+		var bySpan = run.RunResult.Diagnostics.ToDictionary(static d => d.Location.SourceSpan.Start);
+		AssertUnsupportedDiagnostic(bySpan[lambdaSpan], input, lambdaSpan);
+		AssertCauseSpecificMessage(bySpan[lambdaSpan], "lambda or closure");
+		AssertConflictDiagnostic(bySpan[secondSpan], input, secondSpan, "@onput", "'PutReport' and 'PostReport'");
+		AssertConflictDiagnostic(bySpan[thirdSpan], input, thirdSpan, "@onput", "'PutReport' and 'PostReport'");
+		AssertNoActionSource(run);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	/// <summary>
 	/// Characterization (#309): one handler bound to several methods still generates one action per
 	/// method, because an action is identified by its route owner and HTTP method, so collapsing
 	/// agreeing bindings never merges different methods.
