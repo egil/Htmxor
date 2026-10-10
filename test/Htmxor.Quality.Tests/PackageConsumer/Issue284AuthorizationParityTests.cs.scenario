@@ -292,9 +292,9 @@ internal sealed class Issue284AuthenticationHandler(
 			string.Equals(user, FullUser, StringComparison.Ordinal);
 
 	/// <summary>
-	/// True for every identity that presents the default scheme's own header, including
-	/// <c>null</c> (anonymous) excluded -- not for <see cref="AltSchemeUser"/>, who only presents
-	/// the alternate scheme's header and so is never authenticated by this scheme.
+	/// True when the identity authenticates through the default scheme's own header. Anonymous
+	/// (<c>null</c>) is never authenticated, and neither is <see cref="AltSchemeUser"/>, who presents
+	/// only the alternate scheme's header.
 	/// </summary>
 	public static bool AuthenticatesViaDefaultScheme(string? user)
 		=> user is not null && !string.Equals(user, AltSchemeUser, StringComparison.Ordinal);
