@@ -7,11 +7,10 @@ using Microsoft.AspNetCore.Routing;
 namespace Htmxor.PackageConsumer;
 
 /// <summary>
-/// #284's eight accepted authorization shapes, each as a paired <c>HtmxRoute</c> component and a
+/// Eight accepted authorization shapes, each as a paired <c>HtmxRoute</c> component and a
 /// stock-routed twin carrying the identical metadata. Only the authorization outcome is under
 /// test, so every component renders the same trivial markup. Every template carries a
-/// constrained <c>{Id:int}</c> parameter because the still-active #93 template limit (lifted
-/// separately by #286) requires one; it is not part of what #284 changes.
+/// constrained <c>{Id:int}</c> parameter, as every <c>HtmxRoute</c> template requires.
 /// </summary>
 internal static class Issue284Markup
 {
@@ -116,7 +115,7 @@ public sealed class Issue284RolesStockPage : ComponentBase
 
 // Shape: [Authorize(AuthenticationSchemes = ...)].
 [HtmxRoute("/issue-284/schemes/htmx/{Id:int}", Methods = ["GET"])]
-[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.SchemeName)]
+[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.NeverSchemeName)]
 public sealed class Issue284SchemesHtmxPage : ComponentBase
 {
 	[Parameter]
@@ -126,7 +125,7 @@ public sealed class Issue284SchemesHtmxPage : ComponentBase
 }
 
 [Route("/issue-284/schemes/stock/{Id:int}")]
-[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.SchemeName)]
+[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.NeverSchemeName)]
 public sealed class Issue284SchemesStockPage : ComponentBase
 {
 	[Parameter]

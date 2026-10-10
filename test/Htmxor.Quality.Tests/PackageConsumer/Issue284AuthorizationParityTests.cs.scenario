@@ -16,23 +16,29 @@ using Xunit;
 namespace Htmxor.PackageConsumer;
 
 /// <summary>
-/// #284's main evidence: an <c>HtmxRoute</c> component's direct request is authorized exactly as
-/// a stock <c>@page</c> with the same authorization metadata, across every accepted shape, three
-/// users, and with and without the application's <c>FallbackPolicy</c>. Real authentication and
-/// authorization middleware run in-process, driven by a request header, exactly as the rest of
-/// this suite's security fixtures do. Every cell also sends the stock twin's request with HTMX
-/// headers present, pinning that those headers never change the authorized outcome.
+/// An <c>HtmxRoute</c> component's direct request is authorized exactly as a stock <c>@page</c>
+/// with the same authorization metadata, across every accepted shape, a spread of identities that
+/// separate each shape's requirements from one another, and with and without the application's
+/// <c>FallbackPolicy</c>. Real authentication and authorization middleware run in-process, driven
+/// by a request header, exactly as the rest of this suite's security fixtures do. Every cell also
+/// sends the stock twin's request with HTMX headers present, pinning that those headers never
+/// change the authorized outcome.
 /// </summary>
-public sealed class Issue284AuthorizationParityTests : IAsyncLifetime
+public sealed class Issue284AuthorizationParityTests : IClassFixture<Issue284ParityHosts>
 {
-	private Issue284TestHost noFallbackHost = default!;
-	private Issue284TestHost fallbackHost = default!;
+	private readonly Issue284ParityHosts hosts;
 
 	private static readonly string[] Shapes =
 		["none", "bare", "policy", "roles", "schemes", "two", "inherited", "anonymous"];
 
 	private static readonly string?[] Users =
-		[null, Issue284AuthenticationHandler.LimitedUser, Issue284AuthenticationHandler.FullUser];
+	[
+		null,
+		Issue284AuthenticationHandler.LimitedUser,
+		Issue284AuthenticationHandler.RoleOnlyUser,
+		Issue284AuthenticationHandler.PolicyOnlyUser,
+		Issue284AuthenticationHandler.FullUser,
+	];
 
 	private static readonly Dictionary<string, (string Htmx, string Stock)> Paths = new()
 	{
@@ -46,11 +52,7 @@ public sealed class Issue284AuthorizationParityTests : IAsyncLifetime
 		["anonymous"] = ("/issue-284/anonymous/htmx/1", "/issue-284/anonymous/stock/1"),
 	};
 
-	public async Task InitializeAsync()
-	{
-		noFallbackHost = await Issue284TestHost.CreateAsync(useFallbackPolicy: false);
-		fallbackHost = await Issue284TestHost.CreateAsync(useFallbackPolicy: true);
-	}
+	public Issue284AuthorizationParityTests(Issue284ParityHosts hosts) => this.hosts = hosts;
 
 	public static IEnumerable<object[]> Cells()
 	{
@@ -74,7 +76,7 @@ public sealed class Issue284AuthorizationParityTests : IAsyncLifetime
 		string? user)
 	{
 		var expected = (int)ExpectedStatus(shape, useFallbackPolicy, user);
-		var host = useFallbackPolicy ? fallbackHost : noFallbackHost;
+		var host = useFallbackPolicy ? hosts.Fallback : hosts.NoFallback;
 		var (htmxPath, stockPath) = Paths[shape];
 
 		using var stockPlain = await SendAsync(host, stockPath, user, direct: false);
@@ -95,34 +97,49 @@ public sealed class Issue284AuthorizationParityTests : IAsyncLifetime
 	/// <summary>
 	/// "none" is the only shape whose outcome depends on <c>FallbackPolicy</c>: every other shape
 	/// carries explicit authorization (or <c>AllowAnonymous</c>) metadata, which ASP.NET Core
-	/// always evaluates ahead of the fallback.
+	/// always evaluates ahead of the fallback. "schemes" names a scheme that never authenticates
+	/// anyone, so it is always 401; that is what separates it from "bare", which accepts any
+	/// authenticated identity regardless of scheme. "two" requires both the role and the policy
+	/// claim, so a role-only or policy-only identity separates it from "roles" and "policy".
 	/// </summary>
 	private static HttpStatusCode ExpectedStatus(string shape, bool useFallbackPolicy, string? user)
 	{
-		if (shape == "anonymous")
+		switch (shape)
 		{
-			return HttpStatusCode.OK;
+			case "anonymous":
+				return HttpStatusCode.OK;
+			case "schemes":
+				return HttpStatusCode.Unauthorized;
+			case "bare":
+				return user is null ? HttpStatusCode.Unauthorized : HttpStatusCode.OK;
+			case "roles":
+				return RequireRole(user);
+			case "two":
+				return RequireRoleAndClaim(user);
+			case "none" when !useFallbackPolicy:
+				return HttpStatusCode.OK;
+			default:
+				// "policy", "inherited", and fallback-protected "none" all require the claim only.
+				return RequireClaim(user);
 		}
-
-		if (shape == "bare" || shape == "schemes")
-		{
-			return user is null ? HttpStatusCode.Unauthorized : HttpStatusCode.OK;
-		}
-
-		if (shape == "none" && !useFallbackPolicy)
-		{
-			return HttpStatusCode.OK;
-		}
-
-		// "policy", "roles", "two", "inherited", and fallback-protected "none" all require the
-		// same claim.
-		return user switch
-		{
-			null => HttpStatusCode.Unauthorized,
-			Issue284AuthenticationHandler.LimitedUser => HttpStatusCode.Forbidden,
-			_ => HttpStatusCode.OK,
-		};
 	}
+
+	private static HttpStatusCode RequireClaim(string? user)
+		=> user is null
+			? HttpStatusCode.Unauthorized
+			: Issue284AuthenticationHandler.HasClaim(user) ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
+
+	private static HttpStatusCode RequireRole(string? user)
+		=> user is null
+			? HttpStatusCode.Unauthorized
+			: Issue284AuthenticationHandler.HasRole(user) ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
+
+	private static HttpStatusCode RequireRoleAndClaim(string? user)
+		=> user is null
+			? HttpStatusCode.Unauthorized
+			: Issue284AuthenticationHandler.HasRole(user) && Issue284AuthenticationHandler.HasClaim(user)
+				? HttpStatusCode.OK
+				: HttpStatusCode.Forbidden;
 
 	private static async Task<HttpResponseMessage> SendAsync(
 		Issue284TestHost host,
@@ -144,15 +161,34 @@ public sealed class Issue284AuthorizationParityTests : IAsyncLifetime
 
 		return await host.Client.SendAsync(request);
 	}
+}
+
+/// <summary>
+/// Builds and starts the two hosts the parity matrix needs -- one with the application's
+/// <c>FallbackPolicy</c> configured, one without -- exactly once for the whole test class. Neither
+/// host holds per-request state, so sharing them across every theory case does not reduce
+/// isolation.
+/// </summary>
+public sealed class Issue284ParityHosts : IAsyncLifetime
+{
+	public Issue284TestHost NoFallback { get; private set; } = default!;
+
+	public Issue284TestHost Fallback { get; private set; } = default!;
+
+	public async Task InitializeAsync()
+	{
+		NoFallback = await Issue284TestHost.CreateAsync(useFallbackPolicy: false);
+		Fallback = await Issue284TestHost.CreateAsync(useFallbackPolicy: true);
+	}
 
 	public async Task DisposeAsync()
 	{
-		await noFallbackHost.DisposeAsync();
-		await fallbackHost.DisposeAsync();
+		await NoFallback.DisposeAsync();
+		await Fallback.DisposeAsync();
 	}
 }
 
-internal sealed class Issue284TestHost : IAsyncDisposable
+public sealed class Issue284TestHost : IAsyncDisposable
 {
 	public WebApplication App { get; }
 
@@ -176,6 +212,9 @@ internal sealed class Issue284TestHost : IAsyncDisposable
 		builder.Services.AddAuthentication(Issue284AuthenticationHandler.SchemeName)
 			.AddScheme<AuthenticationSchemeOptions, Issue284AuthenticationHandler>(
 				Issue284AuthenticationHandler.SchemeName,
+				_ => { })
+			.AddScheme<AuthenticationSchemeOptions, Issue284NeverAuthenticationHandler>(
+				Issue284AuthenticationHandler.NeverSchemeName,
 				_ => { });
 		builder.Services.AddAuthorization(options =>
 		{
@@ -215,9 +254,27 @@ internal sealed class Issue284AuthenticationHandler(
 	: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
 	public const string SchemeName = "issue-284-test";
+
+	/// <summary>
+	/// A second, non-default scheme that never authenticates anyone, so a request that presents
+	/// only the default scheme's credentials is rejected on an endpoint that names this scheme
+	/// specifically -- separating scheme-restricted authorization from bare authentication.
+	/// </summary>
+	public const string NeverSchemeName = "issue-284-never-test";
+
 	public const string UserHeaderName = "X-Issue-284-User";
 	public const string LimitedUser = "limited-user";
+	public const string RoleOnlyUser = "role-only-user";
+	public const string PolicyOnlyUser = "policy-only-user";
 	public const string FullUser = "full-user";
+
+	public static bool HasRole(string user)
+		=> string.Equals(user, RoleOnlyUser, StringComparison.Ordinal) ||
+			string.Equals(user, FullUser, StringComparison.Ordinal);
+
+	public static bool HasClaim(string user)
+		=> string.Equals(user, PolicyOnlyUser, StringComparison.Ordinal) ||
+			string.Equals(user, FullUser, StringComparison.Ordinal);
 
 	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
 	{
@@ -241,12 +298,30 @@ internal sealed class Issue284AuthenticationHandler(
 			new(ClaimTypes.NameIdentifier, user),
 			new(ClaimTypes.Name, user),
 		};
-		if (string.Equals(user, FullUser, StringComparison.Ordinal))
+		if (HasClaim(user))
 		{
 			claims.Add(new Claim(Issue284Policy.ClaimType, Issue284Policy.ClaimValue));
+		}
+
+		if (HasRole(user))
+		{
 			claims.Add(new Claim(ClaimTypes.Role, Issue284Policy.Role));
 		}
 
 		return new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));
 	}
+}
+
+/// <summary>
+/// Registered as <see cref="Issue284AuthenticationHandler.NeverSchemeName"/>: it never produces an
+/// authenticated identity, regardless of the request.
+/// </summary>
+internal sealed class Issue284NeverAuthenticationHandler(
+	IOptionsMonitor<AuthenticationSchemeOptions> options,
+	ILoggerFactory logger,
+	UrlEncoder encoder)
+	: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+		=> Task.FromResult(AuthenticateResult.NoResult());
 }

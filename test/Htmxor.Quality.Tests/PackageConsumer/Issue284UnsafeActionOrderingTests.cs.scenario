@@ -12,12 +12,13 @@ using Xunit;
 namespace Htmxor.PackageConsumer;
 
 /// <summary>
-/// #284's "unsafe actions keep authorization before antiforgery, binding and callback"
-/// acceptance criterion, through a package-only consumer: a request that fails
-/// <see cref="Issue284UnsafeActionPage"/>'s <c>[Authorize(Roles = ...)]</c> check is rejected with
-/// 401/403 before antiforgery, binding, or the callback run, even though it carries no
-/// antiforgery token at all. If authorization ran after antiforgery, a missing token would
-/// surface as 400 Bad Request instead.
+/// An unsafe action on an <c>[Authorize(Roles = ...)]</c> <c>HtmxRoute</c> component keeps
+/// authorization ahead of antiforgery, binding, and the callback. A request that fails
+/// <see cref="Issue284UnsafeActionPage"/>'s authorization check is rejected with 401/403 without
+/// running component initialization, parameter binding, or the callback, even when it carries no
+/// antiforgery token at all. An authorized request with no antiforgery token is rejected with 400
+/// by antiforgery, also without running any application code, which only holds meaning if
+/// authorization has already let the request reach antiforgery.
 /// </summary>
 public sealed class Issue284UnsafeActionOrderingTests : IAsyncLifetime
 {
@@ -73,7 +74,28 @@ public sealed class Issue284UnsafeActionOrderingTests : IAsyncLifetime
 		Assert.True(
 			response.StatusCode == expected,
 			$"Expected {expected}, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
-		Assert.Equal(0, probe.CallbackCount);
+		AssertNoApplicationCodeRan();
+	}
+
+	[Fact]
+	public async Task Authorized_PUT_without_an_antiforgery_token_is_rejected_before_binding_or_callback()
+	{
+		// Authorization alone does not explain a rejection here: this request is authorized
+		// (FullUser passes the Roles check), so this row's 400 Bad Request is meaningful only
+		// because antiforgery itself enforces the token, and still runs before binding and the
+		// callback.
+		using var request = new HttpRequestMessage(HttpMethod.Put, "/issue-284/unsafe-action/1");
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		request.Headers.Add(Issue284AuthenticationHandler.UserHeaderName, Issue284AuthenticationHandler.FullUser);
+
+		using var response = await client.SendAsync(request);
+		var body = await response.Content.ReadAsStringAsync();
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.BadRequest,
+			$"Expected 400 Bad Request for an authorized PUT with no antiforgery token, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+		AssertNoApplicationCodeRan();
 	}
 
 	[Fact]
@@ -94,7 +116,16 @@ public sealed class Issue284UnsafeActionOrderingTests : IAsyncLifetime
 		var body = await response.Content.ReadAsStringAsync();
 
 		Assert.True(response.StatusCode == HttpStatusCode.OK, body);
+		Assert.Equal(1, probe.InitializationCount);
+		Assert.Equal(1, probe.BindingCount);
 		Assert.Equal(1, probe.CallbackCount);
+	}
+
+	private void AssertNoApplicationCodeRan()
+	{
+		Assert.Equal(0, probe.InitializationCount);
+		Assert.Equal(0, probe.BindingCount);
+		Assert.Equal(0, probe.CallbackCount);
 	}
 
 	/// <summary>
@@ -125,4 +156,23 @@ public sealed class Issue284UnsafeActionOrderingTests : IAsyncLifetime
 			await app.DisposeAsync();
 		}
 	}
+}
+
+internal sealed class Issue284UnsafeActionProbe
+{
+	private int initializationCount;
+	private int bindingCount;
+	private int callbackCount;
+
+	public int InitializationCount => Volatile.Read(ref initializationCount);
+
+	public int BindingCount => Volatile.Read(ref bindingCount);
+
+	public int CallbackCount => Volatile.Read(ref callbackCount);
+
+	public void RecordInitialization() => Interlocked.Increment(ref initializationCount);
+
+	public void RecordBinding() => Interlocked.Increment(ref bindingCount);
+
+	public void RecordCallback() => Interlocked.Increment(ref callbackCount);
 }
