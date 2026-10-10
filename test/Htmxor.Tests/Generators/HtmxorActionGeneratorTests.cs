@@ -1588,13 +1588,9 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	/// <summary>
-	/// The same lambda-keeps-its-own-cause guarantee when the lambda sits alongside a genuine
-	/// conflict, not just a single valid sibling (green-finalization mutation sweep, complete-change
-	/// review): with only one named handler among the bindings, production's own handler-count gate
-	/// already returns early before the conflict rewrite runs, so the row above alone never reaches
-	/// the line that protects a lambda from being overwritten by the conflict message. This row adds
-	/// a second, differently-named valid handler so that rewrite path actually executes, and still
-	/// expects the lambda to keep its own #307 cause rather than being renamed to a conflict.
+	/// A lambda keeps its own #307 cause even when its sibling bindings genuinely conflict (#309):
+	/// only the bindings that name different handlers get the conflict message, and it lists just
+	/// those handlers.
 	/// </summary>
 	[Fact]
 	public void Lambda_binding_next_to_two_differently_named_valid_bindings_keeps_its_own_cause_and_does_not_conflict()
