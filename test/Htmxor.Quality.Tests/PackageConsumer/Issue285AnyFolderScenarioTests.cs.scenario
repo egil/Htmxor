@@ -20,13 +20,17 @@ using Xunit;
 namespace Htmxor.PackageConsumer;
 
 /// <summary>
-/// Issue #285: an <c>HtmxRoute</c> component or an action-owning component anywhere in the
-/// application project -- project root, a one-level subfolder, a two-level subfolder, a
-/// <c>.razor.cs</c> partial, an all-C# component outside the root namespace, an in-file
-/// <c>@namespace</c> override, an ancestor <c>_Imports.razor</c> override (including a nearer
-/// one winning over a farther one, and an in-file override winning over an ancestor one) --
-/// gets exactly the same route and action support a project-root file gets, with no cross-wiring
-/// between two components that merely share a class name in different namespaces.
+/// An <c>HtmxRoute</c> component or an action-owning component anywhere in the application
+/// project gets exactly the same route and action support a project-root file gets, with no
+/// cross-wiring between two components that merely share a class name in different namespaces.
+/// Placements covered: project root; a one-level subfolder; a two-level subfolder; a
+/// <c>.razor.cs</c> partial; an all-C# component outside the root namespace; an in-file
+/// <c>@namespace</c> override; an ancestor <c>_Imports.razor</c> override; the nearest ancestor
+/// <c>_Imports.razor</c> winning over a farther one; an in-file override winning over an
+/// ancestor one; an ancestor <c>_Imports.razor</c> with only <c>@using</c> lines deferring to a
+/// farther one that declares <c>@namespace</c>; an <c>@namespace</c> directive that is not a
+/// file's first line; a folder segment needing identifier sanitization; a stock <c>@page</c>
+/// with <c>@onput</c>; and two components sharing a class name in different namespaces.
 /// </summary>
 public sealed class Issue285AnyFolderScenarioTests : IAsyncLifetime
 {

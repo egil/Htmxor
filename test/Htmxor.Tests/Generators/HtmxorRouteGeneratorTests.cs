@@ -386,7 +386,6 @@ public sealed class HtmxorRouteGeneratorTests
 			"typeof(HtmxorGeneratedRouteRegistrationExtensions).Assembly",
 			generatedSource,
 			StringComparison.Ordinal);
-		Assert.DoesNotContain("ProjectRoot", generatedSource, StringComparison.Ordinal);
 		Assert.Contains("AddGeneratedActions(generatedActions)", generatedSource, StringComparison.Ordinal);
 		Assert.Contains(
 			"ComponentEndpointConventionBuilderHelper.GetEndpointRouteBuilder(builder)",
@@ -405,8 +404,26 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	/// <summary>
-	/// A component's leading <c>@namespace</c> directive is honoured even when the rest of the
-	/// file would break a broader parse.
+	/// The generated manifest's identifier no longer says "project root".
+	/// </summary>
+	[Fact]
+	public void Generated_manifest_identifier_does_not_say_project_root()
+	{
+		var run = RunGenerator("AlphaComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.DoesNotContain("ProjectRoot", generatedSource, StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// A component's <c>@namespace</c> directive is honoured even when the rest of the file would
+	/// break a broader parse.
 	/// </summary>
 	[Fact]
 	public void Namespace_directive_is_honoured_even_when_the_rest_of_the_file_is_unparseable()
@@ -554,8 +571,9 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	/// <summary>
-	/// A folder segment that is not a valid C# identifier (a hyphen, or a leading digit) gets the
-	/// same sanitized identifier form in the default namespace that the real Razor SDK gives it.
+	/// A hyphenated folder segment, which is not a valid C# identifier, gets the same
+	/// underscore-joined identifier form in the default namespace that the real Razor SDK gives
+	/// it.
 	/// </summary>
 	[Fact]
 	public void Sanitized_folder_segment_gets_its_Razor_identifier_form_in_the_manifest()
@@ -569,6 +587,30 @@ public sealed class HtmxorRouteGeneratorTests
 
 		Assert.Contains(
 			"\"Htmxor.Consumer.Components.My_Feature.HyphenComponent\"",
+			generatedSource,
+			StringComparison.Ordinal);
+		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
+			diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+	}
+
+	/// <summary>
+	/// A folder segment starting with a digit, which is not a valid C# identifier, gets an
+	/// underscore prefix in the default namespace -- but the real Razor SDK does not sanitize the
+	/// folder name itself anywhere else, so the generator's path-matching must key off the raw
+	/// folder name while the manifest entry uses the sanitized namespace segment.
+	/// </summary>
+	[Fact]
+	public void Folder_segment_starting_with_a_digit_gets_an_underscore_prefix_in_the_manifest()
+	{
+		var run = RunGenerator("Components/1st/DigitComponent.razor");
+
+		Assert.Empty(run.DriverDiagnostics);
+		var result = Assert.Single(run.RunResult.Results);
+		Assert.Empty(result.Diagnostics);
+		var generatedSource = Assert.Single(result.GeneratedSources).SourceText.ToString();
+
+		Assert.Contains(
+			"\"Htmxor.Consumer.Components._1st.DigitComponent\"",
 			generatedSource,
 			StringComparison.Ordinal);
 		Assert.Empty(run.OutputCompilation.GetDiagnostics().Where(
@@ -840,9 +882,9 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	/// <summary>
-	/// The manifest generator reads the leading <c>@namespace</c> directive from a component's
-	/// own file and from its ancestor <c>_Imports.razor</c> files; this runner supplies each
-	/// file's exact content so a row can exercise that directly.
+	/// The manifest generator reads the <c>@namespace</c> directive from a component's own file
+	/// and from its ancestor <c>_Imports.razor</c> files; this runner supplies each file's exact
+	/// content so a row can exercise that directly.
 	/// </summary>
 	private static GeneratorRun RunGeneratorWithRazorContent(
 		params (string RelativePath, string Content)[] files)

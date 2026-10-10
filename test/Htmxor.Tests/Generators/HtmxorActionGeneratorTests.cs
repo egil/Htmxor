@@ -181,12 +181,10 @@ public sealed class HtmxorActionGeneratorTests
 			}
 		}
 
-		// Issue #285 owner decision: a narrow @namespace scan, confirmed by the analyzer. These
-		// backing partials sit at the exact namespace the real SDK 10.0.400 composition rules
-		// give each placement (see HtmxorRouteGeneratorTests for the empirical confirmation):
-		// an in-file override used verbatim, an ancestor _Imports.razor override composed with
-		// the relative folder to the component, the nearest ancestor override winning over a
-		// farther one, and an in-file override winning over an ancestor one.
+		// These backing partials sit at the exact namespace each placement's real composition
+		// rule gives it: an in-file override used verbatim, an ancestor _Imports.razor override
+		// composed with the relative folder to the component, the nearest ancestor override
+		// winning over a farther one, and an in-file override winning over an ancestor one.
 		namespace Totally.Different
 		{
 			public partial class OverrideActionComponent
