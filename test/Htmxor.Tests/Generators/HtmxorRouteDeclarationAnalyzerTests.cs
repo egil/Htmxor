@@ -1053,6 +1053,37 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
+	/// A folder segment starting with a digit, which is not a valid C# identifier, diverges from
+	/// the hyphen case above: the real Razor SDK sanitizes only the compiled namespace
+	/// (<c>_1st</c>) and keeps the raw folder name (<c>1st</c>) in its own mirrored generated
+	/// path. The analyzer must confirm the sanitized namespace against that raw-path declaration
+	/// rather than expect both to sanitize together.
+	/// </summary>
+	[Fact]
+	public async Task Leading_digit_folder_segment_component_reports_no_diagnostics()
+	{
+		var componentPath = ComponentPath(Path.Combine("Components", "1st", "DigitComponent.razor"));
+		var generatedPath = RazorGeneratedPath(Path.Combine("Components", "1st", "DigitComponent"));
+		var source = $$"""
+			namespace {{RootNamespace}}.Components._1st
+			{
+			#line 1 "{{EscapePath(componentPath)}}"
+			[global::Htmxor.HtmxRouteAttribute("/digit/{Id:int}", Methods = ["GET"])]
+			[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute("digit.read")]
+			#line default
+			public sealed class DigitComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			}
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { (componentPath, PlainRazorContent) },
+			new[] { generatedPath });
+
+		Assert.Empty(diagnostics);
+	}
+
+	/// <summary>
 	/// Issue #285 acceptance criterion: "the two 'project-root' messages are gone." Both
 	/// HTMXOR001 and HTMXOR002 still fail closed on a mismatch (proven above and in
 	/// <see cref="Same_named_Razor_binding_cannot_attach_to_all_CSharp_component"/>); neither may

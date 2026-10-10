@@ -7,8 +7,8 @@ namespace Htmxor.Samples.Tests;
 
 /// <summary>
 /// Protects <c>samples/HtmxorExamples/Components/Pages/Examples/OutOfBandOutlets/Index.razor</c>:
-/// a PUT to its stock <c>@page</c>'s <c>@onput="IncrementCount"</c> binding answers 200 and
-/// increments the bound <c>CurrentCount</c>, instead of answering 405.
+/// a PUT to its stock <c>@page</c>'s <c>@onput="IncrementCount"</c> binding answers 200 and runs
+/// <c>IncrementCount</c>, instead of answering 405.
 /// </summary>
 public sealed class OutOfBandOutletsPageTests : IAsyncLifetime
 {
@@ -26,9 +26,11 @@ public sealed class OutOfBandOutletsPageTests : IAsyncLifetime
 
 		var result = await host.Scenario(scenario =>
 		{
+			// The first render's button posts the type default, so this row asserts that
+			// IncrementCount ran without depending on whether a PUT body binds CurrentCount.
 			scenario.Put.FormData(new()
 				{
-					{ "CurrentCount", "1" },
+					{ "CurrentCount", "0" },
 				})
 				.ToUrl("/examples/out-of-band-outlets");
 			scenario.WithRequestHeader("HX-Request", "true");

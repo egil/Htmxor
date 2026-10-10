@@ -404,7 +404,8 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	/// <summary>
-	/// The generated manifest's identifier no longer says "project root".
+	/// The generated manifest is not named after the project root, because it covers components
+	/// anywhere in the project.
 	/// </summary>
 	[Fact]
 	public void Generated_manifest_identifier_does_not_say_project_root()
@@ -594,10 +595,9 @@ public sealed class HtmxorRouteGeneratorTests
 	}
 
 	/// <summary>
-	/// A folder segment starting with a digit, which is not a valid C# identifier, gets an
-	/// underscore prefix in the default namespace -- but the real Razor SDK does not sanitize the
-	/// folder name itself anywhere else, so the generator's path-matching must key off the raw
-	/// folder name while the manifest entry uses the sanitized namespace segment.
+	/// A folder segment starting with a digit, which is not a valid C# identifier, gets the
+	/// underscore-prefixed identifier form in the default namespace that the real Razor SDK
+	/// gives it.
 	/// </summary>
 	[Fact]
 	public void Folder_segment_starting_with_a_digit_gets_an_underscore_prefix_in_the_manifest()
