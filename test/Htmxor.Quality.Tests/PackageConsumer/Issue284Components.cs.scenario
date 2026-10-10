@@ -115,7 +115,7 @@ public sealed class Issue284RolesStockPage : ComponentBase
 
 // Shape: [Authorize(AuthenticationSchemes = ...)].
 [HtmxRoute("/issue-284/schemes/htmx/{Id:int}", Methods = ["GET"])]
-[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.NeverSchemeName)]
+[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.AltSchemeName)]
 public sealed class Issue284SchemesHtmxPage : ComponentBase
 {
 	[Parameter]
@@ -125,7 +125,7 @@ public sealed class Issue284SchemesHtmxPage : ComponentBase
 }
 
 [Route("/issue-284/schemes/stock/{Id:int}")]
-[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.NeverSchemeName)]
+[Authorize(AuthenticationSchemes = Issue284AuthenticationHandler.AltSchemeName)]
 public sealed class Issue284SchemesStockPage : ComponentBase
 {
 	[Parameter]

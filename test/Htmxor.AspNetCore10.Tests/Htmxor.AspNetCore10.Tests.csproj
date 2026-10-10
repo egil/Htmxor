@@ -18,8 +18,8 @@
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
 		<Compile Remove="Issue*.cs" />
-		<Compile Include="Issue175*.cs;Issue190NavigationFixtures.cs;Issue210*.cs;Issue212*.cs;Issue213*.cs;Issue214*.cs;Issue216*.cs;Issue219*.cs;Issue246*.cs;Issue260*.cs;Issue261*.cs;Issue263*.cs;Issue264*.cs;Issue266*.cs;Issue269*.cs;Issue270*.cs;Issue272*.cs;Issue275*.cs;Issue83AuthorizationTests.cs" />
-		<RazorComponent Include="Issue175*.razor;Issue190ExternalNavigationPage.razor;Issue190NavigationPage.razor;Issue210*.razor;Issue212*.razor;Issue213*.razor;Issue214*.razor;Issue216*.razor;Issue260*.razor;Issue261*.razor;Issue269*.razor;Issue270*.razor;Issue272*.razor;Issue275*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
+		<Compile Include="Issue175*.cs;Issue190NavigationFixtures.cs;Issue210*.cs;Issue212*.cs;Issue213*.cs;Issue214*.cs;Issue216*.cs;Issue219*.cs;Issue246*.cs;Issue260*.cs;Issue261*.cs;Issue263*.cs;Issue264*.cs;Issue266*.cs;Issue269*.cs;Issue270*.cs;Issue272*.cs;Issue275*.cs;Issue284*.cs;Issue83AuthorizationTests.cs" />
+		<RazorComponent Include="Issue175*.razor;Issue190ExternalNavigationPage.razor;Issue190NavigationPage.razor;Issue210*.razor;Issue212*.razor;Issue213*.razor;Issue214*.razor;Issue216*.razor;Issue260*.razor;Issue261*.razor;Issue269*.razor;Issue270*.razor;Issue272*.razor;Issue275*.razor;Issue284*.razor;Issue78App.razor;Issue83ProtectedPage.razor;_Imports.razor" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
 		<RazorComponent Include="**/*.razor" Exclude="Issue212*.razor;Issue213TempData*.razor;Issue216*.razor;$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />

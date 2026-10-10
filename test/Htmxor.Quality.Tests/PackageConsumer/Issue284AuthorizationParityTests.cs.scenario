@@ -38,6 +38,7 @@ public sealed class Issue284AuthorizationParityTests : IClassFixture<Issue284Par
 		Issue284AuthenticationHandler.RoleOnlyUser,
 		Issue284AuthenticationHandler.PolicyOnlyUser,
 		Issue284AuthenticationHandler.FullUser,
+		Issue284AuthenticationHandler.AltSchemeUser,
 	];
 
 	private static readonly Dictionary<string, (string Htmx, string Stock)> Paths = new()
@@ -97,10 +98,13 @@ public sealed class Issue284AuthorizationParityTests : IClassFixture<Issue284Par
 	/// <summary>
 	/// "none" is the only shape whose outcome depends on <c>FallbackPolicy</c>: every other shape
 	/// carries explicit authorization (or <c>AllowAnonymous</c>) metadata, which ASP.NET Core
-	/// always evaluates ahead of the fallback. "schemes" names a scheme that never authenticates
-	/// anyone, so it is always 401; that is what separates it from "bare", which accepts any
-	/// authenticated identity regardless of scheme. "two" requires both the role and the policy
-	/// claim, so a role-only or policy-only identity separates it from "roles" and "policy".
+	/// always evaluates ahead of the fallback. "schemes" names a second, non-default scheme, so
+	/// only <see cref="Issue284AuthenticationHandler.AltSchemeUser"/> -- who authenticates through
+	/// that scheme's own header instead of the default scheme's -- reaches it; every identity that
+	/// authenticates only through the default scheme gets 401 on "schemes" while still getting 200
+	/// on "bare", which accepts any default-scheme identity regardless of claims or roles. "two"
+	/// requires both the role and the policy claim, so a role-only or policy-only identity
+	/// separates it from "roles" and "policy".
 	/// </summary>
 	private static HttpStatusCode ExpectedStatus(string shape, bool useFallbackPolicy, string? user)
 	{
@@ -109,9 +113,13 @@ public sealed class Issue284AuthorizationParityTests : IClassFixture<Issue284Par
 			case "anonymous":
 				return HttpStatusCode.OK;
 			case "schemes":
-				return HttpStatusCode.Unauthorized;
+				return Issue284AuthenticationHandler.AuthenticatesViaAltScheme(user)
+					? HttpStatusCode.OK
+					: HttpStatusCode.Unauthorized;
 			case "bare":
-				return user is null ? HttpStatusCode.Unauthorized : HttpStatusCode.OK;
+				return Issue284AuthenticationHandler.AuthenticatesViaDefaultScheme(user)
+					? HttpStatusCode.OK
+					: HttpStatusCode.Unauthorized;
 			case "roles":
 				return RequireRole(user);
 			case "two":
@@ -125,19 +133,19 @@ public sealed class Issue284AuthorizationParityTests : IClassFixture<Issue284Par
 	}
 
 	private static HttpStatusCode RequireClaim(string? user)
-		=> user is null
+		=> !Issue284AuthenticationHandler.AuthenticatesViaDefaultScheme(user)
 			? HttpStatusCode.Unauthorized
-			: Issue284AuthenticationHandler.HasClaim(user) ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
+			: Issue284AuthenticationHandler.HasClaim(user!) ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
 
 	private static HttpStatusCode RequireRole(string? user)
-		=> user is null
+		=> !Issue284AuthenticationHandler.AuthenticatesViaDefaultScheme(user)
 			? HttpStatusCode.Unauthorized
-			: Issue284AuthenticationHandler.HasRole(user) ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
+			: Issue284AuthenticationHandler.HasRole(user!) ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
 
 	private static HttpStatusCode RequireRoleAndClaim(string? user)
-		=> user is null
+		=> !Issue284AuthenticationHandler.AuthenticatesViaDefaultScheme(user)
 			? HttpStatusCode.Unauthorized
-			: Issue284AuthenticationHandler.HasRole(user) && Issue284AuthenticationHandler.HasClaim(user)
+			: Issue284AuthenticationHandler.HasRole(user!) && Issue284AuthenticationHandler.HasClaim(user!)
 				? HttpStatusCode.OK
 				: HttpStatusCode.Forbidden;
 
@@ -154,7 +162,11 @@ public sealed class Issue284AuthorizationParityTests : IClassFixture<Issue284Par
 			request.Headers.Add("HX-Request-Type", "partial");
 		}
 
-		if (user is not null)
+		if (string.Equals(user, Issue284AuthenticationHandler.AltSchemeUser, StringComparison.Ordinal))
+		{
+			request.Headers.Add(Issue284AuthenticationHandler.AltUserHeaderName, user);
+		}
+		else if (user is not null)
 		{
 			request.Headers.Add(Issue284AuthenticationHandler.UserHeaderName, user);
 		}
@@ -213,8 +225,8 @@ public sealed class Issue284TestHost : IAsyncDisposable
 			.AddScheme<AuthenticationSchemeOptions, Issue284AuthenticationHandler>(
 				Issue284AuthenticationHandler.SchemeName,
 				_ => { })
-			.AddScheme<AuthenticationSchemeOptions, Issue284NeverAuthenticationHandler>(
-				Issue284AuthenticationHandler.NeverSchemeName,
+			.AddScheme<AuthenticationSchemeOptions, Issue284AltAuthenticationHandler>(
+				Issue284AuthenticationHandler.AltSchemeName,
 				_ => { });
 		builder.Services.AddAuthorization(options =>
 		{
@@ -256,17 +268,20 @@ internal sealed class Issue284AuthenticationHandler(
 	public const string SchemeName = "issue-284-test";
 
 	/// <summary>
-	/// A second, non-default scheme that never authenticates anyone, so a request that presents
-	/// only the default scheme's credentials is rejected on an endpoint that names this scheme
-	/// specifically -- separating scheme-restricted authorization from bare authentication.
+	/// A second, non-default scheme, handled by <see cref="Issue284AltAuthenticationHandler"/>
+	/// through its own header. A request that presents only the default scheme's credentials is
+	/// rejected on an endpoint that names this scheme specifically -- separating scheme-restricted
+	/// authorization from bare authentication.
 	/// </summary>
-	public const string NeverSchemeName = "issue-284-never-test";
+	public const string AltSchemeName = "issue-284-alt-test";
 
 	public const string UserHeaderName = "X-Issue-284-User";
+	public const string AltUserHeaderName = "X-Issue-284-Alt-User";
 	public const string LimitedUser = "limited-user";
 	public const string RoleOnlyUser = "role-only-user";
 	public const string PolicyOnlyUser = "policy-only-user";
 	public const string FullUser = "full-user";
+	public const string AltSchemeUser = "alt-scheme-user";
 
 	public static bool HasRole(string user)
 		=> string.Equals(user, RoleOnlyUser, StringComparison.Ordinal) ||
@@ -275,6 +290,17 @@ internal sealed class Issue284AuthenticationHandler(
 	public static bool HasClaim(string user)
 		=> string.Equals(user, PolicyOnlyUser, StringComparison.Ordinal) ||
 			string.Equals(user, FullUser, StringComparison.Ordinal);
+
+	/// <summary>
+	/// True for every identity that presents the default scheme's own header, including
+	/// <c>null</c> (anonymous) excluded -- not for <see cref="AltSchemeUser"/>, who only presents
+	/// the alternate scheme's header and so is never authenticated by this scheme.
+	/// </summary>
+	public static bool AuthenticatesViaDefaultScheme(string? user)
+		=> user is not null && !string.Equals(user, AltSchemeUser, StringComparison.Ordinal);
+
+	public static bool AuthenticatesViaAltScheme(string? user)
+		=> string.Equals(user, AltSchemeUser, StringComparison.Ordinal);
 
 	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
 	{
@@ -313,15 +339,31 @@ internal sealed class Issue284AuthenticationHandler(
 }
 
 /// <summary>
-/// Registered as <see cref="Issue284AuthenticationHandler.NeverSchemeName"/>: it never produces an
-/// authenticated identity, regardless of the request.
+/// Registered as <see cref="Issue284AuthenticationHandler.AltSchemeName"/>: it authenticates only
+/// a request carrying <see cref="Issue284AuthenticationHandler.AltUserHeaderName"/>, independent
+/// of the default scheme's own header.
 /// </summary>
-internal sealed class Issue284NeverAuthenticationHandler(
+internal sealed class Issue284AltAuthenticationHandler(
 	IOptionsMonitor<AuthenticationSchemeOptions> options,
 	ILoggerFactory logger,
 	UrlEncoder encoder)
 	: AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
 	protected override Task<AuthenticateResult> HandleAuthenticateAsync()
-		=> Task.FromResult(AuthenticateResult.NoResult());
+	{
+		if (!Request.Headers.TryGetValue(Issue284AuthenticationHandler.AltUserHeaderName, out var userHeader))
+		{
+			return Task.FromResult(AuthenticateResult.NoResult());
+		}
+
+		var user = userHeader.ToString();
+		var claims = new[]
+		{
+			new Claim(ClaimTypes.NameIdentifier, user),
+			new Claim(ClaimTypes.Name, user),
+		};
+		var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Issue284AuthenticationHandler.AltSchemeName));
+		var ticket = new AuthenticationTicket(principal, Issue284AuthenticationHandler.AltSchemeName);
+		return Task.FromResult(AuthenticateResult.Success(ticket));
+	}
 }
