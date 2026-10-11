@@ -101,6 +101,22 @@ public sealed class PackedCompiledBindingConsumerTests
 	}
 
 	[Fact]
+	public async Task Compiled_nested_helper_template_binding_cannot_be_silently_omitted()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseIssue310NestedTemplateBindingScenario();
+		var result = await workspace.BuildForDiagnosticAsync();
+		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-nested-template");
+		Directory.CreateDirectory(evidence);
+		File.WriteAllText(Path.Combine(evidence, "build.log"), result.StandardOutput + Environment.NewLine + result.StandardError);
+		foreach (var path in Directory.EnumerateFiles(Path.Combine(workspace.ConsumerDirectory, "obj", "generated"), "*Issue310Page_razor.g.cs", SearchOption.AllDirectories))
+		{
+			File.Copy(path, Path.Combine(evidence, Path.GetFileName(path)), overwrite: true);
+		}
+		AssertRejectedBinding(workspace, result, "put", 12);
+	}
+
+	[Fact]
 	public async Task Handwritten_member_template_callback_stays_outside_the_compiled_Razor_gate()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
@@ -207,6 +223,23 @@ internal sealed partial class PackageConsumerWorkspace
 		var source = File.ReadAllText(Issue310ComponentPath)
 			.Replace("<_element @onput=\"Save\">Save</_element>", "@Template", StringComparison.Ordinal)
 			.Replace("private void Save() { }", "private void Save() { }\n    private Microsoft.AspNetCore.Components.RenderFragment Template => @<_element @onput=\"Save\">Save</_element>;", StringComparison.Ordinal);
+		File.WriteAllText(Issue310ComponentPath, source);
+	}
+
+	public void UseIssue310NestedTemplateBindingScenario()
+	{
+		UseIssue310MissingActionScenario("put");
+		var source = File.ReadAllText(Issue310ComponentPath)
+			.Replace("<_element @onput=\"Save\">Save</_element>", "@Template", StringComparison.Ordinal)
+			.Replace("private void Save() { }", """
+				private Helper helper = new();
+				    private Microsoft.AspNetCore.Components.RenderFragment Template => helper.Template;
+				    private sealed class Helper
+				    {
+				        private void Save() { }
+				        public Microsoft.AspNetCore.Components.RenderFragment Template => @<_element @onput="Save">Save</_element>;
+				    }
+				""", StringComparison.Ordinal);
 		File.WriteAllText(Issue310ComponentPath, source);
 	}
 
