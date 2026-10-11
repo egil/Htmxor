@@ -79,7 +79,7 @@ internal sealed class RazorCompiledEventBinding
 		return new RazorCompiledEventBinding(
 			component,
 			attributeName!,
-			ReadHandler(model, handler, cancellationToken),
+			ReadHandler(model, component, handler, cancellationToken),
 			handler.GetLocation());
 	}
 
@@ -112,10 +112,18 @@ internal sealed class RazorCompiledEventBinding
 
 	private static IMethodSymbol? ReadHandler(
 		SemanticModel model,
+		INamedTypeSymbol component,
 		ExpressionSyntax expression,
 		CancellationToken cancellationToken)
 	{
 		var handler = Unwrap(expression);
+		if (!SymbolEqualityComparer.Default.Equals(
+			model.GetEnclosingSymbol(handler.SpanStart, cancellationToken)?.ContainingType,
+			component))
+		{
+			return null;
+		}
+
 		return handler is IdentifierNameSyntax or
 			MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax }
 			? model.GetSymbolInfo(handler, cancellationToken).Symbol as IMethodSymbol
