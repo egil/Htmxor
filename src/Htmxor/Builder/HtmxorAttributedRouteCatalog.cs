@@ -1,8 +1,10 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Htmxor;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.Patterns;
 
 namespace Htmxor.Builder;
@@ -189,7 +191,9 @@ internal static class HtmxorAttributedRouteCatalog
 
 		if (!HtmxorRouteTemplateContract.HasLeadingSlash(template))
 		{
-			throw Unsupported(componentType, RejectedTemplate(template, HtmxorRouteTemplateContract.MissingLeadingSlashReason));
+			throw Unsupported(
+				componentType,
+				$"HtmxRoute template '{template}' is invalid: {HtmxorRouteTemplateContract.MissingLeadingSlashReason.TrimEnd('.')}");
 		}
 
 		try
@@ -233,11 +237,15 @@ internal static class HtmxorAttributedRouteCatalog
 	{
 		try
 		{
-			parameterPolicyFactory.Create(parameter, policy);
+			// Stock compiles a regex constraint's pattern on first match; reading Constraint compiles it now.
+			if (parameterPolicyFactory.Create(parameter, policy) is RegexRouteConstraint regex)
+			{
+				_ = regex.Constraint;
+			}
 		}
-		// An unknown constraint throws InvalidOperationException; a constraint that cannot be constructed throws
-		// RouteCreationException.
-		catch (Exception exception) when (exception is InvalidOperationException or RouteCreationException)
+		// An unknown constraint throws InvalidOperationException, a constraint that cannot be constructed throws
+		// RouteCreationException, and an invalid regex pattern throws RegexParseException.
+		catch (Exception exception) when (exception is InvalidOperationException or RouteCreationException or RegexParseException)
 		{
 			throw Unsupported(
 				descriptor.ComponentType,

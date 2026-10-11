@@ -134,7 +134,7 @@ internal sealed class HtmxorRoutedComponent
 			return "HtmxRoute must resolve one nonblank constant route template";
 		}
 
-		// Stock ASP0017 reports template grammar errors; only the leading '/' is outside its reach.
+		// Stock ASP0017 reports template grammar errors and startup resolves constraints; neither checks the leading '/'.
 		return HtmxorRouteTemplateContract.HasLeadingSlash(template)
 			? null
 			: "HtmxRoute template '" + template + "' is invalid: " + HtmxorRouteTemplateContract.MissingLeadingSlashReason;
