@@ -308,8 +308,9 @@ public sealed class Issue316ConventionParityTests : IAsyncLifetime
 			return;
 		}
 
-		var afterBuilder = app.MapRazorComponents<Issue78App>()
-			.AddHtmxorEndpoints()
+		var afterBuilder = app.MapRazorComponents<Issue78App>();
+		afterBuilder.AddHtmxorEndpoints();
+		afterBuilder
 			.RequireAuthorization()
 			.WithMetadata(new Issue316ConventionMarker())
 			.WithMetadata(new Issue316OrderingMetadata("convention"));
