@@ -6,6 +6,31 @@ namespace Htmxor.Quality.Tests;
 public sealed class PackedCompiledBindingConsumerTests
 {
 	[Fact]
+	public async Task Action_for_the_request_component_does_not_cover_an_inherited_helper_receiver()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseIssue310DerivedHelperReceiverScenario();
+		var result = await workspace.BuildForDiagnosticAsync();
+		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-receiver-context", workspace.PackageVersion);
+		Directory.CreateDirectory(evidence);
+		File.WriteAllText(Path.Combine(evidence, "build.log"), result.StandardOutput + Environment.NewLine + result.StandardError);
+		File.WriteAllText(Path.Combine(evidence, "consumer-outcome.txt"), $"exit={result.ExitCode} assembly={File.Exists(workspace.ConsumerAssemblyPath)}");
+		File.Copy(Path.Combine(workspace.ConsumerDirectory, "Components", "Pages", "Issue310Page.razor"), Path.Combine(evidence, "Issue310Page.razor"));
+		File.Copy(Path.Combine(workspace.ConsumerDirectory, "Htmxor.PackageConsumer.csproj"), Path.Combine(evidence, "Htmxor.PackageConsumer.csproj"));
+		if (File.Exists(workspace.ConsumerAssemblyPath))
+		{
+			File.Copy(workspace.ConsumerAssemblyPath, Path.Combine(evidence, "Htmxor.PackageConsumer.dll"));
+		}
+		foreach (var path in Directory.EnumerateFiles(Path.Combine(workspace.ConsumerDirectory, "obj", "generated"), "*.cs", SearchOption.AllDirectories))
+		{
+			File.Copy(path, Path.Combine(evidence, Path.GetFileName(path)), overwrite: true);
+		}
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
+		AssertRejectedBinding(workspace, result, "put", 10);
+	}
+
+	[Fact]
 	public async Task Action_for_another_component_instance_does_not_cover_a_compiled_binding()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
@@ -200,6 +225,21 @@ internal sealed partial class PackageConsumerWorkspace
 		var source = Path.Combine(consumerDirectory, "Issue310Page.razor");
 		File.WriteAllText(Issue310ComponentPath, File.ReadAllText(source).Replace("__METHOD__", method, StringComparison.Ordinal));
 		File.Delete(source);
+	}
+
+	public void UseIssue310DerivedHelperReceiverScenario()
+	{
+		UseIssue310MissingActionScenario("put");
+		var source = File.ReadAllText(Issue310ComponentPath)
+			.Replace("<_element @onput=\"Save\">Save</_element>", "@((new Helper()).Template)", StringComparison.Ordinal)
+			.Replace("private void Save() { }", """
+				protected void Save() { }
+				    private sealed class Helper : Issue310Page
+				    {
+				        public Microsoft.AspNetCore.Components.RenderFragment Template => @<_element @onput="Save">Save</_element>;
+				    }
+				""", StringComparison.Ordinal);
+		File.WriteAllText(Issue310ComponentPath, source + "\n<button @onput=\"Save\">Save</button>\n");
 	}
 
 	public void UseIssue310DifferentReceiverScenario()
