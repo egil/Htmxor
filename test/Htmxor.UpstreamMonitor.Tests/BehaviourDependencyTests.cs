@@ -67,7 +67,7 @@ public sealed class BehaviourDependencyTests
 		WriteManifest(repository, Relationship);
 		var manifest = WatchManifestFile.Read(repository.Path);
 		var framework = manifest.Frameworks.Single(framework => framework.MajorVersion == major);
-		var tag = major == 10 ? "v10.0.12" : "v11.0.0-rc.2.26430.1";
+		var tag = TargetTag(major);
 		var transport = new FakeGitHubTransport();
 		transport.AddJson($"/repos/dotnet/aspnetcore/git/ref/tags/{tag}",
 			JsonSerializer.Serialize(new { @object = new { type = "commit", sha = Fixture.TargetCommit } }));
@@ -101,6 +101,62 @@ public sealed class BehaviourDependencyTests
 		Assert.Equal(dependencies.Select(dependency => $"{dependency.Upstream}|File|None|DependsOnBehaviour|{dependency.Local}"),
 			manifest.Targets.Select(watch => $"{watch.Path}|{watch.Match}|{watch.ApiSurface}|{watch.Relationship}|{string.Join(',', watch.LocalDependencies)}"));
 	}
+
+	[Theory]
+	[InlineData(10, false)]
+	[InlineData(11, false)]
+	[InlineData(10, true)]
+	[InlineData(11, true)]
+	public async Task Behaviour_watches_without_matching_changes_remain_current(int major, bool unrelatedChange)
+	{
+		using var repository = new TemporaryRepository();
+		WriteManifest(repository, Relationship);
+		var manifest = WatchManifestFile.Read(repository.Path);
+		var framework = manifest.Frameworks.Single(framework => framework.MajorVersion == major);
+		var tag = unrelatedChange ? TargetTag(major) : framework.ReviewedTag;
+		var commit = unrelatedChange ? Fixture.TargetCommit : framework.ReviewedCommit;
+		var transport = new FakeGitHubTransport();
+		transport.AddJson($"/repos/dotnet/aspnetcore/git/ref/tags/{tag}",
+			JsonSerializer.Serialize(new { @object = new { type = "commit", sha = commit } }));
+		if (unrelatedChange)
+		{
+			transport.AddJson($"/repos/dotnet/aspnetcore/compare/{framework.ReviewedCommit}...{commit}",
+				JsonSerializer.Serialize(new { files = new[] { new { filename = "src/Unrelated.cs", status = "modified" } } }));
+		}
+		foreach (var dependency in dependencies)
+		{
+			transport.AddJson($"/repos/dotnet/aspnetcore/contents/{dependency.Upstream}?ref={framework.ReviewedCommit}",
+				Fixture.GitHubContentText("public class Dependency { }"));
+		}
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(manifest, framework, tag, framework.ReviewedCommit));
+
+		Assert.Equal(MonitorStatus.Current, result.Status);
+		Assert.Empty(result.Issues);
+		Assert.Empty(result.SourceChanges);
+		Assert.Empty(result.ApiChanges);
+		ReportAssertions.Equal(result, new ReportExpectation("current", new(framework.ReviewedTag, framework.ReviewedCommit),
+			new(tag, commit), [], [], null));
+	}
+
+	[Theory]
+	[InlineData("string")]
+	[InlineData("block comment")]
+	public void Behaviour_marker_outside_a_line_comment_is_inert(string location)
+	{
+		using var repository = new TemporaryRepository();
+		var marker = $"// Htmxor upstream dependency: {dependencies[0].Upstream} | {Relationship}";
+		var source = location == "string"
+			? $"class Dependency {{ string marker = {JsonSerializer.Serialize(marker)}; }}"
+			: $"/*\n{marker}\n*/\nclass Dependency {{ }}";
+		repository.Write(Builder, source);
+
+		var discovered = LocalFrameworkDependencyDiscovery.Discover(repository.Path);
+
+		Assert.Empty(discovered);
+	}
+
+	private static string TargetTag(int major) => major == 10 ? "v10.0.12" : "v11.0.0-rc.2.26430.1";
 
 	private static FrameworkBaseline Framework(int major) => major == 10 ? Fixture.Net10Framework() : Fixture.Net11Framework();
 
