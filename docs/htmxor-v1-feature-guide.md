@@ -158,6 +158,19 @@ A component without `@page` declares its route on that component, here in
 }
 ```
 
+The template accepts every template a stock `@page` accepts, and route values
+bind exactly as they would on that `@page`: static paths such as
+`/products/search`, unconstrained parameters such as `{Slug}`, every built-in
+route constraint, several constraints on one parameter, optional parameters,
+default values, complex segments, and `{*rest}` or `{**rest}` catch-alls. The
+template is a route-syntax string, so ASP.NET Core's route analyzer reports
+malformed grammar at build as warning ASP0017, with stock's wording. A template
+without a leading `/` fails the build with HTMXOR001 and the reason Razor gives
+for `@page` (RZ9988). Any template stock routing rejects, including an unknown
+constraint or invalid constraint arguments, fails at application startup with
+stock's reason. Custom route constraints are not supported. A component
+declares one `HtmxRoute`; a second one is compiler error CS0579.
+
 `HtmxRoute` may be placed in the `.razor` file, on the matching `.razor.cs`
 partial, or on a component authored entirely in C#. It is component-specific;
 do not place it in `_Imports.razor`. A headerless normal browser request does
@@ -879,9 +892,24 @@ Use a safe GET for an idempotent search:
 <section id="search-results"></section>
 ```
 
-Declare `/products/search` as an `@page` or HTMX-only GET component. Bind and
-validate the query as ordinary untrusted input. `hx-sync` suppresses stale
-client delivery; the server must still tolerate cancellation and overlap.
+The results are only a fragment, so declare `/products/search` as an HTMX-only
+GET component rather than a page:
+
+```razor
+@attribute [HtmxRoute("/products/search")]
+
+@foreach (var product in results)
+{
+    <article>@product.Name</article>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+}
+```
+
+Bind and validate the query as ordinary untrusted input. `hx-sync` suppresses
+stale client delivery; the server must still tolerate cancellation and overlap.
 
 Use `hx-query` only when the component declares `@onquery` and the deployed
 HTTP path accepts QUERY. The proved slice covers one form-encoded value on
