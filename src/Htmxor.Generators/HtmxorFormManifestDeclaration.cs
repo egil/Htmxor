@@ -32,32 +32,27 @@ internal sealed class HtmxorFormManifestDeclaration
 		var name = typeNames?.GetTypeName(file, cancellationToken);
 		var importNames = ReadImports(file, files, cancellationToken).ToArray();
 		var forms = RazorFormDeclaration.Read(file, cancellationToken)
-			.Where(form => form.IsNamed && (!form.IsEditForm || IsStockEditFormName(form.TagName, importNames))).ToArray();
+			.Where(form => form.IsNamed && (!form.IsEditForm || IsStockEditFormName(form.TagName, name, importNames))).ToArray();
 		if (name is null || forms.Length == 0)
 		{
 			return null;
 		}
 
 		var condition = forms.Any(static form => !form.IsEditForm) ? "true" : string.Join(" || ", forms
-			.Select(static form => "typeof(" + form.TagName + ") == typeof(global::Microsoft.AspNetCore.Components.Forms.EditForm)")
+			.Select(static form => "typeof(" + (form.TagName == "EditForm" ? "EditForm" : "global::" + form.TagName) +
+				") == typeof(global::Microsoft.AspNetCore.Components.Forms.EditForm)")
 			.Distinct(StringComparer.Ordinal));
 		var imports = string.Concat(importNames
-			.Prepend("Microsoft.AspNetCore.Components.Forms").Distinct(StringComparer.Ordinal)
+			.Distinct(StringComparer.Ordinal)
 			.Select(static import => "using " + import.TrimEnd(';') + ";\n"));
 		return new HtmxorFormManifestDeclaration(name, condition, imports);
 	}
 
-	private static bool IsStockEditFormName(string tagName, string[] imports)
-		=> tagName is "EditForm" or "Microsoft.AspNetCore.Components.Forms.EditForm" or "global::Microsoft.AspNetCore.Components.Forms.EditForm" ||
-			imports.Any(import => IsStockAlias(tagName, import));
-
-	private static bool IsStockAlias(string tagName, string import)
-	{
-		var equals = import.IndexOf('=');
-		return equals > 0 && import.Substring(0, equals).Trim() == tagName &&
-			import.Substring(equals + 1).Trim().TrimEnd(';') is
-				"Microsoft.AspNetCore.Components.Forms.EditForm" or "global::Microsoft.AspNetCore.Components.Forms.EditForm";
-	}
+	private static bool IsStockEditFormName(string tagName, string? ownerName, string[] imports)
+		=> tagName == "Microsoft.AspNetCore.Components.Forms.EditForm" ||
+			(tagName == "EditForm" && (imports.Any(static import => import is
+				"Microsoft.AspNetCore.Components.Forms" or "global::Microsoft.AspNetCore.Components.Forms") ||
+				ownerName?.Substring(0, ownerName.LastIndexOf('.') + 1) == "Microsoft.AspNetCore.Components.Forms."));
 
 	private static IEnumerable<string> ReadImports(AdditionalText file, ImmutableArray<AdditionalText> files, CancellationToken cancellationToken)
 		=> files.Where(candidate => candidate.Path == file.Path ||
@@ -69,7 +64,8 @@ internal sealed class HtmxorFormManifestDeclaration
 	private static string? NormalizeImport(string import)
 	{
 		var directive = SyntaxFactory.ParseCompilationUnit("using " + import + "\n;").Usings.FirstOrDefault();
-		if (directive is null || directive.ContainsDiagnostics)
+		if (directive is null || directive.ContainsDiagnostics || directive.Alias is not null ||
+			directive.StaticKeyword.IsKind(SyntaxKind.StaticKeyword))
 		{
 			return null;
 		}
