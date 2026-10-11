@@ -1,0 +1,9 @@
+@page "/issue-286/string-stock/{Value}"
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-string>@Value</p>
+
+@code {
+    [Parameter]
+    public string? Value { get; set; }
+}

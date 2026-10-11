@@ -1,0 +1,12 @@
+@page "/issue-286/complex-stock/{Id}-{B}"
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-complex>id=@Id|b=@B</p>
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? B { get; set; }
+}

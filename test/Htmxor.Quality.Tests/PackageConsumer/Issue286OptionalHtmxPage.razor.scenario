@@ -1,0 +1,9 @@
+@attribute [Htmxor.HtmxRoute("/issue-286/optional/{Page:int?}", Methods = new[] { "GET" })]
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-optional>page=@(Page?.ToString() ?? "none")</p>
+
+@code {
+    [Parameter]
+    public int? Page { get; set; }
+}

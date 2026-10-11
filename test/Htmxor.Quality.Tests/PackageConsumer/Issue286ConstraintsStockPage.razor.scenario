@@ -1,0 +1,69 @@
+@page "/issue-286/constraints/stock/{IntVal:int}/{BoolVal:bool}/{DateVal:datetime}/{DecVal:decimal}/{DoubleVal:double}/{FloatVal:float}/{GuidVal:guid}/{LongVal:long}/{MinLenVal:minlength(3)}/{MaxLenVal:maxlength(5)}/{LenVal:length(3)}/{LenRangeVal:length(2,5)}/{MinVal:min(1)}/{MaxVal:max(100)}/{RangeVal:range(1,10)}/{AlphaVal:alpha}/{RegexVal:regex(^[a-z]+$)}/{ReqVal:required}/{NonFileVal:nonfile}/{FileVal:file}/{MultiVal:int:min(1)}"
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-constraints>@IntVal|@BoolVal|@DateVal.ToString("yyyy-MM-dd")|@DecVal|@DoubleVal|@FloatVal|@GuidVal|@LongVal|@MinLenVal|@MaxLenVal|@LenVal|@LenRangeVal|@MinVal|@MaxVal|@RangeVal|@AlphaVal|@RegexVal|@ReqVal|@NonFileVal|@FileVal|@MultiVal</p>
+
+@code {
+    [Parameter]
+    public int IntVal { get; set; }
+
+    [Parameter]
+    public bool BoolVal { get; set; }
+
+    [Parameter]
+    public DateTime DateVal { get; set; }
+
+    [Parameter]
+    public decimal DecVal { get; set; }
+
+    [Parameter]
+    public double DoubleVal { get; set; }
+
+    [Parameter]
+    public float FloatVal { get; set; }
+
+    [Parameter]
+    public Guid GuidVal { get; set; }
+
+    [Parameter]
+    public long LongVal { get; set; }
+
+    [Parameter]
+    public string? MinLenVal { get; set; }
+
+    [Parameter]
+    public string? MaxLenVal { get; set; }
+
+    [Parameter]
+    public string? LenVal { get; set; }
+
+    [Parameter]
+    public string? LenRangeVal { get; set; }
+
+    [Parameter]
+    public string? MinVal { get; set; }
+
+    [Parameter]
+    public string? MaxVal { get; set; }
+
+    [Parameter]
+    public string? RangeVal { get; set; }
+
+    [Parameter]
+    public string? AlphaVal { get; set; }
+
+    [Parameter]
+    public string? RegexVal { get; set; }
+
+    [Parameter]
+    public string? ReqVal { get; set; }
+
+    [Parameter]
+    public string? NonFileVal { get; set; }
+
+    [Parameter]
+    public string? FileVal { get; set; }
+
+    [Parameter]
+    public int MultiVal { get; set; }
+}

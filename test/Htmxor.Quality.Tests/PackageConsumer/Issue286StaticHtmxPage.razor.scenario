@@ -1,0 +1,4 @@
+@attribute [Htmxor.HtmxRoute("/issue-286/static", Methods = new[] { "GET" })]
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-static>static-ok</p>

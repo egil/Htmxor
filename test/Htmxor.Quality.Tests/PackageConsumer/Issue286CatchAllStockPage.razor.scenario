@@ -1,0 +1,9 @@
+@page "/issue-286/catchall-stock/{*Rest}"
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-catchall>rest=@Rest</p>
+
+@code {
+    [Parameter]
+    public string? Rest { get; set; }
+}

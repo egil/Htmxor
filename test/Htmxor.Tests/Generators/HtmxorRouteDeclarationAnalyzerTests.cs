@@ -500,26 +500,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"GET, POST, PUT, PATCH, DELETE, and QUERY")]
 	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Htmxor.HtmxRouteAttribute(\"/other/{Id:int}\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"exactly one HtmxRoute")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"constrained")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:}\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"constrained")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id=foo:bar}\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"constrained")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}/{broken\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"constrained")]
-	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Microsoft.AspNetCore.Components.RouteAttribute(\"/normal/{Id:int}\")]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"normal Blazor route")]
@@ -2207,6 +2187,99 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			Assert.Equal(new TextSpan(span, "@onput".Length), diagnostic.Location.SourceSpan);
 			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		}
+	}
+
+	[Theory]
+	[InlineData("/products/search")]
+	[InlineData("/products/{Slug}")]
+	[InlineData("/items/{Id:int}")]
+	[InlineData("/items/{Id:bool}")]
+	[InlineData("/items/{Id:datetime}")]
+	[InlineData("/items/{Id:decimal}")]
+	[InlineData("/items/{Id:double}")]
+	[InlineData("/items/{Id:file}")]
+	[InlineData("/items/{Id:float}")]
+	[InlineData("/items/{Id:guid}")]
+	[InlineData("/items/{Id:long}")]
+	[InlineData("/items/{Id:minlength(2)}")]
+	[InlineData("/items/{Id:maxlength(5)}")]
+	[InlineData("/items/{Id:length(3)}")]
+	[InlineData("/items/{Id:length(2,5)}")]
+	[InlineData("/items/{Id:min(1)}")]
+	[InlineData("/items/{Id:max(10)}")]
+	[InlineData("/items/{Id:range(1,10)}")]
+	[InlineData("/items/{Id:alpha}")]
+	[InlineData("/items/{Id:regex(^[a-z]+$)}")]
+	[InlineData("/items/{Id:required}")]
+	[InlineData("/items/{Id:nonfile}")]
+	[InlineData("/items/{Id:int:min(1)}")]
+	[InlineData("/items/{Page:int?}")]
+	[InlineData("/items/{*Rest}")]
+	[InlineData("/items/{**Rest}")]
+	[InlineData("/items/{Id:}")]
+	[InlineData("/items/{Id=foo:bar}")]
+	[InlineData("/items/{Id=foo}")]
+	[InlineData("/items/{Id:int=5}")]
+	[InlineData("/items/{Id}-{B}")]
+	public async Task Stock_route_template_shape_reports_no_diagnostics(string template)
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			$"[global::Htmxor.HtmxRouteAttribute(\"{template}\", Methods = [\"GET\"])]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.True(
+			diagnostics.IsEmpty,
+			$"Template '{template}' must not report a diagnostic: " +
+			string.Join(", ", diagnostics.Select(d => d.GetMessage())));
+	}
+
+	/// <summary>
+	/// A malformed template reports the reason stock <c>RoutePatternFactory.Parse</c> gives in its
+	/// <c>RoutePatternException</c>. Stock's build-time ASP0017 analyzer recognizes only
+	/// <c>@page</c> and <c>[Route]</c>, and the <c>[Route]</c> page type for an <c>HtmxRoute</c> is
+	/// emitted at runtime, so this analyzer is the only build-time place that can surface that
+	/// reason. A template with no leading <c>/</c> is instead a Razor-owned rejection: Razor
+	/// reports RZ9988 for an equivalent <c>@page</c> directive but never inspects an
+	/// <c>HtmxRoute</c> argument, so Htmxor reports RZ9988's own reason text for that shape.
+	/// </summary>
+	[Theory]
+	[InlineData(
+		"/items/{Id:int}/{broken",
+		"There is an incomplete parameter in the route template. Check that each '{' character has a matching '}' character.")]
+	[InlineData(
+		"/items/{Id:int}/{Id:int}",
+		"The route parameter name 'Id' appears more than one time in the route template.")]
+	[InlineData(
+		"/items/{*Rest}/more",
+		"A catch-all parameter can only appear as the last segment of the route template.")]
+	[InlineData(
+		"items/{Id}",
+		"The @page directive must specify a route template. The route template must be enclosed in quotes and begin with the '/' character.")]
+	public async Task Malformed_route_template_reports_the_stock_parsers_reason(
+		string template,
+		string stockReason)
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			$"[global::Htmxor.HtmxRouteAttribute(\"{template}\", Methods = [\"GET\"])]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Contains(stockReason, diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
 	private static string ComponentPath(string relativePath)

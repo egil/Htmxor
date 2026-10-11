@@ -1,0 +1,9 @@
+@page "/issue-286/optional-stock/{Page:int?}"
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-optional>page=@(Page?.ToString() ?? "none")</p>
+
+@code {
+    [Parameter]
+    public int? Page { get; set; }
+}

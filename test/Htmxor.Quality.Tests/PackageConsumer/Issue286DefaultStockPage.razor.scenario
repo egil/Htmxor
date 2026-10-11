@@ -1,0 +1,9 @@
+@page "/issue-286/default-stock/{Id:int=5}"
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-default>id=@Id</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}
