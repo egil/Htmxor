@@ -56,11 +56,21 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			routedComponentTypeNames,
 			generatedActions);
 
-		AddHtmxorComponentEndpoints(builder, endpoints, [], generatedActions);
-		foreach (var descriptor in descriptors)
+		var htmxOnlyRoutes = new Dictionary<Type, HtmxorComponentRouteDescriptor>();
+		if (descriptors.Count > 0)
 		{
-			endpoints.MapHtmxorComponentEndpoint(descriptor, generatedActions);
+			// Razor's own data source builds each HTMX-only endpoint from an emitted page type, so every Add and
+			// Finally convention on this builder reaches it in stock order, including conventions added later.
+			var routePages = HtmxorRoutePageAssembly.GetOrCreate(
+				descriptors.Select(static descriptor => descriptor.NormalizedRoute).ToArray());
+			for (var index = 0; index < descriptors.Count; index++)
+			{
+				htmxOnlyRoutes.Add(routePages.PageTypes[index], descriptors[index]);
+			}
+			builder.AddAdditionalAssemblies(routePages.Assembly);
 		}
+
+		AddHtmxorComponentEndpoints(builder, endpoints, [], generatedActions, htmxOnlyRoutes);
 
 		return builder;
 	}
@@ -73,7 +83,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(endpoints);
 		ArgumentNullException.ThrowIfNull(generatedActions);
-		AddHtmxorComponentEndpoints(builder, endpoints, generatedActions, []);
+		AddHtmxorComponentEndpoints(builder, endpoints, generatedActions, [], new Dictionary<Type, HtmxorComponentRouteDescriptor>());
 
 		return builder;
 	}
@@ -82,7 +92,8 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		RazorComponentsEndpointConventionBuilder builder,
 		IEndpointRouteBuilder endpoints,
 		IReadOnlyList<HtmxorComponentActionDescriptor> actionDescriptors,
-		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
+		IReadOnlyDictionary<Type, HtmxorComponentRouteDescriptor> htmxOnlyRoutes)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(endpoints);
@@ -91,9 +102,12 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		builder.Finally(endpointBuilder => ConfigureEndpoint(
 			endpointBuilder,
 			actionDescriptors,
-			generatedActions));
+			generatedActions,
+			htmxOnlyRoutes));
 	}
 
+	// Maps one descriptor without Razor's data source, so the builder's conventions do not reach it. Production
+	// registration builds HTMX-only endpoints through AddHtmxorAttributedComponentEndpoints instead.
 	internal static IEndpointConventionBuilder MapHtmxorComponentEndpoint(
 		this IEndpointRouteBuilder endpoints,
 		HtmxorComponentRouteDescriptor generatedRoute,
@@ -111,10 +125,20 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			generatedRoute.NormalizedRoute,
 			generatedRoute.HttpMethods,
 			requestDelegate);
-		builder.Add(endpointBuilder => ConfigureGeneratedEndpoint(
-			endpointBuilder,
-			generatedRoute,
-			generatedActions));
+		builder.Add(endpointBuilder =>
+		{
+			// A minimal-API route group has already prefixed this pattern, and Router processes the prefixed one.
+			var routeTemplate = ((RouteEndpointBuilder)endpointBuilder).RoutePattern.RawText!;
+			var routePage = HtmxorRoutePageAssembly.GetOrCreate([routeTemplate]).PageTypes[0];
+			foreach (var metadata in generatedRoute.Metadata)
+			{
+				endpointBuilder.Metadata.Add(metadata);
+			}
+			endpointBuilder.Metadata.Add(new SuppressLinkGenerationMetadata());
+			endpointBuilder.Metadata.Add(new ComponentTypeMetadata(generatedRoute.ComponentType));
+			endpointBuilder.Metadata.Add(HtmxOnlyDirectRoot);
+			ConfigureGeneratedEndpoint(endpointBuilder, generatedRoute, generatedActions, routePage);
+		});
 
 		return builder;
 	}
@@ -135,13 +159,20 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	private static void ConfigureEndpoint(
 		EndpointBuilder endpointBuilder,
 		IReadOnlyList<HtmxorComponentActionDescriptor> actionDescriptors,
-		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
+		IReadOnlyDictionary<Type, HtmxorComponentRouteDescriptor> htmxOnlyRoutes)
 	{
 		if (endpointBuilder is not RouteEndpointBuilder routeEndpointBuilder ||
 			endpointBuilder.RequestDelegate is not { } stockRequestDelegate ||
-			!endpointBuilder.Metadata.OfType<ComponentTypeMetadata>().Any() ||
+			endpointBuilder.Metadata.OfType<ComponentTypeMetadata>().LastOrDefault() is not { } componentType ||
 			!endpointBuilder.Metadata.OfType<RootComponentMetadata>().Any())
 		{
+			return;
+		}
+
+		if (htmxOnlyRoutes.TryGetValue(componentType.Type, out var generatedRoute))
+		{
+			ConfigureHtmxOnlyPageEndpoint(endpointBuilder, generatedRoute, generatedActions, componentType.Type);
 			return;
 		}
 
@@ -162,15 +193,44 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		endpointBuilder.RequestDelegate = context => InvokeEndpoint(context, stockRequestDelegate, endpointActions);
 	}
 
+	private static void ConfigureHtmxOnlyPageEndpoint(
+		EndpointBuilder endpointBuilder,
+		HtmxorComponentRouteDescriptor generatedRoute,
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
+		Type routePage)
+	{
+		var metadata = endpointBuilder.Metadata;
+		for (var index = 0; index < metadata.Count; index++)
+		{
+			metadata[index] = metadata[index] switch
+			{
+				ComponentTypeMetadata component when component.Type == routePage =>
+					new ComponentTypeMetadata(generatedRoute.ComponentType),
+				RootComponentMetadata => HtmxOnlyDirectRoot,
+				// HtmxRoute methods are authoritative; the stock page methods, including HEAD on .NET 11, do not apply.
+				HttpMethodMetadata methods => new HttpMethodMetadata(generatedRoute.HttpMethods, methods.AcceptCorsPreflight),
+				var item => item,
+			};
+		}
+
+		// A stock page carries its component attributes right after the factory's antiforgery default, so the
+		// component can override that default and conventions can override the component. The emitted page type
+		// contributes no attributes there because Razor drops RouteAttribute from page metadata.
+		var componentMetadataIndex = metadata.ToList().FindIndex(static item => item is RequireAntiforgeryTokenAttribute) + 1;
+		foreach (var item in generatedRoute.Metadata)
+		{
+			metadata.Insert(componentMetadataIndex++, item);
+		}
+
+		ConfigureGeneratedEndpoint(endpointBuilder, generatedRoute, generatedActions, routePage);
+	}
+
 	private static void ConfigureGeneratedEndpoint(
 		EndpointBuilder endpointBuilder,
 		HtmxorComponentRouteDescriptor generatedRoute,
-		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
+		Type routePage)
 	{
-		foreach (var metadata in generatedRoute.Metadata)
-		{
-			endpointBuilder.Metadata.Add(metadata);
-		}
 		var routeMetadata = generatedRoute.Metadata
 			.OfType<HtmxRouteAttribute>()
 			.SingleOrDefault();
@@ -182,9 +242,6 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		var routeEndpointBuilder = endpointBuilder as RouteEndpointBuilder
 			?? throw new InvalidOperationException("An HTMX-only component endpoint must have a route pattern.");
 		endpointBuilder.Metadata.Add(new HtmxorComponentRoutePatternMetadata(routeEndpointBuilder.RoutePattern));
-		endpointBuilder.Metadata.Add(new SuppressLinkGenerationMetadata());
-		endpointBuilder.Metadata.Add(new ComponentTypeMetadata(generatedRoute.ComponentType));
-		endpointBuilder.Metadata.Add(HtmxOnlyDirectRoot);
 		endpointBuilder.Metadata.Add(HtmxorDirectEndpointMetadata.Instance);
 		if (generatedRoute.HttpMethods.Any(IsUnsafeMethod))
 		{
@@ -198,7 +255,8 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			endpointBuilder,
 			generatedRoute,
 			endpointActions,
-			routeEndpointBuilder.RoutePattern.RawText!);
+			routeEndpointBuilder.RoutePattern.RawText!,
+			routePage);
 		AddActionMetadata(endpointBuilder, endpointActions.ToArray());
 		var renderDelegate = endpointBuilder.RequestDelegate
 			?? throw new InvalidOperationException("An HTMX-only component endpoint must have a request delegate.");
@@ -215,7 +273,8 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		EndpointBuilder endpointBuilder,
 		HtmxorComponentRouteDescriptor generatedRoute,
 		IReadOnlyList<HtmxorComponentActionDescriptor> endpointActions,
-		string effectiveRouteTemplate)
+		string effectiveRouteTemplate,
+		Type routePage)
 	{
 		var routeProcessors = endpointActions
 			.Select(static action => action.GeneratedAction?.RouteProcessorType)
@@ -227,9 +286,13 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			throw new InvalidOperationException(
 				$"Component route '{generatedRoute.NormalizedRoute}' has conflicting route processors.");
 		}
-		var processor = HtmxorRouteProcessorFactory.GetOrCreate(
-			effectiveRouteTemplate,
-			routeProcessors.SingleOrDefault());
+		// Router needs a compiled RouteAttribute for the effective template. The emitted page type carries exactly
+		// that template, so it is the processor unless a generated action already supplies a matching one.
+		var generatedProcessor = routeProcessors.SingleOrDefault();
+		var processor = generatedProcessor is not null && generatedProcessor.GetCustomAttributes<RouteAttribute>()
+			.Any(route => string.Equals(route.Template, effectiveRouteTemplate, StringComparison.Ordinal))
+			? generatedProcessor
+			: routePage;
 		endpointBuilder.Metadata.Add(new HtmxorRouteProcessorMetadata(
 			generatedRoute.ComponentType,
 			processor));
