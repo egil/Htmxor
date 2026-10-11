@@ -80,6 +80,7 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Components/Components/src/Routing/IHostEnvironmentNavigationManager.cs|file|interface|implements|src/Htmxor/DependencyInjection/HtmxorNavigationManager.cs|",
 				"src/Components/Components/src/Routing/IRoutingStateProvider.cs|file|interface|implements|src/Htmxor/DependencyInjection/EndpointRoutingStateProvider.cs|",
 				"src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs|",
+				"src/Components/Endpoints/src/Builder/RazorComponentEndpointFactory.cs|file|none|depends-on-behaviour|src/Htmxor/Builder/HtmxorComponentEndpointRouteBuilderExtensions.cs|",
 				"src/Components/Endpoints/src/Builder/ResourceCollectionUrlMetadata.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs|",
 				"src/Components/Endpoints/src/CacheView/CacheView.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs|net11.0",
 				"src/Components/Endpoints/src/CacheView/CacheViewRenderState.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateCacheViewServices.cs|net11.0",
@@ -89,6 +90,8 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Components/Endpoints/src/DependencyInjection/TempDataService.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateTempDataServices.cs|net11.0",
 				"src/Components/Endpoints/src/DependencyInjection/WebAssemblyComponentSerializer.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs|",
 				"src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs|net10.0",
+				"src/Components/Endpoints/src/Discovery/IRazorComponentApplication.cs|file|none|depends-on-behaviour|src/Htmxor/Builder/HtmxorRoutePageAssembly.cs|",
+				"src/Components/Endpoints/src/Discovery/PageCollectionBuilder.cs|file|none|depends-on-behaviour|src/Htmxor/Builder/HtmxorComponentEndpointRouteBuilderExtensions.cs|",
 				"src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs|",
 				"src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs|",
 				"src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs|file|interface|implements|src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs,src/Htmxor/IHtmxorComponentEndpointInvoker.cs|",
@@ -251,7 +254,7 @@ public sealed class UpstreamMonitorPolicyTests
 				$"Manifest dependency '{dependency}' must exist."));
 			// An absent "frameworks" property projects to an empty field, distinguishing a
 			// watch that applies to every configured framework from one scoped to a subset,
-			// so a stray or missing annotation among the fifty-two rows fails this assertion.
+			// so a stray or missing annotation among the projected rows fails this assertion.
 			var frameworks = watch.TryGetProperty("frameworks", out var scopedFrameworks)
 				? string.Join(',', scopedFrameworks.EnumerateArray().Select(framework => framework.GetString()))
 				: string.Empty;
