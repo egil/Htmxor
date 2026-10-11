@@ -25,7 +25,9 @@ internal sealed class RazorMarkupScanner
 	private readonly string source;
 	private readonly ISet<string> attributeNames;
 	private readonly List<MarkupAttribute> attributes = new();
+	private readonly List<MarkupElement> elements = new();
 	private readonly List<string> attributeDirectives = new();
+	private readonly List<string> usingDirectives = new();
 	private string? namespaceDirective;
 	private int pageDirectiveCount;
 	private int index;
@@ -44,7 +46,9 @@ internal sealed class RazorMarkupScanner
 			scanner.attributes,
 			scanner.pageDirectiveCount,
 			scanner.attributeDirectives,
-			scanner.namespaceDirective);
+			scanner.namespaceDirective,
+			scanner.elements,
+			scanner.usingDirectives);
 	}
 
 	// Scans to the end of the source, or for a markup island inside C# until its outermost element closes.
@@ -92,9 +96,13 @@ internal sealed class RazorMarkupScanner
 			return 0;
 		}
 
+		var tagStart = index;
 		index++;
 		var name = ReadName();
+		var attributeStart = attributes.Count;
 		var selfClosing = ScanAttributes(ownerMarkup);
+		elements.Add(new MarkupElement(
+			tagStart, name, ownerMarkup, attributes.GetRange(attributeStart, attributes.Count - attributeStart)));
 		if (Array.Exists(RawTextElements, element => string.Equals(element, name, StringComparison.OrdinalIgnoreCase)))
 		{
 			SkipRawText(name);
@@ -370,6 +378,10 @@ internal sealed class RazorMarkupScanner
 		else if (keyword == "attribute")
 		{
 			attributeDirectives.Add(body);
+		}
+		else if (keyword == "using")
+		{
+			usingDirectives.Add(body);
 		}
 		else if (keyword == "namespace")
 		{
@@ -745,12 +757,16 @@ internal sealed class RazorMarkupScan
 		IReadOnlyList<MarkupAttribute> attributes,
 		int pageDirectiveCount,
 		IReadOnlyList<string> attributeDirectives,
-		string? namespaceDirective)
+		string? namespaceDirective,
+		IReadOnlyList<MarkupElement> elements,
+		IReadOnlyList<string> usingDirectives)
 	{
 		Attributes = attributes;
 		PageDirectiveCount = pageDirectiveCount;
 		AttributeDirectives = attributeDirectives;
 		NamespaceDirective = namespaceDirective;
+		Elements = elements;
+		UsingDirectives = usingDirectives;
 	}
 
 	public IReadOnlyList<MarkupAttribute> Attributes { get; }
@@ -760,6 +776,10 @@ internal sealed class RazorMarkupScan
 	public IReadOnlyList<string> AttributeDirectives { get; }
 
 	public string? NamespaceDirective { get; }
+
+	public IReadOnlyList<MarkupElement> Elements { get; }
+
+	public IReadOnlyList<string> UsingDirectives { get; }
 }
 
 internal sealed class MarkupAttribute
@@ -779,4 +799,23 @@ internal sealed class MarkupAttribute
 	public string? Value { get; }
 
 	public bool InOwnerMarkup { get; }
+}
+
+internal sealed class MarkupElement
+{
+	public MarkupElement(int index, string name, bool inOwnerMarkup, IReadOnlyList<MarkupAttribute> attributes)
+	{
+		Index = index;
+		Name = name;
+		InOwnerMarkup = inOwnerMarkup;
+		Attributes = attributes;
+	}
+
+	public int Index { get; }
+
+	public string Name { get; }
+
+	public bool InOwnerMarkup { get; }
+
+	public IReadOnlyList<MarkupAttribute> Attributes { get; }
 }

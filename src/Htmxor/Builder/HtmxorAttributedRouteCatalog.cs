@@ -20,11 +20,20 @@ internal static class HtmxorAttributedRouteCatalog
 		Assembly applicationAssembly,
 		IReadOnlyList<string> routedComponentTypeNames,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
+		=> Build(applicationAssembly, routedComponentTypeNames, generatedActions, []);
+
+	public static IReadOnlyList<HtmxorComponentRouteDescriptor> Build(
+		Assembly applicationAssembly,
+		IReadOnlyList<string> routedComponentTypeNames,
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
+		IReadOnlyList<string> namedFormComponentTypeNames)
 	{
 		ArgumentNullException.ThrowIfNull(applicationAssembly);
 		ArgumentNullException.ThrowIfNull(routedComponentTypeNames);
 		ArgumentNullException.ThrowIfNull(generatedActions);
+		ArgumentNullException.ThrowIfNull(namedFormComponentTypeNames);
 
+		HtmxorNamedFormCatalog.Validate(routedComponentTypeNames, namedFormComponentTypeNames, generatedActions);
 		var manifestTypeNames = ValidateManifest(routedComponentTypeNames);
 		var routedTypes = GetRoutedTypes(applicationAssembly);
 		ValidateRoutedTypesBelongToManifest(routedTypes, manifestTypeNames);
@@ -39,7 +48,7 @@ internal static class HtmxorAttributedRouteCatalog
 			.ToArray();
 
 		return declarations
-			.Select(CreateDescriptor)
+			.Select(declaration => CreateDescriptor(declaration, namedFormComponentTypeNames))
 			.ToArray();
 	}
 
@@ -379,7 +388,7 @@ internal static class HtmxorAttributedRouteCatalog
 		return attributes.ToArray();
 	}
 
-	private static HtmxorComponentRouteDescriptor CreateDescriptor(ValidatedDeclaration declaration)
+	private static HtmxorComponentRouteDescriptor CreateDescriptor(ValidatedDeclaration declaration, IReadOnlyList<string> namedFormComponentTypeNames)
 	{
 		object[] metadata;
 		try
@@ -411,11 +420,21 @@ internal static class HtmxorAttributedRouteCatalog
 				"its constructed HtmxRoute metadata does not match the validated declaration");
 		}
 
+		var hasNamedForms = namedFormComponentTypeNames.Contains(GetTypeName(declaration.ComponentType), StringComparer.Ordinal);
+		if (hasNamedForms && declaration.ExplicitMethods is not null &&
+			!expectedMethods.Contains(HttpMethods.Post, StringComparer.OrdinalIgnoreCase))
+		{
+			throw Unsupported(declaration.ComponentType, "explicit HtmxRoute.Methods does not allow POST for its named forms");
+		}
+
+		var effectiveMethods = hasNamedForms && declaration.ExplicitMethods is null
+			? new[] { HttpMethods.Get, HttpMethods.Post }
+			: expectedMethods;
 		return new HtmxorComponentRouteDescriptor(
 			declaration.ComponentType,
 			declaration.Route,
 			metadata,
-			expectedMethods.ToArray());
+			effectiveMethods.ToArray());
 	}
 
 	private static InvalidOperationException Unsupported(Type componentType, string reason)

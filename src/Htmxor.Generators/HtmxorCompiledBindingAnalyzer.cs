@@ -21,6 +21,7 @@ public sealed class HtmxorCompiledBindingAnalyzer : DiagnosticAnalyzer
 
 	private static void AnalyzeCompilation(CompilationAnalysisContext context)
 	{
+		RazorFormValidation.Analyze(context);
 		var actionType = context.Compilation.GetTypeByMetadataName("Htmxor.Builder.HtmxorGeneratedComponentAction");
 		if (actionType is null)
 		{
