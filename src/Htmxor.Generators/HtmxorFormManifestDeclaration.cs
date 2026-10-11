@@ -13,18 +13,12 @@ internal sealed class HtmxorFormManifestDeclaration
 {
 	private static readonly ISet<string> NoAttributes = new HashSet<string>(StringComparer.Ordinal);
 
-	private HtmxorFormManifestDeclaration(string typeName, string condition, string imports)
+	private HtmxorFormManifestDeclaration(string typeName)
 	{
 		TypeName = typeName;
-		Condition = condition;
-		Imports = imports;
 	}
 
 	public string TypeName { get; }
-
-	private string Condition { get; }
-
-	private string Imports { get; }
 
 	public static HtmxorFormManifestDeclaration? Read(AdditionalText file, RazorComponentTypeNames? typeNames,
 		ImmutableArray<AdditionalText> files, CancellationToken cancellationToken)
@@ -32,23 +26,17 @@ internal sealed class HtmxorFormManifestDeclaration
 		var name = typeNames?.GetTypeName(file, cancellationToken);
 		var importNames = ReadImports(file, files, cancellationToken).ToArray();
 		var forms = RazorFormDeclaration.Read(file, cancellationToken)
-			.Where(form => form.IsNamed && (!form.IsEditForm || IsStockEditFormName(form.TagName, name, importNames))).ToArray();
+			.Where(form => form.IsNamed && (!form.IsEditForm || IsStockEditFormTag(form.TagName, name, importNames))).ToArray();
 		if (name is null || forms.Length == 0)
 		{
 			return null;
 		}
 
-		var condition = forms.Any(static form => !form.IsEditForm) ? "true" : string.Join(" || ", forms
-			.Select(static form => "typeof(" + (form.TagName == "EditForm" ? "EditForm" : "global::" + form.TagName) +
-				") == typeof(global::Microsoft.AspNetCore.Components.Forms.EditForm)")
-			.Distinct(StringComparer.Ordinal));
-		var imports = string.Concat(importNames
-			.Distinct(StringComparer.Ordinal)
-			.Select(static import => "using " + import.TrimEnd(';') + ";\n"));
-		return new HtmxorFormManifestDeclaration(name, condition, imports);
+		return new HtmxorFormManifestDeclaration(name);
 	}
 
-	private static bool IsStockEditFormName(string tagName, string? ownerName, string[] imports)
+	// Razor tags use namespace scope; a C# lookup within the owner can select an alias or nested model instead.
+	private static bool IsStockEditFormTag(string tagName, string? ownerName, string[] imports)
 		=> tagName == "Microsoft.AspNetCore.Components.Forms.EditForm" ||
 			(tagName == "EditForm" && (imports.Any(static import => import is
 				"Microsoft.AspNetCore.Components.Forms" or "global::Microsoft.AspNetCore.Components.Forms") ||
@@ -80,14 +68,5 @@ internal sealed class HtmxorFormManifestDeclaration
 		var directory = Path.GetDirectoryName(Path.GetFullPath(importsPath))!;
 		return Path.GetFullPath(componentPath).StartsWith(directory + Path.DirectorySeparatorChar,
 			Path.DirectorySeparatorChar == '\\' ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
-	}
-
-	public string Render()
-	{
-		var separator = TypeName.LastIndexOf('.');
-		var name = separator < 0 ? TypeName : TypeName.Substring(separator + 1);
-		var body = Imports + "partial class " + name + "\n{\n" +
-			"\tinternal static bool __HtmxorHasOwnNamedForms => " + Condition + ";\n}\n";
-		return separator < 0 ? body : "namespace " + TypeName.Substring(0, separator) + "\n{\n" + body + "}\n";
 	}
 }
