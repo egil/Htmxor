@@ -1,0 +1,9 @@
+@page "/issue-310/items"
+@namespace Htmxor.PackageConsumer
+
+<_element @on__METHOD__="Save">Save</_element>
+
+@code {
+    private void Save() { }
+    private void Other() { }
+}

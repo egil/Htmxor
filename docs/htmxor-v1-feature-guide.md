@@ -260,6 +260,13 @@ registration reads only the application assembly's generated manifest, so an
 
 ## Declare component actions
 
+The build checks compiled Razor HTTP bindings against their generated actions.
+If inference misses a binding, HTMXOR002 points to its Razor location instead of
+letting the application build with an unreachable callback. The action must
+match the component, HTTP method, and handler; another handler for the same
+method does not cover the binding. This also applies to component-tag bindings
+and components marked `[DisableHtmxDirectRouting]`.
+
 The v1 method model is small:
 
 | HTTP method | Server declaration | Status |
