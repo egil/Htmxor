@@ -60,13 +60,10 @@ internal sealed class RazorCompiledEventBinding
 			return null;
 		}
 
-		var declaration = invocation.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
 		// Razor hides its callback scaffolding while mapping the handler back to markup.
 		// This also covers member templates without claiming handwritten C# builder calls.
 		if (invocation.SyntaxTree.GetLineVisibility(invocation.SpanStart, cancellationToken) != LineVisibility.Hidden ||
-			declaration is null ||
-			model.GetDeclaredSymbol(declaration, cancellationToken) is not INamedTypeSymbol component ||
-			!HtmxorRouteManifest.HasCompiledRazorDeclaration(component))
+			FindComponent(model, invocation, cancellationToken) is not { } component)
 		{
 			return null;
 		}
@@ -84,6 +81,23 @@ internal sealed class RazorCompiledEventBinding
 			attributeName!,
 			model.GetSymbolInfo(Unwrap(handler), cancellationToken).Symbol as IMethodSymbol,
 			handler.GetLocation());
+	}
+
+	private static INamedTypeSymbol? FindComponent(
+		SemanticModel model,
+		InvocationExpressionSyntax invocation,
+		CancellationToken cancellationToken)
+	{
+		foreach (var declaration in invocation.Ancestors().OfType<ClassDeclarationSyntax>())
+		{
+			if (model.GetDeclaredSymbol(declaration, cancellationToken) is INamedTypeSymbol component &&
+				HtmxorRouteManifest.HasCompiledRazorDeclaration(component))
+			{
+				return component;
+			}
+		}
+
+		return null;
 	}
 
 	private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
