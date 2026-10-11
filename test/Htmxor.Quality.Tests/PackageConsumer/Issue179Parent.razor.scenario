@@ -1,0 +1,3 @@
+@attribute [Htmxor.HtmxRoute("/issue-179/parent")]
+@namespace Htmxor.PackageConsumer
+<Issue179Child />

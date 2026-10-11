@@ -1,0 +1,2 @@
+@namespace Htmxor.PackageConsumer
+<form method="post" @formname="child"><input name="Name" /></form>

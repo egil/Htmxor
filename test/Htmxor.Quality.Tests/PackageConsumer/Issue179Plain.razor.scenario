@@ -1,0 +1,16 @@
+@attribute [Htmxor.HtmxRoute("/issue-179/plain")]
+@namespace Htmxor.PackageConsumer
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue179Probe Probe
+<form method="post" @formname="@(FormName)" @onsubmit="Save"><AntiforgeryToken /><input name="Model.Name" /><button>Save</button></form>
+
+<output data-callback="@callbacks" data-owner="@owner">@Model!.Name</output>
+@code {
+    private readonly string owner = Guid.NewGuid().ToString("N");
+    private int callbacks;
+    private Issue179Model? model;
+    [SupplyParameterFromForm] private Issue179Model? Model { get => model; set { Probe.Binding++; model = value; } }
+    protected override void OnInitialized() { Probe.Lifecycle++; model ??= new(); }
+    private void Save() { callbacks++; Probe.Callback++; Probe.CallbackOwner = owner; }
+    private string FormName => "save";
+}
