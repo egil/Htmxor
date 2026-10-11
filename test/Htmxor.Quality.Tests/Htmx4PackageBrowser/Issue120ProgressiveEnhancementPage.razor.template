@@ -1,6 +1,7 @@
 @page "/issue-120/native/{ItemId:int}"
 @using Htmxor
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Http
 @inject IHttpContextAccessor HttpContextAccessor
 @inject Issue120RequestProbe Probe
