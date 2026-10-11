@@ -246,33 +246,33 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	[Fact]
 	public async Task Generated_endpoint_rejects_nonmatching_route_representation()
 	{
-		await using var app = CreateRequestApplication(out var group);
-		var route = new HtmxRouteAttribute("/issue-173")
-		{
-			CurrentUrl = "/orders",
-			Target = "section#result",
-			Targets = ["section#result", "div#fallback"],
-		};
-		group.MapHtmxorComponentEndpoint(
-			new HtmxorComponentRouteDescriptor(
-				typeof(RouteProbeComponent),
-				"/issue-173",
-				[route],
-				[HttpMethods.Get]),
-			[]);
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.RouteFilterComponent",
+				"/issue-173/{Id:int}",
+				"unused",
+				HasAdditionalRouteFilter: true,
+				RouteParameterName: "Id",
+				Authorization: static _ => { }));
+		await using var app = CreateRequestApplication(out var group, out var componentBuilder);
+
+		componentBuilder.AddHtmxorAttributedComponentEndpoints(
+			group,
+			fixture.Assembly,
+			fixture.Manifest);
 
 		await app.StartAsync();
 		using var client = app.GetTestClient();
 
 		using var matchingRequest = CreateDirectRequest(
-			"/catalog/issue-173",
+			"/catalog/issue-173/1",
 			"https://example.test/orders",
 			"section#result");
 		using var matchingResponse = await client.SendAsync(matchingRequest);
 		Assert.Equal(HttpStatusCode.OK, matchingResponse.StatusCode);
 
 		using var nonmatchingRequest = CreateDirectRequest(
-			"/catalog/issue-173",
+			"/catalog/issue-173/1",
 			"https://example.test/other",
 			"div#other");
 		using var nonmatchingResponse = await client.SendAsync(nonmatchingRequest);
@@ -679,19 +679,29 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	[Fact]
 	public async Task Unsafe_generated_route_preserves_effective_antiforgery_opt_out()
 	{
-		await using var app = CreateApplication(out var group, out _, out _);
-		var descriptor = new HtmxorComponentRouteDescriptor(
-			typeof(global::Htmxor.TestApp.App),
-			"/unsafe",
-			[
-				new TestAntiforgeryMetadata(true),
-				new TestAntiforgeryMetadata(false),
-			],
-			[HttpMethods.Get, HttpMethods.Delete]);
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.OptOutComponent",
+				"/unsafe-opt-out/{Id:int}",
+				"unused",
+				Methods: [HttpMethods.Get, HttpMethods.Delete],
+				RouteParameterName: "Id",
+				Authorization: static type => type.SetCustomAttribute(new CustomAttributeBuilder(
+					typeof(RequireAntiforgeryTokenAttribute).GetConstructor([typeof(bool)])!,
+					[false]))));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
 
-		group.MapHtmxorComponentEndpoint(descriptor, []);
+		componentBuilder.AddHtmxorAttributedComponentEndpoints(
+			group,
+			fixture.Assembly,
+			fixture.Manifest);
 
 		var endpoint = Assert.Single(GetGeneratedEndpoints(app));
+		// The emitted page type's factory default (RequiresValidation: true) is inserted first;
+		// the component's own [RequireAntiforgeryToken(false)] is inserted right after it, in the
+		// same position a stock page's own attributes would occupy, so last-wins resolution still
+		// honors the opt-out. Inserting component metadata any earlier -- for example at index 0 --
+		// would let the factory default win instead and silently require a token again.
 		Assert.False(endpoint.Metadata.GetRequiredMetadata<IAntiforgeryMetadata>().RequiresValidation);
 	}
 
@@ -857,14 +867,20 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		return app;
 	}
 
-	private static WebApplication CreateRequestApplication(out RouteGroupBuilder group)
+	private static WebApplication CreateRequestApplication(
+		out RouteGroupBuilder group,
+		out RazorComponentsEndpointConventionBuilder componentBuilder)
 	{
 		var builder = WebApplication.CreateBuilder();
 		builder.WebHost.UseTestServer();
 		builder.Services.AddRazorComponents().AddHtmxor();
 		var app = builder.Build();
+		// A generated HtmxRoute endpoint always carries antiforgery metadata (the emitted page
+		// type's own factory default); without this middleware a request fails with "contains
+		// anti-forgery metadata, but a middleware was not found" before routing's own filters run.
+		app.UseAntiforgery();
 		group = app.MapGroup("/catalog");
-		group.MapRazorComponents<global::Htmxor.TestApp.App>();
+		componentBuilder = group.MapRazorComponents<global::Htmxor.TestApp.App>();
 		return app;
 	}
 
@@ -907,15 +923,6 @@ public sealed class HtmxorAttributedRouteCatalogTests
 
 	private sealed record GroupMetadata(string Value);
 
-	private sealed record TestAntiforgeryMetadata(bool RequiresValidation) : IAntiforgeryMetadata;
-
-	private sealed class RouteProbeComponent : ComponentBase
-	{
-		protected override void BuildRenderTree(
-			Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
-			=> builder.AddMarkupContent(0, "<div id=\"result\">route-probe</div>");
-	}
-
 	private sealed record ComponentDefinition(
 		string TypeName,
 		string Route,
@@ -931,6 +938,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		string? CurrentUrl = null,
 		string? Target = null,
 		IReadOnlyList<string>? Targets = null,
+		string? RouteParameterName = null,
 		Action<TypeBuilder>? Authorization = null,
 		Action<TypeBuilder>? BaseAuthorization = null);
 
@@ -974,6 +982,10 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				AddRoute(type, definition);
 			}
 			AddStockRoutes(type, definition.StockRoutes);
+			if (definition.RouteParameterName is { } parameterName)
+			{
+				AddRouteParameter(type, parameterName);
+			}
 			if (definition.Authorization is not null)
 			{
 				definition.Authorization(type);
@@ -1010,6 +1022,44 @@ public sealed class HtmxorAttributedRouteCatalogTests
 					typeof(RouteAttribute).GetConstructor([typeof(string)])!,
 					[stockRoute]));
 			}
+		}
+
+		/// <summary>
+		/// Declares a public <c>int</c> auto-property named <paramref name="name"/>, marked
+		/// <see cref="ParameterAttribute"/>, so a route's constrained parameter has a component
+		/// property to bind to when the generated endpoint actually renders a request.
+		/// </summary>
+		private static void AddRouteParameter(TypeBuilder type, string name)
+		{
+			var field = type.DefineField($"<{name}>k__BackingField", typeof(int), FieldAttributes.Private);
+			var property = type.DefineProperty(name, PropertyAttributes.None, typeof(int), null);
+
+			var getter = type.DefineMethod(
+				$"get_{name}",
+				MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig,
+				typeof(int),
+				Type.EmptyTypes);
+			var getterIl = getter.GetILGenerator();
+			getterIl.Emit(OpCodes.Ldarg_0);
+			getterIl.Emit(OpCodes.Ldfld, field);
+			getterIl.Emit(OpCodes.Ret);
+
+			var setter = type.DefineMethod(
+				$"set_{name}",
+				MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig,
+				null,
+				[typeof(int)]);
+			var setterIl = setter.GetILGenerator();
+			setterIl.Emit(OpCodes.Ldarg_0);
+			setterIl.Emit(OpCodes.Ldarg_1);
+			setterIl.Emit(OpCodes.Stfld, field);
+			setterIl.Emit(OpCodes.Ret);
+
+			property.SetGetMethod(getter);
+			property.SetSetMethod(setter);
+			property.SetCustomAttribute(new CustomAttributeBuilder(
+				typeof(ParameterAttribute).GetConstructor(Type.EmptyTypes)!,
+				[]));
 		}
 
 		private static void AddRoute(TypeBuilder type, ComponentDefinition definition)
