@@ -39,13 +39,27 @@ public sealed class HtmxorStockFormCompilerTests
 
 	[Theory]
 	[InlineData("Literal", "<EditForm Model=\"model\" FormName=\"save\" method=\"post\" />")]
-	[InlineData("Plain", "<form method=\"post\" @formname=\"save\"></form>")]
+	[InlineData("PlainExpression", "<form method=\"post\" @formname=\"@(name)\"></form>")]
 	public async Task Compiled_named_form_omitted_by_inference_fails_the_final_compilation_gate(string fixture, string markup)
 	{
 		var diagnostics = await CompileAsync(fixture, markup, omitFormFromAdditionalFiles: true);
 
 		AssertFormDiagnostic(diagnostics, "POST");
 		Assert.Contains("form", Assert.Single(diagnostics).GetMessage(), StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
+	public async Task Compiled_literal_named_form_with_no_Razor_mapping_still_fails_completeness()
+	{
+		var diagnostics = await CompileAsync("Plain", "<form method=\"post\" @formname=\"save\"></form>", omitFormFromAdditionalFiles: true);
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains("POST", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains("form", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+		Assert.EndsWith("FormOwner_razor.g.cs", diagnostic.Location.GetMappedLineSpan().Path, StringComparison.Ordinal);
+		Assert.True(diagnostic.Location.SourceSpan.Length > 0);
 	}
 
 	[Theory]
