@@ -10,7 +10,8 @@ internal static class RazorFormValidation
 	public static void Analyze(CompilationAnalysisContext context)
 	{
 		var symbols = HtmxorRouteSymbols.Resolve(context.Compilation);
-		if (symbols is null)
+		if (symbols is null || context.Compilation.GetDiagnostics(context.CancellationToken)
+			.Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
 		{
 			return;
 		}

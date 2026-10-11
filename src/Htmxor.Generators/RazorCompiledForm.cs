@@ -140,7 +140,7 @@ internal sealed class RazorCompiledForm
 			IsPost = true;
 			Location = FindMappedLocation(invocation) ?? FindNamedEventLocation(model, invocation, cancellationToken) ?? invocation.GetLocation();
 		}
-		else if (method == "AddAttribute" && attribute == "method" &&
+		else if (method == "AddAttribute" && string.Equals(attribute, "method", StringComparison.OrdinalIgnoreCase) &&
 			string.Equals(ReadString(model, invocation, 2, cancellationToken), "post", StringComparison.OrdinalIgnoreCase))
 		{
 			IsPost = true;

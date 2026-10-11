@@ -9,7 +9,7 @@ namespace Htmxor.Generators;
 
 internal sealed class RazorFormDeclaration
 {
-	private static readonly ISet<string> FormAttributes = new HashSet<string>(StringComparer.Ordinal)
+	private static readonly ISet<string> FormAttributes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 	{
 		"FormName", "@formname", "method",
 	};
@@ -18,9 +18,9 @@ internal sealed class RazorFormDeclaration
 	{
 		TagName = element.Name;
 		IsEditForm = !IsPlainFormName(element.Name);
-		IsNamed = element.Attributes.Any(attribute => attribute.Name == (IsEditForm ? "FormName" : "@formname"));
+		IsNamed = element.Attributes.Any(attribute => string.Equals(attribute.Name, IsEditForm ? "FormName" : "@formname", StringComparison.OrdinalIgnoreCase));
 		IsPost = IsEditForm || IsNamed || element.Attributes.Any(static attribute =>
-			attribute.Name == "method" && string.Equals(Unquote(attribute.Value), "post", StringComparison.OrdinalIgnoreCase));
+			string.Equals(attribute.Name, "method", StringComparison.OrdinalIgnoreCase) && string.Equals(Unquote(attribute.Value), "post", StringComparison.OrdinalIgnoreCase));
 		Location = location;
 	}
 
@@ -43,7 +43,7 @@ internal sealed class RazorFormDeclaration
 	public static IReadOnlyList<RazorFormDeclaration> Read(SourceText text, string path)
 		=> RazorMarkupScanner.Scan(text.ToString(), FormAttributes).Elements
 			.Where(static element => element.InOwnerMarkup && (IsPlainFormName(element.Name) || IsEditFormName(element.Name) ||
-				(IsComponentName(element.Name) && element.Attributes.Any(static attribute => attribute.Name == "FormName"))))
+				(IsComponentName(element.Name) && element.Attributes.Any(static attribute => string.Equals(attribute.Name, "FormName", StringComparison.OrdinalIgnoreCase)))))
 			.Select(element => Create(element, text, path))
 			.ToArray();
 
