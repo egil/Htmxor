@@ -1,10 +1,13 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Htmxor.Endpoints;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -21,9 +24,11 @@ namespace Htmxor.AspNetCore10;
 /// HtmxRoute component exactly as it renders the stock twin, and still 404s without HX headers; a
 /// non-authorization WithMetadata marker reaches the HtmxRoute endpoint's metadata exactly as it
 /// reaches the stock twin's, and a convention-added value of a metadata type the component also
-/// carries resolves to the convention's last-wins value on both twins alike. On net11.0 only, the
-/// framework's own WithBrowserOptions() convention reaches the HtmxRoute endpoint exactly as it
-/// reaches the stock twin's.
+/// carries resolves to the convention's last-wins value on both twins alike. The generated
+/// endpoint's own HttpMethodMetadata is exactly the declared HtmxRoute method set (not the stock
+/// page's), its RootComponentMetadata is the direct host, and an unsafe method against the
+/// GET-only route still gets 405. On net11.0 only, the framework's own WithBrowserOptions()
+/// convention reaches the HtmxRoute endpoint exactly as it reaches the stock twin's.
 /// </summary>
 public sealed class Issue316ConventionParityTests : IAsyncLifetime
 {
@@ -82,6 +87,44 @@ public sealed class Issue316ConventionParityTests : IAsyncLifetime
 		Assert.True(
 			htmxPlain.StatusCode == HttpStatusCode.NotFound,
 			$"HtmxRoute twin ({configuration}) without HX headers expected 404 (never 200), got {(int)htmxPlain.StatusCode}.");
+	}
+
+	/// <summary>
+	/// Before #316, a generated HtmxRoute endpoint was mapped with <c>endpoints.MapMethods</c>
+	/// directly from <c>HtmxRoute.Methods</c>, so its <c>HttpMethodMetadata</c> and
+	/// <c>RootComponentMetadata</c> were never the stock page's. Since #316,
+	/// <c>ConfigureHtmxOnlyPageEndpoint</c> replaces whatever the emitted page type's stock defaults
+	/// are with the declared HtmxRoute method set and the direct root, so this pins that replacement
+	/// explicitly rather than relying on it only being implied by other rows: the method set must be
+	/// exactly the declared one (no stock GET/POST or net11.0 HEAD), the root must be
+	/// <see cref="HtmxorDirectComponentHost"/> (not the stock page's own root), and an unsafe method
+	/// against the GET-only route must still get 405.
+	/// </summary>
+	[Theory]
+	[MemberData(nameof(Configurations))]
+	public async Task HtmxRoute_endpoint_carries_its_declared_methods_and_the_direct_root_not_the_stock_defaults(
+		string configuration)
+	{
+		var app = configuration == "before" ? beforeApp : afterApp;
+		var client = Client(configuration);
+		var endpoint = GetHtmxEndpoint(app);
+
+		Assert.Equal(
+			new[] { "GET" },
+			endpoint.Metadata.GetRequiredMetadata<HttpMethodMetadata>().HttpMethods);
+		Assert.Equal(
+			typeof(HtmxorDirectComponentHost),
+			endpoint.Metadata.GetRequiredMetadata<RootComponentMetadata>().Type);
+
+		using var request = new HttpRequestMessage(HttpMethod.Put, HtmxPath);
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		using var response = await client.SendAsync(request);
+
+		Assert.True(
+			response.StatusCode == HttpStatusCode.MethodNotAllowed,
+			$"({configuration}) expected 405 for an unsafe method (PUT) on the GET-only HtmxRoute " +
+			$"endpoint, got {(int)response.StatusCode}.");
 	}
 
 	[Theory]
@@ -176,6 +219,13 @@ public sealed class Issue316ConventionParityTests : IAsyncLifetime
 #endif
 
 	private HttpClient Client(string configuration) => configuration == "before" ? beforeClient : afterClient;
+
+	private static RouteEndpoint GetHtmxEndpoint(WebApplication app)
+		=> ((IEndpointRouteBuilder)app).DataSources
+			.SelectMany(static dataSource => dataSource.Endpoints)
+			.OfType<RouteEndpoint>()
+			.Single(static endpoint =>
+				endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type == typeof(Issue316NoAttrHtmxPage));
 
 	private static async Task<HttpResponseMessage> SendAsync(
 		HttpClient client,
