@@ -12,24 +12,24 @@ internal sealed class HtmxorRoutedComponent
 {
 	private HtmxorRoutedComponent(
 		INamedTypeSymbol type,
-		ImmutableArray<AttributeData> routes)
+		AttributeData route)
 	{
 		Type = type;
-		Routes = routes;
+		Route = route;
 	}
 
 	private INamedTypeSymbol Type { get; }
 
-	private ImmutableArray<AttributeData> Routes { get; }
+	// HtmxRouteAttribute disallows multiple use, so the C# compiler reports a second one as CS0579.
+	private AttributeData Route { get; }
 
 	public static ImmutableArray<HtmxorRoutedComponent> FindAll(
 		IAssemblySymbol assembly,
 		HtmxorRouteSymbols symbols)
 		=> GetTypes(assembly.GlobalNamespace)
-			.Select(type => new HtmxorRoutedComponent(
-				type,
-				GetExactAttributes(type, symbols.HtmxRoute)))
-			.Where(static component => !component.Routes.IsDefaultOrEmpty)
+			.Select(type => (Type: type, Route: GetExactAttributes(type, symbols.HtmxRoute).FirstOrDefault()))
+			.Where(static candidate => candidate.Route is not null)
+			.Select(static candidate => new HtmxorRoutedComponent(candidate.Type, candidate.Route!))
 			.OrderBy(static component => component.GetMetadataName(), StringComparer.Ordinal)
 			.ToImmutableArray();
 
@@ -44,22 +44,14 @@ internal sealed class HtmxorRoutedComponent
 			ValidateNormalRoute(symbols);
 
 	public Location GetLocation(CancellationToken cancellationToken)
-	{
-		var attributeLocation = Routes
-			.Select(route => route.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation())
-			.Where(static location => location is not null)
-			.OrderBy(static location => location!.GetMappedLineSpan().Path, StringComparer.Ordinal)
-			.ThenBy(static location => location!.SourceSpan.Start)
-			.FirstOrDefault();
-
-		return attributeLocation ?? Type.Locations.FirstOrDefault() ?? Location.None;
-	}
+		=> Route.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation() ??
+			Type.Locations.FirstOrDefault() ??
+			Location.None;
 
 	private string? ValidateManifest(ILookup<string, string?> razorManifest)
 	{
-		if (Routes.All(static route =>
-			route.ApplicationSyntaxReference is { } reference &&
-			HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath)))
+		if (Route.ApplicationSyntaxReference is { } reference &&
+			HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath))
 		{
 			return HtmxorRouteManifest.HasCompiledRazorDeclaration(Type, razorManifest[GetMetadataName()])
 				? null
@@ -79,7 +71,7 @@ internal sealed class HtmxorRoutedComponent
 			return csharpRouteOriginReason;
 		}
 
-		return Routes.Length == 1 && !csharpComponent.HasExplicitMethods
+		return !csharpComponent.HasExplicitMethods
 			? "a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods"
 			: null;
 	}
@@ -91,27 +83,22 @@ internal sealed class HtmxorRoutedComponent
 			return null;
 		}
 
-		var path = Routes
-			.Select(static route => route.ApplicationSyntaxReference?.SyntaxTree.FilePath)
-			.FirstOrDefault(static candidate =>
-				!string.IsNullOrEmpty(candidate) &&
-				!HtmxorRouteManifest.IsRazorGeneratedPath(candidate!));
-		if (path is null)
+		var path = Route.ApplicationSyntaxReference?.SyntaxTree.FilePath;
+		if (string.IsNullOrEmpty(path) || HtmxorRouteManifest.IsRazorGeneratedPath(path!))
 		{
 			return null;
 		}
 
 		return new CSharpRoutedComponent(
 			GetMetadataName(),
-			path,
-			Routes.Length == 1 && Routes[0].NamedArguments.Any(static argument =>
+			path!,
+			Route.NamedArguments.Any(static argument =>
 				string.Equals(argument.Key, "Methods", StringComparison.Ordinal)));
 	}
 
 	private string? ValidateCSharpRouteOrigin(CSharpRoutedComponent component)
 	{
-		if (Routes.Length != 1 ||
-			!HtmxorRouteManifest.HasCompiledRazorDeclaration(Type))
+		if (!HtmxorRouteManifest.HasCompiledRazorDeclaration(Type))
 		{
 			return null;
 		}
@@ -136,15 +123,7 @@ internal sealed class HtmxorRoutedComponent
 	}
 
 	private string? ValidateRoute()
-	{
-		if (Routes.Length != 1)
-		{
-			return "each component must declare exactly one HtmxRoute attribute";
-		}
-
-		var route = Routes[0];
-		return ValidateTemplate(route) ?? ValidateRouteNamedArguments(route);
-	}
+		=> ValidateTemplate(Route) ?? ValidateRouteNamedArguments(Route);
 
 	private static string? ValidateTemplate(AttributeData route)
 	{
@@ -155,9 +134,10 @@ internal sealed class HtmxorRoutedComponent
 			return "HtmxRoute must resolve one nonblank constant route template";
 		}
 
-		return HtmxorRouteTemplateContract.IsSupported(template)
+		// Stock ASP0017 reports template grammar errors; only the leading '/' is outside its reach.
+		return HtmxorRouteTemplateContract.HasLeadingSlash(template)
 			? null
-			: "HtmxRoute must use supported literal segments and constrained route parameters";
+			: "HtmxRoute template '" + template + "' is invalid: " + HtmxorRouteTemplateContract.MissingLeadingSlashReason;
 	}
 
 	private static string? ValidateRouteNamedArguments(AttributeData route)
@@ -212,7 +192,7 @@ internal sealed class HtmxorRoutedComponent
 
 	private string? ValidateRouteOrigin(CancellationToken cancellationToken)
 	{
-		var path = Routes[0].ApplicationSyntaxReference?
+		var path = Route.ApplicationSyntaxReference?
 			.GetSyntax(cancellationToken)
 			.GetLocation()
 			.GetMappedLineSpan()

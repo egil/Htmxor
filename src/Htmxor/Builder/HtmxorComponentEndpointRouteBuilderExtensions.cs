@@ -55,6 +55,9 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			applicationAssembly,
 			routedComponentTypeNames,
 			generatedActions);
+		HtmxorAttributedRouteCatalog.ResolveConstraints(
+			descriptors,
+			endpoints.ServiceProvider.GetRequiredService<ParameterPolicyFactory>());
 
 		var htmxOnlyRoutes = new Dictionary<Type, HtmxorComponentRouteDescriptor>();
 		if (descriptors.Count > 0)

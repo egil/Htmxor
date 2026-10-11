@@ -206,7 +206,9 @@ internal sealed class HtmxorComponentActionDeclaration
 			var value = attributeDirective.Substring(
 				prefix.Length,
 				attributeDirective.Length - prefix.Length - suffix.Length);
-			if (value.Length > 0 && value.IndexOf('"') < 0)
+			// A backslash starts an escape sequence, so the raw text is not the template the compiler produces.
+			// Without a template here, the emitted page type that carries the compiled template is the processor.
+			if (value.Length > 0 && value.IndexOf('"') < 0 && value.IndexOf('\\') < 0)
 			{
 				return value;
 			}
