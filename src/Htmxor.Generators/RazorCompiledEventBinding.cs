@@ -79,7 +79,7 @@ internal sealed class RazorCompiledEventBinding
 		return new RazorCompiledEventBinding(
 			component,
 			attributeName!,
-			model.GetSymbolInfo(Unwrap(handler), cancellationToken).Symbol as IMethodSymbol,
+			ReadHandler(model, handler, cancellationToken),
 			handler.GetLocation());
 	}
 
@@ -108,6 +108,18 @@ internal sealed class RazorCompiledEventBinding
 		}
 
 		return expression;
+	}
+
+	private static IMethodSymbol? ReadHandler(
+		SemanticModel model,
+		ExpressionSyntax expression,
+		CancellationToken cancellationToken)
+	{
+		var handler = Unwrap(expression);
+		return handler is IdentifierNameSyntax or
+			MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax }
+			? model.GetSymbolInfo(handler, cancellationToken).Symbol as IMethodSymbol
+			: null;
 	}
 
 	private static bool IsHtmxCallback(
