@@ -60,9 +60,11 @@ internal sealed class RazorCompiledEventBinding
 			return null;
 		}
 
-		var renderMethod = invocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
 		var declaration = invocation.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
-		if (renderMethod?.Identifier.ValueText != "BuildRenderTree" || declaration is null ||
+		// Razor hides its callback scaffolding while mapping the handler back to markup.
+		// This also covers member templates without claiming handwritten C# builder calls.
+		if (invocation.SyntaxTree.GetLineVisibility(invocation.SpanStart, cancellationToken) != LineVisibility.Hidden ||
+			declaration is null ||
 			model.GetDeclaredSymbol(declaration, cancellationToken) is not INamedTypeSymbol component ||
 			!HtmxorRouteManifest.HasCompiledRazorDeclaration(component))
 		{
