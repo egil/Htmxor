@@ -383,13 +383,15 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	/// stock compile it then, so this follows the same real-host boundary as the two constraint
 	/// tests above instead of waiting for a request.
 	/// </summary>
-	[Fact]
-	public async Task Startup_rejects_an_invalid_regex_constraint_pattern_with_stocks_reason()
+	[Theory]
+	[InlineData("/items/{Id:regex(()}")]
+	[InlineData("/items/{Id:regex(()?}")]
+	public async Task Startup_rejects_an_invalid_regex_constraint_pattern_with_stocks_reason(string template)
 	{
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition(
 				"PackageConsumer.InvalidRegexConstraintComponent",
-				"/items/{Id:regex(()}",
+				template,
 				"unused"));
 		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
 
