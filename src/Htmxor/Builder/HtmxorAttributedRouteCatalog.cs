@@ -237,8 +237,14 @@ internal static class HtmxorAttributedRouteCatalog
 	{
 		try
 		{
+			var resolvedPolicy = parameterPolicyFactory.Create(parameter, policy);
+			if (resolvedPolicy is OptionalRouteConstraint optional)
+			{
+				resolvedPolicy = optional.InnerConstraint;
+			}
+
 			// Stock compiles a regex constraint's pattern on first match; reading Constraint compiles it now.
-			if (parameterPolicyFactory.Create(parameter, policy) is RegexRouteConstraint regex)
+			if (resolvedPolicy is RegexRouteConstraint regex)
 			{
 				_ = regex.Constraint;
 			}
