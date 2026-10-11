@@ -1,0 +1,8 @@
+@page "/issue-286-10/default-stock/{Id:int=5}"
+
+<p data-issue-286-10-default>id=@Id</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

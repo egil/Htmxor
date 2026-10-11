@@ -1,0 +1,8 @@
+@attribute [Htmxor.HtmxRoute("/issue-286-10/optional/{Page:int?}", Methods = new[] { "GET" })]
+
+<p data-issue-286-10-optional>page=@(Page?.ToString() ?? "none")</p>
+
+@code {
+    [Parameter]
+    public int? Page { get; set; }
+}

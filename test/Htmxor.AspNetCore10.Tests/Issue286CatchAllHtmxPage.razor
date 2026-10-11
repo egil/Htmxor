@@ -1,0 +1,8 @@
+@attribute [Htmxor.HtmxRoute("/issue-286-10/catchall/{*Rest}", Methods = new[] { "GET" })]
+
+<p data-issue-286-10-catchall>rest=@Rest</p>
+
+@code {
+    [Parameter]
+    public string? Rest { get; set; }
+}

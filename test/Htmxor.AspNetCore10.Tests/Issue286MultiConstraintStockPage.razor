@@ -1,0 +1,8 @@
+@page "/issue-286-10/multi-stock/{Id:int:min(1)}"
+
+<p data-issue-286-10-multi>id=@Id</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

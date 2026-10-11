@@ -1,0 +1,8 @@
+@page "/issue-286-10/optional-stock/{Page:int?}"
+
+<p data-issue-286-10-optional>page=@(Page?.ToString() ?? "none")</p>
+
+@code {
+    [Parameter]
+    public int? Page { get; set; }
+}

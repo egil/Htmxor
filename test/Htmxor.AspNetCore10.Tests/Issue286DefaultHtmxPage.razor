@@ -1,0 +1,8 @@
+@attribute [Htmxor.HtmxRoute("/issue-286-10/default/{Id:int=5}", Methods = new[] { "GET" })]
+
+<p data-issue-286-10-default>id=@Id</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

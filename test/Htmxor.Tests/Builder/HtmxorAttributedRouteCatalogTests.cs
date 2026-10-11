@@ -303,20 +303,28 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	/// route (confirmed by a live probe: <c>DefaultInlineConstraintResolver</c> returns <see
 	/// langword="null"/> rather than throwing, and the exact message below comes from
 	/// <c>DefaultParameterPolicyFactory.Create</c>, reached only when the endpoint matcher first
-	/// builds). The catalog surfaces that same reason at build time instead, failing fast rather
-	/// than waiting for a request.
+	/// builds). Constraint resolution runs only on the real mapping path, through the
+	/// application's own <see cref="ParameterPolicyFactory"/> -- <see cref="HtmxorAttributedRouteCatalog.Build"/>
+	/// alone has no DI container to resolve it from -- so this follows the #316 rule and exercises
+	/// <see cref="HtmxorComponentEndpointRouteBuilderExtensions.AddHtmxorAttributedComponentEndpoints"/>
+	/// on a minimal real host, failing fast at startup rather than waiting for a request.
 	/// </summary>
 	[Fact]
-	public void Build_rejects_an_unknown_route_constraint_with_stocks_resolver_reason()
+	public async Task Startup_rejects_an_unknown_route_constraint_with_stocks_resolver_reason()
 	{
 		var fixture = DynamicComponentAssembly.Create(
 			new ComponentDefinition(
 				"PackageConsumer.UnknownConstraintComponent",
 				"/items/{Id:nosuch}",
 				"unused"));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
 
 		var exception = Assert.Throws<InvalidOperationException>(() =>
-			HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[]));
 
 		Assert.Contains(
 			"The constraint reference 'nosuch' could not be resolved to a type. Register the " +
