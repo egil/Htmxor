@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text.Json;
 using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
@@ -44,16 +46,39 @@ public sealed class PackedStockFormConsumerTests
 	private static void RetainEvidence(PackageConsumerWorkspace workspace, ProcessResult result, string scenario)
 	{
 		var directory = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-179-stock-forms", scenario);
-		Directory.CreateDirectory(directory);
+		ResetEvidenceDirectory(directory);
 		File.WriteAllText(Path.Combine(directory, "command.log"), result.StandardOutput + Environment.NewLine + result.StandardError);
 		File.WriteAllText(Path.Combine(directory, "consumer-outcome.txt"), $"exit={result.ExitCode} assembly={File.Exists(workspace.ConsumerAssemblyPath)} package={workspace.PackageVersion}");
 		if (File.Exists(workspace.TrxPath)) File.Copy(workspace.TrxPath, Path.Combine(directory, "package-consumer.trx"), overwrite: true);
 		foreach (var file in Directory.EnumerateFiles(workspace.ConsumerDirectory, "*.razor")) File.Copy(file, Path.Combine(directory, Path.GetFileName(file)), overwrite: true);
 		File.Copy(Path.Combine(workspace.ConsumerDirectory, "Htmxor.PackageConsumer.csproj"), Path.Combine(directory, "consumer.csproj"), overwrite: true);
+		RetainBoundaryFiles(workspace, directory);
 		var generated = Path.Combine(workspace.ConsumerDirectory, "obj", "generated");
 		if (!Directory.Exists(generated)) return;
 		foreach (var file in Directory.EnumerateFiles(generated, "*.cs", SearchOption.AllDirectories)) File.Copy(file, Path.Combine(directory, Path.GetFileName(file)), overwrite: true);
 	}
+
+	private static void ResetEvidenceDirectory(string directory)
+	{
+		if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+		Directory.CreateDirectory(directory);
+	}
+
+	private static void RetainBoundaryFiles(PackageConsumerWorkspace workspace, string directory)
+	{
+		var paths = new[] { Path.Combine(workspace.ConsumerDirectory, "obj", "project.assets.json"), Path.ChangeExtension(workspace.ConsumerAssemblyPath, ".deps.json") };
+		var provenance = new List<object>();
+		var capturedAt = DateTimeOffset.UtcNow;
+		foreach (var source in paths)
+		{
+			var exists = File.Exists(source);
+			var hash = exists ? Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(source))) : null;
+			if (exists) File.Copy(source, Path.Combine(directory, Path.GetFileName(source)), overwrite: true);
+			provenance.Add(new { SourcePath = source, Exists = exists, Sha256 = hash, CapturedAt = capturedAt });
+		}
+		File.WriteAllText(Path.Combine(directory, "boundary-provenance.json"), JsonSerializer.Serialize(provenance, new JsonSerializerOptions { WriteIndented = true }));
+	}
+
 }
 
 internal sealed partial class PackageConsumerWorkspace

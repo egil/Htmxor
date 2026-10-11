@@ -1,0 +1,3 @@
+@attribute [Htmxor.HtmxRoute("/nested-type")]
+<EditForm Model="model" FormName="save" method="post" />
+@code { private object model = new(); private sealed class EditForm { } }

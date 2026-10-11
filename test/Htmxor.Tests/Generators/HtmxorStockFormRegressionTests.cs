@@ -43,6 +43,7 @@ public sealed class HtmxorStockFormRegressionTests
 	[Theory]
 	[InlineData("Alias", true)]
 	[InlineData("Custom", false)]
+	[InlineData("Nested", true)]
 	public async Task Compiled_stock_identity_decides_the_named_form_manifest(string fixture, bool stockForm)
 	{
 		var result = await CompileAsync(fixture);
@@ -62,8 +63,9 @@ public sealed class HtmxorStockFormRegressionTests
 		try
 		{
 			var assembly = context.LoadFromStream(stream);
-			var type = assembly.GetType("FormRegressionProbe." + fixture, throwOnError: true)!;
-			return (bool?)type.GetProperty("__HtmxorHasOwnNamedForms", BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null) ?? false;
+			var registration = assembly.GetType("Microsoft.AspNetCore.Builder.HtmxorGeneratedRouteRegistrationExtensions", throwOnError: true)!;
+			var owners = (string[])registration.GetField("NamedFormComponentTypeNames", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+			return owners.Contains("FormRegressionProbe." + fixture, StringComparer.Ordinal);
 		}
 		finally
 		{
@@ -79,8 +81,9 @@ public sealed class HtmxorStockFormRegressionTests
 			.Concat(new[] { typeof(Microsoft.AspNetCore.Components.ComponentBase).Assembly.Location, typeof(Microsoft.AspNetCore.Components.Forms.EditForm).Assembly.Location, typeof(HtmxRouteAttribute).Assembly.Location })
 			.Distinct(StringComparer.OrdinalIgnoreCase).Select(path => MetadataReference.CreateFromFile(path));
 		var compilation = CSharpCompilation.Create("Htmxor.StockForm.Regression." + fixture, trees, references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-		var files = ImmutableArray.Create<AdditionalText>(new RazorFile(fixture + ".razor", ReadFixture(fixture + ".source.fixture")), new RazorFile("_Imports.razor", Imports));
-		var options = new Options();
+		var directory = fixture == "Nested" ? "/tmp/htmxor179-nested-regression-probe" : DirectoryPath;
+		var files = ImmutableArray.Create<AdditionalText>(new RazorFile(directory + "/" + fixture + ".razor", ReadFixture(fixture + ".source.fixture")), new RazorFile(directory + "/_Imports.razor", Imports));
+		var options = new Options(directory);
 		GeneratorDriver driver = CSharpGeneratorDriver.Create(new ISourceGenerator[] { new HtmxorRouteGenerator().AsSourceGenerator(), new HtmxorActionGenerator().AsSourceGenerator() }, files, parse, options);
 		driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var driverDiagnostics);
 		Assert.Empty(driverDiagnostics.Where(diagnostic => diagnostic.Id == "CS8785"));
@@ -98,24 +101,24 @@ public sealed class HtmxorStockFormRegressionTests
 
 	private sealed record Result(Compilation Output, ImmutableArray<Diagnostic> CompilerErrors, ImmutableArray<Diagnostic> HtmxorDiagnostics);
 
-	private sealed class RazorFile(string name, string content) : AdditionalText
+	private sealed class RazorFile(string filePath, string content) : AdditionalText
 	{
-		public override string Path => DirectoryPath + "/" + name;
+		public override string Path => filePath;
 		public override SourceText GetText(CancellationToken cancellationToken = default) => SourceText.From(content);
 	}
 
-	private sealed class Options : AnalyzerConfigOptionsProvider
+	private sealed class Options(string projectDirectory) : AnalyzerConfigOptionsProvider
 	{
-		public override AnalyzerConfigOptions GlobalOptions { get; } = new Values();
+		public override AnalyzerConfigOptions GlobalOptions { get; } = new Values(projectDirectory);
 		public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => GlobalOptions;
 		public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => GlobalOptions;
 	}
 
-	private sealed class Values : AnalyzerConfigOptions
+	private sealed class Values(string projectDirectory) : AnalyzerConfigOptions
 	{
 		public override bool TryGetValue(string key, out string value)
 		{
-			value = key == "build_property.RootNamespace" ? "FormRegressionProbe" : DirectoryPath;
+			value = key == "build_property.RootNamespace" ? "FormRegressionProbe" : projectDirectory;
 			return key is "build_property.RootNamespace" or "build_property.MSBuildProjectDirectory";
 		}
 	}
