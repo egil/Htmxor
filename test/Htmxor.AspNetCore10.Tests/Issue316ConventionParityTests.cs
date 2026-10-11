@@ -20,14 +20,19 @@ namespace Htmxor.AspNetCore10;
 /// 401 with HX headers and 404 without them, never 200; an authenticated request renders the
 /// HtmxRoute component exactly as it renders the stock twin, and still 404s without HX headers; a
 /// non-authorization WithMetadata marker reaches the HtmxRoute endpoint's metadata exactly as it
-/// reaches the stock twin's. On net11.0 only, the framework's own WithBrowserOptions() convention
-/// reaches the HtmxRoute endpoint exactly as it reaches the stock twin's.
+/// reaches the stock twin's, and a convention-added value of a metadata type the component also
+/// carries resolves to the convention's last-wins value on both twins alike. On net11.0 only, the
+/// framework's own WithBrowserOptions() convention reaches the HtmxRoute endpoint exactly as it
+/// reaches the stock twin's.
 /// </summary>
 public sealed class Issue316ConventionParityTests : IAsyncLifetime
 {
 	private const string MarkerHeaderName = "X-Issue-316-Conv-Marker";
+	private const string OrderingHeaderName = "X-Issue-316-Conv-Ordering";
 	private const string StockPath = "/issue-316-conv/no-attr/stock/1";
 	private const string HtmxPath = "/issue-316-conv/no-attr/htmx/1";
+	private const string OrderingStockPath = "/issue-316-conv/ordering/stock/1";
+	private const string OrderingHtmxPath = "/issue-316-conv/ordering/htmx/1";
 
 	private WebApplication beforeApp = default!;
 	private HttpClient beforeClient = default!;
@@ -121,6 +126,32 @@ public sealed class Issue316ConventionParityTests : IAsyncLifetime
 			$"HtmxRoute twin ({configuration}) must carry the same WithMetadata marker as its stock twin.");
 	}
 
+	/// <summary>
+	/// Ordering row: <c>Issue316OrderingHtmxPage</c> and <c>Issue316OrderingStockPage</c> each carry
+	/// <see cref="Issue316OrderingMetadata"/> with value "component", and every host also chains a
+	/// <see cref="Issue316OrderingMetadata"/> of value "convention" onto MapRazorComponents. The
+	/// HtmxRoute twin must resolve to the same last-wins value as the stock twin, which only holds if
+	/// component metadata is inserted at the same relative position rather than appended after every
+	/// convention.
+	/// </summary>
+	[Theory]
+	[MemberData(nameof(Configurations))]
+	public async Task Chained_WithMetadata_of_a_type_the_component_also_carries_resolves_to_the_conventions_value_like_stock(
+		string configuration)
+	{
+		var client = Client(configuration);
+		using var stockResponse = await SendAsync(client, OrderingStockPath, direct: false);
+		using var htmxResponse = await SendAsync(client, OrderingHtmxPath, direct: true);
+		var stockValue = Assert.Single(stockResponse.Headers.GetValues(OrderingHeaderName));
+		var htmxValue = Assert.Single(htmxResponse.Headers.GetValues(OrderingHeaderName));
+
+		Assert.Equal("convention", stockValue);
+		Assert.True(
+			htmxValue == "convention",
+			$"HtmxRoute twin ({configuration}) expected the convention's last-wins value \"convention\" to match " +
+			$"its stock twin, got \"{htmxValue}\".");
+	}
+
 #if NET11_0_OR_GREATER
 	[Theory]
 	[MemberData(nameof(Configurations))]
@@ -199,6 +230,7 @@ public sealed class Issue316ConventionParityTests : IAsyncLifetime
 	{
 		var endpoint = context.GetEndpoint();
 		SetHeaderIfMetadataPresent<Issue316ConventionMarker>(context, endpoint, MarkerHeaderName);
+		SetOrderingHeader(context, endpoint);
 #if NET11_0_OR_GREATER
 		SetHeaderIfMetadataPresent<Microsoft.AspNetCore.Components.BrowserOptions>(context, endpoint, BrowserOptionsHeaderName);
 #endif
@@ -215,13 +247,22 @@ public sealed class Issue316ConventionParityTests : IAsyncLifetime
 		}
 	}
 
+	private static void SetOrderingHeader(HttpContext context, Endpoint? endpoint)
+	{
+		if (endpoint?.Metadata.GetMetadata<Issue316OrderingMetadata>() is { } ordering)
+		{
+			context.Response.Headers[OrderingHeaderName] = ordering.Value;
+		}
+	}
+
 	private static void MapConventions(WebApplication app, bool before)
 	{
 		if (before)
 		{
 			var componentBuilder = app.MapRazorComponents<Issue78App>()
 				.RequireAuthorization()
-				.WithMetadata(new Issue316ConventionMarker());
+				.WithMetadata(new Issue316ConventionMarker())
+				.WithMetadata(new Issue316OrderingMetadata("convention"));
 			ApplyNet11Conventions(componentBuilder);
 			componentBuilder.AddHtmxorEndpoints();
 			return;
@@ -230,7 +271,8 @@ public sealed class Issue316ConventionParityTests : IAsyncLifetime
 		var afterBuilder = app.MapRazorComponents<Issue78App>()
 			.AddHtmxorEndpoints()
 			.RequireAuthorization()
-			.WithMetadata(new Issue316ConventionMarker());
+			.WithMetadata(new Issue316ConventionMarker())
+			.WithMetadata(new Issue316OrderingMetadata("convention"));
 		ApplyNet11Conventions(afterBuilder);
 	}
 
@@ -244,6 +286,19 @@ public sealed class Issue316ConventionParityTests : IAsyncLifetime
 
 internal sealed class Issue316ConventionMarker
 {
+}
+
+/// <summary>
+/// Carries a distinguishing value both as a component attribute (applied to
+/// <c>Issue316OrderingHtmxPage</c> and <c>Issue316OrderingStockPage</c> with value "component") and
+/// as a value a convention supplies through <c>WithMetadata</c> (value "convention"), so last-wins
+/// resolution of <c>GetMetadata&lt;Issue316OrderingMetadata&gt;()</c> can be pinned against the
+/// stock twin.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class)]
+internal sealed class Issue316OrderingMetadata(string value) : Attribute
+{
+	public string Value { get; } = value;
 }
 
 /// <summary>

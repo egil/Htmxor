@@ -79,9 +79,9 @@ public sealed class Issue316ConventionsTests : IClassFixture<Issue316ConventionH
 			htmxDirect.StatusCode == HttpStatusCode.Unauthorized,
 			$"HtmxRoute twin ({configuration}) expected 401 to match its stock twin, got {(int)htmxDirect.StatusCode}. " +
 			"RequireAuthorization() chained onto MapRazorComponents must also protect generated HtmxRoute endpoints.");
-		// Owner amendment to criterion 2: an HtmxRoute-only endpoint is never selected outside Direct
-		// routing mode (no HX headers), which 404s before authorization runs at all; it must never
-		// answer 200 here, in either chaining order.
+		// An HtmxRoute-only endpoint is never selected outside Direct routing mode (no HX headers), so the
+		// request 404s without an endpoint for authorization to evaluate; it must never answer 200 here, in
+		// either chaining order.
 		Assert.True(
 			htmxPlain.StatusCode == HttpStatusCode.NotFound,
 			$"HtmxRoute twin ({configuration}) without HX headers expected 404 (never 200), got {(int)htmxPlain.StatusCode}.");
@@ -153,8 +153,8 @@ public sealed class Issue316ConventionsTests : IClassFixture<Issue316ConventionH
 	/// the chained RequireAuthorization(), the HtmxRoute component renders exactly as its stock twin
 	/// does, carrying the same WithMetadata marker and the same WithStaticAssets resource-collection
 	/// metadata end to end -- so those rows are not merely "always 401 regardless of identity".
-	/// Without HX headers, the authenticated request still 404s and never renders (same amendment as
-	/// the anonymous case).
+	/// Without HX headers, the authenticated request still 404s and never renders, because the
+	/// HtmxRoute-only endpoint is not selected outside Direct routing mode.
 	/// </summary>
 	[Theory]
 	[MemberData(nameof(ChainedConfigurations))]
@@ -251,10 +251,10 @@ public sealed class Issue316ConventionsTests : IClassFixture<Issue316ConventionH
 	}
 
 	/// <summary>
-	/// Stock-metadata parity row (design decision 6103041533): a GET-only HtmxRoute endpoint must
-	/// carry the same <see cref="IAntiforgeryMetadata"/> presence and <c>RequiresValidation</c> value
-	/// as its stock twin. Antiforgery middleware does not validate GET regardless of this metadata,
-	/// so the comparison is the metadata itself, not the request outcome.
+	/// Stock-metadata parity row: a GET-only HtmxRoute endpoint must carry the same
+	/// <see cref="IAntiforgeryMetadata"/> presence and <c>RequiresValidation</c> value as its stock
+	/// twin. Antiforgery middleware does not validate GET regardless of this metadata, so the
+	/// comparison is the metadata itself, not the request outcome.
 	/// </summary>
 	[Theory]
 	[MemberData(nameof(ChainedConfigurations))]
