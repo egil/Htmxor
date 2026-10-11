@@ -24,15 +24,20 @@ internal sealed class HtmxorFormManifestDeclaration
 		ImmutableArray<AdditionalText> files, CancellationToken cancellationToken)
 	{
 		var name = typeNames?.GetTypeName(file, cancellationToken);
-		var importNames = ReadImports(file, files, cancellationToken).ToArray();
-		var forms = RazorFormDeclaration.Read(file, cancellationToken)
-			.Where(form => form.IsNamed && (!form.IsEditForm || IsStockEditFormTag(form.TagName, name, importNames))).ToArray();
-		if (name is null || forms.Length == 0)
+		if (name is null || !ReadStockForms(file, name, files, cancellationToken).Any(static form => form.IsNamed))
 		{
 			return null;
 		}
 
 		return new HtmxorFormManifestDeclaration(name);
+	}
+
+	public static IReadOnlyList<RazorFormDeclaration> ReadStockForms(AdditionalText file, string? ownerName,
+		ImmutableArray<AdditionalText> files, CancellationToken cancellationToken)
+	{
+		var importNames = ReadImports(file, files, cancellationToken).ToArray();
+		return RazorFormDeclaration.Read(file, cancellationToken)
+			.Where(form => !form.IsEditForm || IsStockEditFormTag(form.TagName, ownerName, importNames)).ToArray();
 	}
 
 	// Razor tags use namespace scope; a C# lookup within the owner can select an alias or nested model instead.

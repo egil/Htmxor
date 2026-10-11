@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -42,7 +43,8 @@ internal static class RazorFormValidation
 		var file = context.Options.AdditionalFiles.FirstOrDefault(file =>
 			typeNames?.GetTypeName(file, context.CancellationToken) == component.ToDisplayString() &&
 			HtmxorRouteManifest.HasCompiledRazorDeclaration(component, new[] { typeNames.GetGeneratedPath(file.Path) }));
-		var declarations = file is null ? Array.Empty<RazorFormDeclaration>() : RazorFormDeclaration.Read(file, context.CancellationToken);
+		var declarations = file is null ? Array.Empty<RazorFormDeclaration>() : HtmxorFormManifestDeclaration.ReadStockForms(
+			file, component.ToDisplayString(), context.Options.AdditionalFiles, context.CancellationToken);
 		for (var index = 0; index < forms.Length; index++)
 		{
 			var form = forms[index];
@@ -50,11 +52,24 @@ internal static class RazorFormValidation
 				HtmxorCompiledFormManifest.Contains(context.Compilation, component, context.CancellationToken));
 			if (reason is not null)
 			{
-				var location = form.Location.GetMappedLineSpan().Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase)
-					? form.Location : index < declarations.Count ? declarations[index].Location : form.Location;
+				var location = GetLocation(forms, index, declarations);
 				context.ReportDiagnostic(Diagnostic.Create(HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration, location, reason));
 			}
 		}
+	}
+
+	private static Location GetLocation(RazorCompiledForm[] forms, int index, IReadOnlyList<RazorFormDeclaration> declarations)
+	{
+		var form = forms[index];
+		if (form.Location.GetMappedLineSpan().Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase))
+		{
+			return form.Location;
+		}
+
+		var shape = (form.IsEditForm, form.IsNamed, form.IsPost);
+		var ordinal = forms.Take(index).Count(candidate => (candidate.IsEditForm, candidate.IsNamed, candidate.IsPost) == shape);
+		return declarations.Where(candidate => (candidate.IsEditForm, candidate.IsNamed, candidate.IsPost) == shape)
+			.Skip(ordinal).FirstOrDefault()?.Location ?? form.Location;
 	}
 
 	private static string? GetReason(RazorCompiledForm form, AttributeData? route, bool hasPostAction, bool inferredNamedForm)
