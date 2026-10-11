@@ -875,9 +875,9 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		builder.WebHost.UseTestServer();
 		builder.Services.AddRazorComponents().AddHtmxor();
 		var app = builder.Build();
-		// A generated HtmxRoute endpoint always carries antiforgery metadata (the emitted page
-		// type's own factory default); without this middleware a request fails with "contains
-		// anti-forgery metadata, but a middleware was not found" before routing's own filters run.
+		// Razor's endpoint factory gives every page endpoint, including a generated HtmxRoute one,
+		// a RequireAntiforgeryTokenAttribute default. Without this middleware, EndpointMiddleware
+		// throws for the request that routing selects, so the matching request could not get 200.
 		app.UseAntiforgery();
 		group = app.MapGroup("/catalog");
 		componentBuilder = group.MapRazorComponents<global::Htmxor.TestApp.App>();

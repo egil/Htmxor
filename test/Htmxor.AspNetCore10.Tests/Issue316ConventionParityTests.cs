@@ -89,13 +89,13 @@ public sealed class Issue316ConventionParityTests : IAsyncLifetime
 	}
 
 	/// <summary>
-	/// The HtmxRoute endpoint keeps its declared methods and the direct host root rather than the
-	/// emitted page type's stock defaults (GET and POST, plus HEAD on net11.0, and the application
-	/// root), so a method it does not declare gets 405.
+	/// The HtmxRoute endpoint keeps its declared methods rather than the emitted page type's stock
+	/// page methods (GET and POST, plus HEAD on net11.0), so a stock page method it does not declare
+	/// gets 405.
 	/// </summary>
 	[Theory]
 	[MemberData(nameof(Configurations))]
-	public async Task HtmxRoute_endpoint_carries_its_declared_methods_and_the_direct_root_not_the_stock_defaults(
+	public async Task HtmxRoute_endpoint_carries_its_declared_methods_not_the_stock_page_methods(
 		string configuration)
 	{
 		var app = configuration == "before" ? beforeApp : afterApp;
