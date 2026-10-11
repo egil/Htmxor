@@ -5,10 +5,11 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
+using Xunit.Abstractions;
 
 namespace Htmxor.Generators.Tests;
 
-public sealed class HtmxorStockFormRegressionTests
+public sealed class HtmxorStockFormRegressionTests(ITestOutputHelper output)
 {
 	private const string DirectoryPath = "/tmp/htmxor179-regression-probe";
 	private const string Imports = "@using Microsoft.AspNetCore.Components\n@using Microsoft.AspNetCore.Components.Forms\n";
@@ -53,6 +54,28 @@ public sealed class HtmxorStockFormRegressionTests
 		Assert.Equal(stockForm, ReadManifest(result.Output, fixture));
 	}
 
+	[Theory]
+	[InlineData("PrecededByGet")]
+	[InlineData("PrecededByCustom")]
+	public async Task Unnamed_static_POST_reports_its_form_after_an_unrelated_declaration(string fixture)
+	{
+		var result = await CompileAsync(fixture);
+
+		Assert.Empty(result.CompilerErrors);
+		var diagnostic = Assert.Single(result.HtmxorDiagnostics);
+		var span = diagnostic.Location.GetMappedLineSpan();
+		output.WriteLine($"Diagnostic: {diagnostic}; severity={diagnostic.Severity}; sourceSpan={diagnostic.Location.SourceSpan}; mappedSpan={span}");
+		output.WriteLine(ReadFixture(fixture + ".source.fixture"));
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains("@formname", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Equal("/tmp/htmxor179-location-regression-probe/" + fixture + ".razor", span.Path);
+		Assert.Equal(2, span.StartLinePosition.Line);
+		Assert.Equal(0, span.StartLinePosition.Character);
+		Assert.Equal(ReadFixture(fixture + ".source.fixture").IndexOf("<form method=\"post\"", StringComparison.Ordinal), diagnostic.Location.SourceSpan.Start);
+		Assert.True(diagnostic.Location.SourceSpan.Length > 0);
+	}
+
 	private static bool ReadManifest(Compilation compilation, string fixture)
 	{
 		using var stream = new MemoryStream();
@@ -81,7 +104,8 @@ public sealed class HtmxorStockFormRegressionTests
 			.Concat(new[] { typeof(Microsoft.AspNetCore.Components.ComponentBase).Assembly.Location, typeof(Microsoft.AspNetCore.Components.Forms.EditForm).Assembly.Location, typeof(HtmxRouteAttribute).Assembly.Location })
 			.Distinct(StringComparer.OrdinalIgnoreCase).Select(path => MetadataReference.CreateFromFile(path));
 		var compilation = CSharpCompilation.Create("Htmxor.StockForm.Regression." + fixture, trees, references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-		var directory = fixture == "Nested" ? "/tmp/htmxor179-nested-regression-probe" : DirectoryPath;
+		var directory = fixture.StartsWith("PrecededBy", StringComparison.Ordinal) ? "/tmp/htmxor179-location-regression-probe"
+			: fixture == "Nested" ? "/tmp/htmxor179-nested-regression-probe" : DirectoryPath;
 		var files = ImmutableArray.Create<AdditionalText>(new RazorFile(directory + "/" + fixture + ".razor", ReadFixture(fixture + ".source.fixture")), new RazorFile(directory + "/_Imports.razor", Imports));
 		var options = new Options(directory);
 		GeneratorDriver driver = CSharpGeneratorDriver.Create(new ISourceGenerator[] { new HtmxorRouteGenerator().AsSourceGenerator(), new HtmxorActionGenerator().AsSourceGenerator() }, files, parse, options);
@@ -122,4 +146,5 @@ public sealed class HtmxorStockFormRegressionTests
 			return key is "build_property.RootNamespace" or "build_property.MSBuildProjectDirectory";
 		}
 	}
+
 }

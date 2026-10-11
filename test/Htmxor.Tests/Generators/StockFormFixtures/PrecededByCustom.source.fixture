@@ -1,0 +1,3 @@
+@attribute [Htmxor.HtmxRoute("/location-regression")]
+<CustomControls.FakeForm FormName="save" />
+<form method="post"></form>
