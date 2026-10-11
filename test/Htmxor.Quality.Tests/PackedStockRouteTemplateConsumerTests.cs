@@ -5,12 +5,12 @@ namespace Htmxor.Quality.Tests;
 /// <summary>
 /// Through a package-only consumer: every stock Blazor route template shape that
 /// <c>HtmxorRouteTemplateContract</c> must accept -- a static path, an unconstrained
-/// (<c>string</c>) parameter, every stock route constraint plus a multi-constraint segment, a
-/// non-matching constrained value, an optional parameter present and absent, a catch-all, an
-/// inline default value present and absent, and a complex segment -- binds route values through
-/// the real stock routing and parameter-binding seam on an <c>HtmxRoute</c> component exactly as
-/// it does on a paired stock <c>@page</c> twin (10 cases, see
-/// <c>Issue286ScenarioTests.cs.scenario</c>).
+/// (<c>string</c>) parameter, every stock route constraint plus a multi-constraint segment, an
+/// optional parameter present and absent, a catch-all, an inline default value present and
+/// absent, and a complex segment -- binds route values through the real stock routing and
+/// parameter-binding seam on an <c>HtmxRoute</c> component exactly as it does on a paired stock
+/// <c>@page</c> twin, and a non-matching constrained value is rejected with the same status (10
+/// cases, see <c>Issue286ScenarioTests.cs.scenario</c>).
 /// </summary>
 [Collection(PackageConsumerCollection.Name)]
 public sealed class PackedStockRouteTemplateConsumerTests

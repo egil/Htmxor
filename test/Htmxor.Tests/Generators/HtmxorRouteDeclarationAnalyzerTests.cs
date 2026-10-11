@@ -2241,31 +2241,48 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
-	/// A malformed template reports the reason stock <c>RoutePatternFactory.Parse</c> gives in its
-	/// <c>RoutePatternException</c>. Stock's build-time ASP0017 analyzer recognizes only
-	/// <c>@page</c> and <c>[Route]</c>, and the <c>[Route]</c> page type for an <c>HtmxRoute</c> is
-	/// emitted at runtime, so this analyzer is the only build-time place that can surface that
-	/// reason. A template with no leading <c>/</c> is instead a Razor-owned rejection: Razor
-	/// reports RZ9988 for an equivalent <c>@page</c> directive but never inspects an
-	/// <c>HtmxRoute</c> argument, so Htmxor reports RZ9988's own reason text for that shape.
+	/// A grammar error -- an unbalanced brace, a duplicate parameter name, or a catch-all that is
+	/// not the last segment -- is validated by stock's own build-time ASP0017 analyzer once
+	/// <c>HtmxRouteAttribute</c>'s template parameter carries <c>[StringSyntax("Route")]</c>, with
+	/// stock's own wording. Htmxor's analyzer adds no diagnostic of its own for grammar ASP0017
+	/// already reports.
 	/// </summary>
 	[Theory]
-	[InlineData(
-		"/items/{Id:int}/{broken",
-		"There is an incomplete parameter in the route template. Check that each '{' character has a matching '}' character.")]
-	[InlineData(
-		"/items/{Id:int}/{Id:int}",
-		"The route parameter name 'Id' appears more than one time in the route template.")]
-	[InlineData(
-		"/items/{*Rest}/more",
-		"A catch-all parameter can only appear as the last segment of the route template.")]
-	[InlineData(
-		"items/{Id}",
-		"The @page directive must specify a route template. The route template must be enclosed in quotes and begin with the '/' character.")]
-	public async Task Malformed_route_template_reports_the_stock_parsers_reason(
-		string template,
-		string stockReason)
+	[InlineData("/items/{Id:int}/{broken")]
+	[InlineData("/items/{Id:int}/{Id:int}")]
+	[InlineData("/items/{*Rest}/more")]
+	public async Task Grammar_error_ASP0017_already_reports_gets_no_Htmxor_diagnostic(string template)
 	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			$"[global::Htmxor.HtmxRouteAttribute(\"{template}\", Methods = [\"GET\"])]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.True(
+			diagnostics.IsEmpty,
+			$"Template '{template}' must get no Htmxor diagnostic -- ASP0017 owns it: " +
+			string.Join(", ", diagnostics.Select(d => d.GetMessage())));
+	}
+
+	/// <summary>
+	/// A template with no leading <c>/</c> is a Razor-owned rejection: Razor reports RZ9988 for an
+	/// equivalent <c>@page</c> directive but never inspects an <c>HtmxRoute</c> argument, and
+	/// <c>RoutePatternFactory.Parse</c> alone accepts a relative template, so this analyzer is the
+	/// only place that can surface RZ9988's reason for an <c>HtmxRoute</c> declaration.
+	/// </summary>
+	[Fact]
+	public async Task Missing_leading_slash_reports_HTMXOR001_with_the_RZ9988_reason()
+	{
+		const string template = "items/{Id}";
+		const string stockReason =
+			"The @page directive must specify a route template. The route template must be " +
+			"enclosed in quotes and begin with the '/' character.";
 		var componentPath = ComponentPath("ItemComponent.razor");
 		var source = ComponentSource(
 			"ItemComponent",

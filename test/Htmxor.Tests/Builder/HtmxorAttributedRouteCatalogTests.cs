@@ -297,6 +297,34 @@ public sealed class HtmxorAttributedRouteCatalogTests
 		Assert.Contains(fixture.Types[0].FullName!, exception.Message, StringComparison.Ordinal);
 	}
 
+	/// <summary>
+	/// An unknown route constraint is a template stock itself rejects, not a grammar error ASP0017
+	/// catches: stock's own constraint resolver only raises it once a request first matches the
+	/// route (confirmed by a live probe: <c>DefaultInlineConstraintResolver</c> returns <see
+	/// langword="null"/> rather than throwing, and the exact message below comes from
+	/// <c>DefaultParameterPolicyFactory.Create</c>, reached only when the endpoint matcher first
+	/// builds). The catalog surfaces that same reason at build time instead, failing fast rather
+	/// than waiting for a request.
+	/// </summary>
+	[Fact]
+	public void Build_rejects_an_unknown_route_constraint_with_stocks_resolver_reason()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.UnknownConstraintComponent",
+				"/items/{Id:nosuch}",
+				"unused"));
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		Assert.Contains(
+			"The constraint reference 'nosuch' could not be resolved to a type. Register the " +
+			"constraint type with 'Microsoft.AspNetCore.Routing.RouteOptions.ConstraintMap'.",
+			exception.Message,
+			StringComparison.Ordinal);
+	}
+
 	[Fact]
 	public async Task Bridge_fails_closed_when_a_generated_stock_route_action_targets_a_DisableHtmxDirectRouting_marked_component()
 	{

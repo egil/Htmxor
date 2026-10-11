@@ -1,9 +1,33 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using Microsoft.AspNetCore.Http;
 
 namespace Htmxor;
 
 public sealed class HtmxRouteAttributeTests
 {
+	/// <summary>
+	/// Stock sees an <c>HtmxRoute</c> template exactly as it sees a stock <c>@page</c> or
+	/// <c>[Route]</c> template: both <see cref="Microsoft.AspNetCore.Components.RouteAttribute"/>
+	/// and <see cref="Microsoft.AspNetCore.Mvc.RouteAttribute"/> mark their own template parameter
+	/// <c>[StringSyntax("Route")]</c>, which is what makes stock's build-time ASP0017 analyzer
+	/// validate the argument at all -- ASP0017 recognizes any argument carrying that syntax
+	/// identifier, custom attributes included, not only its own known APIs.
+	/// </summary>
+	[Fact]
+	public void Template_constructor_parameter_carries_the_Route_StringSyntax()
+	{
+		var constructor = typeof(HtmxRouteAttribute).GetConstructors().Single();
+		var parameter = Assert.Single(
+			constructor.GetParameters(),
+			static p => p.Name == "template");
+
+		var syntax = parameter.GetCustomAttribute<StringSyntaxAttribute>();
+
+		Assert.NotNull(syntax);
+		Assert.Equal("Route", syntax!.Syntax);
+	}
+
 	[Fact]
 	public void Equality_and_hash_set_treat_route_fields_and_element_tags_with_their_declared_case_rules()
 	{
