@@ -126,6 +126,6 @@ internal static partial class LocalFrameworkDependencyDiscovery
 		}
 	}
 
-	[GeneratedRegex(@"^// Htmxor upstream dependency: (src/[^\s|]+) \| (mirrors|reimplements|private-accesses)$")]
+	[GeneratedRegex(@"^// Htmxor upstream dependency: (src/[^\s|]+) \| (mirrors|reimplements|private-accesses|depends-on-behaviour)$")]
 	private static partial Regex Provenance();
 }

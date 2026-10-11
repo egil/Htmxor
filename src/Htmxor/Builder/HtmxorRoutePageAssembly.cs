@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Builder;
 
+// Htmxor upstream dependency: src/Components/Endpoints/src/Discovery/IRazorComponentApplication.cs | depends-on-behaviour
 // Razor builds a component endpoint, and applies its conventions, only for a public [Route] page type that
 // it discovers through Assembly.GetExportedTypes. A runtime AssemblyBuilder throws there, so the page types
 // are persisted to a real assembly image and loaded. Each type is metadata only and never rendered: Htmxor's

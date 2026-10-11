@@ -159,6 +159,8 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		endpointBuilder.RequestDelegate = context => InvokeEndpoint(context, stockRequestDelegate, endpointActions);
 	}
 
+	// Htmxor upstream dependency: src/Components/Endpoints/src/Builder/RazorComponentEndpointFactory.cs | depends-on-behaviour
+	// Htmxor upstream dependency: src/Components/Endpoints/src/Discovery/PageCollectionBuilder.cs | depends-on-behaviour
 	private static void ConfigureHtmxOnlyPageEndpoint(
 		EndpointBuilder endpointBuilder,
 		HtmxorComponentRouteDescriptor generatedRoute,
