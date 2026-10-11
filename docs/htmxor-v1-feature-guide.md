@@ -181,9 +181,12 @@ builder.Services.AddAuthorization(options =>
 ```
 
 Conventions chained onto `MapRazorComponents<App>()`, such as
-`.RequireAuthorization()` or `.WithMetadata(...)`, reach `HtmxRoute` endpoints
-exactly as they reach stock `@page` endpoints, whether they are chained before or
-after `AddHtmxorEndpoints()`.
+`.RequireAuthorization()` or `.WithMetadata(...)`, reach `HtmxRoute` endpoints in
+the same order as stock `@page` endpoints, whether they are chained before or
+after `AddHtmxorEndpoints()`. A convention that inspects the endpoint while it is
+being built sees an internal page type and the stock page methods in place of the
+component and its `HtmxRoute` methods; the final endpoint carries the component,
+its attributes and its methods.
 
 GET is implicit for Razor-authored declarations. A C#-authored declaration must
 specify its complete method allow-list because Razor callback inference is not
