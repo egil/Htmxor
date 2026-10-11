@@ -2,7 +2,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject Issue211Probe Probe
 
-<form id="actions" hx-post="/issue-211" @onpost="Post" @onput="Put" @onpatch="Patch" @ondelete="Delete" @formname="issue-211" hx-target="body">
+<form id="actions" hx-post="/issue-211" @onpost="Post" @onput="Put" @onpatch="Patch" @ondelete="Delete" hx-target="body">
 	@if (Probe.Tokens)
 	{
 		<AntiforgeryToken />

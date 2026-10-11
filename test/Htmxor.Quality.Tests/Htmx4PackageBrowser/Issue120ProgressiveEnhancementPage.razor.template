@@ -8,7 +8,7 @@
 <form id="issue-120-form"
 	method="post"
 	hx-method="put"
-	@onpost="Post"
+	@onsubmit="Post"
 	action="@NativeAction"
 	hx-action="@EnhancedAction"
 	hx-target="#issue-120-target"
@@ -38,7 +38,7 @@
 	private readonly string requestId = Guid.NewGuid().ToString("N");
 	private string? callback;
 
-	private void Post(HtmxEventArgs _) => Record();
+	private void Post() => Record();
 
 	private void Record()
 	{
