@@ -1,0 +1,4 @@
+@page "/issue-286/static-stock"
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-static>static-ok</p>

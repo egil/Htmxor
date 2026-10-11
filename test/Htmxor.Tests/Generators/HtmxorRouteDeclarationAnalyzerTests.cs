@@ -500,26 +500,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"GET, POST, PUT, PATCH, DELETE, and QUERY")]
 	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Htmxor.HtmxRouteAttribute(\"/other/{Id:int}\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"exactly one HtmxRoute")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"constrained")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:}\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"constrained")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id=foo:bar}\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"constrained")]
-	[InlineData(
-		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}/{broken\", Methods = [\"GET\"])]",
-		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
-		"constrained")]
-	[InlineData(
 		"[global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\", Methods = [\"GET\"])]\n[global::Microsoft.AspNetCore.Components.RouteAttribute(\"/normal/{Id:int}\")]",
 		"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]",
 		"normal Blazor route")]
@@ -2207,6 +2187,116 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			Assert.Equal(new TextSpan(span, "@onput".Length), diagnostic.Location.SourceSpan);
 			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		}
+	}
+
+	[Theory]
+	[InlineData("/products/search")]
+	[InlineData("/products/{Slug}")]
+	[InlineData("/items/{Id:int}")]
+	[InlineData("/items/{Id:bool}")]
+	[InlineData("/items/{Id:datetime}")]
+	[InlineData("/items/{Id:decimal}")]
+	[InlineData("/items/{Id:double}")]
+	[InlineData("/items/{Id:file}")]
+	[InlineData("/items/{Id:float}")]
+	[InlineData("/items/{Id:guid}")]
+	[InlineData("/items/{Id:long}")]
+	[InlineData("/items/{Id:minlength(2)}")]
+	[InlineData("/items/{Id:maxlength(5)}")]
+	[InlineData("/items/{Id:length(3)}")]
+	[InlineData("/items/{Id:length(2,5)}")]
+	[InlineData("/items/{Id:min(1)}")]
+	[InlineData("/items/{Id:max(10)}")]
+	[InlineData("/items/{Id:range(1,10)}")]
+	[InlineData("/items/{Id:alpha}")]
+	[InlineData("/items/{Id:regex(^[a-z]+$)}")]
+	[InlineData("/items/{Id:required}")]
+	[InlineData("/items/{Id:nonfile}")]
+	[InlineData("/items/{Id:int:min(1)}")]
+	[InlineData("/items/{Page:int?}")]
+	[InlineData("/items/{*Rest}")]
+	[InlineData("/items/{**Rest}")]
+	[InlineData("/items/{Id:}")]
+	[InlineData("/items/{Id=foo:bar}")]
+	[InlineData("/items/{Id=foo}")]
+	[InlineData("/items/{Id:int=5}")]
+	[InlineData("/items/{Id}-{B}")]
+	public async Task Stock_route_template_shape_reports_no_diagnostics(string template)
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			$"[global::Htmxor.HtmxRouteAttribute(\"{template}\", Methods = [\"GET\"])]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.True(
+			diagnostics.IsEmpty,
+			$"Template '{template}' must not report a diagnostic: " +
+			string.Join(", ", diagnostics.Select(d => d.GetMessage())));
+	}
+
+	/// <summary>
+	/// A grammar error -- an unbalanced brace, a duplicate parameter name, or a catch-all that is
+	/// not the last segment -- is validated by stock's own build-time ASP0017 analyzer once
+	/// <c>HtmxRouteAttribute</c>'s template parameter carries <c>[StringSyntax("Route")]</c>, with
+	/// stock's own wording. Htmxor's analyzer adds no diagnostic of its own for grammar ASP0017
+	/// already reports.
+	/// </summary>
+	[Theory]
+	[InlineData("/items/{Id:int}/{broken")]
+	[InlineData("/items/{Id:int}/{Id:int}")]
+	[InlineData("/items/{*Rest}/more")]
+	public async Task Grammar_error_ASP0017_already_reports_gets_no_Htmxor_diagnostic(string template)
+	{
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			$"[global::Htmxor.HtmxRouteAttribute(\"{template}\", Methods = [\"GET\"])]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		Assert.True(
+			diagnostics.IsEmpty,
+			$"Template '{template}' must get no Htmxor diagnostic -- ASP0017 owns it: " +
+			string.Join(", ", diagnostics.Select(d => d.GetMessage())));
+	}
+
+	/// <summary>
+	/// A template with no leading <c>/</c> is a Razor-owned rejection: Razor reports RZ9988 for an
+	/// equivalent <c>@page</c> directive but never inspects an <c>HtmxRoute</c> argument, and
+	/// <c>RoutePatternFactory.Parse</c> alone accepts a relative template, so this analyzer is the
+	/// only place that can surface RZ9988's reason for an <c>HtmxRoute</c> declaration.
+	/// </summary>
+	[Fact]
+	public async Task Missing_leading_slash_reports_HTMXOR001_with_the_RZ9988_reason()
+	{
+		const string template = "items/{Id}";
+		const string stockReason =
+			"The @page directive must specify a route template. The route template must be " +
+			"enclosed in quotes and begin with the '/' character.";
+		var componentPath = ComponentPath("ItemComponent.razor");
+		var source = ComponentSource(
+			"ItemComponent",
+			componentPath,
+			$"[global::Htmxor.HtmxRouteAttribute(\"{template}\", Methods = [\"GET\"])]",
+			"[global::Microsoft.AspNetCore.Authorization.AuthorizeAttribute(\"items.read\")]");
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			new[] { componentPath });
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Contains(stockReason, diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
 	private static string ComponentPath(string relativePath)

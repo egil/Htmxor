@@ -1,0 +1,9 @@
+@attribute [Htmxor.HtmxRoute("/issue-286/default/{Id:int=5}", Methods = new[] { "GET" })]
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-286-default>id=@Id</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

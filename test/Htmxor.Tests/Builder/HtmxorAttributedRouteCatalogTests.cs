@@ -298,6 +298,117 @@ public sealed class HtmxorAttributedRouteCatalogTests
 	}
 
 	[Fact]
+	public void Build_rejects_a_malformed_route_template_with_the_stock_parsers_reason()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.MalformedTemplateComponent",
+				"/items/{Id:int}/{broken",
+				"unused"));
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			HtmxorAttributedRouteCatalog.Build(fixture.Assembly, fixture.Manifest));
+
+		Assert.Contains(
+			"There is an incomplete parameter in the route template. Check that each '{' character has a " +
+			"matching '}' character",
+			exception.Message,
+			StringComparison.Ordinal);
+		Assert.Contains(fixture.Types[0].FullName!, exception.Message, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// ASP0017 does not report an unknown constraint, and stock resolves it only when the endpoint matcher first
+	/// builds. Resolution needs the application's <see cref="ParameterPolicyFactory"/>, so this maps through
+	/// <see cref="HtmxorComponentEndpointRouteBuilderExtensions.AddHtmxorAttributedComponentEndpoints"/> on a real
+	/// host rather than the DI-free <see cref="HtmxorAttributedRouteCatalog.Build"/>.
+	/// </summary>
+	[Fact]
+	public async Task Startup_rejects_an_unknown_route_constraint_with_stocks_resolver_reason()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.UnknownConstraintComponent",
+				"/items/{Id:nosuch}",
+				"unused"));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[]));
+
+		Assert.Contains(
+			"The constraint reference 'nosuch' could not be resolved to a type. Register the " +
+			"constraint type with 'Microsoft.AspNetCore.Routing.RouteOptions.ConstraintMap'.",
+			exception.Message,
+			StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// A constraint argument stock cannot construct, such as a non-numeric <c>min</c> bound, is a
+	/// template stock itself rejects. It shares the unknown-constraint boundary above: resolution
+	/// needs the application's own <see cref="ParameterPolicyFactory"/>.
+	/// </summary>
+	[Fact]
+	public async Task Startup_rejects_a_route_constraint_argument_stock_cannot_construct()
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.UnconstructibleConstraintArgumentComponent",
+				"/items/{Id:min(abc)}",
+				"unused"));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[]));
+
+		Assert.Contains(
+			"An error occurred while trying to create an instance of " +
+			"'Microsoft.AspNetCore.Routing.Constraints.MinRouteConstraint'.",
+			exception.Message,
+			StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// Stock compiles a <c>regex</c> constraint's pattern only on the first matching request,
+	/// unlike every other constraint stock validates eagerly. Reading the constructed
+	/// constraint's <c>Regex</c> while resolving constraints at startup (#286's P001 fix) makes
+	/// stock compile it then, so this follows the same real-host boundary as the two constraint
+	/// tests above instead of waiting for a request.
+	/// </summary>
+	[Theory]
+	[InlineData("/items/{Id:regex(()}")]
+	[InlineData("/items/{Id:regex(()?}")]
+	public async Task Startup_rejects_an_invalid_regex_constraint_pattern_with_stocks_reason(string template)
+	{
+		var fixture = DynamicComponentAssembly.Create(
+			new ComponentDefinition(
+				"PackageConsumer.InvalidRegexConstraintComponent",
+				template,
+				"unused"));
+		await using var app = CreateApplication(out var group, out var componentBuilder, out _);
+
+		var exception = Assert.Throws<InvalidOperationException>(() =>
+			componentBuilder.AddHtmxorAttributedComponentEndpoints(
+				group,
+				fixture.Assembly,
+				fixture.Manifest,
+				[]));
+
+		Assert.Contains(
+			"Invalid pattern '(' at offset 1. Not enough )'s.",
+			exception.Message,
+			StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public async Task Bridge_fails_closed_when_a_generated_stock_route_action_targets_a_DisableHtmxDirectRouting_marked_component()
 	{
 		// When analyzer execution is bypassed, the generator still emits a stock-route action for a

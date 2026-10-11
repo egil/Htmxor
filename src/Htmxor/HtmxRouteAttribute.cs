@@ -10,7 +10,7 @@ namespace Htmxor;
 /// <remarks>
 /// If one or more additional properties is specified on the attribute, all specified properties much match for the route to be used.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribute>
 {
 	internal static readonly string ImplicitHttpMethod = HttpMethods.Get;
@@ -65,7 +65,7 @@ public sealed class HtmxRouteAttribute : Attribute, IEquatable<HtmxRouteAttribut
 	/// Constructs an instance of <see cref="HtmxRouteAttribute"/>.
 	/// </summary>
 	/// <param name="template">The route template.</param>
-	public HtmxRouteAttribute([StringSyntax(StringSyntaxAttribute.Uri)] string template)
+	public HtmxRouteAttribute([StringSyntax("Route")] string template)
 	{
 		Template = template;
 	}

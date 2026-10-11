@@ -289,6 +289,30 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 
 	public void UseIssue316ConventionsScenario() => UseSelectionScenario("Issue316");
 
+	public void UseIssue286StockRouteTemplateScenario() => UseSelectionScenario("Issue286");
+
+	/// <summary>
+	/// Rewrites the staged static-path HtmxRoute template into one with an unterminated route
+	/// parameter, the grammar error stock's build-time ASP0017 analyzer reports. The consumer
+	/// project's own <c>TreatWarningsAsErrors</c> (Release only) turns that warning into a build
+	/// failure, so <see cref="BuildForDiagnosticAsync"/> is the seam that observes it.
+	/// </summary>
+	public void UseIssue286MalformedTemplate()
+	{
+		var componentPath = Path.Combine(consumerDirectory, "Issue286StaticHtmxPage.razor");
+		var source = File.ReadAllText(componentPath);
+		const string wellFormedTemplate = "/issue-286/static";
+		const string malformedTemplate = "/issue-286/{broken";
+		var rewritten = source.Replace(wellFormedTemplate, malformedTemplate, StringComparison.Ordinal);
+		if (string.Equals(source, rewritten, StringComparison.Ordinal))
+		{
+			throw new InvalidOperationException(
+				"The staged Issue286 scenario must contain the static HtmxRoute template.");
+		}
+
+		File.WriteAllText(componentPath, rewritten);
+	}
+
 	/// <summary>
 	/// Unlike the flat scenarios, this one needs a real folder tree, because the Razor SDK derives
 	/// a component's namespace from its folder and from ancestor <c>_Imports.razor</c> files. The

@@ -1,7 +1,10 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Htmxor;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.Patterns;
 
 namespace Htmxor.Builder;
@@ -186,11 +189,11 @@ internal static class HtmxorAttributedRouteCatalog
 			}
 		}
 
-		if (!HtmxorRouteTemplateContract.IsSupported(template))
+		if (!HtmxorRouteTemplateContract.HasLeadingSlash(template))
 		{
 			throw Unsupported(
 				componentType,
-				"the HtmxRoute template must use supported literal segments and constrained route parameters");
+				$"HtmxRoute template '{template}' is invalid: {HtmxorRouteTemplateContract.MissingLeadingSlashReason.TrimEnd('.')}");
 		}
 
 		try
@@ -199,11 +202,66 @@ internal static class HtmxorAttributedRouteCatalog
 		}
 		catch (RoutePatternException exception)
 		{
-			throw Unsupported(componentType, "the HtmxRoute template is not a valid route pattern", exception);
+			throw Unsupported(componentType, RejectedTemplate(template, exception.Message), exception);
 		}
 
 		return new ValidatedRoute(template, explicitMethods, currentUrl, target, targets);
 	}
+
+	// Stock resolves inline constraints only when endpoint routing builds its matcher for the first request. Resolving
+	// them here through the same stock factory fails the application at startup with stock's reason instead.
+	public static void ResolveConstraints(
+		IReadOnlyList<HtmxorComponentRouteDescriptor> descriptors,
+		ParameterPolicyFactory parameterPolicyFactory)
+	{
+		ArgumentNullException.ThrowIfNull(descriptors);
+		ArgumentNullException.ThrowIfNull(parameterPolicyFactory);
+		foreach (var descriptor in descriptors)
+		{
+			var pattern = RoutePatternFactory.Parse(descriptor.NormalizedRoute);
+			foreach (var parameter in pattern.Parameters)
+			{
+				foreach (var policy in parameter.ParameterPolicies)
+				{
+					ResolveConstraint(descriptor, parameterPolicyFactory, parameter, policy);
+				}
+			}
+		}
+	}
+
+	private static void ResolveConstraint(
+		HtmxorComponentRouteDescriptor descriptor,
+		ParameterPolicyFactory parameterPolicyFactory,
+		RoutePatternParameterPart parameter,
+		RoutePatternParameterPolicyReference policy)
+	{
+		try
+		{
+			var resolvedPolicy = parameterPolicyFactory.Create(parameter, policy);
+			if (resolvedPolicy is OptionalRouteConstraint optional)
+			{
+				resolvedPolicy = optional.InnerConstraint;
+			}
+
+			// Stock compiles a regex constraint's pattern on first match; reading Constraint compiles it now.
+			if (resolvedPolicy is RegexRouteConstraint regex)
+			{
+				_ = regex.Constraint;
+			}
+		}
+		// An unknown constraint throws InvalidOperationException, a constraint that cannot be constructed throws
+		// RouteCreationException, and an invalid regex pattern throws RegexParseException.
+		catch (Exception exception) when (exception is InvalidOperationException or RouteCreationException or RegexParseException)
+		{
+			throw Unsupported(
+				descriptor.ComponentType,
+				RejectedTemplate(descriptor.NormalizedRoute, exception.Message),
+				exception);
+		}
+	}
+
+	private static string RejectedTemplate(string template, string stockReason)
+		=> $"stock routing rejects the HtmxRoute template '{template}': {stockReason.TrimEnd('.')}";
 
 	private static string? ReadOptionalString(
 		Type componentType,

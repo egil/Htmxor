@@ -121,11 +121,6 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			return "a component action without a local @page cannot use a compiled stock route";
 		}
 
-		if (htmxRoutes.Length != 1)
-		{
-			return "a component action without a local @page must compile with exactly one HtmxRoute";
-		}
-
 		var methods = htmxRoutes[0].NamedArguments
 			.Where(static argument => string.Equals(argument.Key, "Methods", StringComparison.Ordinal))
 			.Select(static argument => argument.Value)

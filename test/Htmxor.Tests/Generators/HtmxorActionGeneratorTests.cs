@@ -2667,6 +2667,24 @@ public sealed class HtmxorActionGeneratorTests
 	}
 
 	[Fact]
+	public void Omitted_methods_htmx_only_action_with_an_escape_sequence_in_its_template_copies_no_route_processor()
+	{
+		var run = RunGenerators(new RazorInput(
+			"ReportComponent.razor",
+			"""
+			@attribute [Htmxor.HtmxRoute("/reports/a\\b/{ReportId:int}")]
+			<button @onput="PutReport">Save</button>
+			"""));
+
+		Assert.Empty(run.DriverDiagnostics);
+		Assert.Empty(run.RunResult.Diagnostics);
+		var actionSource = GetGeneratedSource(run, "HtmxorGeneratedActions.g.cs");
+		Assert.Contains("this, PutReport", actionSource, StringComparison.Ordinal);
+		Assert.DoesNotContain("__HtmxorRouteProcessor", actionSource, StringComparison.Ordinal);
+		Assert.Empty(CompilationErrors(run.OutputCompilation));
+	}
+
+	[Fact]
 	public void Dynamic_onput_fails_closed_at_the_external_attribute_location()
 	{
 		const string content = """

@@ -1,0 +1,8 @@
+@page "/issue-286-10/string-stock/{Value}"
+
+<p data-issue-286-10-string>value=@Value</p>
+
+@code {
+    [Parameter]
+    public string? Value { get; set; }
+}
