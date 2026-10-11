@@ -136,11 +136,14 @@ and requires a reviewed canonical path plus manifest coverage.
 
 Source-owned provenance markers have the exact form
 `// Htmxor upstream dependency: <src/...path> | <relationship>`, where the
-relationship is `mirrors`, `reimplements`, or `private-accesses`. Maintain each
-marker alongside its local dependency and matching manifest watch.
+relationship is `mirrors`, `reimplements`, `private-accesses`, or
+`depends-on-behaviour`. Maintain each marker alongside its local dependency and
+matching manifest watch.
 `private-accesses` describes narrow cached, fail-fast access to private provider
-metadata; use `api: none`. A watch may add `frameworks` to name the target
-frameworks it answers for; omit it to answer for every configured one. An empty
+metadata; use `api: none`. `depends-on-behaviour` records a dependency on upstream
+source behavior without copying or privately accessing it; use `api: none`.
+Its source drift requires implementation review. A watch may add `frameworks` to
+name the target frameworks it answers for; omit it to answer for every configured one. An empty
 list, an unconfigured name, and an entry that is not a name are manifest errors.
 The list scopes manifest coverage and unresolved-path resolution, but not drift
 comparison, so a watch keeps reporting drift in every framework's compare while

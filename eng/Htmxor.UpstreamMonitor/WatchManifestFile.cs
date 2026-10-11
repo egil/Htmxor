@@ -15,8 +15,12 @@ internal static class WatchManifestFile
 			manifest.GetProperty("watches").EnumerateArray().Select(watch => ReadWatch(watch, frameworks)).ToArray());
 	}
 
-	internal static WatchRelationship ParseRelationship(string value) => value.Equals("private-accesses", StringComparison.OrdinalIgnoreCase)
-		? WatchRelationship.PrivateAccesses : Enum.Parse<WatchRelationship>(value, true);
+	internal static WatchRelationship ParseRelationship(string value) => value.ToLowerInvariant() switch
+	{
+		"private-accesses" => WatchRelationship.PrivateAccesses,
+		"depends-on-behaviour" => WatchRelationship.DependsOnBehaviour,
+		_ => Enum.Parse<WatchRelationship>(value, true),
+	};
 
 	private static WatchTarget ReadWatch(JsonElement watch, IReadOnlyList<FrameworkBaseline> frameworks)
 	{

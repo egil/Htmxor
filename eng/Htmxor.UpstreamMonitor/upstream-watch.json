@@ -24,6 +24,33 @@
   ],
   "watches": [
     {
+      "path": "src/Components/Endpoints/src/Builder/RazorComponentEndpointFactory.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "depends-on-behaviour",
+      "dependencies": [
+        "src/Htmxor/Builder/HtmxorComponentEndpointRouteBuilderExtensions.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Discovery/IRazorComponentApplication.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "depends-on-behaviour",
+      "dependencies": [
+        "src/Htmxor/Builder/HtmxorRoutePageAssembly.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Endpoints/src/Discovery/PageCollectionBuilder.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "depends-on-behaviour",
+      "dependencies": [
+        "src/Htmxor/Builder/HtmxorComponentEndpointRouteBuilderExtensions.cs"
+      ]
+    },
+    {
       "path": "src/Components/Endpoints/src/CacheView/CacheView.cs",
       "match": "file",
       "api": "none",
