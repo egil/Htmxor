@@ -1,0 +1,26 @@
+@page "/issue-286-10/converting-stock/{BoolVal:bool}/{DateVal:datetime}/{DecVal:decimal}/{DoubleVal:double}/{FloatVal:float}/{GuidVal:guid}/{LongVal:long}"
+
+<p data-issue-286-10-converting>@BoolVal|@DateVal.ToString("yyyy-MM-dd")|@DecVal|@DoubleVal|@FloatVal|@GuidVal|@LongVal</p>
+
+@code {
+    [Parameter]
+    public bool BoolVal { get; set; }
+
+    [Parameter]
+    public DateTime DateVal { get; set; }
+
+    [Parameter]
+    public decimal DecVal { get; set; }
+
+    [Parameter]
+    public double DoubleVal { get; set; }
+
+    [Parameter]
+    public float FloatVal { get; set; }
+
+    [Parameter]
+    public Guid GuidVal { get; set; }
+
+    [Parameter]
+    public long LongVal { get; set; }
+}

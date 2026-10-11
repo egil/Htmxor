@@ -1,0 +1,14 @@
+@attribute [Htmxor.HtmxRoute("/issue-286-10/stringconstraint/{MinLenVal:minlength(3)}/{AlphaVal:alpha}/{RegexVal:regex(^[a-z]+$)}", Methods = new[] { "GET" })]
+
+<p data-issue-286-10-stringconstraint>@MinLenVal|@AlphaVal|@RegexVal</p>
+
+@code {
+    [Parameter]
+    public string? MinLenVal { get; set; }
+
+    [Parameter]
+    public string? AlphaVal { get; set; }
+
+    [Parameter]
+    public string? RegexVal { get; set; }
+}

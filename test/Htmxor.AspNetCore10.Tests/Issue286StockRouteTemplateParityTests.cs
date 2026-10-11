@@ -11,9 +11,11 @@ namespace Htmxor.AspNetCore10;
 /// <summary>
 /// Issue #286, deferred onto this project's supported framework matrix: a static path, an
 /// unconstrained (<c>string</c>) parameter, an optional parameter present and absent, a
-/// catch-all, an inline default value present and absent, and a multi-constraint segment each
-/// bind the same value on an <c>HtmxRoute</c> component as on a paired stock <c>@page</c> twin,
-/// pinned on net10.0 and net11.0.
+/// catch-all, an inline default value present and absent, a multi-constraint segment, the
+/// non-<c>int</c> type-converting constraints, string-valued constraints, a complex segment, a
+/// <c>{**Rest}</c> catch-all, and a non-matching constrained value each answer the same value or
+/// status on an <c>HtmxRoute</c> component as on a paired stock <c>@page</c> twin, pinned on
+/// net10.0 and net11.0.
 /// </summary>
 public sealed class Issue286StockRouteTemplateParityTests : IAsyncLifetime
 {
@@ -93,6 +95,66 @@ public sealed class Issue286StockRouteTemplateParityTests : IAsyncLifetime
 	{
 		await AssertHtmxBodyContainsAsync("/issue-286-10/multi/7", "id=7");
 		await AssertStockBodyContainsAsync("/issue-286-10/multi-stock/7", "id=7");
+	}
+
+	[Fact]
+	public async Task Non_int_type_converting_constraints_bind_the_same_as_their_stock_twin()
+	{
+		const string expected = "True|2024-01-02|1.5|2.5|3.5|11111111-1111-1111-1111-111111111111|9876543210";
+		await AssertHtmxBodyContainsAsync(
+			"/issue-286-10/converting/true/2024-01-02/1.5/2.5/3.5/11111111-1111-1111-1111-111111111111/9876543210",
+			expected);
+		await AssertStockBodyContainsAsync(
+			"/issue-286-10/converting-stock/true/2024-01-02/1.5/2.5/3.5/11111111-1111-1111-1111-111111111111/9876543210",
+			expected);
+	}
+
+	[Fact]
+	public async Task String_valued_constraints_bind_the_same_as_their_stock_twin()
+	{
+		const string expected = "abcd|alpha|regexval";
+		await AssertHtmxBodyContainsAsync("/issue-286-10/stringconstraint/abcd/alpha/regexval", expected);
+		await AssertStockBodyContainsAsync(
+			"/issue-286-10/stringconstraint-stock/abcd/alpha/regexval",
+			expected);
+	}
+
+	[Fact]
+	public async Task Complex_segment_binds_the_same_as_its_stock_twin()
+	{
+		await AssertHtmxBodyContainsAsync("/issue-286-10/complex/left-right", "id=left|b=right");
+		await AssertStockBodyContainsAsync("/issue-286-10/complex-stock/left-right", "id=left|b=right");
+	}
+
+	[Fact]
+	public async Task Double_star_catchall_binds_the_same_as_its_stock_twin()
+	{
+		await AssertHtmxBodyContainsAsync("/issue-286-10/doublestar/a/b/c", "rest=a/b/c");
+		await AssertStockBodyContainsAsync("/issue-286-10/doublestar-stock/a/b/c", "rest=a/b/c");
+	}
+
+	[Fact]
+	public async Task Nonmatching_constrained_value_answers_the_same_status_as_its_stock_twin()
+	{
+		await AssertHtmxStatusAsync("/issue-286-10/multi/not-a-number", HttpStatusCode.NotFound);
+		await AssertStockStatusAsync("/issue-286-10/multi-stock/not-a-number", HttpStatusCode.NotFound);
+	}
+
+	private async Task AssertHtmxStatusAsync(string path, HttpStatusCode expected)
+	{
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		using var response = await client.SendAsync(request);
+
+		Assert.Equal(expected, response.StatusCode);
+	}
+
+	private async Task AssertStockStatusAsync(string path, HttpStatusCode expected)
+	{
+		using var response = await client.GetAsync(path);
+
+		Assert.Equal(expected, response.StatusCode);
 	}
 
 	private async Task AssertHtmxBodyContainsAsync(string path, string expected)

@@ -1,0 +1,8 @@
+@page "/issue-286-10/doublestar-stock/{**Rest}"
+
+<p data-issue-286-10-doublestar>rest=@Rest</p>
+
+@code {
+    [Parameter]
+    public string? Rest { get; set; }
+}

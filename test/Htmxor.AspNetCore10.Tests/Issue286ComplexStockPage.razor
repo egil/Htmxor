@@ -1,0 +1,11 @@
+@page "/issue-286-10/complex-stock/{Id}-{B}"
+
+<p data-issue-286-10-complex>id=@Id|b=@B</p>
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? B { get; set; }
+}
