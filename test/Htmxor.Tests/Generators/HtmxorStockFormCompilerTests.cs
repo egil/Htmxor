@@ -122,11 +122,11 @@ public sealed class HtmxorStockFormCompilerTests
 		// A stale scanner input must not hide a form present in the real compiled Razor tree.
 		var razor = new RazorFile(omitFormFromAdditionalFiles ? route + "\n" : content);
 		var options = new Options();
-		GeneratorDriver driver = CSharpGeneratorDriver.Create(new ISourceGenerator[] { new HtmxorRouteGenerator().AsSourceGenerator(), new HtmxorActionGenerator().AsSourceGenerator() }, new AdditionalText[] { razor }, parse, options);
+		GeneratorDriver driver = CSharpGeneratorDriver.Create(new ISourceGenerator[] { new HtmxorRouteGenerator().AsSourceGenerator(), new HtmxorActionGenerator().AsSourceGenerator() }, new AdditionalText[] { razor, new ImportsFile() }, parse, options);
 		driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var driverDiagnostics);
 		Assert.Empty(driverDiagnostics.Where(diagnostic => diagnostic.Id == "CS8785"));
 		Assert.Empty(output.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
-		var analyzerDiagnostics = await output.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new HtmxorRouteDeclarationAnalyzer(), new HtmxorActionDeclarationAnalyzer(), new HtmxorCompiledBindingAnalyzer()), new AnalyzerOptions(ImmutableArray.Create<AdditionalText>(razor), options)).GetAnalyzerDiagnosticsAsync();
+		var analyzerDiagnostics = await output.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new HtmxorRouteDeclarationAnalyzer(), new HtmxorActionDeclarationAnalyzer(), new HtmxorCompiledBindingAnalyzer()), new AnalyzerOptions(ImmutableArray.Create<AdditionalText>(razor, new ImportsFile()), options)).GetAnalyzerDiagnosticsAsync();
 		return driver.GetRunResult().Diagnostics.Concat(analyzerDiagnostics).DistinctBy(diagnostic => (diagnostic.Id, diagnostic.Location.SourceSpan, diagnostic.GetMessage())).ToImmutableArray();
 	}
 
@@ -148,6 +148,12 @@ public sealed class HtmxorStockFormCompilerTests
 	{
 		public override string Path => RazorPath;
 		public override SourceText GetText(CancellationToken cancellationToken = default) => SourceText.From(content);
+	}
+
+	private sealed class ImportsFile : AdditionalText
+	{
+		public override string Path => ProjectDirectory + "/_Imports.razor";
+		public override SourceText GetText(CancellationToken cancellationToken = default) => SourceText.From("@using Microsoft.AspNetCore.Components\n@using Microsoft.AspNetCore.Components.Forms\n");
 	}
 
 	private sealed class Options : AnalyzerConfigOptionsProvider
