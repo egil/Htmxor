@@ -45,6 +45,17 @@ public sealed class PackedCompiledBindingConsumerTests
 	}
 
 	[Fact]
+	public async Task Action_for_a_same_named_different_handler_does_not_cover_a_compiled_binding()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseIssue310SameNameHandlerScenario();
+
+		var result = await workspace.BuildForDiagnosticAsync();
+
+		AssertRejectedBinding(workspace, result, "put", 5);
+	}
+
+	[Fact]
 	public async Task Compiled_binding_inside_script_markup_cannot_be_silently_omitted()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
@@ -177,6 +188,25 @@ internal sealed partial class PackageConsumerWorkspace
 	{
 		UseIssue310MissingActionScenario("put");
 		File.AppendAllText(Issue310ComponentPath, "\n<button @onput=\"Other\">Other</button>\n");
+	}
+
+	public void UseIssue310SameNameHandlerScenario()
+	{
+		UseIssue310MissingActionScenario("put");
+		var source = File.ReadAllText(Issue310ComponentPath)
+			.Replace("@namespace Htmxor.PackageConsumer", "@namespace Htmxor.PackageConsumer\n@inherits GateBase", StringComparison.Ordinal)
+			.Replace("<_element @onput=\"Save\">Save</_element>", "<_element @onput=\"base.Save\">Save</_element>", StringComparison.Ordinal)
+			.Replace("private void Save() { }", "private new void Save() { }", StringComparison.Ordinal);
+		File.WriteAllText(Issue310ComponentPath, source + "\n<button @onput=\"Save\">Save</button>\n");
+		File.WriteAllText(Path.Combine(consumerDirectory, "GateBase.cs"), """
+			using Microsoft.AspNetCore.Components;
+
+			namespace Htmxor.PackageConsumer;
+			public class GateBase : ComponentBase
+			{
+			    protected void Save() { }
+			}
+			""");
 	}
 
 	public void UseIssue310ScriptBindingScenario()
