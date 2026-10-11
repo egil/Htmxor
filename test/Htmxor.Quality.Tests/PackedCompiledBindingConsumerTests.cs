@@ -68,6 +68,61 @@ public sealed class PackedCompiledBindingConsumerTests
 		AssertRejectedBinding(workspace, result, "put", 4);
 	}
 
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task Supported_component_tag_binding_reaches_the_request_owner_callback(bool generic)
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseIssue310SupportedComponentBindingScenario(generic);
+
+		var result = await workspace.RunAsync();
+		var tests = TrxTestRun.Read(workspace.TrxPath);
+		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-supported", generic ? "generic" : "direct");
+		Directory.CreateDirectory(evidence);
+		File.Copy(workspace.TrxPath, Path.Combine(evidence, "package-consumer.trx"), overwrite: true);
+		File.WriteAllText(Path.Combine(evidence, "test.log"), result.StandardOutput + Environment.NewLine + result.StandardError);
+
+		Assert.True(result.ExitCode == 0, result.StandardOutput + Environment.NewLine + result.StandardError);
+		Assert.Equal(new TrxTestRun(1, 1, 1, 0, 0, 0, 0), tests);
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
+	}
+
+	[Fact]
+	public async Task Compiled_member_template_binding_cannot_be_silently_omitted()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseIssue310TemplateBindingScenario();
+
+		var result = await workspace.BuildForDiagnosticAsync();
+
+		AssertRejectedBinding(workspace, result, "put", 8);
+	}
+
+	[Fact]
+	public async Task Handwritten_member_template_callback_stays_outside_the_compiled_Razor_gate()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseIssue310HandwrittenTemplateScenario();
+
+		var result = await workspace.BuildForDiagnosticAsync();
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-handwritten");
+		Directory.CreateDirectory(evidence);
+		File.WriteAllText(Path.Combine(evidence, "build.log"), output);
+		foreach (var path in Directory.EnumerateFiles(Path.Combine(workspace.ConsumerDirectory, "obj", "generated"), "*Issue310Page_razor.g.cs", SearchOption.AllDirectories))
+		{
+			File.Copy(path, Path.Combine(evidence, Path.GetFileName(path)), overwrite: true);
+		}
+
+		Assert.True(result.ExitCode == 0, output);
+		Assert.DoesNotContain("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.True(File.Exists(workspace.ConsumerAssemblyPath));
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
+	}
+
 	private static void AssertRejectedBinding(PackageConsumerWorkspace workspace, ProcessResult result, string method, int line)
 	{
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
@@ -77,7 +132,7 @@ public sealed class PackedCompiledBindingConsumerTests
 		Assert.Contains("@on" + method, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
+		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
 }
 
@@ -133,5 +188,42 @@ internal sealed partial class PackageConsumerWorkspace
 			    {{value}}
 			}
 			""");
+	}
+
+	public void UseIssue310SupportedComponentBindingScenario(bool generic)
+	{
+		UseIssue310ComponentBindingScenario(generic);
+		var source = File.ReadAllText(Issue310ComponentPath)
+			.Replace("<script type=\"text/html\">", string.Empty, StringComparison.Ordinal)
+			.Replace("</script>", string.Empty, StringComparison.Ordinal)
+			.Replace("@code {", "<p data-owner-callback=\"@saveCount\">Saved</p>\n\n@code {", StringComparison.Ordinal)
+			.Replace("private void Save() { }", "private int saveCount;\n    private void Save() { saveCount++; }", StringComparison.Ordinal);
+		File.WriteAllText(Issue310ComponentPath, source);
+	}
+
+	public void UseIssue310TemplateBindingScenario()
+	{
+		UseIssue310MissingActionScenario("put");
+		var source = File.ReadAllText(Issue310ComponentPath)
+			.Replace("<_element @onput=\"Save\">Save</_element>", "@Template", StringComparison.Ordinal)
+			.Replace("private void Save() { }", "private void Save() { }\n    private Microsoft.AspNetCore.Components.RenderFragment Template => @<_element @onput=\"Save\">Save</_element>;", StringComparison.Ordinal);
+		File.WriteAllText(Issue310ComponentPath, source);
+	}
+
+	public void UseIssue310HandwrittenTemplateScenario()
+	{
+		UseIssue310MissingActionScenario("put");
+		var source = File.ReadAllText(Issue310ComponentPath)
+			.Replace("<_element @onput=\"Save\">Save</_element>", "@Template", StringComparison.Ordinal)
+			.Replace("private void Save() { }", """
+				private void Save() { }
+				    private Microsoft.AspNetCore.Components.RenderFragment Template => builder =>
+				    {
+				        builder.OpenElement(0, "button");
+				        builder.AddAttribute(1, "onput", Microsoft.AspNetCore.Components.EventCallback.Factory.Create<Htmxor.HtmxEventArgs>(this, Save));
+				        builder.CloseElement();
+				    };
+				""", StringComparison.Ordinal);
+		File.WriteAllText(Issue310ComponentPath, source);
 	}
 }

@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Text;
+using System.Text.Json;
 using System.Xml.Linq;
 using Htmxor.Quality;
 
@@ -1089,6 +1090,26 @@ internal static class PackageConsumerEvidence
 
 	public static void AssertConsumerPackageBoundary(string consumerDirectory, string packageVersion, string framework = "net10.0")
 	{
+		AssertConsumerReferences(consumerDirectory, packageVersion, framework);
+		AssertRuntimeDependencies(consumerDirectory, framework);
+	}
+
+	public static void AssertConsumerCompileBoundary(string consumerDirectory, string packageVersion, string framework = "net10.0")
+	{
+		AssertConsumerReferences(consumerDirectory, packageVersion, framework);
+		using var assets = JsonDocument.Parse(File.ReadAllText(Path.Combine(consumerDirectory, "obj", "project.assets.json")));
+		var packageKey = "Htmxor/" + packageVersion;
+		var target = assets.RootElement.GetProperty("targets").GetProperty(framework).GetProperty(packageKey);
+		var library = assets.RootElement.GetProperty("libraries").GetProperty(packageKey);
+
+		Assert.Equal("lib/" + framework + "/Htmxor.dll", Assert.Single(target.GetProperty("compile").EnumerateObject()).Name);
+		Assert.Equal("package", library.GetProperty("type").GetString());
+		Assert.Contains(library.GetProperty("files").EnumerateArray(), file =>
+			file.GetString() == "analyzers/dotnet/cs/Htmxor.Generators.dll");
+	}
+
+	private static void AssertConsumerReferences(string consumerDirectory, string packageVersion, string framework)
+	{
 		var project = XDocument.Load(Path.Combine(consumerDirectory, "Htmxor.PackageConsumer.csproj"));
 		var targetFramework = Assert.Single(
 			project.Descendants(),
@@ -1102,7 +1123,6 @@ internal static class PackageConsumerEvidence
 		Assert.Equal(packageVersion, htmxor.Attribute("Version")?.Value);
 		Assert.Empty(project.Descendants().Where(element => element.Name.LocalName == "ProjectReference"));
 		Assert.Empty(project.Descendants().Where(element => element.Name.LocalName == "InternalsVisibleTo"));
-		AssertRuntimeDependencies(consumerDirectory, framework);
 	}
 
 	private static void AssertNuspecDependencies(ZipArchive package)
