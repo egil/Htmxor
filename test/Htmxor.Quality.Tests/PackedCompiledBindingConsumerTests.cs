@@ -5,6 +5,31 @@ namespace Htmxor.Quality.Tests;
 [Collection(PackageConsumerCollection.Name)]
 public sealed class PackedCompiledBindingConsumerTests
 {
+	[Fact]
+	public async Task Action_for_another_component_instance_does_not_cover_a_compiled_binding()
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		workspace.UseIssue310DifferentReceiverScenario();
+		var result = await workspace.BuildForDiagnosticAsync();
+		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-receiver", workspace.PackageVersion);
+		Directory.CreateDirectory(evidence);
+		File.WriteAllText(Path.Combine(evidence, "build.log"), result.StandardOutput + Environment.NewLine + result.StandardError);
+		File.WriteAllText(Path.Combine(evidence, "consumer-outcome.txt"), $"exit={result.ExitCode} assembly={File.Exists(workspace.ConsumerAssemblyPath)}");
+		File.Copy(Path.Combine(workspace.ConsumerDirectory, "Components", "Pages", "Issue310Page.razor"), Path.Combine(evidence, "Issue310Page.razor"));
+		File.Copy(Path.Combine(workspace.ConsumerDirectory, "Htmxor.PackageConsumer.csproj"), Path.Combine(evidence, "Htmxor.PackageConsumer.csproj"));
+		if (File.Exists(workspace.ConsumerAssemblyPath))
+		{
+			File.Copy(workspace.ConsumerAssemblyPath, Path.Combine(evidence, "Htmxor.PackageConsumer.dll"));
+		}
+		foreach (var path in Directory.EnumerateFiles(Path.Combine(workspace.ConsumerDirectory, "obj", "generated"), "*.cs", SearchOption.AllDirectories))
+		{
+			File.Copy(path, Path.Combine(evidence, Path.GetFileName(path)), overwrite: true);
+		}
+		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
+		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
+		AssertRejectedBinding(workspace, result, "put", 4);
+	}
+
 	[Theory]
 	[InlineData("post")]
 	[InlineData("put")]
@@ -175,6 +200,15 @@ internal sealed partial class PackageConsumerWorkspace
 		var source = Path.Combine(consumerDirectory, "Issue310Page.razor");
 		File.WriteAllText(Issue310ComponentPath, File.ReadAllText(source).Replace("__METHOD__", method, StringComparison.Ordinal));
 		File.Delete(source);
+	}
+
+	public void UseIssue310DifferentReceiverScenario()
+	{
+		UseIssue310MissingActionScenario("put");
+		var source = File.ReadAllText(Issue310ComponentPath)
+			.Replace("<_element @onput=\"Save\">Save</_element>", "<_element @onput=\"other.Save\">Save</_element>", StringComparison.Ordinal)
+			.Replace("private void Save() { }", "private static readonly Issue310Page other = new();\n    private void Save() { }", StringComparison.Ordinal);
+		File.WriteAllText(Issue310ComponentPath, source + "\n<button @onput=\"Save\">Save</button>\n");
 	}
 
 	public void UseIssue310NormalOnlyBindingScenario()
