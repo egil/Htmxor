@@ -1,0 +1,9 @@
+@attribute [Htmxor.HtmxRoute("/issue-316-conv/ordering/htmx/{Id:int}", Methods = new[] { "GET" })]
+@attribute [Issue316OrderingMetadata("component")]
+
+<p data-issue-316-conv-ordering>ok</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

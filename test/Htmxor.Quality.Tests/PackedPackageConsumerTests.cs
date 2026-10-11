@@ -287,6 +287,8 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 
 	public void UseIssue284AuthorizationParityScenario() => UseSelectionScenario("Issue284");
 
+	public void UseIssue316ConventionsScenario() => UseSelectionScenario("Issue316");
+
 	/// <summary>
 	/// Unlike the flat scenarios, this one needs a real folder tree, because the Razor SDK derives
 	/// a component's namespace from its folder and from ancestor <c>_Imports.razor</c> files. The

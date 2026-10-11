@@ -1,0 +1,10 @@
+@attribute [Htmxor.HtmxRoute("/issue-316/ordering/htmx/{Id:int}", Methods = new[] { "GET" })]
+@attribute [Issue316OrderingMetadata("component")]
+@namespace Htmxor.PackageConsumer
+
+<p data-issue-316-ordering>ok</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

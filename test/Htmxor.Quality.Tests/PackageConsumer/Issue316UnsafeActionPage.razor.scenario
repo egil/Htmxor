@@ -1,0 +1,18 @@
+@* Deliberately no [Authorize] attribute: protection must come entirely from a RequireAuthorization() *@
+@* chained onto MapRazorComponents. *@
+@attribute [Htmxor.HtmxRoute("/issue-316/unsafe-action/{Id:int}", Methods = new[] { "GET", "DELETE" })]
+@namespace Htmxor.PackageConsumer
+@inject Issue316UnsafeActionProbe Probe
+
+<button @ondelete="DeleteItem">Delete</button>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override void OnInitialized() => Probe.RecordInitialization();
+
+    protected override void OnParametersSet() => Probe.RecordBinding();
+
+    private void DeleteItem(Htmxor.HtmxEventArgs _) => Probe.RecordCallback();
+}

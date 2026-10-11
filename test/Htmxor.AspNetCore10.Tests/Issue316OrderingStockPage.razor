@@ -1,0 +1,9 @@
+@page "/issue-316-conv/ordering/stock/{Id:int}"
+@attribute [Issue316OrderingMetadata("component")]
+
+<p data-issue-316-conv-ordering>ok</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

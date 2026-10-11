@@ -1,0 +1,8 @@
+@attribute [Htmxor.HtmxRoute("/issue-316-conv/no-attr/htmx/{Id:int}", Methods = new[] { "GET" })]
+
+<p data-issue-316-conv-result>ok</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}
