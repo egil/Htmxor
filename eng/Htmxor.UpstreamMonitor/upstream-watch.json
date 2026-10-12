@@ -633,6 +633,15 @@
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs"
       ]
+    },
+    {
+      "path": "src/Components/Components/src/Rendering/RenderTreeBuilder.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "depends-on-behaviour",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs"
+      ]
     }
   ]
 }

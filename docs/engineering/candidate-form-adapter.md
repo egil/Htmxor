@@ -581,6 +581,27 @@ invoker acceptance; public activation does not waive monitoring.
 | [ServerComponent.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Shared/Components/ServerComponent.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Shared/Components/ServerComponent.cs) | `HtmxorEndpointCandidateRenderModeBoundary.cs`: mirrors (serialized server-descriptor shape, #275; identical at `c3325eeb`) |
 | [WebAssemblySettingsEmitter.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs) | `HtmxorEndpointCandidate.cs`: reimplements |
 
+Explicit actions use supported framework event dispatch rather than copied
+exception handling. `HtmxorEndpointCandidateRenderer.ExplicitActions.cs` registers
+its callback on a separate internal root, invokes `Renderer.DispatchEventAsync`
+with the actual request-created owner as receiver, waits for quiescence, and
+removes that root. Its carrier markup is not part of the response root. An owner
+removed during initial error-boundary handling receives no callback. No private
+framework member or additional public developer surface is used.
+
+| Exact source, reviewed 2026-10-12 | Local dependency and invariant |
+| --- | --- |
+| [Renderer, v10.0.11/a538338](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/RenderTree/Renderer.cs), [v11.0.0-rc.1.26425.128/c3325eeb](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/RenderTree/Renderer.cs) | `depends-on-behaviour`: protected live-state lookup, root registration/rendering/removal and frame inspection; public event dispatch retains receiver-associated error boundaries and pending work. |
+| [EventCallbackFactory, v10.0.11/a538338](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/EventCallbackFactory.cs), [v11.0.0-rc.1.26425.128/c3325eeb](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/EventCallbackFactory.cs) | `depends-on-behaviour`: four supported instance delegate shapes retain the request-created owner as receiver. |
+| [RenderTreeBuilder, v10.0.11/a538338](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/Rendering/RenderTreeBuilder.cs), [v11.0.0-rc.1.26425.128/c3325eeb](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/Rendering/RenderTreeBuilder.cs) | `depends-on-behaviour`: the public typed event attribute lets Blazor assign the event handler ID; runtime checks require the expected attribute and a nonzero ID. |
+
+All three relationships have file watches in #184 monitoring; the existing
+`ASP.NET-Core-LICENSE.txt` carries the upstream license. Hosted .NET 10 and .NET 11
+checks exercise synchronous/asynchronous callback failures through a real
+`ErrorBoundary`, suppression after initialization/render failure, request-owner
+identity, and completed callback-created child output. Those framework checks do
+not establish new browser behavior or a .NET 11 packed consumer.
+
 The candidate also subclasses `StaticHtmlRenderer`, implements
 `IRazorComponentEndpointInvoker`, and consumes supported `Renderer`/`ComponentState`
 seams; retain those existing #188 API relationships when integrating the inventory.
