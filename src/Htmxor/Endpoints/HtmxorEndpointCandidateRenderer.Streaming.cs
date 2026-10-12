@@ -186,6 +186,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 		}
 #endif
 		base.AddPendingTask(componentState, task);
+		TrackExplicitActionPendingTask(task);
 		// Work with no owning component, such as a pending DisposeAsync, is non-streaming, as in stock.
 		if (!waitForQuiescence && !IsInStreamingContext(componentState))
 		{

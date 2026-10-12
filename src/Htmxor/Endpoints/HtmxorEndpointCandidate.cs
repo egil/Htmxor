@@ -226,6 +226,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 
 		await renderer.InitializeStandardComponentServicesAsync(context, pageComponent, request.HandlerName, request.Form);
+		renderer.PrepareExplicitAction(context);
 		HtmlRootComponent htmlContent;
 		try
 		{
@@ -242,7 +243,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		var writesPage = true;
 		if (!request.IsPost || isReexecuted)
 		{
-			quiesceTask = htmlContent.QuiescenceTask;
+			quiesceTask = renderer.CompleteExplicitActionAsync(htmlContent.QuiescenceTask);
 			if (waitForQuiescence)
 			{
 				try

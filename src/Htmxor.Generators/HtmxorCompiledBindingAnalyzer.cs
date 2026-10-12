@@ -36,14 +36,15 @@ public sealed class HtmxorCompiledBindingAnalyzer : DiagnosticAnalyzer
 				continue;
 			}
 
-			var reason = binding.Component.GetAttributes().Any(attribute =>
-				SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, normalOnly))
+			var isNormalOnly = binding.Component.GetAttributes().Any(attribute =>
+				SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, normalOnly));
+			var reason = isNormalOnly
 				? "an inferred @" + binding.AttributeName + " binding on a component marked with DisableHtmxDirectRouting is not supported"
 				: "the compiled @" + binding.AttributeName + " binding has no matching generated action for its component, method and handler";
 			context.ReportDiagnostic(Diagnostic.Create(
 				HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration,
 				binding.Location,
-				reason));
+				isNormalOnly ? reason : HtmxorActionDeclarationAnalyzer.WithExplicitRemediation(reason)));
 		}
 	}
 

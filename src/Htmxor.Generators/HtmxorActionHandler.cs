@@ -15,6 +15,21 @@ internal static class HtmxorActionHandler
 {
 	private const string NotAComponentMember = "must be an instance method on the request-owned component";
 
+	public static string? GetExplicitUnsupportedReason(Compilation compilation, IMethodSymbol method)
+	{
+		if (method.ContainingType.GetMembers(method.Name).OfType<IMethodSymbol>().Count() > 1)
+		{
+			return Reason(method.Name, "is overloaded; give the handler a unique name");
+		}
+
+		if (method.Parameters.Length > 1 || method.Parameters.Any(static parameter => parameter.RefKind != RefKind.None))
+		{
+			return Reason(method.Name, "has unsupported parameters; use zero parameters or one required HtmxEventArgs parameter");
+		}
+
+		return GetShapeCause(compilation, method) is { } cause ? Reason(method.Name, cause) : null;
+	}
+
 	public static string? GetUnsupportedReason(
 		Compilation compilation,
 		INamedTypeSymbol component,

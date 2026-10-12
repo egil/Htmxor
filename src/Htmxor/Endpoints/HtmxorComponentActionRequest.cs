@@ -8,6 +8,16 @@ internal sealed class HtmxorComponentActionRequest : IHtmxorGeneratedComponentAc
 
 	internal bool HasActiveAction => Volatile.Read(ref activeDescriptor) is not null;
 
+	internal bool HasExplicitAction => Volatile.Read(ref activeDescriptor)?.ExplicitHandler is not null;
+
+	internal Type? ExplicitOwnerType => Volatile.Read(ref activeDescriptor)?.ComponentType;
+
+	internal HtmxorComponentActionDescriptor? TryConsumeExplicit()
+	{
+		var descriptor = Volatile.Read(ref activeDescriptor);
+		return descriptor?.ExplicitHandler is not null && TryConsume(descriptor) ? descriptor : null;
+	}
+
 	public void Activate(HtmxorComponentActionDescriptor descriptor)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);

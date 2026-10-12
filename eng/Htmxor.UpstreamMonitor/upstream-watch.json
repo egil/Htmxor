@@ -615,6 +615,24 @@
       "dependencies": [
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs"
       ]
+    },
+    {
+      "path": "src/Components/Components/src/RenderTree/Renderer.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "depends-on-behaviour",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs"
+      ]
+    },
+    {
+      "path": "src/Components/Components/src/EventCallbackFactory.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "depends-on-behaviour",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs"
+      ]
     }
   ]
 }

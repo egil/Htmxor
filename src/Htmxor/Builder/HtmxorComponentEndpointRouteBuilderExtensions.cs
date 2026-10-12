@@ -63,11 +63,14 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			applicationAssembly,
 			routedComponentTypeNames,
 			generatedActions);
+		var explicitActions = HtmxorExplicitComponentActionCatalog.Build(
+			applicationAssembly, routedComponentTypeNames, namedFormComponentTypeNames);
 		var descriptors = HtmxorAttributedRouteCatalog.Build(
 			applicationAssembly,
 			routedComponentTypeNames,
 			generatedActions,
-			namedFormComponentTypeNames);
+			namedFormComponentTypeNames,
+			explicitActions);
 		HtmxorAttributedRouteCatalog.ResolveConstraints(
 			descriptors,
 			endpoints.ServiceProvider.GetRequiredService<ParameterPolicyFactory>());
@@ -86,7 +89,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			builder.AddAdditionalAssemblies(routePages.Assembly);
 		}
 
-		AddHtmxorComponentEndpoints(builder, endpoints, [], generatedActions, htmxOnlyRoutes);
+		AddHtmxorComponentEndpoints(builder, endpoints, explicitActions, generatedActions, htmxOnlyRoutes);
 
 		return builder;
 	}
@@ -151,7 +154,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 
 		if (htmxOnlyRoutes.TryGetValue(componentType.Type, out var generatedRoute))
 		{
-			ConfigureHtmxOnlyPageEndpoint(endpointBuilder, generatedRoute, generatedActions, componentType.Type);
+			ConfigureHtmxOnlyPageEndpoint(endpointBuilder, generatedRoute, actionDescriptors, generatedActions, componentType.Type);
 			return;
 		}
 
@@ -177,6 +180,7 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	private static void ConfigureHtmxOnlyPageEndpoint(
 		EndpointBuilder endpointBuilder,
 		HtmxorComponentRouteDescriptor generatedRoute,
+		IReadOnlyList<HtmxorComponentActionDescriptor> actionDescriptors,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
 		Type routePage)
 	{
@@ -203,12 +207,13 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			metadata.Insert(componentMetadataIndex++, item);
 		}
 
-		ConfigureGeneratedEndpoint(endpointBuilder, generatedRoute, generatedActions, routePage);
+		ConfigureGeneratedEndpoint(endpointBuilder, generatedRoute, actionDescriptors, generatedActions, routePage);
 	}
 
 	private static void ConfigureGeneratedEndpoint(
 		EndpointBuilder endpointBuilder,
 		HtmxorComponentRouteDescriptor generatedRoute,
+		IReadOnlyList<HtmxorComponentActionDescriptor> actionDescriptors,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
 		Type routePage)
 	{
@@ -224,10 +229,11 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			?? throw new InvalidOperationException("An HTMX-only component endpoint must have a route pattern.");
 		endpointBuilder.Metadata.Add(new HtmxorComponentRoutePatternMetadata(routeEndpointBuilder.RoutePattern));
 		endpointBuilder.Metadata.Add(HtmxorDirectEndpointMetadata.Instance);
-		var endpointActions = HtmxorGeneratedComponentActionCatalog.Bind(
+		var endpointActions = HtmxorExplicitComponentActionCatalog.Merge(HtmxorGeneratedComponentActionCatalog.Bind(
 			generatedRoute.ComponentType,
 			generatedRoute.NormalizedRoute,
-			generatedActions);
+			generatedActions).Concat(actionDescriptors.Where(action => action.ComponentType == generatedRoute.ComponentType)
+				.Select(action => action with { NormalizedRoute = generatedRoute.NormalizedRoute })));
 		AddRouteProcessorMetadata(
 			endpointBuilder,
 			generatedRoute,
@@ -283,22 +289,14 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		var endpointActions = actionDescriptors
 			.Where(action =>
 				action.ComponentType == componentType &&
-				string.Equals(action.NormalizedRoute, route, StringComparison.Ordinal))
+				(action.ExplicitHandler is not null || string.Equals(action.NormalizedRoute, route, StringComparison.Ordinal)))
+			.Select(action => action.ExplicitHandler is null ? action : action with { NormalizedRoute = route })
 			.Concat(HtmxorGeneratedComponentActionCatalog.Bind(
 				componentType,
 				route,
 				generatedActions))
 			.ToArray();
-		var duplicateMethod = endpointActions
-			.GroupBy(action => action.HttpMethod, StringComparer.OrdinalIgnoreCase)
-			.FirstOrDefault(group => group.Count() > 1);
-		if (duplicateMethod is not null)
-		{
-			throw new InvalidOperationException(
-				$"Component route '{route}' declares more than one '{duplicateMethod.Key}' action.");
-		}
-
-		return endpointActions;
+		return HtmxorExplicitComponentActionCatalog.Merge(endpointActions);
 	}
 
 	private static void AddActionMetadata(
