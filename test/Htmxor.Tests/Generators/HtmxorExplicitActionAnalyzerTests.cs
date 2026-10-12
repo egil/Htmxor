@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.AspNetCore.Components;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Htmxor.Generators.Tests;
@@ -110,6 +111,7 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "HTMXOR002" && diagnostic.Severity == DiagnosticSeverity.Error);
 		Assert.Contains(diagnostics, diagnostic => diagnostic.GetMessage().Contains("PUT", StringComparison.OrdinalIgnoreCase) &&
 			diagnostic.GetMessage().Contains("handler", StringComparison.OrdinalIgnoreCase));
+		Assert.All(diagnostics, diagnostic => AssertAttributeLocation(diagnostic, source));
 	}
 
 	[Fact]
@@ -155,9 +157,16 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		Assert.Equal("HTMXOR002", diagnostic.Id);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
-		Assert.Equal(SourcePath, diagnostic.Location.GetLineSpan().Path);
-		Assert.Contains("HtmxAction", source.Substring(diagnostic.Location.SourceSpan.Start, diagnostic.Location.SourceSpan.Length), StringComparison.Ordinal);
+		AssertAttributeLocation(diagnostic, source);
 		Assert.Contains(cause, diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static void AssertAttributeLocation(Diagnostic diagnostic, string source)
+	{
+		Assert.Equal(SourcePath, diagnostic.Location.GetLineSpan().Path);
+		var attributes = CSharpSyntaxTree.ParseText(source).GetRoot().DescendantNodes().OfType<AttributeSyntax>()
+			.Where(static attribute => attribute.Name.ToString() == "Htmxor.HtmxAction");
+		Assert.Contains(attributes, attribute => attribute.Parent!.Span.Contains(diagnostic.Location.SourceSpan));
 	}
 
 	private static async Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string source, string? compilerError = null)

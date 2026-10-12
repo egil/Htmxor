@@ -57,12 +57,18 @@ public sealed class Issue180ExplicitActionTests(ITestOutputHelper output) : IAsy
 	[InlineData("csharp", "PATCH", "PATCH")]
 	[InlineData("csharp", "DELETE", "DELETE")]
 	[InlineData("csharp", "QUERY", "QUERY")]
-	public async Task Explicit_action_uses_one_fresh_route_owner_instance(string shape, string method, string expected)
+	public async Task Explicit_action_uses_one_fresh_route_owner_instance(string shape, string method, string expected) => await AssertSuccessfulActionAsync(shape, method, expected, forgedHeader: false);
+
+	[Fact]
+	public async Task Forged_header_cannot_select_another_route_or_method_action()
+		=> await AssertSuccessfulActionAsync("csharp", "PUT", "PUT", forgedHeader: true);
+
+	private async Task AssertSuccessfulActionAsync(string shape, string method, string expected, bool forgedHeader)
 	{
 		var credentials = await CredentialsAsync(shape);
 		probe.Reset();
 		using var request = Request(shape, method, credentials.Cookie, credentials.Token);
-		request.Headers.Add("HXOR-Event-Handler-Id", "forged-other-route-and-method");
+		if (forgedHeader) request.Headers.Add("HXOR-Event-Handler-Id", "forged-other-route-and-method");
 		using var response = await client.SendAsync(request);
 		var body = await response.Content.ReadAsStringAsync();
 		output.WriteLine($"{shape} {method}: HTTP {(int)response.StatusCode}, callbacks={probe.Callbacks}, lifecycle={probe.Initializations}; {body}");

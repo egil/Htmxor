@@ -1572,6 +1572,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		Assert.Equal(
 			new TextSpan(razorContent.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
 			diagnostic.Location.SourceSpan);
+		Assert.Contains("HtmxAction", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
 	[Fact]

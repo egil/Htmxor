@@ -1323,6 +1323,7 @@ public sealed class HtmxorActionGeneratorTests
 		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onget", StringComparison.Ordinal));
 		Assert.Contains("GET is implicit", diagnostic.GetMessage(), StringComparison.Ordinal);
 		AssertNoActionSource(run);
+		Assert.Contains("HtmxAction", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 
 	/// <summary>
@@ -2746,6 +2747,7 @@ public sealed class HtmxorActionGeneratorTests
 				Assert.DoesNotContain(otherFragment, message, StringComparison.Ordinal);
 			}
 		}
+		Assert.Contains("HtmxAction", message, StringComparison.Ordinal);
 	}
 
 	/// <summary>
