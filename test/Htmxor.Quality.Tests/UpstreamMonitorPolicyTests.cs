@@ -79,6 +79,7 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Components/Components/src/RenderTree/Renderer.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs|",
 				"src/Components/Components/src/RenderTree/Renderer.cs|file|subclass|subclasses|src/Htmxor/Rendering/HtmxorRenderer.cs|",
 				"src/Components/Components/src/Rendering/ComponentState.cs|file|subclass|subclasses|src/Htmxor/Rendering/HtmxorComponentState.cs|",
+				"src/Components/Components/src/Rendering/RenderTreeBuilder.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs|",
 				"src/Components/Components/src/Routing/IHostEnvironmentNavigationManager.cs|file|interface|implements|src/Htmxor/DependencyInjection/HtmxorNavigationManager.cs|",
 				"src/Components/Components/src/Routing/IRoutingStateProvider.cs|file|interface|implements|src/Htmxor/DependencyInjection/EndpointRoutingStateProvider.cs|",
 				"src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs|",
