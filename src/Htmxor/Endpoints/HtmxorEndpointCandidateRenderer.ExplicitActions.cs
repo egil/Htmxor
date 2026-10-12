@@ -1,4 +1,5 @@
 // Own action coordination through supported Renderer roots, event dispatch, and EventCallback seams.
+// Root rendering drains global pending work left by synchronous event exception handling.
 // Reviewed 2026-10-12 against ASP.NET Core v10.0.11, a5383385245bdacc20ec19f30e46090a8154d8da:
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/RenderTree/Renderer.cs
 // and v11.0.0-rc.1.26425.128, c3325eeb6b47bc6383c127d4f4827dc9642a2b6e:
@@ -87,6 +88,9 @@ internal partial class HtmxorEndpointCandidateRenderer
 			await RenderRootComponentAsync(dispatchHostId, ParameterView.Empty);
 			await DispatchEventAsync(GetExplicitEventHandlerId(dispatchHostId), null,
 				new HtmxEventArgs(httpContext.GetHtmxContext()), waitForQuiescence: true);
+			// Synchronous dispatch exceptions can render fallback children without awaiting their pending work.
+			// Re-render only the carrier to drain global quiescence without rebinding the action owner.
+			await RenderRootComponentAsync(dispatchHostId, ParameterView.Empty);
 		}
 		finally
 		{
