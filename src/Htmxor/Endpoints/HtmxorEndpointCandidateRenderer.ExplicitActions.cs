@@ -9,6 +9,9 @@
 // Typed event attributes use the framework builder at those same versions:
 // https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/Rendering/RenderTreeBuilder.cs
 // https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/Rendering/RenderTreeBuilder.cs
+// The internal dispatch host implements the public component contract at those versions:
+// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/IComponent.cs
+// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/IComponent.cs
 // Upstream license: ASP.NET-Core-LICENSE.txt. No private framework member is accessed.
 // Htmxor upstream dependency: src/Components/Components/src/RenderTree/Renderer.cs | depends-on-behaviour
 // Htmxor upstream dependency: src/Components/Components/src/EventCallbackFactory.cs | depends-on-behaviour

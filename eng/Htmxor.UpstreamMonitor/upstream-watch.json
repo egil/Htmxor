@@ -485,6 +485,7 @@
       "dependencies": [
         "src/Htmxor/Components/HtmxHeadOutlet.cs",
         "src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs",
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs",
         "src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs"
       ]
     },
