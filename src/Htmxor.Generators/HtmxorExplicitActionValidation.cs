@@ -87,7 +87,7 @@ internal static class HtmxorExplicitActionValidation
 	{
 		var methods = route?.NamedArguments.FirstOrDefault(static argument => argument.Key == "Methods");
 		return methods is { Key: "Methods" } argument &&
-			(argument.Value.Kind != TypedConstantKind.Array || !argument.Value.Values.Any(value =>
+			(argument.Value.IsNull || argument.Value.Kind != TypedConstantKind.Array || !argument.Value.Values.Any(value =>
 				value.Value is string allowed && string.Equals(allowed, method, StringComparison.OrdinalIgnoreCase)))
 			? "explicit HtmxRoute.Methods does not allow the " + method + " HtmxAction" : null;
 	}

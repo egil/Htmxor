@@ -260,7 +260,7 @@ internal sealed class HtmxorRoutedComponent
 
 	private static bool HasSupportedExplicitMethods(TypedConstant methods)
 	{
-		if (methods.Kind != TypedConstantKind.Array || methods.Values.Length == 0)
+		if (methods.IsNull || methods.Kind != TypedConstantKind.Array || methods.Values.Length == 0)
 		{
 			return false;
 		}
