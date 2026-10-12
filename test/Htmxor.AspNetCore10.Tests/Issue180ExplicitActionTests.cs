@@ -67,6 +67,28 @@ public sealed class Issue180ExplicitActionTests(ITestOutputHelper output) : IAsy
 	public async Task Ordinary_page_response_contains_the_completed_async_callback()
 		=> await AssertSuccessfulActionAsync("razor", "PATCH", "PATCH", forgedHeader: false, ordinary: true);
 
+	[Fact]
+	public async Task Callback_response_contains_completed_async_child_without_rebinding_owner()
+	{
+		var credentials = await CredentialsAsync("razor");
+		probe.Reset();
+		probe.HoldAsyncChild();
+		using var request = Request("razor", "DELETE", credentials.Cookie, credentials.Token);
+		var responseTask = client.SendAsync(request);
+		try { await probe.ChildEntered.WaitAsync(TimeSpan.FromSeconds(30)); }
+		finally { probe.ReleaseAsyncChild(); }
+		using var response = await responseTask;
+		var body = await response.Content.ReadAsStringAsync();
+		output.WriteLine($"Async child: HTTP {(int)response.StatusCode}, callbacks={probe.Callbacks}, bindings={probe.Bindings}, lifecycle={probe.Initializations}; {body}");
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Contains("child-completed", body, StringComparison.Ordinal);
+		Assert.Equal(1, probe.Callbacks);
+		Assert.Equal(1, probe.Bindings);
+		Assert.Equal(1, probe.Initializations);
+		Assert.Equal(1, probe.ChildInitializations);
+	}
+
 	private async Task AssertSuccessfulActionAsync(string shape, string method, string expected, bool forgedHeader, bool ordinary = false)
 	{
 		var credentials = await CredentialsAsync(shape);
@@ -184,6 +206,23 @@ public sealed class Issue180ExplicitActionTests(ITestOutputHelper output) : IAsy
 
 public sealed class Issue180Probe
 {
+	private TaskCompletionSource? childEntered;
+	private TaskCompletionSource? childRelease;
+	public bool RenderAsyncChild => childRelease is not null;
+	public int ChildInitializations { get; private set; }
+	public Task ChildEntered => childEntered?.Task ?? Task.CompletedTask;
+	public void HoldAsyncChild()
+	{
+		childEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		childRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+	}
+	public Task AwaitAsyncChildRelease()
+	{
+		ChildInitializations++;
+		childEntered?.TrySetResult();
+		return childRelease?.Task ?? Task.CompletedTask;
+	}
+	public void ReleaseAsyncChild() => childRelease?.TrySetResult();
 	private TaskCompletionSource? callbackEntered;
 	private TaskCompletionSource? callbackRelease;
 	public Task CallbackEntered => callbackEntered?.Task ?? Task.CompletedTask;
@@ -205,7 +244,7 @@ public sealed class Issue180Probe
 	public void Bind() => Bindings++;
 	public void Initialize() => Initializations++;
 	public void Invoke(string owner) { Callbacks++; Owner = owner; }
-	public void Reset() { Bindings = 0; Initializations = 0; Callbacks = 0; Owner = null; callbackEntered = null; callbackRelease = null; }
+	public void Reset() { Bindings = 0; Initializations = 0; Callbacks = 0; Owner = null; callbackEntered = null; callbackRelease = null; childEntered = null; childRelease = null; ChildInitializations = 0; }
 }
 
 internal sealed class Issue180AuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)

@@ -4,6 +4,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 <AntiforgeryToken />
 <output data-owner="@owner" data-callbacks="@callbacks">@result:@Id</output>
+@if (showChild) { <Issue180AsyncChild /> }
 <button hx-method="PROPFIND" hx-action="Forged">Client declarations</button>
 @code {
 [Microsoft.AspNetCore.Components.Inject] public Issue180Probe Probe { get; set; } = default!;
@@ -12,8 +13,9 @@ public override Task SetParametersAsync(Microsoft.AspNetCore.Components.Paramete
 private readonly string owner = Guid.NewGuid().ToString("N");
 private string result = "GET";
 private int callbacks;
+private bool showChild;
 protected override void OnInitialized() => Probe.Initialize();
-private void Invoke(string method) { callbacks++; result = method; Probe.Invoke(owner); }
+private void Invoke(string method) { callbacks++; result = method; showChild = Probe.RenderAsyncChild; Probe.Invoke(owner); }
 [Htmxor.HtmxAction("pOsT")] private void Post() => Invoke("POST");
 [Htmxor.HtmxAction("put")][Htmxor.HtmxAction("PUT")] private void Put(Htmxor.HtmxEventArgs args) => Invoke(args.Request.Method);
 [Htmxor.HtmxAction("PATCH")] private async Task Patch() { await Probe.AwaitAsyncCallbackRelease(); await Task.Yield(); Invoke("PATCH"); }

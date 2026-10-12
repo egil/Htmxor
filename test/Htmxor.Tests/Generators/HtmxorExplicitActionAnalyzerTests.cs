@@ -141,6 +141,15 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		Assert.Empty(diagnostics);
 	}
 
+	[Fact]
+	public async Task Attributed_getter_with_a_return_value_is_rejected_at_its_declaration()
+	{
+		var source = Owner("public int Value { [Htmxor.HtmxAction(\"PUT\")] get => 42; }");
+		var diagnostics = await AnalyzeAsync(source);
+
+		AssertDeclarationError(diagnostics, source, "return");
+	}
+
 	private static string Owner(string members, string extraAttribute = "", string route = "[Microsoft.AspNetCore.Components.Route(\"/explicit\")]") => $$"""
 		namespace Consumer;
 		{{route}}
