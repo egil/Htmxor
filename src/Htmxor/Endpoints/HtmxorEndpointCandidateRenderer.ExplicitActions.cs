@@ -27,6 +27,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 	private Type? explicitActionOwnerType;
 	private IComponent? explicitActionOwner;
 	private List<Task>? explicitActionPendingTasks;
+	internal bool HasPreparedExplicitAction => explicitActionRequest is not null;
 
 	internal void PrepareExplicitAction(HttpContext context)
 	{

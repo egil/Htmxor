@@ -51,6 +51,8 @@
 // Non-streaming quiescence in the invoker (#260, synchronized 2026-09-30): the full-quiescence wait and its
 // navigation handling reimplement WaitForResultReady and RenderEndpointComponent in the same
 // EndpointHtmlRenderer.Prerendering.cs at both commits above.
+// Explicit callbacks (#180, reviewed 2026-10-12) also finish before ordinary response serialization;
+// supported event and pending-work dependencies are inventoried in the ExplicitActions partial.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
@@ -244,7 +246,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		if (!request.IsPost || isReexecuted)
 		{
 			quiesceTask = renderer.CompleteExplicitActionAsync(htmlContent.QuiescenceTask);
-			if (waitForQuiescence)
+			if (waitForQuiescence || renderer.HasPreparedExplicitAction)
 			{
 				try
 				{
