@@ -1,0 +1,8 @@
+@namespace Htmxor.Explicit.Anywhere
+@using Microsoft.AspNetCore.Components.Forms
+@attribute [Htmxor.HtmxRoute("/issue-180/behind/{Id:int}")]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+<AntiforgeryToken />
+<output data-owner="@owner" data-callbacks="@callbacks">@result:@Id</output>
+<button hx-method="PROPFIND" hx-action="Forged">Client declarations</button>
+<button @onput="Put">Agreeing inference</button>

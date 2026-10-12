@@ -1,0 +1,21 @@
+@namespace Htmxor.Explicit.Anywhere
+@using Microsoft.AspNetCore.Components.Forms
+@page "/issue-180/razor/{Id:int}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+<AntiforgeryToken />
+<output data-owner="@owner" data-callbacks="@callbacks">@result:@Id</output>
+<button hx-method="PROPFIND" hx-action="Forged">Client declarations</button>
+@code {
+[Microsoft.AspNetCore.Components.Inject] public Issue180Probe Probe { get; set; } = default!;
+[Microsoft.AspNetCore.Components.Parameter] public int Id { get; set; }
+public override Task SetParametersAsync(Microsoft.AspNetCore.Components.ParameterView parameters) { Probe.Bind(); return base.SetParametersAsync(parameters); }
+private readonly string owner = Guid.NewGuid().ToString("N");
+private string result = "GET";
+private int callbacks;
+protected override void OnInitialized() => Probe.Initialize();
+private void Invoke(string method) { callbacks++; result = method; Probe.Invoke(owner); }
+[Htmxor.HtmxAction("pOsT")] private void Post() => Invoke("POST");
+[Htmxor.HtmxAction("put")][Htmxor.HtmxAction("PUT")] private void Put(Htmxor.HtmxEventArgs args) => Invoke(args.Request.Method);
+[Htmxor.HtmxAction("PATCH")] private async Task Patch() { await Task.Yield(); Invoke("PATCH"); }
+[Htmxor.HtmxAction("DELETE")][Htmxor.HtmxAction("QUERY")] private async Task Delete(Htmxor.HtmxEventArgs args) { await Task.Yield(); Invoke(args.Request.Method); }
+}
