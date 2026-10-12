@@ -19,7 +19,7 @@ public sealed class PackedExplicitActionConsumerTests
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
 		Assert.True(result.ExitCode == 0, result.StandardOutput + result.StandardError + tests);
-		Assert.Equal(new TrxTestRun(25, 25, 25, 0, 0, 0, 0), tests);
+		Assert.Equal(new TrxTestRun(26, 26, 26, 0, 0, 0, 0), tests);
 	}
 
 	[Theory]

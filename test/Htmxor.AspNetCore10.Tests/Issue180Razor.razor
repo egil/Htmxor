@@ -16,6 +16,6 @@ protected override void OnInitialized() => Probe.Initialize();
 private void Invoke(string method) { callbacks++; result = method; Probe.Invoke(owner); }
 [Htmxor.HtmxAction("pOsT")] private void Post() => Invoke("POST");
 [Htmxor.HtmxAction("put")][Htmxor.HtmxAction("PUT")] private void Put(Htmxor.HtmxEventArgs args) => Invoke(args.Request.Method);
-[Htmxor.HtmxAction("PATCH")] private async Task Patch() { await Task.Yield(); Invoke("PATCH"); }
+[Htmxor.HtmxAction("PATCH")] private async Task Patch() { await Probe.AwaitAsyncCallbackRelease(); await Task.Yield(); Invoke("PATCH"); }
 [Htmxor.HtmxAction("DELETE")][Htmxor.HtmxAction("QUERY")] private async Task Delete(Htmxor.HtmxEventArgs args) { await Task.Yield(); Invoke(args.Request.Method); }
 }

@@ -63,13 +63,29 @@ public sealed class Issue180ExplicitActionTests(ITestOutputHelper output) : IAsy
 	public async Task Forged_header_cannot_select_another_route_or_method_action()
 		=> await AssertSuccessfulActionAsync("csharp", "PUT", "PUT", forgedHeader: true);
 
-	private async Task AssertSuccessfulActionAsync(string shape, string method, string expected, bool forgedHeader)
+	[Fact]
+	public async Task Ordinary_page_response_contains_the_completed_async_callback()
+		=> await AssertSuccessfulActionAsync("razor", "PATCH", "PATCH", forgedHeader: false, ordinary: true);
+
+	private async Task AssertSuccessfulActionAsync(string shape, string method, string expected, bool forgedHeader, bool ordinary = false)
 	{
 		var credentials = await CredentialsAsync(shape);
 		probe.Reset();
 		using var request = Request(shape, method, credentials.Cookie, credentials.Token);
+		if (ordinary)
+		{
+			request.Headers.Remove("HX-Request");
+			request.Headers.Remove("HX-Request-Type");
+			probe.HoldAsyncCallback();
+		}
 		if (forgedHeader) request.Headers.Add("HXOR-Event-Handler-Id", "forged-other-route-and-method");
-		using var response = await client.SendAsync(request);
+		var responseTask = client.SendAsync(request);
+		if (ordinary)
+		{
+			try { await probe.CallbackEntered.WaitAsync(TimeSpan.FromSeconds(30)); }
+			finally { probe.ReleaseAsyncCallback(); }
+		}
+		using var response = await responseTask;
 		var body = await response.Content.ReadAsStringAsync();
 		output.WriteLine($"{shape} {method}: HTTP {(int)response.StatusCode}, callbacks={probe.Callbacks}, lifecycle={probe.Initializations}; {body}");
 
@@ -168,6 +184,20 @@ public sealed class Issue180ExplicitActionTests(ITestOutputHelper output) : IAsy
 
 public sealed class Issue180Probe
 {
+	private TaskCompletionSource? callbackEntered;
+	private TaskCompletionSource? callbackRelease;
+	public Task CallbackEntered => callbackEntered?.Task ?? Task.CompletedTask;
+	public void HoldAsyncCallback()
+	{
+		callbackEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		callbackRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+	}
+	public Task AwaitAsyncCallbackRelease()
+	{
+		callbackEntered?.TrySetResult();
+		return callbackRelease?.Task ?? Task.CompletedTask;
+	}
+	public void ReleaseAsyncCallback() => callbackRelease?.TrySetResult();
 	public int Bindings { get; private set; }
 	public int Initializations { get; private set; }
 	public int Callbacks { get; private set; }
@@ -175,7 +205,7 @@ public sealed class Issue180Probe
 	public void Bind() => Bindings++;
 	public void Initialize() => Initializations++;
 	public void Invoke(string owner) { Callbacks++; Owner = owner; }
-	public void Reset() { Bindings = 0; Initializations = 0; Callbacks = 0; Owner = null; }
+	public void Reset() { Bindings = 0; Initializations = 0; Callbacks = 0; Owner = null; callbackEntered = null; callbackRelease = null; }
 }
 
 internal sealed class Issue180AuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)

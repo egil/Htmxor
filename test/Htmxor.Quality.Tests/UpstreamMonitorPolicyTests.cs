@@ -70,11 +70,13 @@ public sealed class UpstreamMonitorPolicyTests
 		Assert.Equal(
 			[
 				"src/Components/Components/src/ComponentBase.cs|file|subclass|subclasses|src/Htmxor/Components/ConditionalComponentBase.cs,src/Htmxor/Components/HtmxFragment.cs,src/Htmxor/Endpoints/HtmxorDirectComponentHost.cs,src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs|",
+				"src/Components/Components/src/EventCallbackFactory.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs|",
 				"src/Components/Components/src/IComponent.cs|file|interface|implements|src/Htmxor/Components/HtmxHeadOutlet.cs,src/Htmxor/Endpoints/HtmxorComponentRequestHost.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderModeBoundary.cs|",
 				"src/Components/Components/src/IPersistentComponentStateStore.cs|file|interface|implements|src/Htmxor/Endpoints/HtmxorEndpointCandidateStateStore.cs|",
 				"src/Components/Components/src/LayoutComponentBase.cs|file|subclass|subclasses|src/Htmxor/Components/HtmxLayoutComponentBase.cs|",
 				"src/Components/Components/src/NavigationException.cs|file|subclass|subclasses|src/Htmxor/DependencyInjection/HtmxorNavigationException.cs|",
 				"src/Components/Components/src/NavigationManager.cs|file|subclass|subclasses|src/Htmxor/DependencyInjection/HtmxorNavigationManager.cs|",
+				"src/Components/Components/src/RenderTree/Renderer.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs|",
 				"src/Components/Components/src/RenderTree/Renderer.cs|file|subclass|subclasses|src/Htmxor/Rendering/HtmxorRenderer.cs|",
 				"src/Components/Components/src/Rendering/ComponentState.cs|file|subclass|subclasses|src/Htmxor/Rendering/HtmxorComponentState.cs|",
 				"src/Components/Components/src/Routing/IHostEnvironmentNavigationManager.cs|file|interface|implements|src/Htmxor/DependencyInjection/HtmxorNavigationManager.cs|",
