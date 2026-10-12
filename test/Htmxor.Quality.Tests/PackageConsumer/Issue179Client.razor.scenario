@@ -1,0 +1,3 @@
+@attribute [Htmxor.HtmxRoute("/issue-179/client")]
+@namespace Htmxor.PackageConsumer
+<button hx-post="/issue-179/client">Client-only</button>

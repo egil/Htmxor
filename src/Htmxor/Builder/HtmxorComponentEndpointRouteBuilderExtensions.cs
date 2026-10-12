@@ -41,12 +41,24 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		Assembly applicationAssembly,
 		IReadOnlyList<string> routedComponentTypeNames,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions)
+		=> AddHtmxorAttributedComponentEndpoints(
+			builder, endpoints, applicationAssembly, routedComponentTypeNames, generatedActions, []);
+
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	public static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
+		this RazorComponentsEndpointConventionBuilder builder,
+		IEndpointRouteBuilder endpoints,
+		Assembly applicationAssembly,
+		IReadOnlyList<string> routedComponentTypeNames,
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
+		IReadOnlyList<string> namedFormComponentTypeNames)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(endpoints);
 		ArgumentNullException.ThrowIfNull(applicationAssembly);
 		ArgumentNullException.ThrowIfNull(routedComponentTypeNames);
 		ArgumentNullException.ThrowIfNull(generatedActions);
+		ArgumentNullException.ThrowIfNull(namedFormComponentTypeNames);
 		HtmxorGeneratedComponentActionCatalog.Validate(
 			applicationAssembly,
 			routedComponentTypeNames,
@@ -54,7 +66,8 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		var descriptors = HtmxorAttributedRouteCatalog.Build(
 			applicationAssembly,
 			routedComponentTypeNames,
-			generatedActions);
+			generatedActions,
+			namedFormComponentTypeNames);
 		HtmxorAttributedRouteCatalog.ResolveConstraints(
 			descriptors,
 			endpoints.ServiceProvider.GetRequiredService<ParameterPolicyFactory>());

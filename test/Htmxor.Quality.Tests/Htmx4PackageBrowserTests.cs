@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Xml.Linq;
 using Htmxor.Quality;
 using Xunit.Abstractions;
@@ -47,6 +48,7 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 	private readonly string projectPath;
 	private readonly string nugetConfigPath;
 	private readonly ProcessRunner runner = new();
+	private readonly List<object> evidenceCommands = new();
 
 	public Htmx4PackageBrowserWorkspace(string repositoryRoot)
 	{
@@ -75,14 +77,22 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 
 	public async Task<ProcessResult> RunAsync()
 	{
-		if (!usesSharedPackage)
+		try
 		{
-			await PackAsync();
-		}
-		await RestoreAsync();
-		await PublishAsync();
+			await RunRequiredAsync("--info");
+			if (!usesSharedPackage)
+			{
+				await PackAsync();
+			}
+			await RestoreAsync();
+			await PublishAsync();
 
-		return await TestAsync();
+			return await TestAsync();
+		}
+		finally
+		{
+			RetainEvidence();
+		}
 	}
 
 	private void StageConsumer()
@@ -168,33 +178,37 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 			"Release",
 			"--no-restore",
 			"--output",
-			publishDirectory);
+			publishDirectory,
+			"-p:EmitCompilerGeneratedFiles=true",
+			$"-p:CompilerGeneratedFilesOutputPath={Path.Combine(consumerDirectory, "obj", "generated")}");
 
-	private Task<ProcessResult> TestAsync() =>
-		runner.RunAsync(new(
-			"dotnet",
-			consumerDirectory,
-			[
-				"test",
-				projectPath,
-				"--configuration",
-				"Release",
-				"--no-build",
-				"--no-restore",
-				$"-p:OutputPath={publishDirectory}",
-				"--filter",
-				testFilter,
-				"--environment",
-				"ASPNETCORE_ENVIRONMENT=Production",
-				"--blame-hang",
-				"--blame-hang-timeout",
-				"5min",
-				"--logger",
-				"trx;LogFileName=htmx4-browser.trx",
-				"--results-directory",
-				resultsDirectory,
-			],
-			EnsureSuccess: false));
+	private async Task<ProcessResult> TestAsync()
+	{
+		string[] arguments =
+		[
+			"test",
+			projectPath,
+			"--configuration",
+			"Release",
+			"--no-build",
+			"--no-restore",
+			$"-p:OutputPath={publishDirectory}",
+			"--filter",
+			testFilter,
+			"--environment",
+			"ASPNETCORE_ENVIRONMENT=Production",
+			"--blame-hang",
+			"--blame-hang-timeout",
+			"5min",
+			"--logger",
+			"trx;LogFileName=htmx4-browser.trx",
+			"--results-directory",
+			resultsDirectory,
+		];
+		var result = await runner.RunAsync(new("dotnet", consumerDirectory, arguments, EnsureSuccess: false));
+		RecordCommand(consumerDirectory, arguments, result);
+		return result;
+	}
 
 	private async Task<ProcessResult> RunRequiredAsync(params string[] arguments)
 	{
@@ -203,6 +217,7 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 			arguments[0] == "pack" ? repositoryRoot : consumerDirectory,
 			arguments,
 			EnsureSuccess: false));
+		RecordCommand(arguments[0] == "pack" ? repositoryRoot : consumerDirectory, arguments, result);
 		if (result.ExitCode != 0)
 		{
 			throw new InvalidOperationException(
@@ -210,6 +225,50 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 		}
 
 		return result;
+	}
+
+	private void RecordCommand(string workingDirectory, string[] arguments, ProcessResult result) =>
+		evidenceCommands.Add(new { Executable = "dotnet", WorkingDirectory = workingDirectory, Arguments = arguments, result.ExitCode, result.StandardOutput, result.StandardError, CapturedAt = DateTimeOffset.UtcNow });
+
+	private void RetainEvidence()
+	{
+		var directory = Path.Combine(repositoryRoot, "artifacts", "results", "issue-179-browser", Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(directory);
+		var files = new List<object>();
+		foreach (var source in Directory.EnumerateFiles(consumerDirectory))
+		{
+			RetainFile(source, Path.Combine(directory, "consumer", Path.GetFileName(source)), files);
+		}
+		RetainDirectory(packageDirectory, Path.Combine(directory, "packages"), files);
+		RetainDirectory(Path.Combine(consumerDirectory, "obj", "generated"), Path.Combine(directory, "generated"), files);
+		var assemblyName = Path.GetFileNameWithoutExtension(projectPath);
+		var boundary = new[] { Path.Combine(consumerDirectory, "obj", "project.assets.json"), Path.Combine(publishDirectory, assemblyName + ".dll"), Path.Combine(publishDirectory, assemblyName + ".deps.json"), Path.Combine(publishDirectory, assemblyName + ".runtimeconfig.json"), TrxPath };
+		foreach (var source in boundary)
+		{
+			RetainFile(source, Path.Combine(directory, "boundary", Path.GetFileName(source)), files);
+		}
+		File.WriteAllText(Path.Combine(directory, "evidence.json"), JsonSerializer.Serialize(new { PackageVersion, ConsumerDirectory = consumerDirectory, PublishDirectory = publishDirectory, TestFilter = testFilter, Commands = evidenceCommands, Files = files, CapturedAt = DateTimeOffset.UtcNow }, new JsonSerializerOptions { WriteIndented = true }));
+	}
+
+	private static void RetainDirectory(string sourceDirectory, string destinationDirectory, List<object> files)
+	{
+		if (!Directory.Exists(sourceDirectory)) return;
+		foreach (var source in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+		{
+			RetainFile(source, Path.Combine(destinationDirectory, Path.GetRelativePath(sourceDirectory, source)), files);
+		}
+	}
+
+	private static void RetainFile(string source, string destination, List<object> files)
+	{
+		var exists = File.Exists(source);
+		var hash = exists ? Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(source))) : null;
+		if (exists)
+		{
+			Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+			File.Copy(source, destination);
+		}
+		files.Add(new { SourcePath = source, RetainedPath = destination, Exists = exists, Sha256 = hash, CapturedAt = DateTimeOffset.UtcNow });
 	}
 
 	public void Dispose() => temporaryDirectory.Dispose();

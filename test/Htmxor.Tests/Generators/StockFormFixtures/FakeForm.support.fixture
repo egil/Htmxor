@@ -1,0 +1,1 @@
+namespace CustomControls; public sealed class FakeForm : Microsoft.AspNetCore.Components.ComponentBase { [Microsoft.AspNetCore.Components.Parameter] public string? FormName { get; set; } }

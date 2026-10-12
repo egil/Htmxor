@@ -1,0 +1,3 @@
+@attribute [Htmxor.HtmxRoute("/location-regression")]
+<form method="get"></form>
+<form method="post"></form>

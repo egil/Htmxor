@@ -1,0 +1,4 @@
+@attribute [Htmxor.HtmxRoute("/regression")]
+@using EditForm = CustomControls.FakeForm
+<EditForm Model="model" FormName="save" method="post" />
+@code { private object model = new(); }

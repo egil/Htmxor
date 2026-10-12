@@ -1,0 +1,3 @@
+@attribute [Htmxor.HtmxRoute("/regression")]
+<EditForm Model="model" FormName="@(123)" />
+@code { private object model = new(); }

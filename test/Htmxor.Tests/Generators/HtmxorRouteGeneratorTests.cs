@@ -92,6 +92,15 @@ public sealed class HtmxorRouteGeneratorTests
 					IReadOnlyList<string> projectRootComponentTypeNames,
 					IReadOnlyList<Htmxor.Builder.HtmxorGeneratedComponentAction> generatedActions)
 					=> builder;
+
+				internal static RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(
+					this RazorComponentsEndpointConventionBuilder builder,
+					Routing.IEndpointRouteBuilder endpoints,
+					Assembly applicationAssembly,
+					IReadOnlyList<string> projectRootComponentTypeNames,
+					IReadOnlyList<Htmxor.Builder.HtmxorGeneratedComponentAction> generatedActions,
+					IReadOnlyList<string> namedFormComponentTypeNames)
+					=> builder;
 			}
 		}
 		""";
