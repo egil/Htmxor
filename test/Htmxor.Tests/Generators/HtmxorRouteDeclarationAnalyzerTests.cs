@@ -35,6 +35,33 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	[Fact]
+	public async Task Null_explicit_methods_reports_a_route_error_without_an_analyzer_failure()
+	{
+		var componentPath = ComponentPath("NullMethodsComponent.cs");
+		var routeAttribute = "[global::Htmxor.HtmxRouteAttribute(\"/null-methods\", Methods = null)]";
+		var source = $$"""
+			namespace {{RootNamespace}};
+
+			{{routeAttribute}}
+			public sealed class NullMethodsComponent : global::Microsoft.AspNetCore.Components.ComponentBase;
+			""";
+
+		var diagnostics = await RunAnalyzerAsync(
+			new[] { source },
+			Array.Empty<string>(),
+			new[] { componentPath });
+
+		Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "AD0001");
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains("non-empty unique subset", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(routeAttribute[1..^1], source.Substring(diagnostic.Location.SourceSpan.Start, diagnostic.Location.SourceSpan.Length));
+	}
+
+	[Fact]
 	public async Task All_CSharp_component_in_arbitrary_file_is_supported_despite_unrelated_Razor_type()
 	{
 		var componentPath = ComponentPath("Widgets.cs");
