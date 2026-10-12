@@ -23,15 +23,18 @@
     }
 
     [Htmxor.HtmxAction("POST")]
-    private async Task Post()
+    private Task Post()
     {
         Probe.Invoke(owner);
         if (Mode == "sync") throw new InvalidOperationException("issue180 sync callback failure");
-        if (Mode == "async")
-        {
-            await Task.Yield();
-            throw new InvalidOperationException("issue180 async callback failure");
-        }
+        if (Mode == "async") return FailAfterYieldAsync();
         result = "POST";
+        return Task.CompletedTask;
+    }
+
+    private static async Task FailAfterYieldAsync()
+    {
+        await Task.Yield();
+        throw new InvalidOperationException("issue180 async callback failure");
     }
 }
