@@ -1,0 +1,13 @@
+@namespace Htmxor.Explicit.Anywhere
+<output data-boundary="fallback">@result</output>
+@code {
+    [Microsoft.AspNetCore.Components.Inject] public Issue180BoundaryProbe Probe { get; set; } = default!;
+    private string result = "pending";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Probe.AwaitFallbackReleaseAsync();
+        await Task.Yield();
+        result = "completed";
+    }
+}

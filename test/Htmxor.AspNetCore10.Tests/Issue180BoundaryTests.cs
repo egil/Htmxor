@@ -97,6 +97,8 @@ public sealed class Issue180BoundaryTests : IAsyncLifetime
 
 public sealed class Issue180BoundaryProbe
 {
+    private TaskCompletionSource? fallbackEntered;
+    private TaskCompletionSource? fallbackRelease;
     public int Initializations { get; private set; }
     public int Callbacks { get; private set; }
     public string? InitializedOwner { get; private set; }
@@ -104,4 +106,16 @@ public sealed class Issue180BoundaryProbe
     public void Initialize(string owner) { Initializations++; InitializedOwner = owner; }
     public void Invoke(string owner) { Callbacks++; CallbackOwner = owner; }
     public void Reset() { Initializations = 0; Callbacks = 0; InitializedOwner = null; CallbackOwner = null; }
+    public Task FallbackEntered => fallbackEntered?.Task ?? Task.CompletedTask;
+    public void HoldFallback()
+    {
+        fallbackEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        fallbackRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+    public async Task AwaitFallbackReleaseAsync()
+    {
+        fallbackEntered?.TrySetResult();
+        if (fallbackRelease is not null) await fallbackRelease.Task;
+    }
+    public void ReleaseFallback() => fallbackRelease?.TrySetResult();
 }

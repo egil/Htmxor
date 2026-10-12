@@ -1,0 +1,24 @@
+@namespace Htmxor.Explicit.Anywhere
+@using Microsoft.AspNetCore.Components.Forms
+@page "/issue-180/duplicate/{Id:int}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+<AntiforgeryToken />
+<output data-role="@(Inline ? "inline" : "routed")" data-owner="@owner" data-id="@Id" data-result="@result"></output>
+@code {
+    [Microsoft.AspNetCore.Components.Inject] public Issue180DuplicateProbe Probe { get; set; } = default!;
+    [Microsoft.AspNetCore.Components.Parameter] public int Id { get; set; }
+    [Microsoft.AspNetCore.Components.Parameter] public bool Inline { get; set; }
+    [Microsoft.AspNetCore.Components.SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    private readonly string owner = Guid.NewGuid().ToString("N");
+    private string result = "GET";
+
+    protected override void OnInitialized() => Probe.Initialize(Inline, owner, Id, Query);
+
+    [Htmxor.HtmxAction("POST")]
+    private Task Post()
+    {
+        Probe.Invoke(Inline, owner, Id, Query);
+        result = "POST";
+        return Task.CompletedTask;
+    }
+}
