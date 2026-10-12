@@ -57,7 +57,7 @@ public sealed class Issue180BoundaryTests : IAsyncLifetime
         var failure = await Record.ExceptionAsync(async () => { response = await client.SendAsync(request); });
 
         Assert.Equal(1, probe.Initializations);
-        Assert.NotEqual(credentials.Owner, probe.Owner);
+        Assert.NotEqual(credentials.Owner, probe.InitializedOwner);
         if (response is not null)
         {
             using (response)
@@ -68,6 +68,7 @@ public sealed class Issue180BoundaryTests : IAsyncLifetime
             }
         }
         Assert.Equal(callbacks, probe.Callbacks);
+        if (callbacks == 1) Assert.Equal(probe.InitializedOwner, probe.CallbackOwner);
         Assert.Null(failure);
         Assert.NotNull(response);
     }
@@ -98,8 +99,9 @@ public sealed class Issue180BoundaryProbe
 {
     public int Initializations { get; private set; }
     public int Callbacks { get; private set; }
-    public string? Owner { get; private set; }
-    public void Initialize(string owner) { Initializations++; Owner = owner; }
-    public void Invoke(string owner) { Callbacks++; Owner = owner; }
-    public void Reset() { Initializations = 0; Callbacks = 0; Owner = null; }
+    public string? InitializedOwner { get; private set; }
+    public string? CallbackOwner { get; private set; }
+    public void Initialize(string owner) { Initializations++; InitializedOwner = owner; }
+    public void Invoke(string owner) { Callbacks++; CallbackOwner = owner; }
+    public void Reset() { Initializations = 0; Callbacks = 0; InitializedOwner = null; CallbackOwner = null; }
 }
