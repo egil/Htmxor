@@ -103,6 +103,16 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 	}
 
 	[Fact]
+	public async Task Null_explicit_allowlist_reports_a_declaration_error_without_an_analyzer_failure()
+	{
+		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private void Save() { }", route: "[Htmxor.HtmxRoute(\"/explicit\", Methods = null)]");
+		var diagnostics = await AnalyzeAsync(source);
+
+		Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "AD0001");
+		AssertDeclarationError(diagnostics, source, "Methods");
+	}
+
+	[Fact]
 	public async Task Different_explicit_handlers_for_one_method_are_rejected()
 	{
 		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private void Save() { } [Htmxor.HtmxAction(\"put\")] private void Other() { }");
