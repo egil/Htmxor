@@ -44,8 +44,10 @@ public sealed class Issue180DuplicateOwnerTests : IAsyncLifetime
         using var credentials = await client.SendAsync(get);
         var getBody = await credentials.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, credentials.StatusCode);
-        Assert.Contains("data-role=\"inline\"", getBody, StringComparison.Ordinal);
+        Assert.Contains("data-role=\"before-seven\"", getBody, StringComparison.Ordinal);
+        Assert.Contains("data-role=\"before-equal\"", getBody, StringComparison.Ordinal);
         Assert.Contains("data-role=\"routed\"", getBody, StringComparison.Ordinal);
+        Assert.Contains("data-role=\"nested-equal\"", getBody, StringComparison.Ordinal);
         var getOwner = Regex.Match(getBody, "data-role=\"routed\" data-owner=\"([^\"]+)\"").Groups[1].Value;
         Assert.NotEmpty(getOwner);
         var token = Regex.Match(getBody, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"").Groups[1].Value;
@@ -61,22 +63,33 @@ public sealed class Issue180DuplicateOwnerTests : IAsyncLifetime
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(2, probe.Initializations.Count);
-        Assert.True(probe.Initializations[0].Inline, "The inline instance must render before the routed instance.");
-        var inline = Assert.Single(probe.Initializations, item => item.Inline);
-        var routed = Assert.Single(probe.Initializations, item => !item.Inline);
-        Assert.Equal(7, inline.Id);
+        Assert.Equal(4, probe.Initializations.Count);
+        Assert.Equal("before-seven", probe.Initializations[0].Placement);
+        Assert.Equal("before-equal", probe.Initializations[1].Placement);
+        var beforeSeven = Assert.Single(probe.Initializations, item => item.Placement == "before-seven");
+        var beforeEqual = Assert.Single(probe.Initializations, item => item.Placement == "before-equal");
+        var routed = Assert.Single(probe.Initializations, item => item.Placement == "routed");
+        var nestedEqual = Assert.Single(probe.Initializations, item => item.Placement == "nested-equal");
+        Assert.Equal(7, beforeSeven.Id);
+        Assert.Equal(42, beforeEqual.Id);
         Assert.Equal(42, routed.Id);
+        Assert.Equal(42, nestedEqual.Id);
         Assert.Equal("target", routed.Query);
-        Assert.NotEqual(inline.Owner, routed.Owner);
+        Assert.Equal("target", beforeEqual.Query);
+        Assert.Equal("target", nestedEqual.Query);
+        Assert.NotEqual(beforeSeven.Owner, routed.Owner);
+        Assert.NotEqual(beforeEqual.Owner, routed.Owner);
+        Assert.NotEqual(nestedEqual.Owner, routed.Owner);
         Assert.NotEqual(getOwner, routed.Owner);
         var callback = Assert.Single(probe.Callbacks);
-        Assert.False(callback.Inline, $"The inline owner {inline.Owner} (Id {inline.Id}) received the callback; routed owner {routed.Owner} has Id {routed.Id}. Actual callback owner {callback.Owner}, Id {callback.Id}, query {callback.Query}.");
+        Assert.True(callback.Placement == "routed", $"Expected routed owner {routed.Owner} (Id 42); callback targeted {callback.Placement} owner {callback.Owner} (Id {callback.Id}, query {callback.Query}).");
         Assert.Equal(routed.Owner, callback.Owner);
         Assert.Equal(42, callback.Id);
         Assert.Equal("target", callback.Query);
-        Assert.Contains($"data-role=\"inline\" data-owner=\"{inline.Owner}\" data-id=\"7\" data-result=\"GET\"", body, StringComparison.Ordinal);
+        Assert.Contains($"data-role=\"before-seven\" data-owner=\"{beforeSeven.Owner}\" data-id=\"7\" data-result=\"GET\"", body, StringComparison.Ordinal);
+        Assert.Contains($"data-role=\"before-equal\" data-owner=\"{beforeEqual.Owner}\" data-id=\"42\" data-result=\"GET\"", body, StringComparison.Ordinal);
         Assert.Contains($"data-role=\"routed\" data-owner=\"{routed.Owner}\" data-id=\"42\" data-result=\"POST\"", body, StringComparison.Ordinal);
+        Assert.Contains($"data-role=\"nested-equal\" data-owner=\"{nestedEqual.Owner}\" data-id=\"42\" data-result=\"GET\"", body, StringComparison.Ordinal);
     }
 
     public async Task DisposeAsync()
@@ -88,11 +101,11 @@ public sealed class Issue180DuplicateOwnerTests : IAsyncLifetime
 
 public sealed class Issue180DuplicateProbe
 {
-    public sealed record Observation(bool Inline, string Owner, int Id, string? Query);
+    public sealed record Observation(string Placement, string Owner, int Id, string? Query);
     public List<Observation> Initializations { get; } = [];
     public List<Observation> Callbacks { get; } = [];
-    public void Initialize(bool inline, string owner, int id, string? query) => Initializations.Add(new(inline, owner, id, query));
-    public void Invoke(bool inline, string owner, int id, string? query) => Callbacks.Add(new(inline, owner, id, query));
+    public void Initialize(string placement, string owner, int id, string? query) => Initializations.Add(new(placement, owner, id, query));
+    public void Invoke(string placement, string owner, int id, string? query) => Callbacks.Add(new(placement, owner, id, query));
     public void Reset() { Initializations.Clear(); Callbacks.Clear(); }
 }
 
