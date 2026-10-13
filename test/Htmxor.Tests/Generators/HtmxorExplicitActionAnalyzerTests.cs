@@ -9,6 +9,53 @@ namespace Htmxor.Generators.Tests;
 
 public sealed class HtmxorExplicitActionAnalyzerTests
 {
+	[Fact]
+	public async Task Explicit_interface_action_fails_at_its_declaration()
+	{
+		var source = InterfaceOwner("void IHandler.Save() { }");
+		var compilation = CreateCompilation(source);
+		Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var method = Assert.Single(compilation.GetTypeByMetadataName("Consumer.Owner")!.GetMembers().OfType<IMethodSymbol>()
+			.Where(static member => member.ExplicitInterfaceImplementations.Length > 0));
+		Assert.Equal(MethodKind.ExplicitInterfaceImplementation, method.MethodKind);
+
+		AssertDeclarationError(await AnalyzeAsync(source), source, "ordinary");
+	}
+
+	[Fact]
+	public async Task Implicit_interface_action_remains_an_ordinary_method()
+	{
+		var source = InterfaceOwner("public void Save() { }");
+		var compilation = CreateCompilation(source);
+		Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var method = Assert.Single(compilation.GetTypeByMetadataName("Consumer.Owner")!.GetMembers("Save").OfType<IMethodSymbol>());
+		Assert.Equal(MethodKind.Ordinary, method.MethodKind);
+
+		Assert.Empty(await AnalyzeAsync(source));
+	}
+
+	[Fact]
+	public async Task Special_name_ordinary_action_remains_valid()
+	{
+		var source = Owner("[System.Runtime.CompilerServices.SpecialName] [Htmxor.HtmxAction(\"PUT\")] private void Save() { }");
+		var compilation = CreateCompilation(source);
+		Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var method = Assert.Single(compilation.GetTypeByMetadataName("Consumer.Owner")!.GetMembers("Save").OfType<IMethodSymbol>());
+		Assert.Equal(MethodKind.Ordinary, method.MethodKind);
+
+		Assert.Empty(await AnalyzeAsync(source));
+	}
+
+	private static string InterfaceOwner(string method) => $$"""
+		namespace Consumer;
+		public interface IHandler { void Save(); }
+		[Microsoft.AspNetCore.Components.Route("/explicit")]
+		public class Owner : Microsoft.AspNetCore.Components.ComponentBase, IHandler
+		{
+			[Htmxor.HtmxAction("PUT")] {{method}}
+		}
+		""";
+
 	[Theory]
 	[InlineData("setter", "public Htmxor.HtmxEventArgs Value { get => null!; [Htmxor.HtmxAction(\"PUT\")] set { } }")]
 	[InlineData("finalizer", "[Htmxor.HtmxAction(\"PUT\")] ~Owner() { }")]
@@ -221,12 +268,15 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 
 	private static async Task<ImmutableArray<Diagnostic>> AnalyzeAsync(string source, string? compilerError = null)
 	{
-		var compilation = CSharpCompilation.Create("ExplicitActionContract", [CSharpSyntaxTree.ParseText(source, path: SourcePath)], References,
-			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		var compilation = CreateCompilation(source);
 		var errors = compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToArray();
 		if (compilerError is null) Assert.Empty(errors);
 		else Assert.Contains(errors, diagnostic => diagnostic.Id == compilerError);
 
 		return await compilation.WithAnalyzers([new HtmxorActionDeclarationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
 	}
+
+	private static CSharpCompilation CreateCompilation(string source)
+		=> CSharpCompilation.Create("ExplicitActionContract", [CSharpSyntaxTree.ParseText(source, path: SourcePath)], References,
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 }
