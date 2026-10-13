@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Htmxor.Generators;
 
@@ -20,11 +22,39 @@ internal static class HtmxorExplicitActionValidation
 			return;
 		}
 
+		AnalyzeNonMemberDeclarations(context, action);
 		var bindings = RazorCompiledEventBinding.Find(context.Compilation, context.CancellationToken).ToArray();
 		var forms = RazorCompiledForm.Find(context.Compilation, context.CancellationToken).ToArray();
 		foreach (var component in GetTypes(context.Compilation.Assembly.GlobalNamespace))
 		{
 			AnalyzeOwner(context, component, action, symbols, bindings, forms);
+		}
+	}
+
+	private static void AnalyzeNonMemberDeclarations(CompilationAnalysisContext context, INamedTypeSymbol action)
+	{
+		foreach (var tree in context.Compilation.SyntaxTrees)
+		{
+			var model = context.Compilation.GetSemanticModel(tree);
+			foreach (var attribute in tree.GetRoot(context.CancellationToken).DescendantNodes().OfType<AttributeSyntax>())
+			{
+				context.CancellationToken.ThrowIfCancellationRequested();
+				var target = attribute.Parent?.Parent;
+				IMethodSymbol? handler = target switch
+				{
+					LocalFunctionStatementSyntax local => model.GetDeclaredSymbol(local, context.CancellationToken) as IMethodSymbol,
+					LambdaExpressionSyntax lambda => (model.GetOperation(lambda, context.CancellationToken) as IAnonymousFunctionOperation)?.Symbol,
+					_ => null,
+				};
+				if (handler is null || model.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor ||
+					!SymbolEqualityComparer.Default.Equals(constructor.ContainingType, action))
+				{
+					continue;
+				}
+
+				context.ReportDiagnostic(Diagnostic.Create(HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration,
+					attribute.GetLocation(), HtmxorActionHandler.GetExplicitUnsupportedReason(context.Compilation, handler)));
+			}
 		}
 	}
 

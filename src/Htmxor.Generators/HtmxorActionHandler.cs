@@ -17,6 +17,11 @@ internal static class HtmxorActionHandler
 
 	public static string? GetExplicitUnsupportedReason(Compilation compilation, IMethodSymbol method)
 	{
+		if (method.MethodKind != MethodKind.Ordinary)
+		{
+			return Reason(method.Name, "is not an ordinary callback method; declare an instance method returning void or Task");
+		}
+
 		if (method.ContainingType.GetMembers(method.Name).OfType<IMethodSymbol>().Count() > 1)
 		{
 			return Reason(method.Name, "is overloaded; give the handler a unique name");

@@ -75,6 +75,11 @@ internal static class HtmxorExplicitComponentActionCatalog
 
 	private static void ValidateHandler(Type component, MethodInfo handler, MethodInfo[] handlers)
 	{
+		if (!IsOrdinaryHandler(handler))
+		{
+			throw Unsupported(component, "HtmxAction handler must be an ordinary instance callback method");
+		}
+
 		if (handler.IsStatic || handler.IsGenericMethod ||
 			(handler.ReturnType == typeof(void) && handler.IsDefined(typeof(AsyncStateMachineAttribute), inherit: false)) ||
 			(handler.ReturnType != typeof(void) && handler.ReturnType != typeof(Task)))
@@ -94,6 +99,11 @@ internal static class HtmxorExplicitComponentActionCatalog
 			throw Unsupported(component, "HtmxAction handler must not be overloaded");
 		}
 	}
+
+	// C# emits local functions and lambdas with names that cannot be authored as identifiers.
+	private static bool IsOrdinaryHandler(MethodInfo handler)
+		=> !handler.IsSpecialName && !handler.Name.StartsWith('<') &&
+			(handler.Name != "Finalize" || handler.GetBaseDefinition().DeclaringType != typeof(object));
 
 	private static void ValidateAllowList(Type component, string method)
 	{
