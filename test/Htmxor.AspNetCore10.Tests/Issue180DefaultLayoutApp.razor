@@ -1,0 +1,10 @@
+@namespace Htmxor.Explicit.Anywhere
+@using Microsoft.AspNetCore.Components.Routing
+<!DOCTYPE html><html><body>
+<Router AppAssembly="typeof(Issue180DefaultLayoutApp).Assembly">
+    <Found Context="routeData">
+        <output data-found-type="@routeData.PageType.FullName" data-found-id="@(routeData.RouteValues["Id"])"></output>
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Issue180InnerLayout)" />
+    </Found>
+</Router>
+</body></html>

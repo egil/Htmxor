@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -72,6 +74,95 @@ public sealed class Issue180RouteCaptureTests
         using var response = await enhanced.Client.SendAsync(post);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Empty(enhanced.Probe.Callbacks);
+    }
+
+    [Fact]
+    public async Task Delayed_component_authorization_dispatches_once_to_the_routed_page_after_release()
+    {
+        const string path = LayoutPath;
+        var gate = new Issue180AuthorizationGate();
+        await using var stock = await RouteHost<Issue180DelayedAuthorizationApp>.StartAsync(enhanced: false);
+        await using var enhanced = await RouteHost<Issue180DelayedAuthorizationApp>.StartAsync(enhanced: true, gate);
+        var stockGet = await GetCredentialsAsync(stock.Client, path);
+        var credentials = await GetCredentialsAsync(enhanced.Client, path);
+        Assert.Contains($"data-found-type=\"{PageType}\"", stockGet.Body, StringComparison.Ordinal);
+        Assert.Contains($"data-found-type=\"{PageType}\"", credentials.Body, StringComparison.Ordinal);
+        Assert.Contains("data-role=\"routed\"", stockGet.Body, StringComparison.Ordinal);
+        Assert.Contains("data-role=\"routed\"", credentials.Body, StringComparison.Ordinal);
+
+        enhanced.Probe.Reset();
+        gate.Hold();
+        using var post = ActionRequest(path, credentials, authenticated: true, direct: false);
+        var responseTask = enhanced.Client.SendAsync(post);
+        try
+        {
+            await gate.Entered.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.False(responseTask.IsCompleted, "The response completed while component authorization was held.");
+            Assert.Empty(enhanced.Probe.Callbacks);
+        }
+        finally { gate.Release(); }
+        using var response = await responseTask;
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var routed = Assert.Single(enhanced.Probe.Initializations, item => item.Placement == "routed");
+        var callback = Assert.Single(enhanced.Probe.Callbacks);
+        Assert.Equal(routed.Owner, callback.Owner);
+        Assert.Equal(42, callback.Id);
+        Assert.Equal("target", callback.Query);
+        Assert.Contains($"data-role=\"routed\" data-owner=\"{routed.Owner}\" data-id=\"42\" data-query=\"target\" data-result=\"POST\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Default_layout_with_nested_layout_keeps_stock_markers_and_routed_owner()
+    {
+        const string path = "/issue-180/default/42";
+        await using var stock = await RouteHost<Issue180DefaultLayoutApp>.StartAsync(enhanced: false);
+        await using var enhanced = await RouteHost<Issue180DefaultLayoutApp>.StartAsync(enhanced: true);
+        var stockGet = await GetCredentialsAsync(stock.Client, path);
+        var credentials = await GetCredentialsAsync(enhanced.Client, path);
+        Assert.Contains("data-layout=\"outer\"", stockGet.Body, StringComparison.Ordinal);
+        Assert.Contains("data-layout=\"inner\"", stockGet.Body, StringComparison.Ordinal);
+        Assert.Contains("data-layout=\"outer\"", credentials.Body, StringComparison.Ordinal);
+        Assert.Contains("data-layout=\"inner\"", credentials.Body, StringComparison.Ordinal);
+        Assert.Contains("data-found-id=\"42\"", credentials.Body, StringComparison.Ordinal);
+
+        enhanced.Probe.Reset();
+        using var post = ActionRequest(path, credentials, authenticated: true, direct: false);
+        using var response = await enhanced.Client.SendAsync(post);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var routed = Assert.Single(enhanced.Probe.Initializations);
+        var callback = Assert.Single(enhanced.Probe.Callbacks);
+        Assert.Equal(routed.Owner, callback.Owner);
+        Assert.Contains("data-layout=\"outer\"", body, StringComparison.Ordinal);
+        Assert.Contains("data-layout=\"inner\"", body, StringComparison.Ordinal);
+        Assert.Contains($"data-owner=\"{routed.Owner}\" data-id=\"42\" data-result=\"POST\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Configured_component_activator_preserves_original_routed_instance()
+    {
+        const string path = "/issue-180/default/42";
+        var activation = new Issue180ActivationProbe();
+        await using var enhanced = await RouteHost<Issue180DefaultLayoutApp>.StartAsync(enhanced: true, activation: activation);
+        var credentials = await GetCredentialsAsync(enhanced.Client, path);
+        Assert.Contains("data-layout=\"inner\"", credentials.Body, StringComparison.Ordinal);
+
+        activation.Reset();
+        enhanced.Probe.Reset();
+        using var post = ActionRequest(path, credentials, authenticated: true, direct: false);
+        using var response = await enhanced.Client.SendAsync(post);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single(activation.Created.OfType<Router>());
+        Assert.Single(activation.Created.OfType<RouteView>());
+        Assert.Contains(activation.Created, component => component is LayoutView);
+        var page = Assert.Single(activation.Created.OfType<Issue180DefaultLayoutPage>());
+        var initialized = Assert.Single(enhanced.Probe.Initializations);
+        var callback = Assert.Single(enhanced.Probe.Callbacks);
+        Assert.Equal(page.InstanceId, initialized.Owner);
+        Assert.Equal(page.InstanceId, callback.Owner);
+        Assert.Contains($"data-owner=\"{page.InstanceId}\" data-id=\"42\" data-result=\"POST\"", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -240,7 +331,8 @@ public sealed class Issue180RouteCaptureTests
             Client = app.GetTestClient();
         }
 
-        public static async Task<RouteHost<TRoot>> StartAsync(bool enhanced)
+        public static async Task<RouteHost<TRoot>> StartAsync(bool enhanced,
+            Issue180AuthorizationGate? gate = null, Issue180ActivationProbe? activation = null)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { ApplicationName = typeof(TRoot).Assembly.GetName().Name });
             builder.WebHost.UseTestServer();
@@ -250,6 +342,18 @@ public sealed class Issue180RouteCaptureTests
             builder.Services.AddSingleton(probe);
             builder.Services.AddAuthentication("issue180").AddScheme<AuthenticationSchemeOptions, Issue180AuthenticationHandler>("issue180", _ => { });
             builder.Services.AddAuthorization();
+            if (gate is not null)
+            {
+                builder.Services.AddSingleton(gate);
+                builder.Services.AddScoped<IAuthorizationService>(services =>
+                    new Issue180GatedAuthorizationService(
+                        ActivatorUtilities.CreateInstance<DefaultAuthorizationService>(services), gate));
+            }
+            if (activation is not null)
+            {
+                builder.Services.AddSingleton<IComponentActivator>(services =>
+                    new Issue180RecordingActivator(services, activation));
+            }
             builder.Services.AddCascadingAuthenticationState();
             if (enhanced) builder.Services.AddRazorComponents().AddHtmxor();
             else builder.Services.AddRazorComponents();
