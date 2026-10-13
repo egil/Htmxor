@@ -1,0 +1,11 @@
+@namespace Htmxor.Explicit.Anywhere
+@using Microsoft.AspNetCore.Components.Routing
+<!DOCTYPE html><html><body>
+<Router AppAssembly="typeof(Issue180AmbiguousApp).Assembly">
+    <Found Context="routeData">
+        <output data-found-type="@routeData.PageType.FullName" data-found="two-route-views"></output>
+        <RouteView RouteData="routeData" />
+        <RouteView RouteData="routeData" />
+    </Found>
+</Router>
+</body></html>

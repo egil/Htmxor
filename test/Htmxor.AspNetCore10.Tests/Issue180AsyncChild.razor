@@ -1,0 +1,12 @@
+@namespace Htmxor.Explicit.Anywhere
+<span>@result</span>
+@code {
+[Microsoft.AspNetCore.Components.Inject] public Issue180Probe Probe { get; set; } = default!;
+private string result = "child-pending";
+protected override async Task OnInitializedAsync()
+{
+    await Probe.AwaitAsyncChildRelease();
+    await Task.Yield();
+    result = "child-completed";
+}
+}

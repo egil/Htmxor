@@ -1,0 +1,13 @@
+@namespace Htmxor.Explicit.Anywhere
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Routing
+<!DOCTYPE html><html><body>
+<ErrorBoundary>
+    <ChildContent>
+        <Router AppAssembly="typeof(Issue180AsyncFallbackApp).Assembly">
+            <Found Context="routeData"><RouteView RouteData="routeData" /></Found>
+        </Router>
+    </ChildContent>
+    <ErrorContent><Issue180AsyncFallbackChild /></ErrorContent>
+</ErrorBoundary>
+</body></html>

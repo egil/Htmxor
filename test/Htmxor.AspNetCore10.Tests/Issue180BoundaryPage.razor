@@ -1,0 +1,40 @@
+@namespace Htmxor.Explicit.Anywhere
+@using Microsoft.AspNetCore.Components.Forms
+@page "/issue-180/boundary/{Mode}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+<AntiforgeryToken />
+<output data-boundary="healthy" data-owner="@owner">@RenderResult()</output>
+@code {
+    [Microsoft.AspNetCore.Components.Inject] public Issue180BoundaryProbe Probe { get; set; } = default!;
+    [Microsoft.AspNetCore.Components.Parameter] public string Mode { get; set; } = default!;
+    private readonly string owner = Guid.NewGuid().ToString("N");
+    private string result = "GET";
+
+    protected override void OnInitialized()
+    {
+        Probe.Initialize(owner);
+        if (Mode == "initialize") throw new InvalidOperationException("issue180 initialize failure");
+    }
+
+    private string RenderResult()
+    {
+        if (Mode == "render") throw new InvalidOperationException("issue180 render failure");
+        return result;
+    }
+
+    [Htmxor.HtmxAction("POST")]
+    private Task Post()
+    {
+        Probe.Invoke(owner);
+        if (Mode == "sync") throw new InvalidOperationException("issue180 sync callback failure");
+        if (Mode == "async") return FailAfterYieldAsync();
+        result = "POST";
+        return Task.CompletedTask;
+    }
+
+    private static async Task FailAfterYieldAsync()
+    {
+        await Task.Yield();
+        throw new InvalidOperationException("issue180 async callback failure");
+    }
+}

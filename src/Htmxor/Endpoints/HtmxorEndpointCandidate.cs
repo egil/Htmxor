@@ -51,6 +51,8 @@
 // Non-streaming quiescence in the invoker (#260, synchronized 2026-09-30): the full-quiescence wait and its
 // navigation handling reimplement WaitForResultReady and RenderEndpointComponent in the same
 // EndpointHtmlRenderer.Prerendering.cs at both commits above.
+// Explicit callbacks (#180, reviewed 2026-10-12) also finish before ordinary response serialization;
+// supported event and pending-work dependencies are inventoried in the ExplicitActions partial.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
@@ -115,6 +117,7 @@ internal static class HtmxorEndpointCandidateServices
 	public static void Add(IServiceCollection services)
 	{
 		var formServices = HtmxorEndpointCandidateFormServices.Create();
+		var routeCapture = HtmxorEndpointCandidateRouteCapture.Create();
 #if NET11_0_OR_GREATER
 		var sessionServices = HtmxorEndpointCandidateSessionServices.Create();
 		var tempDataServices = HtmxorEndpointCandidateTempDataServices.Create();
@@ -147,6 +150,7 @@ internal static class HtmxorEndpointCandidateServices
 #endif
 
 		services.AddSingleton(formServices);
+		services.AddSingleton(routeCapture);
 #if NET11_0_OR_GREATER
 		services.AddSingleton(sessionServices);
 		services.AddSingleton(tempDataServices);
@@ -226,6 +230,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 
 		await renderer.InitializeStandardComponentServicesAsync(context, pageComponent, request.HandlerName, request.Form);
+		renderer.PrepareExplicitAction(context);
 		HtmlRootComponent htmlContent;
 		try
 		{
@@ -242,8 +247,8 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		var writesPage = true;
 		if (!request.IsPost || isReexecuted)
 		{
-			quiesceTask = htmlContent.QuiescenceTask;
-			if (waitForQuiescence)
+			quiesceTask = renderer.CompleteExplicitActionAsync(htmlContent.QuiescenceTask);
+			if (waitForQuiescence || renderer.HasPreparedExplicitAction)
 			{
 				try
 				{

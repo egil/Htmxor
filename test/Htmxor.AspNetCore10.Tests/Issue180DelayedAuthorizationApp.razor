@@ -1,0 +1,14 @@
+@namespace Htmxor.Explicit.Anywhere
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+<!DOCTYPE html><html><body>
+<Router AppAssembly="typeof(Issue180DelayedAuthorizationApp).Assembly">
+    <Found Context="routeData">
+        <output data-found-type="@routeData.PageType.FullName" data-found-id="@(routeData.RouteValues["Id"])"></output>
+        <AuthorizeRouteView RouteData="routeData" Resource="@Issue180AuthorizationGate.Marker">
+            <Authorizing><output data-auth="authorizing"></output></Authorizing>
+            <NotAuthorized><output data-auth="declined"></output></NotAuthorized>
+        </AuthorizeRouteView>
+    </Found>
+</Router>
+</body></html>

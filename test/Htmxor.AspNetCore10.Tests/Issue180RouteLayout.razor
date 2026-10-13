@@ -1,0 +1,14 @@
+@namespace Htmxor.Explicit.Anywhere
+@inherits Microsoft.AspNetCore.Components.LayoutComponentBase
+@inject Microsoft.AspNetCore.Components.NavigationManager Navigation
+<section data-layout="route-layout">
+    <Issue180LayoutPage Id="42" Placement="layout-inline" />
+    @if (!Navigation.Uri.Contains("noBody=true", StringComparison.Ordinal))
+    {
+        @Body
+        @if (Navigation.Uri.Contains("doubleBody=true", StringComparison.Ordinal))
+        {
+            @Body
+        }
+    }
+</section>

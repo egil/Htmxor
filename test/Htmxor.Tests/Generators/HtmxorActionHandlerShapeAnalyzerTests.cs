@@ -1245,6 +1245,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	{
 		var message = diagnostic.GetMessage();
 		Assert.Contains(expectedFragment, message, StringComparison.Ordinal);
+		Assert.Contains("HtmxAction", message, StringComparison.Ordinal);
 		foreach (var otherFragment in HandlerShapeCauseFragments)
 		{
 			if (!string.Equals(otherFragment, expectedFragment, StringComparison.Ordinal))

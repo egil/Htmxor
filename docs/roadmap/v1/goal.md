@@ -109,7 +109,7 @@ generation remains owned by the framework through supported public/protected
 globally replace stock routing state, the navigation manager, or the form runtime.
 Private framework access and narrowly copied endpoint renderer coordination are
 limited to the isolated framework adapter defined below for form, initializer,
-resource, persisted-state, and render-mode seams. Each use requires exact
+resource, persisted-state, render-mode, and route-instance seams. Each use requires exact
 upstream provenance, source inventory, drift monitoring, runtime shape
 validation where applicable, and paired parity evidence. It must not become a
 general private renderer replacement.
@@ -166,6 +166,30 @@ Issue #189 covers ordinary non-streaming form requests through the monitored
 candidate now activated by `AddHtmxor`. If this adapter requires a broader
 private-access or form-runtime boundary, return for a user decision before
 expanding it.
+
+The [approved #180 decision](https://github.com/egil/Htmxor/issues/180#issuecomment-6144574698)
+extends the isolated adapter to exact route-instance capture for explicit actions.
+It may inspect the private `RouteView.RenderPageWithParameters(RenderTreeBuilder)`
+method and `AuthorizeRouteView.AuthorizeRouteViewCore` type, authenticate the
+framework-created layout frame, and adapt only the stock page fragment to add a
+supported component-reference capture. The original application Router/Found,
+RouteData and page type, RouteView/AuthorizeRouteView, authorization decision,
+layout components, activation, parameter binding and lifecycle remain authoritative.
+The stock-created LayoutView remains attached and renders through its original
+implementation; its internal renderer state may use a parameter observer without
+adding an ancestor or changing an application component-reference capture.
+
+A Standard explicit write requires one outermost Router and one outermost
+RouteView owned by it. Count denied views before selecting a captured page;
+nested views in NotAuthorized content are not action owners. Missing or ambiguous
+routed pages, including a layout emitting Body more than once, fail clearly
+without guessing another instance. Stock authorization denial and disposal
+still prevent callbacks. Direct capture uses the Htmxor-owned DynamicComponent's
+public Instance after quiescence. Preserve original component activator calls;
+validate private signatures, helper interfaces, parent frame shape and attachment
+ordering, monitor exact sources, and renew paired NET10/NET11 parity on drift.
+General routing replacement and private framework field writes remain outside
+this exception.
 
 The [approved #212 decision](https://github.com/egil/Htmxor/issues/212#issuecomment-5654425948)
 also permits the .NET 11 adapter to invoke the existing scoped

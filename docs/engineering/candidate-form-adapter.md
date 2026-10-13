@@ -581,6 +581,31 @@ invoker acceptance; public activation does not waive monitoring.
 | [ServerComponent.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Shared/Components/ServerComponent.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Shared/Components/ServerComponent.cs) | `HtmxorEndpointCandidateRenderModeBoundary.cs`: mirrors (serialized server-descriptor shape, #275; identical at `c3325eeb`) |
 | [WebAssemblySettingsEmitter.cs (v10.0.11)](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs) / [commit](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs) | `HtmxorEndpointCandidate.cs`: reimplements |
 
+Explicit actions use supported framework event dispatch rather than copied
+exception handling. `HtmxorEndpointCandidateRenderer.ExplicitActions.cs` registers
+its callback on a separate internal root, invokes `Renderer.DispatchEventAsync`
+with the actual request-created owner as receiver, waits for quiescence, and
+removes that root. Its carrier markup is not part of the response root. An owner
+whose synchronous callback throws can leave asynchronous fallback work pending;
+rendering the same carrier again drains global quiescence without rebinding the
+owner or invoking its callback again. An owner
+removed during initial error-boundary handling receives no callback. Event
+dispatch uses supported framework seams and adds no public developer surface.
+
+| Exact source, reviewed 2026-10-12 | Local dependency and invariant |
+| --- | --- |
+| [Renderer, v10.0.11/a538338](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/RenderTree/Renderer.cs), [v11.0.0-rc.1.26425.128/c3325eeb](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/RenderTree/Renderer.cs) | `depends-on-behaviour`: protected live-state lookup, root registration/rendering/removal and frame inspection; public event dispatch retains receiver-associated error boundaries; rendering the same carrier after dispatch drains global pending fallback work left by its synchronous exception path. |
+| [EventCallbackFactory, v10.0.11/a538338](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/EventCallbackFactory.cs), [v11.0.0-rc.1.26425.128/c3325eeb](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/EventCallbackFactory.cs) | `depends-on-behaviour`: four supported instance delegate shapes retain the request-created owner as receiver. |
+| [RenderTreeBuilder, v10.0.11/a538338](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/Rendering/RenderTreeBuilder.cs), [v11.0.0-rc.1.26425.128/c3325eeb](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/Rendering/RenderTreeBuilder.cs) | `depends-on-behaviour`: the public typed event attribute lets Blazor assign the event handler ID; runtime checks require the expected attribute and a nonzero ID. |
+| [IComponent, v10.0.11/a538338](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/IComponent.cs), [v11.0.0-rc.1.26425.128/c3325eeb](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/IComponent.cs) | `implements`: the internal dispatch host receives its framework RenderHandle and registers the callback through the public component contract. |
+
+All three relationships have file watches in #184 monitoring; the existing
+`ASP.NET-Core-LICENSE.txt` carries the upstream license. Hosted .NET 10 and .NET 11
+checks exercise synchronous/asynchronous callback failures through a real
+`ErrorBoundary`, suppression after initialization/render failure, request-owner
+identity, and completed callback-created child output. Those framework checks do
+not establish new browser behavior or a .NET 11 packed consumer.
+
 The candidate also subclasses `StaticHtmlRenderer`, implements
 `IRazorComponentEndpointInvoker`, and consumes supported `Renderer`/`ComponentState`
 seams; retain those existing #188 API relationships when integrating the inventory.
@@ -593,3 +618,73 @@ is retained verbatim at
 [ASP.NET-Core-LICENSE.txt](../../src/Htmxor/Endpoints/ASP.NET-Core-LICENSE.txt).
 The project includes it at `licenses/ASP.NET-Core-LICENSE.txt` in packages.
 License-file inclusion alone is not package-consumer compatibility evidence.
+
+
+### Exact route-owner capture for explicit actions
+
+The [owner-approved #180 extension](https://github.com/egil/Htmxor/issues/180#issuecomment-6144574698)
+is isolated in `HtmxorEndpointCandidateRouteCapture.cs`. Registration validates
+only cached metadata: private nonstatic nongeneric `void
+RouteView.RenderPageWithParameters(RenderTreeBuilder)`, and the private sealed
+`AuthorizeRouteView.AuthorizeRouteViewCore : AuthorizeViewCore`. LayoutView must
+retain its sole IComponent interface. No private field is written.
+
+During an explicit action request, the renderer counts outermost RouteViews
+beneath the unique outermost Router, including denied views. It authenticates
+only the framework-created LayoutView frame: sequence 0, Layout and ChildContent
+parameters at sequences 1 and 2, no reference capture, and (for authorization)
+the stock sequence-0 content region. The page delegate must be single-cast, have
+the exact private MethodInfo, and target that actual RouteView. Nested and
+unrelated views cannot supply the action owner. Unsupported shapes fail before
+callback rather than selecting a same-type component.
+
+ComponentFactory still activates and injects the original LayoutView. Renderer
+calls CreateComponentState before attaching that original object; ComponentState
+then supplies parameters to an internal LayoutView-derived observer shell. The
+shell forwards to the original helper, replacing only the authenticated page
+fragment with stock page/parameter construction plus public reference capture.
+Stock LayoutView retains default/attributed/nested layout traversal. This changes
+the internal helper's state identity, not the application's Router, page,
+authorization component, layout instance or component ancestry. The known stock
+helper frame has no application reference capture. Activator-substituted helper
+subclasses are incompatible with this bounded adapter and fail clearly.
+
+The authorization helper is observed while loading or denied as well as when
+authorized: stock AuthorizeViewCore can reuse its initial LayoutView after an
+asynchronous authorization result. Loading/denied ChildContent, including null
+content, is forwarded unchanged. Only the authenticated private page fragment
+adds a reference capture, after the stock authorization decision.
+
+Resolve only after global initial quiescence. Require one selected view and one
+live captured page of the declared owner type; distinct live pages emitted by
+repeated Body are ambiguous. Denied AuthorizeRouteView or disposed initial
+owners receive no callback. An omitted RouteView or incompatible manual page
+construction cannot turn an inline page into an owner. Existing disposal and
+error-boundary behavior remains a paired test requirement.
+
+Direct rendering attaches a public reference capture only to the Htmxor-owned
+DynamicComponent frame. The action request retains that carrier, and reads its
+public Instance after initial quiescence. It creates no second page and does not
+observe arbitrary application DynamicComponents.
+
+All dependencies below are reviewed 2026-10-13 at NET10 v10.0.11,
+`a5383385245bdacc20ec19f30e46090a8154d8da`, and NET11
+v11.0.0-rc.1.26425.128, `c3325eeb6b47bc6383c127d4f4827dc9642a2b6e`.
+Each relationship is tracked by #184; source drift requires renewed semantic
+parity, not merely a successful signature check. The existing packed
+ASP.NET-Core-LICENSE.txt applies to the narrowly adapted page fragment.
+
+| Exact upstream source | Dependency and invariant |
+| --- | --- |
+| [RouteView.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/RouteView.cs) / [RouteView.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/RouteView.cs) | private-accesses and reimplements: exact page delegate identity, helper frame and page/route-parameter construction. |
+| [AuthorizeRouteView.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Authorization/src/AuthorizeRouteView.cs) / [AuthorizeRouteView.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Authorization/src/AuthorizeRouteView.cs) | private-accesses: exact sealed authorization-core identity and authorized base RouteView path; authorization remains stock. |
+| [AuthorizeViewCore.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Authorization/src/AuthorizeViewCore.cs) / [AuthorizeViewCore.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Authorization/src/AuthorizeViewCore.cs) | depends-on-behaviour: the stock authorized content region and denied/authorizing branches. |
+| [LayoutView.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/LayoutView.cs) / [LayoutView.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/LayoutView.cs) | subclasses and depends-on-behaviour: state-only observer forwards parameters to the original activated helper; stock layout rendering remains unchanged. |
+| [ComponentFactory.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/ComponentFactory.cs) / [ComponentFactory.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/ComponentFactory.cs) | depends-on-behaviour: configured activation and property injection precede renderer state creation. |
+| [Renderer.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/RenderTree/Renderer.cs) / [Renderer.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/RenderTree/Renderer.cs) | depends-on-behaviour: original component Attach occurs after state creation; supported parent-frame and liveness reads. |
+| [ComponentState.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/Rendering/ComponentState.cs) / [ComponentState.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/Rendering/ComponentState.cs) | depends-on-behaviour: current tree is swapped before child diffing; state Component receives combined parameters. |
+| [RenderTreeDiffBuilder.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/RenderTree/RenderTreeDiffBuilder.cs) / [RenderTreeDiffBuilder.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/RenderTree/RenderTreeDiffBuilder.cs) | depends-on-behaviour: the component is initialized before supported reference capture invokes the callback. |
+| [RenderTreeBuilder.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/Rendering/RenderTreeBuilder.cs) / [RenderTreeBuilder.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/Rendering/RenderTreeBuilder.cs) | depends-on-behaviour: component parameters and reference capture use supported builder methods. |
+| [Router.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/Routing/Router.cs) / [Router.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/Routing/Router.cs) | depends-on-behaviour: Found supplies the processed RouteData; no comparison to the endpoint provider reference or Router replacement. |
+| [IComponent.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/IComponent.cs) / [IComponent.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/IComponent.cs) | implements: the observer only intercepts parameter delivery; a call to shell Attach reports incompatible ordering. |
+| [DynamicComponent.cs, NET10](https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/DynamicComponent.cs) / [DynamicComponent.cs, NET11](https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/DynamicComponent.cs) | depends-on-behaviour: the public Instance property belongs to the direct carrier and is read after quiescence. |

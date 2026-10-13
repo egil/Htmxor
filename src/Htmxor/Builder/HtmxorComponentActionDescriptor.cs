@@ -5,4 +5,5 @@ internal sealed record HtmxorComponentActionDescriptor(
 	string NormalizedRoute,
 	string HttpMethod,
 	string HandlerIdentity,
-	HtmxorGeneratedComponentAction? GeneratedAction = null);
+	HtmxorGeneratedComponentAction? GeneratedAction = null,
+	System.Reflection.MethodInfo? ExplicitHandler = null);

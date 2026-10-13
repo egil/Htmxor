@@ -37,6 +37,8 @@
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointComponentState.cs | reimplements
+// Explicit action work uses the supported renderer event pipeline, synchronized 2026-10-12;
+// this pending-task hook retains only the stock streaming coordination described above.
 
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;

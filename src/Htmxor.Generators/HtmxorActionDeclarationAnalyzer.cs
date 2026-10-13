@@ -26,6 +26,9 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
 		ImmutableArray.Create(UnsupportedDeclaration);
 
+	internal static string WithExplicitRemediation(string reason)
+		=> "Use [HtmxAction] to explicitly declare a supported instance action instead of this binding; " + reason;
+
 	public override void Initialize(AnalysisContext context)
 	{
 		context.ConfigureGeneratedCodeAnalysis(
@@ -36,6 +39,7 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 
 	private static void AnalyzeCompilation(CompilationAnalysisContext context)
 	{
+		HtmxorExplicitActionValidation.Analyze(context);
 		var symbols = HtmxorRouteSymbols.Resolve(context.Compilation);
 		if (symbols is null || symbols.Route is null)
 		{
@@ -53,18 +57,21 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 				continue;
 			}
 
+			var component = context.Compilation.Assembly.GetTypeByMetadataName(declaration.ComponentTypeName);
 			var reason = GetUnsupportedReason(
 				context.Compilation,
-				context.Compilation.Assembly.GetTypeByMetadataName(declaration.ComponentTypeName),
+				component,
 				declaration,
 				typeNames?.GetGeneratedPath(declaration.Path),
 				symbols);
 			if (reason is not null)
 			{
+				var message = component is not null && GetNormalOnlyUnsupportedReason(component, symbols) is not null
+					? reason : WithExplicitRemediation(reason);
 				context.ReportDiagnostic(Diagnostic.Create(
 					UnsupportedDeclaration,
 					Location.Create(declaration.Path, declaration.Span, declaration.LineSpan),
-					reason));
+					message));
 			}
 		}
 	}

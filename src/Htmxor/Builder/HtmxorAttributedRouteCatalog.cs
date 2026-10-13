@@ -27,6 +27,15 @@ internal static class HtmxorAttributedRouteCatalog
 		IReadOnlyList<string> routedComponentTypeNames,
 		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
 		IReadOnlyList<string> namedFormComponentTypeNames)
+		=> Build(applicationAssembly, routedComponentTypeNames, generatedActions, namedFormComponentTypeNames,
+			HtmxorExplicitComponentActionCatalog.Build(applicationAssembly, routedComponentTypeNames, namedFormComponentTypeNames));
+
+	internal static IReadOnlyList<HtmxorComponentRouteDescriptor> Build(
+		Assembly applicationAssembly,
+		IReadOnlyList<string> routedComponentTypeNames,
+		IReadOnlyList<HtmxorGeneratedComponentAction> generatedActions,
+		IReadOnlyList<string> namedFormComponentTypeNames,
+		IReadOnlyList<HtmxorComponentActionDescriptor> explicitActions)
 	{
 		ArgumentNullException.ThrowIfNull(applicationAssembly);
 		ArgumentNullException.ThrowIfNull(routedComponentTypeNames);
@@ -48,7 +57,7 @@ internal static class HtmxorAttributedRouteCatalog
 			.ToArray();
 
 		return declarations
-			.Select(declaration => CreateDescriptor(declaration, namedFormComponentTypeNames))
+			.Select(declaration => CreateDescriptor(declaration, namedFormComponentTypeNames, explicitActions))
 			.ToArray();
 	}
 
@@ -388,7 +397,8 @@ internal static class HtmxorAttributedRouteCatalog
 		return attributes.ToArray();
 	}
 
-	private static HtmxorComponentRouteDescriptor CreateDescriptor(ValidatedDeclaration declaration, IReadOnlyList<string> namedFormComponentTypeNames)
+	private static HtmxorComponentRouteDescriptor CreateDescriptor(ValidatedDeclaration declaration, IReadOnlyList<string> namedFormComponentTypeNames,
+		IReadOnlyList<HtmxorComponentActionDescriptor> explicitActions)
 	{
 		object[] metadata;
 		try
@@ -430,6 +440,11 @@ internal static class HtmxorAttributedRouteCatalog
 		var effectiveMethods = hasNamedForms && declaration.ExplicitMethods is null
 			? new[] { HttpMethods.Get, HttpMethods.Post }
 			: expectedMethods;
+		if (declaration.ExplicitMethods is null)
+		{
+			effectiveMethods = effectiveMethods.Concat(explicitActions.Where(action => action.ComponentType == declaration.ComponentType)
+				.Select(static action => action.HttpMethod)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+		}
 		return new HtmxorComponentRouteDescriptor(
 			declaration.ComponentType,
 			declaration.Route,
