@@ -102,8 +102,14 @@ internal static class HtmxorExplicitComponentActionCatalog
 
 	// C# emits local functions and lambdas with names that cannot be authored as identifiers.
 	private static bool IsOrdinaryHandler(MethodInfo handler)
-		=> !handler.IsSpecialName && (handler.Name.Length == 0 || handler.Name[0] != '<') &&
-			(handler.Name != "Finalize" || handler.GetBaseDefinition().DeclaringType != typeof(object));
+		=> !(handler.IsPrivate && handler.IsVirtual && handler.IsFinal) &&
+			(handler.Name.Length == 0 || handler.Name[0] != '<') &&
+			(handler.Name != "Finalize" || handler.GetBaseDefinition().DeclaringType != typeof(object)) &&
+			!IsPropertyAccessor(handler);
+
+	private static bool IsPropertyAccessor(MethodInfo handler)
+		=> handler.DeclaringType!.GetProperties(DeclaredMethods).Any(property =>
+			property.GetMethod == handler || property.SetMethod == handler);
 
 	private static void ValidateAllowList(Type component, string method)
 	{
