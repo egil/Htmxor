@@ -1,3 +1,9 @@
+// Public DynamicComponent.Instance capture reviewed 2026-10-13 at ASP.NET Core v10.0.11,
+// a5383385245bdacc20ec19f30e46090a8154d8da, and v11.0.0-rc.1.26425.128,
+// c3325eeb6b47bc6383c127d4f4827dc9642a2b6e. Exact sources: docs/engineering/candidate-form-adapter.md.
+// Htmxor upstream dependency: src/Components/Components/src/DynamicComponent.cs | depends-on-behaviour
+// Htmxor upstream dependency: src/Components/Components/src/Rendering/RenderTreeBuilder.cs | depends-on-behaviour
+
 using Htmxor.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -13,6 +19,9 @@ internal sealed class HtmxorDirectRenderHost : ComponentBase
 
 	[Inject]
 	private IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
+
+	[Inject]
+	private HtmxorComponentActionRequest ActionRequest { get; set; } = default!;
 
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{
@@ -30,14 +39,15 @@ internal sealed class HtmxorDirectRenderHost : ComponentBase
 		builder.AddComponentParameter(
 			2,
 			nameof(Router.Found),
-			(RenderFragment<RouteData>)(route => RenderRoute(route, componentType)));
+			(RenderFragment<RouteData>)(route => RenderRoute(route, componentType,
+				ActionRequest.HasExplicitAction ? ActionRequest.CaptureExplicitRouteCarrier : null)));
 		builder.CloseComponent();
 	}
 
-	internal static RenderFragment RenderRoute(RouteData routeData) => builder =>
-		RenderRoute(routeData, componentType: null)(builder);
+	internal static RenderFragment RenderRoute(RouteData routeData, Action<DynamicComponent>? capture = null) => builder =>
+		RenderRoute(routeData, componentType: null, capture)(builder);
 
-	private static RenderFragment RenderRoute(RouteData routeData, Type? componentType) => builder =>
+	private static RenderFragment RenderRoute(RouteData routeData, Type? componentType, Action<DynamicComponent>? capture) => builder =>
 	{
 		builder.OpenComponent<DynamicComponent>(0);
 		builder.AddComponentParameter(
@@ -48,6 +58,10 @@ internal sealed class HtmxorDirectRenderHost : ComponentBase
 			2,
 			nameof(DynamicComponent.Parameters),
 			routeData.RouteValues.ToDictionary(pair => pair.Key, pair => pair.Value));
+		if (capture is not null)
+		{
+			builder.AddComponentReferenceCapture(3, instance => capture((DynamicComponent)instance));
+		}
 		builder.CloseComponent();
 	};
 }

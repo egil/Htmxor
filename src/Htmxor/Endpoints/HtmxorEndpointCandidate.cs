@@ -117,6 +117,7 @@ internal static class HtmxorEndpointCandidateServices
 	public static void Add(IServiceCollection services)
 	{
 		var formServices = HtmxorEndpointCandidateFormServices.Create();
+		var routeCapture = HtmxorEndpointCandidateRouteCapture.Create();
 #if NET11_0_OR_GREATER
 		var sessionServices = HtmxorEndpointCandidateSessionServices.Create();
 		var tempDataServices = HtmxorEndpointCandidateTempDataServices.Create();
@@ -149,6 +150,7 @@ internal static class HtmxorEndpointCandidateServices
 #endif
 
 		services.AddSingleton(formServices);
+		services.AddSingleton(routeCapture);
 #if NET11_0_OR_GREATER
 		services.AddSingleton(sessionServices);
 		services.AddSingleton(tempDataServices);

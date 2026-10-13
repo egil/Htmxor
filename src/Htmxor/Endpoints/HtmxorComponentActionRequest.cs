@@ -1,16 +1,29 @@
+// Public DynamicComponent.Instance is read after initial quiescence at the exact framework pins
+// inventoried in docs/engineering/candidate-form-adapter.md; no separate page instance is created.
+// Htmxor upstream dependency: src/Components/Components/src/DynamicComponent.cs | depends-on-behaviour
+
 using Htmxor.Builder;
+using Microsoft.AspNetCore.Components;
 
 namespace Htmxor.Endpoints;
 
 internal sealed class HtmxorComponentActionRequest : IHtmxorGeneratedComponentActionRequest
 {
 	private HtmxorComponentActionDescriptor? activeDescriptor;
+	internal DynamicComponent? ExplicitRouteCarrier { get; private set; }
+
+	internal void CaptureExplicitRouteCarrier(DynamicComponent carrier)
+	{
+		if (ExplicitRouteCarrier is not null && !ReferenceEquals(ExplicitRouteCarrier, carrier))
+		{
+			throw new InvalidOperationException("The direct action route created multiple component carriers.");
+		}
+		ExplicitRouteCarrier = carrier;
+	}
 
 	internal bool HasActiveAction => Volatile.Read(ref activeDescriptor) is not null;
 
 	internal bool HasExplicitAction => Volatile.Read(ref activeDescriptor)?.ExplicitHandler is not null;
-
-	internal Type? ExplicitOwnerType => Volatile.Read(ref activeDescriptor)?.ComponentType;
 
 	internal HtmxorComponentActionDescriptor? TryConsumeExplicit()
 	{

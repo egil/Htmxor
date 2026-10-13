@@ -13,8 +13,9 @@ internal partial class HtmxorEndpointCandidateRenderer
 
 	protected override ComponentState CreateComponentState(int componentId, IComponent component, ComponentState? parentComponentState)
 	{
-		var state = base.CreateComponentState(componentId, component, parentComponentState);
-		ObserveExplicitActionOwner(component);
+		var observed = explicitRouteCapture?.Observe(component, parentComponentState,
+			parent => GetCurrentRenderTreeFrames(parent.ComponentId)) ?? component;
+		var state = base.CreateComponentState(componentId, observed, parentComponentState);
 		TrackStreamRendering(componentId, component, state);
 		if (component is HtmxFragment fragment)
 		{

@@ -32,28 +32,20 @@ internal partial class HtmxorEndpointCandidateRenderer
 {
 	private const string ExplicitActionEventName = "onhtmxoraction";
 	private HtmxorComponentActionRequest? explicitActionRequest;
-	private Type? explicitActionOwnerType;
 	private IComponent? explicitActionOwner;
+	private HtmxorEndpointCandidateRouteCapture.Session? explicitRouteCapture;
 	internal bool HasPreparedExplicitAction => explicitActionRequest is not null;
 
 	internal void PrepareExplicitAction(HttpContext context)
 	{
 		explicitActionRequest = null;
-		explicitActionOwnerType = null;
 		explicitActionOwner = null;
+		explicitRouteCapture = null;
 		var request = context.RequestServices.GetRequiredService<HtmxorComponentActionRequest>();
 		if (request.HasExplicitAction && !isReexecuted && context.Features.Get<IExceptionHandlerFeature>() is null)
 		{
 			explicitActionRequest = request;
-			explicitActionOwnerType = request.ExplicitOwnerType;
-		}
-	}
-
-	private void ObserveExplicitActionOwner(IComponent component)
-	{
-		if (explicitActionOwner is null && component.GetType() == explicitActionOwnerType)
-		{
-			explicitActionOwner = component;
+			explicitRouteCapture = services.GetRequiredService<HtmxorEndpointCandidateRouteCapture>().Begin();
 		}
 	}
 
@@ -69,7 +61,15 @@ internal partial class HtmxorEndpointCandidateRenderer
 			return;
 		}
 
-		if (explicitActionOwner is null || explicitActionOwner.GetType() != action.ComponentType)
+		explicitActionOwner = explicitActionRequest.ExplicitRouteCarrier is { } carrier
+			? carrier.Instance as IComponent
+			: explicitRouteCapture!.Resolve(action.ComponentType, owner => GetComponentState(owner) is not null);
+		if (explicitActionOwner is null)
+		{
+			return;
+		}
+
+		if (explicitActionOwner.GetType() != action.ComponentType)
 		{
 			throw new InvalidOperationException("The declared action owner was not created by the request renderer.");
 		}
