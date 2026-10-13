@@ -178,7 +178,8 @@ internal sealed class HtmxorEndpointCandidateRouteCapture
 			{
 				throw new InvalidOperationException("The selected RouteView rendered multiple page instances; no explicit action owner was selected.");
 			}
-			if (owners.Length == 0 && selected.View is not AuthorizeRouteView && selected.Owners.Count == 0)
+			if (owners.Length == 0 && selected.Owners.Count == 0
+				&& (selected.View is not AuthorizeRouteView || selected.PageFragmentSupplied))
 			{
 				throw new InvalidOperationException("The selected RouteView did not render a compatible stock page fragment for the explicit action.");
 			}
@@ -202,6 +203,7 @@ internal sealed class HtmxorEndpointCandidateRouteCapture
 	private sealed record ViewCapture(RouteView View, Router Router)
 	{
 		internal HashSet<IComponent> Owners { get; } = new(ReferenceEqualityComparer.Instance);
+		internal bool PageFragmentSupplied { get; set; }
 	}
 
 	// The renderer attaches the original helper after CreateComponentState, then supplies parameters
@@ -218,7 +220,8 @@ internal sealed class HtmxorEndpointCandidateRouteCapture
 			{
 				throw Incompatible("the selected RouteView page-fragment parameters");
 			}
-			if (!adapter.IsPageFragment(fragment, view))
+			capture.PageFragmentSupplied = adapter.IsPageFragment(fragment, view);
+			if (!capture.PageFragmentSupplied)
 			{
 				if (view is AuthorizeRouteView)
 				{
