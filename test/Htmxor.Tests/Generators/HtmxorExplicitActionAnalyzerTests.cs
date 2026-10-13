@@ -9,6 +9,37 @@ namespace Htmxor.Generators.Tests;
 
 public sealed class HtmxorExplicitActionAnalyzerTests
 {
+	[Theory]
+	[InlineData("setter", "public Htmxor.HtmxEventArgs Value { get => null!; [Htmxor.HtmxAction(\"PUT\")] set { } }")]
+	[InlineData("finalizer", "[Htmxor.HtmxAction(\"PUT\")] ~Owner() { }")]
+	[InlineData("local-instance", "private void Initialize() { [Htmxor.HtmxAction(\"PUT\")] void Save() { _ = this.GetHashCode(); } Save(); }")]
+	[InlineData("local-static", "private void Initialize() { [Htmxor.HtmxAction(\"PUT\")] static void Save() { } Save(); }")]
+	[InlineData("lambda-instance", "private System.Action Factory() => [Htmxor.HtmxAction(\"PUT\")] () => { _ = this.GetHashCode(); };")]
+	[InlineData("lambda-static", "private System.Action Factory() => [Htmxor.HtmxAction(\"PUT\")] static () => { };")]
+	public async Task Nonordinary_explicit_action_fails_at_its_declaration(string scenario, string member)
+	{
+		var source = Owner(member);
+		var diagnostics = await AnalyzeAsync(source);
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		AssertAttributeLocation(diagnostic, source);
+		Assert.True(diagnostic.GetMessage().Contains("ordinary", StringComparison.OrdinalIgnoreCase),
+			scenario + ": " + diagnostic.GetMessage());
+	}
+
+	[Theory]
+	[InlineData("[Htmxor.HtmxAction(\"PUT\")] private void Save() { }")]
+	[InlineData("[Htmxor.HtmxAction(\"PUT\")] private void Save(Htmxor.HtmxEventArgs args) { }")]
+	[InlineData("[Htmxor.HtmxAction(\"PUT\")] private System.Threading.Tasks.Task Save() => System.Threading.Tasks.Task.CompletedTask;")]
+	[InlineData("[Htmxor.HtmxAction(\"PUT\")] private System.Threading.Tasks.Task Save(Htmxor.HtmxEventArgs args) => System.Threading.Tasks.Task.CompletedTask;")]
+	[InlineData("[Htmxor.HtmxAction(\"PUT\")] private void Finalize() { }")]
+	[InlineData("[System.Runtime.CompilerServices.CompilerGenerated] [Htmxor.HtmxAction(\"PUT\")] private void Save() { }")]
+	public async Task Ordinary_explicit_action_remains_valid(string member)
+	{
+		Assert.Empty(await AnalyzeAsync(Owner(member)));
+	}
 	private const string SourcePath = "/htmxor-explicit-action-tests/Owner.cs";
 	private static readonly ImmutableArray<MetadataReference> References =
 		((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
