@@ -229,6 +229,58 @@ public sealed class Issue180RouteCaptureTests
     }
 
     [Fact]
+    public async Task Authorized_route_view_whose_layout_omits_body_fails_without_callback()
+    {
+        const string path = LayoutPath + "&noBody=true";
+        await using var stock = await RouteHost<Issue180LayoutApp>.StartAsync(enhanced: false);
+        await using var enhanced = await RouteHost<Issue180LayoutApp>.StartAsync(enhanced: true);
+        var credentials = await GetCredentialsAsync(enhanced.Client, LayoutPath);
+        var stockBody = await GetAuthenticatedBodyAsync(stock.Client, path);
+        var enhancedBody = await GetAuthenticatedBodyAsync(enhanced.Client, path);
+        Assert.Contains($"data-found-type=\"{PageType}\" data-found-id=\"42\"", stockBody, StringComparison.Ordinal);
+        Assert.Contains($"data-found-type=\"{PageType}\" data-found-id=\"42\"", enhancedBody, StringComparison.Ordinal);
+        Assert.Contains("data-layout=\"route-layout\"", stockBody, StringComparison.Ordinal);
+        Assert.Contains("data-layout=\"route-layout\"", enhancedBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-auth=\"declined\"", enhancedBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-role=\"routed\"", stockBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-role=\"routed\"", enhancedBody, StringComparison.Ordinal);
+
+        enhanced.Probe.Reset();
+        using var post = ActionRequest(path, credentials, authenticated: true, direct: false);
+        HttpResponseMessage? response = null;
+        var failure = await Record.ExceptionAsync(async () => response = await enhanced.Client.SendAsync(post));
+        Assert.Equal(0, enhanced.Probe.Initializations.Count(item => item.Placement == "routed"));
+        Assert.Empty(enhanced.Probe.Callbacks);
+        AssertClearFailure(failure, response, "Authorized layout omitted the routed page");
+    }
+
+    [Fact]
+    public async Task Declined_route_view_whose_layout_omits_body_keeps_denial_without_callback()
+    {
+        const string path = LayoutPath + "&noBody=true";
+        await using var stock = await RouteHost<Issue180CascadeDeniedApp>.StartAsync(enhanced: false);
+        await using var enhanced = await RouteHost<Issue180CascadeDeniedApp>.StartAsync(enhanced: true);
+        var credentials = await GetCredentialsAsync(enhanced.Client, LayoutPath);
+        var stockBody = await GetAuthenticatedBodyAsync(stock.Client, path);
+        var enhancedBody = await GetAuthenticatedBodyAsync(enhanced.Client, path);
+        Assert.Contains($"data-found-type=\"{PageType}\" data-found-id=\"42\"", stockBody, StringComparison.Ordinal);
+        Assert.Contains($"data-found-type=\"{PageType}\" data-found-id=\"42\"", enhancedBody, StringComparison.Ordinal);
+        Assert.Contains("data-auth=\"declined\"", stockBody, StringComparison.Ordinal);
+        Assert.Contains("data-auth=\"declined\"", enhancedBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-role=\"routed\"", stockBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-role=\"routed\"", enhancedBody, StringComparison.Ordinal);
+
+        enhanced.Probe.Reset();
+        using var post = ActionRequest(path, credentials, authenticated: true, direct: false);
+        using var response = await enhanced.Client.SendAsync(post);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("data-auth=\"declined\"", body, StringComparison.Ordinal);
+        Assert.Equal(0, enhanced.Probe.Initializations.Count(item => item.Placement == "routed"));
+        Assert.Empty(enhanced.Probe.Callbacks);
+    }
+
+    [Fact]
     public async Task One_route_view_whose_layout_renders_body_twice_fails_without_arbitrary_callback()
     {
         const string path = LayoutPath + "&doubleBody=true";
@@ -290,6 +342,15 @@ public sealed class Issue180RouteCaptureTests
         Assert.NotEmpty(token);
         var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"), value => value.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal)).Split(';')[0];
         return new(body, cookie, WebUtility.HtmlDecode(token));
+    }
+
+    private static async Task<string> GetAuthenticatedBodyAsync(HttpClient client, string path)
+    {
+        using var get = new HttpRequestMessage(HttpMethod.Get, path);
+        get.Headers.Add("X-Issue180-User", "Ada");
+        using var response = await client.SendAsync(get);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await response.Content.ReadAsStringAsync();
     }
 
     private static HttpRequestMessage ActionRequest(string path, Credentials credentials, bool authenticated, bool direct)
