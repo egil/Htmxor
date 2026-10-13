@@ -1,0 +1,23 @@
+@namespace Htmxor.Explicit.Anywhere
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+<!DOCTYPE html><html><body>
+<CascadingValue Value="anonymousState">
+    <Router AppAssembly="typeof(Issue180CascadeDeniedApp).Assembly">
+        <Found Context="routeData">
+            <output data-found-type="@routeData.PageType.FullName" data-found-id="@(routeData.RouteValues["Id"])"></output>
+            <AuthorizeRouteView RouteData="routeData">
+                <NotAuthorized>
+                    <output data-auth="declined"></output>
+                    <RouteView RouteData="routeData" />
+                </NotAuthorized>
+            </AuthorizeRouteView>
+        </Found>
+    </Router>
+</CascadingValue>
+</body></html>
+@code {
+    private readonly Task<AuthenticationState> anonymousState = Task.FromResult(
+        new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity())));
+}

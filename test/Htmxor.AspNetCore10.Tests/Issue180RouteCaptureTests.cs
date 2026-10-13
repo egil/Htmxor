@@ -40,6 +40,8 @@ public sealed class Issue180RouteCaptureTests
         using var response = await enhanced.Client.SendAsync(post);
         var body = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains($"data-found-type=\"{PageType}\" data-found-id=\"42\"", body, StringComparison.Ordinal);
+        Assert.Contains("data-layout=\"route-layout\"", body, StringComparison.Ordinal);
         Assert.Equal(2, enhanced.Probe.Initializations.Count);
         Assert.Equal("layout-inline", enhanced.Probe.Initializations[0].Placement);
         var inline = Assert.Single(enhanced.Probe.Initializations, item => item.Placement == "layout-inline");
@@ -110,6 +112,51 @@ public sealed class Issue180RouteCaptureTests
         Assert.Equal(2, enhanced.Probe.Initializations.Count(item => item.Placement == "routed"));
         Assert.Empty(enhanced.Probe.Callbacks);
         AssertClearFailure(failure, response, "Two routed pages");
+    }
+
+    [Fact]
+    public async Task Declined_route_view_with_nested_fake_page_keeps_not_authorized_content_without_callback()
+    {
+        await using var stock = await RouteHost<Issue180CascadeDeniedApp>.StartAsync(enhanced: false);
+        await using var enhanced = await RouteHost<Issue180CascadeDeniedApp>.StartAsync(enhanced: true);
+        var stockGet = await GetCredentialsAsync(stock.Client, LayoutPath);
+        var credentials = await GetCredentialsAsync(enhanced.Client, LayoutPath);
+        Assert.Contains($"data-found-type=\"{PageType}\" data-found-id=\"42\"", stockGet.Body, StringComparison.Ordinal);
+        Assert.Contains($"data-found-type=\"{PageType}\" data-found-id=\"42\"", credentials.Body, StringComparison.Ordinal);
+        Assert.Contains("data-auth=\"declined\"", stockGet.Body, StringComparison.Ordinal);
+        Assert.Contains("data-auth=\"declined\"", credentials.Body, StringComparison.Ordinal);
+        Assert.Contains("data-role=\"routed\"", stockGet.Body, StringComparison.Ordinal);
+        Assert.Contains("data-role=\"routed\"", credentials.Body, StringComparison.Ordinal);
+
+        enhanced.Probe.Reset();
+        using var post = ActionRequest(LayoutPath, credentials, authenticated: true, direct: false);
+        using var response = await enhanced.Client.SendAsync(post);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("data-auth=\"declined\"", body, StringComparison.Ordinal);
+        Assert.Empty(enhanced.Probe.Callbacks);
+    }
+
+    [Fact]
+    public async Task One_route_view_whose_layout_renders_body_twice_fails_without_arbitrary_callback()
+    {
+        const string path = LayoutPath + "&doubleBody=true";
+        await using var stock = await RouteHost<Issue180LayoutApp>.StartAsync(enhanced: false);
+        await using var enhanced = await RouteHost<Issue180LayoutApp>.StartAsync(enhanced: true);
+        var stockGet = await GetCredentialsAsync(stock.Client, path);
+        var credentials = await GetCredentialsAsync(enhanced.Client, path);
+        Assert.Equal(2, Regex.Matches(stockGet.Body, "data-role=\"routed\"").Count);
+        Assert.Equal(2, Regex.Matches(credentials.Body, "data-role=\"routed\"").Count);
+        Assert.Single(Regex.Matches(credentials.Body, "data-found-type="));
+        Assert.Single(Regex.Matches(credentials.Body, "data-layout=\"route-layout\""));
+
+        enhanced.Probe.Reset();
+        using var post = ActionRequest(path, credentials, authenticated: true, direct: false);
+        HttpResponseMessage? response = null;
+        var failure = await Record.ExceptionAsync(async () => response = await enhanced.Client.SendAsync(post));
+        Assert.Equal(2, enhanced.Probe.Initializations.Count(item => item.Placement == "routed"));
+        Assert.Empty(enhanced.Probe.Callbacks);
+        AssertClearFailure(failure, response, "Repeated route-view body");
     }
 
     [Fact]
