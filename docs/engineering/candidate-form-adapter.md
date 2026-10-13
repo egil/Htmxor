@@ -649,6 +649,12 @@ authorization component, layout instance or component ancestry. The known stock
 helper frame has no application reference capture. Activator-substituted helper
 subclasses are incompatible with this bounded adapter and fail clearly.
 
+The authorization helper is observed while loading or denied as well as when
+authorized: stock AuthorizeViewCore can reuse its initial LayoutView after an
+asynchronous authorization result. Loading/denied ChildContent, including null
+content, is forwarded unchanged. Only the authenticated private page fragment
+adds a reference capture, after the stock authorization decision.
+
 Resolve only after global initial quiescence. Require one selected view and one
 live captured page of the declared owner type; distinct live pages emitted by
 repeated Body are ambiguous. Denied AuthorizeRouteView or disposed initial

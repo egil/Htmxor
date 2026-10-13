@@ -59,8 +59,8 @@ internal sealed class HtmxorEndpointCandidateRouteCapture
 
 	internal Session Begin() => new(this);
 
-	private bool IsPageFragment(RenderFragment fragment, RouteView view)
-		=> fragment.GetInvocationList().Length == 1 && fragment.Method == renderPage
+	private bool IsPageFragment(RenderFragment? fragment, RouteView view)
+		=> fragment is not null && fragment.GetInvocationList().Length == 1 && fragment.Method == renderPage
 			&& ReferenceEquals(fragment.Target, view);
 
 	private bool IsStockParent(ComponentState parent)
@@ -124,7 +124,9 @@ internal sealed class HtmxorEndpointCandidateRouteCapture
 				return component;
 			}
 
-			var view = adapter.ReadPageView(readFrames(parent));
+			// Authorization can reuse its initial loading helper when the authorized page arrives.
+			var view = adapter.ReadPageView(readFrames(parent))
+				?? (parent.Component.GetType() == adapter.authorizationCore ? FindParent<AuthorizeRouteView>(parent) : null);
 			if (view is null)
 			{
 				return component;
@@ -212,10 +214,17 @@ internal sealed class HtmxorEndpointCandidateRouteCapture
 
 		Task IComponent.SetParametersAsync(ParameterView parameters)
 		{
-			if (!parameters.TryGetValue<RenderFragment>(nameof(ChildContent), out var fragment)
-				|| fragment is null || !adapter.IsPageFragment(fragment, view))
+			if (!parameters.TryGetValue<RenderFragment>(nameof(ChildContent), out var fragment))
 			{
 				throw Incompatible("the selected RouteView page-fragment parameters");
+			}
+			if (!adapter.IsPageFragment(fragment, view))
+			{
+				if (view is AuthorizeRouteView)
+				{
+					return original.SetParametersAsync(parameters);
+				}
+				throw Incompatible("the selected RouteView page-fragment receiver");
 			}
 
 			var values = new Dictionary<string, object?>(parameters.ToDictionary(), StringComparer.Ordinal);
