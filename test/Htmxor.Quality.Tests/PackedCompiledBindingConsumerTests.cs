@@ -71,6 +71,21 @@ public sealed class PackedCompiledBindingConsumerTests
 		var result = await workspace.BuildForDiagnosticAsync();
 
 		AssertRejectedBinding(workspace, result, method, 4);
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+		var message = Assert.Single(Regex.Matches(output,
+			@"Issue310Page\.razor\(4,\d+\): error HTMXOR042: (?<message>[^\r\n]+)")
+			.Select(static match => match.Groups["message"].Value).Distinct());
+		Assert.Contains("no usable action is available", message, StringComparison.OrdinalIgnoreCase);
+		if (method == "get")
+		{
+			Assert.Contains("remove @onget", message, StringComparison.OrdinalIgnoreCase);
+			Assert.Contains("GET is implicit", message, StringComparison.OrdinalIgnoreCase);
+			Assert.DoesNotContain("HtmxAction", message, StringComparison.OrdinalIgnoreCase);
+		}
+		else
+		{
+			Assert.Contains("HtmxAction", message, StringComparison.Ordinal);
+		}
 	}
 
 	[Fact]
