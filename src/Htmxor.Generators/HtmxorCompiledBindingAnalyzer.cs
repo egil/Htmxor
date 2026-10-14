@@ -44,9 +44,16 @@ public sealed class HtmxorCompiledBindingAnalyzer : DiagnosticAnalyzer
 			var cause = isNormalOnly
 				? HtmxorDiagnosticCause.NormalOnlyAction
 				: HtmxorDiagnosticCause.UnmatchedCompiledBinding;
+			if (!isNormalOnly)
+			{
+				reason = binding.AttributeName == "onget"
+					? reason + "; GET is implicit, so remove @onget"
+					: HtmxorActionDeclarationAnalyzer.WithExplicitRemediation(reason);
+			}
+
 			context.ReportDiagnostic(new HtmxorDiagnosticIssue(
 				cause,
-				isNormalOnly ? reason : HtmxorActionDeclarationAnalyzer.WithExplicitRemediation(reason))
+				reason)
 				.ToDiagnostic(binding.Location));
 		}
 	}
