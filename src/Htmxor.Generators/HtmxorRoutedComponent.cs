@@ -33,46 +33,52 @@ internal sealed class HtmxorRoutedComponent
 			.OrderBy(static component => component.GetMetadataName(), StringComparer.Ordinal)
 			.ToImmutableArray();
 
-	public string? GetUnsupportedReason(
+	public HtmxorDiagnosticIssue? GetUnsupportedIssue(
 		HtmxorRouteSymbols symbols,
 		ILookup<string, string?> razorManifest,
 		CancellationToken cancellationToken)
 		=> ValidateManifest(razorManifest) ??
-			ValidateComponent(symbols) ??
-			ValidateRoute() ??
-			ValidateRouteOrigin(cancellationToken) ??
-			ValidateNormalRoute(symbols);
+			ToIssue(HtmxorDiagnosticCause.RouteTargetOrOrigin, ValidateComponent(symbols)) ??
+			ToIssue(HtmxorDiagnosticCause.MalformedRouteMember, ValidateRoute()) ??
+			ToIssue(HtmxorDiagnosticCause.RouteTargetOrOrigin, ValidateRouteOrigin(cancellationToken)) ??
+			ToIssue(HtmxorDiagnosticCause.RouteTargetOrOrigin, ValidateNormalRoute(symbols));
+
+	private static HtmxorDiagnosticIssue? ToIssue(HtmxorDiagnosticCause cause, string? reason)
+		=> reason is null ? null : new HtmxorDiagnosticIssue(cause, reason);
 
 	public Location GetLocation(CancellationToken cancellationToken)
 		=> Route.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation() ??
 			Type.Locations.FirstOrDefault() ??
 			Location.None;
 
-	private string? ValidateManifest(ILookup<string, string?> razorManifest)
+	private HtmxorDiagnosticIssue? ValidateManifest(ILookup<string, string?> razorManifest)
 	{
 		if (Route.ApplicationSyntaxReference is { } reference &&
 			HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath))
 		{
 			return HtmxorRouteManifest.HasCompiledRazorDeclaration(Type, razorManifest[GetMetadataName()])
 				? null
-				: "the HtmxRoute component must compile from the matching Razor component; " +
-					"its type name is derived from the file's folder and @namespace";
+				: new(HtmxorDiagnosticCause.RouteTargetOrOrigin,
+					"the HtmxRoute component must compile from the matching Razor component; " +
+					"its type name is derived from the file's folder and @namespace");
 		}
 
 		var csharpComponent = GetCSharpComponent();
 		if (csharpComponent is null)
 		{
-			return "the HtmxRoute component must be a top-level class";
+			return new(HtmxorDiagnosticCause.RouteTargetOrOrigin,
+				"the HtmxRoute component must be a top-level class");
 		}
 
 		var csharpRouteOriginReason = ValidateCSharpRouteOrigin(csharpComponent);
 		if (csharpRouteOriginReason is not null)
 		{
-			return csharpRouteOriginReason;
+			return new(HtmxorDiagnosticCause.RouteTargetOrOrigin, csharpRouteOriginReason);
 		}
 
 		return !csharpComponent.HasExplicitMethods
-			? "a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods"
+			? new(HtmxorDiagnosticCause.MalformedRouteMember,
+				"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods")
 			: null;
 	}
 
@@ -198,7 +204,7 @@ internal sealed class HtmxorRoutedComponent
 			.GetMappedLineSpan()
 			.Path;
 		return RazorImportsFile.Matches(path)
-			? "HtmxRoute declarations from _Imports.razor are not supported"
+			? "HtmxRoute declarations from _Imports.razor are not supported; move HtmxRoute onto the route-owning component"
 			: null;
 	}
 

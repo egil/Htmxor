@@ -9,7 +9,7 @@ namespace Htmxor.Generators;
 public sealed class HtmxorCompiledBindingAnalyzer : DiagnosticAnalyzer
 {
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
-		ImmutableArray.Create(HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration);
+		HtmxorDiagnosticRules.ActionDiagnostics;
 
 	public override void Initialize(AnalysisContext context)
 	{
@@ -39,12 +39,15 @@ public sealed class HtmxorCompiledBindingAnalyzer : DiagnosticAnalyzer
 			var isNormalOnly = binding.Component.GetAttributes().Any(attribute =>
 				SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, normalOnly));
 			var reason = isNormalOnly
-				? "an inferred @" + binding.AttributeName + " binding on a component marked with DisableHtmxDirectRouting is not supported"
+				? "an inferred @" + binding.AttributeName + " binding on a component marked with DisableHtmxDirectRouting is not supported; remove the binding or marker"
 				: "the compiled @" + binding.AttributeName + " binding has no matching generated action for its component, method and handler";
-			context.ReportDiagnostic(Diagnostic.Create(
-				HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration,
-				binding.Location,
-				isNormalOnly ? reason : HtmxorActionDeclarationAnalyzer.WithExplicitRemediation(reason)));
+			var cause = isNormalOnly
+				? HtmxorDiagnosticCause.NormalOnlyAction
+				: HtmxorDiagnosticCause.UnmatchedCompiledBinding;
+			context.ReportDiagnostic(new HtmxorDiagnosticIssue(
+				cause,
+				isNormalOnly ? reason : HtmxorActionDeclarationAnalyzer.WithExplicitRemediation(reason))
+				.ToDiagnostic(binding.Location));
 		}
 	}
 

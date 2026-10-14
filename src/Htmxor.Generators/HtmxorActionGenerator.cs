@@ -35,7 +35,7 @@ public sealed class HtmxorActionGenerator : IIncrementalGenerator
 			.ThenBy(static declaration => declaration.Span.Start)
 			.ToArray();
 		var unsupported = ordered
-			.Where(static declaration => declaration.UnsupportedReason is not null)
+			.Where(static declaration => declaration.UnsupportedIssue is not null)
 			.ToArray();
 		if (unsupported.Length > 0)
 		{
@@ -62,10 +62,10 @@ public sealed class HtmxorActionGenerator : IIncrementalGenerator
 	{
 		foreach (var declaration in declarations)
 		{
-			context.ReportDiagnostic(Diagnostic.Create(
-				HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration,
-				Location.Create(declaration.Path, declaration.Span, declaration.LineSpan),
-				HtmxorActionDeclarationAnalyzer.WithExplicitRemediation(declaration.UnsupportedReason!)));
+			context.ReportDiagnostic(declaration.UnsupportedIssue!.Value
+				.WithReason(HtmxorActionDeclarationAnalyzer.WithExplicitRemediation(
+					declaration.UnsupportedIssue.Value.Reason))
+				.ToDiagnostic(Location.Create(declaration.Path, declaration.Span, declaration.LineSpan)));
 		}
 	}
 

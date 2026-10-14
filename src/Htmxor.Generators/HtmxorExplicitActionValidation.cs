@@ -52,8 +52,10 @@ internal static class HtmxorExplicitActionValidation
 					continue;
 				}
 
-				context.ReportDiagnostic(Diagnostic.Create(HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration,
-					attribute.GetLocation(), HtmxorActionHandler.GetExplicitUnsupportedReason(context.Compilation, handler)));
+				if (HtmxorActionHandler.GetExplicitUnsupportedIssue(context.Compilation, handler) is { } issue)
+				{
+					context.ReportDiagnostic(issue.ToDiagnostic(attribute.GetLocation()));
+				}
 			}
 		}
 	}
@@ -75,12 +77,11 @@ internal static class HtmxorExplicitActionValidation
 		{
 			context.CancellationToken.ThrowIfCancellationRequested();
 			var method = ReadMethod(declaration.Attribute);
-			var reason = GetReason(context.Compilation, component, declaration.Handler, method, symbols)
-				?? GetConflictReason(component, declaration.Handler, method!, declarations, bindings, forms);
-			if (reason is not null && declaration.Attribute.ApplicationSyntaxReference is { } syntax)
+			var issue = GetIssue(context.Compilation, component, declaration.Handler, method, symbols)
+				?? GetConflictIssue(component, declaration.Handler, method!, declarations, bindings, forms);
+			if (issue is { } diagnosed && declaration.Attribute.ApplicationSyntaxReference is { } syntax)
 			{
-				context.ReportDiagnostic(Diagnostic.Create(HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration,
-					syntax.GetSyntax(context.CancellationToken).GetLocation(), reason));
+				context.ReportDiagnostic(diagnosed.ToDiagnostic(syntax.GetSyntax(context.CancellationToken).GetLocation()));
 			}
 		}
 	}
@@ -89,12 +90,13 @@ internal static class HtmxorExplicitActionValidation
 		=> attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is string method
 			? SupportedMethods.FirstOrDefault(allowed => string.Equals(method, allowed, StringComparison.OrdinalIgnoreCase)) : null;
 
-	private static string? GetReason(Compilation compilation, INamedTypeSymbol component,
+	private static HtmxorDiagnosticIssue? GetIssue(Compilation compilation, INamedTypeSymbol component,
 		IMethodSymbol handler, string? method, HtmxorRouteSymbols symbols)
 	{
 		if (method is not ("POST" or "PUT" or "PATCH" or "DELETE" or "QUERY"))
 		{
-			return "HtmxAction method must be POST, PUT, PATCH, DELETE or QUERY";
+			return new(HtmxorDiagnosticCause.InvalidExplicitVerb,
+				"HtmxAction method must be POST, PUT, PATCH, DELETE or QUERY");
 		}
 
 		var attributes = component.GetAttributes();
@@ -102,27 +104,31 @@ internal static class HtmxorExplicitActionValidation
 		if ((route is null && !attributes.Any(attribute => Is(attribute, symbols.Route))) ||
 			!component.AllInterfaces.Any(type => SymbolEqualityComparer.Default.Equals(type, symbols.Component)))
 		{
-			return "HtmxAction must be declared on the component type that owns its route, not an inherited or unrouted owner";
+			return new(HtmxorDiagnosticCause.ExplicitUnroutedOwner,
+				"HtmxAction must be declared on the component type that owns its route, not an inherited or unrouted owner");
 		}
 
 		if (attributes.Any(attribute => Is(attribute, symbols.DisableHtmxDirectRouting)))
 		{
-			return "HtmxAction is not supported on a component marked with DisableHtmxDirectRouting";
+			return new(HtmxorDiagnosticCause.NormalOnlyAction,
+				"HtmxAction is not supported on a component marked with DisableHtmxDirectRouting; remove the action or marker");
 		}
 
-		return HtmxorActionHandler.GetExplicitUnsupportedReason(compilation, handler) ?? GetAllowListReason(route, method);
+		return HtmxorActionHandler.GetExplicitUnsupportedIssue(compilation, handler) ?? GetAllowListIssue(route, method);
 	}
 
-	private static string? GetAllowListReason(AttributeData? route, string method)
+	private static HtmxorDiagnosticIssue? GetAllowListIssue(AttributeData? route, string method)
 	{
 		var methods = route?.NamedArguments.FirstOrDefault(static argument => argument.Key == "Methods");
 		return methods is { Key: "Methods" } argument &&
 			(argument.Value.IsNull || argument.Value.Kind != TypedConstantKind.Array || !argument.Value.Values.Any(value =>
 				value.Value is string allowed && string.Equals(allowed, method, StringComparison.OrdinalIgnoreCase)))
-			? "explicit HtmxRoute.Methods does not allow the " + method + " HtmxAction" : null;
+			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ExplicitMethodsConflict,
+				"explicit HtmxRoute.Methods does not allow the " + method + " HtmxAction; add the method or remove the action")
+			: null;
 	}
 
-	private static string? GetConflictReason(INamedTypeSymbol component, IMethodSymbol handler, string method,
+	private static HtmxorDiagnosticIssue? GetConflictIssue(INamedTypeSymbol component, IMethodSymbol handler, string method,
 		(IMethodSymbol Handler, AttributeData Attribute)[] declarations, RazorCompiledEventBinding[] bindings, RazorCompiledForm[] forms)
 	{
 		if (declarations.Any(declaration => ReadMethod(declaration.Attribute) == method &&
@@ -131,11 +137,14 @@ internal static class HtmxorExplicitActionValidation
 				SymbolEqualityComparer.Default.Equals(binding.Component, component) &&
 				!SymbolEqualityComparer.Default.Equals(binding.Handler, handler)))
 		{
-			return method + " declarations on one route owner must name the same handler";
+			return new(HtmxorDiagnosticCause.ConflictingHandlers,
+				method + " declarations on one route owner must name the same handler; select one handler");
 		}
 
 		return method == "POST" && forms.Any(form => form.IsNamed && SymbolEqualityComparer.Default.Equals(form.Component, component))
-			? "named forms and a POST HtmxAction cannot share one route owner" : null;
+			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.NamedFormPostConflict,
+				"named forms and a POST HtmxAction cannot share one route owner; choose named forms or the action")
+			: null;
 	}
 
 	private static bool Is(AttributeData attribute, INamedTypeSymbol? type)

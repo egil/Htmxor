@@ -12,7 +12,7 @@ namespace Htmxor.Generators.Tests;
 /// https://github.com/egil/Htmxor/issues/308#issuecomment-6040725984): Htmxor accepts exactly
 /// <c>void M()</c>, <c>void M(HtmxEventArgs)</c>, <c>Task M()</c> and <c>Task M(HtmxEventArgs)</c>,
 /// on an accessible instance method of the component or a base type, at any accessibility. Every
-/// other shape that real Razor itself compiles fails with its own cause-specific HTMXOR002,
+/// other shape that real Razor itself compiles fails with its own cause-specific action diagnostic,
 /// including an overload pair C# resolves to one applicable method, a member hidden with
 /// <c>new</c>, and a generic method whose type parameter C# can infer from <c>HtmxEventArgs</c>. A
 /// shape real Razor itself rejects (<c>ValueTask</c>, wrong parameter type, two or more parameters,
@@ -49,6 +49,42 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	private static readonly string ProjectDirectory = Path.GetFullPath(
 		Path.Combine(Path.GetTempPath(), "htmxor-action-handler-shape-tests"));
 	private static readonly ImmutableArray<MetadataReference> References = CreateReferences();
+
+	[Theory]
+	[InlineData("() => M()", "HTMXOR006", "lambda or closure")]
+	[InlineData("Factory()", "HTMXOR009", "method call")]
+	[InlineData("choose ? M : Other", "HTMXOR010", "computed expression")]
+	public void Computed_binding_reports_its_stable_cause_against_the_real_callback_factory(
+		string value, string expectedId, string cause)
+	{
+		var source = $$"""
+			namespace {{RootNamespace}}
+			{
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private bool choose = true;
+				private void M() { }
+				private void Other() { }
+				private global::System.Action Factory() => M;
+				private void Bind() => global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, {{value}});
+			}
+			}
+			""";
+		var content = "@page \"/reports/{Id:int}\"\n<button @onput=\"" + value + "\">Save</button>";
+		var diagnostics = RunActionGenerator(source,
+			new SourceAdditionalText(ComponentPath("ReportComponent.razor"), content));
+
+		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal(expectedId, diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		Assert.Equal(ComponentPath("ReportComponent.razor"), diagnostic.Location.GetLineSpan().Path);
+		Assert.Equal(new TextSpan(content.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length), diagnostic.Location.SourceSpan);
+		Assert.Contains(cause, diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains("HtmxAction", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+	}
 
 	[Theory]
 	[InlineData("void_no_param", "void M() { }")]
@@ -127,59 +163,161 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// regardless of which cause actually fired.
 	/// </summary>
 	public static IEnumerable<object[]> RejectedHandlerShapeCases() =>
-		new (string Scenario, string HandlerMember, string ExpectedCauseFragment)[]
+		new (string Scenario, string HandlerMember, string ExpectedCauseFragment, string ExpectedId)[]
 		{
 			(
 				"returns_a_value",
 				"private global::System.Threading.Tasks.Task<int> M(global::Htmxor.HtmxEventArgs args) " +
 					"=> global::System.Threading.Tasks.Task.FromResult(0);",
-				"returns a value"),
+				"returns a value", "HTMXOR019"),
 			(
 				"async_void",
 				"private async void M(global::Htmxor.HtmxEventArgs args) " +
 					"=> await global::System.Threading.Tasks.Task.Yield();",
-				"async void"),
+				"async void", "HTMXOR018"),
 			(
 				"event_args_parameter",
 				"private void M(global::System.EventArgs args) { }",
-				"parameter must be HtmxEventArgs"),
+				"parameter must be HtmxEventArgs", "HTMXOR020"),
 			(
 				"object_parameter",
 				"private void M(object args) { }",
-				"parameter must be HtmxEventArgs"),
+				"parameter must be HtmxEventArgs", "HTMXOR021"),
 			(
 				"optional_parameter",
 				"private void M(global::Htmxor.HtmxEventArgs args = null!) { }",
-				"optional parameter"),
+				"optional parameter", "HTMXOR024"),
 			(
 				"static_method",
 				"private static void M() { }",
-				"static"),
+				"static", "HTMXOR013"),
 			(
 				"resolvable_overloads",
 				"private void M() { }\n\tprivate void M(int value) { }",
-				"overloaded"),
+				"overloaded", "HTMXOR011"),
 			(
 				"event_callback_field_member",
 				"private readonly global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs> " +
 					"M = default;",
-				"not a method"),
+				"not a method", "HTMXOR007"),
+			(
+				"event_callback_parameter_member",
+				"[global::Microsoft.AspNetCore.Components.Parameter] " +
+					"public global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs> M { get; set; }",
+				"not a method", "HTMXOR008"),
 			(
 				"action_property_member",
 				"private global::System.Action M { get; set; } = () => { };",
-				"not a method"),
-		}.Select(static scenario => new object[] { scenario.Scenario, scenario.HandlerMember, scenario.ExpectedCauseFragment });
+				"not a method", "HTMXOR041"),
+		}.Select(static scenario => new object[] { scenario.Scenario, scenario.HandlerMember, scenario.ExpectedCauseFragment, scenario.ExpectedId });
 
 	[Theory]
 	[MemberData(nameof(RejectedHandlerShapeCases))]
 	public async Task Rejected_handler_shape_fails_closed_with_its_own_cause(
 		string scenario,
 		string handlerMember,
-		string expectedCauseFragment)
+		string expectedCauseFragment, string expectedId)
 	{
 		var diagnostics = await RunForHandlerAsync(handlerMember);
 
-		AssertSingleCauseAtBinding(diagnostics, expectedCauseFragment);
+		AssertSingleCauseAtBinding(diagnostics, expectedCauseFragment, expectedId);
+	}
+
+	[Theory]
+	[InlineData(false, "HTMXOR041")]
+	[InlineData(true, "HTMXOR008")]
+	public async Task Event_callback_property_reports_whether_it_is_a_component_parameter(
+		bool isParameter, string expectedId)
+	{
+		var attribute = isParameter ? "[global::Microsoft.AspNetCore.Components.Parameter] " : string.Empty;
+		var diagnostics = await RunForHandlerAsync(attribute +
+			"public global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs> M { get; set; }");
+
+		AssertSingleCauseAtBinding(diagnostics, "not a method", expectedId);
+		var message = Assert.Single(diagnostics).GetMessage();
+		Assert.Contains("use [HtmxAction] on a component instance method", message, StringComparison.Ordinal);
+		if (isParameter)
+		{
+			Assert.Contains("EventCallback parameter", message, StringComparison.Ordinal);
+		}
+		else
+		{
+			Assert.DoesNotContain("EventCallback parameter", message, StringComparison.Ordinal);
+		}
+	}
+
+	[Theory]
+	[InlineData("global::Microsoft.AspNetCore.Components.SupplyParameterFromQuery", "HTMXOR008")]
+	[InlineData("global::Microsoft.AspNetCore.Components.SupplyParameterFromForm", "HTMXOR008")]
+	public async Task Supplied_event_callback_property_reports_a_component_parameter(
+		string attributeType, string expectedId)
+	{
+		var diagnostics = await RunForHandlerAsync($"[{attributeType}] " +
+			"public global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs> M { get; set; }");
+
+		AssertSingleCauseAtBinding(diagnostics, "not a method", expectedId);
+		Assert.Contains("use [HtmxAction] on a component instance method",
+			Assert.Single(diagnostics).GetMessage(), StringComparison.Ordinal);
+		Assert.Contains("EventCallback parameter", Assert.Single(diagnostics).GetMessage(), StringComparison.Ordinal);
+	}
+
+	[Theory]
+	[InlineData("private void M() { } private void M(int value) { }", "HTMXOR011", "overloaded")]
+	[InlineData("private static void M() { }", "HTMXOR013", "static")]
+	public async Task Inferred_overload_or_static_handler_requires_a_combined_supported_explicit_repair(
+		string handlerMember, string expectedId, string cause)
+	{
+		var diagnostics = await RunForHandlerAsync(handlerMember);
+
+		AssertSingleCauseAtBinding(diagnostics, cause, expectedId);
+		var message = Assert.Single(diagnostics).GetMessage();
+		var repair = expectedId == "HTMXOR011"
+			? "give the handler a unique instance method name and declare [HtmxAction]"
+			: "make it an instance method and declare [HtmxAction]";
+		Assert.Contains(repair, message, StringComparison.Ordinal);
+		Assert.DoesNotContain("or declare [HtmxAction]", message, StringComparison.Ordinal);
+		Assert.DoesNotContain("or use [HtmxAction]", message, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task Unique_instance_method_declared_as_an_explicit_action_is_a_supported_repair()
+	{
+		var diagnostics = await RunForHandlerAsync(
+			"[global::Htmxor.HtmxAction(\"PUT\")] private void M() { }");
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Theory]
+	[InlineData("private global::Microsoft.AspNetCore.Components.EventCallback M;", "HTMXOR007")]
+	[InlineData("[global::Microsoft.AspNetCore.Components.Parameter] public global::Microsoft.AspNetCore.Components.EventCallback M { get; set; }", "HTMXOR008")]
+	[InlineData("public global::Microsoft.AspNetCore.Components.EventCallback M { get; set; }", "HTMXOR041")]
+	[InlineData("private global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs> M;", "HTMXOR007")]
+	[InlineData("[global::Microsoft.AspNetCore.Components.Parameter] public global::Microsoft.AspNetCore.Components.EventCallback<global::Htmxor.HtmxEventArgs> M { get; set; }", "HTMXOR008")]
+	public async Task Event_callback_members_preserve_field_parameter_and_ordinary_property_causes(
+		string member, string expectedId)
+	{
+		var diagnostics = await RunForHandlerAsync(member);
+
+		AssertSingleCauseAtBinding(diagnostics, "not a method", expectedId);
+		Assert.Contains("use [HtmxAction] on a component instance method",
+			Assert.Single(diagnostics).GetMessage(), StringComparison.Ordinal);
+		var message = Assert.Single(diagnostics).GetMessage();
+		if (expectedId == "HTMXOR007")
+		{
+			Assert.Contains("EventCallback field", message, StringComparison.Ordinal);
+			Assert.DoesNotContain("EventCallback parameter", message, StringComparison.Ordinal);
+		}
+		else if (expectedId == "HTMXOR008")
+		{
+			Assert.Contains("EventCallback parameter", message, StringComparison.Ordinal);
+			Assert.DoesNotContain("EventCallback field", message, StringComparison.Ordinal);
+		}
+		else
+		{
+			Assert.DoesNotContain("EventCallback field", message, StringComparison.Ordinal);
+			Assert.DoesNotContain("EventCallback parameter", message, StringComparison.Ordinal);
+		}
 	}
 
 	/// <summary>
@@ -225,7 +363,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 		foreach (var span in new[] { firstSpan, secondSpan })
 		{
 			var diagnostic = bySpan[span];
-			Assert.Equal("HTMXOR002", diagnostic.Id);
+			Assert.Equal("HTMXOR019", diagnostic.Id);
+			Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 			Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 			Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
@@ -301,7 +440,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	/// <summary>
-	/// Amended AC2 requires "overloads Razor resolves to one method" to fail with HTMXOR002
+	/// Amended AC2 requires "overloads Razor resolves to one method" to fail with HTMXOR011
 	/// "overloaded" (#308), the same cause as the existing <c>M()</c> plus <c>M(int)</c> row. C#
 	/// method-group conversion does not require every overload to be individually bindable on its
 	/// own: it runs ordinary overload resolution and can pick the better candidate whenever more than
@@ -333,7 +472,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	{
 		var diagnostics = await RunForHandlerAsync(handlerMember);
 
-		AssertSingleCauseAtBinding(diagnostics, "overloaded");
+		AssertSingleCauseAtBinding(diagnostics, "overloaded", "HTMXOR011");
 	}
 
 	/// <summary>
@@ -350,7 +489,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			"public void M(global::Htmxor.HtmxEventArgs a) { }",
 			"private void M(object a) { }");
 
-		AssertSingleCauseAtBinding(diagnostics, "overloaded");
+		AssertSingleCauseAtBinding(diagnostics, "overloaded", "HTMXOR011");
 	}
 
 	/// <summary>
@@ -367,7 +506,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			"public void M() { }",
 			"private new async void M() => await global::System.Threading.Tasks.Task.Yield();");
 
-		AssertSingleCauseAtBinding(diagnostics, "async void");
+		AssertSingleCauseAtBinding(diagnostics, "async void", "HTMXOR018");
 	}
 
 	/// <summary>
@@ -382,7 +521,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			"private new global::System.Threading.Tasks.Task<int> M() " +
 				"=> global::System.Threading.Tasks.Task.FromResult(1);");
 
-		AssertSingleCauseAtBinding(diagnostics, "returns a value");
+		AssertSingleCauseAtBinding(diagnostics, "returns a value", "HTMXOR019");
 	}
 
 	/// <summary>
@@ -414,7 +553,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			"public override async void M(global::Htmxor.HtmxEventArgs a) " +
 				"=> await global::System.Threading.Tasks.Task.Yield();");
 
-		AssertSingleCauseAtBinding(diagnostics, "async void");
+		AssertSingleCauseAtBinding(diagnostics, "async void", "HTMXOR018");
 	}
 
 	/// <summary>
@@ -430,7 +569,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	{
 		var diagnostics = await RunForHandlerAsync("private void M<TArg>(TArg a) { }");
 
-		AssertSingleCauseAtBinding(diagnostics, "generic");
+		AssertSingleCauseAtBinding(diagnostics, "generic", "HTMXOR012");
 	}
 
 	/// <summary>
@@ -484,7 +623,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		var message = diagnostic.GetMessage();
 		Assert.Contains("handler 'Beep' must be an instance method", message, StringComparison.Ordinal);
 		foreach (var fragment in HandlerShapeCauseFragments)
@@ -502,7 +642,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	/// <summary>
 	/// An unrelated accessible static method of the same name elsewhere in source, with no
 	/// <c>using static</c> bringing it into scope and no member of that name anywhere on the
-	/// component's own chain, must not add a second, misleading HTMXOR002 alongside Razor's own
+	/// component's own chain, must not add a second, misleading action diagnostic alongside Razor's own
 	/// CS0103 (#308's duplicate-diagnostic rule, #307 comment 6039651773): an accessible static method
 	/// existing somewhere in source is not the same as being in scope for this binding.
 	/// </summary>
@@ -557,7 +697,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			handlerValue: "Save");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR018", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		AssertHandlerCauseSpecificMessage(diagnostic, "async void");
 	}
 
@@ -604,7 +745,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			handlerValue: "M");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		var message = diagnostic.GetMessage();
 		Assert.Contains("handler 'M' must be an instance method", message, StringComparison.Ordinal);
 		foreach (var fragment in HandlerShapeCauseFragments)
@@ -635,7 +777,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			handlerValue: "M");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR019", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		AssertHandlerCauseSpecificMessage(diagnostic, "returns a value");
 	}
 
@@ -694,7 +837,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 				"public static class Extensions { public static void M(this ReportComponent c) { } }\n}\n");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("handler 'M' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
 		foreach (var fragment in HandlerShapeCauseFragments)
 		{
@@ -722,7 +866,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 				"public static class Extensions { extension(ReportComponent c) { public void M() { } } }\n}\n");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("handler 'M' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
 		foreach (var fragment in HandlerShapeCauseFragments)
 		{
@@ -743,7 +888,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			usings: "");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR018", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		AssertHandlerCauseSpecificMessage(diagnostic, "async void");
 	}
 
@@ -765,7 +911,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			wrapClose: "}");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		var message = diagnostic.GetMessage();
 		Assert.Contains("handler 'save' must be an instance method", message, StringComparison.Ordinal);
 		foreach (var fragment in HandlerShapeCauseFragments)
@@ -792,7 +939,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			wrapClose: "}");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		var message = diagnostic.GetMessage();
 		Assert.Contains("handler 'save' must be an instance method", message, StringComparison.Ordinal);
 		foreach (var fragment in HandlerShapeCauseFragments)
@@ -825,7 +973,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 				"global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, Other));\n\t\t\t__builder.CloseElement();");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR018", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		AssertHandlerCauseSpecificMessage(diagnostic, "async void");
 	}
 
@@ -850,7 +999,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 				"=> await global::System.Threading.Tasks.Task.Yield();");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR018", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		AssertHandlerCauseSpecificMessage(diagnostic, "async void");
 	}
 
@@ -1186,7 +1336,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			wrapOpen: "void M() { }");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		var message = diagnostic.GetMessage();
 		Assert.Contains("handler 'M' must be an instance method", message, StringComparison.Ordinal);
 		foreach (var fragment in HandlerShapeCauseFragments)
@@ -1213,7 +1364,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			wrapOpen: "void M() { }");
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		var message = diagnostic.GetMessage();
 		Assert.Contains("handler 'M' must be an instance method", message, StringComparison.Ordinal);
 		foreach (var fragment in HandlerShapeCauseFragments)
@@ -1255,15 +1407,12 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 		}
 	}
 
-	/// <summary>
-	/// Shared assertion for every cause-specific HTMXOR002 pinned in this file: the ID, severity, the
-	/// non-configurable tag, the binding's own <c>.razor</c> path and <c>@onput</c> span (never the
-	/// member's own declaration location), and the exclusive cause fragment.
-	/// </summary>
-	private static void AssertSingleCauseAtBinding(ImmutableArray<Diagnostic> diagnostics, string expectedCauseFragment)
+	// Handler-shape errors belong at the markup binding, not at the method declaration.
+	private static void AssertSingleCauseAtBinding(ImmutableArray<Diagnostic> diagnostics, string expectedCauseFragment, string expectedId)
 	{
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal(expectedId, diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(ComponentPath("ReportComponent.razor"), diagnostic.Location.GetLineSpan().Path);
@@ -1274,6 +1423,20 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	private static string ComponentPath(string relativePath) => Path.Combine(ProjectDirectory, relativePath);
+
+	private static ImmutableArray<Diagnostic> RunActionGenerator(string source, AdditionalText razor)
+	{
+		var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+		var compilation = CSharpCompilation.Create("ComputedBindingContract",
+			[CSharpSyntaxTree.ParseText(source, parseOptions, RazorGeneratedPath("ReportComponent"))], References,
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		GeneratorDriver driver = CSharpGeneratorDriver.Create([new HtmxorActionGenerator().AsSourceGenerator()],
+			[razor], parseOptions, new TestAnalyzerConfigOptionsProvider(ProjectDirectory));
+		var result = driver.RunGenerators(compilation).GetRunResult();
+		Assert.Empty(Assert.Single(result.Results).GeneratedSources);
+		return result.Diagnostics;
+	}
 
 	private static async Task<ImmutableArray<Diagnostic>> RunForHandlerAsync(
 		string handlerMember,

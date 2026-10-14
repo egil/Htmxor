@@ -14,7 +14,7 @@ namespace Htmxor.Quality.Tests;
 public sealed class PackedPackageConsumerTests
 {
 	// The staged computed handler (UseComputedPutHandler) is a lambda, so its cause-specific
-	// HTMXOR002 message shares the "lambda or closure" fragment with every other lambda or
+	// HTMXOR006 message shares the "lambda or closure" fragment with every other lambda or
 	// closure binding (#307).
 	private const string UnsupportedPutHandlerMessage = "lambda or closure";
 	private const string AmbiguousStockRouteMessage =
@@ -94,7 +94,7 @@ public sealed class PackedPackageConsumerTests
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
 
 		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.True(output.Contains("HTMXOR038", StringComparison.Ordinal), output);
 		Assert.Contains("Issue100ReportPage.razor", output, StringComparison.Ordinal);
 		Assert.Contains(AmbiguousStockRouteMessage, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
@@ -111,7 +111,7 @@ public sealed class PackedPackageConsumerTests
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
 
 		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.True(output.Contains("HTMXOR006", StringComparison.Ordinal), output);
 		Assert.Contains("Issue100ReportPage.razor", output, StringComparison.Ordinal);
 		Assert.Contains(UnsupportedPutHandlerMessage, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
@@ -147,7 +147,7 @@ public sealed class PackedPackageConsumerTests
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
 
 		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.True(output.Contains("HTMXOR033", StringComparison.Ordinal), output);
 		Assert.Contains("Issue97ReportComponent.razor", output, StringComparison.Ordinal);
 		Assert.Contains(ExplicitMethodsConflictMessage, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
@@ -164,7 +164,7 @@ public sealed class PackedPackageConsumerTests
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
 
 		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("HTMXOR001", output, StringComparison.Ordinal);
+		Assert.True(output.Contains("HTMXOR005", StringComparison.Ordinal), output);
 		Assert.Contains("Issue97SummaryComponent.cs", output, StringComparison.Ordinal);
 		Assert.Contains(MissingCSharpMethodsMessage, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
@@ -192,7 +192,7 @@ public sealed class PackedPackageConsumerTests
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
 
 		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("HTMXOR001", output, StringComparison.Ordinal);
+		Assert.True(output.Contains("HTMXOR004", StringComparison.Ordinal), output);
 		Assert.Contains("Issue97ReportRoute.cs", output, StringComparison.Ordinal);
 		Assert.Contains(MismatchedCSharpPartialMessage, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));

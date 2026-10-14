@@ -21,7 +21,8 @@ public sealed class HtmxorStockFormRegressionTests(ITestOutputHelper output)
 
 		Assert.Empty(result.CompilerErrors);
 		var diagnostic = Assert.Single(result.HtmxorDiagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR028", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains("@formname", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Equal(DirectoryPath + "/Uppercase.razor", diagnostic.Location.GetMappedLineSpan().Path);
@@ -66,7 +67,8 @@ public sealed class HtmxorStockFormRegressionTests(ITestOutputHelper output)
 		var span = diagnostic.Location.GetMappedLineSpan();
 		output.WriteLine($"Diagnostic: {diagnostic}; severity={diagnostic.Severity}; sourceSpan={diagnostic.Location.SourceSpan}; mappedSpan={span}");
 		output.WriteLine(ReadFixture(fixture + ".source.fixture"));
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR028", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains("@formname", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Equal("/tmp/htmxor179-location-regression-probe/" + fixture + ".razor", span.Path);

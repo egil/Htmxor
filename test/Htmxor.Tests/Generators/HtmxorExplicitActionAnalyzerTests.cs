@@ -19,7 +19,7 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 			.Where(static member => member.ExplicitInterfaceImplementations.Length > 0));
 		Assert.Equal(MethodKind.ExplicitInterfaceImplementation, method.MethodKind);
 
-		AssertDeclarationError(await AnalyzeAsync(source), source, "ordinary");
+		AssertDeclarationError(await AnalyzeAsync(source), source, "ordinary", "HTMXOR035");
 	}
 
 	[Fact]
@@ -68,7 +68,8 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		var source = Owner(member);
 		var diagnostics = await AnalyzeAsync(source);
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR035", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		AssertAttributeLocation(diagnostic, source);
@@ -107,29 +108,43 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		var source = Owner($"[Htmxor.HtmxAction({argument})] private void Save() {{ }}");
 		var diagnostics = await AnalyzeAsync(source);
 
-		AssertDeclarationError(diagnostics, source, "method");
+		AssertDeclarationError(diagnostics, source, "method", "HTMXOR029");
 	}
 
 	[Theory]
-	[InlineData("static void Save() { }", "static")]
-	[InlineData("int Save() => 1;", "return")]
-	[InlineData("System.Threading.Tasks.Task<int> Save() => System.Threading.Tasks.Task.FromResult(1);", "return")]
-	[InlineData("void Save(System.EventArgs args) { }", "HtmxEventArgs")]
-	[InlineData("void Save(object args) { }", "HtmxEventArgs")]
-	[InlineData("void Save(out Htmxor.HtmxEventArgs args) { args = null!; }", "parameter")]
-	[InlineData("System.Threading.Tasks.ValueTask Save() => default;", "return")]
-	[InlineData("void Save(int value) { }", "HtmxEventArgs")]
-	[InlineData("void Save(Htmxor.HtmxEventArgs args, int value) { }", "parameter")]
-	[InlineData("void Save<T>() { }", "generic")]
-	[InlineData("async void Save() => await System.Threading.Tasks.Task.Yield();", "async void")]
-	[InlineData("void Save(Htmxor.HtmxEventArgs args = null!) { }", "optional")]
-	[InlineData("void Save(ref Htmxor.HtmxEventArgs args) { }", "parameter")]
-	public async Task Unsupported_explicit_signature_fails_at_its_declaration(string member, string cause)
+	[InlineData("static void Save() { }", "static", "HTMXOR013")]
+	[InlineData("int Save() => 1;", "return", "HTMXOR026")]
+	[InlineData("System.Threading.Tasks.Task<int> Save() => System.Threading.Tasks.Task.FromResult(1);", "return", "HTMXOR019")]
+	[InlineData("void Save(System.EventArgs args) { }", "HtmxEventArgs", "HTMXOR020")]
+	[InlineData("void Save(object args) { }", "HtmxEventArgs", "HTMXOR021")]
+	[InlineData("void Save(out Htmxor.HtmxEventArgs args) { args = null!; }", "parameter", "HTMXOR023")]
+	[InlineData("System.Threading.Tasks.ValueTask Save() => default;", "return", "HTMXOR016")]
+	[InlineData("void Save(int value) { }", "HtmxEventArgs", "HTMXOR025")]
+	[InlineData("void Save(Htmxor.HtmxEventArgs args, int value) { }", "parameter", "HTMXOR025")]
+	[InlineData("void Save<T>() { }", "generic", "HTMXOR022")]
+	[InlineData("async void Save() => await System.Threading.Tasks.Task.Yield();", "async void; return Task instead", "HTMXOR018")]
+	[InlineData("void Save(Htmxor.HtmxEventArgs args = null!) { }", "optional", "HTMXOR024")]
+	[InlineData("void Save(ref Htmxor.HtmxEventArgs args) { }", "parameter", "HTMXOR023")]
+	public async Task Unsupported_explicit_signature_fails_at_its_declaration(string member, string cause, string expectedId)
 	{
 		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private " + member);
 		var diagnostics = await AnalyzeAsync(source);
 
-		AssertDeclarationError(diagnostics, source, cause);
+		AssertDeclarationError(diagnostics, source, cause, expectedId);
+	}
+	[Theory]
+	[InlineData("System.Threading.Tasks.ValueTask", "HTMXOR016")]
+	[InlineData("System.Threading.Tasks.ValueTask<int>", "HTMXOR016")]
+	public async Task Explicit_ValueTask_return_reports_the_ValueTask_cause_at_its_attribute(
+		string returnType, string expectedId)
+	{
+		var source = Owner($"[Htmxor.HtmxAction(\"PUT\")] private {returnType} Save() => default;");
+		var diagnostics = await AnalyzeAsync(source);
+
+		AssertDeclarationError(diagnostics, source, "returns a value; return void or Task", expectedId);
+		var attribute = Assert.Single(CSharpSyntaxTree.ParseText(source).GetRoot().DescendantNodes()
+			.OfType<AttributeSyntax>().Where(static attribute => attribute.Name.ToString() == "Htmxor.HtmxAction"));
+		Assert.Equal(attribute.Span, Assert.Single(diagnostics).Location.SourceSpan);
 	}
 
 	[Theory]
@@ -151,7 +166,7 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private void Save() { }", extraAttribute: "[Htmxor.DisableHtmxDirectRouting]");
 		var diagnostics = await AnalyzeAsync(source);
 
-		AssertDeclarationError(diagnostics, source, "DisableHtmxDirectRouting");
+		AssertDeclarationError(diagnostics, source, "DisableHtmxDirectRouting", "HTMXOR034");
 	}
 
 	[Fact]
@@ -168,7 +183,7 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 			""";
 		var diagnostics = await AnalyzeAsync(source);
 
-		AssertDeclarationError(diagnostics, source, "route");
+		AssertDeclarationError(diagnostics, source, "route", "HTMXOR030");
 	}
 
 	[Fact]
@@ -177,7 +192,7 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private void Save() { }", route: "[Htmxor.HtmxRoute(\"/explicit\", Methods = new[] { \"GET\" })]");
 		var diagnostics = await AnalyzeAsync(source);
 
-		AssertDeclarationError(diagnostics, source, "Methods");
+		AssertDeclarationError(diagnostics, source, "Methods", "HTMXOR033");
 	}
 
 	[Fact]
@@ -187,7 +202,7 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		var diagnostics = await AnalyzeAsync(source);
 
 		Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "AD0001");
-		AssertDeclarationError(diagnostics, source, "Methods");
+		AssertDeclarationError(diagnostics, source, "Methods", "HTMXOR033");
 	}
 
 	[Fact]
@@ -196,7 +211,7 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private void Save() { } [Htmxor.HtmxAction(\"put\")] private void Other() { }");
 		var diagnostics = await AnalyzeAsync(source);
 
-		Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "HTMXOR002" && diagnostic.Severity == DiagnosticSeverity.Error);
+		Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "HTMXOR031" && diagnostic.Severity == DiagnosticSeverity.Error);
 		Assert.Contains(diagnostics, diagnostic => diagnostic.GetMessage().Contains("PUT", StringComparison.OrdinalIgnoreCase) &&
 			diagnostic.GetMessage().Contains("handler", StringComparison.OrdinalIgnoreCase));
 		Assert.All(diagnostics, diagnostic => AssertAttributeLocation(diagnostic, source));
@@ -208,7 +223,7 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private void Save() { } private void Save(int value) { }");
 		var diagnostics = await AnalyzeAsync(source);
 
-		AssertDeclarationError(diagnostics, source, "overload");
+		AssertDeclarationError(diagnostics, source, "overload", "HTMXOR017");
 	}
 
 	[Fact]
@@ -235,7 +250,10 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		var source = Owner("public int Value { [Htmxor.HtmxAction(\"PUT\")] get => 42; }");
 		var diagnostics = await AnalyzeAsync(source);
 
-		AssertDeclarationError(diagnostics, source, "return");
+		AssertDeclarationError(diagnostics, source, "ordinary callback method", "HTMXOR035");
+		var message = Assert.Single(diagnostics).GetMessage();
+		Assert.True(message.Contains("declare an ordinary instance method", StringComparison.Ordinal), message);
+		Assert.DoesNotContain("returns a value; return void or Task", message, StringComparison.Ordinal);
 	}
 
 	private static string Owner(string members, string extraAttribute = "", string route = "[Microsoft.AspNetCore.Components.Route(\"/explicit\")]") => $$"""
@@ -248,10 +266,11 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 		}
 		""";
 
-	private static void AssertDeclarationError(ImmutableArray<Diagnostic> diagnostics, string source, string cause)
+	private static void AssertDeclarationError(ImmutableArray<Diagnostic> diagnostics, string source, string cause, string expectedId)
 	{
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal(expectedId, diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		AssertAttributeLocation(diagnostic, source);
