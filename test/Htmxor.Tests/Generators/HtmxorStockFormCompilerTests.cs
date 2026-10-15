@@ -14,13 +14,13 @@ public sealed class HtmxorStockFormCompilerTests
 	private static readonly ImmutableArray<MetadataReference> References = CreateReferences();
 
 	[Theory]
-	[InlineData("Unnamed", "<EditForm Model=\"model\" method=\"post\" />", "FormName")]
-	[InlineData("PlainUnnamed", "<form method=\"post\"></form>", "@formname")]
-	public async Task Own_unnamed_post_form_on_HtmxRoute_fails_at_the_form(string fixture, string markup, string cause)
+	[InlineData("Unnamed", "<EditForm Model=\"model\" method=\"post\" />", "FormName", "HTMXOR027")]
+	[InlineData("PlainUnnamed", "<form method=\"post\"></form>", "@formname", "HTMXOR028")]
+	public async Task Own_unnamed_post_form_on_HtmxRoute_fails_at_the_form(string fixture, string markup, string cause, string expectedId)
 	{
 		var diagnostics = await CompileAsync(fixture, markup);
 
-		AssertFormDiagnostic(diagnostics, cause);
+		AssertFormDiagnostic(diagnostics, cause, expectedId);
 	}
 
 	[Theory]
@@ -33,7 +33,7 @@ public sealed class HtmxorStockFormCompilerTests
 	{
 		var diagnostics = await CompileAsync(fixture, markup, explicitGet: true);
 
-		AssertFormDiagnostic(diagnostics, "Methods");
+		AssertFormDiagnostic(diagnostics, "Methods", "HTMXOR033");
 		Assert.Contains("POST", Assert.Single(diagnostics).GetMessage(), StringComparison.Ordinal);
 	}
 
@@ -44,8 +44,9 @@ public sealed class HtmxorStockFormCompilerTests
 	{
 		var diagnostics = await CompileAsync(fixture, markup, omitFormFromAdditionalFiles: true);
 
-		AssertFormDiagnostic(diagnostics, "POST");
+		AssertFormDiagnostic(diagnostics, "POST", "HTMXOR043");
 		Assert.Contains("form", Assert.Single(diagnostics).GetMessage(), StringComparison.OrdinalIgnoreCase);
+		AssertOmittedFormRemediation(Assert.Single(diagnostics));
 	}
 
 	[Fact]
@@ -54,12 +55,15 @@ public sealed class HtmxorStockFormCompilerTests
 		var diagnostics = await CompileAsync("Plain", "<form method=\"post\" @formname=\"save\"></form>", omitFormFromAdditionalFiles: true);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR043", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Contains("POST", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Contains("form", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.EndsWith("FormOwner_razor.g.cs", diagnostic.Location.GetMappedLineSpan().Path, StringComparison.Ordinal);
 		Assert.True(diagnostic.Location.SourceSpan.Length > 0);
+		AssertOmittedFormRemediation(diagnostic);
 	}
 
 	[Theory]
@@ -70,12 +74,40 @@ public sealed class HtmxorStockFormCompilerTests
 		var diagnostics = await CompileAsync("Literal", "<EditForm Model=\"model\" FormName=\"save\" method=\"post\" />", stockPage: stockPage, postAction: true);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR032", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains("POST", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Contains("form", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(RazorPath, diagnostic.Location.GetMappedLineSpan().Path);
 		Assert.InRange(diagnostic.Location.GetMappedLineSpan().StartLinePosition.Line, 1, 2);
+	}
+
+	[Fact]
+	public async Task Compiled_binding_omitted_by_inference_reports_the_binding_consistency_cause()
+	{
+		var diagnostics = await CompileAsync("Conflict", "<EditForm Model=\"model\" FormName=\"save\" method=\"post\" />",
+			postAction: true, omitFormFromAdditionalFiles: true);
+
+		Assert.Equal(2, diagnostics.Length);
+		var binding = Assert.Single(diagnostics.Where(static diagnostic => diagnostic.GetMessage().Contains("matching generated action", StringComparison.Ordinal)));
+		Assert.Equal("HTMXOR042", binding.Id);
+		Assert.Equal(DiagnosticSeverity.Error, binding.Severity);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, binding.Descriptor.CustomTags);
+		Assert.Contains("no usable action is available", binding.GetMessage(), StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("matching generated action", binding.GetMessage(), StringComparison.Ordinal);
+		Assert.Equal(RazorPath, binding.Location.GetMappedLineSpan().Path);
+		Assert.Equal(2, binding.Location.GetMappedLineSpan().StartLinePosition.Line);
+		Assert.True(binding.Location.SourceSpan.Length > 0);
+		var conflict = Assert.Single(diagnostics.Where(static diagnostic => diagnostic.Id == "HTMXOR032"));
+		Assert.Equal(DiagnosticSeverity.Error, conflict.Severity);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, conflict.Descriptor.CustomTags);
+		Assert.Contains("no usable action is available", conflict.GetMessage(), StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("named forms and a POST action cannot share one route owner", conflict.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains("use named forms or a POST action", conflict.GetMessage(), StringComparison.Ordinal);
+		Assert.Equal(RazorPath, conflict.Location.GetMappedLineSpan().Path);
+		Assert.InRange(conflict.Location.GetMappedLineSpan().StartLinePosition.Line, 1, 2);
+		Assert.True(conflict.Location.SourceSpan.Length > 0);
 	}
 
 	[Theory]
@@ -89,10 +121,20 @@ public sealed class HtmxorStockFormCompilerTests
 		Assert.Empty(diagnostics);
 	}
 
-	private static void AssertFormDiagnostic(ImmutableArray<Diagnostic> diagnostics, string cause)
+	private static void AssertOmittedFormRemediation(Diagnostic diagnostic)
+	{
+		var message = diagnostic.GetMessage();
+		Assert.True(message.Contains("move the form into the route owner's own Razor markup", StringComparison.Ordinal), message);
+		Assert.True(message.Contains("or replace the form with a supported explicit POST action", StringComparison.Ordinal), message);
+		Assert.DoesNotContain("use a supported named POST form", message, StringComparison.Ordinal);
+		Assert.DoesNotContain("add FormName", message, StringComparison.Ordinal);
+	}
+
+	private static void AssertFormDiagnostic(ImmutableArray<Diagnostic> diagnostics, string cause, string expectedId)
 	{
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal(expectedId, diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Contains(cause, diagnostic.GetMessage(), StringComparison.Ordinal);

@@ -23,30 +23,31 @@ public sealed class PackedExplicitActionConsumerTests
 	}
 
 	[Theory]
-	[InlineData("invalid-method", "GET", "method")]
-	[InlineData("normal-only", "PUT", "DisableHtmxDirectRouting")]
-	[InlineData("base-owner", "PUT", "route")]
-	[InlineData("stock-form", "POST", "form")]
-	[InlineData("htmx-form", "POST", "form")]
-	[InlineData("cross-source", "PUT", "handler")]
-	[InlineData("allowlist", "PUT", "Methods")]
-	[InlineData("dynamic", "PUT", "HtmxAction")]
-	[InlineData("method-call", "PUT", "HtmxAction")]
-	[InlineData("computed", "PUT", "HtmxAction")]
-	[InlineData("implicit-get", "GET", "HtmxAction")]
-	[InlineData("no-route", "PUT", "HtmxAction")]
-	public async Task Packaged_final_compilation_rejects_invalid_explicit_declarations(string scenario, string method, string cause)
+	[InlineData("invalid-method", "GET", "method", "HTMXOR029")]
+	[InlineData("normal-only", "PUT", "DisableHtmxDirectRouting", "HTMXOR034")]
+	[InlineData("base-owner", "PUT", "route", "HTMXOR030")]
+	[InlineData("stock-form", "POST", "form", "HTMXOR032")]
+	[InlineData("htmx-form", "POST", "form", "HTMXOR032")]
+	[InlineData("cross-source", "PUT", "handler", "HTMXOR031")]
+	[InlineData("allowlist", "PUT", "Methods", "HTMXOR033")]
+	[InlineData("dynamic", "PUT", "HtmxAction", "HTMXOR006")]
+	[InlineData("method-call", "PUT", "HtmxAction", "HTMXOR009")]
+	[InlineData("computed", "PUT", "HtmxAction", "HTMXOR010")]
+	[InlineData("implicit-get", "GET", "HtmxAction", "HTMXOR015")]
+	[InlineData("no-route", "PUT", "HtmxAction", "HTMXOR014")]
+	public async Task Packaged_final_compilation_rejects_invalid_explicit_declarations(string scenario, string method, string cause, string expectedId)
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		workspace.UseIssue180RejectedDeclaration(scenario, method);
 		var result = await workspace.BuildForDiagnosticAsync();
 		var evidenceDirectory = RetainEvidence(workspace, result, scenario);
 		var output = result.StandardOutput + result.StandardError;
-		var locations = CaptureDeclarationLocations(workspace, scenario, output, evidenceDirectory);
+		var locations = CaptureDeclarationLocations(workspace, scenario, expectedId, output, evidenceDirectory);
 
 		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
 		Assert.True(result.ExitCode != 0, "Invalid explicit action built successfully. " + output);
-		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.True(output.Contains(expectedId, StringComparison.Ordinal), output);
+		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		Assert.NotEmpty(locations.Actual);
 		Assert.All(locations.Actual, actual => Assert.Contains(locations.Expected, expected =>
 			expected.File == actual.File && expected.Line == actual.Line &&
@@ -55,7 +56,7 @@ public sealed class PackedExplicitActionConsumerTests
 	}
 
 	private static (AuthoredLocation[] Expected, AuthoredLocation[] Actual) CaptureDeclarationLocations(
-		PackageConsumerWorkspace workspace, string scenario, string output, string evidenceDirectory)
+		PackageConsumerWorkspace workspace, string scenario, string expectedId, string output, string evidenceDirectory)
 	{
 		var sourceFile = scenario == "base-owner" ? "Issue180RejectedBase.cs" : "Issue180Rejected.razor";
 		var anchors = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -71,7 +72,7 @@ public sealed class PackedExplicitActionConsumerTests
 		}.GetValueOrDefault(scenario, ["[Htmxor.HtmxAction"]);
 		var expected = File.ReadAllLines(Path.Combine(workspace.ConsumerDirectory, sourceFile))
 			.SelectMany((line, index) => DeclarationLocations(sourceFile, index + 1, line, anchors)).ToArray();
-		var actual = Regex.Matches(output, @"(?<file>[^\r\n]+)\((?<line>\d+),(?<column>\d+)\): error HTMXOR002:")
+		var actual = Regex.Matches(output, @"(?<file>[^\r\n]+)\((?<line>\d+),(?<column>\d+)\): error " + Regex.Escape(expectedId) + ":")
 			.Select(static match => new AuthoredLocation(
 				Path.GetFileName(match.Groups["file"].Value), int.Parse(match.Groups["line"].Value, System.Globalization.CultureInfo.InvariantCulture),
 				int.Parse(match.Groups["column"].Value, System.Globalization.CultureInfo.InvariantCulture),

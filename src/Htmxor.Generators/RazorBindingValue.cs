@@ -36,6 +36,14 @@ internal static class RazorBindingValue
 			_ => "a computed expression",
 		};
 
+	public static HtmxorDiagnosticCause GetUnsupportedDiagnosticCause(string? value)
+		=> Parse(value) switch
+		{
+			LambdaExpressionSyntax or AnonymousMethodExpressionSyntax => HtmxorDiagnosticCause.InferredLambda,
+			InvocationExpressionSyntax => HtmxorDiagnosticCause.InferredMethodCall,
+			_ => HtmxorDiagnosticCause.InferredComputedExpression,
+		};
+
 	private static string ReadExpression(string? value)
 		=> StripRazorTransition(Unquote(value));
 

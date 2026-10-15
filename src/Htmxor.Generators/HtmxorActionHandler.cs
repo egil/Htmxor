@@ -15,27 +15,36 @@ internal static class HtmxorActionHandler
 {
 	private const string NotAComponentMember = "must be an instance method on the request-owned component";
 
-	public static string? GetExplicitUnsupportedReason(Compilation compilation, IMethodSymbol method)
+	public static HtmxorDiagnosticIssue? GetExplicitUnsupportedIssue(Compilation compilation, IMethodSymbol method)
 	{
 		if (method.MethodKind != MethodKind.Ordinary)
 		{
-			return Reason(method.Name, "is not an ordinary callback method; declare an instance method returning void or Task");
+			return Issue(HtmxorDiagnosticCause.NonordinaryExplicitAction, method.Name,
+				"is not an ordinary callback method; declare an ordinary instance method returning void or Task");
 		}
 
 		if (method.ContainingType.GetMembers(method.Name).OfType<IMethodSymbol>().Count() > 1)
 		{
-			return Reason(method.Name, "is overloaded; give the handler a unique name");
+			return Issue(HtmxorDiagnosticCause.ExplicitOverload, method.Name,
+				"is overloaded; give the handler a unique name");
 		}
 
-		if (method.Parameters.Length > 1 || method.Parameters.Any(static parameter => parameter.RefKind != RefKind.None))
+		if (method.Parameters.Length > 1)
 		{
-			return Reason(method.Name, "has unsupported parameters; use zero parameters or one required HtmxEventArgs parameter");
+			return Issue(HtmxorDiagnosticCause.OtherUnsupportedParameter, method.Name,
+				"has unsupported parameters; use zero parameters or one required HtmxEventArgs parameter");
 		}
 
-		return GetShapeCause(compilation, method) is { } cause ? Reason(method.Name, cause) : null;
+		if (method.Parameters.Any(static parameter => parameter.RefKind != RefKind.None))
+		{
+			return Issue(HtmxorDiagnosticCause.RefOrOutParameter, method.Name,
+				"has unsupported parameters; use zero parameters or one required HtmxEventArgs parameter");
+		}
+
+		return GetShapeIssue(compilation, method, inferred: false);
 	}
 
-	public static string? GetUnsupportedReason(
+	public static HtmxorDiagnosticIssue? GetUnsupportedIssue(
 		Compilation compilation,
 		INamedTypeSymbol component,
 		HtmxorComponentActionDeclaration declaration)
@@ -57,15 +66,35 @@ internal static class HtmxorActionHandler
 		var handlerName = declaration.HandlerName!;
 		return model.GetSymbolInfo(argument).Symbol switch
 		{
-			IMethodSymbol { MethodKind: MethodKind.LocalFunction } => Reason(handlerName, NotAComponentMember),
+			IMethodSymbol { MethodKind: MethodKind.LocalFunction } => Issue(HtmxorDiagnosticCause.NonmemberHandler, handlerName, NotAComponentMember),
 			IMethodSymbol method => GetMethodReason(compilation, component, handlerName, method, model.GetMemberGroup(argument).Length),
-			ILocalSymbol or IParameterSymbol or IRangeVariableSymbol => Reason(handlerName, NotAComponentMember),
+			IParameterSymbol parameter when IsEventCallback(parameter.Type) => Issue(HtmxorDiagnosticCause.InferredEventCallbackParameter, handlerName, "is an EventCallback parameter, not a method; use [HtmxAction] on a component instance method"),
+			IPropertySymbol property when IsEventCallback(property.Type) && IsComponentParameter(property) => Issue(HtmxorDiagnosticCause.InferredEventCallbackParameter, handlerName, "is an EventCallback parameter, not a method; use [HtmxAction] on a component instance method"),
+			IFieldSymbol field when IsEventCallback(field.Type) => Issue(HtmxorDiagnosticCause.InferredEventCallbackField, handlerName, "is an EventCallback field, not a method; use [HtmxAction] on a component instance method"),
+			ILocalSymbol or IParameterSymbol or IRangeVariableSymbol => Issue(HtmxorDiagnosticCause.NonmemberHandler, handlerName, NotAComponentMember + "; use [HtmxAction]"),
 			null => null,
-			_ => Reason(handlerName, "is not a method"),
+			_ => Issue(HtmxorDiagnosticCause.NonmethodHandler, handlerName, "is not a method; use [HtmxAction] on a component instance method"),
 		};
 	}
 
-	private static string? GetMethodReason(
+	private static bool IsComponentParameter(IPropertySymbol property)
+	{
+		foreach (var attribute in property.GetAttributes())
+		{
+			for (var type = attribute.AttributeClass; type is not null; type = type.BaseType)
+			{
+				if (type.ToDisplayString() is "Microsoft.AspNetCore.Components.ParameterAttribute" or
+					"Microsoft.AspNetCore.Components.CascadingParameterAttributeBase")
+				{
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private static HtmxorDiagnosticIssue? GetMethodReason(
 		Compilation compilation,
 		INamedTypeSymbol component,
 		string handlerName,
@@ -75,56 +104,105 @@ internal static class HtmxorActionHandler
 		// Covers `using static` imports and both extension forms, whose containing type is not the component's.
 		if (!IsInComponentChain(method.ContainingType, component))
 		{
-			return Reason(handlerName, NotAComponentMember);
+			return Issue(HtmxorDiagnosticCause.NonmemberHandler, handlerName, NotAComponentMember + "; use [HtmxAction]");
 		}
 
 		if (groupSize > 1)
 		{
-			return Reason(handlerName, "is overloaded; give the handler a unique name");
+			return Issue(HtmxorDiagnosticCause.InferredOverload, handlerName,
+				"is overloaded; give the handler a unique instance method name and declare [HtmxAction]");
 		}
 
-		return GetShapeCause(compilation, method) is { } cause ? Reason(handlerName, cause) : null;
+		return GetShapeIssue(compilation, method, inferred: true);
 	}
 
-	private static string? GetShapeCause(Compilation compilation, IMethodSymbol method)
+	private static HtmxorDiagnosticIssue? GetShapeIssue(Compilation compilation, IMethodSymbol method, bool inferred)
 	{
-		if (method.IsStatic)
+		var kindIssue = GetHandlerKindIssue(method, inferred);
+		if (kindIssue is not null)
 		{
-			return "is static; make it an instance method";
-		}
-
-		if (method.IsGenericMethod)
-		{
-			return "is generic; make it non-generic";
+			return kindIssue;
 		}
 
 		if (method.IsAsync && method.ReturnsVoid)
 		{
-			return "is async void; return Task instead";
+			return Issue(HtmxorDiagnosticCause.AsyncVoid, method.Name, "is async void; return Task instead");
 		}
 
 		var task = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
 		if (!method.ReturnsVoid && !SymbolEqualityComparer.Default.Equals(method.ReturnType, task))
 		{
-			return "returns a value; return void or Task";
+			return Issue(GetReturnCause(method.ReturnType), method.Name, "returns a value; return void or Task");
 		}
 
 		return method.Parameters.Length == 0
 			? null
-			: GetParameterCause(compilation, method.Parameters[0]);
+			: GetParameterIssue(compilation, method);
 	}
 
-	private static string? GetParameterCause(Compilation compilation, IParameterSymbol parameter)
+	private static HtmxorDiagnosticIssue? GetHandlerKindIssue(IMethodSymbol method, bool inferred)
 	{
+		if (method.IsStatic)
+		{
+			return Issue(HtmxorDiagnosticCause.StaticHandler, method.Name,
+				"is static; make it an instance method" + (inferred ? " and declare [HtmxAction]" : string.Empty));
+		}
+
+		if (method.IsGenericMethod)
+		{
+			return Issue(inferred ? HtmxorDiagnosticCause.InferredGeneric : HtmxorDiagnosticCause.ExplicitGeneric,
+				method.Name, "is generic; make it non-generic" + (inferred ? " and declare [HtmxAction]" : string.Empty));
+		}
+
+		return null;
+	}
+
+	private static HtmxorDiagnosticCause GetReturnCause(ITypeSymbol returnType)
+	{
+		if (returnType is not INamedTypeSymbol named)
+		{
+			return HtmxorDiagnosticCause.OtherValueReturn;
+		}
+
+		return named.ConstructedFrom.ToDisplayString() switch
+		{
+			"System.Threading.Tasks.ValueTask" or "System.Threading.Tasks.ValueTask<TResult>" => HtmxorDiagnosticCause.ValueTaskReturn,
+			"System.Threading.Tasks.Task<TResult>" => HtmxorDiagnosticCause.TaskOfTReturn,
+			_ => HtmxorDiagnosticCause.OtherValueReturn,
+		};
+	}
+
+	private static HtmxorDiagnosticIssue? GetParameterIssue(Compilation compilation, IMethodSymbol method)
+	{
+		if (method.Parameters.Length > 1)
+		{
+			return Issue(HtmxorDiagnosticCause.OtherUnsupportedParameter, method.Name,
+				"has unsupported parameters; use zero parameters or one required HtmxEventArgs parameter");
+		}
+		var parameter = method.Parameters[0];
+		if (parameter.RefKind != RefKind.None)
+		{
+			return Issue(HtmxorDiagnosticCause.RefOrOutParameter, method.Name,
+				"has unsupported parameters; use one by-value HtmxEventArgs parameter");
+		}
 		if (parameter.IsOptional)
 		{
-			return "has an optional parameter; make it required";
+			return Issue(HtmxorDiagnosticCause.OptionalParameter, method.Name, "has an optional parameter; make it required");
 		}
 
 		var eventArgs = compilation.GetTypeByMetadataName("Htmxor.HtmxEventArgs");
-		return SymbolEqualityComparer.Default.Equals(parameter.Type, eventArgs)
-			? null
-			: "has a parameter that is not HtmxEventArgs; its parameter must be HtmxEventArgs";
+		if (SymbolEqualityComparer.Default.Equals(parameter.Type, eventArgs))
+		{
+			return null;
+		}
+		var cause = parameter.Type.ToDisplayString() switch
+		{
+			"System.EventArgs" => HtmxorDiagnosticCause.EventArgsParameter,
+			"object" => HtmxorDiagnosticCause.ObjectParameter,
+			_ => HtmxorDiagnosticCause.OtherUnsupportedParameter,
+		};
+		return Issue(cause, method.Name,
+			"has a parameter that is not HtmxEventArgs; its parameter must be HtmxEventArgs");
 	}
 
 	// The Create<HtmxEventArgs> call Razor generated for this binding, in the component's Razor-generated declaration.
@@ -211,6 +289,12 @@ internal static class HtmxorActionHandler
 		return false;
 	}
 
-	private static string Reason(string handlerName, string cause)
-		=> "handler '" + handlerName + "' " + cause;
+	private static bool IsEventCallback(ITypeSymbol type)
+		=> type is INamedTypeSymbol named &&
+			named.ConstructedFrom.ToDisplayString() is
+				"Microsoft.AspNetCore.Components.EventCallback" or
+				"Microsoft.AspNetCore.Components.EventCallback<TValue>";
+
+	private static HtmxorDiagnosticIssue Issue(HtmxorDiagnosticCause cause, string handlerName, string reason)
+		=> new(cause, "handler '" + handlerName + "' " + reason);
 }

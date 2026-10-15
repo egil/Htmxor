@@ -36,7 +36,7 @@ public sealed class PackedStockFormConsumerTests
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
 		Assert.True(result.ExitCode != 0, "An own named form outside explicit Methods built successfully. " + output);
-		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.True(output.Contains("HTMXOR033", StringComparison.Ordinal), output);
 		Assert.Contains("Issue179Rejected.razor(3,", output, StringComparison.Ordinal);
 		Assert.Contains("Methods", output, StringComparison.Ordinal);
 		Assert.Contains("POST", output, StringComparison.Ordinal);

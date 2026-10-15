@@ -47,6 +47,60 @@ is the previous beta and exposes the previous registration names.
 
 See https://github.com/egil/Htmxor/blob/main/docs/index.md.
 
+For the unreleased v1 source package, unsupported route and action declarations
+fail the build with cause-specific `HTMXOR004`–`HTMXOR043` errors at their source
+locations. The diagnostic names the unavailable route or action and the reason;
+for example, `HTMXOR005` identifies a malformed route declaration and
+`HTMXOR042` identifies a compiled Razor binding without a generated action.
+`HTMXOR003` continues to identify invalid normal-only route declarations.
+Compiler- and Razor-owned errors retain their own diagnostic IDs.
+
+Stable source-package diagnostic IDs:
+
+| ID | Cause |
+| --- | --- |
+| `HTMXOR003` | Unsupported normal-only route declaration |
+| `HTMXOR004` | Unsupported HTMX-only route target or origin |
+| `HTMXOR005` | Malformed HTMX-only route member or method |
+| `HTMXOR006` | Inferred action uses a lambda or closure |
+| `HTMXOR007` | Inferred action uses an EventCallback field |
+| `HTMXOR008` | Inferred action uses an EventCallback parameter |
+| `HTMXOR009` | Inferred action uses a method call |
+| `HTMXOR010` | Inferred action uses a computed expression |
+| `HTMXOR011` | Inferred action uses an overloaded handler |
+| `HTMXOR012` | Inferred action uses a generic handler |
+| `HTMXOR013` | Action handler is static |
+| `HTMXOR014` | Inferred action has no route owner |
+| `HTMXOR015` | GET action binding is redundant |
+| `HTMXOR016` | Action handler returns ValueTask |
+| `HTMXOR017` | Explicit action handler is overloaded |
+| `HTMXOR018` | Action handler is async void |
+| `HTMXOR019` | Action handler returns Task of a value |
+| `HTMXOR020` | Action handler accepts EventArgs |
+| `HTMXOR021` | Action handler accepts object |
+| `HTMXOR022` | Explicit action handler is generic |
+| `HTMXOR023` | Action handler has a ref or out parameter |
+| `HTMXOR024` | Action handler has an optional parameter |
+| `HTMXOR025` | Action handler has unsupported parameters |
+| `HTMXOR026` | Action handler returns an unsupported value |
+| `HTMXOR027` | EditForm has no name |
+| `HTMXOR028` | POST form has no name |
+| `HTMXOR029` | Explicit action uses an unsupported method |
+| `HTMXOR030` | Explicit action has no local route owner |
+| `HTMXOR031` | Route method has conflicting handlers |
+| `HTMXOR032` | Named form conflicts with POST action |
+| `HTMXOR033` | Action or form is outside explicit route methods |
+| `HTMXOR034` | Action is on a normal-only component |
+| `HTMXOR035` | Explicit action is not an ordinary method |
+| `HTMXOR036` | Inferred binding is outside owner markup |
+| `HTMXOR037` | Inferred binding has no matching Razor owner |
+| `HTMXOR038` | Local page binding conflicts with compiled route |
+| `HTMXOR039` | Stock route binding has no local page |
+| `HTMXOR040` | Action handler is not a component member |
+| `HTMXOR041` | Action handler is not a method |
+| `HTMXOR042` | Compiled binding has no matching action |
+| `HTMXOR043` | Compiled form has no matching POST inference |
+
 ## Samples
 
 The following Blazor Web Apps (Htmxor) are used to test Htmxor and demo the capabilities of it.

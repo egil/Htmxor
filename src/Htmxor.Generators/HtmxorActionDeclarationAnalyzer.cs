@@ -10,21 +10,8 @@ namespace Htmxor.Generators;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 {
-	internal static readonly DiagnosticDescriptor UnsupportedDeclaration = new(
-		"HTMXOR002",
-		"Unsupported component action declaration",
-		"Unsupported component action declaration: {0}",
-		"Htmxor.Generators",
-		DiagnosticSeverity.Error,
-		isEnabledByDefault: true,
-		customTags: new[]
-		{
-			WellKnownDiagnosticTags.NotConfigurable,
-			WellKnownDiagnosticTags.CompilationEnd,
-		});
-
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
-		ImmutableArray.Create(UnsupportedDeclaration);
+		HtmxorDiagnosticRules.ActionDiagnostics;
 
 	internal static string WithExplicitRemediation(string reason)
 		=> "Use [HtmxAction] to explicitly declare a supported instance action instead of this binding; " + reason;
@@ -52,26 +39,24 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			context.CancellationToken);
 		foreach (var declaration in GetDeclarations(context, typeNames))
 		{
-			if (declaration.UnsupportedReason is not null)
+			if (declaration.UnsupportedIssue is not null)
 			{
 				continue;
 			}
 
 			var component = context.Compilation.Assembly.GetTypeByMetadataName(declaration.ComponentTypeName);
-			var reason = GetUnsupportedReason(
+			var issue = GetUnsupportedIssue(
 				context.Compilation,
 				component,
 				declaration,
 				typeNames?.GetGeneratedPath(declaration.Path),
 				symbols);
-			if (reason is not null)
+			if (issue is { } diagnosed)
 			{
-				var message = component is not null && GetNormalOnlyUnsupportedReason(component, symbols) is not null
-					? reason : WithExplicitRemediation(reason);
-				context.ReportDiagnostic(Diagnostic.Create(
-					UnsupportedDeclaration,
-					Location.Create(declaration.Path, declaration.Span, declaration.LineSpan),
-					message));
+				var message = diagnosed.Cause == HtmxorDiagnosticCause.NormalOnlyAction
+					? diagnosed.Reason : WithExplicitRemediation(diagnosed.Reason);
+				context.ReportDiagnostic(diagnosed.WithReason(message)
+					.ToDiagnostic(Location.Create(declaration.Path, declaration.Span, declaration.LineSpan)));
 			}
 		}
 	}
@@ -86,32 +71,33 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 				typeNames?.GetTypeName(file, context.CancellationToken),
 				context.CancellationToken));
 
-	private static string? GetUnsupportedReason(
+	private static HtmxorDiagnosticIssue? GetUnsupportedIssue(
 		Compilation compilation,
 		INamedTypeSymbol? component,
 		HtmxorComponentActionDeclaration declaration,
 		string? generatedPath,
 		HtmxorRouteSymbols symbols)
 	{
-		var componentReason = GetComponentUnsupportedReason(
+		var componentIssue = GetComponentUnsupportedIssue(
 			compilation,
 			component,
 			declaration,
-			generatedPath) ?? GetNormalOnlyUnsupportedReason(component!, symbols);
-		if (componentReason is not null)
+			generatedPath) ?? GetNormalOnlyUnsupportedIssue(component!, symbols);
+		if (componentIssue is not null)
 		{
-			return componentReason;
+			return componentIssue;
 		}
 
 		var resolvedComponent = component!;
 		var stockRoutes = GetExactAttributes(resolvedComponent, symbols.Route!);
 		var htmxRoutes = GetExactAttributes(resolvedComponent, symbols.HtmxRoute);
 		return stockRoutes.Length == 0 && htmxRoutes.Length == 0
-			? "the component owns no route, so the binding has no action to declare; add @page or HtmxRoute, or remove the binding"
-			: GetRouteShapeUnsupportedReason(declaration, stockRoutes, htmxRoutes);
+			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.UnroutedBinding,
+				"the component owns no route, so the binding has no action to declare; add @page or HtmxRoute, or remove the binding")
+			: GetRouteShapeUnsupportedIssue(declaration, stockRoutes, htmxRoutes);
 	}
 
-	private static string? GetRouteShapeUnsupportedReason(
+	private static HtmxorDiagnosticIssue? GetRouteShapeUnsupportedIssue(
 		HtmxorComponentActionDeclaration declaration,
 		ImmutableArray<AttributeData> stockRoutes,
 		ImmutableArray<AttributeData> htmxRoutes)
@@ -120,12 +106,14 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 		{
 			return stockRoutes.Length == 1 && htmxRoutes.Length == 0
 				? null
-				: "a component with a local @page action must compile with exactly one stock route and no HtmxRoute";
+				: new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.LocalPageRouteMismatch,
+					"a component with a local @page action must compile with exactly one stock route and no HtmxRoute");
 		}
 
 		if (stockRoutes.Length > 0)
 		{
-			return "a component action without a local @page cannot use a compiled stock route";
+			return new(HtmxorDiagnosticCause.StockRouteWithoutLocalPage,
+				"a component action without a local @page cannot use a compiled stock route");
 		}
 
 		var methods = htmxRoutes[0].NamedArguments
@@ -134,14 +122,16 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			.ToImmutableArray();
 		return methods.Length == 0 || ContainsMethod(methods[0], declaration.HttpMethod)
 			? null
-			: "explicit HtmxRoute.Methods is authoritative and does not allow the " +
-				declaration.HttpMethod + " binding";
+			: new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ExplicitMethodsConflict,
+				"explicit HtmxRoute.Methods is authoritative and does not allow the " +
+				declaration.HttpMethod + " binding; add the method or remove the binding");
 	}
 
-	private static string? GetNormalOnlyUnsupportedReason(INamedTypeSymbol component, HtmxorRouteSymbols symbols)
+	private static HtmxorDiagnosticIssue? GetNormalOnlyUnsupportedIssue(INamedTypeSymbol component, HtmxorRouteSymbols symbols)
 		=> symbols.DisableHtmxDirectRouting is not null &&
 			GetExactAttributes(component, symbols.DisableHtmxDirectRouting).Length > 0
-			? "an inferred binding on a component marked with DisableHtmxDirectRouting is not supported"
+			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.NormalOnlyAction,
+				"an inferred binding on a component marked with DisableHtmxDirectRouting is not supported; remove the binding or marker")
 			: null;
 
 	private static ImmutableArray<AttributeData> GetExactAttributes(
@@ -153,7 +143,7 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 				attributeType))
 			.ToImmutableArray();
 
-	private static string? GetComponentUnsupportedReason(
+	private static HtmxorDiagnosticIssue? GetComponentUnsupportedIssue(
 		Compilation compilation,
 		INamedTypeSymbol? component,
 		HtmxorComponentActionDeclaration declaration,
@@ -162,13 +152,14 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 		if (component is null ||
 			!HtmxorRouteManifest.HasCompiledRazorDeclaration(component, new[] { generatedPath }))
 		{
-			return "the action owner must compile from the matching Razor component; " +
-				"its type name is derived from the file's folder and @namespace";
+			return new(HtmxorDiagnosticCause.MismatchedRazorOwner,
+				"the action owner must compile from the matching Razor component; " +
+				"its type name is derived from the file's folder and @namespace");
 		}
 
 		return declaration.HandlerName is null || declaration.HandlerAccess is null
 			? null
-			: HtmxorActionHandler.GetUnsupportedReason(compilation, component, declaration);
+			: HtmxorActionHandler.GetUnsupportedIssue(compilation, component, declaration);
 	}
 
 	private static bool ContainsMethod(TypedConstant methods, string httpMethod)

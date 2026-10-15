@@ -9,19 +9,6 @@ namespace Htmxor.Generators;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 {
-	private static readonly DiagnosticDescriptor UnsupportedDeclaration = new(
-		"HTMXOR001",
-		"Unsupported HTMX-only route declaration",
-		"Unsupported HTMX-only route declaration: {0}",
-		"Htmxor.Generators",
-		DiagnosticSeverity.Error,
-		isEnabledByDefault: true,
-		customTags: new[]
-		{
-			WellKnownDiagnosticTags.NotConfigurable,
-			WellKnownDiagnosticTags.CompilationEnd,
-		});
-
 	private static readonly DiagnosticDescriptor UnsupportedNormalOnlyDeclaration = new(
 		"HTMXOR003",
 		"Unsupported normal-only route declaration",
@@ -36,7 +23,7 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 		});
 
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
-		ImmutableArray.Create(UnsupportedDeclaration, UnsupportedNormalOnlyDeclaration);
+		HtmxorDiagnosticRules.RouteDiagnostics.Add(UnsupportedNormalOnlyDeclaration);
 
 	public override void Initialize(AnalysisContext context)
 	{
@@ -59,16 +46,13 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 
 		foreach (var component in components)
 		{
-			var reason = component.GetUnsupportedReason(
+			var issue = component.GetUnsupportedIssue(
 				symbols,
 				manifest,
 				context.CancellationToken);
-			if (reason is not null)
+			if (issue is { } diagnosed)
 			{
-				context.ReportDiagnostic(Diagnostic.Create(
-					UnsupportedDeclaration,
-					component.GetLocation(context.CancellationToken),
-					reason));
+				context.ReportDiagnostic(diagnosed.ToDiagnostic(component.GetLocation(context.CancellationToken)));
 			}
 		}
 

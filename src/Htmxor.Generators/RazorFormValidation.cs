@@ -48,12 +48,12 @@ internal static class RazorFormValidation
 		for (var index = 0; index < forms.Length; index++)
 		{
 			var form = forms[index];
-			var reason = GetReason(form, htmxRoute, postActions.Any(action => SymbolEqualityComparer.Default.Equals(action, component)),
+			var issue = GetIssue(form, htmxRoute, postActions.Any(action => SymbolEqualityComparer.Default.Equals(action, component)),
 				HtmxorCompiledFormManifest.Contains(context.Compilation, component, context.CancellationToken));
-			if (reason is not null)
+			if (issue is { } diagnosed)
 			{
 				var location = GetLocation(forms, index, declarations);
-				context.ReportDiagnostic(Diagnostic.Create(HtmxorActionDeclarationAnalyzer.UnsupportedDeclaration, location, reason));
+				context.ReportDiagnostic(diagnosed.ToDiagnostic(location));
 			}
 		}
 	}
@@ -72,11 +72,12 @@ internal static class RazorFormValidation
 			.Skip(ordinal).FirstOrDefault()?.Location ?? form.Location;
 	}
 
-	private static string? GetReason(RazorCompiledForm form, AttributeData? route, bool hasPostAction, bool inferredNamedForm)
+	private static HtmxorDiagnosticIssue? GetIssue(RazorCompiledForm form, AttributeData? route, bool hasPostAction, bool inferredNamedForm)
 	{
 		if (form.IsNamed && hasPostAction)
 		{
-			return "named forms and a POST action cannot share one route owner; use named forms or a POST action";
+			return new(HtmxorDiagnosticCause.NamedFormPostConflict,
+				"named forms and a POST action cannot share one route owner; use named forms or a POST action");
 		}
 
 		if (route is null || !form.IsPost)
@@ -87,23 +88,27 @@ internal static class RazorFormValidation
 		if (!form.IsNamed)
 		{
 			return form.IsEditForm
-				? "an EditForm on an HtmxRoute owner requires FormName"
-				: "a POST form on an HtmxRoute owner requires @formname";
+				? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.UnnamedEditForm,
+					"an EditForm on an HtmxRoute owner requires FormName")
+				: new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.UnnamedPostForm,
+					"a POST form on an HtmxRoute owner requires @formname");
 		}
 
 		return AllowsPost(route, inferredNamedForm);
 	}
 
-	private static string? AllowsPost(AttributeData route, bool inferredNamedForm)
+	private static HtmxorDiagnosticIssue? AllowsPost(AttributeData route, bool inferredNamedForm)
 	{
 		var methods = route.NamedArguments.FirstOrDefault(static argument => argument.Key == "Methods");
 		if (methods.Key is not null)
 		{
 			return methods.Value.Kind == TypedConstantKind.Array && methods.Value.Values.Any(static value =>
 				value.Value is string method && string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase))
-				? null : "explicit HtmxRoute.Methods does not allow POST for its form";
+				? null : new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ExplicitMethodsConflict,
+					"explicit HtmxRoute.Methods does not allow POST for its form; add POST or remove the form");
 		}
 
-		return inferredNamedForm ? null : "the compiled POST form has no matching generated POST inference for its component";
+		return inferredNamedForm ? null : new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.UnmatchedCompiledForm,
+			"the compiled POST form has no matching generated POST inference for its component; move the form into the route owner's own Razor markup, or replace the form with a supported explicit POST action");
 	}
 }

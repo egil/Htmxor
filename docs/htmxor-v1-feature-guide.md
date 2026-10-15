@@ -137,7 +137,7 @@ The marker removes a representation; it is not an authorization boundary, and it
 does not make htmx request headers trusted. A stock form on the page keeps its
 stock POST, and `HtmxLayout` has no effect. The build fails with HTMXOR003 when
 the marker is declared in `_Imports.razor`, on a type without its own stock
-route (such as a base class), or together with `HtmxRoute`, and with HTMXOR002
+route (such as a base class), or together with `HtmxRoute`, and with HTMXOR034
 when the page has an inferred `@onpost`, `@onput`, `@onpatch`, `@ondelete`, or
 `@onquery` binding.
 
@@ -165,7 +165,7 @@ route constraint, several constraints on one parameter, optional parameters,
 default values, complex segments, and `{*rest}` or `{**rest}` catch-alls. The
 template is a route-syntax string, so ASP.NET Core's route analyzer reports
 malformed grammar at build as warning ASP0017, with stock's wording. A template
-without a leading `/` fails the build with HTMXOR001 and the reason Razor gives
+without a leading `/` fails the build with HTMXOR005 and the reason Razor gives
 for `@page` (RZ9988). Any template stock routing rejects, including an unknown
 constraint or invalid constraint arguments, fails at application startup with
 stock's reason. Custom route constraints are not supported. A component
@@ -249,8 +249,8 @@ nearest ancestor `_Imports.razor` that declares `@namespace` supplies the
 namespace, extended with the folders below it. Otherwise the project's
 `RootNamespace` is extended with the folders below the project directory. Htmxor
 reads only the `@namespace` directive for this. The build confirms each name
-against the type Razor compiled from the same file and fails with HTMXOR001 or
-HTMXOR002 if they differ, so a component is never registered under another
+against the type Razor compiled from the same file and fails with HTMXOR004 or
+HTMXOR037 if they differ, so a component is never registered under another
 component's name. Components authored entirely in C#, and `.razor.cs`
 partials, may also live in any folder and namespace.
 
@@ -261,7 +261,7 @@ registration reads only the application assembly's generated manifest, so an
 ## Declare component actions
 
 The build checks compiled Razor HTTP bindings against their generated actions.
-If inference misses a binding, HTMXOR002 points to its Razor location instead of
+If inference misses a binding, HTMXOR042 points to its Razor location instead of
 letting the application build with an unreachable callback. The action must
 match the component, HTTP method, and handler; another handler for the same
 method does not cover the binding. This also applies to component-tag bindings

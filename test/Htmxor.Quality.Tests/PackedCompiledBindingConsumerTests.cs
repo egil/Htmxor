@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
@@ -70,6 +71,21 @@ public sealed class PackedCompiledBindingConsumerTests
 		var result = await workspace.BuildForDiagnosticAsync();
 
 		AssertRejectedBinding(workspace, result, method, 4);
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+		var message = Assert.Single(Regex.Matches(output,
+			@"Issue310Page\.razor\(4,\d+\): error HTMXOR042: (?<message>[^\r\n]+)")
+			.Select(static match => match.Groups["message"].Value).Distinct());
+		Assert.Contains("no usable action is available", message, StringComparison.OrdinalIgnoreCase);
+		if (method == "get")
+		{
+			Assert.Contains("remove @onget", message, StringComparison.OrdinalIgnoreCase);
+			Assert.Contains("GET is implicit", message, StringComparison.OrdinalIgnoreCase);
+			Assert.DoesNotContain("HtmxAction", message, StringComparison.OrdinalIgnoreCase);
+		}
+		else
+		{
+			Assert.Contains("HtmxAction", message, StringComparison.Ordinal);
+		}
 	}
 
 	[Fact]
@@ -80,7 +96,13 @@ public sealed class PackedCompiledBindingConsumerTests
 
 		var result = await workspace.BuildForDiagnosticAsync();
 
-		AssertRejectedBinding(workspace, result, "put", 5);
+		AssertRejectedBinding(workspace, result, "put", 5, "HTMXOR034");
+		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
+		var message = Assert.Single(Regex.Matches(output,
+			@"Issue310Page\.razor\(5,\d+\): error HTMXOR034: (?<message>[^\r\n]+)")
+			.Select(static match => match.Groups["message"].Value).Distinct());
+		Assert.Contains("no usable action is available", message, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("remove the binding or marker", message, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -194,22 +216,37 @@ public sealed class PackedCompiledBindingConsumerTests
 		}
 
 		Assert.True(result.ExitCode == 0, output);
-		Assert.DoesNotContain("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.DoesNotContain("HTMXOR", output, StringComparison.Ordinal);
 		Assert.True(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
 
-	private static void AssertRejectedBinding(PackageConsumerWorkspace workspace, ProcessResult result, string method, int line)
+	private static void AssertRejectedBinding(PackageConsumerWorkspace workspace, ProcessResult result, string method, int line, string expectedId = "HTMXOR042")
 	{
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
 		Assert.True(result.ExitCode != 0, "A compiled binding without its matching action built successfully." + Environment.NewLine + output);
-		Assert.Contains("HTMXOR002", output, StringComparison.Ordinal);
+		Assert.True(output.Contains(expectedId, StringComparison.Ordinal), output);
 		Assert.Contains($"Issue310Page.razor({line},", output, StringComparison.Ordinal);
+		AssertAuthoredBindingLocation(workspace, output, method, line, expectedId);
 		Assert.Contains("@on" + method, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
+	}
+
+	private static void AssertAuthoredBindingLocation(PackageConsumerWorkspace workspace, string output, string method, int line, string expectedId)
+	{
+		var source = File.ReadAllLines(Path.Combine(workspace.ConsumerDirectory, "Components", "Pages", "Issue310Page.razor"))[line - 1];
+		var handlers = Regex.Matches(source, "@on" + method + "\\s*=\\s*\"(?<handler>[^\"]+)\"")
+			.Select(static match => match.Groups["handler"]).ToArray();
+		Assert.NotEmpty(handlers);
+		var pattern = @"Issue310Page\.razor\(" + line + @",(?<column>\d+)\): error " + Regex.Escape(expectedId) + ":";
+		var columns = Regex.Matches(output, pattern).Select(static match =>
+			int.Parse(match.Groups["column"].Value, System.Globalization.CultureInfo.InvariantCulture)).Distinct().ToArray();
+		Assert.NotEmpty(columns);
+		Assert.All(columns, column => Assert.Contains(handlers, handler =>
+			handler.Index + 1 <= column && column <= handler.Index + handler.Length));
 	}
 }
 

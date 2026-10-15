@@ -53,7 +53,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "AD0001");
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal("HTMXOR005", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains("non-empty unique subset", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
@@ -149,12 +150,13 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { RazorGeneratedPath("CodeBehindComponent"), componentPath });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal("HTMXOR004", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-		Assert.Equal(
-			"Unsupported HTMX-only route declaration: " +
+		Assert.Contains(
 			"a C# HtmxRoute declaration on a Razor component must use the matching .razor.cs partial",
-			diagnostic.GetMessage());
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
 		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
@@ -177,12 +179,13 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { componentPath });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal("HTMXOR005", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-		Assert.Equal(
-			"Unsupported HTMX-only route declaration: " +
+		Assert.Contains(
 			"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods",
-			diagnostic.GetMessage());
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
 		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
@@ -205,12 +208,13 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { componentPath });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal("HTMXOR005", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-		Assert.Equal(
-			"Unsupported HTMX-only route declaration: " +
+		Assert.Contains(
 			"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods",
-			diagnostic.GetMessage());
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
 		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
@@ -236,11 +240,12 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { componentPath });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
-		Assert.Equal(
-			"Unsupported HTMX-only route declaration: " +
+		Assert.Equal("HTMXOR005", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+		Assert.Contains(
 			"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods",
-			diagnostic.GetMessage());
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 	}
 
@@ -272,7 +277,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			sourcePath: componentPath);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR037", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		// Issue #285: the "project-root" eligibility gate is gone, but a same-named Razor
 		// file still must not cross-wire onto an unrelated compiled type that merely shares its
 		// guessed name; this remains a fail-closed mismatch regardless of wording.
@@ -310,7 +316,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		var diagnostic = Assert.Single(diagnostics);
 		var reversedDiagnostic = Assert.Single(reversedDiagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal("HTMXOR005", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains("GET", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Equal(summaryPath, diagnostic.Location.GetMappedLineSpan().Path);
@@ -512,7 +519,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { componentPath });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal("HTMXOR005", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains(
 			$"HtmxRoute named argument '{memberName}'",
@@ -741,7 +749,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { generatedPathA });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal("HTMXOR004", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains(
 			"the HtmxRoute component must compile from the matching Razor component",
 			diagnostic.GetMessage(),
@@ -1059,7 +1068,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { generatedPath });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal("HTMXOR004", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(componentPath, diagnostic.Location.GetMappedLineSpan().Path);
 	}
 
@@ -1187,8 +1197,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	}
 
 	/// <summary>
-	/// Issue #285 acceptance criterion: "the two 'project-root' messages are gone." Both
-	/// HTMXOR001 and HTMXOR002 still fail closed on a mismatch (proven above and in
+	/// Issue #285 acceptance criterion: "the two 'project-root' messages are gone." The route
+	/// and action diagnostics still fail closed on a mismatch (proven above and in
 	/// <see cref="Same_named_Razor_binding_cannot_attach_to_all_CSharp_component"/>); neither may
 	/// explain that failure by naming "project-root" as the eligibility rule.
 	/// </summary>
@@ -1284,8 +1294,16 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { componentPath, importsPath });
 
 		var diagnostic = Assert.Single(diagnostics);
+		Assert.Equal("HTMXOR004", diagnostic.Id);
+		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("HtmxRoute declarations from _Imports.razor are not supported", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Equal(importsPath, diagnostic.Location.GetMappedLineSpan().Path);
+		const string authoredAttribute = "global::Htmxor.HtmxRouteAttribute(\"/items/{Id:int}\")";
+		Assert.Equal(new TextSpan(source.IndexOf(authoredAttribute, StringComparison.Ordinal), authoredAttribute.Length), diagnostic.Location.SourceSpan);
+		var message = diagnostic.GetMessage();
+		Assert.True(message.Contains("move HtmxRoute onto the route-owning component", StringComparison.Ordinal), message);
 	}
 
 	[Fact]
@@ -1593,7 +1611,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR014", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("owns no route", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 		Assert.Equal(
@@ -1629,15 +1648,12 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR039", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("without a local @page cannot use a compiled stock route", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
 
-	/// <summary>
-	/// A component with two <c>@page</c> directives and a binding must fail the build through
-	/// HTMXOR002, never silently drop the binding (#306).
-	/// </summary>
 	[Fact]
 	public async Task Binding_in_a_component_with_two_page_directives_fails_closed_for_an_action()
 	{
@@ -1665,7 +1681,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR038", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains(
 			"exactly one stock route and no HtmxRoute",
 			diagnostic.GetMessage(),
@@ -1723,7 +1740,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR013", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		// A static method gets its own "static" cause (#308), not the generic
 		// instance-method message shared by every other unsupported handler.
 		HtmxorActionHandlerShapeAnalyzerTests.AssertHandlerCauseSpecificMessage(diagnostic, "static");
@@ -1760,9 +1778,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
-		// A static delegate field is a non-method member, the same "not a method" cause (#308) as
-		// an EventCallback field or an Action property, regardless of it also being static.
+		Assert.Equal("HTMXOR041", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		HtmxorActionHandlerShapeAnalyzerTests.AssertHandlerCauseSpecificMessage(diagnostic, "not a method");
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
@@ -1802,7 +1819,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		// No member named DeleteReport exists anywhere on the component's own type hierarchy. Real
 		// Razor still binds the call: a real Htmxor.TestApp probe at this HEAD confirms C# simple-name
 		// lookup finds the `global using static` import's public DeleteReport and compiles cleanly.
@@ -1861,7 +1879,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		// The private base member cannot rescue this binding by itself, but it does not need to:
 		// C# simple-name lookup skips the inaccessible private base DeleteReport and continues to the
 		// `global using static` import's public DeleteReport, which real Razor binds instead (a real
@@ -1937,15 +1956,17 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR033", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("explicit HtmxRoute.Methods is authoritative", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.Contains("add the method or remove the binding", diagnostic.GetMessage(), StringComparison.Ordinal);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 	}
 
 	/// <summary>
 	/// Two agreeing bindings outside an explicit <c>HtmxRoute.Methods</c> allow-list each fail with
-	/// the explicit-Methods HTMXOR002 at their own span (#309 test-contract remediation,
+	/// the explicit-Methods HTMXOR033 at their own span (#309 test-contract remediation,
 	/// LR-4628ce4-P002): the multiplicity collapse this slice adds never widens what an explicit
 	/// <c>Methods</c> list already excludes, so agreement between the two bindings' handler names
 	/// does not let either one through. The real <see cref="HtmxorActionDeclarationAnalyzer"/> runs
@@ -1983,7 +2004,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		foreach (var span in new[] { firstSpan, secondSpan })
 		{
 			var diagnostic = bySpan[span];
-			Assert.Equal("HTMXOR002", diagnostic.Id);
+			Assert.Equal("HTMXOR033", diagnostic.Id);
+			Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 			Assert.Contains("explicit HtmxRoute.Methods is authoritative", diagnostic.GetMessage(), StringComparison.Ordinal);
 			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
 			Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
@@ -2116,7 +2138,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 		// Exactly one diagnostic total: A fails closed and B is fully accepted, not just A.
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR037", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains(
 			"the action owner must compile from the matching Razor component",
 			diagnostic.GetMessage(),
@@ -2130,8 +2153,6 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	[Fact]
 	public async Task Inferred_binding_on_a_DisableHtmxDirectRouting_marked_component_is_a_build_error()
 	{
-		// #172 point 5.4: any action on a marked component is a build error, reported through the
-		// existing HTMXOR002 with a cause-specific message, at the binding's own location.
 		var componentPath = ComponentPath("ReportComponent.razor");
 		var source = $$"""
 			namespace {{RootNamespace}}
@@ -2154,12 +2175,13 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal("HTMXOR034", diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-		Assert.Equal(
-			"Unsupported component action declaration: " +
+		Assert.Contains(
 			"an inferred binding on a component marked with DisableHtmxDirectRouting is not supported",
-			diagnostic.GetMessage());
+			diagnostic.GetMessage(),
+			StringComparison.Ordinal);
 		Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 		Assert.Equal(
 			new TextSpan(razorContent.IndexOf("@onput", StringComparison.Ordinal), "@onput".Length),
@@ -2169,7 +2191,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 
 	/// <summary>
 	/// Two agreeing bindings on a <c>DisableHtmxDirectRouting</c>-marked component each fail with
-	/// that HTMXOR002 at their own span (#309 test-contract remediation, LR-4628ce4-P002): #172
+	/// HTMXOR034 at their own span (#309 test-contract remediation, LR-4628ce4-P002): #172
 	/// point 5.4's "any action on a marked component is a build error" still applies to every
 	/// agreeing occurrence, not just the first.
 	/// </summary>
@@ -2205,12 +2227,13 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 		foreach (var span in new[] { firstSpan, secondSpan })
 		{
 			var diagnostic = bySpan[span];
-			Assert.Equal("HTMXOR002", diagnostic.Id);
+			Assert.Equal("HTMXOR034", diagnostic.Id);
+			Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 			Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-			Assert.Equal(
-				"Unsupported component action declaration: " +
+			Assert.Contains(
 				"an inferred binding on a component marked with DisableHtmxDirectRouting is not supported",
-				diagnostic.GetMessage());
+				diagnostic.GetMessage(),
+				StringComparison.Ordinal);
 			Assert.Equal(componentPath, diagnostic.Location.GetLineSpan().Path);
 			Assert.Equal(new TextSpan(span, "@onput".Length), diagnostic.Location.SourceSpan);
 			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
@@ -2305,7 +2328,7 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 	/// only place that can surface RZ9988's reason for an <c>HtmxRoute</c> declaration.
 	/// </summary>
 	[Fact]
-	public async Task Missing_leading_slash_reports_HTMXOR001_with_the_RZ9988_reason()
+	public async Task Missing_leading_slash_reports_HTMXOR005_with_the_RZ9988_reason()
 	{
 		const string template = "items/{Id}";
 		const string stockReason =
@@ -2323,7 +2346,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { componentPath });
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal("HTMXOR001", diagnostic.Id);
+		Assert.Equal("HTMXOR005", diagnostic.Id);
+		Assert.Contains("HTMX-only route is not available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Contains(stockReason, diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 

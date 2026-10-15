@@ -1275,7 +1275,7 @@ public sealed class HtmxorActionGeneratorTests
 		var run = RunGenerators(input);
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal), expectedId: "HTMXOR009");
 		AssertCauseSpecificMessage(diagnostic, "method call");
 		AssertNoActionSource(run);
 	}
@@ -1298,7 +1298,7 @@ public sealed class HtmxorActionGeneratorTests
 		var run = RunGenerators(input);
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal), expectedId: "HTMXOR010");
 		AssertCauseSpecificMessage(diagnostic, "computed expression");
 		AssertNoActionSource(run);
 	}
@@ -1320,8 +1320,9 @@ public sealed class HtmxorActionGeneratorTests
 		var run = RunGenerators(input);
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onget", StringComparison.Ordinal));
-		Assert.Contains("GET is implicit", diagnostic.GetMessage(), StringComparison.Ordinal);
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onget", StringComparison.Ordinal), expectedId: "HTMXOR015");
+		Assert.Contains("GET is implicit, so remove the binding", diagnostic.GetMessage(), StringComparison.Ordinal);
+		Assert.DoesNotContain("HtmxAction(\"GET\")", diagnostic.GetMessage(), StringComparison.Ordinal);
 		AssertNoActionSource(run);
 		Assert.Contains("HtmxAction", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
@@ -1345,7 +1346,7 @@ public sealed class HtmxorActionGeneratorTests
 		var run = RunGenerators(input);
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal), expectedId: "HTMXOR010");
 		AssertCauseSpecificMessage(diagnostic, "computed expression");
 		AssertNoActionSource(run);
 	}
@@ -1370,7 +1371,7 @@ public sealed class HtmxorActionGeneratorTests
 		var run = RunGenerators(input);
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal), expectedId: "HTMXOR010");
 		AssertCauseSpecificMessage(diagnostic, "computed expression");
 		AssertNoActionSource(run);
 	}
@@ -1396,7 +1397,7 @@ public sealed class HtmxorActionGeneratorTests
 		var run = RunGenerators(input);
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal), expectedId: "HTMXOR010");
 		AssertCauseSpecificMessage(diagnostic, "computed expression");
 		AssertNoActionSource(run);
 	}
@@ -1420,7 +1421,7 @@ public sealed class HtmxorActionGeneratorTests
 		var run = RunGenerators(input);
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal), expectedId: "HTMXOR009");
 		AssertCauseSpecificMessage(diagnostic, "method call");
 		AssertNoActionSource(run);
 	}
@@ -1587,7 +1588,7 @@ public sealed class HtmxorActionGeneratorTests
 
 	/// <summary>
 	/// Different handlers bound to one method fail the build: each conflicting binding gets its own
-	/// HTMXOR002 at its own span, with a message that names both competing handlers, and no action is
+	/// HTMXOR031 at its own span, with a message that names both competing handlers, and no action is
 	/// generated for that method (#309). This replaces the removed "at most one" rule, which rejected
 	/// every multiplicity identically whether or not the bindings agreed.
 	/// </summary>
@@ -1711,7 +1712,7 @@ public sealed class HtmxorActionGeneratorTests
 
 	/// <summary>
 	/// Different handlers bound through two attributes on the <em>same</em> element also conflict,
-	/// one HTMXOR002 per attribute occurrence (owner decision, 2026-10-10,
+	/// one HTMXOR031 per attribute occurrence (owner decision, 2026-10-10,
 	/// https://github.com/egil/Htmxor/issues/309#issuecomment-6095771915). Razor reports nothing
 	/// here: it binds only the first occurrence's handler and emits the second as an inert literal
 	/// <c>@onput</c> string attribute, so Razor has not decided the case. Htmxor's raw-markup scanner
@@ -1923,7 +1924,7 @@ public sealed class HtmxorActionGeneratorTests
 	/// (https://github.com/egil/Htmxor/issues/306#issuecomment-6021458497): a binding inside a
 	/// Razor template (<c>@&lt;tag&gt;</c>), whether the template sits in <c>@code</c> or in a
 	/// markup <c>@{ }</c> block, or inside markup rendered by an <c>@code</c> helper method, must
-	/// fail the build with HTMXOR002 at its own span and never generate an action.
+	/// fail the build with HTMXOR036 at its own span and never generate an action.
 	/// </summary>
 	public static IEnumerable<object[]> TemplateOrCodeMarkupBindingCases() =>
 		new (string Scenario, string Content)[]
@@ -1975,12 +1976,13 @@ public sealed class HtmxorActionGeneratorTests
 		var run = RunGenerators(input);
 
 		var diagnostic = Assert.Single(run.RunResult.Diagnostics);
-		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal));
-		Assert.EndsWith(
+		AssertUnsupportedDiagnostic(diagnostic, input, content.IndexOf("@onput", StringComparison.Ordinal), expectedId: "HTMXOR036");
+		Assert.Contains(
 			"@onput in a Razor template or @code markup is not supported; " +
 			"put the binding in the component's own markup",
 			diagnostic.GetMessage(),
 			StringComparison.Ordinal);
+		Assert.Contains("declare [HtmxAction]", diagnostic.GetMessage(), StringComparison.Ordinal);
 		AssertNoActionSource(run);
 	}
 
@@ -2716,9 +2718,11 @@ public sealed class HtmxorActionGeneratorTests
 		Diagnostic diagnostic,
 		RazorInput input,
 		int expectedStart,
-		string attributeName = "@onput")
+		string attributeName = "@onput",
+		string expectedId = "HTMXOR006")
 	{
-		Assert.Equal("HTMXOR002", diagnostic.Id);
+		Assert.Equal(expectedId, diagnostic.Id);
+		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Equal(LocationKind.ExternalFile, diagnostic.Location.Kind);
 		Assert.Equal(input.FullPath, diagnostic.Location.GetLineSpan().Path);
@@ -2752,7 +2756,7 @@ public sealed class HtmxorActionGeneratorTests
 
 	/// <summary>
 	/// Shared assertion for the #309 conflict diagnostic: the ID, severity, non-configurable tag and
-	/// span every HTMXOR002 already carries (<see cref="AssertUnsupportedDiagnostic"/>), plus the
+	/// span each action diagnostic carries (<see cref="AssertUnsupportedDiagnostic"/>), plus the
 	/// owner-decided exact message (2026-10-10,
 	/// https://github.com/egil/Htmxor/issues/309#issuecomment-6095771915) for the given binding
 	/// attribute and the exact, literal expected handler list - for example
@@ -2769,7 +2773,7 @@ public sealed class HtmxorActionGeneratorTests
 		string attributeName,
 		string expectedHandlerList)
 	{
-		AssertUnsupportedDiagnostic(diagnostic, input, expectedStart, attributeName);
+		AssertUnsupportedDiagnostic(diagnostic, input, expectedStart, attributeName, expectedId: "HTMXOR031");
 		var message = diagnostic.GetMessage();
 		Assert.DoesNotContain("at most one", message, StringComparison.Ordinal);
 		Assert.EndsWith(
@@ -2786,7 +2790,7 @@ public sealed class HtmxorActionGeneratorTests
 	/// <summary>
 	/// The protected behavior for incomplete, mid-edit Razor text is that the generator does not
 	/// throw (CS8785), not that it reports no diagnostics at all: a recognized-but-unsupported
-	/// binding still correctly reports its own HTMXOR002, truncated or not.
+	/// binding still reports its cause-specific action diagnostic, truncated or not.
 	/// </summary>
 	private static void AssertNoGeneratorException(GeneratorRun run)
 		=> Assert.DoesNotContain(run.DriverDiagnostics, static diagnostic => diagnostic.Id == "CS8785");
