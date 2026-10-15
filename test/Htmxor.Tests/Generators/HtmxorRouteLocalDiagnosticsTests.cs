@@ -143,6 +143,20 @@ public sealed partial class HtmxorRouteDeclarationAnalyzerTests
 		AssertRouteReasons(diagnostics, "HTMXOR005", "HtmxRoute must resolve one nonblank constant route template", MethodsReason);
 	}
 
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task Nested_CSharp_route_reports_missing_methods_alongside_its_origin_fault(bool local)
+	{
+		const string source = "public class Outer { [global::Htmxor.HtmxRoute(\"/items\")] public sealed class Item : global::Microsoft.AspNetCore.Components.ComponentBase; }";
+
+		var diagnostics = await AnalyzeRouteSourceAsync(source, local);
+
+		Assert.Equal(new[] { "HTMXOR004", "HTMXOR005" }, diagnostics.Select(diagnostic => diagnostic.Id).Order(StringComparer.Ordinal));
+		Assert.Contains(diagnostics, diagnostic => diagnostic.GetMessage() == "HTMX-only route is not available: the HtmxRoute component must be a top-level class");
+		Assert.Contains(diagnostics, diagnostic => diagnostic.GetMessage() == "HTMX-only route is not available: a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods");
+	}
+
 	private static void AssertRouteReasons(ImmutableArray<Diagnostic> diagnostics, string id, params string[] reasons)
 	{
 		Assert.Equal(reasons.Order(StringComparer.Ordinal), diagnostics.Select(diagnostic => diagnostic.GetMessage().Split(": ", 2)[1]).Order(StringComparer.Ordinal));
