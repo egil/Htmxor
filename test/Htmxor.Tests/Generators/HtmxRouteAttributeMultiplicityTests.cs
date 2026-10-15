@@ -13,8 +13,10 @@ namespace Htmxor.Generators.Tests;
 /// </summary>
 public sealed class HtmxRouteAttributeMultiplicityTests
 {
-	[Fact]
-	public async Task Second_HtmxRoute_attribute_is_compiler_error_CS0579_with_no_added_diagnostic()
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task Second_HtmxRoute_attribute_is_compiler_error_CS0579_with_no_added_diagnostic(bool local)
 	{
 		const string source = """
 			namespace Htmxor.Consumer;
@@ -33,11 +35,13 @@ public sealed class HtmxRouteAttributeMultiplicityTests
 		var cs0579 = compilerDiagnostics.Where(static d => d.Id == "CS0579").ToImmutableArray();
 
 		var analyzerOptions = new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty);
-		var analyzerDiagnostics = await compilation
+		var driver = compilation
 			.WithAnalyzers(
 				ImmutableArray.Create<DiagnosticAnalyzer>(new HtmxorRouteDeclarationAnalyzer()),
-				analyzerOptions)
-			.GetAnalyzerDiagnosticsAsync();
+				analyzerOptions);
+		var analyzerDiagnostics = local
+			? await driver.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(compilation.SyntaxTrees.Single()), null, CancellationToken.None)
+			: await driver.GetAnalyzerDiagnosticsAsync();
 
 		Assert.True(
 			cs0579.Length == 1,

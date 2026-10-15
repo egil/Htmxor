@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Htmxor.Generators.Tests;
 
-public sealed class HtmxorRouteDeclarationAnalyzerTests
+public sealed partial class HtmxorRouteDeclarationAnalyzerTests
 {
 	private const string RootNamespace = "Htmxor.Consumer";
 	private static readonly string ProjectDirectory = Path.GetFullPath(
@@ -1547,7 +1547,8 @@ public sealed class HtmxorRouteDeclarationAnalyzerTests
 			new[] { source },
 			new[] { componentPath });
 
-		var diagnostic = Assert.Single(diagnostics);
+		AssertRouteReasons(diagnostics, "HTMXOR003", MarkerCombinationReason, MarkerRouteReason);
+		var diagnostic = Assert.Single(diagnostics.Where(diagnostic => diagnostic.GetMessage().Contains(MarkerCombinationReason, StringComparison.Ordinal)));
 		Assert.Equal("HTMXOR003", diagnostic.Id);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Equal(

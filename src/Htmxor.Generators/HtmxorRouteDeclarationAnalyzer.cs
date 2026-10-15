@@ -16,62 +16,80 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 		"Htmxor.Generators",
 		DiagnosticSeverity.Error,
 		isEnabledByDefault: true,
-		customTags: new[]
-		{
-			WellKnownDiagnosticTags.NotConfigurable,
-			WellKnownDiagnosticTags.CompilationEnd,
-		});
+		customTags: new[] { WellKnownDiagnosticTags.NotConfigurable });
 
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
-		HtmxorDiagnosticRules.RouteDiagnostics.Add(UnsupportedNormalOnlyDeclaration);
+		HtmxorDiagnosticRules.RouteDiagnostics.Add(UnsupportedNormalOnlyDeclaration).Add(HtmxorDiagnosticRules.ManifestOrigin);
 
 	public override void Initialize(AnalysisContext context)
 	{
 		context.ConfigureGeneratedCodeAnalysis(
 			GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.ReportDiagnostics);
 		context.EnableConcurrentExecution();
-		context.RegisterCompilationAction(AnalyzeCompilation);
+		context.RegisterCompilationStartAction(static start =>
+		{
+			var symbols = HtmxorRouteSymbols.Resolve(start.Compilation);
+			if (symbols is null)
+			{
+				return;
+			}
+
+			start.RegisterSymbolAction(context => AnalyzeSymbol(context, symbols), SymbolKind.NamedType);
+			start.RegisterCompilationEndAction(context => AnalyzeManifest(context, symbols));
+		});
 	}
 
-	private static void AnalyzeCompilation(CompilationAnalysisContext context)
+	private static void AnalyzeSymbol(SymbolAnalysisContext context, HtmxorRouteSymbols symbols)
 	{
-		var symbols = HtmxorRouteSymbols.Resolve(context.Compilation);
-		if (symbols is null)
+		context.CancellationToken.ThrowIfCancellationRequested();
+		var type = (INamedTypeSymbol)context.Symbol;
+		var component = HtmxorRoutedComponent.Find(type, symbols);
+		if (component is not null)
 		{
-			return;
-		}
-
-		var manifest = GetRazorManifest(context);
-		var components = HtmxorRoutedComponent.FindAll(context.Compilation.Assembly, symbols);
-
-		foreach (var component in components)
-		{
-			var issue = component.GetUnsupportedIssue(
-				symbols,
-				manifest,
-				context.CancellationToken);
-			if (issue is { } diagnosed)
+			foreach (var issue in component.GetLocalIssues(symbols, context.CancellationToken))
 			{
-				context.ReportDiagnostic(diagnosed.ToDiagnostic(component.GetLocation(context.CancellationToken)));
+				context.ReportDiagnostic(issue.ToDiagnostic(component.GetLocation(context.CancellationToken)));
 			}
 		}
 
+		AnalyzeNormalOnly(context, type, symbols);
+	}
+
+	private static void AnalyzeNormalOnly(
+		SymbolAnalysisContext context,
+		INamedTypeSymbol type,
+		HtmxorRouteSymbols symbols)
+	{
 		if (symbols.DisableHtmxDirectRouting is null)
 		{
 			return;
 		}
 
-		foreach (var declaration in HtmxorNormalOnlyDeclaration.FindAll(
-			context.Compilation.Assembly,
-			symbols.DisableHtmxDirectRouting))
+		foreach (var declaration in HtmxorNormalOnlyDeclaration.Find(type, symbols.DisableHtmxDirectRouting))
 		{
-			var reason = declaration.GetUnsupportedReason(symbols, context.CancellationToken);
-			if (reason is not null)
+			foreach (var reason in declaration.GetUnsupportedReasons(symbols, context.CancellationToken))
 			{
 				context.ReportDiagnostic(Diagnostic.Create(
 					UnsupportedNormalOnlyDeclaration,
 					declaration.GetLocation(context.CancellationToken),
 					reason));
+			}
+		}
+	}
+
+	private static void AnalyzeManifest(CompilationAnalysisContext context, HtmxorRouteSymbols symbols)
+	{
+		var manifest = GetRazorManifest(context);
+		foreach (var type in HtmxorRoutedComponent.GetTypes(context.Compilation.Assembly.GlobalNamespace))
+		{
+			context.CancellationToken.ThrowIfCancellationRequested();
+			var component = HtmxorRoutedComponent.Find(type, symbols);
+			if (component?.GetManifestIssue(manifest) is { } issue)
+			{
+				context.ReportDiagnostic(Diagnostic.Create(
+					HtmxorDiagnosticRules.ManifestOrigin,
+					component.GetLocation(context.CancellationToken),
+					issue.Reason));
 			}
 		}
 	}

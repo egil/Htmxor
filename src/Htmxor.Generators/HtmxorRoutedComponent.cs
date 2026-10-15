@@ -23,64 +23,83 @@ internal sealed class HtmxorRoutedComponent
 	// HtmxRouteAttribute disallows multiple use, so the C# compiler reports a second one as CS0579.
 	private AttributeData Route { get; }
 
-	public static ImmutableArray<HtmxorRoutedComponent> FindAll(
-		IAssemblySymbol assembly,
-		HtmxorRouteSymbols symbols)
-		=> GetTypes(assembly.GlobalNamespace)
-			.Select(type => (Type: type, Route: GetExactAttributes(type, symbols.HtmxRoute).FirstOrDefault()))
-			.Where(static candidate => candidate.Route is not null)
-			.Select(static candidate => new HtmxorRoutedComponent(candidate.Type, candidate.Route!))
-			.OrderBy(static component => component.GetMetadataName(), StringComparer.Ordinal)
-			.ToImmutableArray();
+	public static HtmxorRoutedComponent? Find(INamedTypeSymbol type, HtmxorRouteSymbols symbols)
+	{
+		var route = GetExactAttributes(type, symbols.HtmxRoute).FirstOrDefault();
+		return route is null ? null : new HtmxorRoutedComponent(type, route);
+	}
 
-	public HtmxorDiagnosticIssue? GetUnsupportedIssue(
+	public IEnumerable<HtmxorDiagnosticIssue> GetLocalIssues(
 		HtmxorRouteSymbols symbols,
-		ILookup<string, string?> razorManifest,
 		CancellationToken cancellationToken)
-		=> ValidateManifest(razorManifest) ??
-			ToIssue(HtmxorDiagnosticCause.RouteTargetOrOrigin, ValidateComponent(symbols)) ??
-			ToIssue(HtmxorDiagnosticCause.MalformedRouteMember, ValidateRoute()) ??
-			ToIssue(HtmxorDiagnosticCause.RouteTargetOrOrigin, ValidateRouteOrigin(cancellationToken)) ??
-			ToIssue(HtmxorDiagnosticCause.RouteTargetOrOrigin, ValidateNormalRoute(symbols));
+	{
+		foreach (var reason in GetLocalOriginReasons(cancellationToken))
+		{
+			yield return new(HtmxorDiagnosticCause.RouteTargetOrOrigin, reason);
+		}
 
-	private static HtmxorDiagnosticIssue? ToIssue(HtmxorDiagnosticCause cause, string? reason)
-		=> reason is null ? null : new HtmxorDiagnosticIssue(cause, reason);
+		var componentReason = ValidateComponent(symbols);
+		if (componentReason is not null)
+		{
+			yield return new(HtmxorDiagnosticCause.RouteTargetOrOrigin, componentReason);
+		}
+
+		foreach (var reason in GetRouteReasons())
+		{
+			yield return new(HtmxorDiagnosticCause.MalformedRouteMember, reason);
+		}
+
+		var normalRouteReason = ValidateNormalRoute(symbols);
+		if (normalRouteReason is not null)
+		{
+			yield return new(HtmxorDiagnosticCause.RouteTargetOrOrigin, normalRouteReason);
+		}
+	}
 
 	public Location GetLocation(CancellationToken cancellationToken)
 		=> Route.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation() ??
 			Type.Locations.FirstOrDefault() ??
 			Location.None;
 
-	private HtmxorDiagnosticIssue? ValidateManifest(ILookup<string, string?> razorManifest)
-	{
-		if (Route.ApplicationSyntaxReference is { } reference &&
-			HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath))
-		{
-			return HtmxorRouteManifest.HasCompiledRazorDeclaration(Type, razorManifest[GetMetadataName()])
-				? null
-				: new(HtmxorDiagnosticCause.RouteTargetOrOrigin,
+	public HtmxorDiagnosticIssue? GetManifestIssue(ILookup<string, string?> razorManifest)
+		=> Type.ContainingType is null &&
+			Route.ApplicationSyntaxReference is { } reference &&
+			HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath) &&
+			!HtmxorRouteManifest.HasCompiledRazorDeclaration(Type, razorManifest[GetMetadataName()])
+				? new(HtmxorDiagnosticCause.RouteTargetOrOrigin,
 					"the HtmxRoute component must compile from the matching Razor component; " +
-					"its type name is derived from the file's folder and @namespace");
-		}
+					"its type name is derived from the file's folder and @namespace")
+				: null;
 
-		var csharpComponent = GetCSharpComponent();
-		if (csharpComponent is null)
+	private IEnumerable<string> GetLocalOriginReasons(CancellationToken cancellationToken)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		if (Type.ContainingType is not null)
 		{
-			return new(HtmxorDiagnosticCause.RouteTargetOrOrigin,
-				"the HtmxRoute component must be a top-level class");
+			yield return "the HtmxRoute component must be a top-level class";
 		}
-
-		var csharpRouteOriginReason = ValidateCSharpRouteOrigin(csharpComponent);
-		if (csharpRouteOriginReason is not null)
+		else if (!IsRazorRoute())
 		{
-			return new(HtmxorDiagnosticCause.RouteTargetOrOrigin, csharpRouteOriginReason);
+			var csharpComponent = GetCSharpComponent();
+			if (csharpComponent is null)
+			{
+				yield return "the HtmxRoute component must be a top-level class";
+			}
+			else if (ValidateCSharpRouteOrigin(csharpComponent) is { } reason)
+			{
+				yield return reason;
+			}
 		}
 
-		return !csharpComponent.HasExplicitMethods
-			? new(HtmxorDiagnosticCause.MalformedRouteMember,
-				"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods")
-			: null;
+		if (ValidateRouteOrigin(cancellationToken) is { } originReason)
+		{
+			yield return originReason;
+		}
 	}
+
+	private bool IsRazorRoute()
+		=> Route.ApplicationSyntaxReference is { } reference &&
+			HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath);
 
 	private CSharpRoutedComponent? GetCSharpComponent()
 	{
@@ -128,8 +147,34 @@ internal sealed class HtmxorRoutedComponent
 			: "the HtmxRoute target must be a concrete, non-generic Blazor component";
 	}
 
-	private string? ValidateRoute()
-		=> ValidateTemplate(Route) ?? ValidateRouteNamedArguments(Route);
+	private IEnumerable<string> GetRouteReasons()
+	{
+		if (!IsRazorRoute() && !Route.NamedArguments.Any(static argument =>
+			string.Equals(argument.Key, "Methods", StringComparison.Ordinal)))
+		{
+			yield return "a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods";
+		}
+
+		if (Route.ConstructorArguments.Length == 1 &&
+			!HasBindingError(Route.ConstructorArguments[0]) &&
+			ValidateTemplate(Route) is { } templateReason)
+		{
+			yield return templateReason;
+		}
+
+		foreach (var argument in Route.NamedArguments)
+		{
+			// Binding failures belong to the compiler; unrelated bound members remain independently diagnosable.
+			if (!HasBindingError(argument.Value) && ValidateRouteNamedArgument(argument) is { } reason)
+			{
+				yield return reason;
+			}
+		}
+	}
+
+	private static bool HasBindingError(TypedConstant value)
+		=> value.Kind == TypedConstantKind.Error ||
+			(value.Kind == TypedConstantKind.Array && !value.IsNull && value.Values.Any(HasBindingError));
 
 	private static string? ValidateTemplate(AttributeData route)
 	{
@@ -144,30 +189,6 @@ internal sealed class HtmxorRoutedComponent
 		return HtmxorRouteTemplateContract.HasLeadingSlash(template)
 			? null
 			: "HtmxRoute template '" + template + "' is invalid: " + HtmxorRouteTemplateContract.MissingLeadingSlashReason;
-	}
-
-	private static string? ValidateRouteNamedArguments(AttributeData route)
-	{
-		var unsupportedArgument = route.NamedArguments
-			.Select(static argument => argument.Key)
-			.Where(static name => !IsSupportedRouteNamedArgument(name))
-			.OrderBy(static name => name, StringComparer.Ordinal)
-			.FirstOrDefault();
-		if (unsupportedArgument is not null)
-		{
-			return "HtmxRoute named argument '" + unsupportedArgument + "' is not supported";
-		}
-
-		foreach (var argument in route.NamedArguments)
-		{
-			var reason = ValidateRouteNamedArgument(argument);
-			if (reason is not null)
-			{
-				return reason;
-			}
-		}
-
-		return null;
 	}
 
 	private static string? ValidateRouteNamedArgument(KeyValuePair<string, TypedConstant> argument)
@@ -189,12 +210,6 @@ internal sealed class HtmxorRoutedComponent
 				: "HtmxRoute named argument 'Targets' must resolve to a constant array of valid element identities",
 			_ => "HtmxRoute named argument '" + argument.Key + "' is not supported",
 		};
-
-	private static bool IsSupportedRouteNamedArgument(string name)
-		=> string.Equals(name, "Methods", StringComparison.Ordinal) ||
-			string.Equals(name, "CurrentUrl", StringComparison.Ordinal) ||
-			string.Equals(name, "Target", StringComparison.Ordinal) ||
-			string.Equals(name, "Targets", StringComparison.Ordinal);
 
 	private string? ValidateRouteOrigin(CancellationToken cancellationToken)
 	{

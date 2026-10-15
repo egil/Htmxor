@@ -19,33 +19,33 @@ internal sealed class HtmxorNormalOnlyDeclaration
 
 	private AttributeData Marker { get; }
 
-	public static IEnumerable<HtmxorNormalOnlyDeclaration> FindAll(
-		IAssemblySymbol assembly,
+	public static IEnumerable<HtmxorNormalOnlyDeclaration> Find(
+		INamedTypeSymbol type,
 		INamedTypeSymbol marker)
-		=> HtmxorRoutedComponent.GetTypes(assembly.GlobalNamespace)
-			.SelectMany(type => type.GetAttributes()
-				.Where(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, marker))
-				.Select(attribute => new HtmxorNormalOnlyDeclaration(type, attribute)));
+		=> type.GetAttributes()
+			.Where(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, marker))
+			.Select(attribute => new HtmxorNormalOnlyDeclaration(type, attribute));
 
-	public string? GetUnsupportedReason(HtmxorRouteSymbols symbols, CancellationToken cancellationToken)
+	public IEnumerable<string> GetUnsupportedReasons(HtmxorRouteSymbols symbols, CancellationToken cancellationToken)
 	{
 		if (RazorImportsFile.Matches(GetLocation(cancellationToken).GetMappedLineSpan().Path))
 		{
-			return "DisableHtmxDirectRouting declarations from _Imports.razor are not supported";
+			yield return "DisableHtmxDirectRouting declarations from _Imports.razor are not supported";
 		}
 
 		if (HasAttribute(symbols.HtmxRoute))
 		{
-			return "DisableHtmxDirectRouting cannot be combined with HtmxRoute on the same type";
+			yield return "DisableHtmxDirectRouting cannot be combined with HtmxRoute on the same type";
 		}
 
-		return Type.IsAbstract ||
+		if (Type.IsAbstract ||
 			symbols.Component is null ||
 			!Type.AllInterfaces.Contains(symbols.Component, SymbolEqualityComparer.Default) ||
 			symbols.Route is null ||
-			!HasAttribute(symbols.Route)
-			? "DisableHtmxDirectRouting requires a local stock @page or Route declaration"
-			: null;
+			!HasAttribute(symbols.Route))
+		{
+			yield return "DisableHtmxDirectRouting requires a local stock @page or Route declaration";
+		}
 	}
 
 	public Location GetLocation(CancellationToken cancellationToken)

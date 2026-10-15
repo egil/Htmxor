@@ -71,12 +71,23 @@ internal static class HtmxorDiagnosticRules
 	private static readonly DiagnosticDescriptor Rule004 = new(
 		"HTMXOR004", "Unsupported HTMX-only route target or origin", "HTMX-only route is not available: {0}",
 		"Htmxor.Generators", DiagnosticSeverity.Error, isEnabledByDefault: true,
+		customTags: new[] { WellKnownDiagnosticTags.NotConfigurable });
+
+	// The same public cause ID includes local origin errors and project-wide Razor manifest mismatches.
+	// Separate descriptors retain the compilation-end scheduling tag only for the latter.
+	public static readonly DiagnosticDescriptor ManifestOrigin = new(
+		"HTMXOR004",
+		"Unsupported HTMX-only route target or origin",
+		"HTMX-only route is not available: {0}",
+		"Htmxor.Generators",
+		DiagnosticSeverity.Error,
+		isEnabledByDefault: true,
 		customTags: new[] { WellKnownDiagnosticTags.NotConfigurable, WellKnownDiagnosticTags.CompilationEnd });
 
 	private static readonly DiagnosticDescriptor Rule005 = new(
 		"HTMXOR005", "Malformed HTMX-only route member or method", "HTMX-only route is not available: {0}",
 		"Htmxor.Generators", DiagnosticSeverity.Error, isEnabledByDefault: true,
-		customTags: new[] { WellKnownDiagnosticTags.NotConfigurable, WellKnownDiagnosticTags.CompilationEnd });
+		customTags: new[] { WellKnownDiagnosticTags.NotConfigurable });
 
 	private static readonly DiagnosticDescriptor Rule006 = new(
 		"HTMXOR006", "Inferred action uses a lambda or closure", "no usable action is available: {0}",

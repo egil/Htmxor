@@ -1,0 +1,2 @@
+@attribute [global::Htmxor.HtmxRoute("/items", Methods = new[] { "GET" })]
+<p>Route owner</p>
