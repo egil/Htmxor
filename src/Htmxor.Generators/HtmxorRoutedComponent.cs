@@ -62,7 +62,8 @@ internal sealed class HtmxorRoutedComponent
 			Location.None;
 
 	public HtmxorDiagnosticIssue? GetManifestIssue(ILookup<string, string?> razorManifest)
-		=> Route.ApplicationSyntaxReference is { } reference &&
+		=> Type.ContainingType is null &&
+			Route.ApplicationSyntaxReference is { } reference &&
 			HtmxorRouteManifest.IsRazorGeneratedPath(reference.SyntaxTree.FilePath) &&
 			!HtmxorRouteManifest.HasCompiledRazorDeclaration(Type, razorManifest[GetMetadataName()])
 				? new(HtmxorDiagnosticCause.RouteTargetOrOrigin,
@@ -73,7 +74,11 @@ internal sealed class HtmxorRoutedComponent
 	private IEnumerable<string> GetLocalOriginReasons(CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		if (!IsRazorRoute())
+		if (Type.ContainingType is not null)
+		{
+			yield return "the HtmxRoute component must be a top-level class";
+		}
+		else if (!IsRazorRoute())
 		{
 			var csharpComponent = GetCSharpComponent();
 			if (csharpComponent is null)

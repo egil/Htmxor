@@ -1,0 +1,6 @@
+@attribute [global::Htmxor.HtmxRoute("/outer", Methods = new[] { "GET" })]
+<p>Outer route owner</p>
+@code {
+    [global::Htmxor.HtmxRoute("/nested", Methods = new[] { "GET" })]
+    public sealed class Nested : global::Microsoft.AspNetCore.Components.ComponentBase;
+}
