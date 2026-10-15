@@ -2,9 +2,9 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|--------------------
-HTMXOR003 | Htmxor.Generators | Error | Unsupported normal-only route declaration
-HTMXOR004 | Htmxor.Generators | Error | Unsupported HTMX-only route target or origin
-HTMXOR005 | Htmxor.Generators | Error | Malformed HTMX-only route member or method
+HTMXOR003 | Htmxor.Generators | Error | Unsupported normal-only route declaration; all independent causes reported during local symbol analysis
+HTMXOR004 | Htmxor.Generators | Error | Unsupported HTMX-only route target or origin; local symbol causes and compilation-end manifest completeness
+HTMXOR005 | Htmxor.Generators | Error | Malformed HTMX-only route member or method; all independent bound-member causes reported during local symbol analysis
 HTMXOR006 | Htmxor.Generators | Error | Inferred action uses a lambda or closure
 HTMXOR007 | Htmxor.Generators | Error | Inferred action uses an EventCallback field
 HTMXOR008 | Htmxor.Generators | Error | Inferred action uses an EventCallback parameter
