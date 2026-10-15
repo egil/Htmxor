@@ -13,8 +13,8 @@
 
 	<PropertyGroup>
 		<TargetFrameworks>net10.0;net11.0</TargetFrameworks>
-		<RuntimeFrameworkVersion Condition="'$(TargetFramework)' == 'net10.0'">10.0.11</RuntimeFrameworkVersion>
-		<RuntimeFrameworkVersion Condition="'$(TargetFramework)' == 'net11.0'">11.0.0-rc.1.26425.128</RuntimeFrameworkVersion>
+		<RuntimeFrameworkVersion Condition="'$(TargetFramework)' == 'net10.0'">10.0.13</RuntimeFrameworkVersion>
+		<RuntimeFrameworkVersion Condition="'$(TargetFramework)' == 'net11.0'">11.0.0-rc.2.26504.105</RuntimeFrameworkVersion>
 		<RollForward>Disable</RollForward>
 		<OutputType>Exe</OutputType>
 		<EnableDefaultRazorComponentItems>false</EnableDefaultRazorComponentItems>

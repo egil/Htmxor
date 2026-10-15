@@ -12,7 +12,7 @@ public sealed class PackedPackageGetTests
 	public async Task One_package_serves_generated_GETs_on_both_framework_toolchains()
 	{
 		using var net10 = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		net10.UseGetScenario("net10.0", "10.0.400", "10.0.11");
+		net10.UseGetScenario("net10.0", "10.0.402", "10.0.13");
 		var net10Failure = await ObserveConsumerAsync(net10, "net10.0");
 		using var package = ZipFile.OpenRead(net10.PackagePath);
 		Assert.Contains(package.Entries, entry => entry.FullName == "lib/net10.0/Htmxor.dll");
@@ -20,7 +20,7 @@ public sealed class PackedPackageGetTests
 		Assert.Contains(package.Entries, entry => entry.FullName == "analyzers/dotnet/cs/Htmxor.Generators.dll");
 
 		using var net11 = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		net11.UseGetScenario("net11.0", "11.0.100-rc.1.26425.128", "11.0.0-rc.1.26425.128");
+		net11.UseGetScenario("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105");
 		net11.UseSharedPackage(net10);
 		var net11Failure = await ObserveConsumerAsync(net11, "net11.0");
 		Assert.True(net10Failure.Length + net11Failure.Length == 0, net10Failure + net11Failure);

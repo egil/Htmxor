@@ -43,14 +43,18 @@ public sealed class BehaviourDependencyTests
 	[Theory]
 	[InlineData(10)]
 	[InlineData(11)]
-	public void Route_registration_sources_declare_the_three_behaviour_dependencies(int major)
+	public void Route_registration_sources_declare_framework_specific_behaviour_dependencies(int major)
 	{
 		var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
 
 		var discovered = LocalFrameworkDependencyDiscovery.Discover(root, Framework(major))
 			.Where(dependency => dependency.LocalPath is Builder or PageAssembly);
 
-		Assert.Equal(dependencies.Select(dependency => $"{dependency.Local}|{dependency.Upstream}|DependsOnBehaviour").Order(StringComparer.Ordinal),
+		var expected = major == 11
+			? dependencies.Append((Upstream: "src/DefaultBuilder/src/Internal/DefaultCsrfProtection.cs", Local: Builder))
+			: dependencies;
+
+		Assert.Equal(expected.Select(dependency => $"{dependency.Local}|{dependency.Upstream}|DependsOnBehaviour").Order(StringComparer.Ordinal),
 			discovered.Select(dependency => $"{dependency.LocalPath}|{dependency.UpstreamPath}|{dependency.Relationship}").Order(StringComparer.Ordinal));
 	}
 

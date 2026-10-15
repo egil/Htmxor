@@ -14,16 +14,17 @@ public sealed class WatchFrameworkScopeTests
 	private const string ComponentPath = "src/Components/Components/src/ComponentBase.cs";
 	private const string NavigationManagerPath = "src/Components/Components/src/NavigationManager.cs";
 
-	// The twelve upstream dependencies the issue identifies as serving a single framework's
-	// local dependency, with the framework each is expected to declare. One upstream path
+	// Dependencies serving a single framework declare that framework, including NET11's
+	// credential-aware CSRF default. One upstream path
 	// (TempDataProviderServiceCollectionExtensions.cs) resolves to two watches under
-	// different relationships, so this theory carries thirteen cases. The
+	// different relationships. The
 	// WebAssemblySettingsEmitter.cs row pins manifest text only: that file is discovered as a
 	// local dependency for neither configured framework, so scoping `Covered` cannot exercise
 	// it at this branch's seam; it is annotated because the issue's upstream-tree scan requires
 	// it, not because this suite observes its coverage.
 	public static TheoryData<string, string, string> FrameworkScopedWatches => new()
 	{
+		{ "src/DefaultBuilder/src/Internal/DefaultCsrfProtection.cs", "DependsOnBehaviour", "net11.0" },
 		{ "src/Components/Endpoints/src/CacheView/CacheView.cs", "PrivateAccesses", "net11.0" },
 		{ "src/Components/Endpoints/src/CacheView/CacheViewRenderState.cs", "PrivateAccesses", "net11.0" },
 		{ "src/Components/Endpoints/src/CacheView/CacheViewService.cs", "PrivateAccesses", "net11.0" },
@@ -65,9 +66,9 @@ public sealed class WatchFrameworkScopeTests
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
-			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.11",
+			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.13",
 			      "reviewed": { "tag": "v10.0.11", "commit": "{{Fixture.ReviewedCommit}}" } },
-			    { "targetFramework": "net11.0", "majorVersion": 11, "allowsPrerelease": true, "referencePackVersion": "11.0.0-rc.1.26425.128",
+			    { "targetFramework": "net11.0", "majorVersion": 11, "allowsPrerelease": true, "referencePackVersion": "11.0.0-rc.2.26504.105",
 			      "reviewed": { "tag": "{{Fixture.Net11ReviewedTag}}", "commit": "{{Fixture.Net11ReviewedCommit}}" } }
 			  ],
 			  "watches": [{
@@ -99,7 +100,7 @@ public sealed class WatchFrameworkScopeTests
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
-			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.11",
+			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.13",
 			      "reviewed": { "tag": "v10.0.11", "commit": "{{Fixture.ReviewedCommit}}" } }
 			  ],
 			  "watches": [{
@@ -146,7 +147,7 @@ public sealed class WatchFrameworkScopeTests
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
-			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.11",
+			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.13",
 			      "reviewed": { "tag": "v10.0.11", "commit": "{{Fixture.ReviewedCommit}}" } }
 			  ],
 			  "watches": [{
@@ -177,7 +178,7 @@ public sealed class WatchFrameworkScopeTests
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
-			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.11",
+			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.13",
 			      "reviewed": { "tag": "v10.0.11", "commit": "{{Fixture.ReviewedCommit}}" } }
 			  ],
 			  "watches": [{
@@ -243,11 +244,7 @@ public sealed class WatchFrameworkScopeTests
 		Assert.Empty(untracked);
 	}
 
-	// Criterion 1: only the thirteen watches the issue identifies carry a scope. The other
-	// thirty-nine committed watches stay unannotated, which is what keeps each applying to
-	// every configured framework; otherwise annotating all fifty-two entries, the shape the
-	// issue explicitly rejects, would still satisfy this file. The issue's "forty-eight" and
-	// "thirty-six" count distinct upstream paths, not watch entries.
+	// Unrelated watches remain unscoped so they continue applying to every configured framework.
 	[Fact]
 	public void Committed_manifest_leaves_every_other_watch_unannotated()
 	{
@@ -263,8 +260,8 @@ public sealed class WatchFrameworkScopeTests
 		Assert.Empty(unexpected);
 	}
 
-	// Criterion 4: the twelve upstream dependencies identified in the issue must declare the
-	// single framework each actually serves. The TempData path selects by relationship as
+	// Framework-specific dependencies declare the single framework each actually serves.
+	// The TempData path selects by relationship as
 	// well because it names two distinct watches, one per relationship.
 	[Theory]
 	[MemberData(nameof(FrameworkScopedWatches))]

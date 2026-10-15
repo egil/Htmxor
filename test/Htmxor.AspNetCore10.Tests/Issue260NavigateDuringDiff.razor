@@ -1,0 +1,9 @@
+@inject NavigationManager Navigation
+@inject Issue260Gate Gate
+@code {
+    protected override void OnInitialized()
+    {
+        Gate.Reached("navigation-during-diff");
+        Navigation.NavigateTo("/issue-260/destination");
+    }
+}

@@ -1,24 +1,24 @@
 {
-  "repository": "dotnet/aspnetcore",
+  "repository": "dotnet/dotnet",
   "frameworks": [
     {
       "targetFramework": "net10.0",
       "majorVersion": 10,
       "allowsPrerelease": false,
-      "referencePackVersion": "10.0.11",
+      "referencePackVersion": "10.0.13",
       "reviewed": {
-        "tag": "v10.0.11",
-        "commit": "a5383385245bdacc20ec19f30e46090a8154d8da"
+        "tag": "v10.0.13",
+        "commit": "4099f83977f4d29604a9aeb971fb0a7bc1d5f699"
       }
     },
     {
       "targetFramework": "net11.0",
       "majorVersion": 11,
       "allowsPrerelease": true,
-      "referencePackVersion": "11.0.0-rc.1.26425.128",
+      "referencePackVersion": "11.0.0-rc.2.26504.105",
       "reviewed": {
-        "tag": "v11.0.0-rc.1.26425.128",
-        "commit": "c3325eeb6b47bc6383c127d4f4827dc9642a2b6e"
+        "tag": "v11.0.0-rc.2.26504.105",
+        "commit": "820230c386db5b0106c5430b3e5aee92a7826bf5"
       }
     }
   ],
@@ -747,6 +747,20 @@
         "src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs",
         "src/Htmxor/Endpoints/HtmxorComponentActionRequest.cs"
       ]
+    },
+    {
+      "path": "src/DefaultBuilder/src/Internal/DefaultCsrfProtection.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "depends-on-behaviour",
+      "dependencies": [
+        "src/Htmxor/Builder/HtmxorComponentEndpointRouteBuilderExtensions.cs"
+      ],
+      "frameworks": [
+        "net11.0"
+      ]
     }
-  ]
+  ],
+  "sourceRoot": "src/aspnetcore",
+  "releaseRepository": "dotnet/aspnetcore"
 }

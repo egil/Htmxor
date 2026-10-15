@@ -1,7 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
+// Adapted from ASP.NET Core v10.0.13, commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699,
 // synchronized 2026-09-06. Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs | private-accesses
@@ -11,6 +11,8 @@
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceOptions.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/Builder/ResourceCollectionUrlMetadata.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Shared/src/ResourceCollectionProvider.cs | private-accesses
+
+// Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 
 using System.Collections;
 using System.Reflection;
@@ -203,7 +205,7 @@ internal sealed class HtmxorEndpointCandidateFormServices
 	}
 
 	private static InvalidOperationException IncompatibleFramework(string dependency)
-		=> new($"The Htmxor form-service adapter is incompatible with installed '{EndpointAssembly.FullName}': expected {dependency}. Baseline: ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da. Review the upstream dependency and renew paired parity evidence before using this candidate.");
+		=> new($"The Htmxor form-service adapter is incompatible with installed '{EndpointAssembly.FullName}': expected {dependency}. Baseline: ASP.NET Core v10.0.13, commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699. Review the upstream dependency and renew paired parity evidence before using this candidate.");
 
 	private static object? Invoke(MethodInfo method, object target, object?[]? arguments)
 		=> method.Invoke(target, BindingFlags.DoNotWrapExceptions, binder: null, arguments, culture: null);

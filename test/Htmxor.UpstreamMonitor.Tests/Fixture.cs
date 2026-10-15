@@ -39,10 +39,10 @@ internal static class Fixture
 		new(Repository, [Net10Framework(), Net11Framework()], targets);
 
 	public static FrameworkBaseline Net10Framework() =>
-		new("net10.0", 10, false, "10.0.11", "v10.0.11", ReviewedCommit);
+		new("net10.0", 10, false, "10.0.13", "v10.0.11", ReviewedCommit);
 
 	public static FrameworkBaseline Net11Framework() =>
-		new("net11.0", 11, true, "11.0.0-rc.1.26425.128", Net11ReviewedTag, Net11ReviewedCommit);
+		new("net11.0", 11, true, "11.0.0-rc.2.26504.105", Net11ReviewedTag, Net11ReviewedCommit);
 
 	public static WatchTarget Watch(
 		string path,

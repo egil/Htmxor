@@ -139,8 +139,8 @@ public sealed class ConsoleTargetFrameworkTests
 			repository = "dotnet/aspnetcore",
 			frameworks = new[]
 			{
-				new { targetFramework = "net10.0", majorVersion = 10, allowsPrerelease = false, referencePackVersion = "10.0.11", reviewed = new { tag = "v10.0.11", commit = Fixture.ReviewedCommit } },
-				new { targetFramework = "net11.0", majorVersion = 11, allowsPrerelease = true, referencePackVersion = "11.0.0-rc.1.26425.128", reviewed = new { tag = Fixture.Net11ReviewedTag, commit = Fixture.Net11ReviewedCommit } },
+				new { targetFramework = "net10.0", majorVersion = 10, allowsPrerelease = false, referencePackVersion = "10.0.13", reviewed = new { tag = "v10.0.11", commit = Fixture.ReviewedCommit } },
+				new { targetFramework = "net11.0", majorVersion = 11, allowsPrerelease = true, referencePackVersion = "11.0.0-rc.2.26504.105", reviewed = new { tag = Fixture.Net11ReviewedTag, commit = Fixture.Net11ReviewedCommit } },
 			},
 			watches = new[] { new { path = watchPath, match = "file", api, relationship, dependencies = Array.Empty<string>() } },
 		}));

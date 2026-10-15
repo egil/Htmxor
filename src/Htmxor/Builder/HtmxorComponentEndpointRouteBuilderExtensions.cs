@@ -1,3 +1,6 @@
+#if NET11_0_OR_GREATER
+// Htmxor upstream dependency: src/DefaultBuilder/src/Internal/DefaultCsrfProtection.cs | depends-on-behaviour
+#endif
 using System.ComponentModel;
 using System.Reflection;
 using Htmxor;

@@ -53,11 +53,13 @@ public sealed class UpstreamMonitorPolicyTests
 		Assert.True(File.Exists(path), "The upstream monitor manifest must be committed.");
 		using var document = JsonDocument.Parse(File.ReadAllText(path));
 		var manifest = document.RootElement;
-		Assert.Equal("dotnet/aspnetcore", manifest.GetProperty("repository").GetString());
+		Assert.Equal("dotnet/dotnet", manifest.GetProperty("repository").GetString());
+		Assert.Equal("src/aspnetcore", manifest.GetProperty("sourceRoot").GetString());
+		Assert.Equal("dotnet/aspnetcore", manifest.GetProperty("releaseRepository").GetString());
 		Assert.Equal(
 			[
-				"net10.0|10|False|10.0.11|v10.0.11|a5383385245bdacc20ec19f30e46090a8154d8da",
-				"net11.0|11|True|11.0.0-rc.1.26425.128|v11.0.0-rc.1.26425.128|c3325eeb6b47bc6383c127d4f4827dc9642a2b6e",
+				"net10.0|10|False|10.0.13|v10.0.13|4099f83977f4d29604a9aeb971fb0a7bc1d5f699",
+				"net11.0|11|True|11.0.0-rc.2.26504.105|v11.0.0-rc.2.26504.105|820230c386db5b0106c5430b3e5aee92a7826bf5",
 			],
 			manifest.GetProperty("frameworks").EnumerateArray().Select(framework =>
 			{
@@ -129,6 +131,7 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.HtmlWriting.cs|file|subclass|mirrors|src/Htmxor/Rendering/HtmxorRenderer.HtmlWriting.cs|",
 				"src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs|file|subclass|mirrors|src/Htmxor/Rendering/HtmxorRenderer.cs|",
 				"src/Components/Web/src/HtmlRendering/StaticHtmlRenderer.cs|file|subclass|subclasses|src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs|",
+				"src/DefaultBuilder/src/Internal/DefaultCsrfProtection.cs|file|none|depends-on-behaviour|src/Htmxor/Builder/HtmxorComponentEndpointRouteBuilderExtensions.cs|net11.0",
 				"src/Html.Abstractions/src/IHtmlAsyncContent.cs|file|interface|implements|src/Htmxor/Rendering/RenderedComponentHtmlContent.cs|",
 				"src/Http/Routing/src/EndpointDataSource.cs|file|subclass|subclasses|src/Htmxor/Builder/ComponentEndpointDataSource.cs|",
 				"src/Http/Routing/src/Matching/IEndpointSelectorPolicy.cs|file|interface|implements|src/Htmxor/Builder/ComponentEndpointMatcherPolicy.cs,src/Htmxor/Builder/HtmxorDirectEndpointMatcherPolicy.cs|",
@@ -164,7 +167,7 @@ public sealed class UpstreamMonitorPolicyTests
 
 		Assert.True(File.Exists(path), "The ordinary CI workflow must be committed.");
 		Assert.Equal(
-			["10.0.400", "11.0.100-rc.1.26425.128"],
+			["10.0.402", "11.0.100-rc.2.26504.105"],
 			WorkflowPolicyProjection.DotnetVersionsForJob(File.ReadAllText(path), "run-test"));
 	}
 
@@ -188,9 +191,9 @@ public sealed class UpstreamMonitorPolicyTests
 			"inline workflow trigger" => workflow.Replace("  workflow_dispatch:\n", "  pull_request: {}\n  workflow_dispatch:\n", StringComparison.Ordinal),
 			"permission" => workflow.Replace("  issues: write\n", "  issues: write\n  packages: write\n", StringComparison.Ordinal),
 			"dispatch type" => workflow.Replace("types: [aspnetcore-release-published]\n", "types: [something-else]\n", StringComparison.Ordinal),
-			"sdk version" => workflow.Replace("11.0.100-rc.1.26425.128", "11.0.100", StringComparison.Ordinal),
-			"missing sdk version" => workflow.Replace("            11.0.100-rc.1.26425.128\n", string.Empty, StringComparison.Ordinal),
-			"missing net10 sdk version" => workflow.Replace("            10.0.400\n", string.Empty, StringComparison.Ordinal),
+			"sdk version" => workflow.Replace("11.0.100-rc.2.26504.105", "11.0.100", StringComparison.Ordinal),
+			"missing sdk version" => workflow.Replace("            11.0.100-rc.2.26504.105\n", string.Empty, StringComparison.Ordinal),
+			"missing net10 sdk version" => workflow.Replace("            10.0.402\n", string.Empty, StringComparison.Ordinal),
 			"upload condition" => workflow.Replace("if: always()\n", "if: success()\n", StringComparison.Ordinal),
 			"retention" => workflow.Replace("retention-days: 14", "retention-days: 0", StringComparison.Ordinal),
 			"report paths" => workflow.Replace("path: |\n            artifacts/upstream-monitor/*.json\n            artifacts/upstream-monitor/*.md\n", "path: reports/*.json\n", StringComparison.Ordinal),
@@ -289,7 +292,7 @@ public sealed class UpstreamMonitorPolicyTests
 		"17 * * * *",
 		"aspnetcore-release-published",
 		"contents=read,issues=write",
-		"10.0.400\n11.0.100-rc.1.26425.128",
+		"10.0.402\n11.0.100-rc.2.26504.105",
 		"dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile upstream",
 		"GH_TOKEN=${{ github.token }}",
 		"false",
@@ -320,8 +323,8 @@ public sealed class UpstreamMonitorPolicyTests
 		        with:
 		          global-json-file: global.json
 		          dotnet-version: |
-		            10.0.400
-		            11.0.100-rc.1.26425.128
+		            10.0.402
+		            11.0.100-rc.2.26504.105
 		      - name: Run upstream profile
 		        run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile upstream
 		        env:

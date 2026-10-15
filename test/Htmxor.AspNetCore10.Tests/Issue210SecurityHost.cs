@@ -105,6 +105,7 @@ internal sealed class Issue210SecurityHost(WebApplication app, HttpClient client
 		services.AddCors(options =>
 		{
 			options.AddPolicy("trusted", policy => policy.WithOrigins("https://trusted.example").AllowAnyMethod().AllowAnyHeader());
+			options.AddPolicy("trusted-credentials", policy => policy.WithOrigins("https://trusted.example").AllowAnyMethod().AllowAnyHeader().AllowCredentials());
 			options.AddPolicy("wildcard", policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 		});
 		services.AddRateLimiter(options => options.AddFixedWindowLimiter("bounded", limiter =>

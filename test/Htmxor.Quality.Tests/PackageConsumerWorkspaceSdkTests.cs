@@ -14,7 +14,7 @@ public sealed class PackageConsumerWorkspaceSdkTests
 			"Htmxor.Quality.Tests",
 			"PackageConsumer"));
 		File.WriteAllText(Path.Combine(repository.Path, "global.json"),
-			"""{"sdk":{"version":"10.0.400","rollForward":"disable"}}""");
+			"""{"sdk":{"version":"10.0.402","rollForward":"disable"}}""");
 
 		using var workspace = new PackageConsumerWorkspace(repository.Path);
 		var result = await new ProcessRunner().RunAsync(new(
@@ -24,6 +24,6 @@ public sealed class PackageConsumerWorkspaceSdkTests
 			EnsureSuccess: false));
 
 		Assert.Equal(0, result.ExitCode);
-		Assert.Equal("10.0.400", result.StandardOutput.Trim());
+		Assert.Equal("10.0.402", result.StandardOutput.Trim());
 	}
 }

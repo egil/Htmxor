@@ -18,9 +18,9 @@ public sealed class Issue209GetTests
     public void Consumer_executes_the_selected_framework_runtime()
     {
 #if NET11_0
-        const string expected = "11.0.0-rc.1.26425.128";
+        const string expected = "11.0.0-rc.2.26504.105";
 #else
-        const string expected = "10.0.11";
+        const string expected = "10.0.13";
 #endif
         Assert.StartsWith(expected, typeof(ComponentBase).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion);
         Assert.StartsWith(expected, typeof(object).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion);

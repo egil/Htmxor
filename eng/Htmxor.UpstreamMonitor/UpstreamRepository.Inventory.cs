@@ -49,7 +49,7 @@ internal sealed partial class UpstreamRepository
 
 	// Every entry of one directory listing whose path starts with the prefix, with null for a file
 	// and otherwise the kind it is. The listing is validated whole, not only its matching entries.
-	private static IReadOnlyList<(string Path, WatchFinding? Kind)> PrefixEntries(JsonElement listing, string prefix)
+	private IReadOnlyList<(string Path, WatchFinding? Kind)> PrefixEntries(JsonElement listing, string prefix)
 	{
 		if (listing.ValueKind != JsonValueKind.Array || listing.GetArrayLength() >= 1000)
 		{
@@ -59,7 +59,11 @@ internal sealed partial class UpstreamRepository
 		var entries = new SortedDictionary<string, WatchFinding?>(StringComparer.Ordinal);
 		foreach (var entry in listing.EnumerateArray())
 		{
-			var path = EntryPath(entry, directory);
+			var path = EntryPath(entry, manifest.SourcePath(directory));
+			if (manifest.SourceRoot is not null)
+			{
+				path = path[(manifest.SourceRoot.Length + 1)..];
+			}
 			var kind = EntryKind(entry);
 			if (!entries.TryAdd(path, kind))
 			{

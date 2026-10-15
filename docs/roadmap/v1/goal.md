@@ -144,8 +144,17 @@ stock mapper, converters, options, form components, and validation runtime remai
 authoritative. General private renderer access and a
 copy of the form runtime remain outside this exception.
 
-The adapter baseline is ASP.NET Core v10.0.11, commit
-`a5383385245bdacc20ec19f30e46090a8154d8da`. Inventory its exact assembly, type,
+The source root for both shipped baselines is `src/aspnetcore`; watch paths remain
+relative to that root. Exact binary provenance and watched-source inventory are
+recorded in [the patched baseline review](../../engineering/patched-framework-baselines.md).
+
+The adapter baseline is ASP.NET Core v10.0.13, built from dotnet/dotnet VMR commit
+`4099f83977f4d29604a9aeb971fb0a7bc1d5f699`. The .NET 11 baseline is
+ASP.NET Core v11.0.0-rc.2.26504.105, commit
+`820230c386db5b0106c5430b3e5aee92a7826bf5` in that same repository, under the
+[approved patched-baseline prerequisite](https://github.com/egil/Htmxor/issues/329).
+The [baseline review](../../engineering/patched-framework-baselines.md) records
+upstream changes and retained boundaries. Inventory its exact assembly, type,
 member, and signature dependencies alongside initialization and ordering
 assumptions. Validate accessors before the candidate handles requests and fail
 clearly on incompatible framework shapes. Cache accessors, never scoped service
