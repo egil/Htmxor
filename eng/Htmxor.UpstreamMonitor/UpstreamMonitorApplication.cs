@@ -9,7 +9,7 @@ internal sealed class UpstreamMonitorApplication(HttpClient httpClient)
 		UpstreamRevision? upstream = null;
 		try
 		{
-			var repository = new UpstreamRepository(new GitHubApi(httpClient), request.Manifest.Repository);
+			var repository = new UpstreamRepository(new GitHubApi(httpClient), request.Manifest);
 			upstream = await repository.ResolveAsync(request, cancellationToken);
 			var baseline = request.BaselineCommit ?? request.Framework.ReviewedCommit;
 			if (upstream.Commit == baseline)

@@ -220,7 +220,7 @@ internal sealed partial class PackageConsumerWorkspace
 	public void UseIssue310MissingActionScenario(string method)
 	{
 		UseSelectionScenario("Issue310");
-		UseFramework("net10.0", "10.0.400", "10.0.11");
+		UseFramework("net10.0", "10.0.402", "10.0.13");
 		Directory.CreateDirectory(Path.GetDirectoryName(Issue310ComponentPath)!);
 		var source = Path.Combine(consumerDirectory, "Issue310Page.razor");
 		File.WriteAllText(Issue310ComponentPath, File.ReadAllText(source).Replace("__METHOD__", method, StringComparison.Ordinal));

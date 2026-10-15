@@ -74,15 +74,15 @@ internal static class MonitorReports
 		[
 			absentOnly ? "## ASP.NET Core watch paths that do not exist upstream" : "## ASP.NET Core watches that do not resolve upstream",
 			string.Empty, $"Identity: {identity}", string.Empty,
-			$"- Reviewed: [{Revision(baseline)}]({url}/tree/{baseline.Commit})",
-			$"- Current: [{Revision(upstream)}]({url}/tree/{upstream.Commit})",
+			$"- Reviewed: [{Revision(baseline)}]({TreeUrl(request.Manifest, baseline.Commit)})",
+			$"- Current: [{Revision(upstream)}]({TreeUrl(request.Manifest, upstream.Commit)})",
 			.. summary,
 			string.Empty, "### Unresolved watch paths", string.Empty,
 			.. unresolved.Select(watch => absentOnly
-				? $"- [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"
+				? $"- [{watch.Path}]({url}/tree/{baseline.Commit}/{request.Manifest.SourcePath(watch.Path)})"
 				: watch.AtCurrent
-					? $"- {Name(watch.Finding)} | [{watch.Path}]({url}/tree/{upstream.Commit}/{watch.Path}) at current"
-					: $"- {Name(watch.Finding)} | [{watch.Path}]({url}/tree/{baseline.Commit}/{watch.Path})"),
+					? $"- {Name(watch.Finding)} | [{watch.Path}]({url}/tree/{upstream.Commit}/{request.Manifest.SourcePath(watch.Path)}) at current"
+					: $"- {Name(watch.Finding)} | [{watch.Path}]({url}/tree/{baseline.Commit}/{request.Manifest.SourcePath(watch.Path)})"),
 			string.Empty, "### Review checklist", string.Empty,
 			"- [ ] Correct or remove each path above", "- [ ] Confirm the corrected path is the right upstream dependency",
 			"- [ ] Re-run the monitor and confirm the watch reports against real content",
@@ -149,11 +149,16 @@ internal static class MonitorReports
 		var body = string.Join('\n',
 		[
 			"## ASP.NET Core upstream drift", string.Empty, $"Identity: {identity}", string.Empty,
-			$"- Previous: [{Revision(baseline)}]({url}/tree/{baseline.Commit})",
-			$"- Current: [{Revision(upstream)}]({url}/tree/{upstream.Commit})",
-			$"- Compare: {url}/compare/{baseline.Commit}...{upstream.Commit}", "- Parity tests: pending review",
+			$"- Previous: [{Revision(baseline)}]({TreeUrl(request.Manifest, baseline.Commit)})",
+			$"- Current: [{Revision(upstream)}]({TreeUrl(request.Manifest, upstream.Commit)})",
+			request.Manifest.SourceRoot is null
+				? $"- Compare: {url}/compare/{baseline.Commit}...{upstream.Commit}"
+				: $"- Source comparison: complete Git trees under {request.Manifest.SourceRoot}",
+			"- Parity tests: pending review",
 			string.Empty, "### Classified changes", string.Empty,
-			.. sources.Select(change => $"- {Display(change.Classification)} | {SourceRow(change)}"),
+			.. sources.Select(change => $"- {Display(change.Classification)} | {SourceRow(change)}" +
+				(request.Manifest.SourceRoot is null ? "" :
+					$" | {url}/blob/{(change.Kind == ChangeKind.Removed ? baseline.Commit : upstream.Commit)}/{request.Manifest.SourcePath(change.Path)}")),
 			.. apis.Select(change => $"- {Display(change.Classification)} | {ApiRow(change)}"),
 			string.Empty, "### Review checklist", string.Empty,
 			"- [ ] Review source changes", "- [ ] Review public/protected API changes",
@@ -164,6 +169,9 @@ internal static class MonitorReports
 	}
 
 	private static string Revision(UpstreamRevision revision) => $"{revision.Tag} ({revision.Commit})";
+	private static string TreeUrl(WatchManifest manifest, string commit) =>
+		$"https://github.com/{manifest.Repository}/tree/{commit}" +
+		(manifest.SourceRoot is null ? "" : $"/{manifest.SourceRoot}");
 	private static string SourceRow(SourceChange change) => $"{Name(change.Kind)} | {change.Path}";
 	private static string ApiRow(ApiChange change) => $"{Name(change.Kind)} | {Name(change.SymbolKind)} | {change.TypeName} | {change.Signature}";
 	private static string Display(ReviewClassification value)

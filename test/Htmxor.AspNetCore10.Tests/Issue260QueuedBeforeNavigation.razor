@@ -1,0 +1,11 @@
+@inject Issue260Gate Gate
+<p>queued output must not escape</p>
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("queued-before-navigation");
+        await Task.Yield();
+        await Gate.WaitForReleaseAsync("queued-before-navigation");
+        Gate.Reached("queued-work-completed");
+    }
+}

@@ -2,10 +2,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v11.0.0-rc.1.26425.128 at
-// c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13.
+// Adapted from ASP.NET Core v11.0.0-rc.2.26504.105 at
+// 820230c386db5b0106c5430b3e5aee92a7826bf5, synchronized 2026-09-13.
 // Exact source inventory: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
+
+// Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 
 using System.Text;
 using System.Text.Json;

@@ -21,7 +21,7 @@ public sealed record Issue211BrowserOrigin(string Origin, string FetchSite);
 
 internal static class Issue211Host
 {
-	public static WebApplication Create(Issue211Probe probe, string? trustedOrigin = null, bool wildcard = false)
+	public static WebApplication Create(Issue211Probe probe, string? trustedOrigin = null, bool wildcard = false, bool allowCredentials = false)
 	{
 		var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 		{
@@ -42,6 +42,10 @@ internal static class Issue211Host
 			else if (trustedOrigin is not null)
 			{
 				policy.WithOrigins(trustedOrigin);
+				if (allowCredentials)
+				{
+					policy.AllowCredentials();
+				}
 			}
 		}));
 		var app = builder.Build();

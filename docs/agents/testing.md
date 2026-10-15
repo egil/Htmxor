@@ -25,7 +25,7 @@ Always record the exact commit and command. Include discovered, executed, passed
 
 `fast` restores the repository and pinned tools, verifies analyzer and style errors, builds Release, and runs the non-browser suite. It parses the TRX files and fails when no tests were discovered or executed. Every direct `dotnet test` boundary retains `--blame-hang --blame-hang-timeout 5min` so a stalled test produces evidence and cannot consume the job indefinitely.
 
-The package-consumer and target-aware upstream-monitor fixtures in `fast` and `full` require SDK `10.0.400` with runtime/reference pack `10.0.11` and SDK `11.0.100-rc.1.26425.128` with runtime/reference pack `11.0.0-rc.1.26425.128`. The repository selects the exact .NET 11 SDK through `global.json`; the isolated consumers select their own SDK and runtime with roll-forward disabled. CI provisions both SDKs; local contributors must install both exact versions before running either profile. The first-GET package matrix packs once, restores each consumer separately, and retains per-framework HTTP results under `artifacts/results/package-get/`.
+The package-consumer and target-aware upstream-monitor fixtures in `fast` and `full` require SDK `10.0.402` with runtime/reference pack `10.0.13` and SDK `11.0.100-rc.2.26504.105` with runtime/reference pack `11.0.0-rc.2.26504.105`. The repository selects the exact .NET 11 SDK through `global.json`; the isolated consumers select their own SDK and runtime with roll-forward disabled. CI provisions both SDKs; local contributors must install both exact versions before running either profile. The first-GET package matrix packs once, restores each consumer separately, and retains per-framework HTTP results under `artifacts/results/package-get/`.
 
 The runtime project pins `AnalysisLevel` to `10.0-all` while building both framework targets with the .NET 11 SDK. This preserves the existing analyzer baseline rather than opting the legacy project into unrelated new SDK analyzer rules. Release warnings-as-errors, analyzer/style errors, and the fixed code-metrics ratchets remain enforced.
 
@@ -119,10 +119,16 @@ another reports a finding, the run exits 2, because a framework that was never
 measured outranks a finding from one that was. The manifest's
 reviewed baseline changes only after human review and renewed parity evidence.
 
+The reviewed manifest identifies the shipped dotnet/dotnet VMR source below
+`src/aspnetcore`. Stable runtime tags come from the dotnet/aspnetcore release
+catalog, then resolve in the source repository. Rooted comparisons require
+complete scoped Git trees; incomplete inventories fail as infrastructure errors.
+Watch and dependency paths remain relative to the configured source root.
+
 To reproduce an exact comparison locally, use:
 
 ```text
-dotnet run --project eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj -- --framework net10.0 --tag v10.0.11 --baseline a5383385245bdacc20ec19f30e46090a8154d8da --json artifacts/upstream-monitor/upstream-monitor.json --markdown artifacts/upstream-monitor/upstream-monitor.md
+dotnet run --project eng/Htmxor.UpstreamMonitor/Htmxor.UpstreamMonitor.csproj -- --framework net10.0 --tag v10.0.13 --baseline 4099f83977f4d29604a9aeb971fb0a7bc1d5f699 --json artifacts/upstream-monitor/upstream-monitor.json --markdown artifacts/upstream-monitor/upstream-monitor.md
 ```
 
 Tokens are accepted only through `GH_TOKEN`, never a command-line argument.

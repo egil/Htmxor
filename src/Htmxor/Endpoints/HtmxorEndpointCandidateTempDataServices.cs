@@ -2,11 +2,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v11.0.0-rc.1.26425.128, commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e,
+// Adapted from ASP.NET Core v11.0.0-rc.2.26504.105, commit 820230c386db5b0106c5430b3e5aee92a7826bf5,
 // synchronized 2026-09-15. Approved #213 dependencies and exact sources: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/TempData/TempDataCascadingValueSupplier.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/TempData/TempDataProviderServiceCollectionExtensions.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/TempDataService.cs | private-accesses
+
+// Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
@@ -90,6 +92,6 @@ internal sealed class HtmxorEndpointCandidateTempDataServices
 	}
 
 	private static InvalidOperationException IncompatibleFramework(string dependency)
-		=> new($"The Htmxor TempData adapter is incompatible with installed '{EndpointAssembly.FullName}': expected {dependency}. Baseline: ASP.NET Core v11.0.0-rc.1.26425.128, commit c3325eeb6b47bc6383c127d4f4827dc9642a2b6e. Review the upstream dependency and renew paired parity evidence before using this candidate.");
+		=> new($"The Htmxor TempData adapter is incompatible with installed '{EndpointAssembly.FullName}': expected {dependency}. Baseline: ASP.NET Core v11.0.0-rc.2.26504.105, commit 820230c386db5b0106c5430b3e5aee92a7826bf5. Review the upstream dependency and renew paired parity evidence before using this candidate.");
 }
 #endif

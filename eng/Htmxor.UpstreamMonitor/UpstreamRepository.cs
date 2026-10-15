@@ -4,8 +4,9 @@ using System.Text.RegularExpressions;
 
 namespace Htmxor.UpstreamMonitor;
 
-internal sealed partial class UpstreamRepository(GitHubApi api, string repository)
+internal sealed partial class UpstreamRepository(GitHubApi api, WatchManifest manifest)
 {
+	private string repository => manifest.Repository;
 	public async Task<UpstreamRevision> ResolveAsync(MonitorRequest request, CancellationToken cancellationToken)
 	{
 		var tag = request.RequestedTag ?? (request.Framework.AllowsPrerelease
@@ -37,6 +38,10 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 
 	public async Task<IReadOnlyList<ChangedFile>> CompareAsync(string baseline, string target, CancellationToken cancellationToken)
 	{
+		if (manifest.SourceRoot is not null)
+		{
+			return await CompareRootedAsync(baseline, target, cancellationToken);
+		}
 		var comparison = await api.GetAsync($"/repos/{repository}/compare/{Uri.EscapeDataString(baseline)}...{Uri.EscapeDataString(target)}", cancellationToken);
 		if (comparison.ValueKind != JsonValueKind.Object || !comparison.TryGetProperty("files", out var files) ||
 			files.ValueKind != JsonValueKind.Array)
@@ -67,11 +72,11 @@ internal sealed partial class UpstreamRepository(GitHubApi api, string repositor
 	}
 
 	private string ContentsPath(string path, string commit) =>
-		$"/repos/{repository}/contents/{string.Join('/', path.Split('/').Select(Uri.EscapeDataString))}?ref={Uri.EscapeDataString(commit)}";
+		$"/repos/{repository}/contents/{string.Join('/', manifest.SourcePath(path).Split('/').Select(Uri.EscapeDataString))}?ref={Uri.EscapeDataString(commit)}";
 
 	private async Task<string> LatestTagAsync(FrameworkBaseline framework, CancellationToken cancellationToken)
 	{
-		var releases = await api.GetPagesAsync($"/repos/{repository}/releases?per_page=100", cancellationToken);
+		var releases = await api.GetPagesAsync($"/repos/{manifest.ReleaseRepository}/releases?per_page=100", cancellationToken);
 		var candidates = releases.Where(release => !release.GetProperty("draft").GetBoolean() && !release.GetProperty("prerelease").GetBoolean())
 			.Select(release => release.GetProperty("tag_name").GetString()!)
 			.Where(tag => SupportedTag(tag, framework));

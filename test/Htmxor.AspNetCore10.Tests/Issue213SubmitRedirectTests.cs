@@ -31,9 +31,8 @@ public sealed class Issue213SubmitRedirectTests
 		Assert.Equal(stockSnapshot.Status, candidateSnapshot.Status);
 		Assert.Equal(stockSnapshot.Location, candidateSnapshot.Location);
 		Assert.Null(candidateSnapshot.HxRedirect);
-		// Stock writes the body it had already rendered before the submit, so the redirect carries it too.
-		Assert.Equal(NormalizeBody(stockSnapshot.Body), NormalizeBody(candidateSnapshot.Body));
-		Assert.Contains("data-issue-213-output", candidateSnapshot.Body, StringComparison.Ordinal);
+		Assert.Empty(stockSnapshot.Body);
+		Assert.Empty(candidateSnapshot.Body);
 	}
 
 	[Fact]
@@ -109,10 +108,6 @@ public sealed class Issue213SubmitRedirectTests
 		Assert.Equal(stockSnapshot.Status, candidateSnapshot.Status);
 		Assert.Equal(stockSnapshot.Location, candidateSnapshot.Location);
 	}
-
-	// The antiforgery request token is fresh per request, so it is not a parity difference.
-	private static string NormalizeBody(string body)
-		=> Regex.Replace(body, "value=\"CfDJ8[^\"]+\"", "value=\"token\"", RegexOptions.CultureInvariant);
 
 	internal sealed class Issue213RedirectHost(WebApplication app) : IAsyncDisposable
 	{

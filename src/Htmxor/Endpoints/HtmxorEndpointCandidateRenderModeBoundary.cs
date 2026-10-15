@@ -9,20 +9,23 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
+// Adapted from ASP.NET Core v10.0.13, commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699,
 // synchronized 2026-09-06. Exact source inventory: docs/engineering/candidate-form-adapter.md.
 // The marker payload serializer options (#275, synchronized 2026-10-04) reimplement
 // WebAssemblyComponentSerializationSettings.cs and ServerComponentSerializationSettings.cs, whose naming and null
-// handling are identical at v10.0.11 (a5383385245bdacc20ec19f30e46090a8154d8da) and v11.0.0-rc.1.26425.128
-// (c3325eeb6b47bc6383c127d4f4827dc9642a2b6e); v11 only adds a source-generated resolver for the same shapes:
-// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
-// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
-// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
-// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
-// https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Shared/Components/ServerComponentSerializationSettings.cs
-// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Shared/Components/ServerComponentSerializationSettings.cs
-// https://github.com/dotnet/aspnetcore/blob/v11.0.0-rc.1.26425.128/src/Shared/Components/ServerComponentSerializationSettings.cs
-// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Shared/Components/ServerComponentSerializationSettings.cs
+// handling are identical at v10.0.13 (4099f83977f4d29604a9aeb971fb0a7bc1d5f699) and v11.0.0-rc.2.26504.105
+// (820230c386db5b0106c5430b3e5aee92a7826bf5). NET11 adds a server source-generated resolver and freezes
+// WebAssembly options at creation; this adapter freezes its private options on first serialization:
+// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
+
+// Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;

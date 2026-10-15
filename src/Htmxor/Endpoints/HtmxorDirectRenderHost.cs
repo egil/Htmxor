@@ -1,8 +1,10 @@
-// Public DynamicComponent.Instance capture reviewed 2026-10-13 at ASP.NET Core v10.0.11,
-// a5383385245bdacc20ec19f30e46090a8154d8da, and v11.0.0-rc.1.26425.128,
-// c3325eeb6b47bc6383c127d4f4827dc9642a2b6e. Exact sources: docs/engineering/candidate-form-adapter.md.
+// Public DynamicComponent.Instance capture reviewed 2026-10-13 at ASP.NET Core v10.0.13,
+// 4099f83977f4d29604a9aeb971fb0a7bc1d5f699, and v11.0.0-rc.2.26504.105,
+// 820230c386db5b0106c5430b3e5aee92a7826bf5. Exact sources: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Components/src/DynamicComponent.cs | depends-on-behaviour
 // Htmxor upstream dependency: src/Components/Components/src/Rendering/RenderTreeBuilder.cs | depends-on-behaviour
+
+// Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 
 using Htmxor.Builder;
 using Microsoft.AspNetCore.Components;

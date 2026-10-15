@@ -81,8 +81,11 @@ internal sealed record WatchManifest(
 	IReadOnlyList<FrameworkBaseline> Frameworks,
 	IReadOnlyList<WatchTarget> Targets)
 {
+	public string? SourceRoot { get; init; }
+	public string ReleaseRepository { get; init; } = Repository;
+	public string SourcePath(string path) => SourceRoot is null || path.Length == 0 ? SourceRoot ?? path : $"{SourceRoot}/{path}";
 	public WatchManifest(string repository, string reviewedTag, string reviewedCommit, IReadOnlyList<WatchTarget> targets)
-		: this(repository, [new("net10.0", 10, false, "10.0.11", reviewedTag, reviewedCommit)], targets)
+		: this(repository, [new("net10.0", 10, false, "10.0.13", reviewedTag, reviewedCommit)], targets)
 	{
 	}
 

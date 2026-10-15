@@ -16,7 +16,7 @@
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 		<PackageReference Include="Htmxor" Version="__HTMXOR_PACKAGE_VERSION__" />
-		<PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.11" />
+		<PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.13" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
 		<PackageReference Include="xunit" Version="2.8.0" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="2.8.0">

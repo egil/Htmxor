@@ -119,7 +119,7 @@ internal sealed partial class PackageConsumerWorkspace
 	public void UseIssue180ExplicitActions()
 	{
 		UseSelectionScenario("Issue180");
-		UseFramework("net10.0", "10.0.400", "10.0.11");
+		UseFramework("net10.0", "10.0.402", "10.0.13");
 		var assets = Path.Combine(repositoryRoot, "test", "Htmxor.AspNetCore10.Tests");
 		var destination = Path.Combine(consumerDirectory, "Areas", "Unusual-Folder");
 		Directory.CreateDirectory(destination);

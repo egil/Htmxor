@@ -95,8 +95,8 @@ public sealed class Issue210NativeSecurityTests
 
 	[Theory]
 	[InlineData("none", null, null)]
-	[InlineData("cross-site", "https://trusted.example", "trusted")]
-	[InlineData("same-site", "https://trusted.example", "trusted")]
+	[InlineData("cross-site", "https://trusted.example", "trusted-credentials")]
+	[InlineData("same-site", "https://trusted.example", "trusted-credentials")]
 	[InlineData(null, "http://localhost", null)]
 	[InlineData(null, null, null)]
 	public async Task Native_allowed_headers_and_group_cors_policy_reach_generated_callback(
@@ -112,6 +112,9 @@ public sealed class Issue210NativeSecurityTests
 	}
 
 	[Theory]
+	[InlineData("cross-site", "https://trusted.example", "trusted")]
+	[InlineData("same-site", "https://trusted.example", "trusted")]
+	[InlineData("cross-site", "https://untrusted.example", "trusted-credentials")]
 	[InlineData("same-site", null, null)]
 	[InlineData("unexpected", null, null)]
 	[InlineData("cross-site", "https://trusted.example", "wildcard")]

@@ -6,8 +6,8 @@ namespace Htmxor.Quality.Tests;
 public sealed class PackedNestedSelectionConsumerTests
 {
 	[Theory]
-	[InlineData("net10.0", "10.0.400", "10.0.11")]
-	[InlineData("net11.0", "11.0.100-rc.1.26425.128", "11.0.0-rc.1.26425.128")]
+	[InlineData("net10.0", "10.0.402", "10.0.13")]
+	[InlineData("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105")]
 	public async Task Package_only_application_resolves_nested_and_invalid_selections_before_output(string framework, string sdk, string runtime)
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());

@@ -121,14 +121,16 @@ public sealed class Issue211BrowserTests(ITestOutputHelper output)
 	[Theory]
 	[InlineData("untrusted", 0)]
 	[InlineData("wildcard", 400)]
-	[InlineData("trusted", 200)]
+	[InlineData("trusted", 400)]
+	[InlineData("trusted-credentials", 200)]
 	public async Task Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust(string policy, int expectedStatus)
 	{
 		await using var source = Issue211Host.Create(new Issue211Probe(false));
 		await source.StartAsync();
 		var sourceOrigin = Assert.Single(source.Urls);
 		var probe = new Issue211Probe(false);
-		await using var target = Issue211Host.Create(probe, policy == "trusted" ? sourceOrigin : null, policy == "wildcard");
+		await using var target = Issue211Host.Create(probe, policy is "trusted" or "trusted-credentials" ? sourceOrigin : null,
+			policy == "wildcard", allowCredentials: policy == "trusted-credentials");
 		await target.StartAsync();
 		var targetOrigin = Assert.Single(target.Urls);
 		using var playwright = await Playwright.CreateAsync();

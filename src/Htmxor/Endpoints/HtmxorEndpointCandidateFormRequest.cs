@@ -1,12 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v10.0.11, commit a5383385245bdacc20ec19f30e46090a8154d8da,
+// Adapted from ASP.NET Core v10.0.13, commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699,
 // synchronized 2026-09-05. Exact sources and license: docs/engineering/candidate-form-adapter.md.
-// .NET 11 validation follows v11.0.0-rc.1.26425.128 at
-// c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, synchronized 2026-09-13; see that inventory.
+// .NET 11 validation follows v11.0.0-rc.2.26504.105 at
+// 820230c386db5b0106c5430b3e5aee92a7826bf5, synchronized 2026-09-13; see that inventory.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | mirrors
+
+// Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components.Endpoints;

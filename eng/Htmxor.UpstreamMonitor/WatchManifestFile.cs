@@ -11,9 +11,28 @@ internal static class WatchManifestFile
 		var frameworks = manifest.TryGetProperty("frameworks", out var configuredFrameworks)
 			? configuredFrameworks.EnumerateArray().Select(ReadFramework).ToArray()
 			: [ReadLegacyFramework(manifest)];
-		return new(manifest.GetProperty("repository").GetString()!, frameworks,
-			manifest.GetProperty("watches").EnumerateArray().Select(watch => ReadWatch(watch, frameworks)).ToArray());
+		var repository = manifest.GetProperty("repository").GetString()!;
+		var hasRoot = manifest.TryGetProperty("sourceRoot", out var rootValue);
+		var sourceRoot = hasRoot ? rootValue.GetString() : null;
+		if (hasRoot && sourceRoot is null)
+		{
+			throw new MonitorFailure("Manifest sourceRoot must be a directory path when present.");
+		}
+		if (sourceRoot is not null && !SafeRoot(sourceRoot))
+		{
+			throw new MonitorFailure("Manifest sourceRoot must be a safe repository-relative directory path.");
+		}
+		return new(repository, frameworks,
+			manifest.GetProperty("watches").EnumerateArray().Select(watch => ReadWatch(watch, frameworks)).ToArray())
+		{
+			SourceRoot = sourceRoot,
+			ReleaseRepository = manifest.TryGetProperty("releaseRepository", out var release) ? release.GetString()! : repository,
+		};
 	}
+
+	private static bool SafeRoot(string path) => path.Length > 0 && path.Split('/').All(segment =>
+		segment.Length > 0 && segment is not ("." or "..") &&
+		segment.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.'));
 
 	internal static WatchRelationship ParseRelationship(string value) => value.ToLowerInvariant() switch
 	{
@@ -79,6 +98,6 @@ internal static class WatchManifestFile
 	private static FrameworkBaseline ReadLegacyFramework(JsonElement manifest)
 	{
 		var reviewed = manifest.GetProperty("reviewed");
-		return new("net10.0", 10, false, "10.0.11", reviewed.GetProperty("tag").GetString()!, reviewed.GetProperty("commit").GetString()!);
+		return new("net10.0", 10, false, "10.0.13", reviewed.GetProperty("tag").GetString()!, reviewed.GetProperty("commit").GetString()!);
 	}
 }

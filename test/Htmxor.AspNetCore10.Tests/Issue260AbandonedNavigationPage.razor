@@ -1,0 +1,20 @@
+@page "/issue-329/abandoned-navigation"
+@inject Issue260Gate Gate
+
+@if (ready)
+{
+    <Issue260QueuedBeforeNavigation />
+    <Issue260NavigateDuringDiff />
+    <Issue260UninitializedAfterNavigation />
+}
+
+@code {
+    private bool ready;
+    protected override async Task OnInitializedAsync()
+    {
+        Gate.Reached("abandoned-parent");
+        await Task.Yield();
+        await Gate.WaitForReleaseAsync("abandoned-parent");
+        ready = true;
+    }
+}

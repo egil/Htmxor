@@ -1,12 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// RouteView page-fragment coordination adapted from ASP.NET Core v10.0.11,
-// a5383385245bdacc20ec19f30e46090a8154d8da, and v11.0.0-rc.1.26425.128,
-// c3325eeb6b47bc6383c127d4f4827dc9642a2b6e, reviewed 2026-10-13.
+// RouteView page-fragment coordination adapted from ASP.NET Core v10.0.13,
+// 4099f83977f4d29604a9aeb971fb0a7bc1d5f699, and v11.0.0-rc.2.26504.105,
+// 820230c386db5b0106c5430b3e5aee92a7826bf5, reviewed 2026-10-13.
 // Exact source URLs, signatures and ordering inventory: docs/engineering/candidate-form-adapter.md.
 // Page-fragment sources:
-// https://github.com/dotnet/aspnetcore/blob/a5383385245bdacc20ec19f30e46090a8154d8da/src/Components/Components/src/RouteView.cs
-// https://github.com/dotnet/aspnetcore/blob/c3325eeb6b47bc6383c127d4f4827dc9642a2b6e/src/Components/Components/src/RouteView.cs
+// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Components/src/RouteView.cs
+// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Components/src/RouteView.cs
 // Upstream license: ASP.NET-Core-LICENSE.txt. No private framework field is written.
 // Htmxor upstream dependency: src/Components/Components/src/RouteView.cs | private-accesses
 // Htmxor upstream dependency: src/Components/Components/src/RouteView.cs | reimplements
@@ -19,6 +19,8 @@
 // Htmxor upstream dependency: src/Components/Components/src/RenderTree/RenderTreeDiffBuilder.cs | depends-on-behaviour
 // Htmxor upstream dependency: src/Components/Components/src/Rendering/RenderTreeBuilder.cs | depends-on-behaviour
 // Htmxor upstream dependency: src/Components/Components/src/ComponentFactory.cs | depends-on-behaviour
+
+// Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
