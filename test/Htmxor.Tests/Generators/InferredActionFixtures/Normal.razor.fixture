@@ -1,0 +1,4 @@
+@page "/actions"
+@attribute [DisableHtmxDirectRouting]
+<button @onput="M">Save</button>
+@code { private static async void M() => await System.Threading.Tasks.Task.Yield(); }
