@@ -26,7 +26,15 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 	{
 		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private void Save(int first, string second) { } [Htmxor.HtmxAction(\"PATCH\")] private void Other(int value) { }");
 
-		AssertFeedback(await AnalyzeFeedbackAsync(source, local), source,
+		var diagnostics = await AnalyzeFeedbackAsync(source, local);
+
+		var attributes = CSharpSyntaxTree.ParseText(source).GetRoot().DescendantNodes().OfType<AttributeSyntax>()
+			.Where(attribute => attribute.Name.ToString() == "Htmxor.HtmxAction").ToArray();
+		Assert.Equal(attributes[0].Span, Assert.Single(diagnostics, diagnostic => diagnostic.Id == "HTMXOR025" &&
+			diagnostic.GetMessage().Contains("has unsupported parameters", StringComparison.Ordinal)).Location.SourceSpan);
+		Assert.Equal(attributes[1].Span, Assert.Single(diagnostics, diagnostic => diagnostic.Id == "HTMXOR025" &&
+			diagnostic.GetMessage().Contains("not HtmxEventArgs", StringComparison.Ordinal)).Location.SourceSpan);
+		AssertFeedback(diagnostics, source,
 			("HTMXOR025", "has unsupported parameters"),
 			("HTMXOR025", "not HtmxEventArgs"));
 	}
