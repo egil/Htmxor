@@ -280,6 +280,33 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	}
 
 	[Fact]
+	public async Task Inferred_static_binding_remains_compilation_only()
+	{
+		var source = $$"""
+			namespace {{RootNamespace}};
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private static void M() { }
+				{{BindMethod}}
+			}
+			""";
+		var tree = CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), RazorGeneratedPath("ReportComponent"));
+		var compilation = CSharpCompilation.Create("InferredSchedulingContract", [tree], References,
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		Assert.Empty(compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+		var razor = new SourceAdditionalText(ComponentPath("ReportComponent.razor"), HandlerRazorContent);
+		var driver = compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new HtmxorActionDeclarationAnalyzer()),
+			new AnalyzerOptions([razor], new TestAnalyzerConfigOptionsProvider(ProjectDirectory)));
+
+		var complete = await driver.GetAnalyzerDiagnosticsAsync();
+		var local = await driver.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(tree), null, CancellationToken.None);
+
+		AssertSingleCauseAtBinding(complete, "static", "HTMXOR013");
+		Assert.Empty(local);
+	}
+
+	[Fact]
 	public async Task Unique_instance_method_declared_as_an_explicit_action_is_a_supported_repair()
 	{
 		var diagnostics = await RunForHandlerAsync(
