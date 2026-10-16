@@ -21,11 +21,17 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 		});
 	}
 
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task Real_Razor_aggregate_conflicts_remain_absent_from_each_local_tree(bool analyzeRenderTree)
+	{
+		Assert.Empty(await AnalyzeExplicitRazorAsync("Conflict", local: true, analyzeRenderTree));
+	}
+
 	[Fact]
 	public async Task Real_Razor_binding_and_named_form_each_conflict_with_explicit_POST_at_compilation_end()
 	{
-		Assert.Empty(await AnalyzeExplicitRazorAsync("Conflict", local: true));
-
 		var diagnostics = await AnalyzeExplicitRazorAsync("Conflict", local: false);
 
 		Assert.Equal(new[] { "HTMXOR031", "HTMXOR032" }, diagnostics.Select(diagnostic => diagnostic.Id).Order(StringComparer.Ordinal));
@@ -50,7 +56,7 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 			diagnostic.Location.SourceTree!.GetText().ToString(diagnostic.Location.SourceSpan));
 	}
 
-	private static async Task<System.Collections.Immutable.ImmutableArray<Diagnostic>> AnalyzeExplicitRazorAsync(string fixture, bool local)
+	private static async Task<System.Collections.Immutable.ImmutableArray<Diagnostic>> AnalyzeExplicitRazorAsync(string fixture, bool local, bool analyzeRenderTree = false)
 	{
 		var tree = ReadExplicitRazorTree(fixture, "declaration", "_razor.decl.g.cs");
 		var body = ReadExplicitRazorTree(fixture, "generated", "_razor.g.cs");
@@ -58,7 +64,7 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 		Assert.Empty(compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 		var driver = compilation.WithAnalyzers([new HtmxorActionDeclarationAnalyzer()]);
 		return local
-			? await driver.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(tree), null, CancellationToken.None)
+			? await driver.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(analyzeRenderTree ? body : tree), null, CancellationToken.None)
 			: await driver.GetAnalyzerDiagnosticsAsync();
 	}
 

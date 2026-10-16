@@ -201,13 +201,23 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 		Assert.Empty(await AnalyzeFeedbackAsync(source, true));
 	}
 
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task Cross_source_handler_conflicts_remain_absent_from_each_local_tree(bool analyzeExtraTree)
+	{
+		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private void Save() { }");
+		var other = CSharpSyntaxTree.ParseText("namespace Consumer; public partial class Owner { [Htmxor.HtmxAction(\"PUT\")] private void Other() { } }", path: "/Other.cs");
+
+		Assert.Empty(await AnalyzeFeedbackAsync(source, true, other, analyzeExtraTree: analyzeExtraTree));
+	}
+
 	[Fact]
 	public async Task Cross_source_handler_conflicts_remain_aggregate()
 	{
 		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private void Save() { }");
 		var other = CSharpSyntaxTree.ParseText("namespace Consumer; public partial class Owner { [Htmxor.HtmxAction(\"PUT\")] private void Other() { } }", path: "/Other.cs");
 
-		Assert.Empty(await AnalyzeFeedbackAsync(source, true, other));
 		var complete = await AnalyzeFeedbackAsync(source, false, other);
 
 		Assert.Equal(2, complete.Length);
@@ -241,7 +251,7 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 	}
 
 	private static async Task<ImmutableArray<Diagnostic>> AnalyzeFeedbackAsync(string source, bool local,
-		SyntaxTree? extra = null, string? compilerError = null)
+		SyntaxTree? extra = null, string? compilerError = null, bool analyzeExtraTree = false)
 	{
 		var compilation = CreateCompilation(source);
 		if (extra is not null) compilation = compilation.AddSyntaxTrees(extra);
@@ -250,7 +260,7 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 		else Assert.Contains(errors, diagnostic => diagnostic.Id == compilerError);
 		var driver = compilation.WithAnalyzers([new HtmxorActionDeclarationAnalyzer()]);
 		return local
-			? await driver.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(compilation.SyntaxTrees.First()), null, CancellationToken.None)
+			? await driver.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(analyzeExtraTree ? extra! : compilation.SyntaxTrees.First()), null, CancellationToken.None)
 			: await driver.GetAnalyzerDiagnosticsAsync();
 	}
 }
