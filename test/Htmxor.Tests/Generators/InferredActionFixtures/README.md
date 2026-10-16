@@ -12,7 +12,11 @@ individually required to have zero compiler errors by the test harness.
 Tests compile both real partial trees and observe raw generator + declaration +
 compiled-binding diagnostics without deduplication. A stale AdditionalText input
 simulates missing scanner declarations while preserving authentic compiled Razor.
-Semantic causes use the source-tree handler expression in both complete and local
-results; generator-owned parse/conflict causes retain the authored attribute span.
-This narrow semantic location change from external attribute location requires
-explicit test-contract review against the brief's location-preservation constraint.
+Existing scanned-binding diagnostics retain their authored attribute mapped spans
+in the executable contract. Genuine aggregate 042 diagnostics retain the compiled
+handler span; Cross pins that mismatch specifically to the independent POST Other
+binding. Recoverable compiled-only bindings use independently specified expression
+spans. Roslyn local semantic delivery with the preserved scanned attribute primary
+span remains unresolved (review finding LR-4c1324f-P001); no location exception has
+been approved. The ignored capability probe and exact-snapshot receipt document
+this dependency constraint for the Implementor.

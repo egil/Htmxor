@@ -15,64 +15,62 @@ public sealed class HtmxorInferredActionDiagnosticsTests
 		.Distinct(StringComparer.OrdinalIgnoreCase).Select(path => (MetadataReference)MetadataReference.CreateFromFile(path)).ToImmutableArray();
 
 	[Theory]
-	[InlineData("Shape", "013,018")]
-	[InlineData("Normal", "013,018,034")]
-	[InlineData("Allowlist", "013,018,033")]
-	[InlineData("Parse", "013,015,018")]
-	[InlineData("Conflict", "013,013,018,031,031")]
-	[InlineData("Generic", "012,013,018")]
-	[InlineData("Parameter", "013,021,024")]
-	[InlineData("Dynamic", "013,024,025")]
-	[InlineData("Overload", "011,013")]
-	[InlineData("Unrouted", "013,014,018")]
-	[InlineData("TaskValue", "013,019")]
-	[InlineData("EventArgs", "013,020")]
-	[InlineData("LocalPage", "013,018,038")]
-	[InlineData("StockRoute", "013,018,039")]
-	[InlineData("Field", "007")]
-	[InlineData("Property", "008")]
-	[InlineData("Delegate", "041")]
-	[InlineData("Imported", "040")]
-	[InlineData("GetLambda", "006,015")]
-	[InlineData("Misplaced", "006,015,036")]
-	[InlineData("Cross", "013,015,018,042")]
+	[InlineData("Shape", "013:1:8:14,018:1:8:14")]
+	[InlineData("Normal", "013:2:8:14,018:2:8:14,034:2:8:14")]
+	[InlineData("Allowlist", "013:1:8:14,018:1:8:14,033:1:8:14")]
+	[InlineData("Parse", "013:1:8:14,015:1:8:14,018:1:8:14")]
+	[InlineData("Conflict", "013:1:8:14,013:2:8:14,018:1:8:14,031:1:8:14,031:2:8:14")]
+	[InlineData("Generic", "012:1:8:14,013:1:8:14,018:1:8:14")]
+	[InlineData("Parameter", "013:1:8:14,021:1:8:14,024:1:8:14")]
+	[InlineData("Dynamic", "013:1:8:14,024:1:8:14,025:1:8:14")]
+	[InlineData("Overload", "011:1:8:14,013:1:8:14")]
+	[InlineData("Unrouted", "013:1:8:14,014:1:8:14,018:1:8:14")]
+	[InlineData("TaskValue", "013:1:8:14,019:1:8:14")]
+	[InlineData("EventArgs", "013:1:8:14,020:1:8:14")]
+	[InlineData("LocalPage", "013:2:8:14,018:2:8:14,038:2:8:14")]
+	[InlineData("StockRoute", "013:1:8:14,018:1:8:14,039:1:8:14")]
+	[InlineData("Field", "007:1:8:14")]
+	[InlineData("Property", "008:1:8:14")]
+	[InlineData("Delegate", "041:1:8:14")]
+	[InlineData("Imported", "040:2:8:14")]
+	[InlineData("GetLambda", "006:1:8:14,015:1:8:14")]
+	[InlineData("Misplaced", "006:1:38:44,015:1:38:44,036:1:38:44")]
+	[InlineData("Cross", "013:1:8:14,015:1:8:14,018:1:8:14,042:2:17:22")]
 	public async Task Real_Razor_reports_every_independent_cause_once(string fixture, string expected)
 	{
 		var result = await AnalyzeAsync(fixture);
 
-		Assert.Equal(Ids(expected), result.Complete.Select(diagnostic => diagnostic.Id).Order(StringComparer.Ordinal));
-		Assert.All(result.Complete, diagnostic => AssertLocation(diagnostic, fixture));
-		AssertConflictMultiplicity(result.Complete, fixture);
+		AssertDiagnostics(fixture, expected, result.Complete);
 	}
 
 	[Theory]
-	[InlineData("Shape", "013,018")]
-	[InlineData("Normal", "013,018,034")]
-	[InlineData("Allowlist", "013,018,033")]
-	[InlineData("Parse", "013,018")]
-	[InlineData("Conflict", "013,013,018")]
-	[InlineData("Generic", "012,013,018")]
-	[InlineData("Parameter", "013,021,024")]
-	[InlineData("Dynamic", "013,024,025")]
-	[InlineData("Overload", "011,013")]
-	[InlineData("Unrouted", "013,014,018")]
-	[InlineData("TaskValue", "013,019")]
-	[InlineData("EventArgs", "013,020")]
-	[InlineData("LocalPage", "013,018,038")]
-	[InlineData("StockRoute", "013,018,039")]
-	[InlineData("Field", "007")]
-	[InlineData("Property", "008")]
-	[InlineData("Delegate", "041")]
-	[InlineData("Imported", "040")]
+	[InlineData("Shape", "013:1:8:14,018:1:8:14")]
+	[InlineData("Normal", "013:2:8:14,018:2:8:14,034:2:8:14")]
+	[InlineData("Allowlist", "013:1:8:14,018:1:8:14,033:1:8:14")]
+	[InlineData("Parse", "013:1:8:14,018:1:8:14")]
+	[InlineData("Conflict", "013:1:8:14,013:2:8:14,018:1:8:14")]
+	[InlineData("Generic", "012:1:8:14,013:1:8:14,018:1:8:14")]
+	[InlineData("Parameter", "013:1:8:14,021:1:8:14,024:1:8:14")]
+	[InlineData("Dynamic", "013:1:8:14,024:1:8:14,025:1:8:14")]
+	[InlineData("Overload", "011:1:8:14,013:1:8:14")]
+	[InlineData("Unrouted", "013:1:8:14,014:1:8:14,018:1:8:14")]
+	[InlineData("TaskValue", "013:1:8:14,019:1:8:14")]
+	[InlineData("EventArgs", "013:1:8:14,020:1:8:14")]
+	[InlineData("LocalPage", "013:2:8:14,018:2:8:14,038:2:8:14")]
+	[InlineData("StockRoute", "013:1:8:14,018:1:8:14,039:1:8:14")]
+	[InlineData("Field", "007:1:8:14")]
+	[InlineData("Property", "008:1:8:14")]
+	[InlineData("Delegate", "041:1:8:14")]
+	[InlineData("Imported", "040:2:8:14")]
+	[InlineData("Cross", "013:1:8:14,018:1:8:14")]
 	public async Task Semantic_feedback_contains_all_local_causes_without_aggregate_cascades(string fixture, string expected)
 	{
 		var result = await AnalyzeAsync(fixture);
 
-		Assert.Equal(Ids(expected), result.Local.Select(diagnostic => diagnostic.Id).Order(StringComparer.Ordinal));
-		AssertConflictMultiplicity(result.Local, fixture);
+		Assert.DoesNotContain(result.Local, diagnostic => diagnostic.Id == "HTMXOR042");
+		AssertDiagnostics(fixture, expected, result.Local);
 		Assert.All(result.Local, diagnostic =>
 		{
-			AssertLocation(diagnostic, fixture);
 			Assert.NotNull(diagnostic.Location.SourceTree);
 			Assert.DoesNotContain(WellKnownDiagnosticTags.CompilationEnd, diagnostic.Descriptor.CustomTags);
 		});
@@ -83,7 +81,7 @@ public sealed class HtmxorInferredActionDiagnosticsTests
 	{
 		var result = await AnalyzeAsync("Valid", omitBinding: true);
 
-		Assert.Equal(new[] { "HTMXOR042" }, result.Complete.Select(diagnostic => diagnostic.Id));
+		AssertDiagnostics("Valid", "042:1:16:17", result.Complete);
 		Assert.Empty(result.Local);
 	}
 
@@ -92,23 +90,23 @@ public sealed class HtmxorInferredActionDiagnosticsTests
 	{
 		var result = await AnalyzeAsync("Normal", omitBinding: true);
 
-		Assert.Equal(Ids("013,018,034"), result.Complete.Select(diagnostic => diagnostic.Id).Order(StringComparer.Ordinal));
-		Assert.Equal(Ids("013,018,034"), result.Local.Select(diagnostic => diagnostic.Id).Order(StringComparer.Ordinal));
+		AssertDiagnostics("Normal", "013:2:16:17,018:2:16:17,034:2:16:17", result.Complete);
+		AssertDiagnostics("Normal", "013:2:16:17,018:2:16:17,034:2:16:17", result.Local);
 	}
 
 	[Theory]
-	[InlineData("Lambda", "006")]
-	[InlineData("Factory", "009")]
-	[InlineData("Computed", "010")]
-	[InlineData("GetLambda", "006,015")]
-	[InlineData("Field", "007")]
-	[InlineData("Delegate", "041")]
+	[InlineData("Lambda", "006:1:16:25")]
+	[InlineData("Factory", "009:1:16:22")]
+	[InlineData("Computed", "010:1:16:34")]
+	[InlineData("GetLambda", "006:1:16:25,015:1:16:25")]
+	[InlineData("Field", "007:1:16:17")]
+	[InlineData("Delegate", "041:1:16:17")]
 	public async Task Recoverable_compiled_only_binding_exposes_its_local_cause(string fixture, string expected)
 	{
 		var result = await AnalyzeAsync(fixture, omitBinding: true);
 
-		Assert.Equal(Ids(expected), result.Complete.Select(diagnostic => diagnostic.Id).Order(StringComparer.Ordinal));
-		Assert.Equal(Ids(expected), result.Local.Select(diagnostic => diagnostic.Id).Order(StringComparer.Ordinal));
+		AssertDiagnostics(fixture, expected, result.Complete);
+		AssertDiagnostics(fixture, expected, result.Local);
 		Assert.All(result.Local, diagnostic => Assert.NotNull(diagnostic.Location.SourceTree));
 	}
 
@@ -131,33 +129,39 @@ public sealed class HtmxorInferredActionDiagnosticsTests
 		Assert.Empty(result.Local);
 	}
 
-	private static IEnumerable<string> Ids(string suffixes) => suffixes.Split(',').Select(suffix => "HTMXOR" + suffix).Order(StringComparer.Ordinal);
-
-	private static void AssertConflictMultiplicity(ImmutableArray<Diagnostic> diagnostics, string fixture)
+	private static void AssertDiagnostics(string fixture, string specification, ImmutableArray<Diagnostic> diagnostics)
 	{
-		if (fixture != "Conflict")
+		var expected = specification.Split(',').Select(item => ExpectedLocation(fixture, item));
+		var actual = diagnostics.Select(diagnostic =>
 		{
-			return;
-		}
-		Assert.Equal(new[] { 1, 2 }, diagnostics.Where(diagnostic => diagnostic.Id == "HTMXOR013")
-			.Select(diagnostic => diagnostic.Location.GetMappedLineSpan().StartLinePosition.Line).Order());
-		Assert.Equal(1, Assert.Single(diagnostics.Where(diagnostic => diagnostic.Id == "HTMXOR018")).Location.GetMappedLineSpan().StartLinePosition.Line);
+			var mapped = diagnostic.Location.GetMappedLineSpan();
+			return new DiagnosticLocation(diagnostic.Id, mapped.Path, mapped.StartLinePosition.Line,
+				mapped.StartLinePosition.Character, mapped.EndLinePosition.Line, mapped.EndLinePosition.Character);
+		});
+
+		Assert.Equal(OrderLocations(expected), OrderLocations(actual));
+		Assert.All(diagnostics, diagnostic =>
+		{
+			Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+			Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
+		});
 	}
 
-	private static void AssertLocation(Diagnostic diagnostic, string fixture)
+	private static DiagnosticLocation ExpectedLocation(string fixture, string specification)
 	{
-		var content = Read(fixture, "razor");
-		var mapped = diagnostic.Location.GetMappedLineSpan();
-		Assert.Equal(Directory + "/" + fixture + ".razor", mapped.Path);
-		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);
-		var line = SourceText.From(content).Lines[mapped.StartLinePosition.Line].ToString();
-		var direct = diagnostic.Id is "HTMXOR006" or "HTMXOR015" or "HTMXOR031" or "HTMXOR036";
-		var column = direct ? line.IndexOf("@on", StringComparison.Ordinal) : line.IndexOf("=\"", line.IndexOf("@on", StringComparison.Ordinal), StringComparison.Ordinal) + 2;
-		Assert.Equal(column, mapped.StartLinePosition.Character);
-		Assert.Equal(direct ? 6 : line.Contains("Other", StringComparison.Ordinal) ? 5 : fixture == "Imported" ? 7 : 1,
-			mapped.EndLinePosition.Character - mapped.StartLinePosition.Character);
+		var values = specification.Split(':');
+		var line = int.Parse(values[1], System.Globalization.CultureInfo.InvariantCulture);
+		return new DiagnosticLocation("HTMXOR" + values[0], Directory + "/" + fixture + ".razor", line,
+			int.Parse(values[2], System.Globalization.CultureInfo.InvariantCulture), line,
+			int.Parse(values[3], System.Globalization.CultureInfo.InvariantCulture));
 	}
+
+	private static IOrderedEnumerable<DiagnosticLocation> OrderLocations(IEnumerable<DiagnosticLocation> locations)
+		=> locations.OrderBy(location => location.Id, StringComparer.Ordinal).ThenBy(location => location.Path, StringComparer.Ordinal)
+			.ThenBy(location => location.StartLine).ThenBy(location => location.StartColumn)
+			.ThenBy(location => location.EndLine).ThenBy(location => location.EndColumn);
+
+	private sealed record DiagnosticLocation(string Id, string Path, int StartLine, int StartColumn, int EndLine, int EndColumn);
 
 	private static async Task<Result> AnalyzeAsync(string fixture, bool omitBinding = false, string? compilerError = null)
 	{
