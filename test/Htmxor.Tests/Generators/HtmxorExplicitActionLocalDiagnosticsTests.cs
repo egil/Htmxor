@@ -136,6 +136,31 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 	[Theory]
 	[InlineData(false)]
 	[InlineData(true)]
+	public async Task Compiler_owned_invalid_action_target_has_no_analyzer_duplicate(bool local)
+	{
+		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private int Value { get; set; }");
+
+		var diagnostics = await AnalyzeFeedbackAsync(source, local, compilerError: "CS0592");
+
+		Assert.Empty(diagnostics);
+	}
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public async Task Compiler_owned_invalid_target_does_not_hide_neighboring_action_feedback(bool local)
+	{
+		var source = Owner("[Htmxor.HtmxAction(\"PATCH\")] private int Value { get; set; } [Htmxor.HtmxAction(\"PUT\")] private static void Save() { }");
+
+		var diagnostics = await AnalyzeFeedbackAsync(source, local, compilerError: "CS0592");
+
+		AssertFeedback(diagnostics, source, ("HTMXOR013", "is static"));
+		Assert.Equal(source.LastIndexOf("Htmxor.HtmxAction", StringComparison.Ordinal), Assert.Single(diagnostics).Location.SourceSpan.Start);
+	}
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
 	public async Task Unresolved_return_type_stays_compiler_owned_beside_a_reportable_action(bool local)
 	{
 		var source = Owner("[Htmxor.HtmxAction(\"PATCH\")] private Missing Broken() => null!; [Htmxor.HtmxAction(\"PUT\")] private static void Save() { }");
