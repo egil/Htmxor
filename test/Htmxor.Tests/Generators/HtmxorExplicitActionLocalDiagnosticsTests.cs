@@ -110,6 +110,18 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 	}
 
 	[Theory]
+	[InlineData("public static Owner operator +(Owner left, Owner right) => left;", false)]
+	[InlineData("public static Owner operator +(Owner left, Owner right) => left;", true)]
+	[InlineData("public static explicit operator int(Owner value) => 1;", false)]
+	[InlineData("public static explicit operator int(Owner value) => 1;", true)]
+	public async Task Operator_and_conversion_actions_report_one_nonordinary_cause(string member, bool local)
+	{
+		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] " + member);
+
+		AssertFeedback(await AnalyzeFeedbackAsync(source, local), source, ("HTMXOR035", "ordinary callback method"));
+	}
+
+	[Theory]
 	[InlineData(false)]
 	[InlineData(true)]
 	public async Task Unrelated_compiler_error_does_not_hide_a_validly_bound_action(bool local)
