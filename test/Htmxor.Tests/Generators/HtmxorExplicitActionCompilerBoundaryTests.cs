@@ -49,32 +49,33 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 	}
 
 	[Theory]
-	[InlineData(false, false, false)]
-	[InlineData(false, false, true)]
-	[InlineData(false, true, false)]
-	[InlineData(false, true, true)]
-	[InlineData(true, false, false)]
-	[InlineData(true, false, true)]
-	[InlineData(true, true, false)]
-	[InlineData(true, true, true)]
-	public async Task Compiler_errors_in_callback_bodies_do_not_hide_decidable_header_feedback(bool localFunction, bool expressionBody, bool local)
+	[InlineData(false, false)]
+	[InlineData(false, true)]
+	[InlineData(true, false)]
+	[InlineData(true, true)]
+	public async Task Compiler_errors_in_ordinary_method_bodies_preserve_header_feedback(bool expressionBody, bool local)
 	{
 		var body = expressionBody ? "=> Missing();" : "{ Missing(); }";
-		var member = localFunction
-			? "private void Initialize() { [Htmxor.HtmxAction(\"PUT\")] static void Broken<T>() " + body + " }"
-			: "[Htmxor.HtmxAction(\"PUT\")] private static void Broken<T>() " + body;
-		var source = Owner(member);
+		var source = Owner("[Htmxor.HtmxAction(\"PUT\")] private static void Broken<T>() " + body);
 
 		var diagnostics = await AnalyzeFeedbackAsync(source, local, compilerError: "CS0103");
 
-		if (localFunction)
-		{
-			AssertFeedback(diagnostics, source, ("HTMXOR035", "ordinary callback method"));
-		}
-		else
-		{
-			AssertFeedback(diagnostics, source, ("HTMXOR013", "is static"), ("HTMXOR022", "is generic"));
-		}
+		AssertFeedback(diagnostics, source, ("HTMXOR013", "is static"), ("HTMXOR022", "is generic"));
+	}
+
+	[Theory]
+	[InlineData(false, false)]
+	[InlineData(false, true)]
+	[InlineData(true, false)]
+	[InlineData(true, true)]
+	public async Task Compiler_errors_in_local_function_bodies_preserve_header_feedback(bool expressionBody, bool local)
+	{
+		var body = expressionBody ? "=> Missing();" : "{ Missing(); }";
+		var source = Owner("private void Initialize() { [Htmxor.HtmxAction(\"PUT\")] static void Broken<T>() " + body + " }");
+
+		var diagnostics = await AnalyzeFeedbackAsync(source, local, compilerError: "CS0103");
+
+		AssertFeedback(diagnostics, source, ("HTMXOR035", "ordinary callback method"));
 	}
 
 	[Theory]
