@@ -130,7 +130,7 @@ internal static class HtmxorActionHandler
 			yield return issue;
 		}
 
-		foreach (var issue in GetParameterIssues(compilation, method))
+		foreach (var issue in GetParameterIssues(compilation, method, inferred))
 		{
 			yield return issue;
 		}
@@ -165,41 +165,43 @@ internal static class HtmxorActionHandler
 		};
 	}
 
-	private static IEnumerable<HtmxorDiagnosticIssue> GetParameterIssues(Compilation compilation, IMethodSymbol method)
+	private static IEnumerable<HtmxorDiagnosticIssue> GetParameterIssues(Compilation compilation, IMethodSymbol method,
+		bool inferred)
 	{
 		if (method.Parameters.Length > 1)
 		{
 			yield return Issue(HtmxorDiagnosticCause.OtherUnsupportedParameter, method.Name,
 				"has unsupported parameters; use zero parameters or one required HtmxEventArgs parameter");
-			yield break;
-		}
-		if (method.Parameters.Length == 0)
-		{
-			yield break;
-		}
-
-		var parameter = method.Parameters[0];
-		if (parameter.RefKind != RefKind.None)
-		{
-			yield return Issue(HtmxorDiagnosticCause.RefOrOutParameter, method.Name,
-				"has unsupported parameters; use one by-value HtmxEventArgs parameter");
-		}
-		if (parameter.IsOptional)
-		{
-			yield return Issue(HtmxorDiagnosticCause.OptionalParameter, method.Name, "has an optional parameter; make it required");
+			if (inferred)
+			{
+				yield break;
+			}
 		}
 
 		var eventArgs = compilation.GetTypeByMetadataName("Htmxor.HtmxEventArgs");
-		if (!SymbolEqualityComparer.Default.Equals(parameter.Type, eventArgs))
+		foreach (var parameter in method.Parameters)
 		{
-			var cause = parameter.Type.ToDisplayString() switch
+			if (parameter.RefKind != RefKind.None)
 			{
-				"System.EventArgs" => HtmxorDiagnosticCause.EventArgsParameter,
-				"object" => HtmxorDiagnosticCause.ObjectParameter,
-				_ => HtmxorDiagnosticCause.OtherUnsupportedParameter,
-			};
-			yield return Issue(cause, method.Name,
-				"has a parameter that is not HtmxEventArgs; its parameter must be HtmxEventArgs");
+				yield return Issue(HtmxorDiagnosticCause.RefOrOutParameter, method.Name,
+					"has unsupported parameters; use one by-value HtmxEventArgs parameter");
+			}
+			if (parameter.IsOptional)
+			{
+				yield return Issue(HtmxorDiagnosticCause.OptionalParameter, method.Name,
+					"has an optional parameter; make it required");
+			}
+			if (!SymbolEqualityComparer.Default.Equals(parameter.Type, eventArgs))
+			{
+				var cause = parameter.Type.ToDisplayString() switch
+				{
+					"System.EventArgs" => HtmxorDiagnosticCause.EventArgsParameter,
+					"object" => HtmxorDiagnosticCause.ObjectParameter,
+					_ => HtmxorDiagnosticCause.OtherUnsupportedParameter,
+				};
+				yield return Issue(cause, method.Name,
+					"has a parameter that is not HtmxEventArgs; its parameter must be HtmxEventArgs");
+			}
 		}
 	}
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -87,24 +88,71 @@ internal static class HtmxorExplicitActionValidation
 			_ => attribute.Span.End,
 		};
 		var header = TextSpan.FromBounds(attribute.SpanStart, Math.Max(attribute.Span.End, headerEnd));
-		if (HasMalformedHeaderError(model, header, token))
+		var ownerHeader = declaration is AccessorDeclarationSyntax { Parent.Parent: BasePropertyDeclarationSyntax owner } &&
+			owner.AccessorList is { } accessors
+			? TextSpan.FromBounds(owner.SpanStart, accessors.OpenBraceToken.SpanStart)
+			: (TextSpan?)null;
+		var errors = GetHeaderErrors(model, header, ownerHeader, token);
+		if (errors.Length == 0)
+		{
+			return false;
+		}
+
+		var replacement = ReplaceBody(declaration);
+		if (replacement is null)
 		{
 			return true;
 		}
 
-		return declaration is AccessorDeclarationSyntax { Parent.Parent: BasePropertyDeclarationSyntax owner } &&
-			owner.AccessorList is { } accessors &&
-			HasMalformedHeaderError(model, TextSpan.FromBounds(owner.SpanStart, accessors.OpenBraceToken.SpanStart), token);
+		token.ThrowIfCancellationRequested();
+		var tree = declaration.SyntaxTree;
+		var root = tree.GetRoot(token);
+		var newRoot = root.ReplaceNode(declaration, replacement);
+		var newTree = tree.WithRootAndOptions(newRoot, tree.Options);
+		var newModel = model.Compilation.ReplaceSyntaxTree(tree, newTree).GetSemanticModel(newTree);
+		// Body-flow errors can point at header tokens; only errors that survive a terminating body are declaration-owned.
+		var remaining = GetHeaderErrors(newModel, header, ownerHeader, token);
+		return errors.Any(original => remaining.Any(current =>
+			current.Id == original.Id && current.Location.SourceSpan == original.Location.SourceSpan));
 	}
 
-	// Roslyn can locate body-flow errors on method names and getter keywords.
-	private static bool HasMalformedHeaderError(SemanticModel model, TextSpan header,
+	private static Diagnostic[] GetHeaderErrors(SemanticModel model, TextSpan header, TextSpan? ownerHeader,
 		System.Threading.CancellationToken token)
-		=> model.GetDiagnostics(header, token).Any(static diagnostic =>
-			diagnostic.Severity == DiagnosticSeverity.Error && !IsBodyOwnedCompilerError(diagnostic));
+		=> (ownerHeader is { } owner
+			? model.GetDiagnostics(header, token).Concat(model.GetDiagnostics(owner, token))
+			: model.GetDiagnostics(header, token))
+			.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToArray();
 
-	private static bool IsBodyOwnedCompilerError(Diagnostic diagnostic)
-		=> diagnostic.Id is "CS0161" or "CS0177" or "CS1624";
+	private static SyntaxNode? ReplaceBody(SyntaxNode declaration)
+	{
+		var throwExpression = SyntaxFactory.ThrowExpression(SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression));
+		var throwBlock = SyntaxFactory.Block(SyntaxFactory.ThrowStatement(
+			SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)));
+		return declaration switch
+		{
+			MethodDeclarationSyntax { Body: not null } method => method.WithBody(throwBlock),
+			MethodDeclarationSyntax { ExpressionBody: not null } method =>
+				method.WithExpressionBody(method.ExpressionBody.WithExpression(throwExpression)),
+			OperatorDeclarationSyntax { Body: not null } @operator => @operator.WithBody(throwBlock),
+			OperatorDeclarationSyntax { ExpressionBody: not null } @operator =>
+				@operator.WithExpressionBody(@operator.ExpressionBody.WithExpression(throwExpression)),
+			ConversionOperatorDeclarationSyntax { Body: not null } conversion => conversion.WithBody(throwBlock),
+			ConversionOperatorDeclarationSyntax { ExpressionBody: not null } conversion =>
+				conversion.WithExpressionBody(conversion.ExpressionBody.WithExpression(throwExpression)),
+			AccessorDeclarationSyntax { Body: not null } accessor => accessor.WithBody(throwBlock),
+			AccessorDeclarationSyntax { ExpressionBody: not null } accessor =>
+				accessor.WithExpressionBody(accessor.ExpressionBody.WithExpression(throwExpression)),
+			DestructorDeclarationSyntax { Body: not null } destructor => destructor.WithBody(throwBlock),
+			DestructorDeclarationSyntax { ExpressionBody: not null } destructor =>
+				destructor.WithExpressionBody(destructor.ExpressionBody.WithExpression(throwExpression)),
+			LocalFunctionStatementSyntax { Body: not null } local => local.WithBody(throwBlock),
+			LocalFunctionStatementSyntax { ExpressionBody: not null } local =>
+				local.WithExpressionBody(local.ExpressionBody.WithExpression(throwExpression)),
+			LambdaExpressionSyntax { Body: BlockSyntax } lambda => lambda.WithBody(throwBlock),
+			LambdaExpressionSyntax lambda => lambda.WithBody(throwExpression),
+			_ => null,
+		};
+	}
 
 	private static string? ReadMethod(SemanticModel model, AttributeSyntax attribute,
 		System.Threading.CancellationToken token)
