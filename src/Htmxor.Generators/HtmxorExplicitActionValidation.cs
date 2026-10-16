@@ -130,26 +130,28 @@ internal static class HtmxorExplicitActionValidation
 			SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)));
 		return declaration switch
 		{
-			MethodDeclarationSyntax { Body: not null } method => method.WithBody(throwBlock),
-			MethodDeclarationSyntax { ExpressionBody: not null } method =>
-				method.WithExpressionBody(method.ExpressionBody.WithExpression(throwExpression)),
-			OperatorDeclarationSyntax { Body: not null } @operator => @operator.WithBody(throwBlock),
-			OperatorDeclarationSyntax { ExpressionBody: not null } @operator =>
-				@operator.WithExpressionBody(@operator.ExpressionBody.WithExpression(throwExpression)),
-			ConversionOperatorDeclarationSyntax { Body: not null } conversion => conversion.WithBody(throwBlock),
-			ConversionOperatorDeclarationSyntax { ExpressionBody: not null } conversion =>
-				conversion.WithExpressionBody(conversion.ExpressionBody.WithExpression(throwExpression)),
-			AccessorDeclarationSyntax { Body: not null } accessor => accessor.WithBody(throwBlock),
-			AccessorDeclarationSyntax { ExpressionBody: not null } accessor =>
-				accessor.WithExpressionBody(accessor.ExpressionBody.WithExpression(throwExpression)),
-			DestructorDeclarationSyntax { Body: not null } destructor => destructor.WithBody(throwBlock),
-			DestructorDeclarationSyntax { ExpressionBody: not null } destructor =>
-				destructor.WithExpressionBody(destructor.ExpressionBody.WithExpression(throwExpression)),
-			LocalFunctionStatementSyntax { Body: not null } local => local.WithBody(throwBlock),
-			LocalFunctionStatementSyntax { ExpressionBody: not null } local =>
-				local.WithExpressionBody(local.ExpressionBody.WithExpression(throwExpression)),
-			LambdaExpressionSyntax { Body: BlockSyntax } lambda => lambda.WithBody(throwBlock),
-			LambdaExpressionSyntax lambda => lambda.WithBody(throwExpression),
+			MethodDeclarationSyntax { Body: { } body } method => method.WithBody(throwBlock.WithTriviaFrom(body)),
+			MethodDeclarationSyntax { ExpressionBody: { } arrow } method =>
+				method.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			OperatorDeclarationSyntax { Body: { } body } @operator => @operator.WithBody(throwBlock.WithTriviaFrom(body)),
+			OperatorDeclarationSyntax { ExpressionBody: { } arrow } @operator =>
+				@operator.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			ConversionOperatorDeclarationSyntax { Body: { } body } conversion =>
+				conversion.WithBody(throwBlock.WithTriviaFrom(body)),
+			ConversionOperatorDeclarationSyntax { ExpressionBody: { } arrow } conversion =>
+				conversion.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			AccessorDeclarationSyntax { Body: { } body } accessor => accessor.WithBody(throwBlock.WithTriviaFrom(body)),
+			AccessorDeclarationSyntax { ExpressionBody: { } arrow } accessor =>
+				accessor.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			DestructorDeclarationSyntax { Body: { } body } destructor => destructor.WithBody(throwBlock.WithTriviaFrom(body)),
+			DestructorDeclarationSyntax { ExpressionBody: { } arrow } destructor =>
+				destructor.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			LocalFunctionStatementSyntax { Body: { } body } local => local.WithBody(throwBlock.WithTriviaFrom(body)),
+			LocalFunctionStatementSyntax { ExpressionBody: { } arrow } local =>
+				local.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			LambdaExpressionSyntax { Body: BlockSyntax body } lambda => lambda.WithBody(throwBlock.WithTriviaFrom(body)),
+			LambdaExpressionSyntax { Body: ExpressionSyntax expression } lambda =>
+				lambda.WithBody(throwExpression.WithTriviaFrom(expression)),
 			_ => null,
 		};
 	}
