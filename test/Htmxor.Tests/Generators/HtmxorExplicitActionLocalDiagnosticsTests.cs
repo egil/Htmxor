@@ -122,6 +122,21 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 	}
 
 	[Theory]
+	[InlineData("public static Owner operator +(Owner left, Missing right) => left;", false)]
+	[InlineData("public static Owner operator +(Owner left, Missing right) => left;", true)]
+	[InlineData("public static explicit operator Missing(Owner value) => null!;", false)]
+	[InlineData("public static explicit operator Missing(Owner value) => null!;", true)]
+	public async Task Malformed_operator_and_conversion_headers_remain_compiler_owned(string member, bool local)
+	{
+		var source = Owner("[Htmxor.HtmxAction(\"PATCH\")] " + member + " [Htmxor.HtmxAction(\"PUT\")] private static void Save() { }");
+
+		var diagnostics = await AnalyzeFeedbackAsync(source, local, compilerError: "CS0246");
+
+		AssertFeedback(diagnostics, source, ("HTMXOR013", "is static"));
+		Assert.Equal(source.LastIndexOf("Htmxor.HtmxAction", StringComparison.Ordinal), Assert.Single(diagnostics).Location.SourceSpan.Start);
+	}
+
+	[Theory]
 	[InlineData(false)]
 	[InlineData(true)]
 	public async Task Unrelated_compiler_error_does_not_hide_a_validly_bound_action(bool local)
