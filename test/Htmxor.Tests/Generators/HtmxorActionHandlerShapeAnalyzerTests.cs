@@ -306,6 +306,34 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 		Assert.Empty(local);
 	}
 
+
+	[Theory]
+	[InlineData("ref global::Htmxor.HtmxEventArgs first, global::Htmxor.HtmxEventArgs second = null")]
+	[InlineData("global::Htmxor.HtmxEventArgs first = null, global::Htmxor.HtmxEventArgs second = null")]
+	public async Task Inferred_multi_parameter_binding_remains_compiler_owned_in_complete_and_local_analysis(string parameters)
+	{
+		var source = $$"""
+			namespace {{RootNamespace}};
+			[global::Microsoft.AspNetCore.Components.RouteAttribute("/reports/{Id:int}")]
+			public sealed class ReportComponent : global::Microsoft.AspNetCore.Components.ComponentBase
+			{
+				private void M({{parameters}}) { }
+				{{BindMethod}}
+			}
+			""";
+		var tree = CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), RazorGeneratedPath("ReportComponent"));
+		var compilation = CSharpCompilation.Create("InferredArityContract", [tree], References,
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+		var error = Assert.Single(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "CS1503");
+		Assert.Equal("M", source.Substring(error.Location.SourceSpan.Start, error.Location.SourceSpan.Length));
+		var razor = new SourceAdditionalText(ComponentPath("ReportComponent.razor"), HandlerRazorContent);
+		var driver = compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new HtmxorActionDeclarationAnalyzer()),
+			new AnalyzerOptions([razor], new TestAnalyzerConfigOptionsProvider(ProjectDirectory)));
+
+		Assert.Empty(await driver.GetAnalyzerDiagnosticsAsync());
+		Assert.Empty(await driver.GetAnalyzerSemanticDiagnosticsAsync(compilation.GetSemanticModel(tree), null, CancellationToken.None));
+	}
+
 	[Fact]
 	public async Task Unique_instance_method_declared_as_an_explicit_action_is_a_supported_repair()
 	{
