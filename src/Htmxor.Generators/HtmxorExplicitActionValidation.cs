@@ -59,6 +59,8 @@ internal static class HtmxorExplicitActionValidation
 		=> declaration switch
 		{
 			MethodDeclarationSyntax method => model.GetDeclaredSymbol(method, token) as IMethodSymbol,
+			OperatorDeclarationSyntax @operator => model.GetDeclaredSymbol(@operator, token) as IMethodSymbol,
+			ConversionOperatorDeclarationSyntax conversion => model.GetDeclaredSymbol(conversion, token) as IMethodSymbol,
 			AccessorDeclarationSyntax accessor => model.GetDeclaredSymbol(accessor, token) as IMethodSymbol,
 			DestructorDeclarationSyntax destructor => model.GetDeclaredSymbol(destructor, token) as IMethodSymbol,
 			LocalFunctionStatementSyntax local => model.GetDeclaredSymbol(local, token) as IMethodSymbol,
@@ -72,6 +74,8 @@ internal static class HtmxorExplicitActionValidation
 		var headerEnd = declaration switch
 		{
 			MethodDeclarationSyntax method => method.ParameterList.Span.End,
+			OperatorDeclarationSyntax @operator => @operator.ParameterList.Span.End,
+			ConversionOperatorDeclarationSyntax conversion => conversion.ParameterList.Span.End,
 			AccessorDeclarationSyntax accessor => accessor.Keyword.Span.End,
 			DestructorDeclarationSyntax destructor => destructor.ParameterList.Span.End,
 			LocalFunctionStatementSyntax local => local.ParameterList.Span.End,
