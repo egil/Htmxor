@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Htmxor.Generators;
 
@@ -12,52 +14,207 @@ internal static class HtmxorExplicitActionValidation
 {
 	private static readonly string[] SupportedMethods = { "POST", "PUT", "PATCH", "DELETE", "QUERY" };
 
-	public static void Analyze(CompilationAnalysisContext context)
+	public static void AnalyzeLocal(SyntaxNodeAnalysisContext context, INamedTypeSymbol action, HtmxorRouteSymbols symbols)
 	{
-		var action = context.Compilation.GetTypeByMetadataName("Htmxor.HtmxActionAttribute");
-		var symbols = HtmxorRouteSymbols.Resolve(context.Compilation);
-		if (action is null || symbols is null || context.Compilation.GetDiagnostics(context.CancellationToken)
-			.Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
+		context.CancellationToken.ThrowIfCancellationRequested();
+		var attribute = (AttributeSyntax)context.Node;
+		var declaration = attribute.Parent?.Parent;
+		if (declaration is null ||
+			context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor ||
+			!SymbolEqualityComparer.Default.Equals(constructor.ContainingType, action) ||
+			HasCompilerError(context.SemanticModel, declaration, attribute, context.CancellationToken))
 		{
 			return;
 		}
 
-		AnalyzeNonMemberDeclarations(context, action);
+		var handler = GetHandler(context.SemanticModel, declaration, context.CancellationToken);
+		if (handler?.ContainingType is not { } component)
+		{
+			return;
+		}
+
+		var method = ReadMethod(context.SemanticModel, attribute, context.CancellationToken);
+		foreach (var issue in GetLocalIssues(context.Compilation, component, handler, method, symbols))
+		{
+			context.ReportDiagnostic(issue.ToLocalDiagnostic(attribute.GetLocation()));
+		}
+	}
+
+	public static void AnalyzeConflicts(CompilationAnalysisContext context)
+	{
+		var action = context.Compilation.GetTypeByMetadataName("Htmxor.HtmxActionAttribute");
+		if (action is null)
+		{
+			return;
+		}
+
 		var bindings = RazorCompiledEventBinding.Find(context.Compilation, context.CancellationToken).ToArray();
 		var forms = RazorCompiledForm.Find(context.Compilation, context.CancellationToken).ToArray();
 		foreach (var component in GetTypes(context.Compilation.Assembly.GlobalNamespace))
 		{
-			AnalyzeOwner(context, component, action, symbols, bindings, forms);
+			AnalyzeOwnerConflicts(context, component, action, bindings, forms);
 		}
 	}
 
-	private static void AnalyzeNonMemberDeclarations(CompilationAnalysisContext context, INamedTypeSymbol action)
-	{
-		foreach (var tree in context.Compilation.SyntaxTrees)
+	private static IMethodSymbol? GetHandler(SemanticModel model, SyntaxNode declaration, System.Threading.CancellationToken token)
+		=> declaration switch
 		{
-			var model = context.Compilation.GetSemanticModel(tree);
-			foreach (var attribute in tree.GetRoot(context.CancellationToken).DescendantNodes().OfType<AttributeSyntax>())
-			{
-				context.CancellationToken.ThrowIfCancellationRequested();
-				var target = attribute.Parent?.Parent;
-				IMethodSymbol? handler = target switch
-				{
-					LocalFunctionStatementSyntax local => model.GetDeclaredSymbol(local, context.CancellationToken) as IMethodSymbol,
-					LambdaExpressionSyntax lambda => (model.GetOperation(lambda, context.CancellationToken) as IAnonymousFunctionOperation)?.Symbol,
-					_ => null,
-				};
-				if (handler is null || model.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor ||
-					!SymbolEqualityComparer.Default.Equals(constructor.ContainingType, action))
-				{
-					continue;
-				}
+			MethodDeclarationSyntax method => model.GetDeclaredSymbol(method, token) as IMethodSymbol,
+			OperatorDeclarationSyntax @operator => model.GetDeclaredSymbol(@operator, token) as IMethodSymbol,
+			ConversionOperatorDeclarationSyntax conversion => model.GetDeclaredSymbol(conversion, token) as IMethodSymbol,
+			AccessorDeclarationSyntax accessor => model.GetDeclaredSymbol(accessor, token) as IMethodSymbol,
+			DestructorDeclarationSyntax destructor => model.GetDeclaredSymbol(destructor, token) as IMethodSymbol,
+			EventFieldDeclarationSyntax field when field.Declaration.Variables.Count > 0 =>
+				(model.GetDeclaredSymbol(field.Declaration.Variables[0], token) as IEventSymbol)?.AddMethod,
+			LocalFunctionStatementSyntax local => model.GetDeclaredSymbol(local, token) as IMethodSymbol,
+			LambdaExpressionSyntax lambda => (model.GetOperation(lambda, token) as IAnonymousFunctionOperation)?.Symbol,
+			_ => null,
+		};
 
-				if (HtmxorActionHandler.GetExplicitUnsupportedIssue(context.Compilation, handler) is { } issue)
-				{
-					context.ReportDiagnostic(issue.ToDiagnostic(attribute.GetLocation()));
-				}
-			}
+	private static bool HasCompilerError(SemanticModel model, SyntaxNode declaration,
+		AttributeSyntax attribute, System.Threading.CancellationToken token)
+	{
+		var headerEnd = declaration switch
+		{
+			MethodDeclarationSyntax method => method.ConstraintClauses.LastOrDefault()?.Span.End ?? method.ParameterList.Span.End,
+			OperatorDeclarationSyntax @operator => @operator.ParameterList.Span.End,
+			ConversionOperatorDeclarationSyntax conversion => conversion.ParameterList.Span.End,
+			AccessorDeclarationSyntax accessor => accessor.Keyword.Span.End,
+			DestructorDeclarationSyntax destructor => destructor.ParameterList.Span.End,
+			EventFieldDeclarationSyntax field when field.Declaration.Variables.Count > 0 =>
+				field.Declaration.Variables[0].Identifier.Span.End,
+			LocalFunctionStatementSyntax local => local.ConstraintClauses.LastOrDefault()?.Span.End ?? local.ParameterList.Span.End,
+			LambdaExpressionSyntax lambda => lambda.Body.SpanStart,
+			_ => attribute.Span.End,
+		};
+		var header = TextSpan.FromBounds(attribute.SpanStart, Math.Max(attribute.Span.End, headerEnd));
+		var ownerHeader = declaration is AccessorDeclarationSyntax { Parent.Parent: BasePropertyDeclarationSyntax owner } &&
+			owner.AccessorList is { } accessors
+			? TextSpan.FromBounds(owner.SpanStart, accessors.OpenBraceToken.SpanStart)
+			: (TextSpan?)null;
+		var errors = GetHeaderErrors(model, header, ownerHeader, token);
+		if (errors.Length == 0)
+		{
+			return false;
 		}
+
+		var replacement = ReplaceBody(declaration);
+		if (replacement is null)
+		{
+			return true;
+		}
+
+		token.ThrowIfCancellationRequested();
+		var tree = declaration.SyntaxTree;
+		var root = tree.GetRoot(token);
+		var newRoot = root.ReplaceNode(declaration, replacement);
+		var newTree = tree.WithRootAndOptions(newRoot, tree.Options);
+		var newModel = model.Compilation.ReplaceSyntaxTree(tree, newTree).GetSemanticModel(newTree);
+		// Body-flow errors can point at header tokens; only errors that survive a terminating body are declaration-owned.
+		var remaining = GetHeaderErrors(newModel, header, ownerHeader, token);
+		return errors.Any(original => remaining.Any(current =>
+			current.Id == original.Id && current.Location.SourceSpan == original.Location.SourceSpan));
+	}
+
+	private static Diagnostic[] GetHeaderErrors(SemanticModel model, TextSpan header, TextSpan? ownerHeader,
+		System.Threading.CancellationToken token)
+		=> (ownerHeader is { } owner
+			? model.GetDiagnostics(header, token).Concat(model.GetDiagnostics(owner, token))
+			: model.GetDiagnostics(header, token))
+			.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToArray();
+
+	private static SyntaxNode? ReplaceBody(SyntaxNode declaration)
+	{
+		var throwExpression = SyntaxFactory.ThrowExpression(SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression));
+		var throwBlock = SyntaxFactory.Block(SyntaxFactory.ThrowStatement(
+			SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)));
+		return declaration switch
+		{
+			MethodDeclarationSyntax { Body: { } body } method => method.WithBody(throwBlock.WithTriviaFrom(body)),
+			MethodDeclarationSyntax { ExpressionBody: { } arrow } method =>
+				method.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			OperatorDeclarationSyntax { Body: { } body } @operator => @operator.WithBody(throwBlock.WithTriviaFrom(body)),
+			OperatorDeclarationSyntax { ExpressionBody: { } arrow } @operator =>
+				@operator.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			ConversionOperatorDeclarationSyntax { Body: { } body } conversion =>
+				conversion.WithBody(throwBlock.WithTriviaFrom(body)),
+			ConversionOperatorDeclarationSyntax { ExpressionBody: { } arrow } conversion =>
+				conversion.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			AccessorDeclarationSyntax { Body: { } body } accessor => accessor.WithBody(throwBlock.WithTriviaFrom(body)),
+			AccessorDeclarationSyntax { ExpressionBody: { } arrow } accessor =>
+				accessor.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			DestructorDeclarationSyntax { Body: { } body } destructor => destructor.WithBody(throwBlock.WithTriviaFrom(body)),
+			DestructorDeclarationSyntax { ExpressionBody: { } arrow } destructor =>
+				destructor.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			LocalFunctionStatementSyntax { Body: { } body } local => local.WithBody(throwBlock.WithTriviaFrom(body)),
+			LocalFunctionStatementSyntax { ExpressionBody: { } arrow } local =>
+				local.WithExpressionBody(arrow.WithExpression(throwExpression.WithTriviaFrom(arrow.Expression))),
+			LambdaExpressionSyntax { Body: BlockSyntax body } lambda => lambda.WithBody(throwBlock.WithTriviaFrom(body)),
+			LambdaExpressionSyntax { Body: ExpressionSyntax expression } lambda =>
+				lambda.WithBody(throwExpression.WithTriviaFrom(expression)),
+			_ => null,
+		};
+	}
+
+	private static string? ReadMethod(SemanticModel model, AttributeSyntax attribute,
+		System.Threading.CancellationToken token)
+	{
+		var argument = attribute.ArgumentList?.Arguments.FirstOrDefault();
+		var constant = argument is null ? default : model.GetConstantValue(argument.Expression, token);
+		return constant.HasValue && constant.Value is string method
+			? SupportedMethods.FirstOrDefault(allowed => string.Equals(method, allowed, StringComparison.OrdinalIgnoreCase))
+			: null;
+	}
+
+	private static string? ReadMethod(AttributeData attribute)
+		=> attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is string method
+			? SupportedMethods.FirstOrDefault(allowed => string.Equals(method, allowed, StringComparison.OrdinalIgnoreCase)) : null;
+
+	private static IEnumerable<HtmxorDiagnosticIssue> GetLocalIssues(Compilation compilation,
+		INamedTypeSymbol component, IMethodSymbol handler, string? method, HtmxorRouteSymbols symbols)
+	{
+		if (method is null)
+		{
+			yield return new(HtmxorDiagnosticCause.InvalidExplicitVerb,
+				"HtmxAction method must be POST, PUT, PATCH, DELETE or QUERY");
+		}
+
+		var attributes = component.GetAttributes();
+		var route = attributes.FirstOrDefault(attribute => Is(attribute, symbols.HtmxRoute));
+		if ((route is null && !attributes.Any(attribute => Is(attribute, symbols.Route))) ||
+			!component.AllInterfaces.Any(type => SymbolEqualityComparer.Default.Equals(type, symbols.Component)))
+		{
+			yield return new(HtmxorDiagnosticCause.ExplicitUnroutedOwner,
+				"HtmxAction must be declared on the component type that owns its route, not an inherited or unrouted owner");
+		}
+
+		if (attributes.Any(attribute => Is(attribute, symbols.DisableHtmxDirectRouting)))
+		{
+			yield return new(HtmxorDiagnosticCause.NormalOnlyAction,
+				"HtmxAction is not supported on a component marked with DisableHtmxDirectRouting; remove the action or marker");
+		}
+
+		foreach (var issue in HtmxorActionHandler.GetExplicitUnsupportedIssues(compilation, handler))
+		{
+			yield return issue;
+		}
+
+		if (method is not null && GetAllowListIssue(route, method) is { } allowListIssue)
+		{
+			yield return allowListIssue;
+		}
+	}
+
+	private static HtmxorDiagnosticIssue? GetAllowListIssue(AttributeData? route, string method)
+	{
+		var methods = route?.NamedArguments.FirstOrDefault(static argument => argument.Key == "Methods");
+		return methods is { Key: "Methods" } argument &&
+			!HtmxorRoutedComponent.HasBindingError(argument.Value) &&
+			(argument.Value.IsNull || argument.Value.Kind != TypedConstantKind.Array || !argument.Value.Values.Any(value =>
+				value.Value is string allowed && string.Equals(allowed, method, StringComparison.OrdinalIgnoreCase)))
+			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ExplicitMethodsConflict,
+				"explicit HtmxRoute.Methods does not allow the " + method + " HtmxAction; add the method or remove the action")
+			: null;
 	}
 
 	private static IEnumerable<INamedTypeSymbol> GetTypes(INamespaceSymbol scope)
@@ -67,69 +224,44 @@ internal static class HtmxorExplicitActionValidation
 	private static IEnumerable<INamedTypeSymbol> GetTypes(INamedTypeSymbol type)
 		=> new[] { type }.Concat(type.GetTypeMembers().SelectMany(GetTypes));
 
-	private static void AnalyzeOwner(CompilationAnalysisContext context, INamedTypeSymbol component,
-		INamedTypeSymbol action, HtmxorRouteSymbols symbols, RazorCompiledEventBinding[] bindings, RazorCompiledForm[] forms)
+	private static bool IsFieldEventAccessor(IMethodSymbol method, System.Threading.CancellationToken token)
+		=> method.AssociatedSymbol is IEventSymbol @event &&
+			@event.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax(token).Parent?.Parent is EventFieldDeclarationSyntax);
+
+	private static void AnalyzeOwnerConflicts(CompilationAnalysisContext context, INamedTypeSymbol component,
+		INamedTypeSymbol action, RazorCompiledEventBinding[] bindings, RazorCompiledForm[] forms)
 	{
 		var declarations = component.GetMembers().OfType<IMethodSymbol>()
+			.Where(method => !IsFieldEventAccessor(method, context.CancellationToken))
 			.SelectMany(method => method.GetAttributes().Where(attribute => Is(attribute, action))
 				.Select(attribute => (Handler: method, Attribute: attribute))).ToArray();
 		foreach (var declaration in declarations)
 		{
 			context.CancellationToken.ThrowIfCancellationRequested();
-			var method = ReadMethod(declaration.Attribute);
-			var issue = GetIssue(context.Compilation, component, declaration.Handler, method, symbols)
-				?? GetConflictIssue(component, declaration.Handler, method!, declarations, bindings, forms);
-			if (issue is { } diagnosed && declaration.Attribute.ApplicationSyntaxReference is { } syntax)
+			if (declaration.Attribute.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken) is not AttributeSyntax syntax)
 			{
-				context.ReportDiagnostic(diagnosed.ToDiagnostic(syntax.GetSyntax(context.CancellationToken).GetLocation()));
+				continue;
+			}
+			var model = context.Compilation.GetSemanticModel(syntax.SyntaxTree);
+			if (syntax.Parent?.Parent is not { } target || HasCompilerError(model, target, syntax, context.CancellationToken))
+			{
+				continue;
+			}
+			var method = ReadMethod(declaration.Attribute);
+			if (method is null)
+			{
+				continue;
+			}
+			foreach (var issue in GetConflictIssues(component, declaration.Handler, method, declarations, bindings, forms))
+			{
+				context.ReportDiagnostic(issue.ToDiagnostic(syntax.GetLocation()));
 			}
 		}
 	}
 
-	private static string? ReadMethod(AttributeData attribute)
-		=> attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is string method
-			? SupportedMethods.FirstOrDefault(allowed => string.Equals(method, allowed, StringComparison.OrdinalIgnoreCase)) : null;
-
-	private static HtmxorDiagnosticIssue? GetIssue(Compilation compilation, INamedTypeSymbol component,
-		IMethodSymbol handler, string? method, HtmxorRouteSymbols symbols)
-	{
-		if (method is not ("POST" or "PUT" or "PATCH" or "DELETE" or "QUERY"))
-		{
-			return new(HtmxorDiagnosticCause.InvalidExplicitVerb,
-				"HtmxAction method must be POST, PUT, PATCH, DELETE or QUERY");
-		}
-
-		var attributes = component.GetAttributes();
-		var route = attributes.FirstOrDefault(attribute => Is(attribute, symbols.HtmxRoute));
-		if ((route is null && !attributes.Any(attribute => Is(attribute, symbols.Route))) ||
-			!component.AllInterfaces.Any(type => SymbolEqualityComparer.Default.Equals(type, symbols.Component)))
-		{
-			return new(HtmxorDiagnosticCause.ExplicitUnroutedOwner,
-				"HtmxAction must be declared on the component type that owns its route, not an inherited or unrouted owner");
-		}
-
-		if (attributes.Any(attribute => Is(attribute, symbols.DisableHtmxDirectRouting)))
-		{
-			return new(HtmxorDiagnosticCause.NormalOnlyAction,
-				"HtmxAction is not supported on a component marked with DisableHtmxDirectRouting; remove the action or marker");
-		}
-
-		return HtmxorActionHandler.GetExplicitUnsupportedIssue(compilation, handler) ?? GetAllowListIssue(route, method);
-	}
-
-	private static HtmxorDiagnosticIssue? GetAllowListIssue(AttributeData? route, string method)
-	{
-		var methods = route?.NamedArguments.FirstOrDefault(static argument => argument.Key == "Methods");
-		return methods is { Key: "Methods" } argument &&
-			(argument.Value.IsNull || argument.Value.Kind != TypedConstantKind.Array || !argument.Value.Values.Any(value =>
-				value.Value is string allowed && string.Equals(allowed, method, StringComparison.OrdinalIgnoreCase)))
-			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ExplicitMethodsConflict,
-				"explicit HtmxRoute.Methods does not allow the " + method + " HtmxAction; add the method or remove the action")
-			: null;
-	}
-
-	private static HtmxorDiagnosticIssue? GetConflictIssue(INamedTypeSymbol component, IMethodSymbol handler, string method,
-		(IMethodSymbol Handler, AttributeData Attribute)[] declarations, RazorCompiledEventBinding[] bindings, RazorCompiledForm[] forms)
+	private static IEnumerable<HtmxorDiagnosticIssue> GetConflictIssues(INamedTypeSymbol component, IMethodSymbol handler,
+		string method, (IMethodSymbol Handler, AttributeData Attribute)[] declarations,
+		RazorCompiledEventBinding[] bindings, RazorCompiledForm[] forms)
 	{
 		if (declarations.Any(declaration => ReadMethod(declaration.Attribute) == method &&
 			!SymbolEqualityComparer.Default.Equals(declaration.Handler, handler)) ||
@@ -137,14 +269,15 @@ internal static class HtmxorExplicitActionValidation
 				SymbolEqualityComparer.Default.Equals(binding.Component, component) &&
 				!SymbolEqualityComparer.Default.Equals(binding.Handler, handler)))
 		{
-			return new(HtmxorDiagnosticCause.ConflictingHandlers,
+			yield return new(HtmxorDiagnosticCause.ConflictingHandlers,
 				method + " declarations on one route owner must name the same handler; select one handler");
 		}
 
-		return method == "POST" && forms.Any(form => form.IsNamed && SymbolEqualityComparer.Default.Equals(form.Component, component))
-			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.NamedFormPostConflict,
-				"named forms and a POST HtmxAction cannot share one route owner; choose named forms or the action")
-			: null;
+		if (method == "POST" && forms.Any(form => form.IsNamed && SymbolEqualityComparer.Default.Equals(form.Component, component)))
+		{
+			yield return new(HtmxorDiagnosticCause.NamedFormPostConflict,
+				"named forms and a POST HtmxAction cannot share one route owner; choose named forms or the action");
+		}
 	}
 
 	private static bool Is(AttributeData attribute, INamedTypeSymbol? type)

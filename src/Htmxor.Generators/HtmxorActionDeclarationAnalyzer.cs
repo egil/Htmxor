@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Htmxor.Generators;
@@ -11,7 +12,7 @@ namespace Htmxor.Generators;
 public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 {
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
-		HtmxorDiagnosticRules.ActionDiagnostics;
+		HtmxorDiagnosticRules.ActionDiagnostics.AddRange(HtmxorDiagnosticRules.LocalActionDiagnostics);
 
 	internal static string WithExplicitRemediation(string reason)
 		=> "Use [HtmxAction] to explicitly declare a supported instance action instead of this binding; " + reason;
@@ -21,12 +22,23 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 		context.ConfigureGeneratedCodeAnalysis(
 			GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.ReportDiagnostics);
 		context.EnableConcurrentExecution();
-		context.RegisterCompilationAction(AnalyzeCompilation);
+		context.RegisterCompilationStartAction(static start =>
+		{
+			var action = start.Compilation.GetTypeByMetadataName("Htmxor.HtmxActionAttribute");
+			var symbols = HtmxorRouteSymbols.Resolve(start.Compilation);
+			if (action is not null && symbols is not null)
+			{
+				start.RegisterSyntaxNodeAction(
+					context => HtmxorExplicitActionValidation.AnalyzeLocal(context, action, symbols),
+					SyntaxKind.Attribute);
+			}
+			start.RegisterCompilationEndAction(AnalyzeCompilation);
+		});
 	}
 
 	private static void AnalyzeCompilation(CompilationAnalysisContext context)
 	{
-		HtmxorExplicitActionValidation.Analyze(context);
+		HtmxorExplicitActionValidation.AnalyzeConflicts(context);
 		var symbols = HtmxorRouteSymbols.Resolve(context.Compilation);
 		if (symbols is null || symbols.Route is null)
 		{

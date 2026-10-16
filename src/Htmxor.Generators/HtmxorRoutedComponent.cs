@@ -172,7 +172,7 @@ internal sealed class HtmxorRoutedComponent
 		}
 	}
 
-	private static bool HasBindingError(TypedConstant value)
+	internal static bool HasBindingError(TypedConstant value)
 		=> value.Kind == TypedConstantKind.Error ||
 			(value.Kind == TypedConstantKind.Array && !value.IsNull && value.Values.Any(HasBindingError));
 

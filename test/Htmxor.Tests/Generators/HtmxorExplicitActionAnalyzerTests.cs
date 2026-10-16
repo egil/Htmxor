@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Htmxor.Generators.Tests;
 
-public sealed class HtmxorExplicitActionAnalyzerTests
+public sealed partial class HtmxorExplicitActionAnalyzerTests
 {
 	[Fact]
 	public async Task Explicit_interface_action_fails_at_its_declaration()
@@ -120,7 +120,6 @@ public sealed class HtmxorExplicitActionAnalyzerTests
 	[InlineData("void Save(out Htmxor.HtmxEventArgs args) { args = null!; }", "parameter", "HTMXOR023")]
 	[InlineData("System.Threading.Tasks.ValueTask Save() => default;", "return", "HTMXOR016")]
 	[InlineData("void Save(int value) { }", "HtmxEventArgs", "HTMXOR025")]
-	[InlineData("void Save(Htmxor.HtmxEventArgs args, int value) { }", "parameter", "HTMXOR025")]
 	[InlineData("void Save<T>() { }", "generic", "HTMXOR022")]
 	[InlineData("async void Save() => await System.Threading.Tasks.Task.Yield();", "async void; return Task instead", "HTMXOR018")]
 	[InlineData("void Save(Htmxor.HtmxEventArgs args = null!) { }", "optional", "HTMXOR024")]

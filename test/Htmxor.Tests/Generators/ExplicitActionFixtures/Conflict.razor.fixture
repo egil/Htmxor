@@ -1,0 +1,8 @@
+@page "/conflict"
+<form method="post" @formname="save"></form>
+<button @onpost="Other">Save</button>
+@code {
+    [Htmxor.HtmxAction("POST")]
+    private void Save() { }
+    private void Other() { }
+}
