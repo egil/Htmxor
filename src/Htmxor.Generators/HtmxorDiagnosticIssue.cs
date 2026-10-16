@@ -63,6 +63,9 @@ internal readonly struct HtmxorDiagnosticIssue
 	public Diagnostic ToDiagnostic(Location location)
 		=> Diagnostic.Create(HtmxorDiagnosticRules.Get(Cause), location, Reason);
 
+	public Diagnostic ToLocalDiagnostic(Location location)
+		=> Diagnostic.Create(HtmxorDiagnosticRules.GetLocal(Cause), location, Reason);
+
 	public HtmxorDiagnosticIssue WithReason(string reason) => new(Cause, reason);
 }
 
@@ -326,6 +329,37 @@ internal static class HtmxorDiagnosticRules
 	public static ImmutableArray<DiagnosticDescriptor> ActionDiagnostics { get; } =
 		Rules.Skip(2).ToImmutableArray();
 
+	// The same IDs use local descriptors for explicit actions while inferred bindings keep compilation-end scheduling.
+	private static readonly ImmutableArray<HtmxorDiagnosticCause> LocalActionCauses = ImmutableArray.Create(
+		HtmxorDiagnosticCause.StaticHandler,
+		HtmxorDiagnosticCause.ValueTaskReturn,
+		HtmxorDiagnosticCause.ExplicitOverload,
+		HtmxorDiagnosticCause.AsyncVoid,
+		HtmxorDiagnosticCause.TaskOfTReturn,
+		HtmxorDiagnosticCause.EventArgsParameter,
+		HtmxorDiagnosticCause.ObjectParameter,
+		HtmxorDiagnosticCause.ExplicitGeneric,
+		HtmxorDiagnosticCause.RefOrOutParameter,
+		HtmxorDiagnosticCause.OptionalParameter,
+		HtmxorDiagnosticCause.OtherUnsupportedParameter,
+		HtmxorDiagnosticCause.OtherValueReturn,
+		HtmxorDiagnosticCause.InvalidExplicitVerb,
+		HtmxorDiagnosticCause.ExplicitUnroutedOwner,
+		HtmxorDiagnosticCause.ExplicitMethodsConflict,
+		HtmxorDiagnosticCause.NormalOnlyAction,
+		HtmxorDiagnosticCause.NonordinaryExplicitAction);
+
+	public static ImmutableArray<DiagnosticDescriptor> LocalActionDiagnostics { get; } =
+		LocalActionCauses.Select(cause => WithoutCompilationEnd(Get(cause))).ToImmutableArray();
+
 	public static DiagnosticDescriptor Get(HtmxorDiagnosticCause cause)
 		=> Rules[(int)cause - 4];
+
+	public static DiagnosticDescriptor GetLocal(HtmxorDiagnosticCause cause)
+		=> LocalActionDiagnostics[LocalActionCauses.IndexOf(cause)];
+
+	private static DiagnosticDescriptor WithoutCompilationEnd(DiagnosticDescriptor descriptor)
+		=> new(descriptor.Id, descriptor.Title, descriptor.MessageFormat, descriptor.Category,
+			descriptor.DefaultSeverity, descriptor.IsEnabledByDefault, descriptor.Description,
+			descriptor.HelpLinkUri, WellKnownDiagnosticTags.NotConfigurable);
 }
