@@ -87,8 +87,21 @@ internal static class HtmxorExplicitActionValidation
 			_ => attribute.Span.End,
 		};
 		var header = TextSpan.FromBounds(attribute.SpanStart, Math.Max(attribute.Span.End, headerEnd));
-		return model.GetDiagnostics(header, token).Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+		if (HasMalformedHeaderError(model, header, token))
+		{
+			return true;
+		}
+
+		return declaration is AccessorDeclarationSyntax { Parent.Parent: BasePropertyDeclarationSyntax owner } &&
+			owner.AccessorList is { } accessors &&
+			HasMalformedHeaderError(model, TextSpan.FromBounds(owner.SpanStart, accessors.OpenBraceToken.SpanStart), token);
 	}
+
+	// Roslyn locates missing-return body errors on method names and getter keywords.
+	private static bool HasMalformedHeaderError(SemanticModel model, TextSpan header,
+		System.Threading.CancellationToken token)
+		=> model.GetDiagnostics(header, token).Any(static diagnostic =>
+			diagnostic.Severity == DiagnosticSeverity.Error && diagnostic.Id != "CS0161");
 
 	private static string? ReadMethod(SemanticModel model, AttributeSyntax attribute,
 		System.Threading.CancellationToken token)
