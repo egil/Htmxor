@@ -1412,6 +1412,7 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 	{
 		var diagnostic = Assert.Single(diagnostics);
 		Assert.Equal(expectedId, diagnostic.Id);
+		Assert.Contains(WellKnownDiagnosticTags.CompilationEnd, diagnostic.Descriptor.CustomTags);
 		Assert.Contains("no usable action is available", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
 		Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
 		Assert.Contains(WellKnownDiagnosticTags.NotConfigurable, diagnostic.Descriptor.CustomTags);

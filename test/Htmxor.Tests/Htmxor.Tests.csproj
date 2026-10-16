@@ -46,6 +46,7 @@
 	<ItemGroup>
 		<EmbeddedResource Include="Generators/StockFormFixtures/*.fixture" />
 		<EmbeddedResource Include="Generators/RouteFixtures/*.fixture" />
+		<EmbeddedResource Include="Generators/ExplicitActionFixtures/*.fixture" />
 	</ItemGroup>
 
 </Project>

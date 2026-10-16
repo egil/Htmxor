@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Htmxor.Generators.Tests;
 
-public sealed class HtmxorExplicitActionAnalyzerTests
+public sealed partial class HtmxorExplicitActionAnalyzerTests
 {
 	[Fact]
 	public async Task Explicit_interface_action_fails_at_its_declaration()
