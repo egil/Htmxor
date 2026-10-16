@@ -63,6 +63,8 @@ internal static class HtmxorExplicitActionValidation
 			ConversionOperatorDeclarationSyntax conversion => model.GetDeclaredSymbol(conversion, token) as IMethodSymbol,
 			AccessorDeclarationSyntax accessor => model.GetDeclaredSymbol(accessor, token) as IMethodSymbol,
 			DestructorDeclarationSyntax destructor => model.GetDeclaredSymbol(destructor, token) as IMethodSymbol,
+			EventFieldDeclarationSyntax field when field.Declaration.Variables.Count > 0 =>
+				(model.GetDeclaredSymbol(field.Declaration.Variables[0], token) as IEventSymbol)?.AddMethod,
 			LocalFunctionStatementSyntax local => model.GetDeclaredSymbol(local, token) as IMethodSymbol,
 			LambdaExpressionSyntax lambda => (model.GetOperation(lambda, token) as IAnonymousFunctionOperation)?.Symbol,
 			_ => null,
@@ -73,12 +75,14 @@ internal static class HtmxorExplicitActionValidation
 	{
 		var headerEnd = declaration switch
 		{
-			MethodDeclarationSyntax method => method.ParameterList.Span.End,
+			MethodDeclarationSyntax method => method.ConstraintClauses.LastOrDefault()?.Span.End ?? method.ParameterList.Span.End,
 			OperatorDeclarationSyntax @operator => @operator.ParameterList.Span.End,
 			ConversionOperatorDeclarationSyntax conversion => conversion.ParameterList.Span.End,
 			AccessorDeclarationSyntax accessor => accessor.Keyword.Span.End,
 			DestructorDeclarationSyntax destructor => destructor.ParameterList.Span.End,
-			LocalFunctionStatementSyntax local => local.ParameterList.Span.End,
+			EventFieldDeclarationSyntax field when field.Declaration.Variables.Count > 0 =>
+				field.Declaration.Variables[0].Identifier.Span.End,
+			LocalFunctionStatementSyntax local => local.ConstraintClauses.LastOrDefault()?.Span.End ?? local.ParameterList.Span.End,
 			LambdaExpressionSyntax lambda => lambda.Body.SpanStart,
 			_ => attribute.Span.End,
 		};
@@ -139,6 +143,7 @@ internal static class HtmxorExplicitActionValidation
 	{
 		var methods = route?.NamedArguments.FirstOrDefault(static argument => argument.Key == "Methods");
 		return methods is { Key: "Methods" } argument &&
+			!HtmxorRoutedComponent.HasBindingError(argument.Value) &&
 			(argument.Value.IsNull || argument.Value.Kind != TypedConstantKind.Array || !argument.Value.Values.Any(value =>
 				value.Value is string allowed && string.Equals(allowed, method, StringComparison.OrdinalIgnoreCase)))
 			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ExplicitMethodsConflict,
@@ -153,10 +158,15 @@ internal static class HtmxorExplicitActionValidation
 	private static IEnumerable<INamedTypeSymbol> GetTypes(INamedTypeSymbol type)
 		=> new[] { type }.Concat(type.GetTypeMembers().SelectMany(GetTypes));
 
+	private static bool IsFieldEventAccessor(IMethodSymbol method, System.Threading.CancellationToken token)
+		=> method.AssociatedSymbol is IEventSymbol @event &&
+			@event.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax(token).Parent?.Parent is EventFieldDeclarationSyntax);
+
 	private static void AnalyzeOwnerConflicts(CompilationAnalysisContext context, INamedTypeSymbol component,
 		INamedTypeSymbol action, RazorCompiledEventBinding[] bindings, RazorCompiledForm[] forms)
 	{
 		var declarations = component.GetMembers().OfType<IMethodSymbol>()
+			.Where(method => !IsFieldEventAccessor(method, context.CancellationToken))
 			.SelectMany(method => method.GetAttributes().Where(attribute => Is(attribute, action))
 				.Select(attribute => (Handler: method, Attribute: attribute))).ToArray();
 		foreach (var declaration in declarations)
