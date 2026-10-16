@@ -308,6 +308,8 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 
 
 	[Theory]
+	[InlineData("int first, string second")]
+	[InlineData("global::Htmxor.HtmxEventArgs first, int second")]
 	[InlineData("ref global::Htmxor.HtmxEventArgs first, global::Htmxor.HtmxEventArgs second = null")]
 	[InlineData("global::Htmxor.HtmxEventArgs first = null, global::Htmxor.HtmxEventArgs second = null")]
 	public async Task Inferred_multi_parameter_binding_remains_compiler_owned_in_complete_and_local_analysis(string parameters)

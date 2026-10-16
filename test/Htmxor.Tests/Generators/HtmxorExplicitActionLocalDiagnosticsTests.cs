@@ -28,15 +28,21 @@ public sealed partial class HtmxorExplicitActionAnalyzerTests
 
 		var diagnostics = await AnalyzeFeedbackAsync(source, local);
 
+		AssertFeedback(diagnostics, source,
+			("HTMXOR025", "has unsupported parameters"),
+			("HTMXOR025", "not HtmxEventArgs"), ("HTMXOR025", "not HtmxEventArgs"), ("HTMXOR025", "not HtmxEventArgs"));
 		var attributes = CSharpSyntaxTree.ParseText(source).GetRoot().DescendantNodes().OfType<AttributeSyntax>()
 			.Where(attribute => attribute.Name.ToString() == "Htmxor.HtmxAction").ToArray();
 		Assert.Equal(attributes[0].Span, Assert.Single(diagnostics, diagnostic => diagnostic.Id == "HTMXOR025" &&
 			diagnostic.GetMessage().Contains("has unsupported parameters", StringComparison.Ordinal)).Location.SourceSpan);
-		Assert.Equal(attributes[1].Span, Assert.Single(diagnostics, diagnostic => diagnostic.Id == "HTMXOR025" &&
-			diagnostic.GetMessage().Contains("not HtmxEventArgs", StringComparison.Ordinal)).Location.SourceSpan);
-		AssertFeedback(diagnostics, source,
-			("HTMXOR025", "has unsupported parameters"),
-			("HTMXOR025", "not HtmxEventArgs"));
+		var typeDiagnostics = diagnostics.Where(diagnostic => diagnostic.Id == "HTMXOR025" &&
+			diagnostic.GetMessage().Contains("not HtmxEventArgs", StringComparison.Ordinal)).ToArray();
+		var saveTypeDiagnostics = typeDiagnostics.Where(diagnostic =>
+			diagnostic.GetMessage().Contains("handler 'Save'", StringComparison.Ordinal)).ToArray();
+		Assert.Equal(2, saveTypeDiagnostics.Length);
+		Assert.All(saveTypeDiagnostics, diagnostic => Assert.Equal(attributes[0].Span, diagnostic.Location.SourceSpan));
+		Assert.Equal(attributes[1].Span, Assert.Single(typeDiagnostics,
+			diagnostic => diagnostic.GetMessage().Contains("handler 'Other'", StringComparison.Ordinal)).Location.SourceSpan);
 	}
 
 	[Theory]
