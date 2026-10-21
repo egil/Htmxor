@@ -1,0 +1,1 @@
+@code { private System.Threading.Tasks.ValueTask M() => default; private void NotAnAction() => EventCallback.Factory.Create<HtmxEventArgs>(this, M); }

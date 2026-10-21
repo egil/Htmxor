@@ -1,0 +1,4 @@
+@page "/actions"
+@using static System.GC
+<button @onput="Collect">Save</button>
+@code {  }

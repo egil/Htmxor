@@ -1,0 +1,18 @@
+@page "/actions"
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+<button @onput="M">Save</button>
+@code { private void M() {} }

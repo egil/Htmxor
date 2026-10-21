@@ -37,7 +37,8 @@ internal sealed class HtmxorComponentActionDeclaration
 		string path,
 		TextSpan span,
 		LinePositionSpan lineSpan,
-		HtmxorDiagnosticIssue? unsupportedIssue)
+		LinePositionSpan bindingLineSpan,
+		ImmutableArray<HtmxorDiagnosticIssue> unsupportedIssues)
 	{
 		ComponentTypeName = componentTypeName;
 		AttributeName = attributeName;
@@ -49,7 +50,8 @@ internal sealed class HtmxorComponentActionDeclaration
 		Path = path;
 		Span = span;
 		LineSpan = lineSpan;
-		UnsupportedIssue = unsupportedIssue;
+		BindingLineSpan = bindingLineSpan;
+		UnsupportedIssues = unsupportedIssues;
 	}
 
 	public string ComponentTypeName { get; }
@@ -73,7 +75,9 @@ internal sealed class HtmxorComponentActionDeclaration
 
 	public LinePositionSpan LineSpan { get; }
 
-	public HtmxorDiagnosticIssue? UnsupportedIssue { get; }
+	public LinePositionSpan BindingLineSpan { get; }
+
+	public ImmutableArray<HtmxorDiagnosticIssue> UnsupportedIssues { get; }
 
 	public static ImmutableArray<HtmxorComponentActionDeclaration> ParseAll(
 		AdditionalText additionalFile,
@@ -134,64 +138,47 @@ internal sealed class HtmxorComponentActionDeclaration
 			"; bind one handler per HTTP method";
 		return declarations.Select(declaration => declaration.HandlerName is null
 			? declaration
-			: Unsupported(declaration.ComponentTypeName, binding, owner, declaration.Path, declaration.Span, declaration.LineSpan,
-				new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ConflictingHandlers, reason)));
+			: new HtmxorComponentActionDeclaration(declaration.ComponentTypeName, binding.AttributeName,
+				binding.HttpMethod, declaration.HandlerName, declaration.HandlerAccess, owner,
+				declaration.Path, declaration.Span, declaration.LineSpan, declaration.BindingLineSpan,
+				declaration.UnsupportedIssues.Add(new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ConflictingHandlers, reason))));
 	}
 
 	private static HtmxorComponentActionDeclaration Parse(
-		string componentTypeName,
-		string path,
-		SourceText text,
-		ActionBinding binding,
-		MarkupAttribute candidate,
-		RouteOwner owner)
+		string componentTypeName, string path, SourceText text, ActionBinding binding,
+		MarkupAttribute candidate, RouteOwner owner)
 	{
 		var span = new TextSpan(candidate.Index, binding.AttributeName.Length);
-		var lineSpan = text.Lines.GetLinePositionSpan(span);
 		var handlerName = RazorBindingValue.TryReadHandler(candidate.Value);
-		var issue = GetUnsupportedIssue(binding, candidate, handlerName);
-		return issue is null
-			? new HtmxorComponentActionDeclaration(
-				componentTypeName,
-				binding.AttributeName,
-				binding.HttpMethod,
-				handlerName,
-				RazorBindingValue.TryReadHandlerAccess(candidate.Value),
-				owner,
-				path,
-				span,
-				lineSpan,
-				unsupportedIssue: null)
-			: Unsupported(componentTypeName, binding, owner, path, span, lineSpan, issue.Value);
+		return new HtmxorComponentActionDeclaration(componentTypeName, binding.AttributeName, binding.HttpMethod,
+			handlerName, RazorBindingValue.TryReadHandlerAccess(candidate.Value), owner, path, span,
+			text.Lines.GetLinePositionSpan(span),
+			text.Lines.GetLinePositionSpan(TextSpan.FromBounds(candidate.Index, candidate.EndIndex)),
+			GetUnsupportedIssues(binding, candidate, handlerName).ToImmutableArray());
 	}
 
-	private static HtmxorDiagnosticIssue? GetUnsupportedIssue(
-		ActionBinding binding,
-		MarkupAttribute candidate,
-		string? handlerName)
+	private static IEnumerable<HtmxorDiagnosticIssue> GetUnsupportedIssues(
+		ActionBinding binding, MarkupAttribute candidate, string? handlerName)
 	{
 		if (binding.HttpMethod == ImplicitMethod)
 		{
-			return new(HtmxorDiagnosticCause.ImplicitGetBinding,
+			yield return new(HtmxorDiagnosticCause.ImplicitGetBinding,
 				binding.AttributeName + " declares nothing: GET is implicit, so remove the binding; [HtmxAction] declares only supported non-GET methods");
 		}
 
 		if (!candidate.InOwnerMarkup)
 		{
-			return new(HtmxorDiagnosticCause.MisplacedBinding, binding.AttributeName +
+			yield return new(HtmxorDiagnosticCause.MisplacedBinding, binding.AttributeName +
 				" in a Razor template or @code markup is not supported; put the binding in the component's own markup or declare [HtmxAction]");
 		}
 
-		if (handlerName is not null)
+		if (handlerName is null)
 		{
-			return null;
+			yield return new(RazorBindingValue.GetUnsupportedDiagnosticCause(candidate.Value),
+				binding.AttributeName + " must name a handler method, not " +
+				RazorBindingValue.GetUnsupportedCause(candidate.Value) +
+				"; use [HtmxAction] on a supported instance method");
 		}
-
-		return new HtmxorDiagnosticIssue(
-			RazorBindingValue.GetUnsupportedDiagnosticCause(candidate.Value),
-			binding.AttributeName + " must name a handler method, not " +
-			RazorBindingValue.GetUnsupportedCause(candidate.Value) +
-			"; use [HtmxAction] on a supported instance method");
 	}
 
 	private static string? TryReadOmittedHtmxRoute(string attributeDirective)
@@ -224,26 +211,6 @@ internal sealed class HtmxorComponentActionDeclaration
 
 		return null;
 	}
-
-	private static HtmxorComponentActionDeclaration Unsupported(
-		string componentTypeName,
-		ActionBinding binding,
-		RouteOwner owner,
-		string path,
-		TextSpan span,
-		LinePositionSpan lineSpan,
-		HtmxorDiagnosticIssue issue)
-		=> new(
-			componentTypeName,
-			binding.AttributeName,
-			binding.HttpMethod,
-			handlerName: null,
-			handlerAccess: null,
-			owner,
-			path,
-			span,
-			lineSpan,
-			issue);
 
 	private sealed class ActionBinding
 	{

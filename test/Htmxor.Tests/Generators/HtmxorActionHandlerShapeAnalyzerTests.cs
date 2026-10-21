@@ -546,7 +546,9 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 			"public void M(global::Htmxor.HtmxEventArgs a) { }",
 			"private void M(object a) { }");
 
-		AssertSingleCauseAtBinding(diagnostics, "overloaded", "HTMXOR011");
+		Assert.Equal(new[] { "HTMXOR011", "HTMXOR021" }, diagnostics.Select(diagnostic => diagnostic.Id).Order(StringComparer.Ordinal));
+		AssertSingleCauseAtBinding(diagnostics.Where(diagnostic => diagnostic.Id == "HTMXOR011").ToImmutableArray(), "overloaded", "HTMXOR011");
+		AssertSingleCauseAtBinding(diagnostics.Where(diagnostic => diagnostic.Id == "HTMXOR021").ToImmutableArray(), "parameter must be HtmxEventArgs", "HTMXOR021");
 	}
 
 	/// <summary>
@@ -1290,7 +1292,11 @@ public sealed class HtmxorActionHandlerShapeAnalyzerTests
 		var diagnostics = await RunActionAnalyzerAsync(source, razor);
 
 		var diagnostic = Assert.Single(diagnostics);
-		Assert.Equal(4, diagnostic.Location.GetLineSpan().StartLinePosition.Line);
+		Assert.Equal("HTMXOR040", diagnostic.Id);
+		var mapped = diagnostic.Location.GetMappedLineSpan();
+		Assert.Equal(componentPath, mapped.Path);
+		Assert.Equal(new LinePosition(4, 13), mapped.StartLinePosition);
+		Assert.Equal(new LinePosition(4, 15), mapped.EndLinePosition);
 		Assert.Contains("handler 'Go' must be an instance method", diagnostic.GetMessage(), StringComparison.Ordinal);
 	}
 

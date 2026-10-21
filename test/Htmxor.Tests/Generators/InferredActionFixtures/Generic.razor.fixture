@@ -1,0 +1,3 @@
+@page "/actions"
+<button @onput="M">Save</button>
+@code { private static async void M<T>(T args) => await System.Threading.Tasks.Task.Yield(); }
