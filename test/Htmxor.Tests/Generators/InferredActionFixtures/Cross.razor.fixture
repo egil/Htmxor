@@ -1,0 +1,4 @@
+@page "/actions"
+<button @onget="M">Save</button>
+<button @onpost="Other">Other</button>
+@code { private static async void M() => await System.Threading.Tasks.Task.Yield(); private void Other() {} }

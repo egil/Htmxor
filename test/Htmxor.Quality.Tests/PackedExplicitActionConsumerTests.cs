@@ -65,13 +65,14 @@ public sealed class PackedExplicitActionConsumerTests
 			["method-call"] = ["@onput"],
 			["computed"] = ["@onput"],
 			["implicit-get"] = ["@onget"],
-			["no-route"] = ["@onput"],
 			["cross-source"] = ["[Htmxor.HtmxAction", "@onput"],
 			["stock-form"] = ["[Htmxor.HtmxAction", "<form", "@formname"],
 			["htmx-form"] = ["[Htmxor.HtmxAction", "<form", "@formname"],
 		}.GetValueOrDefault(scenario, ["[Htmxor.HtmxAction"]);
-		var expected = File.ReadAllLines(Path.Combine(workspace.ConsumerDirectory, sourceFile))
-			.SelectMany((line, index) => DeclarationLocations(sourceFile, index + 1, line, anchors)).ToArray();
+		AuthoredLocation[] expected = scenario == "no-route"
+			? [new AuthoredLocation(sourceFile, 5, 17, 17)]
+			: File.ReadAllLines(Path.Combine(workspace.ConsumerDirectory, sourceFile))
+				.SelectMany((line, index) => DeclarationLocations(sourceFile, index + 1, line, anchors)).ToArray();
 		var actual = Regex.Matches(output, @"(?<file>[^\r\n]+)\((?<line>\d+),(?<column>\d+)\): error " + Regex.Escape(expectedId) + ":")
 			.Select(static match => new AuthoredLocation(
 				Path.GetFileName(match.Groups["file"].Value), int.Parse(match.Groups["line"].Value, System.Globalization.CultureInfo.InvariantCulture),

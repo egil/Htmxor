@@ -329,8 +329,21 @@ internal static class HtmxorDiagnosticRules
 	public static ImmutableArray<DiagnosticDescriptor> ActionDiagnostics { get; } =
 		Rules.Skip(2).ToImmutableArray();
 
-	// The same IDs use local descriptors for explicit actions while inferred bindings keep compilation-end scheduling.
+	// Local semantic causes share IDs with direct and completeness diagnostics, without a compilation-end tag.
 	private static readonly ImmutableArray<HtmxorDiagnosticCause> LocalActionCauses = ImmutableArray.Create(
+		HtmxorDiagnosticCause.InferredLambda,
+		HtmxorDiagnosticCause.InferredEventCallbackField,
+		HtmxorDiagnosticCause.InferredEventCallbackParameter,
+		HtmxorDiagnosticCause.InferredMethodCall,
+		HtmxorDiagnosticCause.InferredComputedExpression,
+		HtmxorDiagnosticCause.InferredOverload,
+		HtmxorDiagnosticCause.InferredGeneric,
+		HtmxorDiagnosticCause.UnroutedBinding,
+		HtmxorDiagnosticCause.ImplicitGetBinding,
+		HtmxorDiagnosticCause.LocalPageRouteMismatch,
+		HtmxorDiagnosticCause.StockRouteWithoutLocalPage,
+		HtmxorDiagnosticCause.NonmemberHandler,
+		HtmxorDiagnosticCause.NonmethodHandler,
 		HtmxorDiagnosticCause.StaticHandler,
 		HtmxorDiagnosticCause.ValueTaskReturn,
 		HtmxorDiagnosticCause.ExplicitOverload,

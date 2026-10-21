@@ -159,7 +159,7 @@ internal sealed class RazorMarkupScanner
 		var value = ScanAttributeValue();
 		if (attributeNames.Contains(name))
 		{
-			attributes.Add(new MarkupAttribute(nameStart, name, value, ownerMarkup));
+			attributes.Add(new MarkupAttribute(nameStart, index, name, value, ownerMarkup));
 		}
 	}
 
@@ -784,9 +784,12 @@ internal sealed class RazorMarkupScan
 
 internal sealed class MarkupAttribute
 {
-	public MarkupAttribute(int index, string name, string? value, bool inOwnerMarkup)
+	public int EndIndex { get; }
+
+	public MarkupAttribute(int index, int endIndex, string name, string? value, bool inOwnerMarkup)
 	{
 		Index = index;
+		EndIndex = endIndex;
 		Name = name;
 		Value = value;
 		InOwnerMarkup = inOwnerMarkup;

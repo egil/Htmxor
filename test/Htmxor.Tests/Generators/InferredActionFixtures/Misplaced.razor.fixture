@@ -1,0 +1,3 @@
+@page "/actions"
+@{ RenderFragment fragment = @<button @onget="() => M()">Save</button>; }
+@code { private void M() {} }

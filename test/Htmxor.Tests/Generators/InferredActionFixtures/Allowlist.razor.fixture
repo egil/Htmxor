@@ -1,0 +1,3 @@
+@attribute [HtmxRoute("/actions", Methods = new[] { "GET" })]
+<button @onput="M">Save</button>
+@code { private static async void M() => await System.Threading.Tasks.Task.Yield(); }

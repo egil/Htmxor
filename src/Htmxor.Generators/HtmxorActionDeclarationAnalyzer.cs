@@ -1,9 +1,8 @@
-using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Htmxor.Generators;
@@ -32,8 +31,28 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 					context => HtmxorExplicitActionValidation.AnalyzeLocal(context, action, symbols),
 					SyntaxKind.Attribute);
 			}
+			if (symbols is not null)
+			{
+				var validation = new HtmxorInferredActionValidation(start.Options, symbols, start.CancellationToken);
+				start.RegisterSyntaxNodeAction(context => AnalyzeLocal(context, validation), SyntaxKind.InvocationExpression);
+			}
 			start.RegisterCompilationEndAction(AnalyzeCompilation);
 		});
+	}
+
+	private static void AnalyzeLocal(SyntaxNodeAnalysisContext context, HtmxorInferredActionValidation validation)
+	{
+		context.CancellationToken.ThrowIfCancellationRequested();
+		if (!HtmxorRouteManifest.IsRazorGeneratedPath(context.Node.SyntaxTree.FilePath) ||
+			RazorCompiledEventBinding.TryRead(context.SemanticModel, (InvocationExpressionSyntax)context.Node,
+				context.CancellationToken, includeUnbound: true) is not { } binding)
+		{
+			return;
+		}
+		foreach (var issue in validation.GetIssues(context.SemanticModel, binding, validation.FindDeclaration(binding), context.CancellationToken))
+		{
+			context.ReportDiagnostic(HtmxorInferredActionValidation.WithRemediation(issue).ToLocalDiagnostic(binding.Location));
+		}
 	}
 
 	private static void AnalyzeCompilation(CompilationAnalysisContext context)
@@ -45,136 +64,58 @@ public sealed class HtmxorActionDeclarationAnalyzer : DiagnosticAnalyzer
 			return;
 		}
 
-		var typeNames = RazorComponentTypeNames.Create(
-			context.Options.AnalyzerConfigOptionsProvider,
-			context.Options.AdditionalFiles,
-			context.CancellationToken);
-		foreach (var declaration in GetDeclarations(context, typeNames))
+		var validation = new HtmxorInferredActionValidation(context.Options, symbols, context.CancellationToken);
+		var localDeclarations = new HashSet<HtmxorComponentActionDeclaration>();
+		foreach (var binding in RazorCompiledEventBinding.Find(context.Compilation, context.CancellationToken, includeUnbound: true))
 		{
-			if (declaration.UnsupportedIssue is not null)
+			if (validation.FindDeclaration(binding) is { } declaration && validation.MatchesOwner(binding.Component, declaration))
+			{
+				localDeclarations.Add(declaration);
+			}
+		}
+		foreach (var declaration in validation.Declarations)
+		{
+			context.CancellationToken.ThrowIfCancellationRequested();
+			if (localDeclarations.Contains(declaration))
 			{
 				continue;
 			}
 
 			var component = context.Compilation.Assembly.GetTypeByMetadataName(declaration.ComponentTypeName);
-			var issue = GetUnsupportedIssue(
-				context.Compilation,
-				component,
-				declaration,
-				typeNames?.GetGeneratedPath(declaration.Path),
-				symbols);
-			if (issue is { } diagnosed)
+			foreach (var issue in GetAggregateIssues(context, validation, component, declaration))
 			{
-				var message = diagnosed.Cause == HtmxorDiagnosticCause.NormalOnlyAction
-					? diagnosed.Reason : WithExplicitRemediation(diagnosed.Reason);
-				context.ReportDiagnostic(diagnosed.WithReason(message)
+				context.ReportDiagnostic(HtmxorInferredActionValidation.WithRemediation(issue)
 					.ToDiagnostic(Location.Create(declaration.Path, declaration.Span, declaration.LineSpan)));
 			}
 		}
 	}
 
-	private static IEnumerable<HtmxorComponentActionDeclaration> GetDeclarations(
-		CompilationAnalysisContext context,
-		RazorComponentTypeNames? typeNames)
-		=> context.Options.AdditionalFiles
-			.Where(static file => file.Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase))
-			.SelectMany(file => HtmxorComponentActionDeclaration.ParseAll(
-				file,
-				typeNames?.GetTypeName(file, context.CancellationToken),
-				context.CancellationToken));
-
-	private static HtmxorDiagnosticIssue? GetUnsupportedIssue(
-		Compilation compilation,
-		INamedTypeSymbol? component,
-		HtmxorComponentActionDeclaration declaration,
-		string? generatedPath,
-		HtmxorRouteSymbols symbols)
+	private static IEnumerable<HtmxorDiagnosticIssue> GetAggregateIssues(
+		CompilationAnalysisContext context, HtmxorInferredActionValidation validation,
+		INamedTypeSymbol? component, HtmxorComponentActionDeclaration declaration)
 	{
-		var componentIssue = GetComponentUnsupportedIssue(
-			compilation,
-			component,
-			declaration,
-			generatedPath) ?? GetNormalOnlyUnsupportedIssue(component!, symbols);
-		if (componentIssue is not null)
+		if (!validation.MatchesOwner(component, declaration))
 		{
-			return componentIssue;
-		}
-
-		var resolvedComponent = component!;
-		var stockRoutes = GetExactAttributes(resolvedComponent, symbols.Route!);
-		var htmxRoutes = GetExactAttributes(resolvedComponent, symbols.HtmxRoute);
-		return stockRoutes.Length == 0 && htmxRoutes.Length == 0
-			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.UnroutedBinding,
-				"the component owns no route, so the binding has no action to declare; add @page or HtmxRoute, or remove the binding")
-			: GetRouteShapeUnsupportedIssue(declaration, stockRoutes, htmxRoutes);
-	}
-
-	private static HtmxorDiagnosticIssue? GetRouteShapeUnsupportedIssue(
-		HtmxorComponentActionDeclaration declaration,
-		ImmutableArray<AttributeData> stockRoutes,
-		ImmutableArray<AttributeData> htmxRoutes)
-	{
-		if (declaration.UsesStockRoute)
-		{
-			return stockRoutes.Length == 1 && htmxRoutes.Length == 0
-				? null
-				: new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.LocalPageRouteMismatch,
-					"a component with a local @page action must compile with exactly one stock route and no HtmxRoute");
-		}
-
-		if (stockRoutes.Length > 0)
-		{
-			return new(HtmxorDiagnosticCause.StockRouteWithoutLocalPage,
-				"a component action without a local @page cannot use a compiled stock route");
-		}
-
-		var methods = htmxRoutes[0].NamedArguments
-			.Where(static argument => string.Equals(argument.Key, "Methods", StringComparison.Ordinal))
-			.Select(static argument => argument.Value)
-			.ToImmutableArray();
-		return methods.Length == 0 || ContainsMethod(methods[0], declaration.HttpMethod)
-			? null
-			: new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ExplicitMethodsConflict,
-				"explicit HtmxRoute.Methods is authoritative and does not allow the " +
-				declaration.HttpMethod + " binding; add the method or remove the binding");
-	}
-
-	private static HtmxorDiagnosticIssue? GetNormalOnlyUnsupportedIssue(INamedTypeSymbol component, HtmxorRouteSymbols symbols)
-		=> symbols.DisableHtmxDirectRouting is not null &&
-			GetExactAttributes(component, symbols.DisableHtmxDirectRouting).Length > 0
-			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.NormalOnlyAction,
-				"an inferred binding on a component marked with DisableHtmxDirectRouting is not supported; remove the binding or marker")
-			: null;
-
-	private static ImmutableArray<AttributeData> GetExactAttributes(
-		INamedTypeSymbol component,
-		INamedTypeSymbol attributeType)
-		=> component.GetAttributes()
-			.Where(attribute => SymbolEqualityComparer.Default.Equals(
-				attribute.AttributeClass,
-				attributeType))
-			.ToImmutableArray();
-
-	private static HtmxorDiagnosticIssue? GetComponentUnsupportedIssue(
-		Compilation compilation,
-		INamedTypeSymbol? component,
-		HtmxorComponentActionDeclaration declaration,
-		string? generatedPath)
-	{
-		if (component is null ||
-			!HtmxorRouteManifest.HasCompiledRazorDeclaration(component, new[] { generatedPath }))
-		{
-			return new(HtmxorDiagnosticCause.MismatchedRazorOwner,
+			yield return new(HtmxorDiagnosticCause.MismatchedRazorOwner,
 				"the action owner must compile from the matching Razor component; " +
 				"its type name is derived from the file's folder and @namespace");
+			yield break;
 		}
-
-		return declaration.HandlerName is null || declaration.HandlerAccess is null
-			? null
-			: HtmxorActionHandler.GetUnsupportedIssue(compilation, component, declaration);
+		if (!declaration.UnsupportedIssues.IsEmpty)
+		{
+			yield break;
+		}
+		if (declaration.HandlerName is not null && declaration.HandlerAccess is not null)
+		{
+			foreach (var issue in HtmxorActionHandler.GetUnsupportedIssues(
+				context.Compilation, component!, declaration, context.CancellationToken))
+			{
+				yield return issue;
+			}
+		}
+		foreach (var issue in validation.GetOwnerIssues(component!, declaration, declaration.HttpMethod))
+		{
+			yield return issue;
+		}
 	}
-
-	private static bool ContainsMethod(TypedConstant methods, string httpMethod)
-		=> methods.Kind == TypedConstantKind.Array && methods.Values.Any(value =>
-			value.Value is string method && string.Equals(method, httpMethod, StringComparison.OrdinalIgnoreCase));
 }

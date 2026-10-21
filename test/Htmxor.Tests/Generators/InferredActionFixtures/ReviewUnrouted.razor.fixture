@@ -1,0 +1,3 @@
+
+<button @onput="M">Save</button>
+@code { private System.Threading.Tasks.ValueTask M() => default; }

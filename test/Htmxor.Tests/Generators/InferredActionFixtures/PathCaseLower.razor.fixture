@@ -1,0 +1,4 @@
+@page "/lower"
+<button @onput="M">Save</button>
+<button @onput="Other">Other</button>
+@code { private static async void M() { await System.Threading.Tasks.Task.Yield(); } private static void Other() { } }

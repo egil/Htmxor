@@ -10,7 +10,7 @@ namespace Htmxor.Generators;
 // Resolves an inferred binding's handler from the call Razor itself generated for it,
 // EventCallback.Factory.Create<HtmxEventArgs>(this, M), with the compilation's semantic model. Scope, overloads, hiding,
 // locals and `using static` imports are therefore exactly the compiler's. When that call does not compile, Razor reports
-// the error itself and Htmxor adds nothing. Otherwise the bound handler must be one of void M(), void M(HtmxEventArgs),
+// the error itself and Htmxor adds no handler-shape diagnostic. Otherwise the bound handler must be one of void M(), void M(HtmxEventArgs),
 // Task M() or Task M(HtmxEventArgs) on an instance method of the component or a base type.
 internal static class HtmxorActionHandler
 {
@@ -37,37 +37,46 @@ internal static class HtmxorActionHandler
 		}
 	}
 
-	public static HtmxorDiagnosticIssue? GetUnsupportedIssue(
-		Compilation compilation,
-		INamedTypeSymbol component,
-		HtmxorComponentActionDeclaration declaration)
+	public static IEnumerable<HtmxorDiagnosticIssue> GetUnsupportedIssues(
+		Compilation compilation, INamedTypeSymbol component, HtmxorComponentActionDeclaration declaration,
+		System.Threading.CancellationToken cancellationToken)
 	{
 		var invocation = FindGeneratedCreateCall(component, declaration);
 		if (invocation is null)
 		{
-			return null;
+			return Array.Empty<HtmxorDiagnosticIssue>();
 		}
-
 		var model = compilation.GetSemanticModel(invocation.SyntaxTree);
-		if (HasError(model, invocation))
+		return HasError(model, invocation) ? Array.Empty<HtmxorDiagnosticIssue>() :
+			GetUnsupportedIssues(model, component, HandlerArgument(invocation), cancellationToken);
+	}
+
+	public static IEnumerable<HtmxorDiagnosticIssue> GetUnsupportedIssues(
+		SemanticModel model, INamedTypeSymbol component, ExpressionSyntax argument,
+		System.Threading.CancellationToken cancellationToken)
+	{
+		while (argument is ParenthesizedExpressionSyntax parenthesized)
 		{
-			return null;
+			argument = parenthesized.Expression;
 		}
-
-		var argument = HandlerArgument(invocation);
-
-		var handlerName = declaration.HandlerName!;
-		return model.GetSymbolInfo(argument).Symbol switch
+		var symbol = model.GetSymbolInfo(argument, cancellationToken).Symbol;
+		if (symbol is IMethodSymbol { MethodKind: not MethodKind.LocalFunction } method)
 		{
-			IMethodSymbol { MethodKind: MethodKind.LocalFunction } => Issue(HtmxorDiagnosticCause.NonmemberHandler, handlerName, NotAComponentMember),
-			IMethodSymbol method => GetMethodReason(compilation, component, handlerName, method, model.GetMemberGroup(argument).Length),
-			IParameterSymbol parameter when IsEventCallback(parameter.Type) => Issue(HtmxorDiagnosticCause.InferredEventCallbackParameter, handlerName, "is an EventCallback parameter, not a method; use [HtmxAction] on a component instance method"),
-			IPropertySymbol property when IsEventCallback(property.Type) && IsComponentParameter(property) => Issue(HtmxorDiagnosticCause.InferredEventCallbackParameter, handlerName, "is an EventCallback parameter, not a method; use [HtmxAction] on a component instance method"),
-			IFieldSymbol field when IsEventCallback(field.Type) => Issue(HtmxorDiagnosticCause.InferredEventCallbackField, handlerName, "is an EventCallback field, not a method; use [HtmxAction] on a component instance method"),
-			ILocalSymbol or IParameterSymbol or IRangeVariableSymbol => Issue(HtmxorDiagnosticCause.NonmemberHandler, handlerName, NotAComponentMember + "; use [HtmxAction]"),
-			null => null,
-			_ => Issue(HtmxorDiagnosticCause.NonmethodHandler, handlerName, "is not a method; use [HtmxAction] on a component instance method"),
+			return GetMethodIssues(model.Compilation, component, method.Name, method,
+				model.GetMemberGroup(argument, cancellationToken).Length);
+		}
+		var name = symbol?.Name ?? argument.ToString();
+		var issue = symbol switch
+		{
+			IMethodSymbol => Issue(HtmxorDiagnosticCause.NonmemberHandler, name, NotAComponentMember),
+			IParameterSymbol parameter when IsEventCallback(parameter.Type) => Issue(HtmxorDiagnosticCause.InferredEventCallbackParameter, name, "is an EventCallback parameter, not a method; use [HtmxAction] on a component instance method"),
+			IPropertySymbol property when IsEventCallback(property.Type) && IsComponentParameter(property) => Issue(HtmxorDiagnosticCause.InferredEventCallbackParameter, name, "is an EventCallback parameter, not a method; use [HtmxAction] on a component instance method"),
+			IFieldSymbol field when IsEventCallback(field.Type) => Issue(HtmxorDiagnosticCause.InferredEventCallbackField, name, "is an EventCallback field, not a method; use [HtmxAction] on a component instance method"),
+			ILocalSymbol or IParameterSymbol or IRangeVariableSymbol => Issue(HtmxorDiagnosticCause.NonmemberHandler, name, NotAComponentMember + "; use [HtmxAction]"),
+			null => (HtmxorDiagnosticIssue?)null,
+			_ => Issue(HtmxorDiagnosticCause.NonmethodHandler, name, "is not a method; use [HtmxAction] on a component instance method"),
 		};
+		return issue is { } value ? new[] { value } : Array.Empty<HtmxorDiagnosticIssue>();
 	}
 
 	private static bool IsComponentParameter(IPropertySymbol property)
@@ -87,7 +96,7 @@ internal static class HtmxorActionHandler
 		return false;
 	}
 
-	private static HtmxorDiagnosticIssue? GetMethodReason(
+	private static IEnumerable<HtmxorDiagnosticIssue> GetMethodIssues(
 		Compilation compilation,
 		INamedTypeSymbol component,
 		string handlerName,
@@ -97,17 +106,20 @@ internal static class HtmxorActionHandler
 		// Covers `using static` imports and both extension forms, whose containing type is not the component's.
 		if (!IsInComponentChain(method.ContainingType, component))
 		{
-			return Issue(HtmxorDiagnosticCause.NonmemberHandler, handlerName, NotAComponentMember + "; use [HtmxAction]");
+			yield return Issue(HtmxorDiagnosticCause.NonmemberHandler, handlerName, NotAComponentMember + "; use [HtmxAction]");
+			yield break;
 		}
 
 		if (groupSize > 1)
 		{
-			return Issue(HtmxorDiagnosticCause.InferredOverload, handlerName,
+			yield return Issue(HtmxorDiagnosticCause.InferredOverload, handlerName,
 				"is overloaded; give the handler a unique instance method name and declare [HtmxAction]");
 		}
 
-		return GetShapeIssues(compilation, method, inferred: true)
-			.Select(static issue => (HtmxorDiagnosticIssue?)issue).FirstOrDefault();
+		foreach (var issue in GetShapeIssues(compilation, method, inferred: true))
+		{
+			yield return issue;
+		}
 	}
 
 	private static IEnumerable<HtmxorDiagnosticIssue> GetShapeIssues(
@@ -130,7 +142,7 @@ internal static class HtmxorActionHandler
 			yield return issue;
 		}
 
-		foreach (var issue in GetParameterIssues(compilation, method, inferred))
+		foreach (var issue in GetParameterIssues(compilation, method))
 		{
 			yield return issue;
 		}
@@ -165,17 +177,12 @@ internal static class HtmxorActionHandler
 		};
 	}
 
-	private static IEnumerable<HtmxorDiagnosticIssue> GetParameterIssues(Compilation compilation, IMethodSymbol method,
-		bool inferred)
+	private static IEnumerable<HtmxorDiagnosticIssue> GetParameterIssues(Compilation compilation, IMethodSymbol method)
 	{
 		if (method.Parameters.Length > 1)
 		{
 			yield return Issue(HtmxorDiagnosticCause.OtherUnsupportedParameter, method.Name,
 				"has unsupported parameters; use zero parameters or one required HtmxEventArgs parameter");
-			if (inferred)
-			{
-				yield break;
-			}
 		}
 
 		var eventArgs = compilation.GetTypeByMetadataName("Htmxor.HtmxEventArgs");

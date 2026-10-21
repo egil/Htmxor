@@ -81,7 +81,7 @@ internal static class HtmxorRouteManifest
 			.Where(static path => path is not null)
 			.ToImmutableArray();
 		return generatedPaths.Any(generatedPath => declaredPaths.Any(declaredPath =>
-			RazorComponentTypeNames.GeneratedPathsEqual(declaredPath, generatedPath)));
+			RazorComponentTypeNames.PathsEqual(declaredPath, generatedPath)));
 	}
 
 	public static bool IsMatchingRazorCodeBehind(

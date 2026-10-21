@@ -11,16 +11,22 @@ namespace Htmxor.Generators;
 internal sealed class RazorCompiledEventBinding
 {
 	private RazorCompiledEventBinding(
+		SemanticModel semanticModel,
 		INamedTypeSymbol component,
 		string attributeName,
 		IMethodSymbol? handler,
-		Location location)
+		ExpressionSyntax expression,
+		bool isBound)
 	{
+		SemanticModel = semanticModel;
 		Component = component;
 		AttributeName = attributeName;
 		Handler = handler;
-		Location = location;
+		Expression = expression;
+		IsBound = isBound;
 	}
+
+	public SemanticModel SemanticModel { get; }
 
 	public INamedTypeSymbol Component { get; }
 
@@ -30,11 +36,16 @@ internal sealed class RazorCompiledEventBinding
 
 	public IMethodSymbol? Handler { get; }
 
-	public Location Location { get; }
+	public ExpressionSyntax Expression { get; }
+
+	public bool IsBound { get; }
+
+	public Location Location => Expression.GetLocation();
 
 	public static IEnumerable<RazorCompiledEventBinding> Find(
 		Compilation compilation,
-		CancellationToken cancellationToken)
+		CancellationToken cancellationToken,
+		bool includeUnbound = false)
 	{
 		foreach (var tree in compilation.SyntaxTrees.Where(static tree => HtmxorRouteManifest.IsRazorGeneratedPath(tree.FilePath)))
 		{
@@ -42,7 +53,7 @@ internal sealed class RazorCompiledEventBinding
 			foreach (var invocation in tree.GetRoot(cancellationToken).DescendantNodes().OfType<InvocationExpressionSyntax>())
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				if (TryRead(model, invocation, cancellationToken) is { } binding)
+				if (TryRead(model, invocation, cancellationToken, includeUnbound) is { } binding)
 				{
 					yield return binding;
 				}
@@ -50,12 +61,13 @@ internal sealed class RazorCompiledEventBinding
 		}
 	}
 
-	private static RazorCompiledEventBinding? TryRead(
+	public static RazorCompiledEventBinding? TryRead(
 		SemanticModel model,
 		InvocationExpressionSyntax invocation,
-		CancellationToken cancellationToken)
+		CancellationToken cancellationToken,
+		bool includeUnbound = false)
 	{
-		if (!IsHtmxCallback(model, invocation, cancellationToken))
+		if (!IsHtmxCallback(model, invocation, cancellationToken, includeUnbound, out var isBound))
 		{
 			return null;
 		}
@@ -70,17 +82,25 @@ internal sealed class RazorCompiledEventBinding
 
 		var attributeName = FindAttributeName(model, invocation, cancellationToken);
 		var handler = invocation.ArgumentList.Arguments[1].Expression;
-		if (!IsHtmxorEvent(attributeName) ||
-			model.GetDiagnostics(invocation.Span, cancellationToken).Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
+		if (!IsHtmxorEvent(attributeName))
+		{
+			return null;
+		}
+
+		isBound = isBound && !model.GetDiagnostics(invocation.Span, cancellationToken)
+			.Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+		if (!isBound && !includeUnbound)
 		{
 			return null;
 		}
 
 		return new RazorCompiledEventBinding(
+			model,
 			component,
 			attributeName!,
-			ReadHandler(model, component, handler, cancellationToken),
-			handler.GetLocation());
+			isBound ? ReadHandler(model, component, handler, cancellationToken) : null,
+			handler,
+			isBound);
 	}
 
 	private static INamedTypeSymbol? FindComponent(
@@ -133,10 +153,24 @@ internal sealed class RazorCompiledEventBinding
 	private static bool IsHtmxCallback(
 		SemanticModel model,
 		InvocationExpressionSyntax invocation,
-		CancellationToken cancellationToken)
-		=> invocation.ArgumentList.Arguments.Count == 2 &&
-			invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Create" } &&
-			model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method &&
+		CancellationToken cancellationToken,
+		bool includeUnbound,
+		out bool isBound)
+	{
+		isBound = false;
+		if (invocation.ArgumentList.Arguments.Count != 2 ||
+			invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Create" })
+		{
+			return false;
+		}
+		var symbol = model.GetSymbolInfo(invocation, cancellationToken);
+		isBound = IsCallbackFactory(symbol.Symbol);
+		return isBound || includeUnbound && symbol.CandidateReason == CandidateReason.OverloadResolutionFailure &&
+			!symbol.CandidateSymbols.IsEmpty && symbol.CandidateSymbols.All(IsCallbackFactory);
+	}
+
+	private static bool IsCallbackFactory(ISymbol? symbol)
+		=> symbol is IMethodSymbol method &&
 			method.ContainingType.ToDisplayString() == "Microsoft.AspNetCore.Components.EventCallbackFactory" &&
 			method.TypeArguments.Length == 1 &&
 			method.TypeArguments[0].ToDisplayString() == "Htmxor.HtmxEventArgs";

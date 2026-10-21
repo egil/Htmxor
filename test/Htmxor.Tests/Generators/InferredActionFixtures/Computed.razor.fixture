@@ -1,0 +1,3 @@
+@page "/actions"
+<button @onput="choose ? M : Other">Save</button>
+@code { private bool choose = true; private void M() {} private void Other() {} }

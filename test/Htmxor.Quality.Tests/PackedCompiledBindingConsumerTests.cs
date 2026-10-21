@@ -53,27 +53,29 @@ public sealed class PackedCompiledBindingConsumerTests
 		}
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
-		AssertRejectedBinding(workspace, result, "put", 4);
+		AssertRejectedBinding(workspace, result, "put", 4, "HTMXOR010");
+		Assert.Contains("computed expression", result.StandardOutput + result.StandardError, StringComparison.Ordinal);
+		Assert.DoesNotContain("HTMXOR042", result.StandardOutput + result.StandardError, StringComparison.Ordinal);
 	}
 
 	[Theory]
-	[InlineData("post")]
-	[InlineData("put")]
-	[InlineData("patch")]
-	[InlineData("delete")]
-	[InlineData("query")]
-	[InlineData("get")]
-	public async Task Compiled_binding_omitted_by_the_scanner_fails_the_package_consumer_build(string method)
+	[InlineData("post", "HTMXOR042")]
+	[InlineData("put", "HTMXOR042")]
+	[InlineData("patch", "HTMXOR042")]
+	[InlineData("delete", "HTMXOR042")]
+	[InlineData("query", "HTMXOR042")]
+	[InlineData("get", "HTMXOR015")]
+	public async Task Compiled_binding_omitted_by_the_scanner_fails_the_package_consumer_build(string method, string expectedId)
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		workspace.UseIssue310MissingActionScenario(method);
 
 		var result = await workspace.BuildForDiagnosticAsync();
 
-		AssertRejectedBinding(workspace, result, method, 4);
+		AssertRejectedBinding(workspace, result, method, 4, expectedId);
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
 		var message = Assert.Single(Regex.Matches(output,
-			@"Issue310Page\.razor\(4,\d+\): error HTMXOR042: (?<message>[^\r\n]+)")
+			@"Issue310Page\.razor\(4,\d+\): error " + Regex.Escape(expectedId) + @": (?<message>[^\r\n]+)")
 			.Select(static match => match.Groups["message"].Value).Distinct());
 		Assert.Contains("no usable action is available", message, StringComparison.OrdinalIgnoreCase);
 		if (method == "get")
@@ -124,7 +126,9 @@ public sealed class PackedCompiledBindingConsumerTests
 
 		var result = await workspace.BuildForDiagnosticAsync();
 
-		AssertRejectedBinding(workspace, result, "put", 5);
+		AssertRejectedBinding(workspace, result, "put", 5, "HTMXOR010");
+		Assert.Contains("computed expression", result.StandardOutput + result.StandardError, StringComparison.Ordinal);
+		Assert.DoesNotContain("HTMXOR042", result.StandardOutput + result.StandardError, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -196,7 +200,8 @@ public sealed class PackedCompiledBindingConsumerTests
 		{
 			File.Copy(path, Path.Combine(evidence, Path.GetFileName(path)), overwrite: true);
 		}
-		AssertRejectedBinding(workspace, result, "put", 12);
+		AssertRejectedBinding(workspace, result, "put", 12, "HTMXOR040", "handler 'Save' must be an instance method on the request-owned component");
+		Assert.DoesNotContain("HTMXOR042", result.StandardOutput + result.StandardError, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -222,14 +227,14 @@ public sealed class PackedCompiledBindingConsumerTests
 		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
 
-	private static void AssertRejectedBinding(PackageConsumerWorkspace workspace, ProcessResult result, string method, int line, string expectedId = "HTMXOR042")
+	private static void AssertRejectedBinding(PackageConsumerWorkspace workspace, ProcessResult result, string method, int line, string expectedId = "HTMXOR042", string? requiredReason = null)
 	{
 		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
 		Assert.True(result.ExitCode != 0, "A compiled binding without its matching action built successfully." + Environment.NewLine + output);
 		Assert.True(output.Contains(expectedId, StringComparison.Ordinal), output);
 		Assert.Contains($"Issue310Page.razor({line},", output, StringComparison.Ordinal);
 		AssertAuthoredBindingLocation(workspace, output, method, line, expectedId);
-		Assert.Contains("@on" + method, output, StringComparison.Ordinal);
+		Assert.Contains(requiredReason ?? "@on" + method, output, StringComparison.Ordinal);
 		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);

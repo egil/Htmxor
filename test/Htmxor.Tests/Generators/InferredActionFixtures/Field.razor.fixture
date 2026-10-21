@@ -1,0 +1,3 @@
+@page "/actions"
+<button @onput="M">Save</button>
+@code { private EventCallback<HtmxEventArgs> M; }
