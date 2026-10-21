@@ -29,7 +29,7 @@ internal sealed class HtmxorInferredActionValidation
 	{
 		var mapped = binding.Location.GetMappedLineSpan();
 		return Declarations.FirstOrDefault(declaration => declaration.HttpMethod == binding.HttpMethod &&
-			string.Equals(declaration.Path, mapped.Path, StringComparison.OrdinalIgnoreCase) &&
+			RazorComponentTypeNames.PathsEqual(declaration.Path, mapped.Path) &&
 			declaration.BindingLineSpan.Start <= mapped.StartLinePosition &&
 			declaration.BindingLineSpan.End >= mapped.EndLinePosition);
 	}

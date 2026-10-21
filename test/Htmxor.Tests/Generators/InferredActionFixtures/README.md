@@ -35,3 +35,16 @@ then truly differs from the compiled component. Direct 015/031 and aggregate 037
 retain original attribute spans; owner-dependent handler guesses stay suppressed.
 ReviewRepeatedShape repeats a compiler-valid static async-void callback four times;
 full and local raw multisets preserve both independent causes at all four lines.
+
+PathCaseLower is ONE authentic component captured alone at
+`/tmp/issue338-stale-case/Components/admin/Foo.razor` with the same SDK,
+Consumer root namespace, net10.0 Web SDK and binary Htmxor reference at fcd56f2.
+`dotnet build Capture.csproj -c Release -p:TreatWarningsAsErrors=true` succeeds
+with zero warnings/errors. Both generated partials are unedited. PathCaseStale
+is scanner-only stale AdditionalText at Components/Admin/Foo.razor, with no
+physical or compiled second owner. Matching-only, stale-first and stale-last use
+identical compiled trees/options; exact raw messages/IDs/mapped spans distinguish
+real local013/018 from direct031 and stale aggregate037. This demonstrates the
+approved analyzer boundary, not an ordinary SDK/editor producing stale inputs.
+The case-distinct regression is explicitly skipped on Windows, where existing
+source identity is case-insensitive; no Windows/macOS or separator claim is made.

@@ -117,7 +117,7 @@ internal sealed class RazorComponentTypeNames : IEquatable<RazorComponentTypeNam
 		return string.Join("/", segments) + ".g.cs";
 	}
 
-	public static bool GeneratedPathsEqual(string? left, string? right)
+	public static bool PathsEqual(string? left, string? right)
 		=> left is not null && right is not null && string.Equals(left, right, PathComparison);
 
 	private string? GetComponentDirectory(string path)
