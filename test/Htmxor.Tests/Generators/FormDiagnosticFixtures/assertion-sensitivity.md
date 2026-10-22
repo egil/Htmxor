@@ -175,3 +175,37 @@ initial/final corrected focused portfolios. This keeps the new bounded phase
 below 50 runs without repeating unchanged evidence. Execution is deferred
 until a supplied implementation snapshot is green; no sensitivity pass is
 claimed by the current intentional-red contract.
+
+## Explicit-action consumer correction targets (deferred)
+
+After production remediation and a supplied green exact snapshot, execute only
+these seven new bounded inversions/restorations for
+Explicit_post_conflicts_require_valid_form_names_without_hiding_independent_exclusions:
+
+1. ConsumerInvalidEdit/no-unrelated-error: after real compiler prerequisites,
+   invert expected empty complete diagnostics to require nonempty; require that
+   no-guessed-cascade assertion failure, then exact source/binary restoration green.
+2. ConsumerInvalidPlain/no-unrelated-error: independently invert complete
+   emptiness to require nonempty and restore green. Retain authentic separate
+   __formName initializer; do not fabricate a diagnostic or mapping.
+3. ConsumerValidEdit/unrelated-error: omit only the explicit-action032 observation;
+   require its raw multiset failure after actual CS0246 checks, then restore green.
+   This protects genuine conflict against blanket suppression/analyzer omission.
+4. ConsumerInvalidExcluded/no-unrelated-error: omit only form033 by its full
+   reason, retaining action033. Require the exact-set failure and restore green.
+5. Same excluded fixture: independently omit only action033, retaining form033;
+   require its own exact-set failure and restore green. Raw same-ID multiplicity
+   and original distinct primary spans must remain visible.
+6. ConsumerInvalidEdit/no-unrelated-error: alter only pre-generator expected
+   CS0103 to CS0246; require that precise compiler assertion, then restore green.
+7. Same fixture: independently alter only post-generator expected CS0103,
+   leaving the pre-generator comparison intact; require the later comparison's
+   failure, then restore green.
+
+Use the established isolated test-only observation/expectation inversion
+mechanism, actual Razor/Roslyn/generators and exact source/baseline binary
+restoration after each, Release/hang flags and unique raw TRX/logs. Initial/final
+corrected focused portfolios must include all previous579plus these8cases.
+No execution claimed by this intentional-red checkpoint. Unchanged prior43and12
+targets are historical and need not be repeated. No production mutation/Stryker
+or cold/full gate is part of this bounded red assignment.

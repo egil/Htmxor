@@ -94,6 +94,23 @@ public sealed class HtmxorFormDiagnosticTests
 		Assert.Empty(result.Local);
 	}
 
+	[Theory]
+	[InlineData("ConsumerInvalidEdit", false, "")]
+	[InlineData("ConsumerInvalidEdit", true, "")]
+	[InlineData("ConsumerInvalidPlain", false, "")]
+	[InlineData("ConsumerInvalidPlain", true, "")]
+	[InlineData("ConsumerValidEdit", false, "action032:4:5:23")]
+	[InlineData("ConsumerValidEdit", true, "action032:4:5:23")]
+	[InlineData("ConsumerInvalidExcluded", false, "form033:1:24:32,action033:4:5:23")]
+	[InlineData("ConsumerInvalidExcluded", true, "form033:1:24:32,action033:4:5:23")]
+	public async Task Explicit_post_conflicts_require_valid_form_names_without_hiding_independent_exclusions(string fixture, bool unrelatedError, string expected)
+	{
+		var result = await AnalyzeAsync(fixture, unrelatedError: unrelatedError,
+			compilerError: fixture == "ConsumerValidEdit" ? null : "CS0103");
+
+		AssertDiagnostics(fixture, expected, result.Complete);
+	}
+
 	[Fact]
 	public async Task Missing_generated_form_inference_is_complete_only_at_its_original_mapped_name()
 	{
@@ -154,13 +171,15 @@ public sealed class HtmxorFormDiagnosticTests
 			"027" => "an EditForm on an HtmxRoute owner requires FormName",
 			"028" => "a POST form on an HtmxRoute owner requires @formname",
 			"032" => "named forms and a POST action cannot share one route owner; use named forms or a POST action",
+			"action032" => "named forms and a POST HtmxAction cannot share one route owner; choose named forms or the action",
+			"action033" => "explicit HtmxRoute.Methods does not allow the POST HtmxAction; add the method or remove the action",
 			"form033" => "explicit HtmxRoute.Methods does not allow POST for its form; add POST or remove the form",
 			"binding033" => "Use [HtmxAction] to explicitly declare a supported instance action instead of this binding; explicit HtmxRoute.Methods is authoritative and does not allow the POST binding; add the method or remove the binding",
 			"036" => "Use [HtmxAction] to explicitly declare a supported instance action instead of this binding; @onpost in a Razor template or @code markup is not supported; put the binding in the component's own markup or declare [HtmxAction]",
 			"043" => "the compiled POST form has no matching generated POST inference for its component; move the form into the route owner's own Razor markup, or replace the form with a supported explicit POST action",
 			_ => throw new ArgumentException("Unknown expected reason", nameof(item)),
 		};
-		var id = values[0].EndsWith("033", StringComparison.Ordinal) ? "033" : values[0];
+		var id = values[0][^3..];
 		return $"HTMXOR{id}|{Prefix}{reason}|{FixtureDirectory(fixture)}/{fixture}.razor|{values[1]}:{values[2]}-{values[1]}:{values[3]}";
 	}
 
@@ -202,7 +221,8 @@ public sealed class HtmxorFormDiagnosticTests
 		return new Result(complete, local, string.Join("\n", generator.GetRunResult().GeneratedTrees.Select(tree => tree.GetText().ToString())));
 	}
 
-	private static string FixtureDirectory(string fixture) => fixture.StartsWith("Review", StringComparison.Ordinal) ? "/tmp/issue339-review-capture" : Directory;
+	private static string FixtureDirectory(string fixture) => fixture.StartsWith("Consumer", StringComparison.Ordinal) ? "/tmp/issue339-consumer-capture"
+		: fixture.StartsWith("Review", StringComparison.Ordinal) ? "/tmp/issue339-review-capture" : Directory;
 
 	private static string Read(string fixture, string part)
 	{

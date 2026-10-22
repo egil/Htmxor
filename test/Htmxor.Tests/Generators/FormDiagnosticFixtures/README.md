@@ -98,3 +98,32 @@ enhanced #line mapping supplies this result; fixtures are not rewritten.
 FindMappedLocation, FindNamedEventLocation and GetLocation are identical in
 1de6978, e2820b8 and aa07bf0. The original end18 expectation used the child's
 span in error; end19 preserves the existing primary-location selection.
+
+## Explicit-action consumer regression (Copilot4351679432)
+
+ConsumerInvalidEdit/ConsumerValidEdit pair an authentic EditForm name with a
+real valid private parameterless `[HtmxAction("POST")]` on the same owner.
+ConsumerInvalidPlain covers the shared reader's separately lowered name
+initializer. ConsumerInvalidExcluded has known GET-only Methods, preserving
+both the independent form033 and action033 reasons despite its bad name.
+Each has a paired actual SDK render/declaration capture, unedited, from
+/tmp/issue339-consumer-capture with the same pinned Web/net10.0 settings.
+Command: `dotnet build /tmp/issue339-consumer-capture/Capture.csproj -c Release`.
+Reference: Release net10.0 Htmxor.dll built in the exact f547710 cold archive.
+Project/imports/global.json, raw capture log and hashes are retained in ignored
+artifacts/reviews/issue-339/copilot-regressions.
+
+The capture intentionally reports exactly three CS0103 errors, one for each
+invalid component; the valid pair has none. Each harness run separately checks
+its exact compiler-ID multiset before and after real generators, adding only
+CS0246 when the unrelated source is requested. It then compares raw complete
+results from generators plus route/action-declaration/compiled-binding analyzers.
+HtmxorActionDeclarationAnalyzer's compilation-end callback actually invokes
+explicit-action conflict validation; the valid pair requires genuine032 once,
+so omitting that analyzer cannot create a false green. Its primary is the
+original HtmxAction AttributeSyntax, authored zero-based4:5-4:23, excluding the
+square brackets. Invalid names must not create032 there. GET exclusion keeps
+form033 at original FormName1:24-1:32 and action033 at4:5-4:23, once per reason.
+The original authoring/mapping policy and all existing579focused cases remain.
+These eight new full-analysis cases cover each fixture with/without unrelated
+error. They do not introduce another local scheduling contract for aggregate032.
