@@ -26,13 +26,13 @@ HTMXOR023 | Htmxor.Generators | Error | Action handler has a ref or out paramete
 HTMXOR024 | Htmxor.Generators | Error | Action handler has an optional parameter; independent inferred callback causes reported locally at mapped handler expressions when semantically decidable
 HTMXOR025 | Htmxor.Generators | Error | Action handler has unsupported parameters; independent inferred callback causes reported locally at mapped handler expressions when semantically decidable
 HTMXOR026 | Htmxor.Generators | Error | Action handler returns an unsupported value; independent inferred callback causes reported locally at mapped handler expressions when semantically decidable
-HTMXOR027 | Htmxor.Generators | Error | EditForm has no name
-HTMXOR028 | Htmxor.Generators | Error | POST form has no name
+HTMXOR027 | Htmxor.Generators | Error | EditForm has no name; independent form causes reported locally at existing mapped source locations, external authored fallbacks in complete analysis
+HTMXOR028 | Htmxor.Generators | Error | POST form has no name; independent form causes reported locally at existing mapped source locations, external authored fallbacks in complete analysis
 HTMXOR029 | Htmxor.Generators | Error | Explicit action uses an unsupported method
 HTMXOR030 | Htmxor.Generators | Error | Explicit action has no local route owner
 HTMXOR031 | Htmxor.Generators | Error | Route method has conflicting handlers
-HTMXOR032 | Htmxor.Generators | Error | Named form conflicts with POST action
-HTMXOR033 | Htmxor.Generators | Error | Action or form is outside explicit route methods; independent inferred callback causes reported locally at mapped handler expressions when semantically decidable
+HTMXOR032 | Htmxor.Generators | Error | Named form conflicts with POST action; same-tree facts local where source-backed, cross-source conflicts remain aggregate
+HTMXOR033 | Htmxor.Generators | Error | Action or form is outside explicit route methods; independent form causes use existing mapped locations or complete-analysis external fallbacks; independent inferred callback causes reported locally at mapped handler expressions when semantically decidable
 HTMXOR034 | Htmxor.Generators | Error | Action is on a normal-only component; independent inferred callback causes reported locally at mapped handler expressions when semantically decidable
 HTMXOR035 | Htmxor.Generators | Error | Explicit action is not an ordinary method
 HTMXOR036 | Htmxor.Generators | Error | Inferred binding is outside owner markup

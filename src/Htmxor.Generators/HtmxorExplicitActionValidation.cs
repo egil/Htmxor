@@ -273,12 +273,16 @@ internal static class HtmxorExplicitActionValidation
 				method + " declarations on one route owner must name the same handler; select one handler");
 		}
 
-		if (method == "POST" && forms.Any(form => form.IsNamed && SymbolEqualityComparer.Default.Equals(form.Component, component)))
+		if (method == "POST" && HasValidNamedForm(component, forms))
 		{
 			yield return new(HtmxorDiagnosticCause.NamedFormPostConflict,
 				"named forms and a POST HtmxAction cannot share one route owner; choose named forms or the action");
 		}
 	}
+
+	private static bool HasValidNamedForm(INamedTypeSymbol component, RazorCompiledForm[] forms)
+		=> forms.Any(form => form.IsValid && form.HasValidName && form.IsNamed &&
+			SymbolEqualityComparer.Default.Equals(form.Component, component));
 
 	private static bool Is(AttributeData attribute, INamedTypeSymbol? type)
 		=> type is not null && SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, type);

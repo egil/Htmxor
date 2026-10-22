@@ -1,0 +1,7 @@
+@attribute [HtmxRoute("/forms", Methods = new[] { "POST" })]
+<form method="post" @formname="@(missing)"></form>
+@code {
+    private object model = new();
+    [HtmxAction("POST")]
+    private void Save() { }
+}

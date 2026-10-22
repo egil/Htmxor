@@ -1,0 +1,3 @@
+@attribute [HtmxRoute("/forms")]
+<EditForm Model="model" FormName="@(name)"><form method="get"></form></EditForm>
+@code { private object model = new(); private string name = "save"; }

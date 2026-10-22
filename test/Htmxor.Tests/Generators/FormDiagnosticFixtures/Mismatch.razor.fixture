@@ -1,0 +1,3 @@
+@attribute [HtmxRoute("/forms")]
+<form method="post" @formname="@(name)"></form>
+@code { private string name = "save"; }

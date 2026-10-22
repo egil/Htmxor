@@ -1,0 +1,4 @@
+@page "/forms"
+<EditForm Model="model" />
+<form method="post"></form>
+@code { private object model = new(); }
