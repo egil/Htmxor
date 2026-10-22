@@ -35,7 +35,7 @@ internal sealed class HtmxorNormalOnlyDeclaration
 
 		if (HasAttribute(symbols.HtmxRoute))
 		{
-			yield return "DisableHtmxDirectRouting cannot be combined with HtmxRoute on the same type";
+			yield return HtmxorRejectionReasons.NormalOnlyRoute;
 		}
 
 		if (Type.IsAbstract ||

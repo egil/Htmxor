@@ -136,7 +136,7 @@ internal sealed class RazorFormValidation
 		if (ExcludesPost(route))
 		{
 			yield return new(HtmxorDiagnosticCause.ExplicitMethodsConflict,
-				"explicit HtmxRoute.Methods does not allow POST for its form; add POST or remove the form");
+				HtmxorRejectionReasons.FormMethods);
 		}
 	}
 
@@ -165,7 +165,7 @@ internal sealed class RazorFormValidation
 
 	private static HtmxorDiagnosticIssue NamedConflict()
 		=> new(HtmxorDiagnosticCause.NamedFormPostConflict,
-			"named forms and a POST action cannot share one route owner; use named forms or a POST action");
+			HtmxorRejectionReasons.NamedFormPost);
 
 	private static Location GetLocation(RazorCompiledForm[] forms, int index, IReadOnlyList<RazorFormDeclaration> declarations)
 	{

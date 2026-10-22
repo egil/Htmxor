@@ -17,6 +17,9 @@
 
 	<ItemGroup>
 		<Compile
+			Include="..\Htmxor\Builder\HtmxorRejectionReasons.cs"
+			Link="Shared\HtmxorRejectionReasons.cs" />
+		<Compile
 			Include="..\Htmxor\Builder\HtmxorRouteTemplateContract.cs"
 			Link="Shared\HtmxorRouteTemplateContract.cs" />
 		<Compile

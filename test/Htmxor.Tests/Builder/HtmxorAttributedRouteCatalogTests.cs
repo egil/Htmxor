@@ -871,7 +871,7 @@ public sealed class HtmxorAttributedRouteCatalogTests
 				fixture.Manifest,
 				[generatedAction]));
 
-		Assert.Contains("requires exactly one compiled stock route", exception.Message, StringComparison.Ordinal);
+		Assert.Contains("a component with a local @page action must compile with exactly one stock route and no HtmxRoute", exception.Message, StringComparison.Ordinal);
 		Assert.Contains("PackageConsumer.StockReportComponent", exception.Message, StringComparison.Ordinal);
 		Assert.Empty(GetGeneratedEndpoints(app));
 	}

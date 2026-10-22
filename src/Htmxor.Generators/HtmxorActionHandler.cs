@@ -21,14 +21,14 @@ internal static class HtmxorActionHandler
 		if (method.MethodKind != MethodKind.Ordinary)
 		{
 			yield return Issue(HtmxorDiagnosticCause.NonordinaryExplicitAction, method.Name,
-				"is not an ordinary callback method; declare an ordinary instance method returning void or Task");
+				HtmxorRejectionReasons.OrdinaryHandler);
 			yield break;
 		}
 
 		if (method.ContainingType.GetMembers(method.Name).OfType<IMethodSymbol>().Count() > 1)
 		{
 			yield return Issue(HtmxorDiagnosticCause.ExplicitOverload, method.Name,
-				"is overloaded; give the handler a unique name");
+				HtmxorRejectionReasons.ExplicitOverload);
 		}
 
 		foreach (var issue in GetShapeIssues(compilation, method, inferred: false))
@@ -128,13 +128,13 @@ internal static class HtmxorActionHandler
 		if (method.IsStatic)
 		{
 			yield return Issue(HtmxorDiagnosticCause.StaticHandler, method.Name,
-				"is static; make it an instance method" + (inferred ? " and declare [HtmxAction]" : string.Empty));
+				HtmxorRejectionReasons.StaticHandler + (inferred ? " and declare [HtmxAction]" : string.Empty));
 		}
 
 		if (method.IsGenericMethod)
 		{
 			yield return Issue(inferred ? HtmxorDiagnosticCause.InferredGeneric : HtmxorDiagnosticCause.ExplicitGeneric,
-				method.Name, "is generic; make it non-generic" + (inferred ? " and declare [HtmxAction]" : string.Empty));
+				method.Name, HtmxorRejectionReasons.GenericHandler + (inferred ? " and declare [HtmxAction]" : string.Empty));
 		}
 
 		foreach (var issue in GetReturnIssues(compilation, method))
@@ -152,13 +152,13 @@ internal static class HtmxorActionHandler
 	{
 		if (method.IsAsync && method.ReturnsVoid)
 		{
-			yield return Issue(HtmxorDiagnosticCause.AsyncVoid, method.Name, "is async void; return Task instead");
+			yield return Issue(HtmxorDiagnosticCause.AsyncVoid, method.Name, HtmxorRejectionReasons.AsyncVoid);
 		}
 
 		var task = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
 		if (!method.ReturnsVoid && !SymbolEqualityComparer.Default.Equals(method.ReturnType, task))
 		{
-			yield return Issue(GetReturnCause(method.ReturnType), method.Name, "returns a value; return void or Task");
+			yield return Issue(GetReturnCause(method.ReturnType), method.Name, HtmxorRejectionReasons.ValueReturn);
 		}
 	}
 
@@ -182,7 +182,7 @@ internal static class HtmxorActionHandler
 		if (method.Parameters.Length > 1)
 		{
 			yield return Issue(HtmxorDiagnosticCause.OtherUnsupportedParameter, method.Name,
-				"has unsupported parameters; use zero parameters or one required HtmxEventArgs parameter");
+				HtmxorRejectionReasons.ParameterCount);
 		}
 
 		var eventArgs = compilation.GetTypeByMetadataName("Htmxor.HtmxEventArgs");
@@ -191,12 +191,12 @@ internal static class HtmxorActionHandler
 			if (parameter.RefKind != RefKind.None)
 			{
 				yield return Issue(HtmxorDiagnosticCause.RefOrOutParameter, method.Name,
-					"has unsupported parameters; use one by-value HtmxEventArgs parameter");
+					HtmxorRejectionReasons.ByRefParameter);
 			}
 			if (parameter.IsOptional)
 			{
 				yield return Issue(HtmxorDiagnosticCause.OptionalParameter, method.Name,
-					"has an optional parameter; make it required");
+					HtmxorRejectionReasons.OptionalParameter);
 			}
 			if (!SymbolEqualityComparer.Default.Equals(parameter.Type, eventArgs))
 			{
@@ -207,7 +207,7 @@ internal static class HtmxorActionHandler
 					_ => HtmxorDiagnosticCause.OtherUnsupportedParameter,
 				};
 				yield return Issue(cause, method.Name,
-					"has a parameter that is not HtmxEventArgs; its parameter must be HtmxEventArgs");
+					HtmxorRejectionReasons.ParameterType);
 			}
 		}
 	}

@@ -144,7 +144,7 @@ internal sealed class HtmxorRoutedComponent
 
 		return isConcreteClass && implementsComponent
 			? null
-			: "the HtmxRoute target must be a concrete, non-generic Blazor component";
+			: HtmxorRejectionReasons.RouteTarget;
 	}
 
 	private IEnumerable<string> GetRouteReasons()
@@ -182,7 +182,7 @@ internal sealed class HtmxorRoutedComponent
 			route.ConstructorArguments[0].Value is not string template ||
 			string.IsNullOrWhiteSpace(template))
 		{
-			return "HtmxRoute must resolve one nonblank constant route template";
+			return HtmxorRejectionReasons.BlankTemplate;
 		}
 
 		// Stock ASP0017 reports template grammar errors and startup resolves constraints; neither checks the leading '/'.
@@ -196,18 +196,18 @@ internal sealed class HtmxorRoutedComponent
 		{
 			"Methods" => HasSupportedExplicitMethods(argument.Value)
 				? null
-				: "explicit HtmxRoute Methods must resolve to a non-empty unique subset of GET, POST, PUT, PATCH, DELETE, and QUERY",
+				: HtmxorRejectionReasons.RouteMethods,
 			"CurrentUrl" => HasSupportedOptionalString(argument.Value) &&
 				HtmxRouteRepresentationContract.IsValidCurrentUrl(argument.Value.Value as string)
 				? null
-				: "HtmxRoute named argument 'CurrentUrl' must resolve to a valid relative or absolute HTTP(S) URI or null",
+				: HtmxorRejectionReasons.CurrentUrl,
 			"Target" => HasSupportedOptionalString(argument.Value) &&
 				HtmxRouteRepresentationContract.IsValidOptionalTarget(argument.Value.Value as string)
 				? null
-				: "HtmxRoute named argument 'Target' must resolve to a valid element identity or null or whitespace",
+				: HtmxorRejectionReasons.Target,
 			"Targets" => HasSupportedTargets(argument.Value) && HasSupportedTargetValues(argument.Value)
 				? null
-				: "HtmxRoute named argument 'Targets' must resolve to a constant array of valid element identities",
+				: HtmxorRejectionReasons.Targets,
 			_ => "HtmxRoute named argument '" + argument.Key + "' is not supported",
 		};
 
@@ -232,7 +232,7 @@ internal sealed class HtmxorRoutedComponent
 
 		return GetHierarchyAttributes(Type).Any(attribute =>
 			SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, symbols.Route))
-			? "an HTMX-only component cannot also declare a normal Blazor route"
+			? HtmxorRejectionReasons.StockRoute
 			: null;
 	}
 

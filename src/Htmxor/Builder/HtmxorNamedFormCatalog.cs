@@ -28,7 +28,7 @@ internal static class HtmxorNamedFormCatalog
 			if (namedFormComponentTypeNames.Contains(action.ComponentType.FullName!, StringComparer.Ordinal))
 			{
 				throw new InvalidOperationException(
-					$"Component '{action.ComponentType.FullName}' cannot own named forms and a POST action.");
+					$"Component '{action.ComponentType.FullName}' {HtmxorRejectionReasons.NamedFormPost}.");
 			}
 		}
 	}
