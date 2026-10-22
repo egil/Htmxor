@@ -1,0 +1,4 @@
+@attribute [HtmxRoute("/forms", Methods = new[] { "GET" })]
+<form method="post" @formname="@(name)"></form>
+<button @onpost="Save">Save</button>
+@code { private string name = "save"; private void Save() {} }

@@ -1,0 +1,3 @@
+@attribute [HtmxRoute("/forms", Methods = new[] { "GET" })]
+<form method="post"></form>
+<FORM METHOD="POST"></FORM>

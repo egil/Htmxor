@@ -16,6 +16,7 @@ public sealed class HtmxorCompiledBindingAnalyzer : DiagnosticAnalyzer
 		context.ConfigureGeneratedCodeAnalysis(
 			GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.ReportDiagnostics);
 		context.EnableConcurrentExecution();
+		context.RegisterSemanticModelAction(RazorFormValidation.AnalyzeLocal);
 		context.RegisterCompilationAction(RazorFormValidation.Analyze);
 		context.RegisterCompilationAction(static context =>
 		{

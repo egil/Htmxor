@@ -24,6 +24,10 @@ internal sealed class RazorCompiledForm
 
 	public bool IsNamed { get; private set; }
 
+	public bool HasValidName { get; private set; } = true;
+
+	public bool IsValid { get; private set; } = true;
+
 	public bool IsPost { get; private set; }
 
 	public Location Location { get; private set; }
@@ -32,20 +36,30 @@ internal sealed class RazorCompiledForm
 	{
 		foreach (var tree in compilation.SyntaxTrees.Where(static tree => HtmxorRouteManifest.IsRazorGeneratedPath(tree.FilePath)))
 		{
-			var model = compilation.GetSemanticModel(tree);
-			foreach (var method in tree.GetRoot(cancellationToken).DescendantNodes().OfType<MethodDeclarationSyntax>()
-				.Where(static method => method.Identifier.ValueText == "BuildRenderTree"))
+			foreach (var form in Find(compilation.GetSemanticModel(tree), cancellationToken))
 			{
-				if (model.GetDeclaredSymbol(method, cancellationToken)?.ContainingType is not { } component ||
-					!HtmxorRouteManifest.HasCompiledRazorDeclaration(component))
-				{
-					continue;
-				}
+				yield return form;
+			}
+		}
+	}
 
-				foreach (var form in ReadMethod(model, method, component, cancellationToken))
-				{
-					yield return form;
-				}
+	public static IEnumerable<RazorCompiledForm> Find(SemanticModel model, CancellationToken cancellationToken)
+	{
+		if (!HtmxorRouteManifest.IsRazorGeneratedPath(model.SyntaxTree.FilePath))
+		{
+			yield break;
+		}
+		foreach (var method in model.SyntaxTree.GetRoot(cancellationToken).DescendantNodes().OfType<MethodDeclarationSyntax>()
+			.Where(static method => method.Identifier.ValueText == "BuildRenderTree"))
+		{
+			if (model.GetDeclaredSymbol(method, cancellationToken)?.ContainingType is not { } component ||
+				!HtmxorRouteManifest.HasCompiledRazorDeclaration(component))
+			{
+				continue;
+			}
+			foreach (var form in ReadMethod(model, method, component, cancellationToken))
+			{
+				yield return form;
 			}
 		}
 	}
@@ -81,8 +95,7 @@ internal sealed class RazorCompiledForm
 		=> invocation.Expression is MemberAccessExpressionSyntax member &&
 			model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method &&
 			method.ContainingType.ToDisplayString() == "Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder" &&
-			model.GetSymbolInfo(member.Expression, cancellationToken).Symbol is { } receiver &&
-			!model.GetDiagnostics(invocation.Span, cancellationToken).Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+			model.GetSymbolInfo(member.Expression, cancellationToken).Symbol is { } receiver
 				? (method, receiver) : null;
 
 	private static IEnumerable<RazorCompiledForm> ReadCall(
@@ -108,7 +121,8 @@ internal sealed class RazorCompiledForm
 		}
 		else if (name == "AddMarkupContent")
 		{
-			foreach (var form in ReadStaticMarkup(model, invocation, component, cancellationToken))
+			foreach (var form in HasErrors(model, invocation, cancellationToken)
+				? Array.Empty<RazorCompiledForm>() : ReadStaticMarkup(model, invocation, component, cancellationToken))
 			{
 				yield return form;
 			}
@@ -127,7 +141,10 @@ internal sealed class RazorCompiledForm
 			SymbolEqualityComparer.Default.Equals(method.TypeArguments[0],
 				model.Compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Components.Forms.EditForm"));
 		var isPlainForm = method.Name == "OpenElement" && string.Equals(ReadString(model, invocation, 1, cancellationToken), "form", StringComparison.OrdinalIgnoreCase);
-		return isEditForm || isPlainForm ? new RazorCompiledForm(component, isEditForm, invocation.GetLocation()) : null;
+		return isEditForm || isPlainForm ? new RazorCompiledForm(component, isEditForm, invocation.GetLocation())
+		{
+			IsValid = !HasErrors(model, invocation, cancellationToken),
+		} : null;
 	}
 
 	private void ReadAttribute(SemanticModel model, InvocationExpressionSyntax invocation, string method, CancellationToken cancellationToken)
@@ -136,15 +153,24 @@ internal sealed class RazorCompiledForm
 		Location = FindMappedLocation(invocation) ?? Location;
 		if (IsNameAttribute(method, attribute))
 		{
-			IsNamed = true;
-			IsPost = true;
-			Location = FindMappedLocation(invocation) ?? FindNamedEventLocation(model, invocation, cancellationToken) ?? invocation.GetLocation();
+			ReadName(model, invocation, method, cancellationToken);
 		}
-		else if (method == "AddAttribute" && string.Equals(attribute, "method", StringComparison.OrdinalIgnoreCase) &&
+		else if (method == "AddAttribute" && !HasErrors(model, invocation, cancellationToken) &&
+			string.Equals(attribute, "method", StringComparison.OrdinalIgnoreCase) &&
 			string.Equals(ReadString(model, invocation, 2, cancellationToken), "post", StringComparison.OrdinalIgnoreCase))
 		{
 			IsPost = true;
 		}
+	}
+
+	private void ReadName(SemanticModel model, InvocationExpressionSyntax invocation, string method, CancellationToken cancellationToken)
+	{
+		IsNamed = true;
+		IsPost = true;
+		// Keep the authored shape for location matching even when its name is compiler-owned.
+		HasValidName &= !HasErrors(model, invocation, cancellationToken) &&
+			(method != "AddNamedEvent" || HasValidNamedEventInitializer(model, invocation, cancellationToken));
+		Location = FindMappedLocation(invocation) ?? FindNamedEventLocation(model, invocation, cancellationToken) ?? invocation.GetLocation();
 	}
 
 	private bool IsNameAttribute(string method, string? attribute)
@@ -162,6 +188,14 @@ internal sealed class RazorCompiledForm
 			.FirstOrDefault(static location => location.GetMappedLineSpan().Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase));
 	}
 
+	private static bool HasValidNamedEventInitializer(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
+	{
+		var expression = invocation.ArgumentList.Arguments.LastOrDefault()?.Expression;
+		var symbol = expression is null ? null : model.GetSymbolInfo(expression, cancellationToken).Symbol;
+		return symbol?.DeclaringSyntaxReferences.Select(reference => reference.GetSyntax(cancellationToken))
+			.OfType<VariableDeclaratorSyntax>().All(variable => !HasErrors(model, variable, cancellationToken)) ?? true;
+	}
+
 	private static Location? FindMappedLocation(InvocationExpressionSyntax invocation)
 		=> invocation.DescendantNodes().Select(static node => node.GetLocation())
 			.FirstOrDefault(static location => location.GetMappedLineSpan().Path.EndsWith(".razor", StringComparison.OrdinalIgnoreCase));
@@ -174,6 +208,9 @@ internal sealed class RazorCompiledForm
 			.Where(static form => !form.IsEditForm && form.IsPost)
 			.Select(form => new RazorCompiledForm(component, false, invocation.GetLocation()) { IsPost = true, IsNamed = form.IsNamed });
 	}
+
+	private static bool HasErrors(SemanticModel model, SyntaxNode node, CancellationToken cancellationToken)
+		=> model.GetDiagnostics(node.Span, cancellationToken).Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
 	private static string? ReadString(SemanticModel model, InvocationExpressionSyntax invocation, int index, CancellationToken cancellationToken)
 		=> invocation.ArgumentList.Arguments.Count > index

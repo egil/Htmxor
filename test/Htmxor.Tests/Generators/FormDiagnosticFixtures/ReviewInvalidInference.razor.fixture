@@ -1,0 +1,2 @@
+@attribute [HtmxRoute("/forms")]
+<form method="post" @formname="@(missing)"></form>

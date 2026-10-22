@@ -1,0 +1,7 @@
+@attribute [HtmxRoute("/forms")]
+<EditForm Model="model" FormName="save" />
+@code {
+ private object model = new();
+ private void Save() {}
+ private RenderFragment Post => @<button @onpost="Save">Save</button>;
+}

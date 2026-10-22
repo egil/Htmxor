@@ -1,0 +1,4 @@
+@attribute [HtmxRoute("/forms", Methods = new[] { "GET" })]
+<EditForm Model="model" FormName="@(missing)" />
+<form method="post"></form>
+@code { private object model = new(); }

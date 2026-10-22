@@ -360,7 +360,10 @@ internal static class HtmxorDiagnosticRules
 		HtmxorDiagnosticCause.ExplicitUnroutedOwner,
 		HtmxorDiagnosticCause.ExplicitMethodsConflict,
 		HtmxorDiagnosticCause.NormalOnlyAction,
-		HtmxorDiagnosticCause.NonordinaryExplicitAction);
+		HtmxorDiagnosticCause.NonordinaryExplicitAction,
+		HtmxorDiagnosticCause.UnnamedEditForm,
+		HtmxorDiagnosticCause.UnnamedPostForm,
+		HtmxorDiagnosticCause.NamedFormPostConflict);
 
 	public static ImmutableArray<DiagnosticDescriptor> LocalActionDiagnostics { get; } =
 		LocalActionCauses.Select(cause => WithoutCompilationEnd(Get(cause))).ToImmutableArray();

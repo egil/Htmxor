@@ -279,7 +279,7 @@ internal sealed class HtmxorRoutedComponent
 	private static IEnumerable<INamedTypeSymbol> GetTypeAndNestedTypes(INamedTypeSymbol type)
 		=> new[] { type }.Concat(type.GetTypeMembers().SelectMany(GetTypeAndNestedTypes));
 
-	private static bool HasSupportedExplicitMethods(TypedConstant methods)
+	internal static bool HasSupportedExplicitMethods(TypedConstant methods)
 	{
 		if (methods.IsNull || methods.Kind != TypedConstantKind.Array || methods.Values.Length == 0)
 		{
