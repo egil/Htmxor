@@ -11,6 +11,9 @@ pattern, and labels the remaining v1 APIs by status. The
 [developer experience review](research/htmxor-v1-dx-review.md) explains the
 remaining API decisions and links the issues that track them.
 
+The [diagnostic reference](diagnostics.md) lists every active HTMXOR diagnostic
+with its causes and supported fixes.
+
 ## Getting Started with the unreleased v1 API
 
 The setup below targets the v1 API in the repository revision containing this

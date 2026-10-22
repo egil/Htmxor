@@ -16,6 +16,7 @@ public sealed class HtmxorRouteDeclarationAnalyzer : DiagnosticAnalyzer
 		"Htmxor.Generators",
 		DiagnosticSeverity.Error,
 		isEnabledByDefault: true,
+		helpLinkUri: HtmxorDiagnosticRules.HelpLinkBase + "#htmxor003",
 		customTags: new[] { WellKnownDiagnosticTags.NotConfigurable });
 
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
