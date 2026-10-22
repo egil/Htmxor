@@ -70,8 +70,7 @@ internal static class HtmxorGeneratedComponentActionCatalog
 		{
 			throw new InvalidOperationException(
 				$"Generated component action '{action.HandlerIdentity}' on component " +
-				$"'{action.ComponentType.FullName}' is not supported because the component is marked with " +
-				"DisableHtmxDirectRouting.");
+				$"'{action.ComponentType.FullName}' {HtmxorRejectionReasons.NormalOnlyInferred()}.");
 		}
 
 		var stockRouteCount = action.ComponentType.CustomAttributes.Count(
@@ -83,16 +82,31 @@ internal static class HtmxorGeneratedComponentActionCatalog
 			: stockRouteCount == 0 && htmxRouteCount == 1;
 		if (!hasExpectedOwner)
 		{
-			var expectedOwner = action.UsesStockRoute
-				? "exactly one compiled stock route and no HtmxRoute"
-				: "exactly one HtmxRoute and no compiled stock route";
+			var reason = GetOwnerReason(action.UsesStockRoute, stockRouteCount, htmxRouteCount);
 			throw new InvalidOperationException(
 				$"Generated component action '{action.HandlerIdentity}' on component " +
-				$"'{action.ComponentType.FullName}' requires {expectedOwner}; " +
-				$"found {stockRouteCount} stock and {htmxRouteCount} HTMX-only routes.");
+				$"'{action.ComponentType.FullName}' {reason}.");
 		}
 
 		ValidateRouteProcessor(action, applicationAssembly);
+	}
+
+	private static string GetOwnerReason(bool usesStockRoute, int stockRouteCount, int htmxRouteCount)
+	{
+		if (stockRouteCount == 0 && htmxRouteCount == 0)
+		{
+			return HtmxorRejectionReasons.UnroutedBinding;
+		}
+		if (usesStockRoute)
+		{
+			return HtmxorRejectionReasons.LocalPageOwner;
+		}
+		if (stockRouteCount > 0)
+		{
+			return HtmxorRejectionReasons.NonlocalStockOwner;
+		}
+
+		return $"requires exactly one HtmxRoute and no compiled stock route; found {stockRouteCount} stock and {htmxRouteCount} HTMX-only routes";
 	}
 
 	private static void ValidateRouteProcessor(

@@ -88,14 +88,14 @@ internal sealed class HtmxorInferredActionValidation
 		{
 			var bindingName = declaration is null ? " @on" + httpMethod.ToLowerInvariant() : string.Empty;
 			yield return new(HtmxorDiagnosticCause.NormalOnlyAction,
-				"an inferred" + bindingName + " binding on a component marked with DisableHtmxDirectRouting is not supported; remove the binding or marker");
+				HtmxorRejectionReasons.NormalOnlyInferred(bindingName));
 		}
 		var stock = attributes.Where(attribute => Is(attribute, symbols.Route)).ToArray();
 		var htmx = attributes.Where(attribute => Is(attribute, symbols.HtmxRoute)).ToArray();
 		if (stock.Length == 0 && htmx.Length == 0)
 		{
 			yield return new(HtmxorDiagnosticCause.UnroutedBinding,
-				"the component owns no route, so the binding has no action to declare; add @page or HtmxRoute, or remove the binding");
+				HtmxorRejectionReasons.UnroutedBinding);
 			yield break;
 		}
 		foreach (var issue in GetRouteShapeIssues(declaration, stock, htmx))
@@ -105,8 +105,7 @@ internal sealed class HtmxorInferredActionValidation
 		if (htmx.Any(route => DisallowsMethod(route, httpMethod)))
 		{
 			yield return new(HtmxorDiagnosticCause.ExplicitMethodsConflict,
-				"explicit HtmxRoute.Methods is authoritative and does not allow the " + httpMethod +
-				" binding; add the method or remove the binding");
+				HtmxorRejectionReasons.InferredMethods(httpMethod));
 		}
 	}
 
@@ -116,12 +115,12 @@ internal sealed class HtmxorInferredActionValidation
 		if (declaration?.UsesStockRoute == true && (stock.Length != 1 || htmx.Length != 0))
 		{
 			yield return new(HtmxorDiagnosticCause.LocalPageRouteMismatch,
-				"a component with a local @page action must compile with exactly one stock route and no HtmxRoute");
+				HtmxorRejectionReasons.LocalPageOwner);
 		}
 		if (declaration?.UsesStockRoute == false && stock.Length > 0)
 		{
 			yield return new(HtmxorDiagnosticCause.StockRouteWithoutLocalPage,
-				"a component action without a local @page cannot use a compiled stock route");
+				HtmxorRejectionReasons.NonlocalStockOwner);
 		}
 	}
 

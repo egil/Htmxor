@@ -176,7 +176,7 @@ internal static class HtmxorExplicitActionValidation
 		if (method is null)
 		{
 			yield return new(HtmxorDiagnosticCause.InvalidExplicitVerb,
-				"HtmxAction method must be POST, PUT, PATCH, DELETE or QUERY");
+				HtmxorRejectionReasons.ExplicitVerb);
 		}
 
 		var attributes = component.GetAttributes();
@@ -185,13 +185,13 @@ internal static class HtmxorExplicitActionValidation
 			!component.AllInterfaces.Any(type => SymbolEqualityComparer.Default.Equals(type, symbols.Component)))
 		{
 			yield return new(HtmxorDiagnosticCause.ExplicitUnroutedOwner,
-				"HtmxAction must be declared on the component type that owns its route, not an inherited or unrouted owner");
+				HtmxorRejectionReasons.ExplicitOwner);
 		}
 
 		if (attributes.Any(attribute => Is(attribute, symbols.DisableHtmxDirectRouting)))
 		{
 			yield return new(HtmxorDiagnosticCause.NormalOnlyAction,
-				"HtmxAction is not supported on a component marked with DisableHtmxDirectRouting; remove the action or marker");
+				HtmxorRejectionReasons.NormalOnlyExplicit);
 		}
 
 		foreach (var issue in HtmxorActionHandler.GetExplicitUnsupportedIssues(compilation, handler))
@@ -213,7 +213,7 @@ internal static class HtmxorExplicitActionValidation
 			(argument.Value.IsNull || argument.Value.Kind != TypedConstantKind.Array || !argument.Value.Values.Any(value =>
 				value.Value is string allowed && string.Equals(allowed, method, StringComparison.OrdinalIgnoreCase)))
 			? new HtmxorDiagnosticIssue(HtmxorDiagnosticCause.ExplicitMethodsConflict,
-				"explicit HtmxRoute.Methods does not allow the " + method + " HtmxAction; add the method or remove the action")
+				HtmxorRejectionReasons.ExplicitMethods(method))
 			: null;
 	}
 
@@ -270,13 +270,13 @@ internal static class HtmxorExplicitActionValidation
 				!SymbolEqualityComparer.Default.Equals(binding.Handler, handler)))
 		{
 			yield return new(HtmxorDiagnosticCause.ConflictingHandlers,
-				method + " declarations on one route owner must name the same handler; select one handler");
+				HtmxorRejectionReasons.ConflictingHandlers(method));
 		}
 
 		if (method == "POST" && HasValidNamedForm(component, forms))
 		{
 			yield return new(HtmxorDiagnosticCause.NamedFormPostConflict,
-				"named forms and a POST HtmxAction cannot share one route owner; choose named forms or the action");
+				HtmxorRejectionReasons.NamedFormExplicitPost);
 		}
 	}
 

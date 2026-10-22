@@ -122,7 +122,7 @@ internal static class HtmxorAttributedRouteCatalog
 		{
 			throw Unsupported(
 				componentType,
-				"HtmxRoute components must be concrete, closed classes implementing IComponent");
+				HtmxorRejectionReasons.RouteTarget);
 		}
 	}
 
@@ -139,13 +139,13 @@ internal static class HtmxorAttributedRouteCatalog
 		if (CustomAttributeData.GetCustomAttributes(componentType).Any(static attribute =>
 			attribute.AttributeType == typeof(DisableHtmxDirectRoutingAttribute)))
 		{
-			throw Unsupported(componentType, "DisableHtmxDirectRouting cannot be combined with HtmxRoute on the same type");
+			throw Unsupported(componentType, HtmxorRejectionReasons.NormalOnlyRoute);
 		}
 
 		if (GetHierarchyAttributes(componentType).Any(static attribute =>
 			attribute.AttributeType == typeof(RouteAttribute)))
 		{
-			throw Unsupported(componentType, "normal component routes are not supported");
+			throw Unsupported(componentType, HtmxorRejectionReasons.StockRoute);
 		}
 
 		var route = ReadRoute(componentType, routedType.Routes[0]);
@@ -159,7 +159,7 @@ internal static class HtmxorAttributedRouteCatalog
 		{
 			throw Unsupported(
 				componentType,
-				$"explicit HtmxRoute.Methods is authoritative and does not allow the {conflictingAction.HttpMethod} binding");
+				HtmxorRejectionReasons.InferredMethods(conflictingAction.HttpMethod));
 		}
 
 		return new ValidatedDeclaration(
@@ -177,7 +177,7 @@ internal static class HtmxorAttributedRouteCatalog
 			attribute.ConstructorArguments[0].Value is not string template ||
 			string.IsNullOrWhiteSpace(template))
 		{
-			throw Unsupported(componentType, "the HtmxRoute template must be a non-blank string");
+			throw Unsupported(componentType, HtmxorRejectionReasons.BlankTemplate);
 		}
 
 		string[]? explicitMethods = null;
@@ -302,7 +302,8 @@ internal static class HtmxorAttributedRouteCatalog
 			{
 				throw Unsupported(
 					componentType,
-					$"HtmxRoute named argument '{argument.MemberName}' must be a valid representation value");
+					argument.MemberName == nameof(HtmxRouteAttribute.CurrentUrl)
+						? HtmxorRejectionReasons.CurrentUrl : HtmxorRejectionReasons.Target);
 			}
 
 			return value;
@@ -336,7 +337,7 @@ internal static class HtmxorAttributedRouteCatalog
 		{
 			throw Unsupported(
 				componentType,
-				"HtmxRoute named argument 'Targets' must be a string array");
+				HtmxorRejectionReasons.Targets);
 		}
 
 		return values!;
@@ -350,7 +351,7 @@ internal static class HtmxorAttributedRouteCatalog
 		{
 			throw Unsupported(
 				componentType,
-				"explicit HtmxRoute.Methods must be a non-empty unique subset of GET, POST, PUT, PATCH, DELETE, and QUERY");
+				HtmxorRejectionReasons.RouteMethods);
 		}
 
 		var values = methods
@@ -362,7 +363,7 @@ internal static class HtmxorAttributedRouteCatalog
 		{
 			throw Unsupported(
 				componentType,
-				"explicit HtmxRoute.Methods must be a non-empty unique subset of GET, POST, PUT, PATCH, DELETE, and QUERY");
+				HtmxorRejectionReasons.RouteMethods);
 		}
 
 		return values
@@ -434,7 +435,7 @@ internal static class HtmxorAttributedRouteCatalog
 		if (hasNamedForms && declaration.ExplicitMethods is not null &&
 			!expectedMethods.Contains(HttpMethods.Post, StringComparer.OrdinalIgnoreCase))
 		{
-			throw Unsupported(declaration.ComponentType, "explicit HtmxRoute.Methods does not allow POST for its named forms");
+			throw Unsupported(declaration.ComponentType, HtmxorRejectionReasons.FormMethods);
 		}
 
 		var effectiveMethods = hasNamedForms && declaration.ExplicitMethods is null

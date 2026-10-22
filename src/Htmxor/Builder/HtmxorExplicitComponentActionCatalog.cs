@@ -37,7 +37,7 @@ internal static class HtmxorExplicitComponentActionCatalog
 		var normalized = SupportedMethods.FirstOrDefault(allowed => string.Equals(method, allowed, StringComparison.OrdinalIgnoreCase));
 		if (normalized is not ("POST" or "PUT" or "PATCH" or "DELETE" or "QUERY"))
 		{
-			throw Unsupported(component, "HtmxAction method must be POST, PUT, PATCH, DELETE or QUERY");
+			throw Unsupported(component, HtmxorRejectionReasons.ExplicitVerb);
 		}
 
 		ValidateOwner(component, manifest);
@@ -45,7 +45,7 @@ internal static class HtmxorExplicitComponentActionCatalog
 		ValidateAllowList(component, normalized);
 		if (normalized == "POST" && namedForms.Contains(component.FullName!, StringComparer.Ordinal))
 		{
-			throw Unsupported(component, "named forms and a POST action cannot share one route owner");
+			throw Unsupported(component, HtmxorRejectionReasons.NamedFormExplicitPost);
 		}
 
 		foreach (var route in GetRoutes(component))
@@ -61,15 +61,25 @@ internal static class HtmxorExplicitComponentActionCatalog
 
 	private static void ValidateOwner(Type component, IReadOnlyList<string> manifest)
 	{
-		if (!typeof(IComponent).IsAssignableFrom(component) || component.IsAbstract || component.ContainsGenericParameters ||
-			!manifest.Contains(component.FullName!, StringComparer.Ordinal) || GetRoutes(component).Length == 0)
+		if (!typeof(IComponent).IsAssignableFrom(component))
+		{
+			throw Unsupported(component, HtmxorRejectionReasons.ExplicitOwner);
+		}
+
+		if (component.IsAbstract || component.ContainsGenericParameters ||
+			!manifest.Contains(component.FullName!, StringComparer.Ordinal))
 		{
 			throw Unsupported(component, "HtmxAction must be declared on the concrete component type that owns its route");
 		}
 
+		if (GetRoutes(component).Length == 0)
+		{
+			throw Unsupported(component, HtmxorRejectionReasons.ExplicitOwner);
+		}
+
 		if (component.IsDefined(typeof(DisableHtmxDirectRoutingAttribute), inherit: false))
 		{
-			throw Unsupported(component, "HtmxAction is not supported with DisableHtmxDirectRouting");
+			throw Unsupported(component, HtmxorRejectionReasons.NormalOnlyExplicit);
 		}
 	}
 
@@ -77,27 +87,67 @@ internal static class HtmxorExplicitComponentActionCatalog
 	{
 		if (!IsOrdinaryHandler(handler))
 		{
-			throw Unsupported(component, "HtmxAction handler must be an ordinary instance callback method");
+			throw Unsupported(component, HtmxorRejectionReasons.OrdinaryHandler);
 		}
 
-		if (handler.IsStatic || handler.IsGenericMethod ||
-			(handler.ReturnType == typeof(void) && handler.IsDefined(typeof(AsyncStateMachineAttribute), inherit: false)) ||
-			(handler.ReturnType != typeof(void) && handler.ReturnType != typeof(Task)))
+		if (GetHandlerShapeReason(handler) is { } shapeReason)
 		{
-			throw Unsupported(component, "HtmxAction handler must be a non-generic instance method returning void or Task, never async void");
+			throw Unsupported(component, shapeReason);
 		}
 
-		var parameters = handler.GetParameters();
-		if (parameters.Length > 1 || parameters.Any(static parameter =>
-			parameter.IsOptional || parameter.ParameterType != typeof(HtmxEventArgs)))
+		if (GetParameterReason(handler.GetParameters()) is { } parameterReason)
 		{
-			throw Unsupported(component, "HtmxAction handler must have zero parameters or one required HtmxEventArgs parameter");
+			throw Unsupported(component, parameterReason);
 		}
 
 		if (handlers.Count(candidate => candidate.Name == handler.Name) > 1)
 		{
-			throw Unsupported(component, "HtmxAction handler must not be overloaded");
+			throw Unsupported(component, HtmxorRejectionReasons.ExplicitOverload);
 		}
+	}
+
+	private static string? GetHandlerShapeReason(MethodInfo handler)
+	{
+		if (handler.IsStatic)
+		{
+			return HtmxorRejectionReasons.StaticHandler;
+		}
+		if (handler.IsGenericMethod)
+		{
+			return HtmxorRejectionReasons.GenericHandler;
+		}
+		if (handler.ReturnType == typeof(void))
+		{
+			return handler.IsDefined(typeof(AsyncStateMachineAttribute), inherit: false)
+				? HtmxorRejectionReasons.AsyncVoid : null;
+		}
+
+		return handler.ReturnType != typeof(Task) ? HtmxorRejectionReasons.ValueReturn : null;
+	}
+
+	private static string? GetParameterReason(ParameterInfo[] parameters)
+	{
+		if (parameters.Length > 1)
+		{
+			return HtmxorRejectionReasons.ParameterCount;
+		}
+		foreach (var parameter in parameters)
+		{
+			if (parameter.ParameterType.IsByRef)
+			{
+				return HtmxorRejectionReasons.ByRefParameter;
+			}
+			if (parameter.IsOptional)
+			{
+				return HtmxorRejectionReasons.OptionalParameter;
+			}
+			if (parameter.ParameterType != typeof(HtmxEventArgs))
+			{
+				return HtmxorRejectionReasons.ParameterType;
+			}
+		}
+
+		return null;
 	}
 
 	// C# emits local functions and lambdas with names that cannot be authored as identifiers.
@@ -119,7 +169,7 @@ internal static class HtmxorExplicitComponentActionCatalog
 			(methods[0].TypedValue.Value is not IEnumerable<CustomAttributeTypedArgument> values ||
 			 !values.Any(value => value.Value is string allowed && string.Equals(allowed, method, StringComparison.OrdinalIgnoreCase))))
 		{
-			throw Unsupported(component, $"explicit HtmxRoute.Methods does not allow the {method} HtmxAction");
+			throw Unsupported(component, HtmxorRejectionReasons.ExplicitMethods(method));
 		}
 	}
 
@@ -131,7 +181,7 @@ internal static class HtmxorExplicitComponentActionCatalog
 		var first = actions.First();
 		if (actions.Any(action => action.HandlerIdentity != first.HandlerIdentity))
 		{
-			throw Unsupported(first.ComponentType, $"{actions.Key} declarations must name the same handler");
+			throw Unsupported(first.ComponentType, HtmxorRejectionReasons.ConflictingHandlers(actions.Key));
 		}
 
 		return actions.FirstOrDefault(static action => action.GeneratedAction is not null) ?? first;
