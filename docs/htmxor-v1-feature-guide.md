@@ -1401,12 +1401,9 @@ differ the same way under stock:
 
 A sibling boundary standing outside both compositions stays cacheable.
 
-Earlier revisions also refused to cache a boundary holding or beneath a named
-`HtmxFragment`, or any `IConditionalRender`. Those guards existed for cached htmx
-responses. With htmx requests no longer cached, nothing selects a fragment on an ordinary
-request, so a named fragment caches normally now. `IConditionalRender` as a category is
-no longer refused either — `HtmxLayoutComponentBase` implements it with a constant, and
-refusing the interface stopped every boundary beneath the documented layout from caching.
+Named `HtmxFragment` content caches normally on ordinary requests, including beneath
+`HtmxLayoutComponentBase`. Fragment selection applies only to direct htmx responses,
+which are not cached.
 
 A component of your own that is **not** one of these, but still varies its output by the
 request — by injecting `HtmxContext` and reading the triggering element, say — is cached

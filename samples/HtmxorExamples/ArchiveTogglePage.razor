@@ -1,6 +1,17 @@
-@inherits ConditionalComponentBase
+@inject HtmxContext Htmx
 @page "/examples/archive-toggle/{Id:guid?}"
 @code {
+    protected override void OnParametersSet()
+    {
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        {
+            if (Id != Guid.Empty)
+            {
+                Htmx.Response.SelectFragment($"archive-{Id:N}");
+            }
+        }
+    }
+
     private IEnumerable<Contact> data = Enumerable.Empty<Contact>();
 
     [Parameter]
@@ -45,7 +56,7 @@
                 <td>@contact.LastName</td>
                 <td>@contact.Email</td>
                 <td>
-                    <HtmxFragment>
+                    <HtmxFragment Name="@($"archive-{contact.Id:N}")">
                         <button hx-patch="/examples/archive-toggle/@contact.Id"
                                 hx-swap="outerHTML"
                                 @onpatch="ToggleArchive">

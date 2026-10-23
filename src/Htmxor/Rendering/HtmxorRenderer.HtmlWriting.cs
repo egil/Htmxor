@@ -7,7 +7,6 @@ using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using Htmxor.Http;
-using Htmxor.Rendering.Buffering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
@@ -25,7 +24,7 @@ internal partial class HtmxorRenderer
 	private TextEncoder htmlEncoder;
 	private string? closestSelectValueAsString;
 
-	private void WriteRootComponent(HtmxorComponentState rootComponentState, TextWriter output)
+	private void WriteRootComponent(ComponentState rootComponentState, TextWriter output)
 	{
 		// We're about to walk over some buffers inside the renderer that can be mutated during rendering.
 		// So, we require exclusive access to the renderer during this synchronous process.
@@ -33,29 +32,19 @@ internal partial class HtmxorRenderer
 		WriteComponent(rootComponentState, output);
 	}
 
-	private void WriteComponent(HtmxorComponentState componentState, TextWriter output)
+	private void WriteComponent(ComponentState componentState, TextWriter output)
 	{
-		if (output is not ConditionalBufferedTextWriter conditionalOutput)
-		{
-			throw new InvalidOperationException("Expected a conditional output text writer.");
-		}
-
-		var parentIsWritingEnabled = conditionalOutput.IsWritingEnabled;
-		conditionalOutput.IsWritingEnabled = componentState.ShouldGenerateMarkup();
-
 		var frames = GetCurrentRenderTreeFrames(componentState.ComponentId);
 		RenderFrames(componentState, output, frames, 0, frames.Count);
-
-		conditionalOutput.IsWritingEnabled = parentIsWritingEnabled;
 	}
 
 	private void RenderChildComponent(TextWriter output, ref RenderTreeFrame componentFrame)
 	{
-		var componentState = (HtmxorComponentState)GetComponentState(componentFrame.Component);
+		var componentState = GetComponentState(componentFrame.Component);
 		WriteComponent(componentState, output);
 	}
 
-	private int RenderFrames(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
+	private int RenderFrames(ComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
 	{
 		var nextPosition = position;
 		var endPosition = position + maxElements;
@@ -73,7 +62,7 @@ internal partial class HtmxorRenderer
 	}
 
 	private int RenderCore(
-		HtmxorComponentState componentState,
+		ComponentState componentState,
 		TextWriter output,
 		ArrayRange<RenderTreeFrame> frames,
 		int position)
@@ -106,7 +95,7 @@ internal partial class HtmxorRenderer
 		}
 	}
 
-	private int RenderElement(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position)
+	private int RenderElement(ComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position)
 	{
 		ref var frame = ref frames.Array[position];
 		output.Write('<');
@@ -185,7 +174,7 @@ internal partial class HtmxorRenderer
 		}
 	}
 
-	private int RenderScriptElementChildren(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
+	private int RenderScriptElementChildren(ComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
 	{
 		// Inside a <script> context, AddContent calls should result in the text being
 		// JavaScript encoded rather than HTML encoded. It's not that we recommend inserting
@@ -204,7 +193,7 @@ internal partial class HtmxorRenderer
 		}
 	}
 
-	private void RenderHiddenFieldForNamedSubmitEvent(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int namedEventFramePosition)
+	private void RenderHiddenFieldForNamedSubmitEvent(ComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int namedEventFramePosition)
 	{
 		// Strictly speaking we could just emit the hidden input unconditionally, but since we currently
 		// only intend to support this for "form submit" events, validate that's the case
@@ -401,7 +390,7 @@ internal partial class HtmxorRenderer
 		return new Uri(navigationManager.Uri, UriKind.Absolute).PathAndQuery;
 	}
 
-	private int RenderChildren(HtmxorComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
+	private int RenderChildren(ComponentState componentState, TextWriter output, ArrayRange<RenderTreeFrame> frames, int position, int maxElements)
 	{
 		if (maxElements == 0)
 		{

@@ -1,10 +1,9 @@
-@inherits ConditionalComponentBase
 @inject ToastService ToastService
 @code {
     protected override void OnInitialized() => ToastService.OnMessagesChanged = StateHasChanged;
 }
 <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3">
-    <HtmxFragment>
+    <HtmxFragment Name="toasts">
         @if (ToastService.Messages.Count > 0)
         {
             <div hx-swap-oob="afterbegin:#toast-container">

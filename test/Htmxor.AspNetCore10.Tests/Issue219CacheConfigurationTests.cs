@@ -70,13 +70,8 @@ public sealed class Issue219CacheConfigurationTests
 		var stock = await ReadPairAsync<Issue219LayoutHostPage>(htmxor: false);
 		var candidate = await ReadPairAsync<Issue219LayoutHostPage>(htmxor: true);
 
-		// HtmxLayoutComponentBase is the layout the documentation teaches, and it implements IConditionalRender
-		// with a constant ShouldOutput. Classifying that interface as request-varying therefore stopped every
-		// boundary beneath the documented layout from caching, on ordinary requests, which is the parity defect
-		// the scope reversal repaired. Nothing measured the repair in this direction until this case: re-adding
-		// the interface to the ancestor walk in HasUncacheableAncestor leaves it as the only thing that reddens.
-		// Re-adding it to IsRequestVarying itself also reddens the holding half, which
-		// A_boundary_holding_a_conditional_component_caches_like_stock owns.
+		// The documented layout must not perturb stock cache reuse for ordinary requests. This paired case keeps
+		// that observable parity without making the cache contract depend on the layout's implementation shape.
 		Assert.Equal("1", Slot(stock[1], "layout"));
 		Assert.Equal(Slot(stock[1], "layout"), Slot(candidate[1], "layout"));
 	}

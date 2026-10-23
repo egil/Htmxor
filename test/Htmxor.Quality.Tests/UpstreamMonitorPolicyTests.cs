@@ -73,7 +73,7 @@ public sealed class UpstreamMonitorPolicyTests
 			[
 				"src/Components/Authorization/src/AuthorizeRouteView.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateRouteCapture.cs|",
 				"src/Components/Authorization/src/AuthorizeViewCore.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateRouteCapture.cs|",
-				"src/Components/Components/src/ComponentBase.cs|file|subclass|subclasses|src/Htmxor/Components/ConditionalComponentBase.cs,src/Htmxor/Components/HtmxFragment.cs,src/Htmxor/Endpoints/HtmxorDirectComponentHost.cs,src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs|",
+				"src/Components/Components/src/ComponentBase.cs|file|subclass|subclasses|src/Htmxor/Components/HtmxFragment.cs,src/Htmxor/Endpoints/HtmxorDirectComponentHost.cs,src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs|",
 				"src/Components/Components/src/ComponentFactory.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateRouteCapture.cs|",
 				"src/Components/Components/src/DynamicComponent.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorComponentActionRequest.cs,src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs|",
 				"src/Components/Components/src/EventCallbackFactory.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs|",
@@ -88,7 +88,6 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Components/Components/src/RenderTree/Renderer.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateRouteCapture.cs|",
 				"src/Components/Components/src/RenderTree/Renderer.cs|file|subclass|subclasses|src/Htmxor/Rendering/HtmxorRenderer.cs|",
 				"src/Components/Components/src/Rendering/ComponentState.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateRouteCapture.cs|",
-				"src/Components/Components/src/Rendering/ComponentState.cs|file|subclass|subclasses|src/Htmxor/Rendering/HtmxorComponentState.cs|",
 				"src/Components/Components/src/Rendering/RenderTreeBuilder.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateRenderer.ExplicitActions.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateRouteCapture.cs|",
 				"src/Components/Components/src/RouteView.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateRouteCapture.cs|",
 				"src/Components/Components/src/RouteView.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorEndpointCandidateRouteCapture.cs|",

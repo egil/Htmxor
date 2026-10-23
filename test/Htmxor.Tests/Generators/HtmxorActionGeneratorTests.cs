@@ -2017,7 +2017,6 @@ public sealed class HtmxorActionGeneratorTests
 	public void Every_eighth_prefix_of_a_representative_component_does_not_throw_the_generator()
 	{
 		const string source = """
-			@inherits ConditionalComponentBase
 			@page "/examples/archive-toggle/{Id:guid?}"
 			@code {
 				private IEnumerable<Contact> data = Enumerable.Empty<Contact>();
@@ -2064,7 +2063,7 @@ public sealed class HtmxorActionGeneratorTests
 							<td>@contact.LastName</td>
 							<td>@contact.Email</td>
 							<td>
-								<HtmxFragment>
+							<HtmxFragment Name="archive-toggle">
 									<button hx-patch="/examples/archive-toggle/@contact.Id"
 											hx-swap="outerHTML"
 											@onpatch="ToggleArchive">

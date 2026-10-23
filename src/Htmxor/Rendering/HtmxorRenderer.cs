@@ -157,12 +157,9 @@ internal partial class HtmxorRenderer : Renderer
 		}
 	}
 
-	protected override HtmxorComponentState CreateComponentState(int componentId, IComponent component, ComponentState? parentComponentState)
-		=> new HtmxorComponentState(this, componentId, component, parentComponentState as HtmxorComponentState);
-
 	internal void WriteComponentHtml(int componentId, TextWriter output)
 	{
-		var componentState = (HtmxorComponentState)GetComponentState(componentId);
+		var componentState = GetComponentState(componentId);
 		WriteRootComponent(componentState, output);
 	}
 

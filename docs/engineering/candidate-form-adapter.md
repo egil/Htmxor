@@ -423,10 +423,11 @@ builds, reached through shared helpers and sometimes positional arguments — so
 below is still a human judgement, but one that can no longer drift unnoticed from the
 suite's size.
 
-The live inventory below excludes the four async-load cases removed by #281. The
-historical discussion and inversion evidence elsewhere in this section describe #219.
+The live inventory below excludes the four async-load cases removed by #281 and the
+two conditional-interface cases removed by #282. The historical discussion and
+inversion evidence elsewhere in this section describe #219.
 
-Paired cases in the same suite: 23.
+Paired cases in the same suite: 21.
 
 - `A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing`
 - `A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing`

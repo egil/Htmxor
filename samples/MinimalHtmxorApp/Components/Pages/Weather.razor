@@ -1,11 +1,23 @@
+@inject HtmxContext Htmx
 @page "/weather"
-@inherits ConditionalComponentBase
 <PageTitle>Weather</PageTitle>
 
 <h1>Weather</h1>
 
 <p>This component demonstrates showing lazy loaded data.</p>
 
+<HtmxFragment Name="loading">
 <div hx-get="/weather/data" hx-trigger="load" hx-swap="outerHTML">
     <p role="status">Loading weather data...</p>
 </div>
+</HtmxFragment>
+
+@code {
+    protected override void OnParametersSet()
+    {
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        {
+            Htmx.Response.SelectFragment("loading");
+        }
+    }
+}

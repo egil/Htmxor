@@ -86,6 +86,24 @@ public sealed class PackedPackageConsumerTests
 			PackagePublicSurface.Format(workspace.PackagePath, framework));
 	}
 
+	[Theory]
+	[InlineData("net10.0")]
+	[InlineData("net11.0")]
+	public async Task Package_only_public_surface_does_not_export_retired_conditional_rendering_types(string framework)
+	{
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		await workspace.PackOnlyAsync();
+
+		var surface = PackagePublicSurface.Format(workspace.PackagePath, framework);
+		var retiredTypes = new[]
+		{
+			"Htmxor.Components.ConditionalComponentBase",
+			"Htmxor.Components.IConditionalRender",
+		}.Where(type => surface.Contains($"TYPE {type} ", StringComparison.Ordinal));
+
+		Assert.Empty(retiredTypes);
+	}
+
 	[Fact]
 	public async Task Package_only_application_rejects_a_component_with_two_compiled_stock_routes()
 	{
