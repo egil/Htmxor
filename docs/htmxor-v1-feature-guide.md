@@ -393,6 +393,14 @@ credentials with an `EditForm` or `<AntiforgeryToken />`; the adapter carries an
 available request token. In htmx 4, DELETE request values are not sent in the
 body by default. Sending a token does not establish that middleware validates it.
 
+Generated `@onput` and `@onpatch` actions bind `[SupplyParameterFromForm]` values
+from `application/x-www-form-urlencoded` or `multipart/form-data` bodies even
+without a named form or `_handler`. They use the same configured antiforgery
+validation as POST before binding or callbacks. Stock form mapping still governs
+names and scopes; an unnamed action supplies the empty form name in the default
+scope. POST keeps its named-form semantics. DELETE actions do not bind form bodies;
+read DELETE values through `[SupplyParameterFromQuery]` or route parameters.
+
 ### Application-owned request protection
 
 Configure protection through ASP.NET Core. Htmxor has no security-mode option,

@@ -26,6 +26,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Include="Issue318*.cs" Condition="'$(TargetFramework)' == 'net11.0'" />
+		<RazorComponent Include="Issue318*.razor" Condition="'$(TargetFramework)' == 'net11.0'" />
 		<Compile Include="Issue283*.cs" Condition="'$(TargetFramework)' == 'net11.0'" />
 		<RazorComponent Include="Issue283*.razor;Issue283/**/*.razor" Condition="'$(TargetFramework)' == 'net11.0'" />
 		<Compile Include="Issue292*.cs" Condition="'$(TargetFramework)' == 'net11.0'" />

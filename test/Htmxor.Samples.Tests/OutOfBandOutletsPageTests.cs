@@ -6,12 +6,15 @@ namespace Htmxor.Samples.Tests;
 
 /// <summary>
 /// Protects <c>samples/HtmxorExamples/Components/Pages/Examples/OutOfBandOutlets/Index.razor</c>:
-/// a partial PUT from count zero returns the selected counter, toast and odd header message update.
+/// a partial PUT binds the submitted count and returns the selected counter, toast and header message update.
 /// </summary>
 public sealed class OutOfBandOutletsPageTests(ITestOutputHelper output)
 {
-	[Fact]
-	public async Task Put_out_of_band_outlets_returns_counter_toast_and_odd_header_message()
+	[Theory]
+	[InlineData(0, 1, "The count is odd!")]
+	[InlineData(5, 6, "The count is even!")]
+	public async Task Put_out_of_band_outlets_binds_count_and_returns_counter_toast_and_header_message(
+		int submittedCount, int expectedCount, string expectedMessage)
 	{
 		await using var host = await SampleKestrelHost.StartAsync("samples/HtmxorExamples/HtmxorExamples.csproj");
 		using var page = await host.Client.GetAsync("/examples/out-of-band-outlets");
@@ -22,7 +25,7 @@ public sealed class OutOfBandOutletsPageTests(ITestOutputHelper output)
 
 		using var request = new HttpRequestMessage(HttpMethod.Put, "/examples/out-of-band-outlets")
 		{
-			Content = new FormUrlEncodedContent([new KeyValuePair<string, string>("CurrentCount", "0")]),
+			Content = new FormUrlEncodedContent([new KeyValuePair<string, string>("CurrentCount", submittedCount.ToString(System.Globalization.CultureInfo.InvariantCulture))]),
 		};
 		request.Headers.Add("HX-Request", "true");
 		request.Headers.Add("HX-Request-Type", "partial");
@@ -34,6 +37,7 @@ public sealed class OutOfBandOutletsPageTests(ITestOutputHelper output)
 
 		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		output.WriteLine("Partial PUT response: {0}", body);
-		PartialResponseAssertions.AreCounterToastAndMessageFragments(body, "The count is odd!");
+		Assert.Contains($"Current count: {expectedCount}", body, StringComparison.Ordinal);
+		PartialResponseAssertions.AreCounterToastAndMessageFragments(body, expectedMessage);
 	}
 }
