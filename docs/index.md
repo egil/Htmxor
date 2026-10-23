@@ -167,10 +167,11 @@ To start fresh from a (new) Blazor Web App project, follow these steps:
 
     ```razor
     @inherits HtmxLayoutComponentBase
+    <HeadOutlet />
     @Body
     ```
 
-    The `HtmxLayoutComponentBase` includes the `<HeadOutlet>` component. This makes it possible to use the `<PageTitle>` component during htmx requests to update the page title.
+    The base implementation renders `<HeadOutlet />` and `Body`. A Razor layout supplies its own render implementation, so include both explicitly as above. `<PageTitle>` then emits a title in whole-component direct responses; application-owned htmx 4.0.0 applies that title to the document.
 
 6. **Update _Imports.razor (Optional)**
 
@@ -456,9 +457,26 @@ or data work. See the [fragment guide](htmxor-v1-feature-guide.md) for examples.
 
 ## Layouts
 
-TODO: 
+For a direct request to either an `@page` or `HtmxRoute` component, Htmxor
+selects the inherited `[HtmxLayout]` with the highest `Priority`. An attribute
+in `_Imports.razor` can provide the default; a higher-priority attribute on the
+component or a base class overrides it. The matched component's `@layout`
+(`LayoutAttribute`) is ignored on this path. Normal, boosted and `full` requests
+retain the stock layout path; `[DisableHtmxDirectRouting]` pages are unaffected.
 
-- HtmxLayout
+The layout can be any `IComponent` accepting a `Body` parameter, including a
+plain `LayoutComponentBase`. Whole-component output includes its markup.
+Named-fragment selection emits only the requested fragments, including those
+declared in the layout. For example, `SelectFragments("Toasts", "Form")` can
+combine a layout fragment and a page fragment. Names must be unique across the
+completed tree, and selecting both an ancestor and its descendant remains invalid.
+
+`HtmxLayoutComponentBase` is a convenience whose base render implementation
+outputs `HeadOutlet` and `Body`; it has no `ShouldOutput`. If a Razor layout
+overrides that rendering, include `<HeadOutlet />` and `@Body` explicitly to
+retain `PageTitle` output. A selected fragment does not automatically include
+the layout's head content. See the [feature guide](htmxor-v1-feature-guide.md#direct-response-layouts)
+for the browser evidence and its limits.
 
 ## Events Handlers
 

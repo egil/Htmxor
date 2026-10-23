@@ -23,7 +23,9 @@ public enum RoutingMode
 	/// <summary>
 	/// In direct routing mode, Htmxor will route direct to the component/page that
 	/// matches the request. If the component specifies an <see cref="HtmxLayoutAttribute"/>,
-	/// the component will be rendered within the layout specified by the attribute.
+	/// the highest-priority inherited attribute selects the layout surrounding whole-component output.
+	/// Named-fragment selection emits only the requested fragments from the layout or component.
+	/// The matched component's <see cref="LayoutAttribute"/> does not select its direct layout.
 	/// </summary>
 	Direct,
 }

@@ -31,16 +31,21 @@ internal static class PartialResponseAssertions
 		return contact;
 	}
 
-	public static void AreCounterAndToastFragments(string body)
+	public static void AreCounterToastAndMessageFragments(string body, string expectedMessage)
 	{
 		var fragments = TopLevelElements(body);
-		Assert.Equal(2, fragments.Count);
+		Assert.Equal(3, fragments.Count);
 		HasRoot(fragments[0], "div", "counter");
 		Assert.Contains("role=\"status\"", fragments[0], StringComparison.Ordinal);
 		Assert.Contains("hx-put=\"/examples/out-of-band-outlets\"", fragments[0], StringComparison.Ordinal);
 		HasRoot(fragments[1], "div");
 		Assert.Contains("hx-swap-oob=\"afterbegin:#toast-container\"", fragments[1], StringComparison.Ordinal);
 		Assert.Contains("Counter is now", fragments[1], StringComparison.Ordinal);
+		HasRoot(fragments[2], "span", "message");
+		using var document = new HtmlParser().ParseDocument(body);
+		var message = Assert.Single(document.QuerySelectorAll("#message"));
+		Assert.Equal("outerHTML", message.GetAttribute("hx-swap-oob"));
+		Assert.Equal(expectedMessage, message.TextContent.Trim());
 	}
 
 	private static void HasRoot(string fragment, string tag, string? id = null)

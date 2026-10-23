@@ -51,11 +51,20 @@ internal sealed class HtmxorDirectRenderHost : ComponentBase
 
 	private static RenderFragment RenderRoute(RouteData routeData, Type? componentType, Action<DynamicComponent>? capture) => builder =>
 	{
+		var pageType = componentType ?? routeData.PageType;
+		builder.OpenComponent<LayoutView>(0);
+		builder.AddComponentParameter(1, nameof(LayoutView.Layout), ComponentInfo.ResolveLayoutType(pageType));
+		builder.AddComponentParameter(2, nameof(LayoutView.ChildContent), RenderComponent(routeData, pageType, capture));
+		builder.CloseComponent();
+	};
+
+	private static RenderFragment RenderComponent(RouteData routeData, Type componentType, Action<DynamicComponent>? capture) => builder =>
+	{
 		builder.OpenComponent<DynamicComponent>(0);
 		builder.AddComponentParameter(
 			1,
 			nameof(DynamicComponent.Type),
-			componentType ?? routeData.PageType);
+			componentType);
 		builder.AddComponentParameter(
 			2,
 			nameof(DynamicComponent.Parameters),

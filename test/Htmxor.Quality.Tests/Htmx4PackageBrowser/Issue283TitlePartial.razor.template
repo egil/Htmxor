@@ -1,0 +1,3 @@
+@attribute [Htmxor.HtmxRoute("/issue-283/title-partial")]
+<title>Issue 283 partial title</title>
+<p id="issue283-loaded">loaded</p>
