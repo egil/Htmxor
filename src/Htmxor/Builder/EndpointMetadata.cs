@@ -9,7 +9,11 @@ internal sealed record class EndpointMetadata(HtmxRouteAttribute HxRoute)
 		: HxRoute.CurrentUrl;
 
 	public bool IsValidFor(HtmxRequest htmxRequest)
+		=> IsValidFor(htmxRequest, out _);
+
+	public bool IsValidFor(HtmxRequest htmxRequest, out RepresentationFilterRejection? rejection)
 	{
+		rejection = null;
 		if (htmxRequest is null)
 			return false;
 
@@ -17,14 +21,14 @@ internal sealed record class EndpointMetadata(HtmxRouteAttribute HxRoute)
 			return false;
 
 		if (currentUrl is not null && !HtmxCurrentUrlMatcher.Matches(currentUrl, htmxRequest.CurrentUrl))
-			return false;
+			rejection = new(nameof(HxRoute.CurrentUrl), currentUrl, htmxRequest.CurrentUrl is null);
 
-		if (!string.IsNullOrWhiteSpace(HxRoute.Target) && !HtmxElementIdentity.Equals(HxRoute.Target, htmxRequest.Target))
-			return false;
+		else if (!string.IsNullOrWhiteSpace(HxRoute.Target) && !HtmxElementIdentity.Equals(HxRoute.Target, htmxRequest.Target))
+			rejection = new(nameof(HxRoute.Target), HxRoute.Target, htmxRequest.Target is null);
 
-		if (HxRoute.Targets.Length > 0 && !HxRoute.Targets.Any(target => HtmxElementIdentity.Equals(target, htmxRequest.Target)))
-			return false;
+		else if (HxRoute.Targets.Length > 0 && !HxRoute.Targets.Any(target => HtmxElementIdentity.Equals(target, htmxRequest.Target)))
+			rejection = new(nameof(HxRoute.Targets), string.Join(", ", HxRoute.Targets), htmxRequest.Target is null);
 
-		return true;
+		return rejection is null;
 	}
 }
