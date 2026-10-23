@@ -246,9 +246,8 @@ supplies, because one Htmxor URL serves representations the framework's key cann
 distinguish; cached keys are therefore deliberately not equal to stock's.
 
 An **ordinary** request caches as it does under stock, including beneath a named
-fragment, except in the compositions listed in the feature guide: a boundary that holds or
-stands beneath an `HtmxAsyncLoad`, and a boundary that holds or stands beneath an
-interactive render-mode boundary — four in all, enumerated in one place there rather than
+fragment, except in the compositions listed in the feature guide: a boundary that holds or stands beneath an
+interactive render-mode boundary — two in all, enumerated in one place there rather than
 restated here. An **htmx** request caches nothing and is never served what an ordinary
 request stored; Htmxor cannot determine what a subtree read from an htmx request, and four
 attempts to decide it produced defects rather than a design.
@@ -266,7 +265,7 @@ because the instruction and the Outcome pulled in opposite directions once htmx 
 was withdrawn.
 
 Scope is otherwise ordinary read-only `CacheView` on static-SSR pages; no public API
-or named-fragment contract changes. Each of those four compositions causes Htmxor to store
+or named-fragment contract changes. Each of those two compositions causes Htmxor to store
 nothing for that one boundary, leaving any sibling boundary cacheable, rather than
 replaying content that would be wrong. The decision is taken while the component renders,
 so a boundary holding an excluded kind only on some requests can still serve an entry

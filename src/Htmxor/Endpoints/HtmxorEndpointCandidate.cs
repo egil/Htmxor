@@ -22,6 +22,8 @@
 // CacheView write-path coordination follows the same commit, synchronized 2026-09-16: the capture and
 // descendant-guard branches reimplement EndpointHtmlRenderer.WriteComponentHtml; approved #219 dependencies
 // and their exact sources are in docs/engineering/candidate-form-adapter.md.
+// #281 removes the HtmxAsyncLoad cache exclusion (2026-10-23); the upstream capture and
+// render-mode coordination remains unchanged at the .NET 11 commit above.
 // The started-response guard on the Server/Auto Cache-Control header (#269, synchronized 2026-10-02)
 // reimplements EndpointHtmlRenderer.Streaming.cs WriteComponentHtml, identical at v10.0.13
 // (4099f83977f4d29604a9aeb971fb0a7bc1d5f699) and v11.0.0-rc.2.26504.105 (820230c386db5b0106c5430b3e5aee92a7826bf5):
@@ -819,12 +821,8 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	{
 		var enclosing = captureAbandoned;
 
-		// What this method decides: an htmx request, and a boundary that stands *beneath* one of the
-		// request-varying kinds. The other direction -- a boundary that *holds* one -- is decided in
-		// TryPauseCaptureForUncacheableComponent, because it is only known once the inner component renders. Two
-		// kinds times two directions is four excluded compositions, each with a case; IsRequestVarying below is
-		// the single place the kinds are named, and docs/htmxor-v1-feature-guide.md enumerates the four for a
-		// reader. Counting only the reasons visible here is what made three artefacts disagree.
+		// A boundary beneath an interactive render-mode boundary discards its capture. The opposite
+		// composition is detected while writing descendants in TryPauseCaptureForUncacheableComponent.
 		//
 		// An htmx request never caches. Htmxor cannot tell what a subtree read from the request, and every
 		// attempt to decide it for the author produced a defect: inferring the dimensions was incomplete,
@@ -837,9 +835,6 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		// more weakly than stock, since stock's SSRRenderModeBoundary component-key override is not mirrored.
 		// It still begins and discards a capture rather than skipping one, because that is what makes stock's
 		// refusal guard run over what it holds.
-		//
-		// A boundary beneath an HtmxAsyncLoad would capture a placeholder carrying the current request's
-		// path, and no path reaches a cache key unless the application declared VaryByRoute.
 		captureAbandoned = httpContext.GetHtmxContext().Request.IsHtmxRequest ||
 			HasUncacheableAncestor(GetComponentState(componentId));
 		try
@@ -857,14 +852,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		}
 	}
 
-	// The physical parent chain, not the logical one. The composition this was expected to divide on -- content
-	// authored in a page and passed into HtmxAsyncLoad as Loading content -- does not divide, and not because of
-	// where the content was written: for a component passed as a RenderFragment parameter the two parents are
-	// the same object. Swapping this walk to LogicalParentComponentState leaves
-	// A_boundary_inside_an_async_loads_loading_content_stores_nothing green, so no measured composition
-	// distinguishes the two chains. Physical is kept because it is the chain that shows the component deciding
-	// whether the content is produced at all, which is the question being asked; the claim that it is
-	// observably required was measured and is false.
+	// Follow the rendered ancestry to find the boundary that governs prerendering.
 	private static bool HasUncacheableAncestor(ComponentState componentState)
 	{
 		for (var ancestor = componentState.ParentComponentState; ancestor is not null; ancestor = ancestor.ParentComponentState)
@@ -878,26 +866,13 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		return false;
 	}
 
-	// The render-mode boundary, and HtmxAsyncLoad by name.
-	//
 	// A named HtmxFragment does not belong here: nothing selects a fragment on an ordinary request, and an
 	// htmx request no longer caches at all. IConditionalRender does not belong here either, and naming the
 	// interface was measured to cost ordinary-request parity -- HtmxLayoutComponentBase implements it with a
 	// constant ShouldOutput, and docs/index.md teaches that type as the layout, so every boundary beneath a
 	// layout would stop caching.
-	//
-	// HtmxAsyncLoad is named concretely because it writes the current request path into hx-get on the
-	// ordinary branch, and no path reaches a cache key unless the application declared VaryByRoute. A page
-	// reachable at two routes otherwise serves the first request's placeholder to the second, whose load
-	// trigger then fetches the wrong resource -- a well-formed 200 with nothing visibly wrong.
-	//
-	// The narrow mechanism for this is stock's own CacheBehavior.Rerender, which excludes one component
-	// rather than the whole boundary. It is unavailable: Rerender asks for a live cached component, and
-	// HtmxAsyncLoad has a required RenderFragment parameter that stock refuses to capture, so applying it
-	// makes every such page throw on its first request. Abandoning the boundary is therefore the wider but
-	// only available answer, and content beside an HtmxAsyncLoad stops caching with it.
 	private static bool IsRequestVarying(IComponent component)
-		=> component is HtmxorEndpointCandidateRenderModeBoundary or HtmxAsyncLoad;
+		=> component is HtmxorEndpointCandidateRenderModeBoundary;
 
 	// Mirrors stock's second CacheView block: during an active capture, a component whose output depends on
 	// per-request state is excluded from the entry and recorded so a later hit renders it live instead.
@@ -924,16 +899,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		// page carrying an AuthorizeView under an ordinary wrapper failed where stock renders it.
 		var cacheable = CacheViewServices.IsCacheable(writer, component.GetType()) && !IsInStreamingContext(componentId);
 
-		// Marked here and fallen through; the render-mode boundary additionally pauses, in its own branch below.
-		// The two kinds differ because stock differs: it carries [CacheBehavior(Rerender)] on its render-mode
-		// boundary and nothing on an ordinary component, so mirroring stock means pausing for one kind and not
-		// the other. Falling through is what the HtmxAsyncLoad kind needs: pausing hid the subtree from the
-		// framework -- neither IsCacheableComponent nor the nested-boundary refusal saw it, so a CacheView
-		// holding an HtmxAsyncLoad rendered content the framework refuses. Abandoning without pausing is not the
-		// answer either -- it leaves the capture active over a subtree stock stops validating, and a streaming
-		// page then throws where stock renders it. Letting the ordinary decision below run satisfies both,
-		// because suppression inside a streaming subtree was never this branch's job: `cacheable` already
-		// carries !IsInStreamingContext, so descendants on a streaming page pause on their own account.
+		// The render-mode boundary discards this capture and pauses descendant validation below.
 		if (IsRequestVarying(component))
 		{
 			captureAbandoned = true;

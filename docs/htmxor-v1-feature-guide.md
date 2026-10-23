@@ -937,8 +937,10 @@ Use `load`, `revealed`, or `intersect` on a safe component GET:
 
 The response can append rows and return the next sentinel. Do not use a GET that
 records a business side effect merely because htmx may issue it only when the
-sentinel becomes visible. The current `HtmxAsyncLoad` helper is not a frozen v1
-requirement; raw markup is the baseline to beat.
+sentinel becomes visible. Raw `hx-get`, `hx-trigger="load"`, and `hx-swap="outerHTML"`
+markup is the v1 lazy-load pattern. Point it at an `HtmxRoute` component or select a
+named `HtmxFragment` so the response contains only the panel being replaced.
+`HtmxAsyncLoad` has been removed; no replacement helper is required.
 
 ### Polling
 
@@ -1367,9 +1369,9 @@ the rest — is unaffected, because its boundary is never serving a cache hit on
 request. And a page that is only ever reached over htmx gains nothing from a `CacheView`
 today; put the boundary where ordinary requests reach it, or wait for #236.
 
-Two kinds of component cause Htmxor to store nothing for a boundary, in either direction:
-whether the cached boundary **holds** one or stands **beneath** one. That is four
-compositions, and in all four the subtree renders normally on any request that reaches it.
+An interactive render-mode boundary causes Htmxor to store nothing for a cache boundary
+that **holds** it or stands **beneath** it. In both compositions the subtree renders
+normally on any request that reaches it.
 
 One qualification, because it is the quiet case. The exclusion is decided while the
 component renders, and a cache hit renders nothing. So a boundary that holds an excluded
@@ -1383,24 +1385,8 @@ request renders afresh where stock replays what it captured. And a boundary whos
 render-mode ancestor is decided per request records that in its key, so it is never served
 the other state's body — stock serves it.
 
-An **`HtmxAsyncLoad`**. It writes the current request's path into its `hx-get`, and no path
-reaches a cache key unless you declared `VaryByRoute`, so a page reachable at two routes
-would otherwise serve the first request's placeholder to the second and the load trigger
-would fetch the wrong resource. Stock's own narrow mechanism for this,
-`CacheBehavior.Rerender`, cannot be used — it requires capturing the component's
-`RenderFragment` parameter, which the framework refuses — so the whole boundary is
-abandoned, and **content beside an `HtmxAsyncLoad` stops caching with it**.
-
-The *beneath* direction is the one worth reading twice, because it is easy to author by
-accident: a `CacheView` you place in an `HtmxAsyncLoad`'s **`Loading` content** stands
-beneath that async load and stores nothing, even though that content renders on every
-ordinary request and looks like ordinary page content. What recovers caching is a sibling
-subtree that neither contains the `HtmxAsyncLoad` nor sits inside it; moving the boundary
-into the `Loading` content does not.
-
-An **interactive render-mode boundary**, again in either direction. Cached prerendered
-interactive content would be keyed more weakly than stock keys it, because stock's
-`SSRRenderModeBoundary` component key is not mirrored.
+Cached prerendered interactive content would be keyed more weakly than stock keys it,
+because stock's `SSRRenderModeBoundary` component key is not mirrored.
 
 The two directions differ in what happens to a component a capture would refuse, and they
 differ the same way under stock:
@@ -1413,7 +1399,7 @@ differ the same way under stock:
   boundary holds. An `AuthorizeView` inside that `CacheView` is refused, on both stacks,
   with the framework's own message.
 
-A sibling boundary standing outside all four compositions stays cacheable.
+A sibling boundary standing outside both compositions stays cacheable.
 
 Earlier revisions also refused to cache a boundary holding or beneath a named
 `HtmxFragment`, or any `IConditionalRender`. Those guards existed for cached htmx
@@ -1421,8 +1407,6 @@ responses. With htmx requests no longer cached, nothing selects a fragment on an
 request, so a named fragment caches normally now. `IConditionalRender` as a category is
 no longer refused either — `HtmxLayoutComponentBase` implements it with a constant, and
 refusing the interface stopped every boundary beneath the documented layout from caching.
-`HtmxAsyncLoad` is refused by name instead, because it is the one shipped component that
-writes per-request state into ordinary-request markup.
 
 A component of your own that is **not** one of these, but still varies its output by the
 request — by injecting `HtmxContext` and reading the triggering element, say — is cached

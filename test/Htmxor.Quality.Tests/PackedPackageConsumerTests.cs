@@ -63,8 +63,10 @@ public sealed class PackedPackageConsumerTests
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 
-	[Fact]
-	public async Task Package_only_public_surface_matches_retained_allow_list()
+	[Theory]
+	[InlineData("net10.0")]
+	[InlineData("net11.0")]
+	public async Task Package_only_public_surface_matches_retained_allow_list(string framework)
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		await workspace.PackOnlyAsync();
@@ -81,7 +83,7 @@ public sealed class PackedPackageConsumerTests
 
 		Assert.Equal(
 			allowList[marker..].Trim(),
-			PackagePublicSurface.Format(workspace.PackagePath));
+			PackagePublicSurface.Format(workspace.PackagePath, framework));
 	}
 
 	[Fact]
@@ -707,10 +709,10 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 
 internal static class PackagePublicSurface
 {
-	public static string Format(string packagePath)
+	public static string Format(string packagePath, string framework)
 	{
 		using var package = ZipFile.OpenRead(packagePath);
-		using var entry = Assert.Single(package.Entries, entry => entry.FullName == "lib/net10.0/Htmxor.dll").Open();
+		using var entry = Assert.Single(package.Entries, entry => entry.FullName == $"lib/{framework}/Htmxor.dll").Open();
 		using var assemblyImage = new MemoryStream();
 		entry.CopyTo(assemblyImage);
 		assemblyImage.Position = 0;

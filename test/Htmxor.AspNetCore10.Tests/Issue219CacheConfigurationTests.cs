@@ -151,37 +151,6 @@ public sealed class Issue219CacheConfigurationTests
 	}
 
 	[Fact]
-	public async Task A_nested_boundary_beneath_an_async_load_raises_the_frameworks_refusal()
-	{
-		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219NestedAsyncBoundaryPage>(htmxor: true);
-
-		// The tripwire for the capture pause, recomposed on a kind that is live. Its previous form composed an
-		// HtmxFragment, which stopped being request-varying one commit after the tripwire was written, so it
-		// passed for an unrelated reason and measured nothing while a pause was reintroduced beneath it.
-		// HtmxAsyncLoad is the live kind. The framework refuses a CacheView nested inside a capturing one, so
-		// if the kind's subtree is paused rather than left to validate, the refusal is skipped and this renders.
-		//
-		// No stock arm exists: HtmxAsyncLoad needs Htmxor's own scoped context and a stock host cannot
-		// construct it. The paired equivalent without it is the ordinary-wrapper case above.
-		var thrown = await Assert.ThrowsAnyAsync<Exception>(async () =>
-		{
-			using var client = candidate.GetTestClient();
-			using var request = new HttpRequestMessage(HttpMethod.Get, "/issue-219/nested-async-boundary");
-			request.Headers.Add("HX-Request", "true");
-			request.Headers.Add("HX-Request-Type", "partial");
-			request.Headers.Add("HX-Source", "div#lazy");
-			request.Headers.Add("HX-Target", "div#lazy");
-			using var response = await client.SendAsync(request);
-			_ = await response.Content.ReadAsStringAsync();
-		});
-
-		// The matching source and target are what make HtmxAsyncLoad render ChildContent rather than Loading,
-		// so the inner boundary is constructed at all.
-		var refusal = Assert.IsType<InvalidOperationException>(thrown.GetBaseException());
-		Assert.Contains("cannot be nested inside another CacheView", refusal.Message, StringComparison.Ordinal);
-	}
-
-	[Fact]
 	public async Task A_sibling_of_a_boundary_that_stores_nothing_still_caches()
 	{
 		await using var app = await Issue219CacheInteractiveTests.StartAsync<Issue219SiblingOfAbandoningPage>(htmxor: true);
@@ -496,31 +465,6 @@ public sealed class Issue219LayoutHostPage : ComponentBase
 public sealed class Issue219Layout : Htmxor.Components.HtmxLayoutComponentBase
 {
 }
-// A CacheView nested inside another, with a live request-varying kind between them.
-[Route("/issue-219/nested-async-boundary")]
-public sealed class Issue219NestedAsyncBoundaryPage : ComponentBase
-{
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-nested-async-outer");
-		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
-		{
-			cached.OpenComponent<Htmxor.Components.HtmxAsyncLoad>(0);
-			cached.AddAttribute(1, nameof(Htmxor.Components.HtmxAsyncLoad.Id), "lazy");
-			cached.AddAttribute(2, nameof(Htmxor.Components.HtmxAsyncLoad.ChildContent), (RenderFragment)(inner =>
-			{
-				inner.OpenComponent<CacheView>(0);
-				inner.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-nested-async-inner");
-				inner.AddAttribute(2, nameof(CacheView.ChildContent), Issue219Slot.Render("inner"));
-				inner.CloseComponent();
-			}));
-			cached.CloseComponent();
-		}));
-		builder.CloseComponent();
-	}
-}
-
 // One boundary that stores nothing beside one that caches.
 public sealed class Issue219SiblingOfAbandoningPage : ComponentBase
 {
