@@ -38,7 +38,7 @@ public sealed class Htmx4ProtectionBrowserTests
 internal sealed partial class Htmx4PackageBrowserWorkspace
 {
 	private bool usesSharedPackage;
-	private string testFilter = "FullyQualifiedName!~Issue211BrowserTests";
+	private string testFilter = "FullyQualifiedName!~Issue211BrowserTests&FullyQualifiedName!~Issue283TitleBrowserTests";
 
 	public void UseProtectionScenario(string framework, string sdk, string runtime)
 	{

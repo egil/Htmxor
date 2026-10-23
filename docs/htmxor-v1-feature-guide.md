@@ -117,6 +117,34 @@ htmx partial request to the same URL can render the component without the page
 shell. Route parameters, query values, dependency injection, authorization
 state, lifecycle methods, and static SSR rendering stay under Blazor.
 
+### Direct-response layouts
+
+A direct partial request to an `@page` or `HtmxRoute` component uses its
+highest-priority inherited `[HtmxLayout]`. This applies to Razor, code-behind
+and all-C# components. Put a default in `_Imports.razor`, then override it with
+`[HtmxLayout(typeof(MyLayout), Priority = 1)]` on a component or base class.
+The matched component's stock `@layout` does not select its direct layout.
+Normal, boosted and `full` requests retain stock layouts.
+
+The selected layout renders the component as its `Body` through Blazor's
+`LayoutView`. Any `IComponent` accepting `Body` works, including a plain
+`LayoutComponentBase`. Whole output contains the layout markup. Named selection
+contains only the requested fragments: `SelectFragments("Toasts", "Form")`
+can select a layout fragment and a component fragment, in that order. Duplicate
+names and ancestor/descendant selections fail across this shared completed tree
+just as they do within a component. Selection does not skip rendering work.
+
+`HtmxLayoutComponentBase` provides `HeadOutlet` followed by `Body` in its base
+render implementation, without `ShouldOutput`. A Razor component replaces that
+render implementation; write `<HeadOutlet />` and `@Body` explicitly to retain
+both. `PageTitle` then contributes `<title>` to whole direct output. Selecting
+only named fragments does not automatically include the layout's head content.
+
+Issue #283's Chromium test with application-owned htmx 4.0.0 defaults observed
+that a partial response containing `<title>` updates `document.title` after the
+swap. This browser evidence used .NET 10 on Linux; it does not claim other
+browsers or streaming/interactive modes inside the layout.
+
 ### A normal-only page
 
 A page that must not answer the conventional direct GET applies

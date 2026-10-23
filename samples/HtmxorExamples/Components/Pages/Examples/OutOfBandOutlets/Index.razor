@@ -8,7 +8,7 @@
     {
         if (Htmx.Request.RoutingMode is RoutingMode.Direct)
         {
-            Htmx.Response.SelectFragments("counter", "toasts");
+            Htmx.Response.SelectFragments("counter", "toasts", "message");
         }
     }
 
@@ -32,10 +32,6 @@
             The count is @(CurrentCount % 2 == 0 ? "even" : "odd")!
         </span>
     </SectionContent>
-    @if (Htmx.Request.RoutingMode is RoutingMode.Direct)
-    {
-        <SectionOutlet SectionName="message" />
-    }
 
     <p role="status">
         Current count: @CurrentCount
@@ -49,8 +45,3 @@
         Click me
     </button>
 </HtmxFragment>
-
-@if (Htmx.Request.RoutingMode is RoutingMode.Direct)
-{
-    <ToastOutlet />
-}

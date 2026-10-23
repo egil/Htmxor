@@ -31,12 +31,13 @@ public sealed class PartialResponseAssertionsTests
 	}
 
 	[Fact]
-	public void Outlet_counter_allows_attributes_before_id()
+	public void Outlet_fragments_allow_attributes_before_ids()
 	{
-		var body = "<div class=\"sample\" id=\"counter\"><p role=\"status\">0</p><button hx-put=\"/examples/out-of-band-outlets\">Update</button></div>"
-			+ "<div hx-swap-oob=\"afterbegin:#toast-container\">Counter is now 0</div>";
+		var body = "<div class=\"sample\" id=\"counter\"><p role=\"status\">1</p><button hx-put=\"/examples/out-of-band-outlets\">Update</button></div>"
+			+ "<div hx-swap-oob=\"afterbegin:#toast-container\">Counter is now 1</div>"
+			+ "<span class=\"sample\" id=\"message\" hx-swap-oob=\"outerHTML\">The count is odd!</span>";
 
-		PartialResponseAssertions.AreCounterAndToastFragments(body);
+		PartialResponseAssertions.AreCounterToastAndMessageFragments(body, "The count is odd!");
 	}
 
 	[Theory]

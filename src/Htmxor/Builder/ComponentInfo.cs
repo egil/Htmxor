@@ -28,15 +28,7 @@ internal sealed record class ComponentInfo
 		ComponentType = componentType;
 		RenderMode = renderMode;
 
-		// Since GetCustomAttributes does not guarantee the order of attributes
-		// returned, having a priority allows users to define a default HtmxLayout
-		// e.g. in their _Imports.razor, and then override that on a component base,
-		// just as they can with the @layout directive in razor files.
-		ComponentLayoutType = componentType
-			.GetCustomAttributes<HtmxLayoutAttribute>(true)
-			.OrderBy(x => x.Priority)
-			.LastOrDefault()
-			?.LayoutType;
+		ComponentLayoutType = ResolveLayoutType(componentType);
 
 		var hxRoutes = componentType
 			.GetCustomAttributes<HtmxRouteAttribute>(true)
@@ -60,6 +52,19 @@ internal sealed record class ComponentInfo
 		}
 
 		HxRoutes = hxRoutes;
+	}
+
+	internal static Type? ResolveLayoutType(Type componentType)
+	{
+		// Since GetCustomAttributes does not guarantee the order of attributes
+		// returned, having a priority allows users to define a default HtmxLayout
+		// e.g. in their _Imports.razor, and then override that on a component base,
+		// just as they can with the @layout directive in razor files.
+		return componentType
+			.GetCustomAttributes<HtmxLayoutAttribute>(true)
+			.OrderBy(x => x.Priority)
+			.LastOrDefault()
+			?.LayoutType;
 	}
 
 	private sealed class TemplateOnlyEqualityComparer : IEqualityComparer<HtmxRouteAttribute>

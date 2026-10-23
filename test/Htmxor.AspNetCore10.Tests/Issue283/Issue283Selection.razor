@@ -1,0 +1,11 @@
+@page "/issue-283/selection"
+@attribute [HtmxLayout(typeof(Issue283SelectionLayout), Priority = 20)]
+@inject HtmxContext Htmx
+<p data-page-chrome>page chrome</p><HtmxFragment Name="Form" Element="div"><input name="value" /></HtmxFragment>
+@code {
+    [SupplyParameterFromQuery] public string? Selection { get; set; }
+    protected override void OnInitialized()
+    {
+        if (Selection is not null) Htmx.Response.SelectFragments(Selection.Split(','));
+    }
+}

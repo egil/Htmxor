@@ -1,0 +1,3 @@
+@page "/issue-283/title"
+<button hx-get="/issue-283/title-partial" hx-target="#issue283-result">Load title</button>
+<div id="issue283-result">initial</div>
