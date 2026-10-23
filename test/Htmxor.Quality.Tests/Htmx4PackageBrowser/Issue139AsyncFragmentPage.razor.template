@@ -3,7 +3,7 @@
 @inject HtmxContext Htmx
 
 
-@if (Htmx.Request.RoutingMode is not RoutingMode.Direct)
+@if (Htmx.Request.RequestType is not HtmxRequestType.Partial)
 {
 	<section data-issue-139-stock-control>
 		<button id="issue-139-select"
@@ -16,7 +16,7 @@
 	</section>
 }
 
-@if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+@if (Htmx.Request.RequestType is HtmxRequestType.Partial)
 {
 	<HtmxFragment Name="selected" Id="issue-139-selected">
 		<Issue139AsyncDescendant Branch="selected" />
@@ -30,7 +30,7 @@
 @code {
 	protected override void OnParametersSet()
 	{
-		if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+		if (Htmx.Request.RequestType is HtmxRequestType.Partial)
 		{
 			Htmx.Response.SelectFragment("selected");
 		}

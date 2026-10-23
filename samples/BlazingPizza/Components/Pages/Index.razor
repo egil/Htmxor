@@ -78,7 +78,7 @@
 @code {
     protected override void OnParametersSet()
     {
-        if (HtmxContext.Request.RoutingMode is RoutingMode.Direct)
+        if (HtmxContext.Request.RequestType is HtmxRequestType.Partial)
         {
             HtmxContext.Response.SelectFragment("sidebar");
         }

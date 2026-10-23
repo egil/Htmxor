@@ -99,20 +99,14 @@ TYPE Htmxor.Http.HtmxRequest [kind=class;abstract=False;sealed=True;genericArity
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Boolean get_IsBoosted()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Boolean get_IsHistoryRestoreRequest()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Boolean get_IsHtmxRequest()
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Method()
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Microsoft.AspNetCore.Http.PathString get_Path()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Nullable`1[Htmxor.Http.HtmxRequestType] get_RequestType()
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.RoutingMode get_RoutingMode()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Source()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_Target()
   Property [visibility=public|none;static=False;get=public,instance;set=none] System.Uri CurrentUrl
   Property [visibility=public|none;static=False;get=public,instance;set=none] Boolean IsBoosted
   Property [visibility=public|none;static=False;get=public,instance;set=none] Boolean IsHistoryRestoreRequest
   Property [visibility=public|none;static=False;get=public,instance;set=none] Boolean IsHtmxRequest
-  Property [visibility=public|none;static=False;get=public,instance;set=none] System.String Method
-  Property [visibility=public|none;static=False;get=public,instance;set=none] Microsoft.AspNetCore.Http.PathString Path
   Property [visibility=public|none;static=False;get=public,instance;set=none] System.Nullable`1[Htmxor.Http.HtmxRequestType] RequestType
-  Property [visibility=public|none;static=False;get=public,instance;set=none] Htmxor.Http.RoutingMode RoutingMode
   Property [visibility=public|none;static=False;get=public,instance;set=none] System.String Source
   Property [visibility=public|none;static=False;get=public,instance;set=none] System.String Target
 TYPE Htmxor.Http.HtmxRequestHeaderNames [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
@@ -163,10 +157,6 @@ TYPE Htmxor.Http.HtmxResponseHeaderNames [kind=class;abstract=True;sealed=True;g
   Field [visibility=public;static=True;literal=True;readonly=False] System.String Reswap
   Field [visibility=public;static=True;literal=True;readonly=False] System.String Retarget
   Field [visibility=public;static=True;literal=True;readonly=False] System.String Trigger
-TYPE Htmxor.Http.RoutingMode [kind=enum;abstract=False;sealed=True;genericArity=0;base=System.Enum]
-  Field [visibility=public;static=True;literal=True;readonly=False] Htmxor.Http.RoutingMode Direct
-  Field [visibility=public;static=True;literal=True;readonly=False] Htmxor.Http.RoutingMode Standard
-  Field [visibility=public;static=False;literal=False;readonly=False] Int32 value__
 TYPE Htmxor.IHtmxorComponentEndpointInvoker [kind=interface;abstract=True;sealed=False;genericArity=0;base=none]
 TYPE Microsoft.AspNetCore.Builder.HtmxorComponentEndpointRouteBuilderExtensions [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
   Method [visibility=public;static=True;abstract=False;virtual=False;final=False;genericArity=0;parameters=4] Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder, Microsoft.AspNetCore.Routing.IEndpointRouteBuilder, System.Reflection.Assembly, System.Collections.Generic.IReadOnlyList`1[System.String])

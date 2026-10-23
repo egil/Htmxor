@@ -6,7 +6,7 @@
 @code {
     protected override void OnParametersSet()
     {
-        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        if (Htmx.Request.RequestType is HtmxRequestType.Partial)
         {
             Htmx.Response.SelectFragments("counter", "toasts", "message");
         }

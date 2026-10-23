@@ -3,17 +3,20 @@
 @page "/edit-row-1/edit-row/{id:guid}/edit"
 @inject HtmxContext Htmx
 @code {
+    [CascadingParameter]
+    public required Microsoft.AspNetCore.Http.HttpContext HttpContext { get; set; }
+
     [SupplyParameterFromForm]
     public Contact? Contact { get; set; }
 
     [Parameter]
     public Guid Id { get; set; }
 
-    private bool IsEditing => Id != Guid.Empty && Htmx.Request.Path.ToUriComponent().EndsWith("/edit", StringComparison.OrdinalIgnoreCase);
+    private bool IsEditing => Id != Guid.Empty && HttpContext.Request.Path.ToUriComponent().EndsWith("/edit", StringComparison.OrdinalIgnoreCase);
 
     protected override void OnParametersSet()
     {
-        if (Htmx.Request.RoutingMode is RoutingMode.Direct && Id != Guid.Empty)
+        if (Htmx.Request.RequestType is HtmxRequestType.Partial && Id != Guid.Empty)
         {
             Htmx.Response.SelectFragment(IsEditing ? EditFragmentName(Id) : DisplayFragmentName(Id));
         }

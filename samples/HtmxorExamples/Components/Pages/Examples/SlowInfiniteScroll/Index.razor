@@ -11,14 +11,14 @@
     {
         // Only load contact data during a direct request, since the loading
         // is slow it would prevent the page from rendering initially.
-        contacts = Htmx.Request.RoutingMode == RoutingMode.Direct
+        contacts = Htmx.Request.RequestType == HtmxRequestType.Partial
             ? await GetContactsAsync(Page)
             : Enumerable.Empty<Contact>();
     }
 
     protected override void OnParametersSet()
     {
-        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        if (Htmx.Request.RequestType is HtmxRequestType.Partial)
         {
             Htmx.Response.SelectFragment("contacts");
         }
@@ -45,7 +45,7 @@
     </thead>
     <tbody>
         <HtmxFragment Name="contacts">
-            @if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+            @if (Htmx.Request.RequestType is HtmxRequestType.Partial)
             {
                 @foreach (var contact in contacts)
                 {

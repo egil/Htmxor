@@ -23,7 +23,7 @@ internal partial class HtmxorRenderer
 		if (string.IsNullOrEmpty(htmxorEventId))
 		{
 			isBadRequest = true;
-			return ReturnErrorResponse($"The {context.Request.Method} request does not specify which event handler should be invoked.");
+			return ReturnErrorResponse($"The {httpContext.Request.Method} request does not specify which event handler should be invoked.");
 		}
 
 		if (!htmxorEvents.TryGetValue(htmxorEventId, out var handlerInfoSet) || handlerInfoSet.Count == 0)
@@ -32,7 +32,7 @@ internal partial class HtmxorRenderer
 			// or if you're dynamically building the UI and the submitted form doesn't exist the next time
 			// the page is rendered
 			isBadRequest = true;
-			return ReturnErrorResponse($"Cannot handle the '{HtmxorAttributeNames.Prefix}{context.Request.Method.ToLowerInvariant()}' request because event handler specified in the request does not exists on the page currently.");
+			return ReturnErrorResponse($"Cannot handle the '{HtmxorAttributeNames.Prefix}{httpContext.Request.Method.ToLowerInvariant()}' request because event handler specified in the request does not exists on the page currently.");
 		}
 
 		if (handlerInfoSet.Count > 1)
@@ -41,7 +41,7 @@ internal partial class HtmxorRenderer
 			// this is most likely a mistake on the developer's part so we will consider it an error.
 			// This is an internal server error, not a bad request, because the application itself is at fault
 			// and needs to find out about it. End users can't trigger this unless the app has a bug.
-			throw new InvalidOperationException(CreateMessageForAmbiguousHtmxorEvent($"@on{context.Request.Method.ToLowerInvariant()}", handlerInfoSet.Values.SelectMany(x => x)));
+			throw new InvalidOperationException(CreateMessageForAmbiguousHtmxorEvent($"@on{httpContext.Request.Method.ToLowerInvariant()}", handlerInfoSet.Values.SelectMany(x => x)));
 		}
 
 		isBadRequest = false;

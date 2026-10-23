@@ -40,7 +40,7 @@ public sealed class Issue171RequestWork(HtmxContext htmx, IHttpContextAccessor a
 {
 	public string RequestId { get; } = accessor.HttpContext!.TraceIdentifier;
 	public string Marker { get; } = accessor.HttpContext!.Request.Query["marker"].ToString();
-	public bool IsDirect => htmx.Request.RoutingMode is RoutingMode.Direct;
+	public bool IsDirect => htmx.Request.RequestType is HtmxRequestType.Partial;
 	public Issue171RequestRun Run => probe.For(Marker);
 
 	public void Record(string component, string phase)

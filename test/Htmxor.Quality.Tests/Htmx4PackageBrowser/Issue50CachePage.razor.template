@@ -25,7 +25,7 @@
 
 	protected override void OnParametersSet()
 	{
-		if (Htmx.Request.RoutingMode is not RoutingMode.Direct)
+		if (Htmx.Request.RequestType is not HtmxRequestType.Partial)
 		{
 			return;
 		}

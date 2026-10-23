@@ -12,17 +12,7 @@ public sealed class HtmxRequest
 	/// <summary>
 	/// Gets the routing mode for the current request.
 	/// </summary>
-	public RoutingMode RoutingMode { get; }
-
-	/// <summary>
-	/// Gets the HTTP method of the current request.
-	/// </summary>
-	public string Method { get; }
-
-	/// <summary>
-	/// Gets the path of the current request.
-	/// </summary>
-	public PathString Path { get; }
+	internal RoutingMode RoutingMode { get; }
 
 	/// <summary>
 	/// Gets whether the request has exactly one <c>HX-Request</c> value that equals lowercase
@@ -90,8 +80,6 @@ public sealed class HtmxRequest
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		headers = context.Request.Headers;
-		Method = context.Request.Method;
-		Path = context.Request.Path;
 		var parsed = HtmxRequestHeaderParser.Parse(context.Request.Headers);
 		var isHtmx = IsHtmxRequest = parsed.IsHtmxRequest;
 

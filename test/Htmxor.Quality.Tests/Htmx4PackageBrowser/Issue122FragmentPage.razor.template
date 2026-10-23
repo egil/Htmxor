@@ -3,7 +3,7 @@
 @inject HtmxContext Htmx
 
 
-@if (Htmx.Request.RoutingMode is not RoutingMode.Direct)
+@if (Htmx.Request.RequestType is not HtmxRequestType.Partial)
 {
 	<section data-issue-122-page>
 		<h1>Issue 122 fragment delivery</h1>
@@ -20,7 +20,7 @@
 	</section>
 }
 
-@if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+@if (Htmx.Request.RequestType is HtmxRequestType.Partial)
 {
 	<HtmxFragment Name="first"
 		Element="hx-partial"
@@ -40,7 +40,7 @@
 @code {
 	protected override void OnParametersSet()
 	{
-		if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+		if (Htmx.Request.RequestType is HtmxRequestType.Partial)
 		{
 			Htmx.Response.SelectFragments("first", "second");
 		}

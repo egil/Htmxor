@@ -35,11 +35,14 @@
 </div>
 
 @code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
     protected override void OnParametersSet()
     {
-        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        if (Htmx.Request.RequestType is HtmxRequestType.Partial)
         {
-            Htmx.Response.SelectFragment(Htmx.Request.Method == HttpMethods.Post ? "contact-form" : "contacts");
+            Htmx.Response.SelectFragment(HttpContext.Request.Method == HttpMethods.Post ? "contact-form" : "contacts");
         }
     }
 }

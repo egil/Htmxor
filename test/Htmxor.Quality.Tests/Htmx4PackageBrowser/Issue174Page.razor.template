@@ -2,7 +2,7 @@
 @using Htmxor.Http
 @inject HtmxContext Htmx
 
-@if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+@if (Htmx.Request.RequestType is HtmxRequestType.Partial)
 {
 	<section data-unselected-shell>
 		<HtmxFragment Name="main-alpha"><p>Wrong alpha fragment</p></HtmxFragment>
@@ -27,7 +27,7 @@ else
 
 	protected override void OnParametersSet()
 	{
-		if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+		if (Htmx.Request.RequestType is HtmxRequestType.Partial)
 		{
 			Htmx.Response.SelectFragment("server-bundle");
 		}

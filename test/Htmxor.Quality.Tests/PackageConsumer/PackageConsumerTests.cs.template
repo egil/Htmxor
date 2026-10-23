@@ -819,7 +819,6 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			target: ["section#result"]);
 		Assert.True(valid.IsHtmxRequest);
 		Assert.Equal(HtmxRequestType.Partial, valid.RequestType);
-		Assert.Equal(RoutingMode.Direct, valid.RoutingMode);
 		Assert.True(valid.IsBoosted);
 		Assert.True(valid.IsHistoryRestoreRequest);
 		Assert.Equal(
@@ -852,7 +851,6 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 				target: ["section#result"]);
 
 			Assert.False(request.IsHtmxRequest);
-			Assert.Equal(RoutingMode.Standard, request.RoutingMode);
 			Assert.Null(request.RequestType);
 			Assert.False(request.IsBoosted);
 			Assert.False(request.IsHistoryRestoreRequest);
@@ -880,12 +878,10 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 
 			Assert.True(request.IsHtmxRequest);
 			Assert.Null(request.RequestType);
-			Assert.Equal(RoutingMode.Standard, request.RoutingMode);
 		}
 
 		var normalizedPartial = ParseWireRequest(marker: ["true"], requestType: ["\tpartial\t"]);
 		Assert.Equal(HtmxRequestType.Partial, normalizedPartial.RequestType);
-		Assert.Equal(RoutingMode.Direct, normalizedPartial.RoutingMode);
 
 		foreach (var booleanValue in new string[]?[]
 		{
@@ -1056,7 +1052,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			body,
 			StringComparison.Ordinal);
 
-		var direct = string.Equals(expected.RoutingMode, nameof(RoutingMode.Direct), StringComparison.Ordinal);
+		var direct = string.Equals(expected.RoutingMode, "Direct", StringComparison.Ordinal);
 		Assert.Equal(direct, body.Contains("data-stock-shell", StringComparison.Ordinal) is false);
 		Assert.Equal(direct, body.Contains("<html", StringComparison.OrdinalIgnoreCase) is false);
 	}
