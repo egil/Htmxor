@@ -34,6 +34,11 @@
             {
                 var pizza = @order.Pizzas[i];
                 <ConfiguredPizzaItem Pizza=@pizza />
+                <button type="button" class="btn btn-outline-danger" hx-put="/" @onput="RemovePizza"
+                        hx-target="#sidebar" hx-swap="outerHTML" hx-include="closest form"
+                        name="RemovePizzaIndex" value="@i">
+                    Remove pizza
+                </button>
 
                 <input type="hidden" name="OrderForm.Pizzas[@(i)].SpecialId" value="@pizza.SpecialId" />
                 <input type="hidden" name="OrderForm.Pizzas[@(i)].Size" value="@pizza.Size" />
@@ -88,6 +93,17 @@
 
     [SupplyParameterFromForm]
     private OrderFormData? OrderForm { get; set; }
+
+    [SupplyParameterFromForm]
+    private int? RemovePizzaIndex { get; set; }
+
+    private void RemovePizza()
+    {
+        if (RemovePizzaIndex is int index && index >= 0 && index < order.Pizzas.Count)
+        {
+            order.Pizzas.RemoveAt(index);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
