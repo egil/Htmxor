@@ -18,6 +18,25 @@ endpoint invoker after the paired parity boundary passes.
 [approved adapter decision](https://github.com/egil/Htmxor/issues/189#issuecomment-5554452348)
 authorize this replaceable internal boundary. No form runtime is copied.
 
+## PUT/PATCH action form mapping
+
+Issue #318 extends the existing POST validation and form-read coordination to
+active PUT/PATCH actions with form content. DELETE and non-action non-POST
+requests remain excluded. The existing initializer receives an empty handler
+name when an active PUT/PATCH request omits `_handler`: null means no incoming
+form to the stock mapper, whereas an empty name permits mapping in the default
+scope. This does not dispatch a named form or alter POST inference.
+
+Reviewed on 2026-10-23 against the exact shipped baselines:
+[.NET 10 HttpContextFormValueMapper.cs](https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/FormMapping/HttpContextFormValueMapper.cs)
+and [.NET 11 HttpContextFormValueMapper.cs](https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/FormMapping/HttpContextFormValueMapper.cs).
+The mapper remains framework-owned; its name/scope behavior has an explicit
+`depends-on-behaviour` watch. The existing form-provider accessor is unchanged.
+The paired Issue318 HTTP tests cover both form encodings, protection precedence,
+metadata opt-outs, and DELETE/non-action exclusions on both targets; the sample
+Kestrel regression covers the original PUT counter. No new private access or
+public API is introduced.
+
 ## .NET 11 configured protection
 
 RC2 native CSRF protection trusts CORS origins only for policies with

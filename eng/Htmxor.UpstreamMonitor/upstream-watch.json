@@ -266,6 +266,15 @@
       ]
     },
     {
+      "path": "src/Components/Endpoints/src/FormMapping/HttpContextFormValueMapper.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "depends-on-behaviour",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs"
+      ]
+    },
+    {
       "path": "src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs",
       "match": "file",
       "api": "none",

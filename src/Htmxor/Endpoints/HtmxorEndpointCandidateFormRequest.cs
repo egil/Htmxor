@@ -5,8 +5,11 @@
 // synchronized 2026-09-05. Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // .NET 11 validation follows v11.0.0-rc.2.26504.105 at
 // 820230c386db5b0106c5430b3e5aee92a7826bf5, synchronized 2026-09-13; see that inventory.
+// PUT/PATCH action form mapping extends stock POST coordination for #318, reviewed 2026-10-23
+// against both baselines above; the stock mapper accepts an empty name for an unscoped form.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | mirrors
+// Htmxor upstream dependency: src/Components/Endpoints/src/FormMapping/HttpContextFormValueMapper.cs | depends-on-behaviour
 
 // Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 
@@ -29,15 +32,18 @@ internal readonly record struct HtmxorEndpointCandidateFormRequest(
 	internal static async Task<HtmxorEndpointCandidateFormRequest> ValidateAsync(
 		HttpContext context, IAntiforgery? antiforgery)
 	{
-		// Exception middleware preserves POST; its error page must not bind or submit the failed form.
-		if (!HttpMethods.IsPost(context.Request.Method) ||
+		var hasActiveAction = context.RequestServices.GetRequiredService<HtmxorComponentActionRequest>().HasActiveAction;
+		var isFormAction = hasActiveAction &&
+			(HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsPatch(context.Request.Method));
+		// Exception middleware preserves the method; its error page must not bind or submit the failed form.
+		if ((!HttpMethods.IsPost(context.Request.Method) && !isFormAction) ||
 			context.Features.Get<IExceptionHandlerFeature>() is not null)
 		{
 			return new(true, false, null, null);
 		}
 
 		// Activated callbacks need form state when present, but must not also dispatch a named form.
-		var dispatchForm = !context.RequestServices.GetRequiredService<HtmxorComponentActionRequest>().HasActiveAction;
+		var dispatchForm = !hasActiveAction;
 		if (!dispatchForm && !context.Request.HasFormContentType)
 		{
 			return new(true, false, null, null);
@@ -64,7 +70,8 @@ internal readonly record struct HtmxorEndpointCandidateFormRequest(
 		var form = await context.Request.ReadFormAsync();
 		if (!form.TryGetValue("_handler", out var handler))
 		{
-			return new(true, dispatchForm, null, form);
+			// Null means no incoming form to the stock mapper. An unnamed action uses the empty form name.
+			return new(true, dispatchForm, isFormAction ? string.Empty : null, form);
 		}
 
 		if (handler.Count == 1)
