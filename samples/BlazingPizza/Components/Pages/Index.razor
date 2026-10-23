@@ -36,7 +36,7 @@
                 <ConfiguredPizzaItem Pizza=@pizza />
                 <button type="button" class="btn btn-outline-danger" hx-put="/" @onput="RemovePizza"
                         hx-target="#sidebar" hx-swap="outerHTML" hx-include="closest form"
-                        name="RemovePizzaIndex" value="@i">
+                        name="RemovePizzaIndex" value="@i" hx-vals='{"RemovePizzaIndex": @i}'>
                     Remove pizza
                 </button>
 

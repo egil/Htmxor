@@ -44,6 +44,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Include="..\Htmxor.Samples.Tests\SampleKestrelHost.cs" Link="TestAssets\SampleKestrelHost.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<EmbeddedResource Include="Generators/StockFormFixtures/*.fixture" />
 		<EmbeddedResource Include="Generators/FormDiagnosticFixtures/*.fixture" />
 		<EmbeddedResource Include="Generators/RouteFixtures/*.fixture" />
