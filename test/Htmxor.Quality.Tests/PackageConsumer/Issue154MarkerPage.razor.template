@@ -52,7 +52,7 @@
             var request = HttpContext.GetHtmxContext().Request;
             wireIsHtmxRequest = request.IsHtmxRequest.ToString().ToLowerInvariant();
             wireRequestType = request.RequestType?.ToString().ToLowerInvariant() ?? "null";
-            wireRoutingMode = request.RoutingMode.ToString();
+            wireRoutingMode = request.RequestType is HtmxRequestType.Partial ? "Direct" : "Standard";
             wireIsBoosted = request.IsBoosted.ToString().ToLowerInvariant();
             wireIsHistoryRestore = request.IsHistoryRestoreRequest.ToString().ToLowerInvariant();
             wireCurrentUrl = request.CurrentUrl?.OriginalString ?? "null";

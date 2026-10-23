@@ -73,14 +73,14 @@ public sealed class HtmxRequestTests
 	}
 
 	[Theory]
-	[InlineData("full", HtmxRequestType.Full, RoutingMode.Standard)]
-	[InlineData("partial", HtmxRequestType.Partial, RoutingMode.Direct)]
-	[InlineData("unknown", null, RoutingMode.Standard)]
-	[InlineData("", null, RoutingMode.Standard)]
+	[InlineData("full", HtmxRequestType.Full, "Standard")]
+	[InlineData("partial", HtmxRequestType.Partial, "Direct")]
+	[InlineData("unknown", null, "Standard")]
+	[InlineData("", null, "Standard")]
 	public void Request_type_controls_representation(
 		string value,
 		HtmxRequestType? expectedType,
-		RoutingMode expectedMode)
+		string expectedMode)
 	{
 		var context = new DefaultHttpContext();
 		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
@@ -89,7 +89,7 @@ public sealed class HtmxRequestTests
 		var request = new HtmxRequest(context);
 
 		Assert.Equal(expectedType, request.RequestType);
-		Assert.Equal(expectedMode, request.RoutingMode);
+		Assert.Equal(expectedMode, request.RoutingMode.ToString());
 	}
 
 	[Fact]

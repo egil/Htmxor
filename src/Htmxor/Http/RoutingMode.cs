@@ -7,7 +7,7 @@ namespace Htmxor.Http;
 /// <summary>
 /// Specifies the routing mode used by Htmxor to handle a HTTP request.
 /// </summary>
-public enum RoutingMode
+internal enum RoutingMode
 {
 	/// <summary>
 	/// In standard routing mode is the same as normal Blazor Static Web app

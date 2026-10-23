@@ -5,7 +5,7 @@
 @inject HtmxContext Htmx
 
 
-@if (Htmx.Request.RoutingMode is not RoutingMode.Direct)
+@if (Htmx.Request.RequestType is not HtmxRequestType.Partial)
 {
 	<button id="issue-137-select"
 			type="button"
@@ -29,7 +29,7 @@
 	protected override void OnParametersSet()
 	{
 		Record("parameters-set");
-		if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+		if (Htmx.Request.RequestType is HtmxRequestType.Partial)
 		{
 			Htmx.Response.SelectFragment("selected");
 		}

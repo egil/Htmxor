@@ -398,10 +398,14 @@ if ( HX-Request has exactly one value
      && removing surrounding HTTP spaces or tabs produces exactly "true"
      && HX-Request-Type has exactly one value
      && that value is exactly "partial" )
-    RoutingMode.Direct
+    direct routing
 else
-    RoutingMode.Standard
+    standard routing
 ```
+
+Application code can select partial-response behavior with
+`Htmx.Request.RequestType is HtmxRequestType.Partial`. Read the HTTP method and
+path from `HttpContext.Request.Method` and `HttpContext.Request.Path`.
 
 Here's a detailed look at each mode:
 
