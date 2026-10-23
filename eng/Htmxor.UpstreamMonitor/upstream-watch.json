@@ -215,15 +215,6 @@
       ]
     },
     {
-      "path": "src/Components/Components/src/Rendering/ComponentState.cs",
-      "match": "file",
-      "api": "subclass",
-      "relationship": "subclasses",
-      "dependencies": [
-        "src/Htmxor/Rendering/HtmxorComponentState.cs"
-      ]
-    },
-    {
       "path": "src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs",
       "match": "file",
       "api": "none",
@@ -471,7 +462,6 @@
       "api": "subclass",
       "relationship": "subclasses",
       "dependencies": [
-        "src/Htmxor/Components/ConditionalComponentBase.cs",
         "src/Htmxor/Components/HtmxFragment.cs",
         "src/Htmxor/Endpoints/HtmxorDirectComponentHost.cs",
         "src/Htmxor/Endpoints/HtmxorDirectRenderHost.cs"

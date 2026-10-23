@@ -1,9 +1,17 @@
-@inherits ConditionalComponentBase
+@inject HtmxContext Htmx
 @attribute [HtmxLayout(typeof(OutOfBandHtmxLayout), Priority = 1)]
 @layout OutOfBandMainLayout
 @page "/examples/out-of-band-outlets"
 @inject ToastService toasts
 @code {
+    protected override void OnParametersSet()
+    {
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        {
+            Htmx.Response.SelectFragments("counter", "toasts");
+        }
+    }
+
     [SupplyParameterFromForm]
     private int CurrentCount { get; set; }
 
@@ -18,23 +26,31 @@
 
 <p>This is an example of a counter updating and a element in the header also updating out of bounds.</p>
 
-<div id="counter" class="border p-3 d-inline-block text-center">
-    <HtmxFragment>
-        <SectionContent SectionName="message">
-            <span id="message" hx-swap-oob="outerHTML" class="text-warning">
-                The count is @(CurrentCount % 2 == 0 ? "even" : "odd")!
-            </span>
-        </SectionContent>
+<HtmxFragment Name="counter" Id="counter" class="border p-3 d-inline-block text-center">
+    <SectionContent SectionName="message">
+        <span id="message" hx-swap-oob="outerHTML" class="text-warning">
+            The count is @(CurrentCount % 2 == 0 ? "even" : "odd")!
+        </span>
+    </SectionContent>
+    @if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+    {
+        <SectionOutlet SectionName="message" />
+    }
 
-        <p role="status">
-            Current count: @CurrentCount
-        </p>
-        <button class="btn btn-primary"
-                hx-put="/examples/out-of-band-outlets"
-                hx-vals='{ "CurrentCount": @(CurrentCount) }'
-                hx-target="#counter"
-                @onput="IncrementCount">
-            Click me
-        </button>
-    </HtmxFragment>
-</div>
+    <p role="status">
+        Current count: @CurrentCount
+    </p>
+    <button class="btn btn-primary"
+            hx-put="/examples/out-of-band-outlets"
+            hx-vals='{ "CurrentCount": @(CurrentCount) }'
+            hx-target="#counter"
+            hx-swap="outerHTML"
+            @onput="IncrementCount">
+        Click me
+    </button>
+</HtmxFragment>
+
+@if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+{
+    <ToastOutlet />
+}

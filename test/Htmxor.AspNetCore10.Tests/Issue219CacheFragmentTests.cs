@@ -18,24 +18,6 @@ namespace Htmxor.AspNetCore10;
 public sealed class Issue219CacheFragmentTests
 {
 	[Fact]
-	public async Task A_conditional_component_that_opted_out_still_raises_the_frameworks_refusal()
-	{
-		await using var stock = await Issue219CacheSafetyTests.StartAsync<Issue219ConditionalRefusalPage>(htmxor: false);
-		await using var candidate = await Issue219CacheSafetyTests.StartAsync<Issue219ConditionalRefusalPage>(htmxor: true);
-
-		// A parity claim, and a weaker one than it used to be. While Htmxor discarded a capture holding an
-		// IConditionalRender, this pinned the ordering: stock's refusal had to be consulted before the discard,
-		// or an application type that was both would render where stock refuses it. That kind is gone, so
-		// nothing pre-empts the refusal and reversing the ordering now reddens nothing -- measured. What it
-		// still asserts is that Htmxor passes a CacheBehavior.Throw refusal through to the client unchanged.
-		var expected = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadAsync(stock));
-		var actual = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadAsync(candidate));
-
-		Assert.Contains("cannot be used inside a CacheView", expected.Message, StringComparison.Ordinal);
-		Assert.Equal(expected.Message, actual.Message);
-	}
-
-	[Fact]
 	public async Task A_keyed_boundary_is_not_served_another_keys_entry()
 	{
 		await using var app = await Issue219CacheSafetyTests.StartAsync<Issue219KeyedBoundaryPage>(htmxor: true);
@@ -112,27 +94,6 @@ public sealed class Issue219CacheFragmentTests
 		Assert.Equal(expected, actual);
 	}
 
-	[Fact]
-	public async Task A_boundary_holding_a_conditional_component_caches_like_stock()
-	{
-		// The guide says IConditionalRender as a category is no longer refused. The beneath half of that claim
-		// is measured by A_boundary_beneath_an_htmx_layout_caches_like_stock: HtmxLayoutComponentBase implements
-		// the interface, so refusing it stopped every boundary beneath the documented layout from caching. The
-		// holding half had no case -- restoring the category refusal in the holding branch left the whole
-		// Issue219 filter green.
-		//
-		// Deliberately not [CacheBehavior(Throw)]. A_conditional_component_that_opted_out_still_raises_the_
-		// frameworks_refusal covers the type that is both, and asserts a refusal; this asserts the opposite for
-		// the ordinary case, which is what an application implementing the interface actually gets.
-		var expected = await ReadPairAsync<Issue219ConditionalCachedPage>(htmxor: false, path: "/issue-219/conditional-cached");
-		var actual = await ReadPairAsync<Issue219ConditionalCachedPage>(htmxor: true, path: "/issue-219/conditional-cached");
-
-		// The stock arm must prove reuse, not merely agree.
-		Assert.Contains("data-version=\"1\"", expected[0], StringComparison.Ordinal);
-		Assert.Contains("data-version=\"1\"", expected[1], StringComparison.Ordinal);
-		Assert.Equal(expected, actual);
-	}
-
 	private static async Task<string[]> ReadPairAsync<TRoot>(bool htmxor, string path) where TRoot : IComponent
 	{
 		await using var app = await Issue219CacheSafetyTests.StartAsync<TRoot>(htmxor);
@@ -150,46 +111,6 @@ public sealed class Issue219CacheFragmentTests
 		return await response.Content.ReadAsStringAsync();
 	}
 
-	private static async Task<string> ReadAsync(WebApplication app)
-	{
-		using var client = app.GetTestClient();
-		using var response = await client.GetAsync("/issue-219/conditional-refusal");
-		return await response.Content.ReadAsStringAsync();
-	}
-
-}
-
-// An application component may be both an IConditionalRender and one the framework refuses to cache. Nothing
-// stops the two from meeting on the same type, and the refusal is the framework's to raise, not Htmxor's to
-// swallow by discarding the capture first.
-[Route("/issue-219/conditional-refusal")]
-public sealed class Issue219ConditionalRefusalPage : ComponentBase
-{
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-conditional-refusal");
-		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
-		{
-			cached.OpenComponent<Issue219ConditionalRefusedContent>(0);
-			cached.CloseComponent();
-		}));
-		builder.CloseComponent();
-	}
-}
-
-[CacheBehavior(CacheBehavior.Throw)]
-[CacheCondition(CacheVaryBy.User)]
-public sealed class Issue219ConditionalRefusedContent : ComponentBase, IConditionalRender
-{
-	public bool ShouldOutput([System.Diagnostics.CodeAnalysis.NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren) => true;
-
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenElement(0, "p");
-		builder.AddContent(1, "refused");
-		builder.CloseElement();
-	}
 }
 
 // An ordinary boundary on a page reachable by both kinds of request.
@@ -256,39 +177,4 @@ public sealed class Issue219FragmentAboveBoundaryPage : ComponentBase
 	}
 }
 
-// A boundary *holding* an ordinary IConditionalRender -- no [CacheBehavior] attribute, so nothing but the
-// interface distinguishes it. This is the holding half of the guide's "no longer refused as a category"
-// claim. The beneath half -- the shape HtmxLayoutComponentBase puts every page into -- is
-// Issue219LayoutHostPage, asserted by A_boundary_beneath_an_htmx_layout_caches_like_stock; the two reach
-// different production branches and neither substitutes for the other.
-[Route("/issue-219/conditional-cached")]
-public sealed class Issue219ConditionalCachedPage : ComponentBase
-{
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenComponent<CacheView>(0);
-		builder.AddAttribute(1, nameof(CacheView.CacheKey), "issue-219-conditional-cached");
-		builder.AddAttribute(2, nameof(CacheView.ChildContent), (RenderFragment)(cached =>
-		{
-			cached.OpenComponent<Issue219ConditionalCachedContent>(0);
-			cached.CloseComponent();
-		}));
-		builder.CloseComponent();
-	}
-}
-
-public sealed class Issue219ConditionalCachedContent : ComponentBase, IConditionalRender
-{
-	[Inject] internal Issue219Data Data { get; set; } = default!;
-
-	public bool ShouldOutput([System.Diagnostics.CodeAnalysis.NotNull] HtmxContext context, int directConditionalChildren, int conditionalChildren) => true;
-
-	protected override void BuildRenderTree(RenderTreeBuilder builder)
-	{
-		builder.OpenElement(0, "p");
-		builder.AddAttribute(1, "data-version", Data.Version.ToString(System.Globalization.CultureInfo.InvariantCulture));
-		builder.AddContent(2, "conditional");
-		builder.CloseElement();
-	}
-}
 #endif

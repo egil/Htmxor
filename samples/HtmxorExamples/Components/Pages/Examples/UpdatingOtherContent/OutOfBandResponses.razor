@@ -1,6 +1,14 @@
-@inherits ConditionalComponentBase
+@inject HtmxContext Htmx
 @page "/examples/updating-other-content/out-of-band-responses"
 @code {
+    protected override void OnParametersSet()
+    {
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        {
+            Htmx.Response.SelectFragment("contact-form");
+        }
+    }
+
     private Contact? savedContact;
 }
 <PageTitle>Htmxor - Examples - Updating Other Content - Out of Band Responses</PageTitle>
@@ -29,7 +37,7 @@
     </table>
     <div class="w-50 p-3 border">
         <h5>Create new contact</h5>
-        <HtmxFragment>
+        <HtmxFragment Name="contact-form">
             @if (savedContact is not null)
             {
                 <tbody hx-swap-oob="afterbegin:#contacts-table">

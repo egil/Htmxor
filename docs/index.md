@@ -446,20 +446,13 @@ MyHtmxPage
 
 This allows `MyHtmxPage` to be rendered directly, optionally including a specified `HtmxLayout`.
 
-## Conditional Rendering aka. Template Fragments
+## Named template fragments
 
-In Htmxor, conditional rendering supports the [template fragments](https://htmx.org/essays/template-fragments/) pattern.
-
-It allows a single routable component to render specific parts for particular requests or the full content for others. This way, you can keep all related fragments within a single component, avoiding splitting them into separate, individually routable components.
-
-By consolidating the HTML into one file, it becomes easier to understand feature functionality, adhering to the [Locality of Behavior](https://htmx.org/essays/locality-of-behaviour/) design principle.
-
-### Enabling Conditional Rendering
-
-TODO:
-
-- ConditionalComponentBase
-- IConditionalRender
+Use plain Razor components with named `HtmxFragment` content. On a direct partial
+request, call `HtmxContext.Response.SelectFragment("counter")` (or `SelectFragments`
+for multiple names). Full-page requests retain their normal markup. Blazor completes
+the render tree before Htmxor selects the named output; this does not skip lifecycle
+or data work. See the [fragment guide](htmxor-v1-feature-guide.md) for examples.
 
 ## Layouts
 

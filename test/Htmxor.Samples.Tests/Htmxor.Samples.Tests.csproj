@@ -10,6 +10,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="AngleSharp" Version="1.7.0" />
 		<PackageReference Include="Alba" Version="7.4.1" />
 		<!-- Alba resolves System.IdentityModel.Tokens.Jwt / Microsoft.IdentityModel.JsonWebTokens
 		     6.15.1 transitively (GHSA-59j7-ghrg-fj52, NU1902). Pin the fixed version, matching
@@ -29,6 +30,8 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\samples\HtmxorExamples\HtmxorExamples.csproj" />
+		<ProjectReference Include="..\..\samples\MinimalHtmxorApp\MinimalHtmxorApp.csproj" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\..\samples\BlazingPizza\BlazingPizza.csproj" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 </Project>

@@ -24,6 +24,8 @@
 // and their exact sources are in docs/engineering/candidate-form-adapter.md.
 // #281 removes the HtmxAsyncLoad cache exclusion (2026-10-23); the upstream capture and
 // render-mode coordination remains unchanged at the .NET 11 commit above.
+// #282 removes retired conditional-rendering commentary (2026-10-23); cache coordination
+// remains unchanged at the exact upstream commits above.
 // The started-response guard on the Server/Auto Cache-Control header (#269, synchronized 2026-10-02)
 // reimplements EndpointHtmlRenderer.Streaming.cs WriteComponentHtml, identical at v10.0.13
 // (4099f83977f4d29604a9aeb971fb0a7bc1d5f699) and v11.0.0-rc.2.26504.105 (820230c386db5b0106c5430b3e5aee92a7826bf5):
@@ -866,11 +868,8 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		return false;
 	}
 
-	// A named HtmxFragment does not belong here: nothing selects a fragment on an ordinary request, and an
-	// htmx request no longer caches at all. IConditionalRender does not belong here either, and naming the
-	// interface was measured to cost ordinary-request parity -- HtmxLayoutComponentBase implements it with a
-	// constant ShouldOutput, and docs/index.md teaches that type as the layout, so every boundary beneath a
-	// layout would stop caching.
+	// Named fragments do not exclude ordinary-request caching: selection only applies to direct
+	// htmx responses, which do not cache.
 	private static bool IsRequestVarying(IComponent component)
 		=> component is HtmxorEndpointCandidateRenderModeBoundary;
 
@@ -888,8 +887,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 
 		// Stock's refusal guard is consulted first, and deliberately before Htmxor's own discard: it raises for
 		// a component that opted out with CacheBehavior.Throw whose vary dimensions do not match, and that
-		// refusal must still happen for a component Htmxor would have discarded anyway, since an application
-		// type can be both an IConditionalRender and CacheBehavior.Throw.
+		// refusal must still happen even when Htmxor would otherwise discard the capture.
 		//
 		// Upstream also conjoins allowBoundaryMarkers. The only caller passing it false writes to the
 		// streaming-update writer, never a capture writer, so the term cannot change this decision today; it is

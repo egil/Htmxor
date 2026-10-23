@@ -1,5 +1,5 @@
+@inject HtmxContext Htmx
 @page "/counter"
-@inherits ConditionalComponentBase
 <PageTitle>Counter</PageTitle>
 <AntiforgeryToken />
 
@@ -8,30 +8,33 @@
     This is a htmx enabled counter.
 </p>
 <p>
-    During an htmx request, ordinary elements in this component, including this paragraph, are not rendered because the component
-    inherits from <code>ConditionalComponentBase</code>. Child components such as <code>HtmxFragment</code>
-    render their markup during both htmx and standard requests.
-</p>
-<p>
-    This declaratively enables the concept <a href="https://htmx.org/essays/template-fragments/" target="_blank">template fragments</a>.
+    On a partial request, this component selects its named counter fragment. Blazor renders
+    the component tree before Htmxor returns only that fragment's markup.
 </p>
 
-<div id="counter">
-    <HtmxFragment>
-        <p role="status">
-            Current count: @CurrentCount
-        </p>
-        <button class="btn btn-primary"
-                hx-put="/counter"
-                hx-vals='{ "CurrentCount": @(CurrentCount) }'
-                hx-target="#counter"
-                @onput="IncrementCount">
-            Click me
-        </button>
-    </HtmxFragment>
-</div>
+<HtmxFragment Name="counter" Id="counter">
+    <p role="status">
+        Current count: @CurrentCount
+    </p>
+    <button class="btn btn-primary"
+            hx-put="/counter"
+            hx-vals='{ "CurrentCount": @(CurrentCount) }'
+            hx-target="#counter"
+            hx-swap="outerHTML"
+            @onput="IncrementCount">
+        Click me
+    </button>
+</HtmxFragment>
 
 @code {
+    protected override void OnParametersSet()
+    {
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        {
+            Htmx.Response.SelectFragment("counter");
+        }
+    }
+
     [SupplyParameterFromForm]
     private int CurrentCount { get; set; }
 

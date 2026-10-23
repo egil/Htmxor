@@ -1,6 +1,14 @@
-@inherits ConditionalComponentBase
+@inject HtmxContext Htmx
 @page "/examples/infinite-scroll"
 @code {
+    protected override void OnParametersSet()
+    {
+        if (Htmx.Request.RoutingMode is RoutingMode.Direct)
+        {
+            Htmx.Response.SelectFragment("contacts");
+        }
+    }
+
     private const int PageSize = 20;
     private IEnumerable<Contact> contacts = Enumerable.Empty<Contact>();
 
@@ -28,7 +36,7 @@
         </tr>
     </thead>
     <tbody>
-        <HtmxFragment>
+        <HtmxFragment Name="contacts">
             @foreach (var contact in contacts)
             {
                 <tr>

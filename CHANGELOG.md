@@ -2,6 +2,8 @@
 
 ## Breaking changes
 
+- `ConditionalComponentBase` and `IConditionalRender` have been removed, including `HtmxLayoutComponentBase.ShouldOutput`. Use plain components with named `HtmxFragment` content and select it through `HtmxContext.Response.SelectFragment` or `SelectFragments` on direct requests. No compatibility shim is provided; selection changes output, not component lifecycle work.
+
 - `HtmxAsyncLoad` has been removed. Migrate to raw `hx-get`, `hx-trigger="load"`, and `hx-swap="outerHTML"` markup targeting an `HtmxRoute` component or named `HtmxFragment` that returns only the panel. Ordinary `CacheView` behavior for other compositions is unchanged.
 - Unsupported route and action declarations that previously reported broad `HTMXOR001` or `HTMXOR002` errors now report stable, cause-specific `HTMXOR004`–`HTMXOR043` errors at the authored source location ([#181](https://github.com/egil/Htmxor/issues/181)). `HTMXOR003` remains the normal-only route diagnostic. Compiler-owned and previously removed causes do not get new Htmxor IDs.
 - Every compiled Razor `@onpost`, `@onput`, `@onpatch`, `@ondelete`, `@onquery`, or `@onget` binding is validated. A POST, PUT, PATCH, DELETE, or QUERY binding that inference misses now fails the build at its Razor location with HTMXOR042 instead of silently answering 405. An `@onget` declaration reports HTMXOR015 because GET needs no action declaration; a compiled `@onget` binding with no matching declaration reports HTMXOR042. An action for another handler on the same component and method does not cover the binding. The check includes element and component tags and does not exempt `[DisableHtmxDirectRouting]` components ([#310](https://github.com/egil/Htmxor/issues/310)).
