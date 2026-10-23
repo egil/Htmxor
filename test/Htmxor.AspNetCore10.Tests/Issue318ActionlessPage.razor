@@ -1,0 +1,11 @@
+@attribute [Htmxor.HtmxRoute("/issue-318/actionless", Methods = new[] { "PUT", "PATCH", "DELETE" })]
+@inject Issue318Probe Probe
+
+<output data-action="none">Current count: @CurrentCount</output>
+
+@code {
+    [SupplyParameterFromForm] private int CurrentCount { get; set; }
+
+    protected override void OnInitialized() => Probe.Initializations++;
+    protected override void OnParametersSet() => Probe.BoundCount = CurrentCount;
+}

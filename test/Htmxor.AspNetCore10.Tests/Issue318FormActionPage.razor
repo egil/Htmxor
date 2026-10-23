@@ -1,0 +1,40 @@
+@attribute [Htmxor.HtmxRoute("/issue-318/actions")]
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue318Probe Probe
+
+<AntiforgeryToken />
+<button @onpost="Post">Post</button>
+<button @onput="Put">Put</button>
+<button @onpatch="Patch">Patch</button>
+<button @ondelete="Delete">Delete</button>
+<output data-action="@action">Current count: @CurrentCount</output>
+
+@code {
+    [SupplyParameterFromForm]
+    private int CurrentCount
+    {
+        get => currentCount;
+        set
+        {
+            Probe.FormAssignments++;
+            currentCount = value;
+        }
+    }
+    private int currentCount;
+    private string action = "none";
+
+    protected override void OnInitialized() => Probe.Initializations++;
+    protected override void OnParametersSet() => Probe.BoundCount = CurrentCount;
+
+    private void Post() => Increment("POST");
+    private void Put() => Increment("PUT");
+    private void Patch() => Increment("PATCH");
+    private void Delete() => Increment("DELETE");
+
+    private void Increment(string method)
+    {
+        Probe.Callbacks++;
+        action = method;
+        CurrentCount++;
+    }
+}
