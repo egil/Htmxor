@@ -1,11 +1,13 @@
 using Htmxor.Http;
+using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Matching;
+using Microsoft.Extensions.Logging;
 
 namespace Htmxor.Builder;
 
-internal sealed class HtmxorDirectEndpointMatcherPolicy : MatcherPolicy, IEndpointSelectorPolicy
+internal sealed partial class HtmxorDirectEndpointMatcherPolicy(ILogger<HtmxorDirectEndpointMatcherPolicy> logger) : MatcherPolicy, IEndpointSelectorPolicy
 {
 	public override int Order => int.MinValue + 150;
 
@@ -45,9 +47,15 @@ internal sealed class HtmxorDirectEndpointMatcherPolicy : MatcherPolicy, IEndpoi
 				}
 
 				var routeMetadata = candidates[index].Endpoint.Metadata.GetMetadata<EndpointMetadata>();
-				if (routeMetadata is not null && !routeMetadata.IsValidFor(htmxRequest))
+				if (routeMetadata is not null && !routeMetadata.IsValidFor(htmxRequest, out var rejection))
 				{
 					candidates.SetValidity(index, false);
+					if (rejection is { } reason)
+					{
+						var componentType = candidates[index].Endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type;
+						RepresentationFilterRejected(logger, componentType, reason.Filter, reason.DeclaredValue,
+							reason.RequestValueAbsent ? "absent" : "different");
+					}
 				}
 			}
 
@@ -65,4 +73,7 @@ internal sealed class HtmxorDirectEndpointMatcherPolicy : MatcherPolicy, IEndpoi
 
 		return Task.CompletedTask;
 	}
+
+	[LoggerMessage(1, LogLevel.Debug, "Component '{componentType}' rejected by representation filter '{filter}' with declared value '{declaredValue}': request value is {requestValueState}.", EventName = nameof(RepresentationFilterRejected))]
+	private static partial void RepresentationFilterRejected(ILogger logger, Type? componentType, string filter, string declaredValue, string requestValueState);
 }
