@@ -108,6 +108,7 @@ public sealed class UpstreamMonitorPolicyTests
 				"src/Components/Endpoints/src/Discovery/IRazorComponentApplication.cs|file|none|depends-on-behaviour|src/Htmxor/Builder/HtmxorRoutePageAssembly.cs|",
 				"src/Components/Endpoints/src/Discovery/PageCollectionBuilder.cs|file|none|depends-on-behaviour|src/Htmxor/Builder/HtmxorComponentEndpointRouteBuilderExtensions.cs|",
 				"src/Components/Endpoints/src/FormMapping/HttpContextFormDataProvider.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs|",
+				"src/Components/Endpoints/src/FormMapping/HttpContextFormValueMapper.cs|file|none|depends-on-behaviour|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs|",
 				"src/Components/Endpoints/src/Forms/EndpointAntiforgeryStateProvider.cs|file|none|private-accesses|src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs|",
 				"src/Components/Endpoints/src/IRazorComponentEndpointInvoker.cs|file|interface|implements|src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs,src/Htmxor/IHtmxorComponentEndpointInvoker.cs|",
 				"src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs|file|none|reimplements|src/Htmxor/Endpoints/HtmxorComponentEndpointInvoker.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidate.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateFormRequest.cs,src/Htmxor/Endpoints/HtmxorEndpointCandidateFormServices.cs|",
