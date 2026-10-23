@@ -6,12 +6,6 @@
 
 <p>This component demonstrates showing lazy loaded data.</p>
 
-<HtmxAsyncLoad Element="table" Id="weather-data" class="table">
-    <Loading>
-        <PageTitle>Weather - Loading data, please wait ...</PageTitle>
-        <caption>Loading data . . .</caption>
-    </Loading>
-    <ChildContent>
-        <WeatherData />
-    </ChildContent>
-</HtmxAsyncLoad>
+<div hx-get="/weather/data" hx-trigger="load" hx-swap="outerHTML">
+    <p role="status">Loading weather data...</p>
+</div>

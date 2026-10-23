@@ -423,15 +423,15 @@ builds, reached through shared helpers and sometimes positional arguments — so
 below is still a human judgement, but one that can no longer drift unnoticed from the
 suite's size.
 
-Paired cases in the same suite: 24.
+The live inventory below excludes the four async-load cases removed by #281. The
+historical discussion and inversion evidence elsewhere in this section describe #219.
+
+Paired cases in the same suite: 23.
 
 - `A_boundary_holding_an_interactive_render_mode_boundary_stores_nothing`
-- `A_boundary_inside_an_async_loads_loading_content_stores_nothing`
 - `A_cache_view_beneath_an_interactive_render_mode_boundary_stores_nothing`
 - `A_keyed_boundary_is_not_served_another_keys_entry`
-- `A_nested_boundary_beneath_an_async_load_raises_the_frameworks_refusal`
 - `A_sibling_of_a_boundary_that_stores_nothing_still_caches`
-- `An_async_load_placeholder_carries_the_path_of_the_request_that_asked_for_it`
 - `An_htmx_request_does_not_reuse_an_entry_stored_for_the_ordinary_representation`
 - `An_htmx_request_is_not_cached_and_is_not_served_an_ordinary_entry`
 - `An_htmx_response_header_set_during_render_reaches_every_request`

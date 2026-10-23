@@ -1,4 +1,6 @@
-<PageTitle>Weather - data loaded</PageTitle>
+@attribute [HtmxRoute("/weather/data")]
+
+<table id="weather-data" class="table">
 <thead>
     <tr>
         <th>Date</th>
@@ -18,12 +20,13 @@
         </tr>
     }
 </tbody>
+</table>
 @code {
     private WeatherForecast[] forecasts = [];
 
     protected override async Task OnInitializedAsync()
     {
-        // Simulate asynchronous loading to demonstrate streaming rendering
+        // Simulate a slow data source for the lazy-load example.
         await Task.Delay(2000);
 
         var startDate = DateOnly.FromDateTime(DateTime.Now);
