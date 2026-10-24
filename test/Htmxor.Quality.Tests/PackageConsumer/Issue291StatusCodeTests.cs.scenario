@@ -156,6 +156,48 @@ public sealed class Issue291StatusCodeTests(ITestOutputHelper output)
     }
 
     [Theory]
+    [InlineData(204, 304, false)]
+    [InlineData(204, 304, true)]
+    [InlineData(304, 204, false)]
+    [InlineData(304, 204, true)]
+    public async Task Raw_forbidden_status_overriding_API_status_retains_stock_write_rejection(int initial, int final, bool htmx)
+    {
+        await using var stock = await Issue291Host.StartAsync(htmxor: false);
+        await using var candidate = await Issue291Host.StartAsync();
+
+        var expected = await stock.GetAsync($"Status={initial}&FinalStatus={final}&Mode=mixed", htmx, output);
+        var actual = await candidate.GetAsync($"Status={initial}&FinalStatus={final}&Mode=mixed", htmx, output);
+
+        Assert.Equal((HttpStatusCode)final, expected.Status);
+        Assert.Equal(expected.Status, actual.Status);
+        Assert.Equal(expected.Body, actual.Body);
+        Assert.Empty(actual.Body);
+        Assert.Equal("retained", actual.Headers["X-Status-Probe"]);
+        var message = $"Writing to the response body is invalid for responses with status code {final}.";
+        Assert.Contains(stock.Logs.Exceptions, exception => exception is InvalidOperationException && exception.Message == message);
+        Assert.Contains(candidate.Logs.Exceptions, exception => exception is InvalidOperationException && exception.Message == message);
+    }
+
+    [Theory]
+    [InlineData(204, 304, "empty")]
+    [InlineData(204, 304, "navigation")]
+    [InlineData(304, 204, "empty")]
+    [InlineData(304, 204, "navigation")]
+    public async Task Raw_forbidden_status_overriding_API_status_retains_independent_suppression(int initial, int final, string seed)
+    {
+        await using var host = await Issue291Host.StartAsync();
+
+        var response = await host.GetAsync($"Status={initial}&FinalStatus={final}&Mode=mixed&Seed={seed}", true, output);
+
+        Assert.Equal((HttpStatusCode)final, response.Status);
+        Assert.Empty(response.Body);
+        Assert.Equal("retained", response.Headers["X-Status-Probe"]);
+        Assert.Equal(seed == "navigation", response.Headers.ContainsKey("HX-Location"));
+        Assert.Empty(host.Logs.Exceptions);
+        Assert.Empty(host.Logs.Errors);
+    }
+
+    [Theory]
     [InlineData(204, false)]
     [InlineData(204, true)]
     [InlineData(304, false)]

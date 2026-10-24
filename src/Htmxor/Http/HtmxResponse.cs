@@ -40,7 +40,7 @@ public sealed partial class HtmxResponse
 	private readonly bool isHtmxRequest;
 	private bool explicitEmptyResponseBodyRequested;
 	private bool navigationSuppressesResponseBody;
-	private bool statusCodeSuppressesResponseBody;
+	private int? bodyForbiddenStatusCode;
 
 	internal HtmxResponse(HttpContext context)
 	{
@@ -51,8 +51,7 @@ public sealed partial class HtmxResponse
 
 	internal bool EmptyResponseBodyRequested
 		=> explicitEmptyResponseBodyRequested || navigationSuppressesResponseBody ||
-			(statusCodeSuppressesResponseBody &&
-				context.Response.StatusCode is StatusCodes.Status204NoContent or StatusCodes.Status304NotModified);
+			bodyForbiddenStatusCode == context.Response.StatusCode;
 
 	internal bool SuppressResponseBodyWrite()
 	{
@@ -73,7 +72,7 @@ public sealed partial class HtmxResponse
 	{
 		explicitEmptyResponseBodyRequested = false;
 		navigationSuppressesResponseBody = false;
-		statusCodeSuppressesResponseBody = false;
+		bodyForbiddenStatusCode = null;
 	}
 
 	internal void CompleteRenderExecution()
@@ -86,7 +85,7 @@ public sealed partial class HtmxResponse
 		{
 			explicitEmptyResponseBodyRequested = false;
 			navigationSuppressesResponseBody = false;
-			statusCodeSuppressesResponseBody = false;
+			bodyForbiddenStatusCode = null;
 		}
 	}
 
@@ -112,7 +111,9 @@ public sealed partial class HtmxResponse
 		}
 
 		context.Response.StatusCode = (int)statusCode;
-		statusCodeSuppressesResponseBody = statusCode is HttpStatusCode.NoContent or HttpStatusCode.NotModified;
+		bodyForbiddenStatusCode = statusCode is HttpStatusCode.NoContent or HttpStatusCode.NotModified
+			? (int)statusCode
+			: null;
 		return this;
 	}
 

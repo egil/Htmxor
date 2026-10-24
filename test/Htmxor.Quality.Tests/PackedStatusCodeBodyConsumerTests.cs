@@ -21,7 +21,7 @@ public sealed class PackedStatusCodeBodyConsumerTests
 		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
 		NamedSelectionEvidence.AssertPackageTarget(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
 		Assert.True(result.ExitCode == 0, result.StandardOutput + Environment.NewLine + result.StandardError);
-		Assert.Equal(new TrxTestRun(66, 66, 66, 0, 0, 0, 0), tests);
+		Assert.Equal(new TrxTestRun(74, 74, 74, 0, 0, 0, 0), tests);
 	}
 }
 

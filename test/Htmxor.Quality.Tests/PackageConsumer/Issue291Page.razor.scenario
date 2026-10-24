@@ -37,12 +37,13 @@
             return;
         }
 
-        if (Mode == "transition")
+        if (Mode == "transition" || Mode == "mixed")
         {
             if (Seed == "empty") response.EmptyBody();
             if (Seed == "navigation") response.Location("/existing-location");
             response.StatusCode((HttpStatusCode)Status);
-            response.StatusCode((HttpStatusCode)FinalStatus);
+            if (Mode == "mixed") HttpContext.Response.StatusCode = FinalStatus;
+            else response.StatusCode((HttpStatusCode)FinalStatus);
             return;
         }
 
