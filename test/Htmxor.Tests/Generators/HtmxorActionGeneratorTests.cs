@@ -114,7 +114,11 @@ public sealed class HtmxorActionGeneratorTests
 				string httpMethod,
 				string handlerIdentity,
 				bool usesStockRoute,
-				Type? routeProcessorType = null);
+				Type? routeProcessorType = null)
+			{
+				public static global::Htmxor.HtmxEventArgs CreateEventArgs(global::Htmxor.Http.HtmxContext context)
+					=> new(context);
+			}
 		}
 
 		namespace Htmxor.Endpoints

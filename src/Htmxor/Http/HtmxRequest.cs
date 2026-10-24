@@ -76,7 +76,7 @@ public sealed class HtmxRequest
 	/// <summary>
 	/// Creates a new instance of <see cref="HtmxRequest"/>.
 	/// </summary>
-	public HtmxRequest(HttpContext context)
+	internal HtmxRequest(HttpContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		headers = context.Request.Headers;

@@ -79,6 +79,6 @@ public partial class Issue87Page
 	private async Task InvokeAsync(Action<HtmxEventArgs> handler)
 	{
 		var callback = EventCallback.Factory.Create(this, handler);
-		await callback.InvokeAsync(new HtmxEventArgs(HttpContext.GetHtmxContext()));
+		await callback.InvokeAsync(HtmxorGeneratedComponentAction.CreateEventArgs(HttpContext.GetHtmxContext()));
 	}
 }

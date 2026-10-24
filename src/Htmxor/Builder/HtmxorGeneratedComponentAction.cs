@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Htmxor.Http;
 
 namespace Htmxor.Builder;
 
@@ -32,6 +33,9 @@ public sealed class HtmxorGeneratedComponentAction
 		UsesStockRoute = usesStockRoute;
 		RouteProcessorType = routeProcessorType;
 	}
+
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	public static HtmxEventArgs CreateEventArgs(HtmxContext context) => new(context);
 
 	internal Type ComponentType { get; }
 

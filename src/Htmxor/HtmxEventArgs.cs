@@ -8,7 +8,7 @@ public class HtmxEventArgs : EventArgs
 
 	public HtmxResponse Response { get; }
 
-	public HtmxEventArgs(HtmxContext context)
+	internal HtmxEventArgs(HtmxContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		Request = context.Request;
