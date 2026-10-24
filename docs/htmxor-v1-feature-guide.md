@@ -676,18 +676,43 @@ The other currently exposed server response operations are:
 | `Reselect(string)` | `HX-Reselect` | Override the complete response-selection value |
 | `Trigger(...)` | `HX-Trigger` | Dispatch one or more client events through one compact JSON object |
 | `SetExtensionHeader(name, value)` | One application-owned `HX-*` field | Exchange a bounded opaque extension value |
-| `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics |
+| `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics on any request |
 | `EmptyBody()` | Empty HTTP body | Return only status, headers, cookies, and other metadata |
 
-On a valid htmx request, `StatusCode(HttpStatusCode)` remains the general
-explicit HTTP status operation. It still requires Htmxor's strict normalized
-`HX-Request: true` marker; for a normal request, use
-`HttpContext.Response.StatusCode`. Neither path assigns polling meaning to a
+`StatusCode(HttpStatusCode)` sets `HttpContext.Response.StatusCode` on any
+request, including an ordinary form POST without JavaScript. A named
+`EditForm` callback can call `Htmx.Response.StatusCode(HttpStatusCode.UnprocessableEntity)`
+to return 422 with validation markup on both ordinary and htmx submissions.
+No htmx marker is required. The operation assigns no polling meaning to a
 number, so an application may deliberately use numeric 286. Htmxor exposes
 neither a polling status constant nor a `StopPolling()` helper. The fifth
 bounded #154 slice proves this public surface through focused and packed tests
 and proves the native replacement pattern at the Production Kestrel/Chromium
 boundary.
+
+Server fragment-selection operations (`SelectFragment`, `SelectFragments`, and
+`SelectWholeComponent`) can also be called on any request; ordinary requests
+still render the whole component. Response-header operations, including navigation,
+`Trigger`, `Reswap`, `Retarget`, `Reselect`, and `SetExtensionHeader`, plus `EmptyBody`,
+retain the strict `HX-Request: true` marker guard. Calling a guarded operation
+on a normal request throws `InvalidOperationException`
+without changing response state. In a progressively enhanced handler, branch
+before calling an htmx-only operation and provide the ordinary-request behavior:
+
+```csharp
+if (Htmx.Request.IsHtmxRequest)
+{
+    Htmx.Response.Location("/orders/42");
+}
+else
+{
+    Navigation.NavigateTo("/orders/42");
+}
+```
+
+Here `Navigation` is the component's injected Blazor `NavigationManager`.
+Use the same request branch for optional client events or swap/body overrides;
+ordinary submissions can render their normal page and validation output.
 
 ### Trigger response events
 
@@ -1173,8 +1198,9 @@ the second column.
 | Response `HX-Replace-Url` | `Response.ReplaceUrl(string/Uri)` or `PreventBrowserCurrentUrlUpdate()` | ASCII-safe URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
 | Response `HX-Push-Url` | `Response.PushUrl(string/Uri)` or `PreventBrowserHistoryUpdate()` | ASCII-safe URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
 
-All response operations require exactly one normalized lowercase `HX-Request:
-true`; invalid input is validated before that guard and changes no response
+Response-header operations and `EmptyBody` require exactly one normalized lowercase
+`HX-Request: true`; `StatusCode` and server fragment selection do not require the
+marker. Invalid input is validated before the guard and changes no response
 state. The five navigation headers are mutually exclusive and last-call-wins;
 swap and selection headers are independent; trigger calls merge only Htmxor-owned
 events. `StatusCode`, `EmptyBody`, `SetExtensionHeader`, and general

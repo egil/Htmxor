@@ -10,8 +10,9 @@ using Microsoft.Extensions.Options;
 namespace Htmxor.Http;
 
 /// <summary>
-/// Provides htmx response operations. Core response-header operations require a request
-/// with exactly one normalized <c>HX-Request: true</c> marker.
+/// Provides response operations. <see cref="StatusCode"/> and server fragment selection
+/// can be called on any request. Response-header operations and <see cref="EmptyBody"/>
+/// require exactly one normalized <c>HX-Request: true</c> marker.
 /// </summary>
 /// <remarks>
 /// Navigation operations validate their arguments before checking the htmx request marker,
@@ -85,12 +86,12 @@ public sealed partial class HtmxResponse
 	}
 
 	/// <summary>
-	/// Sets the response status code to <paramref name="statusCode"/>.
+	/// Sets the response status code to <paramref name="statusCode"/> on any request,
+	/// including an ordinary request without an htmx marker.
 	/// </summary>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse StatusCode(HttpStatusCode statusCode)
 	{
-		AssertIsHtmxRequest();
 		context.Response.StatusCode = (int)statusCode;
 		return this;
 	}
@@ -509,7 +510,7 @@ public sealed partial class HtmxResponse
 		{
 			throw new InvalidOperationException(
 				"The active request is not an htmx request. " +
-				"Setting response headers during request has no effect.");
+				"This response operation requires the HX-Request: true header.");
 		}
 	}
 }
