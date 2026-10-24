@@ -811,11 +811,27 @@ internal static class PackagePublicSurface
 			var signature = method.DecodeSignature(provider, context);
 			var displayName = name + FormatGenericParameters(context.MethodParameters);
 			var displaySignature = $"{signature.ReturnType} {displayName}({string.Join(", ", signature.ParameterTypes)})";
+			displaySignature += FormatAuthoringParameterNames(reader, type, method, name);
 			var kind = name is ".ctor" or ".cctor" ? "Constructor" : "Method";
 			var kindOrder = kind == "Constructor" ? 1 : 4;
 			var shape = FormatMethodShape(method.Attributes, method.GetGenericParameters().Count, signature.ParameterTypes.Length);
 			yield return new(kindOrder, name, displaySignature, $"  {kind} [{shape}] {displaySignature}");
 		}
+	}
+
+	private static string FormatAuthoringParameterNames(
+		MetadataReader reader, TypeDefinition type, MethodDefinition method, string name)
+	{
+		if (reader.GetString(type.Namespace) != "Htmxor.Http" ||
+			reader.GetString(type.Name) != "HtmxResponse" || name is not ("Location" or "Reswap"))
+		{
+			return string.Empty;
+		}
+
+		var parameterNames = method.GetParameters().Select(reader.GetParameter)
+			.Where(static parameter => parameter.SequenceNumber > 0)
+			.Select(parameter => reader.GetString(parameter.Name));
+		return $" [parameterNames={string.Join(",", parameterNames)}]";
 	}
 
 	private static IEnumerable<SurfaceMember> GetEvents(

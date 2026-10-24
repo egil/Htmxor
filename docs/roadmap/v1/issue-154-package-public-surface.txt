@@ -7,7 +7,8 @@ Inspection command:
 
 The repository-owned test command lists every exported public Htmxor type and its declared public
 constructors, events, fields, methods, nested types, and properties, including
-required and optional signature modifiers. Inherited
+required and optional signature modifiers. The Location and Reswap parameter names
+are retained for the named-argument contract introduced by #293. Inherited
 members are not repeated. The package contains the following complete
 allow-list at the audited package head:
 
@@ -125,8 +126,8 @@ TYPE Htmxor.Http.HtmxRequestType [kind=enum;abstract=False;sealed=True;genericAr
   Field [visibility=public;static=False;literal=False;readonly=False] Int32 value__
 TYPE Htmxor.Http.HtmxResponse [kind=class;abstract=False;sealed=True;genericArity=0;base=System.Object]
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse EmptyBody()
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Location(System.String)
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Location(System.Uri)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Location(System.String) [parameterNames=url]
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Location(System.Uri) [parameterNames=url]
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse PreventBrowserCurrentUrlUpdate()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse PreventBrowserHistoryUpdate()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse PushUrl(System.String)
@@ -137,15 +138,20 @@ TYPE Htmxor.Http.HtmxResponse [kind=class;abstract=False;sealed=True;genericArit
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse ReplaceUrl(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse ReplaceUrl(System.Uri)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Reselect(System.String)
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Reswap(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Reswap(System.String) [parameterNames=value]
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Retarget(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse SelectFragment(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse SelectFragments(System.String[])
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Htmxor.Http.HtmxResponse SelectWholeComponent()
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=2] Htmxor.Http.HtmxResponse SetExtensionHeader(System.String, System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse StatusCode(Int32)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse StatusCode(System.Net.HttpStatusCode)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Htmxor.Http.HtmxResponse Trigger(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=1;parameters=3] Htmxor.Http.HtmxResponse Trigger[TEventDetail](System.String, TEventDetail, System.Text.Json.JsonSerializerOptions)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Boolean TryLocation(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Boolean TryPushUrl(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Boolean TryRedirect(System.String)
+  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=1] Boolean TryReplaceUrl(System.String)
   Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.Collections.Generic.IReadOnlyList`1[System.String] get_SelectedFragmentNames()
   Property [visibility=public|none;static=False;get=public,instance;set=none] System.Collections.Generic.IReadOnlyList`1[System.String] SelectedFragmentNames
 TYPE Htmxor.Http.HtmxResponseHeaderNames [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]

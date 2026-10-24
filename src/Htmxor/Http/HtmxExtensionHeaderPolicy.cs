@@ -28,6 +28,19 @@ internal static class HtmxExtensionHeaderPolicy
 		HtmxResponseHeaderNames.Trigger,
 	};
 
+	private static readonly Dictionary<string, string> ResponseOperations = new(StringComparer.OrdinalIgnoreCase)
+	{
+		[HtmxResponseHeaderNames.Location] = nameof(HtmxResponse.Location),
+		[HtmxResponseHeaderNames.PushUrl] = nameof(HtmxResponse.PushUrl),
+		[HtmxResponseHeaderNames.Redirect] = nameof(HtmxResponse.Redirect),
+		[HtmxResponseHeaderNames.Refresh] = nameof(HtmxResponse.Refresh),
+		[HtmxResponseHeaderNames.ReplaceUrl] = nameof(HtmxResponse.ReplaceUrl),
+		[HtmxResponseHeaderNames.Reswap] = nameof(HtmxResponse.Reswap),
+		[HtmxResponseHeaderNames.Retarget] = nameof(HtmxResponse.Retarget),
+		[HtmxResponseHeaderNames.Reselect] = nameof(HtmxResponse.Reselect),
+		[HtmxResponseHeaderNames.Trigger] = nameof(HtmxResponse.Trigger),
+	};
+
 	public static bool TryGetRequestValue(StringValues values, out string value)
 	{
 		value = string.Empty;
@@ -55,7 +68,7 @@ internal static class HtmxExtensionHeaderPolicy
 		if (!IsAllowedName(name))
 		{
 			throw new ArgumentException(
-				"The extension header name must be an unprotected HX-* HTTP field name within the size limit.",
+				GetNameError(name),
 				nameof(name));
 		}
 
@@ -65,6 +78,26 @@ internal static class HtmxExtensionHeaderPolicy
 				"The extension header value must be header-safe, well-formed UTF-16, and within the size limit.",
 				nameof(value));
 		}
+	}
+
+	private static string GetNameError(string name)
+	{
+		if (ResponseOperations.TryGetValue(name, out var operation))
+		{
+			return $"Use {operation}(...) for {name}.";
+		}
+
+		if (name.StartsWith("HXOR-", StringComparison.OrdinalIgnoreCase) || ProtectedNames.Contains(name))
+		{
+			return "The header name is reserved for the Htmxor or htmx protocol.";
+		}
+
+		if (!name.StartsWith("HX-", StringComparison.OrdinalIgnoreCase))
+		{
+			return "Use HttpContext.Response.Headers for headers outside the HX-* extension namespace.";
+		}
+
+		return "The extension header name must be an unprotected HX-* HTTP field name within the size limit.";
 	}
 
 	private static bool IsFieldName(string value)
