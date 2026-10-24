@@ -1,6 +1,5 @@
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs | reimplements
-// Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs | mirrors
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -22,6 +21,8 @@
 // CacheView write-path coordination follows the same commit, synchronized 2026-09-16: the capture and
 // descendant-guard branches reimplement EndpointHtmlRenderer.WriteComponentHtml; approved #219 dependencies
 // and their exact sources are in docs/engineering/candidate-form-adapter.md.
+// #237 moves the render-mode capture pause to the boundary's stock cache attribute (2026-10-24);
+// the generic classification path remains based on the .NET 11 commit above.
 // #281 removes the HtmxAsyncLoad cache exclusion (2026-10-23); the upstream capture and
 // render-mode coordination remains unchanged at the .NET 11 commit above.
 // #282 removes retired conditional-rendering commentary (2026-10-23); cache coordination
@@ -868,8 +869,9 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		return false;
 	}
 
-	// Named fragments do not exclude ordinary-request caching: selection only applies to direct
-	// htmx responses, which do not cache.
+	// Discard is separate from stock cacheability: ordinary Rerender components such as AntiforgeryToken
+	// stay live inside reusable entries. Interactive ancestry still needs the representation/key isolation
+	// below because this adapter does not implement stock's interactive component-key override.
 	private static bool IsRequestVarying(IComponent component)
 		=> component is HtmxorEndpointCandidateRenderModeBoundary;
 
@@ -903,22 +905,8 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 			captureAbandoned = true;
 		}
 
-		// Stock's SSRRenderModeBoundary carries [CacheBehavior(Rerender)], so stock pauses at a render-mode
-		// boundary and never validates the prerendered subtree beneath it. Htmxor's boundary carries no such
-		// attribute, so falling through to the ordinary decision validated content stock never reaches, and an
-		// AuthorizeView below one threw where stock renders it. Mirror the answer here instead.
-		//
-		// Deliberately without recording a live cached component. Stock records one so a later hit can render
-		// the excluded component live; Htmxor's boundary does not expose the inner component type that would
-		// need, which is the reason this composition is excluded at all, and the boundary has already marked
-		// the capture abandoned so there is no later hit to render into. The attribute could have been put on
-		// the boundary type instead, which measures identically today, but that answer holds only while the
-		// framework's view and this predicate agree -- and this predicate has narrowed three times.
-		if (component is HtmxorEndpointCandidateRenderModeBoundary)
-		{
-			CacheViewServices.PauseCapture(writer);
-			return writer;
-		}
+		// The boundary's stock CacheBehavior.Rerender attribute makes the framework classification pause
+		// capture here, so descendant validation follows the same decision as other live components.
 
 		if (cacheable)
 		{
