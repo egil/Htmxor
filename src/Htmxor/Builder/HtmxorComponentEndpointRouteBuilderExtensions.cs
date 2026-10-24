@@ -579,12 +579,6 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 	private static async Task InvokeRenderEndpoint(HttpContext context, RequestDelegate renderDelegate)
 	{
 		var htmxContext = context.GetHtmxContext();
-		if (!htmxContext.Request.IsHtmxRequest)
-		{
-			await renderDelegate(context);
-			return;
-		}
-
 		var response = context.Response;
 		var originalBody = response.Body;
 		htmxContext.Response.BeginRenderExecution();

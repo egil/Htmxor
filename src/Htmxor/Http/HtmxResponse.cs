@@ -40,6 +40,7 @@ public sealed partial class HtmxResponse
 	private readonly bool isHtmxRequest;
 	private bool explicitEmptyResponseBodyRequested;
 	private bool navigationSuppressesResponseBody;
+	private int? bodyForbiddenStatusCode;
 
 	internal HtmxResponse(HttpContext context)
 	{
@@ -49,7 +50,8 @@ public sealed partial class HtmxResponse
 	}
 
 	internal bool EmptyResponseBodyRequested
-		=> explicitEmptyResponseBodyRequested || navigationSuppressesResponseBody;
+		=> explicitEmptyResponseBodyRequested || navigationSuppressesResponseBody ||
+			bodyForbiddenStatusCode == context.Response.StatusCode;
 
 	internal bool SuppressResponseBodyWrite()
 	{
@@ -70,6 +72,7 @@ public sealed partial class HtmxResponse
 	{
 		explicitEmptyResponseBodyRequested = false;
 		navigationSuppressesResponseBody = false;
+		bodyForbiddenStatusCode = null;
 	}
 
 	internal void CompleteRenderExecution()
@@ -82,17 +85,35 @@ public sealed partial class HtmxResponse
 		{
 			explicitEmptyResponseBodyRequested = false;
 			navigationSuppressesResponseBody = false;
+			bodyForbiddenStatusCode = null;
 		}
 	}
 
 	/// <summary>
 	/// Sets the response status code to <paramref name="statusCode"/> on any request,
 	/// including an ordinary request without an htmx marker.
+	/// Status 204 or 304 suppresses component output; a later allowed status restores output
+	/// unless independently suppressed by <see cref="EmptyBody"/> or navigation.
 	/// </summary>
+	/// <exception cref="ArgumentException">
+	/// The status is 301, 302, 303, 307, or 308. Use <c>Location(...)</c> or <c>Redirect(...)</c>
+	/// for htmx navigation instead.
+	/// </exception>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
 	public HtmxResponse StatusCode(HttpStatusCode statusCode)
 	{
+		if (statusCode is HttpStatusCode.MovedPermanently or HttpStatusCode.Found or
+			HttpStatusCode.SeeOther or HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect)
+		{
+			throw new ArgumentException(
+				"Redirect statuses are not supported by StatusCode. Use Location(...) or Redirect(...) for htmx navigation.",
+				nameof(statusCode));
+		}
+
 		context.Response.StatusCode = (int)statusCode;
+		bodyForbiddenStatusCode = statusCode is HttpStatusCode.NoContent or HttpStatusCode.NotModified
+			? (int)statusCode
+			: null;
 		return this;
 	}
 

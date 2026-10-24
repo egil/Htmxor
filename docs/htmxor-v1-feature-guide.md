@@ -676,13 +676,22 @@ The other currently exposed server response operations are:
 | `Reselect(string)` | `HX-Reselect` | Override the complete response-selection value |
 | `Trigger(...)` | `HX-Trigger` | Dispatch one or more client events through one compact JSON object |
 | `SetExtensionHeader(name, value)` | One application-owned `HX-*` field | Exchange a bounded opaque extension value |
-| `StatusCode(...)` | HTTP status | Select success, validation, handled-error, or no-content semantics on any request |
+| `StatusCode(...)` | HTTP status; empty body for 204/304 | Select status on any request; rejects redirect statuses 301, 302, 303, 307, and 308 before changing state |
 | `EmptyBody()` | Empty HTTP body | Return only status, headers, cookies, and other metadata |
 
 `StatusCode(HttpStatusCode)` sets `HttpContext.Response.StatusCode` on any
 request, including an ordinary form POST without JavaScript. A named
 `EditForm` callback can call `Htmx.Response.StatusCode(HttpStatusCode.UnprocessableEntity)`
 to return 422 with validation markup on both ordinary and htmx submissions.
+Statuses 204 and 304 suppress component output without logged exceptions, with
+or without an explicit `EmptyBody()` call. A later body-allowed status restores
+output unless `EmptyBody()` or a navigation operation independently suppresses it.
+Redirect statuses 301, 302, 303, 307, and 308 throw `ArgumentException` before
+changing response state, with guidance to use `Location(...)` or `Redirect(...)`
+for htmx navigation. These rules apply to ordinary and htmx requests; the
+navigation operations and `EmptyBody()` retain their htmx marker guard.
+Setting `HttpContext.Response.StatusCode` directly retains stock behavior,
+including the raw status plus `Location` header escape hatch for HTTP redirects.
 No htmx marker is required. The operation assigns no polling meaning to a
 number, so an application may deliberately use numeric 286. Htmxor exposes
 neither a polling status constant nor a `StopPolling()` helper. The fifth
