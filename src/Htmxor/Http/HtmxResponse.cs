@@ -10,8 +10,9 @@ using Microsoft.Extensions.Options;
 namespace Htmxor.Http;
 
 /// <summary>
-/// Provides response operations. <see cref="StatusCode"/> works on any request;
-/// all other operations require exactly one normalized <c>HX-Request: true</c> marker.
+/// Provides response operations. <see cref="StatusCode"/> and server fragment selection
+/// can be called on any request. Response-header operations and <see cref="EmptyBody"/>
+/// require exactly one normalized <c>HX-Request: true</c> marker.
 /// </summary>
 /// <remarks>
 /// Navigation operations validate their arguments before checking the htmx request marker,

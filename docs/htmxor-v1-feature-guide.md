@@ -690,9 +690,12 @@ bounded #154 slice proves this public surface through focused and packed tests
 and proves the native replacement pattern at the Production Kestrel/Chromium
 boundary.
 
-All other `HtmxResponse` operations, including navigation, `Trigger`, `Reswap`,
-`Retarget`, `Reselect`, `SetExtensionHeader`, and `EmptyBody`, retain the strict
-`HX-Request: true` marker guard. A normal request throws `InvalidOperationException`
+Server fragment-selection operations (`SelectFragment`, `SelectFragments`, and
+`SelectWholeComponent`) can also be called on any request; ordinary requests
+still render the whole component. Response-header operations, including navigation,
+`Trigger`, `Reswap`, `Retarget`, `Reselect`, and `SetExtensionHeader`, plus `EmptyBody`,
+retain the strict `HX-Request: true` marker guard. Calling a guarded operation
+on a normal request throws `InvalidOperationException`
 without changing response state. In a progressively enhanced handler, branch
 before calling an htmx-only operation and provide the ordinary-request behavior:
 
@@ -1195,8 +1198,9 @@ the second column.
 | Response `HX-Replace-Url` | `Response.ReplaceUrl(string/Uri)` or `PreventBrowserCurrentUrlUpdate()` | ASCII-safe URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
 | Response `HX-Push-Url` | `Response.PushUrl(string/Uri)` or `PreventBrowserHistoryUpdate()` | ASCII-safe URI reference follows the navigation URI policy; reserved `true`/`false` values are rejected for destinations, and `false` is emitted only by the prevention operation. | Last successful navigation header wins; component output is kept and status is unchanged. |
 
-All response operations except `StatusCode` require exactly one normalized lowercase `HX-Request:
-true`; invalid input is validated before that guard and changes no response
+Response-header operations and `EmptyBody` require exactly one normalized lowercase
+`HX-Request: true`; `StatusCode` and server fragment selection do not require the
+marker. Invalid input is validated before the guard and changes no response
 state. The five navigation headers are mutually exclusive and last-call-wins;
 swap and selection headers are independent; trigger calls merge only Htmxor-owned
 events. `StatusCode`, `EmptyBody`, `SetExtensionHeader`, and general

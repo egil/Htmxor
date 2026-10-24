@@ -31,8 +31,10 @@ For htmx 4 polling, return replacement markup without `hx-get` and
 `hx-trigger` when the work is complete. Htmxor deliberately has no
 `StopPolling` or status-286 helper; `HtmxResponse.StatusCode(HttpStatusCode)`
 sets the HTTP status on both ordinary and htmx requests without requiring an
-`HX-Request` marker. All other `HtmxResponse` operations still require the strict
-`HX-Request: true` marker. An application may deliberately use numeric 286,
+`HX-Request` marker. Server fragment-selection operations can also be called on
+any request; ordinary requests still render the whole component. Response-header
+operations and `EmptyBody` require the strict `HX-Request: true` marker.
+An application may deliberately use numeric 286,
 but it has no polling meaning.
 See the [native polling guidance](docs/htmxor-v1-feature-guide.md#polling).
 
