@@ -26,11 +26,9 @@ public sealed class Issue219CacheInteractiveTests
 		await using var stock = await StartAsync<Issue219InteractiveAuthInsidePage>(htmxor: false);
 		await using var candidate = await StartAsync<Issue219InteractiveAuthInsidePage>(htmxor: true);
 
-		// Stock pauses its capture at a render-mode boundary -- SSRRenderModeBoundary carries
-		// CacheBehavior.Rerender, so IsCacheableComponent answers false for it -- and therefore never validates
-		// the prerendered subtree below. Htmxor's boundary carries no such attribute, so leaving the kind to
-		// fall through to the ordinary cacheable test validates content stock never looks at, and an
-		// AuthorizeView beneath an interactive boundary is refused where stock renders the page.
+		// Both stock's SSRRenderModeBoundary and Htmxor's boundary carry CacheBehavior.Rerender, so the
+		// generic stock IsCacheableComponent decision pauses capture before validating the prerendered subtree.
+		// Without that pause, an AuthorizeView beneath the boundary is refused where stock renders the page.
 		var expected = await ReadAuthorizedAsync(stock, "/issue-219/interactive-auth-inside");
 		var actual = await ReadAuthorizedAsync(candidate, "/issue-219/interactive-auth-inside");
 

@@ -25,6 +25,10 @@
 // https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
 // https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
 
+// CacheBehavior.Rerender follows SSRRenderModeBoundary.cs at v11.0.0-rc.2.26504.105,
+// commit 820230c386db5b0106c5430b3e5aee92a7826bf5, synchronized 2026-10-24 for #237.
+// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs
+
 // Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 
 using System.Diagnostics.CodeAnalysis;
@@ -42,6 +46,9 @@ using Microsoft.AspNetCore.Components.Web;
 
 namespace Htmxor.Endpoints;
 
+#if NET11_0_OR_GREATER
+[CacheBehavior(CacheBehavior.Rerender)]
+#endif
 internal sealed class HtmxorEndpointCandidateRenderModeBoundary(
 	HttpContext context,
 	HtmxorEndpointCandidateFormServices formServices,

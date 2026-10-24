@@ -333,8 +333,9 @@ Synchronized **2026-09-16**, ASP.NET Core **v11.0.0-rc.2.26504.105**, commit
 - [ComponentKeyHelper.cs](https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Shared/src/ComponentKeyHelper.cs): the mirrored key formatting.
 - [EndpointHtmlRenderer.Streaming.cs](https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs): the write-path branch, under the existing renderer watch.
 - [Rendering/SSRRenderModeBoundary.cs](https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs): its `[CacheBehavior(Rerender)]` attribute, which is why stock pauses at a render-mode boundary and never validates the
-  prerendered subtree beneath it. `HtmxorEndpointCandidate.cs` mirrors that answer for its own boundary, so this is a
-  second, separately watched dependency on the same upstream file: `mirrors` alongside the boundary type's `reimplements`.
+  prerendered subtree beneath it. `HtmxorEndpointCandidateRenderModeBoundary.cs` now carries that public stock attribute on .NET 11.
+  Its existing `reimplements` watch covers the attribute as well as boundary coordination; the renderer
+  no longer has a separate `mirrors` dependency on this file.
 
 ### The descendant guard is required, not optional
 
@@ -399,15 +400,19 @@ render-mode boundary it would store prerendered interactive content keyed more w
 than stock keys it, since stock's `SSRRenderModeBoundary` component-key override is not
 mirrored. Beneath an `HtmxAsyncLoad` the reason is the one above.
 
-The two kinds then part company on whether the capture also pauses, because stock does.
-Stock's `SSRRenderModeBoundary` carries `[CacheBehavior(Rerender)]`, so stock pauses at a
-render-mode boundary and never validates the prerendered subtree beneath it; Htmxor's
-boundary carries no such attribute and now mirrors that answer in `HtmxorEndpointCandidate`
-— a second, separately watched dependency on that upstream file. An `HtmxAsyncLoad` is
-marked and falls through instead, so the framework's refusals still run over what it holds:
-pausing there hid the subtree from them, and abandoning without marking left a streaming
-page throwing where stock renders it. All three were measured, and the two render-mode
-cases at the top of `Issue219CacheInteractiveTests` are the tripwire for the pause.
+After #281 removed `HtmxAsyncLoad`, only the interactive boundary exclusion remains.
+For #237, `HtmxorEndpointCandidateRenderModeBoundary` carries stock's
+`[CacheBehavior(Rerender)]` on .NET 11. The generic stock cacheability check now
+owns the capture pause; the renderer's concrete-boundary pause branch is removed.
+The same generic path records live component content for a non-validation capture.
+The enclosing entry is still discarded for interactive boundaries.
+
+Discard and ancestor-key isolation remain separate from the pause decision. Applying
+stock's uncacheable result to discard would also discard entries containing ordinary
+live components such as `AntiforgeryToken`, which must remain reusable. The adapter
+still lacks stock's interactive component-key override, so it retains its specific
+interactive ancestry policy. This refactor converges the pause mechanism; it does not
+claim that all cache storage policy now matches stock.
 
 Discarding alone is not sufficient, because it governs only what is written. The tree
 position therefore also records whether the boundary stands beneath a request-varying
@@ -483,17 +488,13 @@ save and restore** has likewise resisted two proposed compositions. All three be
 observable again if #236 restores the request-varying kinds, and #236 will have to
 re-derive them.
 
-The Htmxor-specific pause was removed rather than left unobservable. Two `PauseCapture`
-call sites remain and both mirror stock: the one that mirrors stock's own second CacheView
-block, and the render-mode boundary's own branch added to match `[CacheBehavior(Rerender)]`.
-Both are measured; neither is an Htmxor-specific policy.
-
-Stock and Htmxor still express the exclusion through two independent mechanisms — an
-attribute on the component against a predicate in the renderer — so they are kept in step
-by hand rather than by construction. That is why three separate repairs in this file each
-fixed one composition and broke an adjacent one. Converging them is **#237**; it is not a
-condition of this slice, whose mirror is measured by the two render-mode cases at the top
-of `Issue219CacheInteractiveTests`.
+The generic `PauseCapture` call now handles the interactive boundary through its
+stock attribute, as it does other components that stock classifies as uncacheable.
+The two held-boundary cases at the top of `Issue219CacheInteractiveTests` preserve
+AuthorizeView rendering and nested-cache rendering. `CacheViewBoundaryMetadataTests`
+pins the attribute declaration. The #237 verification contract additionally removes
+the attribute with the former identity branch absent, requires those hosted cases
+to fail, and restores green. The metadata assertion alone does not prove this dependency.
 
 `VaryByRoute`, `VaryByCookie` and `VaryByCulture` are framework-owned and exercised by no
 command; nothing here claims how they behave, because no command in this slice exercised
@@ -602,7 +603,7 @@ invoker acceptance; public activation does not waive monitoring.
 | [ResourceCollectionProvider.cs (v10.0.13)](https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Shared/src/ResourceCollectionProvider.cs) / [commit](https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Shared/src/ResourceCollectionProvider.cs) | `HtmxorEndpointCandidateFormServices.cs`: private-accesses |
 | [EndpointHtmlRenderer.PrerenderingState.cs (v10.0.13)](https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs) / [commit](https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs) | `HtmxorEndpointCandidate.cs`, `HtmxorEndpointCandidateStateStore.cs`: reimplements |
 | [SSRRenderModeBoundary.cs (v10.0.13)](https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs) / [commit](https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs) | `HtmxorEndpointCandidateRenderModeBoundary.cs`: reimplements |
-| [SSRRenderModeBoundary.cs (v11.0.0-rc.2.26504.105)](https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs) / [commit](https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs) | `HtmxorEndpointCandidate.cs`: mirrors (`[CacheBehavior(Rerender)]`) |
+| [SSRRenderModeBoundary.cs (v11.0.0-rc.2.26504.105)](https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs) / [commit](https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs) | `HtmxorEndpointCandidateRenderModeBoundary.cs`: reimplements (`[CacheBehavior(Rerender)]` on .NET 11) |
 | [ComponentMarker.cs (v10.0.13)](https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Shared/Components/ComponentMarker.cs) / [commit](https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Shared/Components/ComponentMarker.cs) | `HtmxorEndpointCandidateRenderModeBoundary.cs`: reimplements |
 | [ServerComponentSerializer.cs (v10.0.13)](https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Shared/Components/ServerComponentSerializer.cs) / [commit](https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Shared/Components/ServerComponentSerializer.cs) | `HtmxorEndpointCandidateRenderModeBoundary.cs`: reimplements |
 | [PrerenderComponentApplicationStore.cs (v10.0.13)](https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Shared/Components/PrerenderComponentApplicationStore.cs) / [commit](https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Shared/Components/PrerenderComponentApplicationStore.cs) | `HtmxorEndpointCandidateStateStore.cs`: reimplements |
