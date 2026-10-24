@@ -168,7 +168,22 @@ public sealed class HtmxResponseAuthoringTests
 
 		Assert.Equal("name", exception.ParamName);
 		Assert.Contains(guidance, exception.Message, StringComparison.OrdinalIgnoreCase);
+		AssertNoUnrelatedHeaderGuidance(exception.Message, guidance);
 		AssertUnchanged(before, context, response);
+	}
+
+	private static void AssertNoUnrelatedHeaderGuidance(string message, string expectedGuidance)
+	{
+		string[] alternatives =
+		[
+			"Location(", "PushUrl(", "ReplaceUrl(", "Redirect(", "Refresh(",
+			"Reswap(", "Retarget(", "Reselect(", "Trigger(",
+			"reserved", "HttpContext.Response.Headers",
+		];
+		foreach (var alternative in alternatives.Where(value => value != expectedGuidance))
+		{
+			Assert.DoesNotContain(alternative, message, StringComparison.OrdinalIgnoreCase);
+		}
 	}
 
 	[Theory]
