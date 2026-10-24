@@ -85,10 +85,26 @@ Selectors below abbreviate only the method suffix after HtmxResponseAuthoringTes
   equality must fail. Change the resulting status or fragment selection and
   expect the corresponding AssertEquivalent equality to fail. Separately flip
   navigation suppression for Location/Redirect or make PushUrl/ReplaceUrl retain
-  prior navigation suppression; test visible/navigation seeds. Independently
-  discard explicit-empty and API-204 suppression on successful navigation;
-  the empty/status seeds must fail suppression parity. D10/D11, same selector,
-  with one variant per affected observation, followed by restoration.
+  prior navigation suppression; test visible/navigation seeds. D10/D11, same
+  selector, with one variant per affected observation, followed by restoration.
+  For independent explicit-empty and API-selected 204/304 reasons, use D10/D11
+  selector `Try_navigation_preserves_independent_suppression_after_body_retaining_navigation`.
+  Six representative cases seed EmptyBody or API 204/304, invoke TryLocation or
+  TryRedirect, then invoke body-retaining PushUrl or ReplaceUrl. The latter
+  clears navigation suppression, making any loss of the independent reason
+  observable. Keep the throwing navigation oracle and follow-up operation intact.
+  In separate Try-only variants for EACH suppressing method, clear only
+  explicitEmptyResponseBodyRequested, then clear only bodyForbiddenStatusCode,
+  after its successful SetNavigation. The new independent-body-decision True
+  assertion after the history operation must fail for the affected EmptyBody or
+  204/304 rows on BOTH frameworks; the immediate comparison alone can be masked
+  by navigation suppression and is not sufficient evidence. Restore exact source
+  bytes and require this same six-case selector green after every variant.
+  This new seam addresses the executed survivor at implementation 645f49bd;
+  that earlier 352/352-with-fault run remains a failed sensitivity attempt.
+  For the new selector's other assertions, N2's false-after-success fault must
+  fail its first True; N3's independent actual-side status/header/fragment faults
+  must fail the corresponding parity comparison before/after the follow-up.
   For append-instead-of-replace and retained competing headers, use D10/D11 with
   selector `Try_navigation_replaces_multiple_values_and_all_competing_navigation_headers`.
   This focused four-operation fixture seeds two values in ALL five navigation

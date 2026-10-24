@@ -88,6 +88,52 @@ public sealed class HtmxResponseAuthoringTests
 		AssertEquivalent(expected, expectedResponse, actual, actualResponse);
 	}
 
+	[Theory]
+	[InlineData("Location", "PushUrl", null)]
+	[InlineData("Redirect", "ReplaceUrl", null)]
+	[InlineData("Location", "ReplaceUrl", 204)]
+	[InlineData("Redirect", "PushUrl", 204)]
+	[InlineData("Location", "PushUrl", 304)]
+	[InlineData("Redirect", "ReplaceUrl", 304)]
+	public void Try_navigation_preserves_independent_suppression_after_body_retaining_navigation(
+		string operation, string retainingOperation, int? bodyForbiddenStatus)
+	{
+		var expected = CreateContext();
+		var actual = CreateContext();
+		SeedIndependentSuppression(expected, bodyForbiddenStatus);
+		SeedIndependentSuppression(actual, bodyForbiddenStatus);
+		var expectedResponse = expected.GetHtmxContext().Response;
+		var actualResponse = actual.GetHtmxContext().Response;
+		var throwing = RequireOperation<Func<HtmxResponse, string, HtmxResponse>>(operation, typeof(string));
+		var attempt = RequireOperation<Func<HtmxResponse, string, bool>>("Try" + operation, typeof(string));
+		var retainBody = RequireOperation<Func<HtmxResponse, string, HtmxResponse>>(retainingOperation, typeof(string));
+
+		throwing(expectedResponse, "/orders/42");
+		Assert.True(attempt(actualResponse, "/orders/42"));
+		AssertEquivalent(expected, expectedResponse, actual, actualResponse);
+
+		retainBody(expectedResponse, "/orders/history");
+		retainBody(actualResponse, "/orders/history");
+
+		Assert.True(actualResponse.EmptyResponseBodyRequested,
+			"The independent body decision must survive after navigation suppression is cleared.");
+		AssertEquivalent(expected, expectedResponse, actual, actualResponse);
+	}
+
+	private static void SeedIndependentSuppression(HttpContext context, int? bodyForbiddenStatus)
+	{
+		Seed(context, "visible");
+		var response = context.GetHtmxContext().Response;
+		if (bodyForbiddenStatus is { } status)
+		{
+			response.StatusCode((HttpStatusCode)status);
+		}
+		else
+		{
+			response.EmptyBody();
+		}
+	}
+
 	private static void SeedMultipleNavigationHeaders(HttpContext context)
 	{
 		string[] names =
