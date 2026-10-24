@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -10,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace Htmxor.Http;
 
 /// <summary>
-/// Provides response operations. <see cref="StatusCode"/> and server fragment selection
+/// Provides response operations. <see cref="StatusCode(int)"/> and server fragment selection
 /// can be called on any request. Response-header operations and <see cref="EmptyBody"/>
 /// require exactly one normalized <c>HX-Request: true</c> marker.
 /// </summary>
@@ -117,6 +118,9 @@ public sealed partial class HtmxResponse
 		return this;
 	}
 
+	/// <inheritdoc cref="StatusCode(HttpStatusCode)"/>
+	public HtmxResponse StatusCode(int statusCode) => StatusCode((HttpStatusCode)statusCode);
+
 	/// <summary>
 	/// Do not render any component markup to the client, even if the component would have
 	/// produced markup normally. Headers and cookies are still returned as normal.
@@ -149,34 +153,55 @@ public sealed partial class HtmxResponse
 
 	/// <summary>
 	/// Sets <c>HX-Location</c> to the exact relative or same-origin HTTP(S) URI reference
-	/// in <paramref name="path"/> and suppresses component output.
+	/// in <paramref name="url"/> and suppresses component output.
 	/// </summary>
-	/// <param name="path">
+	/// <param name="url">
 	/// The destination. It must be a well-formed relative reference or resolve to the active
 	/// request origin over HTTP(S), and contain only ASCII HTTP-header-safe characters. The value
 	/// is not trimmed or normalized.
 	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
-	public HtmxResponse Location(string path)
+	public HtmxResponse Location(string url)
 	{
-		HtmxNavigationDestinationValidator.ValidateLocal(path, context.Request, nameof(path));
+		HtmxNavigationDestinationValidator.ValidateLocal(url, context.Request, nameof(url));
 		AssertIsHtmxRequest();
-		return SetNavigation(HtmxResponseHeaderNames.Location, path, suppressBody: true);
+		return SetNavigation(HtmxResponseHeaderNames.Location, url, suppressBody: true);
+	}
+
+	/// <summary>
+	/// Applies <see cref="Location(string)"/> when the destination is valid.
+	/// </summary>
+	/// <param name="url">The destination, using the same validation as <see cref="Location(string)"/>.</param>
+	/// <returns><see langword="false"/> without changing response state when the destination is invalid;
+	/// otherwise <see langword="true"/>.</returns>
+	/// <exception cref="InvalidOperationException">The valid destination is used without the required htmx marker.</exception>
+	[SuppressMessage("Design", "CA1054:URI-like parameters should not be strings",
+		Justification = "Issue #293 specifies string-only Try methods to validate unparsed application input.")]
+	public bool TryLocation(string url)
+	{
+		if (!HtmxNavigationDestinationValidator.IsValidLocal(url, context.Request))
+		{
+			return false;
+		}
+
+		AssertIsHtmxRequest();
+		SetNavigation(HtmxResponseHeaderNames.Location, url, suppressBody: true);
+		return true;
 	}
 
 	/// <summary>
 	/// Sets <c>HX-Location</c> to <see cref="Uri.OriginalString"/> from the relative or
-	/// same-origin HTTP(S) <paramref name="path"/> and suppresses component output.
+	/// same-origin HTTP(S) <paramref name="url"/> and suppresses component output.
 	/// </summary>
-	/// <param name="path">
+	/// <param name="url">
 	/// The destination. It must be a well-formed relative reference or resolve to the active
 	/// request origin over HTTP(S), and contain only ASCII HTTP-header-safe characters.
 	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
-	public HtmxResponse Location(Uri path)
+	public HtmxResponse Location(Uri url)
 	{
-		ArgumentNullException.ThrowIfNull(path);
-		return Location(path.OriginalString);
+		ArgumentNullException.ThrowIfNull(url);
+		return Location(url.OriginalString);
 	}
 
 	/// <summary>
@@ -193,6 +218,27 @@ public sealed partial class HtmxResponse
 		HtmxNavigationDestinationValidator.ValidateLocalHistory(url, context.Request, nameof(url));
 		AssertIsHtmxRequest();
 		return SetNavigation(HtmxResponseHeaderNames.PushUrl, url, suppressBody: false);
+	}
+
+	/// <summary>
+	/// Applies <see cref="PushUrl(string)"/> when the destination is valid.
+	/// </summary>
+	/// <param name="url">The destination, using the same validation as <see cref="PushUrl(string)"/>.</param>
+	/// <returns><see langword="false"/> without changing response state when the destination is invalid;
+	/// otherwise <see langword="true"/>.</returns>
+	/// <exception cref="InvalidOperationException">The valid destination is used without the required htmx marker.</exception>
+	[SuppressMessage("Design", "CA1054:URI-like parameters should not be strings",
+		Justification = "Issue #293 specifies string-only Try methods to validate unparsed application input.")]
+	public bool TryPushUrl(string url)
+	{
+		if (!HtmxNavigationDestinationValidator.IsValidLocalHistory(url, context.Request))
+		{
+			return false;
+		}
+
+		AssertIsHtmxRequest();
+		SetNavigation(HtmxResponseHeaderNames.PushUrl, url, suppressBody: false);
+		return true;
 	}
 
 	/// <summary>
@@ -246,6 +292,27 @@ public sealed partial class HtmxResponse
 	}
 
 	/// <summary>
+	/// Applies <see cref="Redirect(string)"/> when the destination is valid.
+	/// </summary>
+	/// <param name="url">The destination, using the same validation as <see cref="Redirect(string)"/>.</param>
+	/// <returns><see langword="false"/> without changing response state when the destination is invalid;
+	/// otherwise <see langword="true"/>.</returns>
+	/// <exception cref="InvalidOperationException">The valid destination is used without the required htmx marker.</exception>
+	[SuppressMessage("Design", "CA1054:URI-like parameters should not be strings",
+		Justification = "Issue #293 specifies string-only Try methods to validate unparsed application input.")]
+	public bool TryRedirect(string url)
+	{
+		if (!HtmxNavigationDestinationValidator.IsValidRedirect(url, context.Request))
+		{
+			return false;
+		}
+
+		AssertIsHtmxRequest();
+		SetNavigation(HtmxResponseHeaderNames.Redirect, url, suppressBody: true);
+		return true;
+	}
+
+	/// <summary>
 	/// Sets <c>HX-Redirect</c> to <see cref="Uri.OriginalString"/> from the relative or
 	/// HTTP(S) <paramref name="url"/> and suppresses component output. Absolute cross-origin
 	/// HTTP(S) destinations are allowed for deliberate full-page navigation.
@@ -286,6 +353,27 @@ public sealed partial class HtmxResponse
 	}
 
 	/// <summary>
+	/// Applies <see cref="ReplaceUrl(string)"/> when the destination is valid.
+	/// </summary>
+	/// <param name="url">The destination, using the same validation as <see cref="ReplaceUrl(string)"/>.</param>
+	/// <returns><see langword="false"/> without changing response state when the destination is invalid;
+	/// otherwise <see langword="true"/>.</returns>
+	/// <exception cref="InvalidOperationException">The valid destination is used without the required htmx marker.</exception>
+	[SuppressMessage("Design", "CA1054:URI-like parameters should not be strings",
+		Justification = "Issue #293 specifies string-only Try methods to validate unparsed application input.")]
+	public bool TryReplaceUrl(string url)
+	{
+		if (!HtmxNavigationDestinationValidator.IsValidLocalHistory(url, context.Request))
+		{
+			return false;
+		}
+
+		AssertIsHtmxRequest();
+		SetNavigation(HtmxResponseHeaderNames.ReplaceUrl, url, suppressBody: false);
+		return true;
+	}
+
+	/// <summary>
 	/// Sets <c>HX-Replace-Url</c> to <see cref="Uri.OriginalString"/> from the relative or
 	/// same-origin HTTP(S) <paramref name="url"/> and retains component output.
 	/// </summary>
@@ -300,18 +388,18 @@ public sealed partial class HtmxResponse
 
 	/// <summary>
 	/// Sets <c>HX-Reswap</c> to the exact complete htmx or extension-defined value in
-	/// <paramref name="modifier"/> without parsing, trimming, or normalizing it.
+	/// <paramref name="value"/> without parsing, trimming, or normalizing it.
 	/// </summary>
-	/// <param name="modifier">
+	/// <param name="value">
 	/// The swap style and any modifiers. It must not be empty or whitespace-only, have
 	/// surrounding whitespace, contain control characters, or contain non-ASCII characters.
 	/// </param>
 	/// <returns>This <see cref="HtmxResponse"/> object instance.</returns>
-	public HtmxResponse Reswap(string modifier)
+	public HtmxResponse Reswap(string value)
 	{
-		ValidateOpenResponseValue(modifier, nameof(modifier));
+		ValidateOpenResponseValue(value, nameof(value));
 		AssertIsHtmxRequest();
-		headers[HtmxResponseHeaderNames.Reswap] = modifier;
+		headers[HtmxResponseHeaderNames.Reswap] = value;
 		return this;
 	}
 

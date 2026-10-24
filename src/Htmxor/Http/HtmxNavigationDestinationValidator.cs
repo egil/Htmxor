@@ -23,6 +23,21 @@ internal static class HtmxNavigationDestinationValidator
 	public static void ValidateRedirect(string destination, HttpRequest request, string argumentName)
 		=> Validate(destination, request, argumentName, allowCrossOrigin: true);
 
+	public static bool IsValidLocal(string? destination, HttpRequest request)
+		=> IsValid(destination, request, allowCrossOrigin: false, history: false);
+
+	public static bool IsValidLocalHistory(string? destination, HttpRequest request)
+		=> IsValid(destination, request, allowCrossOrigin: false, history: true);
+
+	public static bool IsValidRedirect(string? destination, HttpRequest request)
+		=> IsValid(destination, request, allowCrossOrigin: true, history: false);
+
+	private static bool IsValid(string? destination, HttpRequest request, bool allowCrossOrigin, bool history)
+		=> !string.IsNullOrWhiteSpace(destination) &&
+			GetSyntaxError(destination) is null &&
+			(!history || !IsReservedHistoryLiteral(destination)) &&
+			GetPolicyError(destination, request, allowCrossOrigin) is null;
+
 	private static void Validate(
 		string destination,
 		HttpRequest request,
@@ -36,16 +51,22 @@ internal static class HtmxNavigationDestinationValidator
 	private static void ValidateSyntax(string destination, string argumentName)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(destination, argumentName);
+		if (GetSyntaxError(destination) is { } error)
+		{
+			throw new ArgumentException(error, argumentName);
+		}
+	}
+
+	private static string? GetSyntaxError(string destination)
+	{
 		if (char.IsWhiteSpace(destination[0]) || char.IsWhiteSpace(destination[^1]))
 		{
-			throw new ArgumentException("The destination cannot have surrounding whitespace.", argumentName);
+			return "The destination cannot have surrounding whitespace.";
 		}
 
 		if (!HtmxRequestHeaderParser.IsAsciiHeaderSafe(destination))
 		{
-			throw new ArgumentException(
-				"The destination must contain only ASCII HTTP header characters.",
-				argumentName);
+			return "The destination must contain only ASCII HTTP header characters.";
 		}
 
 		var uriKind = destination.StartsWith("//", StringComparison.Ordinal)
@@ -53,8 +74,10 @@ internal static class HtmxNavigationDestinationValidator
 			: UriKind.RelativeOrAbsolute;
 		if (!Uri.TryCreate(destination, uriKind, out var parsed) || !parsed.IsWellFormedOriginalString())
 		{
-			throw new ArgumentException("The destination must be a well-formed URI reference.", argumentName);
+			return "The destination must be a well-formed URI reference.";
 		}
+
+		return null;
 	}
 
 	private static void ValidatePolicy(
@@ -63,16 +86,26 @@ internal static class HtmxNavigationDestinationValidator
 		string argumentName,
 		bool allowCrossOrigin)
 	{
+		if (GetPolicyError(destination, request, allowCrossOrigin) is { } error)
+		{
+			throw new ArgumentException(error, argumentName);
+		}
+	}
+
+	private static string? GetPolicyError(string destination, HttpRequest request, bool allowCrossOrigin)
+	{
 		var requestOrigin = GetRequestOrigin(request);
 		if (!Uri.TryCreate(requestOrigin, destination, out var resolved) || !IsHttpScheme(resolved))
 		{
-			throw new ArgumentException("The destination must use the HTTP or HTTPS scheme.", argumentName);
+			return "The destination must use the HTTP or HTTPS scheme.";
 		}
 
 		if (!allowCrossOrigin && !HasSameOrigin(requestOrigin, resolved))
 		{
-			throw new ArgumentException("The destination must resolve to the active request origin.", argumentName);
+			return "The destination must resolve to the active request origin.";
 		}
+
+		return null;
 	}
 
 	private static Uri GetRequestOrigin(HttpRequest request)
