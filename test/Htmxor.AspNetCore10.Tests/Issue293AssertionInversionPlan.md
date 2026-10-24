@@ -79,8 +79,8 @@ Selectors below abbreviate only the method suffix after HtmxResponseAuthoringTes
   assertion must fail after Boolean equality passes. Restore the oracle before
   any other variant; this is a controlled reversal, not a new URL policy.
 - **N3 — Accepted wire output and body decisions.** Same selector. On the Try
-  path only: omit its header, write a different navigation header, append instead
-  of replacing, and normalize `../orders/%7E42?next=/a/../b` or same-origin
+  path only: omit its header, write a different navigation header,
+  and normalize `../orders/%7E42?next=/a/../b` or same-origin
   original text; run these as separate variants for each operation. Header-array
   equality must fail. Change the resulting status or fragment selection and
   expect the corresponding AssertEquivalent equality to fail. Separately flip
@@ -89,6 +89,17 @@ Selectors below abbreviate only the method suffix after HtmxResponseAuthoringTes
   discard explicit-empty and API-204 suppression on successful navigation;
   the empty/status seeds must fail suppression parity. D10/D11, same selector,
   with one variant per affected observation, followed by restoration.
+  For append-instead-of-replace and retained competing headers, use D10/D11 with
+  selector `Try_navigation_replaces_multiple_values_and_all_competing_navigation_headers`.
+  This focused four-operation fixture seeds two values in ALL five navigation
+  headers, including each operation's own target, plus an unrelated application
+  header. Keep the throwing oracle unchanged. In separate variants for each Try
+  operation, clear the competitors but append to its existing target, or replace
+  its target but leave a competing header. Header-array equality must fail;
+  preserving an absent target is no longer an equivalent fault. Also remove the
+  unrelated header to fail header parity, and return false after correct output
+  to fail the new True assertion (N2's accepted-result fault). Restore each
+  variant and require this same focused selector green on both frameworks.
 - **N4 — Rejection has no state mutation.** Same selector. Keep return false and
   the rejection policy intact; on the actual side alone alter, one at a time:
   status, any existing header/value/order, application Items, Body stream
@@ -122,7 +133,9 @@ Selectors below abbreviate only the method suffix after HtmxResponseAuthoringTes
   while retaining status mutation: Same must fail. Restore each fault.
 - **I2 — Status and enum parity.** Same selector. Make int status a no-op for
   422 then 286, and separately replace the requested status with 200 for each
-  remaining listed code. D10/D11 must fail explicit status equality, while enum
+  remaining listed code EXCEPT 200; for expected 200, replace it with 202.
+  Every replacement therefore changes the expected observation. D10/D11 must
+  fail explicit status equality, while enum
   calls remain unchanged. Independently change int-path headers, suppression or
   fragments without changing status; matching AssertEquivalent fields must fail.
   In particular omit int-selected 204 and 304 suppression separately.

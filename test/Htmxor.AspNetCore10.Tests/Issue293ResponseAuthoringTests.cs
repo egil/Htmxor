@@ -66,6 +66,44 @@ public sealed class HtmxResponseAuthoringTests
 		}
 	}
 
+	[Theory]
+	[InlineData("Location")]
+	[InlineData("PushUrl")]
+	[InlineData("ReplaceUrl")]
+	[InlineData("Redirect")]
+	public void Try_navigation_replaces_multiple_values_and_all_competing_navigation_headers(string operation)
+	{
+		var expected = CreateContext();
+		var actual = CreateContext();
+		SeedMultipleNavigationHeaders(expected);
+		SeedMultipleNavigationHeaders(actual);
+		var expectedResponse = expected.GetHtmxContext().Response;
+		var actualResponse = actual.GetHtmxContext().Response;
+		var throwing = RequireOperation<Func<HtmxResponse, string, HtmxResponse>>(operation, typeof(string));
+
+		throwing(expectedResponse, "/orders/42");
+		var attempt = RequireOperation<Func<HtmxResponse, string, bool>>("Try" + operation, typeof(string));
+
+		Assert.True(attempt(actualResponse, "/orders/42"));
+		AssertEquivalent(expected, expectedResponse, actual, actualResponse);
+	}
+
+	private static void SeedMultipleNavigationHeaders(HttpContext context)
+	{
+		string[] names =
+		[
+			HtmxResponseHeaderNames.Location, HtmxResponseHeaderNames.PushUrl,
+			HtmxResponseHeaderNames.Redirect, HtmxResponseHeaderNames.Refresh,
+			HtmxResponseHeaderNames.ReplaceUrl,
+		];
+		foreach (var name in names)
+		{
+			context.Response.Headers.Append(name, "first");
+			context.Response.Headers.Append(name, "second");
+		}
+		context.Response.Headers["X-Application"] = "retained";
+	}
+
 	public static TheoryData<string, string?[]> MarkerCases()
 	{
 		var cases = new TheoryData<string, string?[]>();
