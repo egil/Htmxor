@@ -30,9 +30,10 @@ validation, encoding, and no-detail behavior.
 For htmx 4 polling, return replacement markup without `hx-get` and
 `hx-trigger` when the work is complete. Htmxor deliberately has no
 `StopPolling` or status-286 helper; `HtmxResponse.StatusCode(HttpStatusCode)`
-remains general HTTP status control for valid htmx requests and still requires
-the strict `HX-Request: true` marker. For a normal request, use
-`HttpContext.Response.StatusCode`; either path may deliberately use numeric 286.
+sets the HTTP status on both ordinary and htmx requests without requiring an
+`HX-Request` marker. All other `HtmxResponse` operations still require the strict
+`HX-Request: true` marker. An application may deliberately use numeric 286,
+but it has no polling meaning.
 See the [native polling guidance](docs/htmxor-v1-feature-guide.md#polling).
 
 Blazor Static SSR comes with basic interactivity via enhanced navigation and enhanced form handling.

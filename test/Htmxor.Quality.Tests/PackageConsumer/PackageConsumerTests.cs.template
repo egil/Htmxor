@@ -981,8 +981,8 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		Assert.Contains("<html", body, StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("data-stock-shell", body, StringComparison.Ordinal);
 		Assert.Contains("data-issue-154-marker", body, StringComparison.Ordinal);
-		Assert.Contains("data-rejected-operation-count=\"17\"", body, StringComparison.Ordinal);
-		Assert.Contains("data-operation-count=\"17\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-rejected-operation-count=\"16\"", body, StringComparison.Ordinal);
+		Assert.Contains("data-operation-count=\"16\"", body, StringComparison.Ordinal);
 		Assert.All(
 			typeof(HtmxResponseHeaderNames).GetFields(BindingFlags.Public | BindingFlags.Static),
 			field => Assert.False(response.Headers.Contains(

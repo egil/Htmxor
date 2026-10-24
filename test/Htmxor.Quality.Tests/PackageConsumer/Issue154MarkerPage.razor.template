@@ -68,7 +68,6 @@
         var response = HttpContext.GetHtmxContext().Response;
         Action<HtmxResponse>[] operations =
         [
-            candidate => candidate.StatusCode(HttpStatusCode.Created),
             candidate => candidate.EmptyBody(),
             candidate => candidate.Location("/forbidden-location"),
             candidate => candidate.PushUrl("/forbidden-push"),

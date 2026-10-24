@@ -90,7 +90,6 @@ public class HtmxResponseTests : BunitContext
 
 	private static IEnumerable<Action<HtmxResponse>> GetGuardedResponseOperations()
 	{
-		yield return response => response.StatusCode(System.Net.HttpStatusCode.Created);
 		yield return response => response.EmptyBody();
 		yield return response => response.Location("/forbidden-location");
 		yield return response => InvokeLocation(response, new Uri("/forbidden-location", UriKind.Relative));
