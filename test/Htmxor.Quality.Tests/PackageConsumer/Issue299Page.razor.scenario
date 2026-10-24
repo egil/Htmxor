@@ -1,0 +1,28 @@
+@page "/issue-299/context"
+@namespace Htmxor.PackageConsumer
+@using Htmxor
+@using Htmxor.Http
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Http
+@inject HtmxContext InjectedContext
+
+<button @onpost="Save">Save</button>
+<p data-callback="@saved">Saved</p>
+
+@code {
+    [CascadingParameter] public HtmxContext CascadedContext { get; set; } = default!;
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+    private string saved = "pending";
+
+    private void Save(HtmxEventArgs args)
+    {
+        var context = HttpContext.GetHtmxContext();
+        Xunit.Assert.Same(context, InjectedContext);
+        Xunit.Assert.Same(context, CascadedContext);
+        Xunit.Assert.Same(context, HttpContext.GetHtmxContext());
+        Xunit.Assert.Same(context.Request, args.Request);
+        Xunit.Assert.Same(context.Response, args.Response);
+        args.Response.Trigger("issue299-saved");
+        saved = "same-request";
+    }
+}

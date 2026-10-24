@@ -189,7 +189,7 @@ public sealed class HtmxorActionGenerator : IIncrementalGenerator
 			$"{indent}\t\tif (__HtmxorGeneratedActionRequest.TryConsume({propertyName}))\n" +
 			$"{indent}\t\t{{\n" +
 			$"{indent}\t\t\tvar callback = global::Microsoft.AspNetCore.Components.EventCallback.Factory.Create<global::Htmxor.HtmxEventArgs>(this, {declaration.HandlerName});\n" +
-			$"{indent}\t\t\tawait callback.InvokeAsync(new global::Htmxor.HtmxEventArgs(__HtmxorGeneratedContext));\n" +
+			$"{indent}\t\t\tawait callback.InvokeAsync(global::Htmxor.Builder.HtmxorGeneratedComponentAction.CreateEventArgs(__HtmxorGeneratedContext));\n" +
 			$"{indent}\t\t}}\n";
 	}
 

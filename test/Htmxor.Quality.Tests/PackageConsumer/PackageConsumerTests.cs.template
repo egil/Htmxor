@@ -304,7 +304,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			static method => method.Name == "StopPolling");
 
 		var context = CreateNavigationContext(validMarker: true);
-		var response = new HtmxResponse(context);
+		var response = context.GetHtmxContext().Response;
 
 		Assert.Same(response, response.StatusCode((HttpStatusCode)286));
 		Assert.Equal(286, context.Response.StatusCode);
@@ -340,7 +340,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 				static header => header.Key,
 				static header => header.Value,
 				StringComparer.OrdinalIgnoreCase);
-			var response = new HtmxResponse(context);
+			var response = context.GetHtmxContext().Response;
 
 			Assert.ThrowsAny<ArgumentException>(() => operation(response, value!));
 
@@ -362,7 +362,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		context.Response.Headers.Append(HtmxResponseHeaderNames.Reswap, "discarded-reswap");
 		context.Response.Headers.Append(HtmxResponseHeaderNames.Retarget, "discarded-retarget");
 		context.Response.Headers.Append(HtmxResponseHeaderNames.Reselect, "discarded-reselect");
-		var response = new HtmxResponse(context);
+		var response = context.GetHtmxContext().Response;
 
 		var result = response
 			.Reswap("innerHTML")
@@ -405,7 +405,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			foreach (var operation in GetNavigationOperations(destination!))
 			{
 				var context = CreateNavigationContext(validMarker: false);
-				var response = new HtmxResponse(context);
+				var response = context.GetHtmxContext().Response;
 
 				Assert.ThrowsAny<ArgumentException>(() => operation(response));
 				AssertNavigationStateUnchanged(context);
@@ -431,7 +431,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			})
 			{
 				var context = CreateNavigationContext(validMarker: true);
-				var response = new HtmxResponse(context);
+				var response = context.GetHtmxContext().Response;
 
 				Assert.Same(response, operation(response));
 				Assert.Equal(
@@ -453,7 +453,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		}
 
 		var redirectContext = CreateNavigationContext(validMarker: true);
-		var redirectResponse = new HtmxResponse(redirectContext);
+		var redirectResponse = redirectContext.GetHtmxContext().Response;
 		Assert.Same(redirectResponse, redirectResponse.Redirect("https://idp.example/login"));
 		Assert.Equal(
 			"https://idp.example/login",
@@ -478,14 +478,14 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		})
 		{
 			var context = CreateNavigationContext(validMarker: true);
-			var response = new HtmxResponse(context);
+			var response = context.GetHtmxContext().Response;
 
 			Assert.Same(response, operation(response, destination));
 			Assert.Equal(destination.OriginalString, Assert.Single(GetNavigationHeaders(context)).Value.ToString());
 		}
 
 		var overwriteContext = CreateNavigationContext(validMarker: true);
-		var overwriteResponse = new HtmxResponse(overwriteContext);
+		var overwriteResponse = overwriteContext.GetHtmxContext().Response;
 		var result = overwriteResponse
 			.Location("/location")
 			.Redirect("/redirect")
@@ -587,7 +587,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		const string unsafeEventName = "quote\"slash\\event";
 		var context = CreateTriggerContext(validMarker: true);
 		var originalBody = context.Response.Body;
-		var response = new HtmxResponse(context);
+		var response = context.GetHtmxContext().Response;
 		var explicitOptions = new JsonSerializerOptions
 		{
 			Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -652,7 +652,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		foreach (var eventName in invalidEventNames)
 		{
 			var context = CreateTriggerContext(validMarker: false);
-			var response = new HtmxResponse(context);
+			var response = context.GetHtmxContext().Response;
 
 			Assert.ThrowsAny<ArgumentException>(() => response.Trigger(eventName!));
 			AssertTriggerContextUnchanged(context);
@@ -663,7 +663,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		foreach (var validMarker in new[] { true, false })
 		{
 			var context = CreateTriggerContext(validMarker);
-			var response = new HtmxResponse(context);
+			var response = context.GetHtmxContext().Response;
 
 			Assert.Throws<JsonException>(() => response.Trigger(
 				"serializationFailure",
@@ -673,7 +673,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		}
 
 		var markerContext = CreateTriggerContext(validMarker: false);
-		var markerResponse = new HtmxResponse(markerContext);
+		var markerResponse = markerContext.GetHtmxContext().Response;
 
 		Assert.Throws<InvalidOperationException>(() => markerResponse.Trigger("validEvent"));
 		AssertTriggerContextUnchanged(markerContext);
@@ -747,7 +747,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 			RequestServices = new ServiceCollection().BuildServiceProvider(),
 		};
 		context.Request.Headers[HtmxRequestHeaderNames.HtmxRequest] = "true";
-		var response = new HtmxResponse(context);
+		var response = context.GetHtmxContext().Response;
 
 		var result = response.Reswap("acmeMorph settle:25ms");
 
@@ -1687,7 +1687,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 		SetHeader(context, HtmxRequestHeaderNames.CurrentUrl, currentUrl);
 		SetHeader(context, HtmxRequestHeaderNames.Source, source);
 		SetHeader(context, HtmxRequestHeaderNames.Target, target);
-		return new HtmxRequest(context);
+		return context.GetHtmxContext().Request;
 	}
 
 	private static void SetHeader(DefaultHttpContext context, string name, string[]? values)
@@ -1796,7 +1796,7 @@ public sealed partial class PackageConsumerTests : IAsyncLifetime
 	private static void AssertRejectedNavigation(Func<HtmxResponse, HtmxResponse> operation)
 	{
 		var context = CreateNavigationContext(validMarker: true);
-		var response = new HtmxResponse(context);
+		var response = context.GetHtmxContext().Response;
 
 		Assert.Throws<ArgumentException>(() => operation(response));
 		AssertNavigationStateUnchanged(context);

@@ -1,0 +1,114 @@
+using System.ComponentModel;
+using System.Reflection;
+using Htmxor.Builder;
+using Htmxor.Http;
+using System.Linq;
+using System.Net;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+public sealed class Issue299ContextTests : IAsyncLifetime
+{
+    private WebApplication app = default!;
+    private HttpClient client = default!;
+
+    public async Task InitializeAsync()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddRazorComponents().AddHtmxor();
+        app = builder.Build();
+        app.UseAntiforgery();
+        app.MapRazorComponents<Issue299App>().AddHtmxorEndpoints();
+        await app.StartAsync();
+        client = app.GetTestClient();
+    }
+
+    [Fact]
+    public async Task Generated_post_dispatches_with_the_supported_per_request_instances()
+    {
+        var (token, cookie) = CreateAntiforgeryCredentials();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/issue-299/context");
+        request.Headers.Add("HX-Request", "true");
+        request.Headers.Add("HX-Request-Type", "partial");
+        request.Headers.Add("Cookie", cookie);
+        request.Headers.Add("RequestVerificationToken", token);
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"Expected the supported component-tag @onpost action to answer 200 OK, received " +
+            $"{(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        Assert.Contains("data-callback=\"same-request\"", body, StringComparison.Ordinal);
+        Assert.Contains("issue299-saved", response.Headers.GetValues("HX-Trigger").Single(), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(typeof(HtmxContext))]
+    [InlineData(typeof(HtmxRequest))]
+    [InlineData(typeof(HtmxResponse))]
+    [InlineData(typeof(HtmxEventArgs))]
+    public void Packed_wrapper_has_no_public_constructor(Type wrapper)
+    {
+        Assert.Empty(wrapper.GetConstructors(BindingFlags.Public | BindingFlags.Instance));
+    }
+
+    [Fact]
+    public void Generated_action_factory_is_hidden_and_preserves_request_and_response_identity()
+    {
+        var factory = RequireEventArgsFactory();
+        Assert.Equal(EditorBrowsableState.Never,
+            factory.GetCustomAttribute<EditorBrowsableAttribute>()?.State);
+        Assert.Equal(typeof(HtmxEventArgs), factory.ReturnType);
+        var context = new DefaultHttpContext().GetHtmxContext();
+
+        var args = Assert.IsType<HtmxEventArgs>(factory.Invoke(null, new object[] { context }));
+
+        Assert.Same(context.Request, args.Request);
+        Assert.Same(context.Response, args.Response);
+    }
+
+    [Fact]
+    public void Generated_action_factory_rejects_a_missing_context()
+    {
+        var factory = RequireEventArgsFactory();
+
+        var exception = Assert.Throws<TargetInvocationException>(() => factory.Invoke(null, new object?[] { null }));
+
+        Assert.Equal("context", Assert.IsType<ArgumentNullException>(exception.InnerException).ParamName);
+    }
+
+    private static MethodInfo RequireEventArgsFactory()
+    {
+        var method = typeof(HtmxorGeneratedComponentAction).GetMethod("CreateEventArgs",
+            BindingFlags.Public | BindingFlags.Static, new[] { typeof(HtmxContext) });
+        Assert.NotNull(method);
+        return method;
+    }
+
+    private (string Token, string Cookie) CreateAntiforgeryCredentials()
+    {
+        var antiforgery = app.Services.GetRequiredService<IAntiforgery>();
+        var context = new DefaultHttpContext { RequestServices = app.Services };
+        var tokenSet = antiforgery.GetAndStoreTokens(context);
+        var setCookie = context.Response.Headers["Set-Cookie"]
+            .Single(value => value!.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal))!;
+
+        return (tokenSet.RequestToken!, setCookie.Split(';')[0]);
+    }
+
+    public async Task DisposeAsync()
+    {
+        client.Dispose();
+        await app.DisposeAsync();
+    }
+}

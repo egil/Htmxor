@@ -10,7 +10,7 @@ public sealed class HtmxContext
 
 	internal bool UsesCompletedFragmentSelection { get; set; }
 
-	public HtmxContext(HttpContext context)
+	internal HtmxContext(HttpContext context)
 	{
 		Request = new HtmxRequest(context);
 		Response = new HtmxResponse(context);
