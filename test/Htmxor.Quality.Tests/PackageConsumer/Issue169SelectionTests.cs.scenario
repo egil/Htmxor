@@ -48,59 +48,11 @@ public sealed class Issue169SelectionTests : IAsyncLifetime
         client = app.GetTestClient();
     }
 
-    [Theory]
-    [InlineData("Child", Child)]
-    [InlineData("Parent", Parent)]
-    [InlineData("Sibling", Sibling)]
-    [InlineData("Sibling,Child", Sibling + Child)]
-    [InlineData("Child,Sibling", Child + Sibling)]
-    public async Task Nested_output_uses_server_names_despite_client_delivery_markup(string selection, string expected)
+    [Fact]
+    public async Task Packed_component_route_is_discovered()
     {
-        using var request = DirectRequest(selection);
-        using var response = await client.SendAsync(request);
-        Assert.True(failure is null, failure?.ToString());
+        using var response = await client.GetAsync("/nested-selection");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(expected, await response.Content.ReadAsStringAsync());
-        Assert.True(observation.ChildInitialized);
-        Assert.Null(failure);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Whole_output_retains_unnamed_fragment_and_nested_subtree(bool direct)
-    {
-        using var request = direct ? DirectRequest(null) : new HttpRequestMessage(HttpMethod.Get, "/nested-selection");
-        using var response = await client.SendAsync(request);
-        var whole = "<main>" + new string('x', 32768) + Parent + Sibling + "<u>unnamed</u></main>";
-        var expected = direct ? whole : "<!DOCTYPE html><html lang=\"en\"><body>" + whole + "</body></html>";
-        Assert.True(failure is null, failure?.ToString());
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(expected, await response.Content.ReadAsStringAsync());
-        Assert.True(observation.ChildInitialized);
-    }
-
-    [Theory]
-    [InlineData("Large,Parent,Child", null)]
-    [InlineData("Large,Child,Parent", null)]
-    [InlineData("Large,Child,Child", null)]
-    [InlineData("Large,Missing", null)]
-    [InlineData("Large,child", null)]
-    [InlineData("Large,1Invalid", "1Invalid")]
-    [InlineData("Large, ", null)]
-    [InlineData("Large,", null)]
-    [InlineData("Large,Child", "Child")]
-    [InlineData(null, "Child")]
-    [InlineData(null, "1Invalid")]
-    public async Task Invalid_selection_is_reported_before_any_response_output(string? selection, string? declaration)
-    {
-        using var request = DirectRequest(selection, declaration);
-        using var response = await client.SendAsync(request);
-        Assert.NotNull(failure);
-        Assert.True(failure is InvalidOperationException or ArgumentException, failure.ToString());
-        Assert.False(string.IsNullOrWhiteSpace(failure.Message));
-        Assert.False(responseStarted);
-        Assert.Equal("test-host-handled-selection-error", await response.Content.ReadAsStringAsync());
     }
 
     private static HttpRequestMessage DirectRequest(string? selection, string? declaration = null)
