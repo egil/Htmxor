@@ -1,0 +1,30 @@
+using Htmxor;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components.Endpoints;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+public sealed class PackageDiscoveryTests
+{
+	[Theory]
+	[InlineData(typeof(Issue100ReportPage))]
+	[InlineData(typeof(Issue97ReportComponent))]
+	[InlineData(typeof(Issue97SummaryComponent))]
+	[InlineData(typeof(Issue141AuditComponent))]
+	public async Task Package_discovers_each_original_component_authoring_shape(Type component)
+	{
+		var builder = WebApplication.CreateBuilder();
+		builder.Services.AddAuthentication();
+		builder.Services.AddAuthorization();
+		builder.Services.AddRazorComponents().AddHtmxor();
+		await using var app = builder.Build();
+		app.MapRazorComponents<Issue97App>().AddHtmxorEndpoints();
+
+		var endpoints = ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints);
+
+		Assert.Contains(endpoints, endpoint => endpoint.Metadata.GetMetadata<ComponentTypeMetadata>()?.Type == component);
+	}
+}

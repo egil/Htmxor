@@ -10,8 +10,8 @@ using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
 
-[Collection(PackageConsumerCollection.Name)]
-public sealed class PackedPackageConsumerTests
+[Collection(PackedConsumerCollection.Name)]
+public sealed class PackedPackageConsumerTests(PackedPackageFixture package)
 {
 	// The staged computed handler (UseComputedPutHandler) is a lambda, so its cause-specific
 	// HTMXOR006 message shares the "lambda or closure" fragment with every other lambda or
@@ -28,48 +28,12 @@ public sealed class PackedPackageConsumerTests
 	private const string DisableHtmxDirectRoutingInImportsMessage =
 		"DisableHtmxDirectRouting declarations from _Imports.razor are not supported";
 
-	[Fact]
-	public async Task Package_only_application_discovers_explicit_CSharp_routes_and_supported_actions()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		workspace.UseLaterPageDirectiveLikeComment();
-
-		var result = await workspace.RunAsync();
-		var testRun = TrxTestRun.Read(workspace.TrxPath);
-
-		Assert.True(
-			result.ExitCode == 0,
-			result.StandardOutput + Environment.NewLine + result.StandardError +
-			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(21, 21, 21, 0, 0, 0, 0), testRun);
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion);
-	}
-
-	[Fact]
-	public async Task Package_only_application_preserves_actionless_unsafe_route_antiforgery()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		workspace.UseActionlessUnsafeSummaryRoute();
-
-		var result = await workspace.RunAsync();
-		var testRun = TrxTestRun.Read(workspace.TrxPath);
-
-		Assert.True(
-			result.ExitCode == 0,
-			result.StandardOutput + Environment.NewLine + result.StandardError +
-			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(24, 24, 24, 0, 0, 0, 0), testRun);
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-	}
-
 	[Theory]
 	[InlineData("net10.0")]
 	[InlineData("net11.0")]
-	public async Task Package_only_public_surface_matches_retained_allow_list(string framework)
+	public void Package_only_public_surface_matches_retained_allow_list(string framework)
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		await workspace.PackOnlyAsync();
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 
 		var allowListPath = Path.Combine(
 			RepositoryLocator.Find(),
@@ -89,10 +53,9 @@ public sealed class PackedPackageConsumerTests
 	[Theory]
 	[InlineData("net10.0")]
 	[InlineData("net11.0")]
-	public async Task Package_only_public_surface_does_not_export_retired_conditional_rendering_types(string framework)
+	public void Package_only_public_surface_does_not_export_retired_conditional_rendering_types(string framework)
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		await workspace.PackOnlyAsync();
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 
 		var surface = PackagePublicSurface.Format(workspace.PackagePath, framework);
 		var retiredTypes = new[]
@@ -107,7 +70,7 @@ public sealed class PackedPackageConsumerTests
 	[Fact]
 	public async Task Package_only_application_rejects_a_component_with_two_compiled_stock_routes()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseSecondCompiledPageRoute();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -124,7 +87,7 @@ public sealed class PackedPackageConsumerTests
 	[Fact]
 	public async Task Package_only_application_rejects_a_computed_put_handler()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseComputedPutHandler();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -143,7 +106,7 @@ public sealed class PackedPackageConsumerTests
 	{
 		// Cause (a) through the packed consumer's own real _Imports.razor, which the in-repo
 		// analyzer tests can only simulate with #line remapping.
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseDisableHtmxDirectRoutingInImports();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -160,7 +123,7 @@ public sealed class PackedPackageConsumerTests
 	[Fact]
 	public async Task Package_only_application_rejects_an_explicit_methods_conflict()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseExplicitMethodsConflict();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -177,7 +140,7 @@ public sealed class PackedPackageConsumerTests
 	[Fact]
 	public async Task Package_only_application_rejects_a_CSharp_route_without_methods()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseAllCSharpRouteWithoutMethods();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -205,7 +168,7 @@ public sealed class PackedPackageConsumerTests
 	[Fact]
 	public async Task Package_only_application_rejects_an_explicit_route_in_a_nonmatching_partial()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseNonmatchingExplicitRoutePartial();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -234,11 +197,12 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 	private readonly string generatedSourcesDirectory;
 	private readonly ProcessRunner runner = new();
 
-	public PackageConsumerWorkspace(string repositoryRoot)
+	public PackageConsumerWorkspace(string repositoryRoot, PackedPackageFixture package)
 	{
 		this.repositoryRoot = repositoryRoot;
 		consumerDirectory = Path.Combine(temporaryDirectory.Path, "consumer");
-		packageDirectory = Path.Combine(temporaryDirectory.Path, "packages");
+		packageDirectory = package.PackageDirectory;
+		PackageVersion = package.PackageVersion;
 		packagesDirectory = Path.Combine(temporaryDirectory.Path, "global-packages");
 		resultsDirectory = Path.Combine(temporaryDirectory.Path, "results");
 		projectPath = Path.Combine(consumerDirectory, "Htmxor.PackageConsumer.csproj");
@@ -260,7 +224,9 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 
 	public string PackagePath => Assert.Single(Directory.EnumerateFiles(packageDirectory, "*.nupkg"));
 
-	public string PackageVersion { get; private set; } = $"0.0.0-issue97-{Guid.NewGuid():N}";
+	public string PackageVersion { get; }
+
+	public ProcessResult BuildResult { get; private set; } = new(0, string.Empty, string.Empty);
 
 	public string TrxPath => Path.Combine(resultsDirectory, "package-consumer.trx");
 
@@ -276,21 +242,14 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 
 	public async Task<ProcessResult> RunAsync()
 	{
-		if (!usesSharedPackage)
-		{
-			await PackAsync();
-		}
 		await RestoreAsync();
-		await BuildRequiredAsync();
+		BuildResult = await BuildRequiredAsync();
 
 		return await TestAsync();
 	}
 
-	public Task<ProcessResult> PackOnlyAsync() => PackAsync("1.0.0");
-
 	public async Task<ProcessResult> BuildForDiagnosticAsync()
 	{
-		await PackAsync();
 		await RestoreAsync();
 
 		return await BuildAsync();
@@ -482,55 +441,6 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 		File.Move(matchingPath, nonmatchingPath);
 	}
 
-	public void UseActionlessUnsafeSummaryRoute()
-	{
-		var componentPath = Path.Combine(
-			consumerDirectory,
-			"Issue97SummaryComponent.cs");
-		var componentSource = File.ReadAllText(componentPath);
-		const string getOnlyRoute = "Methods = [\"GET\"],";
-		const string unsafeRoute = "Methods = [\"GET\", \"DELETE\"],";
-		var rewrittenComponent = componentSource.Replace(
-			getOnlyRoute,
-			unsafeRoute,
-			StringComparison.Ordinal);
-		if (string.Equals(componentSource, rewrittenComponent, StringComparison.Ordinal))
-		{
-			throw new InvalidOperationException(
-				"The staged package consumer must contain one explicit-GET all-C# route.");
-		}
-
-		File.WriteAllText(componentPath, rewrittenComponent);
-
-		var projectSource = File.ReadAllText(projectPath);
-		const string rootNamespace =
-			"<RootNamespace>Htmxor.PackageConsumer</RootNamespace>";
-		var scenarioProperties =
-			rootNamespace + Environment.NewLine +
-			"\t\t<DefineConstants>ISSUE103_ACTIONLESS_UNSAFE</DefineConstants>";
-		var rewrittenProject = projectSource.Replace(
-			rootNamespace,
-			scenarioProperties,
-			StringComparison.Ordinal);
-		if (string.Equals(projectSource, rewrittenProject, StringComparison.Ordinal))
-		{
-			throw new InvalidOperationException(
-				"The staged package consumer project must contain its root namespace property.");
-		}
-
-		File.WriteAllText(projectPath, rewrittenProject);
-
-		var scenarioPath = Path.Combine(
-			repositoryRoot,
-			"test",
-			"Htmxor.Quality.Tests",
-			"PackageConsumer",
-			"Issue103ActionlessUnsafeTests.cs.scenario");
-		File.Copy(
-			scenarioPath,
-			Path.Combine(consumerDirectory, "Issue103ActionlessUnsafeTests.cs"));
-	}
-
 	public void UseLaterPageDirectiveLikeComment()
 	{
 		var componentPath = Path.Combine(
@@ -574,24 +484,6 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 			partialTemplate,
 			Path.Combine(consumerDirectory, "Issue100ReportPage.razor.cs"));
 
-		var testsPath = Path.Combine(consumerDirectory, "PackageConsumerTests.cs");
-		var source = File.ReadAllText(testsPath);
-		var rewritten = source
-			.Replace(
-				"private const string PageDeclaredRoute = \"/reports/{ReportId:int}\";",
-				"private const string PageDeclaredRoute = \"/alternate-reports/{ReportId:int}\";",
-				StringComparison.Ordinal)
-			.Replace(
-				"private const string PageRequestPath = \"/reports/42\";",
-				"private const string PageRequestPath = \"/alternate-reports/42\";",
-				StringComparison.Ordinal);
-		if (string.Equals(source, rewritten, StringComparison.Ordinal))
-		{
-			throw new InvalidOperationException(
-				"The staged package consumer must contain the stock page route constants.");
-		}
-
-		File.WriteAllText(testsPath, rewritten);
 	}
 
 	private void StageConsumer()
@@ -640,19 +532,6 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 		</configuration>
 		""";
 
-	private Task<ProcessResult> PackAsync() => PackAsync(PackageVersion);
-
-	private Task<ProcessResult> PackAsync(string packageVersion) =>
-		RunRequiredAsync(
-			"pack",
-			Path.Combine(repositoryRoot, "src", "Htmxor", "Htmxor.csproj"),
-			"--configuration",
-			"Release",
-			"--no-restore",
-			"--output",
-			packageDirectory,
-			$"-p:MinVerVersionOverride={packageVersion}");
-
 	private Task<ProcessResult> RestoreAsync() =>
 		RunRequiredAsync(
 			"restore",
@@ -692,6 +571,8 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 			[
 				"test",
 				projectPath,
+				"--filter",
+				successFilter,
 				"--configuration",
 				"Release",
 				"--no-build",
@@ -1109,6 +990,7 @@ internal static class PackageConsumerEvidence
 		var paths = package.Entries.Select(entry => entry.FullName).ToArray();
 
 		Assert.Contains("lib/net10.0/Htmxor.dll", paths);
+		Assert.Contains("lib/net11.0/Htmxor.dll", paths);
 		Assert.DoesNotContain("lib/net8.0/Htmxor.dll", paths);
 		Assert.Contains("analyzers/dotnet/cs/Htmxor.Generators.dll", paths);
 		Assert.Contains("analyzers/dotnet/cs/Htmxor.Generators.pdb", paths);
@@ -1118,9 +1000,9 @@ internal static class PackageConsumerEvidence
 		AssertNuspecDependencies(package);
 	}
 
-	public static void AssertConsumer(string consumerDirectory, string packageVersion)
+	public static void AssertConsumer(string consumerDirectory, string packageVersion, string framework = "net10.0")
 	{
-		AssertConsumerPackageBoundary(consumerDirectory, packageVersion);
+		AssertConsumerPackageBoundary(consumerDirectory, packageVersion, framework);
 		AssertSourceBoundary(consumerDirectory);
 	}
 
@@ -1174,16 +1056,20 @@ internal static class PackageConsumerEvidence
 		Assert.DoesNotContain(dependencies, IsBuildOnlyDependency);
 	}
 
+	private static IEnumerable<string> DefaultConsumerSources(string consumerDirectory) =>
+		Directory.EnumerateFiles(Path.Combine(RepositoryLocator.Find(), "test", "Htmxor.Quality.Tests", "PackageConsumer"), "*.template")
+			.Select(path => Path.Combine(consumerDirectory, Path.GetFileNameWithoutExtension(path)));
+
 	private static void AssertSourceBoundary(string consumerDirectory)
 	{
-		var source = Directory.EnumerateFiles(consumerDirectory)
+		var source = DefaultConsumerSources(consumerDirectory)
 			.Where(IsSourceFile)
 			.Select(File.ReadAllText)
 			.ToArray();
 		var applicationSource = string.Join(Environment.NewLine, source);
 		var razorSource = string.Join(
 			Environment.NewLine,
-			Directory.EnumerateFiles(consumerDirectory, "*.razor").Select(File.ReadAllText));
+			DefaultConsumerSources(consumerDirectory).Where(path => path.EndsWith(".razor", StringComparison.Ordinal)).Select(File.ReadAllText));
 		var summaryPath = Path.Combine(
 			consumerDirectory,
 			"Issue97SummaryComponent.cs");

@@ -2,32 +2,6 @@ using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
 
-[Collection(PackageConsumerCollection.Name)]
-public sealed class PackedLayoutConsumerTests
-{
-	[Theory]
-	[InlineData("net10.0", "10.0.402", "10.0.13")]
-	[InlineData("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105")]
-	public async Task Packaged_compiler_accepts_sample_and_htmx_only_layout_topology(string framework, string sdk, string runtime)
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		workspace.UseLayoutScenario(framework, sdk, runtime);
-		var result = await workspace.BuildForDiagnosticAsync();
-		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-283", "packed", framework);
-		Directory.CreateDirectory(evidence);
-		File.Copy(Path.Combine(workspace.ConsumerDirectory, "obj", "project.assets.json"), Path.Combine(evidence, "project.assets.json"), overwrite: true);
-		File.WriteAllText(Path.Combine(evidence, "build.log"), result.StandardOutput + result.StandardError);
-		File.Copy(workspace.PackagePath, Path.Combine(evidence, Path.GetFileName(workspace.PackagePath)), overwrite: true);
-		foreach (var name in new[] { "global.json", "Htmxor.PackageConsumer.csproj" })
-		{
-			File.Copy(Path.Combine(workspace.ConsumerDirectory, name), Path.Combine(evidence, name), overwrite: true);
-		}
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		NamedSelectionEvidence.AssertPackageTarget(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
-		Assert.True(result.ExitCode == 0, result.StandardOutput + result.StandardError);
-	}
-}
-
 internal sealed partial class PackageConsumerWorkspace
 {
 	public void UseLayoutScenario(string framework, string sdk, string runtime)

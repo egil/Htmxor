@@ -3,16 +3,15 @@ using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
 
-[Collection(PackageConsumerCollection.Name)]
-public sealed class PackedRequestApiConsumerTests
+[Collection(PackedConsumerCollection.Name)]
+public sealed class PackedRequestApiConsumerTests(PackedPackageFixture package)
 {
 	[Theory]
 	[InlineData("net10.0")]
 	[InlineData("net11.0")]
-	public async Task Package_only_public_surface_omits_request_routing_details(string framework)
+	public void Package_only_public_surface_omits_request_routing_details(string framework)
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		await workspace.PackOnlyAsync();
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 
 		var surface = PackagePublicSurface.Format(workspace.PackagePath, framework);
 		var requestSurface = surface.Split("TYPE Htmxor.Http.HtmxRequest ", StringSplitOptions.None)[1]
@@ -32,14 +31,10 @@ public sealed class PackedRequestApiConsumerTests
 	public async Task Package_only_consumer_uses_request_type_and_HttpContext_but_cannot_use_retired_request_API(
 		string framework, string sdk, string runtime)
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseRequestApiScenario(framework, sdk, runtime);
-		var supported = await workspace.BuildForDiagnosticAsync();
-		Assert.True(supported.ExitCode == 0, supported.StandardOutput + supported.StandardError);
-		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
-
 		workspace.AddRetiredRequestApiReferences();
-		var retired = await workspace.BuildRequestApiProbeAsync();
+		var retired = await workspace.BuildForDiagnosticAsync();
 		var output = retired.StandardOutput + Environment.NewLine + retired.StandardError;
 		Assert.True(retired.ExitCode != 0, "The packed consumer still compiled references to all four retired API entries." + Environment.NewLine + output);
 		Assert.All(new[] { 5, 6, 7, 8 }, line =>

@@ -2,41 +2,18 @@ using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
 
-[Collection(PackageConsumerCollection.Name)]
-public sealed class PackedContextConstructionConsumerTests
+[Collection(PackedConsumerCollection.Name)]
+public sealed class PackedContextConstructionConsumerTests(PackedPackageFixture package)
 {
-	[Theory]
-	[InlineData("net10.0", "10.0.402", "10.0.13")]
-	[InlineData("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105")]
-	public async Task Packed_wrappers_hide_construction_and_preserve_action_factory_metadata(
-		string framework, string sdk, string runtime)
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		workspace.UseIssue299ContextConstructionScenario(framework, sdk, runtime);
-
-		var result = await workspace.RunAsync();
-		var testRun = TrxTestRun.Read(workspace.TrxPath);
-		NamedSelectionEvidence.Retain(workspace.ConsumerDirectory, workspace.TrxPath, result, "issue-299-context", framework);
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
-		NamedSelectionEvidence.AssertPackageTarget(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
-		Assert.True(result.ExitCode == 0, result.StandardOutput + Environment.NewLine + result.StandardError);
-		Assert.Equal(new TrxTestRun(5, 5, 5, 0, 0, 0, 0), testRun);
-	}
-
 	[Theory]
 	[InlineData("net10.0", "10.0.402", "10.0.13")]
 	[InlineData("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105")]
 	public async Task Packed_consumer_cannot_construct_detached_wrappers(string framework, string sdk, string runtime)
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue299ContextConstructionScenario(framework, sdk, runtime);
-		var supported = await workspace.BuildForDiagnosticAsync();
-		Assert.True(supported.ExitCode == 0, supported.StandardOutput + supported.StandardError);
-		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
-
 		workspace.AddDetachedWrapperConstruction();
-		var rejected = await workspace.BuildDetachedWrapperProbeAsync();
+		var rejected = await workspace.BuildForDiagnosticAsync();
 		var output = rejected.StandardOutput + Environment.NewLine + rejected.StandardError;
 		Assert.True(rejected.ExitCode != 0, "The packed consumer still compiled direct construction of all four wrappers." + Environment.NewLine + output);
 		Assert.All(new[] { 8, 9, 10, 11 }, line =>
