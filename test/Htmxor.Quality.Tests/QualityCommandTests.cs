@@ -6,6 +6,84 @@ namespace Htmxor.Quality.Tests;
 public sealed class QualityCommandTests
 {
 	[Theory]
+	[InlineData("fast", false)]
+	[InlineData("full", false)]
+	[InlineData("fast", true)]
+	[InlineData("full", true)]
+	public async Task ExecuteAsync_overlaps_all_six_boundaries_and_retains_each_result(
+		string profile,
+		bool failing)
+	{
+		using var repository = RepositoryPolicyFixture.CreateCurrent();
+		QualityPolicyFiles.WriteValid(repository.Path);
+		var runner = new ConcurrentTestArtifactRunner(failing);
+		var command = new QualityCommand(repository.Path, runner);
+		using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+		var execution = command.ExecuteAsync(QualityOptions.Parse(["check", "--profile", profile]), deadline.Token);
+
+		var startedBeforeRelease = await runner.ObserveOverlapAsync();
+		var exception = await Record.ExceptionAsync(() => execution);
+
+		AssertConcurrentRunOutcome(exception, failing);
+		AssertConcurrentRunReceipt(repository.Path, profile, runner, failing);
+		Assert.Equal(6, runner.Commands.Count);
+		Assert.Equal(6, startedBeforeRelease);
+	}
+
+	private static void AssertConcurrentRunOutcome(Exception? exception, bool failing)
+	{
+		if (!failing)
+		{
+			Assert.Null(exception);
+			return;
+		}
+
+		var error = Assert.IsType<InvalidOperationException>(exception);
+		Assert.Contains("test/Htmxor.UpstreamMonitor.Tests/Htmxor.UpstreamMonitor.Tests.csproj' discovered 0 and executed 0", error.Message, StringComparison.Ordinal);
+		Assert.Contains("test/Htmxor.Samples.Tests/Htmxor.Samples.Tests.csproj' exited with code 7", error.Message, StringComparison.Ordinal);
+	}
+
+	private static void AssertConcurrentRunReceipt(
+		string repository,
+		string profile,
+		ConcurrentTestArtifactRunner runner,
+		bool failing)
+	{
+		var output = Path.Combine(repository, "artifacts", "results", profile);
+		using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "summary.json")));
+		var summary = document.RootElement;
+		Assert.Equal(!failing, summary.GetProperty("valid").GetBoolean());
+		Assert.Equal(ConcurrentTestArtifactRunner.Head, summary.GetProperty("openingHead").GetString());
+		Assert.Equal(ConcurrentTestArtifactRunner.Head, summary.GetProperty("closingHead").GetString());
+		Assert.Equal("cleanThroughout", summary.GetProperty("worktreeState").GetString());
+		Assert.Equal(failing ? 2 : 0, summary.GetProperty("failures").GetArrayLength());
+		var runs = summary.GetProperty("testRuns").EnumerateArray().ToArray();
+		Assert.Equal(6, runs.Length);
+		Assert.All(runner.Boundaries, boundary => AssertBoundaryReceipt(output, runs, boundary));
+		var coverage = Assert.Single(runs, run => run.GetProperty("coverageRequired").GetBoolean() == (profile == "full") &&
+			run.GetProperty("project").GetString() == "test/Htmxor.Tests/Htmxor.Tests.csproj");
+		Assert.Equal(profile == "full" ? 2 : 0, coverage.GetProperty("coverageReportCopies").GetInt32());
+	}
+
+	private static void AssertBoundaryReceipt(
+		string output,
+		JsonElement[] runs,
+		ConcurrentTestArtifactRunner.Boundary boundary)
+	{
+		var counts = boundary.Counts;
+		Assert.Equal(counts, TrxTestRun.Read(Path.Combine(output, boundary.Name, $"{boundary.Name}.trx")));
+		var run = Assert.Single(runs, run => run.GetProperty("project").GetString() == boundary.Project &&
+			run.GetProperty("total").GetInt32() == counts.Total);
+		Assert.Equal(boundary.ExitCode, run.GetProperty("processExitCode").GetInt32());
+		Assert.Equal(counts.Executed, run.GetProperty("executed").GetInt32());
+		Assert.Equal(counts.Passed, run.GetProperty("passed").GetInt32());
+		Assert.Equal(counts.Failed, run.GetProperty("failed").GetInt32());
+		Assert.Equal(counts.Skipped, run.GetProperty("skipped").GetInt32());
+		Assert.Equal(counts.Errors, run.GetProperty("errors").GetInt32());
+		Assert.Equal(counts.TimedOut, run.GetProperty("timedOut").GetInt32());
+	}
+
+	[Theory]
 	[InlineData("fix")]
 	[InlineData("mutation")]
 	public async Task ExecuteAsync_rejects_an_invalid_project_map_before_running_any_process(

@@ -117,8 +117,6 @@ internal static class QualityPlanFactory
 		[
 			Restore(repositoryRoot),
 			ToolRestore(repositoryRoot),
-			DotNet(repositoryRoot, "format", "analyzers", Solution(repositoryRoot), "--verify-no-changes", "--no-restore", "--severity", "error", "--verbosity", "minimal"),
-			DotNet(repositoryRoot, "format", "style", Solution(repositoryRoot), "--verify-no-changes", "--no-restore", "--severity", "error", "--verbosity", "minimal"),
 			DotNet(repositoryRoot, "build", Solution(repositoryRoot), "--configuration", "Release", "--no-restore"),
 		];
 

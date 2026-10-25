@@ -14,8 +14,9 @@ internal sealed class ProcessRunner : IProcessRunner
 		using var process = new Process { StartInfo = startInfo };
 		process.Start();
 
-		var outputTask = PumpAsync(process.StandardOutput, Console.Out);
-		var errorTask = PumpAsync(process.StandardError, Console.Error);
+		var label = OutputLabel(command);
+		var outputTask = PumpAsync(process.StandardOutput, Console.Out, label);
+		var errorTask = PumpAsync(process.StandardError, Console.Error, label);
 		await process.WaitForExitAsync(cancellationToken);
 		var output = await outputTask;
 		var error = await errorTask;
@@ -58,13 +59,25 @@ internal sealed class ProcessRunner : IProcessRunner
 		return startInfo;
 	}
 
-	private static async Task<string> PumpAsync(StreamReader reader, TextWriter writer)
+	private static string? OutputLabel(ProcessCommand command)
+	{
+		if (command.FileName != "dotnet" || command.Arguments.Count < 2 || command.Arguments[0] != "test")
+		{
+			return null;
+		}
+
+		var label = Path.GetFileName(command.Arguments[1]);
+		var framework = command.Arguments.SkipWhile(argument => argument != "--framework").Skip(1).FirstOrDefault();
+		return framework is null ? label : $"{label}/{framework}";
+	}
+
+	private static async Task<string> PumpAsync(StreamReader reader, TextWriter writer, string? label)
 	{
 		var output = new StringBuilder();
 		while (await reader.ReadLineAsync() is { } line)
 		{
 			output.AppendLine(line);
-			await writer.WriteLineAsync(line);
+			await writer.WriteLineAsync(label is null ? line : $"[{label}] {line}");
 		}
 
 		return output.ToString();

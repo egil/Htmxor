@@ -90,10 +90,9 @@ internal sealed class QualityCommand(
 	{
 		var runs = new List<TestRunEvidence>();
 		var failures = new List<string>();
-		foreach (var test in tests)
+		var results = await Task.WhenAll(tests.Select(test => RunTestAsync(test, cancellationToken)));
+		foreach (var (test, result) in results)
 		{
-			Directory.CreateDirectory(Path.GetDirectoryName(test.TrxPath)!);
-			var result = await runner.RunAsync(test.Command, cancellationToken);
 			var coverage = CollectCoverageEvidence(test, output, failures);
 			CollectTestEvidence(test, result, coverage, runs, failures);
 		}
@@ -108,6 +107,15 @@ internal sealed class QualityCommand(
 			cancellationToken);
 		PrintTestCounts(runs);
 		ThrowIfInvalid(failures, "Test verification failed");
+	}
+
+	private async Task<(TestCommand Test, ProcessResult Result)> RunTestAsync(
+		TestCommand test,
+		CancellationToken cancellationToken)
+	{
+		Directory.CreateDirectory(Path.GetDirectoryName(test.TrxPath)!);
+		var result = await runner.RunAsync(test.Command, cancellationToken);
+		return (test, result);
 	}
 
 	private static void CollectTestEvidence(

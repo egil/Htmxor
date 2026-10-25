@@ -94,9 +94,6 @@ jobs:
     - name: Restore local tools
       run: dotnet tool restore --tool-manifest .config/dotnet-tools.json
 
-    - name: Run repository fast verification
-      run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile fast
-
     - name: Build browser test project
       run: dotnet build test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release
 

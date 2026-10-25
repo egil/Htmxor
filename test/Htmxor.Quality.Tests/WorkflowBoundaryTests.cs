@@ -2,6 +2,22 @@ namespace Htmxor.Quality.Tests;
 
 public sealed class WorkflowBoundaryTests
 {
+	[Fact]
+	public void CI_runs_full_once_after_browser_provisioning_without_repeating_fast()
+	{
+		var workflow = File.ReadAllText(Path.Combine(RepositoryLocator.Find(), ".github", "workflows", "ci.yml"));
+		var commands = WorkflowPolicyProjection.RunCommandsForJob(workflow, "run-test").ToArray();
+		const string full = "dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full";
+		var checks = commands.Where(command => command.Contains("check --profile", StringComparison.Ordinal)).ToArray();
+
+		Assert.Collection(checks, command => Assert.Equal(full, command));
+		var build = Array.IndexOf(commands, "dotnet build test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release");
+		var browsers = Array.IndexOf(commands, "pwsh test/Htmxor.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium");
+		Assert.True(build >= 0);
+		Assert.True(browsers > build);
+		Assert.True(Array.IndexOf(commands, full) > browsers);
+	}
+
 	[Theory]
 	[InlineData("job-permissions", "  monitor:\n", "  monitor:\n    permissions: write-all\n")]
 	[InlineData("job-extra-permission", "  monitor:\n", "  monitor:\n    permissions: { contents: read, issues: write, packages: write }\n")]

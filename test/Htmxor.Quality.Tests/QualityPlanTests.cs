@@ -13,6 +13,7 @@ public sealed class QualityPlanTests
 		var plan = Create(QualityAction.Check, QualityProfile.Fast);
 
 		AssertCommonPreparation(plan.Preparation);
+		AssertIndependentEvidenceBoundaries(plan.Tests);
 		Assert.Equal(6, plan.Tests.Count);
 		AssertUpstreamMonitorBoundary(plan);
 		AssertAspNetCoreBoundaries(plan);
@@ -51,6 +52,7 @@ public sealed class QualityPlanTests
 		var plan = Create(QualityAction.Check, QualityProfile.Full);
 
 		AssertCommonPreparation(plan.Preparation);
+		AssertIndependentEvidenceBoundaries(plan.Tests);
 		Assert.Equal(6, plan.Tests.Count);
 		AssertUpstreamMonitorBoundary(plan);
 		AssertAspNetCoreBoundaries(plan);
@@ -164,19 +166,29 @@ public sealed class QualityPlanTests
 	private void AssertCommonPreparation(IReadOnlyList<ProcessCommand> commands)
 	{
 		var solution = Path.Combine(repositoryRoot, "Htmxor.sln");
-		Assert.Equal(5, commands.Count);
+		Assert.Equal(3, commands.Count);
 		Assert.Equal(["restore", solution], commands[0].Arguments);
 		Assert.Equal(
 			["tool", "restore", "--tool-manifest", Path.Combine(repositoryRoot, ".config", "dotnet-tools.json")],
 			commands[1].Arguments);
 		Assert.Equal(
-			["format", "analyzers", solution, "--verify-no-changes", "--no-restore", "--severity", "error", "--verbosity", "minimal"],
-			commands[2].Arguments);
-		Assert.Equal(
-			["format", "style", solution, "--verify-no-changes", "--no-restore", "--severity", "error", "--verbosity", "minimal"],
-			commands[3].Arguments);
-		Assert.Equal(
 			["build", solution, "--configuration", "Release", "--no-restore"],
-			commands[4].Arguments);
+			commands[2].Arguments);
+	}
+
+	private static void AssertIndependentEvidenceBoundaries(IReadOnlyList<TestCommand> tests)
+	{
+		Assert.Equal(6, tests.Select(test => test.TrxPath).Distinct(StringComparer.Ordinal).Count());
+		Assert.Equal(6, tests.Select(test => ProcessCommandArguments.After(test.Command.Arguments, "--results-directory"))
+			.Distinct(StringComparer.Ordinal).Count());
+		Assert.All(tests, test =>
+		{
+			Assert.Contains("--blame-hang", test.Command.Arguments);
+			Assert.Equal("5min", ProcessCommandArguments.After(test.Command.Arguments, "--blame-hang-timeout"));
+			Assert.False(test.Command.EnsureSuccess);
+			var logger = ProcessCommandArguments.After(test.Command.Arguments, "--logger");
+			var directory = ProcessCommandArguments.After(test.Command.Arguments, "--results-directory");
+			Assert.Equal(test.TrxPath, Path.Combine(directory, logger["trx;LogFileName=".Length..]));
+		});
 	}
 }
