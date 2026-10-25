@@ -22,9 +22,10 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 	{
 		var address = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
 		var output = new List<string>();
+		var elapsed = Stopwatch.StartNew();
 		var process = Process.Start(CreateStartInfo(projectPath, environment)) ?? throw new InvalidOperationException($"Could not start {projectPath}.");
-		process.OutputDataReceived += (_, eventArgs) => ObserveOutput(eventArgs.Data, address, output);
-		process.ErrorDataReceived += (_, eventArgs) => ObserveOutput(eventArgs.Data, address, output);
+		process.OutputDataReceived += (_, eventArgs) => ObserveOutput(eventArgs.Data, address, output, elapsed);
+		process.ErrorDataReceived += (_, eventArgs) => ObserveOutput(eventArgs.Data, address, output, elapsed);
 		process.EnableRaisingEvents = true;
 		process.Exited += (_, _) => address.TrySetException(new InvalidOperationException($"{projectPath} stopped before Kestrel started: {string.Join(Environment.NewLine, output)}"));
 		process.BeginOutputReadLine();
@@ -32,7 +33,7 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 
 		try
 		{
-			return new SampleKestrelHost(process, await address.Task.WaitAsync(TimeSpan.FromSeconds(30)));
+			return new SampleKestrelHost(process, await WaitForAddressAsync(address.Task, process, projectPath, output, elapsed));
 		}
 		catch
 		{
@@ -44,6 +45,29 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 			await process.WaitForExitAsync();
 			process.Dispose();
 			throw;
+		}
+	}
+
+	private static async Task<Uri> WaitForAddressAsync(Task<Uri> address, Process process, string projectPath, List<string> output, Stopwatch elapsed)
+	{
+		try
+		{
+			return await address.WaitAsync(TimeSpan.FromSeconds(30));
+		}
+		catch (TimeoutException exception)
+		{
+			var state = process.HasExited ? $"exited (code {process.ExitCode})" : "running";
+			string capturedOutput;
+			lock (output)
+			{
+				capturedOutput = string.Join(Environment.NewLine, output);
+			}
+
+			throw new TimeoutException(
+				$"Timed out starting {projectPath} after {elapsed.Elapsed.TotalSeconds:F3}s (readiness limit: 30s). " +
+				$"Process {process.Id}: {state}. " +
+				$"ThreadPool.ThreadCount={ThreadPool.ThreadCount}, PendingWorkItemCount={ThreadPool.PendingWorkItemCount}, CompletedWorkItemCount={ThreadPool.CompletedWorkItemCount}." +
+				$"{Environment.NewLine}Captured sample output (timestamps are observation times):{Environment.NewLine}{capturedOutput}", exception);
 		}
 	}
 
@@ -81,7 +105,7 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 		return startInfo;
 	}
 
-	private static void ObserveOutput(string? line, TaskCompletionSource<Uri> address, List<string> output)
+	private static void ObserveOutput(string? line, TaskCompletionSource<Uri> address, List<string> output, Stopwatch elapsed)
 	{
 		if (line is { } value && value.IndexOf(ListeningPrefix, StringComparison.Ordinal) is var prefix && prefix >= 0)
 		{
@@ -92,7 +116,7 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 		{
 			lock (output)
 			{
-				output.Add(line);
+				output.Add($"[{DateTimeOffset.UtcNow:O} +{elapsed.Elapsed.TotalSeconds:F3}s] {line}");
 			}
 		}
 	}
