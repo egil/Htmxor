@@ -1,0 +1,9 @@
+@attribute [Htmxor.HtmxRoute("/issue-362-316/no-attr/htmx/{Id:int}", Methods = new[] { "GET" })]
+@namespace Htmxor.AspNetCore10.Issue362.Issue316
+
+<p data-issue-316-result>ok</p>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

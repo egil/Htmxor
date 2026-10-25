@@ -1,0 +1,56 @@
+@attribute [Authorize(Policy = "issue-97-report-policy")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue100RequestProbe RequestProbe
+
+<InputText @bind-Value="InputValue"
+           hx-put="/issue-362-group/issue-362/htmx-reports/42"
+           hx-patch="/issue-362-group/issue-362/htmx-reports/42"
+           hx-target="#patch-result"
+           @onpatch="PatchReport" />
+
+<section id="patch-result" data-issue-97-report-component>
+    <p data-report-request-values>@ReportId|@HttpContext.User.Identity?.Name|@GroupMarker</p>
+    <p data-issue-103-patch-result
+       data-report-id="@ReportId"
+       data-query-source="@Source"
+       data-user="@HttpContext.User.Identity?.Name"
+       data-request-id="@RequestProbe.Id"
+       data-binding-count="@RequestProbe.BindingCount"
+       data-initialization-count="@RequestProbe.InitializationCount"
+       data-callback-count="@RequestProbe.CallbackCount"
+       data-lifecycle-ready="@lifecycleReady.ToString().ToLowerInvariant()">
+        @callbackObservation
+    </p>
+</section>
+
+@code {
+    private bool lifecycleReady;
+    private string? callbackObservation;
+
+    [Parameter]
+    public int ReportId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "source")]
+    public string? Source { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private string? InputValue { get; set; }
+
+    private string? GroupMarker
+        => HttpContext.GetEndpoint()?.Metadata.GetMetadata<Issue97GroupMetadata>()?.Value;
+
+    protected override void OnInitialized()
+    {
+        RequestProbe.RecordInitialization();
+    }
+
+    protected override void OnParametersSet()
+    {
+        lifecycleReady = true;
+        RequestProbe.RecordBinding();
+    }
+}

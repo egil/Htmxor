@@ -73,10 +73,10 @@ public sealed class Issue284UnsafeActionOrderingTests : IAsyncLifetime
 		using var response = await client.SendAsync(request);
 		var body = await response.Content.ReadAsStringAsync();
 
-		Assert.True(
-			response.StatusCode == expected,
-			$"Expected {expected}, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
-		AssertNoApplicationCodeRan();
+		Assert.Multiple(
+			() => Assert.True(response.StatusCode == expected,
+				$"Expected {expected}, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}"),
+			AssertNoApplicationCodeRan);
 	}
 
 	[Fact]
@@ -90,10 +90,10 @@ public sealed class Issue284UnsafeActionOrderingTests : IAsyncLifetime
 		using var response = await client.SendAsync(request);
 		var body = await response.Content.ReadAsStringAsync();
 
-		Assert.True(
-			response.StatusCode == HttpStatusCode.BadRequest,
-			$"Expected 400 Bad Request for an authorized PUT with no antiforgery token, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
-		AssertNoApplicationCodeRan();
+		Assert.Multiple(
+			() => Assert.True(response.StatusCode == HttpStatusCode.BadRequest,
+				$"Expected 400 Bad Request for an authorized PUT with no antiforgery token, received {(int)response.StatusCode} {response.StatusCode}. Body: {body}"),
+			AssertNoApplicationCodeRan);
 	}
 
 	[Fact]
@@ -108,17 +108,19 @@ public sealed class Issue284UnsafeActionOrderingTests : IAsyncLifetime
 		using var response = await client.SendAsync(request);
 		var body = await response.Content.ReadAsStringAsync();
 
-		Assert.True(response.StatusCode == HttpStatusCode.OK, body);
-		Assert.Equal(1, probe.InitializationCount);
-		Assert.Equal(1, probe.BindingCount);
-		Assert.Equal(1, probe.CallbackCount);
+		Assert.Multiple(
+			() => Assert.True(response.StatusCode == HttpStatusCode.OK, body),
+			() => Assert.Equal(1, probe.InitializationCount),
+			() => Assert.Equal(1, probe.BindingCount),
+			() => Assert.Equal(1, probe.CallbackCount));
 	}
 
 	private void AssertNoApplicationCodeRan()
 	{
-		Assert.Equal(0, probe.InitializationCount);
-		Assert.Equal(0, probe.BindingCount);
-		Assert.Equal(0, probe.CallbackCount);
+		Assert.Multiple(
+			() => Assert.Equal(0, probe.InitializationCount),
+			() => Assert.Equal(0, probe.BindingCount),
+			() => Assert.Equal(0, probe.CallbackCount));
 	}
 
 	private async Task<(string Token, string Cookie)> GetAntiforgeryCredentialsAsync()
