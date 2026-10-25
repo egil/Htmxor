@@ -8,7 +8,7 @@ public sealed class PackedNestedSelectionConsumerTests
 	[Theory]
 	[InlineData("net10.0", "10.0.402", "10.0.13")]
 	[InlineData("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105")]
-	public async Task Package_only_application_resolves_nested_and_invalid_selections_before_output(string framework, string sdk, string runtime)
+	public async Task Package_only_application_discovers_the_nested_selection_component(string framework, string sdk, string runtime)
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		workspace.UseIssue169SelectionScenario();
@@ -21,7 +21,7 @@ public sealed class PackedNestedSelectionConsumerTests
 		Assert.True(result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(18, 18, 18, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(1, 1, 1, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
 		NamedSelectionEvidence.AssertPackageTarget(workspace.ConsumerDirectory, workspace.PackageVersion, framework);

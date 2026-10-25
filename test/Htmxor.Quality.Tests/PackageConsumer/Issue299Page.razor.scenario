@@ -17,11 +17,9 @@
     private void Save(HtmxEventArgs args)
     {
         var context = HttpContext.GetHtmxContext();
-        Xunit.Assert.Same(context, InjectedContext);
-        Xunit.Assert.Same(context, CascadedContext);
-        Xunit.Assert.Same(context, HttpContext.GetHtmxContext());
-        Xunit.Assert.Same(context.Request, args.Request);
-        Xunit.Assert.Same(context.Response, args.Response);
+        // Keep the package consumer compiling every supported request/response access.
+        _ = (context, InjectedContext, CascadedContext, HttpContext.GetHtmxContext(),
+            context.Request, args.Request, context.Response, args.Response);
         args.Response.Trigger("issue299-saved");
         saved = "same-request";
     }

@@ -1,0 +1,92 @@
+using System.Net;
+using Htmxor;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Xunit;
+
+namespace Htmxor.AspNetCore10;
+
+public sealed class Issue168SelectionTests(Issue168Host host) : IClassFixture<Issue168Host>
+{
+	private const string First = "<strong>first</strong><span>initialized-from-di</span>";
+	private const string Second = "<em>second</em>";
+	private const string Element = "<aside><b>element</b></aside>";
+	private const string Identified = "<div id=\"box\"><b>identified</b></div>";
+	private const string Attributes = "<div data-kind=\"extra\"><b>attributes</b></div>";
+	private const string DistinctCase = "<i>distinct-case</i>";
+	private const string Whole = "<main><p>before</p>" + First + "<p>between</p>" + Second + Element + Identified + Attributes + DistinctCase + "<p>after</p></main>";
+	[Fact]
+	public async Task Normal_request_retains_shell_and_all_fragments()
+	{
+		using var response = await host.Client.GetAsync("/selection");
+		var actualBody = await response.Content.ReadAsStringAsync();
+		Assert.Multiple(
+			() => Assert.Equal(HttpStatusCode.OK, response.StatusCode),
+			() => Assert.Equal("<!DOCTYPE html><html lang=\"en\"><body>" + Whole + "</body></html>",
+			actualBody)
+		);
+	}
+
+	[Theory]
+	[InlineData(null, null, null, Whole)]
+	[InlineData(null, "div#box", "button#first", Whole)]
+	[InlineData("whole", "section#other", "button#second", Whole)]
+	[InlineData("first", null, null, First)]
+	[InlineData("first", "div#box", "button#second", First)]
+	[InlineData("First", null, null, DistinctCase)]
+	[InlineData("second", "section#first", "button#first", Second)]
+	[InlineData("multi", "section#other", "button#other", Second + First)]
+	[InlineData("element", null, null, Element)]
+	[InlineData("identified", "section#other", null, Identified)]
+	[InlineData("attributes", null, null, Attributes)]
+	public async Task Direct_request_returns_exact_selected_body(string? selection, string? target, string? source, string expected)
+	{
+		var path = selection is null ? "/selection" : "/selection?selection=" + selection;
+		using var request = new HttpRequestMessage(HttpMethod.Get, path);
+		request.Headers.Add("HX-Request", "true");
+		request.Headers.Add("HX-Request-Type", "partial");
+		if (target is not null)
+			request.Headers.Add("HX-Target", target);
+		if (source is not null)
+			request.Headers.Add("HX-Source", source);
+		using var response = await host.Client.SendAsync(request);
+		var actualBody = await response.Content.ReadAsStringAsync();
+		Assert.Multiple(
+			() => Assert.Equal(HttpStatusCode.OK, response.StatusCode),
+			() => Assert.Equal(expected, actualBody)
+		);
+	}
+
+}
+
+public sealed class Issue168Host : IAsyncLifetime
+{
+	private WebApplication app = default!;
+	public HttpClient Client { get; private set; } = default!;
+
+	public async Task InitializeAsync()
+	{
+		var builder = WebApplication.CreateBuilder();
+		builder.WebHost.UseTestServer();
+		builder.Services.AddScoped<Issue168Service>();
+		builder.Services.AddRazorComponents().AddHtmxor();
+		app = builder.Build();
+		app.UseAntiforgery();
+		app.MapRazorComponents<Issue168App>().AddHtmxorEndpoints();
+		await app.StartAsync();
+		Client = app.GetTestClient();
+	}
+
+	public async Task DisposeAsync()
+	{
+		Client.Dispose();
+		await app.DisposeAsync();
+	}
+}
+
+public sealed class Issue168Service
+{
+	public string Value => "initialized-from-di";
+}

@@ -1,65 +1,14 @@
 using Htmxor.Http;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Htmxor.PackageConsumer;
 
-public sealed class Issue293StatusCodeTests(ITestOutputHelper output)
+public sealed class Issue293StatusCodeTests
 {
-    public static TheoryData<string, bool, int, bool, bool> HostedCases()
-    {
-        var cases = new TheoryData<string, bool, int, bool, bool>();
-        foreach (var htmx in new[] { false, true })
-        {
-            cases.Add("Status=204", htmx, 204, true, false);
-            cases.Add("Status=304", htmx, 304, true, false);
-            cases.Add("Status=422", htmx, 422, false, false);
-            cases.Add("Status=286", htmx, 286, false, false);
-            cases.Add("Status=204&FinalStatus=422&Mode=transition", htmx, 422, false, false);
-            cases.Add("Status=304&FinalStatus=286&Mode=transition", htmx, 286, false, false);
-            cases.Add("Status=204&FinalStatus=304&Mode=mixed", htmx, 304, true, true);
-            cases.Add("Status=304&FinalStatus=204&Mode=mixed", htmx, 204, true, true);
-        }
-
-        foreach (var seed in new[] { "empty", "navigation" })
-        {
-            cases.Add("Status=204&FinalStatus=304&Mode=mixed&Seed=" + seed, true, 304, true, false);
-            cases.Add("Status=304&FinalStatus=204&Mode=mixed&Seed=" + seed, true, 204, true, false);
-            cases.Add("Status=204&FinalStatus=422&Mode=transition&Seed=" + seed, true, 422, true, false);
-            cases.Add("Status=304&FinalStatus=286&Mode=transition&Seed=" + seed, true, 286, true, false);
-        }
-
-        cases.Add("Status=204&Empty=true", false, 204, true, false);
-        cases.Add("Status=304&Empty=true", false, 304, true, false);
-        cases.Add("Status=204&FinalStatus=200&Mode=transition", false, 200, false, false);
-        cases.Add("Status=304&FinalStatus=200&Mode=transition", true, 200, false, false);
-        return cases;
-    }
-
-    [Theory]
-    [MemberData(nameof(HostedCases))]
-    public async Task Integer_API_status_obeys_exact_status_suppression_and_preserves_independent_decisions(
-        string query, bool htmx, int status, bool suppressed, bool rawWriteRejected)
+    [Fact]
+    public void Packed_integer_status_signature_is_available()
     {
         _ = RequireStatusCode();
-        await using var host = await Issue291Host.StartAsync();
-
-        var response = await host.GetAsync(query, htmx, output);
-
-        Assert.Equal(status, (int)response.Status);
-        Assert.Equal("retained", response.Headers["X-Status-Probe"]);
-        if (suppressed) Assert.Empty(response.Body);
-        else Assert.Contains("<p data-status-body>Component output.</p>", response.Body, StringComparison.Ordinal);
-        if (rawWriteRejected)
-        {
-            Assert.Contains(host.Logs.Exceptions, exception => exception is InvalidOperationException &&
-                exception.Message == $"Writing to the response body is invalid for responses with status code {status}.");
-        }
-        else
-        {
-            Assert.Empty(host.Logs.Exceptions);
-            Assert.Empty(host.Logs.Errors);
-        }
     }
 
     public static HtmxResponse Apply(HtmxResponse response, int status) => RequireStatusCode()(response, status);

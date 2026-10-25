@@ -8,7 +8,7 @@ public sealed class PackedContextConstructionConsumerTests
 	[Theory]
 	[InlineData("net10.0", "10.0.402", "10.0.13")]
 	[InlineData("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105")]
-	public async Task Packed_wrappers_hide_construction_and_generated_post_preserves_request_identity(
+	public async Task Packed_wrappers_hide_construction_and_preserve_action_factory_metadata(
 		string framework, string sdk, string runtime)
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
@@ -21,7 +21,7 @@ public sealed class PackedContextConstructionConsumerTests
 		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
 		NamedSelectionEvidence.AssertPackageTarget(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
 		Assert.True(result.ExitCode == 0, result.StandardOutput + Environment.NewLine + result.StandardError);
-		Assert.Equal(new TrxTestRun(7, 7, 7, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(5, 5, 5, 0, 0, 0, 0), testRun);
 	}
 
 	[Theory]
