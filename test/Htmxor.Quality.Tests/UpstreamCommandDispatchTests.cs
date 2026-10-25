@@ -17,7 +17,7 @@ public sealed class UpstreamCommandDispatchTests
 
 		var error = await Record.ExceptionAsync(() => command.ExecuteAsync(new(QualityAction.Check, QualityProfile.Upstream)));
 
-		Assert.Equal(new[] { "restore", "tool", "analyzers", "style", "build", "policy", "fixtures", "monitor" }, runner.Phases);
+		Assert.Equal(new[] { "restore", "tool", "build", "policy", "fixtures", "monitor" }, runner.Phases);
 		var monitor = runner.Commands.Last();
 		Assert.Equal(NetworkAccess.Enabled, monitor.NetworkAccess);
 		Assert.Equal("dotnet", monitor.FileName);
