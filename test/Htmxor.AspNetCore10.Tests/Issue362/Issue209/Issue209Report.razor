@@ -1,0 +1,11 @@
+@namespace Htmxor.AspNetCore10.Issue362.Issue209
+@using Microsoft.AspNetCore.Components
+@using Htmxor
+@attribute [HtmxRoute("/issue-362-209/reports/{ReportId:int}")]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "package-reader")]
+@inject Issue209RequestProbe Probe
+<output>@ReportId|@Count|@Probe.Value</output>
+@code {
+    [Parameter] public int ReportId { get; set; }
+    [SupplyParameterFromQuery] public int Count { get; set; }
+}

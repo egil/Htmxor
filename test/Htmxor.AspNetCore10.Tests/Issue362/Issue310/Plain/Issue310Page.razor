@@ -1,0 +1,12 @@
+@page "/issue-362-310/plain"
+@namespace Htmxor.AspNetCore10.Issue362.Issue310.Plain
+
+<GateChild @onput="Save" />
+
+<p data-owner-callback="@saveCount">Saved</p>
+
+@code {
+    private int saveCount;
+    private void Save() { saveCount++; }
+    private void Other() { }
+}

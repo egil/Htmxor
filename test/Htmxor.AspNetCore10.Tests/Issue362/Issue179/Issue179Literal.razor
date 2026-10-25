@@ -1,0 +1,16 @@
+@attribute [Htmxor.HtmxRoute("/issue-362-179/literal")]
+@namespace Htmxor.AspNetCore10.Issue362.Issue179
+@using Microsoft.AspNetCore.Components.Forms
+@inject Issue179Probe Probe
+<EditForm Model="Model" FormName="save" method="post" OnValidSubmit="Save"><DataAnnotationsValidator /><InputText @bind-Value="Model!.Name" /><ValidationMessage For="() => Model!.Name" /><button>Save</button></EditForm>
+
+<output data-callback="@callbacks" data-owner="@owner">@Model!.Name</output>
+@code {
+    private readonly string owner = Guid.NewGuid().ToString("N");
+    private int callbacks;
+    private Issue179Model? model;
+    [SupplyParameterFromForm] private Issue179Model? Model { get => model; set { Probe.Binding++; model = value; } }
+    protected override void OnInitialized() { Probe.Lifecycle++; model ??= new(); }
+    private void Save() { callbacks++; Probe.Callback++; Probe.CallbackOwner = owner; }
+    private string FormName => "save";
+}

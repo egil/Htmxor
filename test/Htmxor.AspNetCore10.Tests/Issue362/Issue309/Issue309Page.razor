@@ -1,0 +1,16 @@
+@page "/issue-362-309/items"
+@namespace Htmxor.AspNetCore10.Issue362.Issue309
+
+@code {
+    public static int SaveCount;
+
+    private void Save()
+    {
+        SaveCount++;
+    }
+}
+
+<main>
+<button @onput="Save">Save A</button>
+<button @onput="Save">Save B</button>
+</main>
