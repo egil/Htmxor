@@ -61,22 +61,16 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 
 	private static ProcessStartInfo CreateStartInfo(string projectPath, IReadOnlyDictionary<string, string>? environment)
 	{
-		var root = FindRepositoryRoot();
+		var projectDirectory = Path.GetDirectoryName(Path.Combine(FindRepositoryRoot(), projectPath))!;
+		var assemblyPath = Path.Combine(projectDirectory, "bin", "Release", "net10.0", Path.GetFileNameWithoutExtension(projectPath) + ".dll");
 		var startInfo = new ProcessStartInfo("dotnet")
 		{
-			WorkingDirectory = root,
+			WorkingDirectory = projectDirectory,
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
 			UseShellExecute = false,
 		};
-		startInfo.ArgumentList.Add("run");
-		startInfo.ArgumentList.Add("--no-launch-profile");
-		startInfo.ArgumentList.Add("--project");
-		startInfo.ArgumentList.Add(Path.Combine(root, projectPath));
-		startInfo.ArgumentList.Add("--configuration");
-		startInfo.ArgumentList.Add("Release");
-		startInfo.ArgumentList.Add("--no-build");
-		startInfo.ArgumentList.Add("--");
+		startInfo.ArgumentList.Add(assemblyPath);
 		startInfo.ArgumentList.Add("--urls");
 		startInfo.ArgumentList.Add("http://127.0.0.1:0");
 		foreach (var (key, value) in environment ?? new Dictionary<string, string>())
