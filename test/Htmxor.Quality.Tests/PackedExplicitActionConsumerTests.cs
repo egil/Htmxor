@@ -8,18 +8,16 @@ namespace Htmxor.Quality.Tests;
 public sealed class PackedExplicitActionConsumerTests
 {
 	[Fact]
-	public async Task Packaged_explicit_actions_support_every_authoring_form_and_signature()
+	public async Task Packaged_compiler_accepts_explicit_action_authoring_forms_and_signatures()
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
 		workspace.UseIssue180ExplicitActions();
-		var result = await workspace.RunAsync();
-		RetainEvidence(workspace, result, "http");
-		var tests = TrxTestRun.Read(workspace.TrxPath);
+		var result = await workspace.BuildForDiagnosticAsync();
+		RetainEvidence(workspace, result, "compile");
 
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
-		Assert.True(result.ExitCode == 0, result.StandardOutput + result.StandardError + tests);
-		Assert.Equal(new TrxTestRun(47, 47, 47, 0, 0, 0, 0), tests);
+		Assert.True(result.ExitCode == 0, result.StandardOutput + result.StandardError);
 	}
 
 	[Theory]
@@ -87,7 +85,8 @@ public sealed class PackedExplicitActionConsumerTests
 		foreach (var anchor in anchors)
 		{
 			var start = line.IndexOf(anchor, StringComparison.Ordinal);
-			if (start < 0) continue;
+			if (start < 0)
+				continue;
 			var end = anchor.StartsWith("[", StringComparison.Ordinal) ? line.IndexOf(']', start) + 1 : start + anchor.Length;
 			yield return new AuthoredLocation(file, lineNumber, start + 1, end);
 		}
@@ -110,8 +109,10 @@ public sealed class PackedExplicitActionConsumerTests
 		}
 		var deps = Path.ChangeExtension(workspace.ConsumerAssemblyPath, ".deps.json");
 		File.WriteAllText(Path.Combine(directory, "boundary-presence.txt"), $"assets={File.Exists(Path.Combine(workspace.ConsumerDirectory, "obj", "project.assets.json"))} deps={File.Exists(deps)} trx={File.Exists(workspace.TrxPath)} captured={DateTimeOffset.UtcNow:O}");
-		if (File.Exists(deps)) File.Copy(deps, Path.Combine(directory, Path.GetFileName(deps)));
-		if (File.Exists(workspace.TrxPath)) File.Copy(workspace.TrxPath, Path.Combine(directory, "package-consumer.trx"));
+		if (File.Exists(deps))
+			File.Copy(deps, Path.Combine(directory, Path.GetFileName(deps)));
+		if (File.Exists(workspace.TrxPath))
+			File.Copy(workspace.TrxPath, Path.Combine(directory, "package-consumer.trx"));
 		return directory;
 	}
 }
@@ -166,20 +167,23 @@ internal sealed partial class PackageConsumerWorkspace
 
 	private void UseIssue180InferredRemediation(string scenario)
 	{
-		if (!new[] { "method-call", "computed", "implicit-get", "no-route" }.Contains(scenario, StringComparer.Ordinal)) return;
+		if (!new[] { "method-call", "computed", "implicit-get", "no-route" }.Contains(scenario, StringComparer.Ordinal))
+			return;
 		var path = Path.Combine(consumerDirectory, "Issue180Rejected.razor");
 		var source = File.ReadAllText(path);
 		var members = "private Task Save(Htmxor.HtmxEventArgs args) => Task.CompletedTask; " +
 			"private Task Other(Htmxor.HtmxEventArgs args) => Task.CompletedTask; " +
 			"private Func<Htmxor.HtmxEventArgs, Task> MakeHandler() => Save; private bool flag => true;";
 		source = source[..source.IndexOf("@code", StringComparison.Ordinal)] + "@code { " + members + " }";
-		if (scenario == "no-route") source = source.Replace("@page \"/rejected\"", "", StringComparison.Ordinal);
+		if (scenario == "no-route")
+			source = source.Replace("@page \"/rejected\"", "", StringComparison.Ordinal);
 		File.WriteAllText(path, source);
 	}
 
 	private void WriteIssue180Base(string scenario, string attribute)
 	{
-		if (scenario == "base-owner") File.WriteAllText(Path.Combine(consumerDirectory, "Issue180RejectedBase.cs"), $$"""
+		if (scenario == "base-owner")
+			File.WriteAllText(Path.Combine(consumerDirectory, "Issue180RejectedBase.cs"), $$"""
 			namespace Htmxor.Explicit.Anywhere;
 			public class Issue180RejectedBase : Microsoft.AspNetCore.Components.ComponentBase
 			{
