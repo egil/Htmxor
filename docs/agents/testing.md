@@ -17,6 +17,8 @@ The protected infrastructure behavior is:
 
 Before changing behavior, state `When <observable scenario>, Htmxor <observable outcome>.` Name the failure risk and use the narrowest execution boundary that retains it. Browser behavior needs a real browser boundary. Framework routing, rendering, forms, authorization, antiforgery, packaging, and performance claims need the corresponding real boundary rather than a mock that omits the risk.
 
+Use a packed consumer only for a packaging claim: shipped assets and licenses, public surface, package-only compilation, analyzer loading, or generated discovery. Test behavior at the narrowest faithful in-process boundary. Share package preparation and successful consumers across packaging claims instead of replaying behavioral matrices through repeated pack, restore, build, and test processes.
+
 Observe a behavioral test failing for the expected reason before trusting its production change. Compilation failures, setup failures, missing infrastructure, and zero discovered tests do not count. For a behavior-preserving change, start from a verified green baseline and use characterization or other documented alternate evidence when direct red would fabricate a behavior change.
 
 Always record the exact commit and command. Include discovered, executed, passed, failed, skipped, and other relevant counts. Name any browser, operating system, host, package boundary, or external dependency that was not exercised.
