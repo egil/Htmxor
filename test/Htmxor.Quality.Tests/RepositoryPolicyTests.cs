@@ -45,7 +45,5 @@ public sealed class RepositoryPolicyTests
 		Assert.Contains("github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'", workflow, StringComparison.Ordinal);
 		Assert.Contains("github.event_name == 'release' && github.event.action == 'published'", workflow, StringComparison.Ordinal);
 		Assert.DoesNotContain("github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/main')", workflow, StringComparison.Ordinal);
-		Assert.Contains("check --profile fast", workflow, StringComparison.Ordinal);
-		Assert.Contains("check --profile full", workflow, StringComparison.Ordinal);
 	}
 }

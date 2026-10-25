@@ -4,6 +4,13 @@ namespace Htmxor.Quality.Tests;
 
 internal static class WorkflowPolicyProjection
 {
+	public static IReadOnlyList<string> RunCommandsForJob(string yaml, string jobName)
+	{
+		var workflow = ParseRoot(yaml);
+		var job = Mapping(Child(Mapping(Child(workflow, "jobs")), jobName));
+		return Steps(job).Select(step => Scalar(Child(step, "run"))).Where(command => command.Length > 0).ToArray();
+	}
+
 	public static IReadOnlyList<string> DotnetVersionsForJob(string yaml, string jobName)
 	{
 		var workflow = ParseRoot(yaml);

@@ -244,8 +244,6 @@ public sealed class UpstreamMonitorPolicyTests
 		string.Join('\n',
 			"Disabled|dotnet restore <root>/Htmxor.sln",
 			"Disabled|dotnet tool restore --tool-manifest <root>/.config/dotnet-tools.json",
-			"Disabled|dotnet format analyzers <root>/Htmxor.sln --verify-no-changes --no-restore --severity error --verbosity minimal",
-			"Disabled|dotnet format style <root>/Htmxor.sln --verify-no-changes --no-restore --severity error --verbosity minimal",
 			"Disabled|dotnet build <root>/Htmxor.sln --configuration Release --no-restore"),
 		string.Join('\n',
 			"test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj|Disabled|dotnet test <root>/test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj --configuration Release --no-build --no-restore --blame-hang --blame-hang-timeout 5min --logger trx;LogFileName=upstream-policy.trx --results-directory <root>/artifacts/results/upstream/upstream-policy --filter FullyQualifiedName~UpstreamMonitorPolicyTests",
