@@ -1,0 +1,27 @@
+using Htmxor;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Htmxor.PackageConsumer;
+
+// Both public registration forms remain real compiler inputs; their HTTP behavior is covered
+// by Issue362RoutingActionsTests and Issue145RootRegistrationTests on both target frameworks.
+internal static class PackageRegistration
+{
+	private const string RoutePrefix = "/issue-97-group";
+
+	public static void Grouped(WebApplication app, IServiceCollection services)
+	{
+		services.AddRazorComponents().AddHtmxor();
+		var routes = app.MapGroup(RoutePrefix)
+			.RequireAuthorization("issue-145-group-policy")
+			.WithMetadata(Issue97GroupMetadata.Instance);
+		routes.MapRazorComponents<Issue97App>().AddHtmxorEndpoints();
+	}
+
+	public static void Root(WebApplication app, IServiceCollection services)
+	{
+		services.AddRazorComponents().AddHtmxor();
+		app.MapRazorComponents<Issue97App>().AddHtmxorEndpoints();
+	}
+}

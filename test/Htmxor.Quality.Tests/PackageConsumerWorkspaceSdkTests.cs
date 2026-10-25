@@ -2,7 +2,8 @@ using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
 
-public sealed class PackageConsumerWorkspaceSdkTests
+[Collection(PackedConsumerCollection.Name)]
+public sealed class PackageConsumerWorkspaceSdkTests(PackedPackageFixture package)
 {
 	[Fact]
 	public async Task Default_consumer_workspace_uses_the_repository_pinned_SDK()
@@ -16,7 +17,7 @@ public sealed class PackageConsumerWorkspaceSdkTests
 		File.WriteAllText(Path.Combine(repository.Path, "global.json"),
 			"""{"sdk":{"version":"10.0.402","rollForward":"disable"}}""");
 
-		using var workspace = new PackageConsumerWorkspace(repository.Path);
+		using var workspace = new PackageConsumerWorkspace(repository.Path, package);
 		var result = await new ProcessRunner().RunAsync(new(
 			"dotnet",
 			workspace.ConsumerDirectory,

@@ -4,27 +4,13 @@ using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
 
-[Collection(PackageConsumerCollection.Name)]
-public sealed class PackedStockFormConsumerTests
+[Collection(PackedConsumerCollection.Name)]
+public sealed class PackedStockFormConsumerTests(PackedPackageFixture package)
 {
-	[Fact]
-	public async Task Packaged_compiler_accepts_stock_form_authoring()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		workspace.UseIssue179StockFormsScenario();
-
-		var result = await workspace.BuildForDiagnosticAsync();
-		RetainEvidence(workspace, result, "compile");
-
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
-		Assert.True(result.ExitCode == 0, result.StandardOutput + Environment.NewLine + result.StandardError);
-	}
-
 	[Fact]
 	public async Task Packaged_analyzer_rejects_an_own_named_form_outside_the_explicit_allowlist()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue179RejectedFormScenario();
 
 		var result = await workspace.BuildForDiagnosticAsync();

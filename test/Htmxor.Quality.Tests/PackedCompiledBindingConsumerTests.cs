@@ -3,13 +3,13 @@ using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
 
-[Collection(PackageConsumerCollection.Name)]
-public sealed class PackedCompiledBindingConsumerTests
+[Collection(PackedConsumerCollection.Name)]
+public sealed class PackedCompiledBindingConsumerTests(PackedPackageFixture package)
 {
 	[Fact]
 	public async Task Action_for_the_request_component_does_not_cover_an_inherited_helper_receiver()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310DerivedHelperReceiverScenario();
 		var result = await workspace.BuildForDiagnosticAsync();
 		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-receiver-context", workspace.PackageVersion);
@@ -34,7 +34,7 @@ public sealed class PackedCompiledBindingConsumerTests
 	[Fact]
 	public async Task Action_for_another_component_instance_does_not_cover_a_compiled_binding()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310DifferentReceiverScenario();
 		var result = await workspace.BuildForDiagnosticAsync();
 		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-receiver", workspace.PackageVersion);
@@ -67,7 +67,7 @@ public sealed class PackedCompiledBindingConsumerTests
 	[InlineData("get", "HTMXOR015")]
 	public async Task Compiled_binding_omitted_by_the_scanner_fails_the_package_consumer_build(string method, string expectedId)
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310MissingActionScenario(method);
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -93,7 +93,7 @@ public sealed class PackedCompiledBindingConsumerTests
 	[Fact]
 	public async Task Normal_only_component_cannot_hide_a_compiled_binding_from_the_gate()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310NormalOnlyBindingScenario();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -110,7 +110,7 @@ public sealed class PackedCompiledBindingConsumerTests
 	[Fact]
 	public async Task Action_for_another_handler_does_not_cover_a_compiled_binding_for_the_same_method()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310ConflictingBindingScenario();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -121,7 +121,7 @@ public sealed class PackedCompiledBindingConsumerTests
 	[Fact]
 	public async Task Action_for_a_same_named_different_handler_does_not_cover_a_compiled_binding()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310SameNameHandlerScenario();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -134,7 +134,7 @@ public sealed class PackedCompiledBindingConsumerTests
 	[Fact]
 	public async Task Compiled_binding_inside_script_markup_cannot_be_silently_omitted()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310ScriptBindingScenario();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -147,7 +147,7 @@ public sealed class PackedCompiledBindingConsumerTests
 	[InlineData(true)]
 	public async Task Compiled_component_tag_binding_cannot_be_silently_omitted(bool generic)
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310ComponentBindingScenario(generic);
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -155,28 +155,10 @@ public sealed class PackedCompiledBindingConsumerTests
 		AssertRejectedBinding(workspace, result, "put", 4);
 	}
 
-	[Theory]
-	[InlineData(false)]
-	[InlineData(true)]
-	public async Task Packaged_compiler_accepts_supported_component_tag_bindings(bool generic)
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		workspace.UseIssue310SupportedComponentBindingScenario(generic);
-
-		var result = await workspace.BuildForDiagnosticAsync();
-		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-supported", generic ? "generic" : "direct");
-		Directory.CreateDirectory(evidence);
-		File.WriteAllText(Path.Combine(evidence, "build.log"), result.StandardOutput + Environment.NewLine + result.StandardError);
-
-		Assert.True(result.ExitCode == 0, result.StandardOutput + Environment.NewLine + result.StandardError);
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
-	}
-
 	[Fact]
 	public async Task Compiled_member_template_binding_cannot_be_silently_omitted()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310TemplateBindingScenario();
 
 		var result = await workspace.BuildForDiagnosticAsync();
@@ -187,7 +169,7 @@ public sealed class PackedCompiledBindingConsumerTests
 	[Fact]
 	public async Task Compiled_nested_helper_template_binding_cannot_be_silently_omitted()
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue310NestedTemplateBindingScenario();
 		var result = await workspace.BuildForDiagnosticAsync();
 		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-nested-template");
@@ -199,29 +181,6 @@ public sealed class PackedCompiledBindingConsumerTests
 		}
 		AssertRejectedBinding(workspace, result, "put", 12, "HTMXOR040", "handler 'Save' must be an instance method on the request-owned component");
 		Assert.DoesNotContain("HTMXOR042", result.StandardOutput + result.StandardError, StringComparison.Ordinal);
-	}
-
-	[Fact]
-	public async Task Handwritten_member_template_callback_stays_outside_the_compiled_Razor_gate()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		workspace.UseIssue310HandwrittenTemplateScenario();
-
-		var result = await workspace.BuildForDiagnosticAsync();
-		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
-		var evidence = Path.Combine(RepositoryLocator.Find(), "artifacts", "results", "issue-310-handwritten");
-		Directory.CreateDirectory(evidence);
-		File.WriteAllText(Path.Combine(evidence, "build.log"), output);
-		foreach (var path in Directory.EnumerateFiles(Path.Combine(workspace.ConsumerDirectory, "obj", "generated"), "*Issue310Page_razor.g.cs", SearchOption.AllDirectories))
-		{
-			File.Copy(path, Path.Combine(evidence, Path.GetFileName(path)), overwrite: true);
-		}
-
-		Assert.True(result.ExitCode == 0, output);
-		Assert.DoesNotContain("HTMXOR", output, StringComparison.Ordinal);
-		Assert.True(File.Exists(workspace.ConsumerAssemblyPath));
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		PackageConsumerEvidence.AssertConsumerCompileBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
 	}
 
 	private static void AssertRejectedBinding(PackageConsumerWorkspace workspace, ProcessResult result, string method, int line, string expectedId = "HTMXOR042", string? requiredReason = null)

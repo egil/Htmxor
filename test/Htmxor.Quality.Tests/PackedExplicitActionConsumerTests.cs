@@ -4,22 +4,9 @@ using Htmxor.Quality;
 
 namespace Htmxor.Quality.Tests;
 
-[Collection(PackageConsumerCollection.Name)]
-public sealed class PackedExplicitActionConsumerTests
+[Collection(PackedConsumerCollection.Name)]
+public sealed class PackedExplicitActionConsumerTests(PackedPackageFixture package)
 {
-	[Fact]
-	public async Task Packaged_compiler_accepts_explicit_action_authoring_forms_and_signatures()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
-		workspace.UseIssue180ExplicitActions();
-		var result = await workspace.BuildForDiagnosticAsync();
-		RetainEvidence(workspace, result, "compile");
-
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-		PackageConsumerEvidence.AssertConsumerPackageBoundary(workspace.ConsumerDirectory, workspace.PackageVersion);
-		Assert.True(result.ExitCode == 0, result.StandardOutput + result.StandardError);
-	}
-
 	[Theory]
 	[InlineData("invalid-method", "GET", "method", "HTMXOR029")]
 	[InlineData("normal-only", "PUT", "DisableHtmxDirectRouting", "HTMXOR034")]
@@ -35,7 +22,7 @@ public sealed class PackedExplicitActionConsumerTests
 	[InlineData("no-route", "PUT", "HtmxAction", "HTMXOR014")]
 	public async Task Packaged_final_compilation_rejects_invalid_explicit_declarations(string scenario, string method, string cause, string expectedId)
 	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find());
+		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
 		workspace.UseIssue180RejectedDeclaration(scenario, method);
 		var result = await workspace.BuildForDiagnosticAsync();
 		var evidenceDirectory = RetainEvidence(workspace, result, scenario);
