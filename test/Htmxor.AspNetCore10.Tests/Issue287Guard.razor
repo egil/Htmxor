@@ -1,0 +1,35 @@
+@page "/issue-287/guard"
+@namespace Htmxor.AspNetCore10
+@inject Htmxor.Http.HtmxContext Htmx
+
+<p data-guard-output>Component output survives rejection.</p>
+<output>@message</output>
+
+@code {
+    private string message = "operation accepted";
+
+    [SupplyParameterFromQuery(Name = "operation")]
+    public string Operation { get; set; } = "";
+
+    protected override void OnParametersSet()
+    {
+        try
+        {
+            switch (Operation)
+            {
+                case "Location":
+                    Htmx.Response.Location("/new-location");
+                    break;
+                case "EmptyBody":
+                    Htmx.Response.EmptyBody();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(Operation));
+            }
+        }
+        catch (InvalidOperationException exception)
+        {
+            message = exception.Message;
+        }
+    }
+}

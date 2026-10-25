@@ -1,0 +1,9 @@
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Routing
+@attribute [HtmxRoute("/issue359-reports/{ReportId:int}", Methods = ["GET"], CurrentUrl = "/orders", Target = "section#patch-result", Targets = ["section#patch-result", "div#fallback"])]
+@attribute [Host("reports.internal.example")]
+@attribute [Authorize(Policy = "issue359-report")]
+<section data-issue-97-report-component>@ReportId</section>
+@code {
+    [Parameter] public int ReportId { get; set; }
+}
