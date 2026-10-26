@@ -41,6 +41,8 @@
 		<RazorComponent Include="Issue292*.razor" Condition="'$(TargetFramework)' == 'net11.0'" />
 		<Compile Include="Issue168*.cs;Issue169*.cs;Issue287*.cs;Issue291*.cs;Issue299*.cs;Issue359*.cs" Condition="'$(TargetFramework)' == 'net11.0'" />
 		<RazorComponent Include="Issue168*.razor;Issue169*.razor;Issue287*.razor;Issue291*.razor;Issue299*.razor;Issue359*.razor" Condition="'$(TargetFramework)' == 'net11.0'" />
+		<RazorComponent Include="Issue375/**/*.razor" Condition="'$(TargetFramework)' == 'net11.0'" />
+		<PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="$(AspNetCoreTestVersion)" />
 		<PackageReference Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetCoreTestVersion)" />
@@ -64,4 +66,7 @@
 		<ProjectReference Include="..\Htmxor.AspNetCore10.SwitchOnHost\Htmxor.AspNetCore10.SwitchOnHost.csproj" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<Content Include="../Htmxor.Quality.Tests/Htmx4PackageBrowser/wwwroot/htmx-4.0.0.min.js" Link="wwwroot/htmx-4.0.0.min.js" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
 </Project>

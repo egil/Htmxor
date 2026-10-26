@@ -6,14 +6,14 @@ using Xunit.Abstractions;
 
 namespace Htmxor.Quality.Tests;
 
-[Collection(PackageConsumerCollection.Name)]
-public sealed class Htmx4PackageBrowserTests(ITestOutputHelper output)
+[Collection(PackedConsumerCollection.Name)]
+public sealed class Htmx4PackageBrowserTests(PackedPackageFixture package, ITestOutputHelper output)
 {
 	[Fact]
 	[Trait("Category", "Browser")]
 	public async Task Package_only_net10_production_publish_preserves_assets_and_component_actions()
 	{
-		using var workspace = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find());
+		using var workspace = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find(), package);
 
 		var result = await NetworkChangedRetryRunner.RunAsync(workspace.RunAsync, _ => workspace.TrxPath, output.WriteLine);
 		var testRun = TrxTestRun.Read(workspace.TrxPath);
@@ -22,16 +22,10 @@ public sealed class Htmx4PackageBrowserTests(ITestOutputHelper output)
 			result.ExitCode == 0,
 			result.StandardOutput + Environment.NewLine + result.StandardError +
 			Environment.NewLine + $"TRX: {testRun}");
-		Assert.Equal(new TrxTestRun(43, 43, 43, 0, 0, 0, 0), testRun);
+		Assert.Equal(new TrxTestRun(39, 39, 39, 0, 0, 0, 0), testRun);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		Htmx4PackageBrowserEvidence.AssertConsumer(workspace);
 	}
-}
-
-[CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class PackageConsumerCollection
-{
-	public const string Name = "Package consumers";
 }
 
 internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
@@ -50,7 +44,7 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 	private readonly ProcessRunner runner = new();
 	private readonly List<object> evidenceCommands = new();
 
-	public Htmx4PackageBrowserWorkspace(string repositoryRoot)
+	public Htmx4PackageBrowserWorkspace(string repositoryRoot, PackedPackageFixture package)
 	{
 		this.repositoryRoot = repositoryRoot;
 		consumerDirectory = Path.Combine(temporaryDirectory.Path, "consumer");
@@ -62,14 +56,17 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 		nugetConfigPath = Path.Combine(consumerDirectory, "NuGet.config");
 		Directory.CreateDirectory(consumerDirectory);
 		Directory.CreateDirectory(packageDirectory);
+		PackageVersion = package.PackageVersion;
 		StageConsumer();
+		File.Copy(package.PackagePath, Path.Combine(packageDirectory, Path.GetFileName(package.PackagePath)));
+		UseFramework("net10.0", "10.0.402", "10.0.13");
 	}
 
 	public string ConsumerDirectory => consumerDirectory;
 
 	public string PackagePath => Assert.Single(Directory.EnumerateFiles(packageDirectory, "*.nupkg"));
 
-	public string PackageVersion { get; private set; } = $"0.0.0-issue56-{Guid.NewGuid():N}";
+	public string PackageVersion { get; }
 
 	public string ProjectPath => projectPath;
 
@@ -80,10 +77,6 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 		try
 		{
 			await RunRequiredAsync("--info");
-			if (!usesSharedPackage)
-			{
-				await PackAsync();
-			}
 			await RestoreAsync();
 			await PublishAsync();
 
@@ -150,17 +143,6 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 		</configuration>
 		""";
 
-	private Task<ProcessResult> PackAsync() =>
-		RunRequiredAsync(
-			"pack",
-			Path.Combine(repositoryRoot, "src", "Htmxor", "Htmxor.csproj"),
-			"--configuration",
-			"Release",
-			"--no-restore",
-			"--output",
-			packageDirectory,
-			$"-p:MinVerVersionOverride={PackageVersion}");
-
 	private Task<ProcessResult> RestoreAsync() =>
 		RunRequiredAsync(
 			"restore",
@@ -194,7 +176,7 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 			"--no-restore",
 			$"-p:OutputPath={publishDirectory}",
 			"--filter",
-			testFilter,
+			TestFilter,
 			"--environment",
 			"ASPNETCORE_ENVIRONMENT=Production",
 			"--blame-hang",
@@ -214,10 +196,10 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 	{
 		var result = await runner.RunAsync(new(
 			"dotnet",
-			arguments[0] == "pack" ? repositoryRoot : consumerDirectory,
+			consumerDirectory,
 			arguments,
 			EnsureSuccess: false));
-		RecordCommand(arguments[0] == "pack" ? repositoryRoot : consumerDirectory, arguments, result);
+		RecordCommand(consumerDirectory, arguments, result);
 		if (result.ExitCode != 0)
 		{
 			throw new InvalidOperationException(
@@ -247,7 +229,7 @@ internal sealed partial class Htmx4PackageBrowserWorkspace : IDisposable
 		{
 			RetainFile(source, Path.Combine(directory, "boundary", Path.GetFileName(source)), files);
 		}
-		File.WriteAllText(Path.Combine(directory, "evidence.json"), JsonSerializer.Serialize(new { PackageVersion, ConsumerDirectory = consumerDirectory, PublishDirectory = publishDirectory, TestFilter = testFilter, Commands = evidenceCommands, Files = files, CapturedAt = DateTimeOffset.UtcNow }, new JsonSerializerOptions { WriteIndented = true }));
+		File.WriteAllText(Path.Combine(directory, "evidence.json"), JsonSerializer.Serialize(new { PackageVersion, ConsumerDirectory = consumerDirectory, PublishDirectory = publishDirectory, TestFilter, Commands = evidenceCommands, Files = files, CapturedAt = DateTimeOffset.UtcNow }, new JsonSerializerOptions { WriteIndented = true }));
 	}
 
 	private static void RetainDirectory(string sourceDirectory, string destinationDirectory, List<object> files)

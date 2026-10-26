@@ -1,0 +1,3562 @@
+{
+  "behaviorStart": "5988ed64ef29b944090cb91fc05a9b5f919a671f",
+  "assertions": [
+    {
+      "id": "A001",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 20,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated",
+        "assertion": "Assert.Single(app.Urls) });"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 21,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated"
+      },
+      "classification": "fixture control: isolated host URL",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A001-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A002",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 37,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated",
+        "assertion": "Assert.Single(runA.Snapshot().Select(item => item.RequestId).Distinct());"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 38,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A002-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A003",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 38,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated",
+        "assertion": "Assert.Single(runB.Snapshot().Select(item => item.RequestId).Distinct());"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 39,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A003-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A004",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 39,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated",
+        "assertion": "Assert.NotEqual(requestIdA, requestIdB);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 40,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A004-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A005",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 40,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated",
+        "assertion": "Assert.NotEqual(runA.Id, runB.Id);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 41,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A005-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A006",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 61,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated",
+        "assertion": "Assert.False(runB.Summary.Release.Task.IsCompleted);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 62,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A006-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A007",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 62,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated",
+        "assertion": "Assert.Equal(blockedB, runB.Snapshot());"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 63,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A007-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A008",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 67,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated",
+        "assertion": "Assert.Equal(completedA, runA.Snapshot());"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 68,
+        "method": "Named_selections_wait_for_sibling_data_and_keep_overlapping_requests_isolated"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A008-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A009",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 101,
+        "method": "AssertIssue171PendingAsync",
+        "assertion": "Assert.Same(window, await Task.WhenAny(response, window));"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 102,
+        "method": "AssertIssue171PendingAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A009-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A010",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 105,
+        "method": "AssertIssue171PendingAsync",
+        "assertion": "Assert.Equal($\"Waiting {marker}\", html);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 106,
+        "method": "AssertIssue171PendingAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A010-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A011",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 106,
+        "method": "AssertIssue171PendingAsync",
+        "assertion": "Assert.Empty(events);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 107,
+        "method": "AssertIssue171PendingAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A011-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A012",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 112,
+        "method": "AssertIssue171CompletedAsync",
+        "assertion": "Assert.Equal(200, response.Status);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 113,
+        "method": "AssertIssue171CompletedAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A012-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A013",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 114,
+        "method": "AssertIssue171CompletedAsync",
+        "assertion": "Assert.Equal(\"div#delivery-slot\", headers[\"hx-target\"]);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 115,
+        "method": "AssertIssue171CompletedAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A013-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A014",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 115,
+        "method": "AssertIssue171CompletedAsync",
+        "assertion": "Assert.Equal(\"true\", headers[\"hx-request\"]);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 116,
+        "method": "AssertIssue171CompletedAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A014-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A015",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 116,
+        "method": "AssertIssue171CompletedAsync",
+        "assertion": "Assert.Equal(\"partial\", headers[\"hx-request-type\"]);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 117,
+        "method": "AssertIssue171CompletedAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A015-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A016",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 119,
+        "method": "AssertIssue171CompletedAsync",
+        "assertion": "Assert.Equal(Issue171ExpectedHtml(marker, requestId, selection),\n\t\t\tRegex.Replace(body, @\">\\s+<\", \"><\").Trim());"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 120,
+        "method": "AssertIssue171CompletedAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A016-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A017",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 131,
+        "method": "AssertIssue171DomAsync",
+        "assertion": "Assert.Equal(Issue171ExpectedHtml(marker, requestId, selection),\n\t\t\tRegex.Replace(html, @\">\\s+<\", \"><\").Trim());"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 132,
+        "method": "AssertIssue171DomAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A017-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A018",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 133,
+        "method": "AssertIssue171DomAsync",
+        "assertion": "Assert.Equal(new[] { \"htmx:after:request\", \"htmx:after:swap\" }, events);"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 134,
+        "method": "AssertIssue171DomAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A018-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A019",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template",
+        "line": 160,
+        "method": "AssertIssue171Lifecycle",
+        "assertion": "Assert.Equal(expected.OrderBy(item => item.Component).ThenBy(item => item.Phase),\n\t\t\trun.Snapshot().OrderBy(item => item.Component).ThenBy(item => item.Phase));"
+      },
+      "inputs": "request-a/summary and request-b/details; blocked, selected-only complete, A complete/B blocked, both complete",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue171BrowserTests.cs",
+        "line": 161,
+        "method": "AssertIssue171Lifecycle"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A019-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A020",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue174BrowserTests.cs.template",
+        "line": 20,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities",
+        "assertion": "Assert.Single(app.Urls) });"
+      },
+      "inputs": "alpha; beta",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue174BrowserTests.cs",
+        "line": 22,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities"
+      },
+      "classification": "fixture control: isolated host URL",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A020-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A021",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue174BrowserTests.cs.template",
+        "line": 42,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities",
+        "assertion": "Assert.Equal(\n\t\t\tnew[] { \"200\", \"true\", \"partial\", $\"button#source-{delivery}\", $\"main#main-{delivery}\" },\n\t\t\tnew[] { response.Status.ToString(), headers[\"hx-request\"], headers[\"hx-request-type\"], headers[\"hx-source\"], headers[\"hx-target\"] });"
+      },
+      "inputs": "alpha; beta",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue174BrowserTests.cs",
+        "line": 44,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A021-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A022",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue174BrowserTests.cs.template",
+        "line": 47,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities",
+        "assertion": "Assert.Equal(Encoding.UTF8.GetBytes(\n\t\t\t$\"<div id=\\\"envelope-{delivery}\\\"><aside id=\\\"oob-{delivery}\\\" hx-swap-oob=\\\"true\\\" data-delivery=\\\"native-oob\\\">OOB updated</aside>\" +\n\t\t\t$\"<hx-partial hx-target=\\\"#partial-{delivery}\\\" hx-swap=\\\"innerHTML\\\" data-delivery=\\\"raw-partial\\\"><strong>Partial updated</strong></hx-partial>\" +\n\t\t\t\"<section data-delivery=\\\"main\\\">Main updated</section></div>\"), body);"
+      },
+      "inputs": "alpha; beta",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue174BrowserTests.cs",
+        "line": 49,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A022-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A023",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue174BrowserTests.cs.template",
+        "line": 55,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities",
+        "assertion": "Assert.Equal($\"main-{delivery}\", events[0]);"
+      },
+      "inputs": "alpha; beta",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue174BrowserTests.cs",
+        "line": 57,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A023-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A024",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue174BrowserTests.cs.template",
+        "line": 56,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities",
+        "assertion": "Assert.Equal(new[] { $\"main-{delivery}\", $\"oob-{delivery}\", $\"partial-{delivery}\" }, events.Order());"
+      },
+      "inputs": "alpha; beta",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue174BrowserTests.cs",
+        "line": 58,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A024-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A025",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue174BrowserTests.cs.template",
+        "line": 64,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities",
+        "assertion": "Assert.Equal(new[]\n\t\t{\n\t\t\t$\"<div id=\\\"envelope-{delivery}\\\"><section data-delivery=\\\"main\\\">Main updated</section></div>\",\n\t\t\t\"OOB updated\",\n\t\t\t\"<strong>Partial updated</strong>\",\n\t\t}, dom);"
+      },
+      "inputs": "alpha; beta",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue174BrowserTests.cs",
+        "line": 66,
+        "method": "Named_fragment_preserves_native_deliveries_independently_of_client_identities"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A025-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 2,
+            "failed": 2,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A026",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 30,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Single(app.Urls);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 31,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "fixture control: isolated host URL",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A026-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A027",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 32,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(200, navigation!.Status);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 33,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A027-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A028",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 34,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(tokens ? 1 : 0, await page.Locator(\"input[name='__RequestVerificationToken']\").CountAsync());"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 35,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A028-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A029",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 35,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(tokens, (await context.CookiesAsync()).Any(cookie => cookie.Name.StartsWith(\".AspNetCore.Antiforgery.\", StringComparison.Ordinal)));"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 36,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A029-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A030",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 40,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(200, response.Status);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 41,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A030-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A031",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 42,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(\"same-origin\", headers[\"sec-fetch-site\"]);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 43,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A031-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A032",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 43,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(\"true\", headers[\"hx-request\"]);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 44,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A032-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A033",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 44,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(\"/issue-211\", new Uri(response.Url).AbsolutePath);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 45,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A033-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A034",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 45,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(tokens, headers.ContainsKey(\"requestverificationtoken\"));"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 46,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A034-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A035",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 46,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(tokens, headers.ContainsKey(\"cookie\"));"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 47,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A035-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A036",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 47,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "await Assertions.Expect(page.Locator(\"#result\")).ToHaveTextAsync(method);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 48,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A036-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A037",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 48,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Single(probe.Callbacks);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 49,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A037-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A038",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 49,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(method, callback.Method);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 50,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A038-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A039",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 50,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Equal(callback.Instance, await page.Locator(\"#result\").GetAttributeAsync(\"data-instance\"));"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 51,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A039-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A040",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 51,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.NotEqual(initialInstance, callback.Instance);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=true on net10/net11; tokens=false on net11 only",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 52,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A040-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A041",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 54,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.Empty(await context.CookiesAsync());"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=false; net11 only",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 55,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A041-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 4,
+            "passed": 4
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A042",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 55,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback",
+        "assertion": "Assert.False(response.Headers.ContainsKey(\"set-cookie\"));"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 tokens=false; net11 only",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 56,
+        "method": "Htmx_defaults_transport_chosen_protection_and_swap_one_request_instance_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A042-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 4,
+            "passed": 4
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A043",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 76,
+        "method": "Explicit_tokens_reject_missing_or_invalid_browser_credentials_without_callback",
+        "assertion": "Assert.Single(app.Urls);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 missing/invalid token; tokens=true",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 77,
+        "method": "Explicit_tokens_reject_missing_or_invalid_browser_credentials_without_callback"
+      },
+      "classification": "fixture control: isolated host URL",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A043-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A044",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 84,
+        "method": "Explicit_tokens_reject_missing_or_invalid_browser_credentials_without_callback",
+        "assertion": "Assert.Equal(400, response.Status);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 missing/invalid token; tokens=true",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 85,
+        "method": "Explicit_tokens_reject_missing_or_invalid_browser_credentials_without_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A044-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A045",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 86,
+        "method": "Explicit_tokens_reject_missing_or_invalid_browser_credentials_without_callback",
+        "assertion": "Assert.Equal(invalid, headers.ContainsKey(\"requestverificationtoken\"));"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 missing/invalid token; tokens=true",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 87,
+        "method": "Explicit_tokens_reject_missing_or_invalid_browser_credentials_without_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A045-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A046",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 87,
+        "method": "Explicit_tokens_reject_missing_or_invalid_browser_credentials_without_callback",
+        "assertion": "Assert.Empty(probe.Callbacks);"
+      },
+      "inputs": "POST, PUT, PATCH, DELETE \u00d7 missing/invalid token; tokens=true",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 88,
+        "method": "Explicit_tokens_reject_missing_or_invalid_browser_credentials_without_callback"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A046-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 8,
+            "failed": 8,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A047",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 102,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution",
+        "assertion": "Assert.Single(source.Urls) + \"/issue-211\");"
+      },
+      "inputs": "POST from source origin to another loopback port; same-origin htmx mode",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 103,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution"
+      },
+      "classification": "fixture control: isolated host URL",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A047-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A048",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 103,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution",
+        "assertion": "Assert.Single(target.Urls));"
+      },
+      "inputs": "POST from source origin to another loopback port; same-origin htmx mode",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 104,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution"
+      },
+      "classification": "fixture control: isolated host URL",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A048-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A049",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 113,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution",
+        "assertion": "Assert.Empty(targetProbe.Requests);"
+      },
+      "inputs": "POST from source origin to another loopback port; same-origin htmx mode",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 114,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A049-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A050",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 114,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution",
+        "assertion": "Assert.Empty(targetProbe.Callbacks);"
+      },
+      "inputs": "POST from source origin to another loopback port; same-origin htmx mode",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 115,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A050-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A051",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 115,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution",
+        "assertion": "Assert.Empty(sourceProbe.Callbacks);"
+      },
+      "inputs": "POST from source origin to another loopback port; same-origin htmx mode",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 116,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A051-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A052",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 116,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution",
+        "assertion": "await Assertions.Expect(page.Locator(\"#result\")).ToHaveTextAsync(\"initial\");"
+      },
+      "inputs": "POST from source origin to another loopback port; same-origin htmx mode",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 117,
+        "method": "Htmx_default_same_origin_mode_prevents_cross_origin_request_before_server_execution"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A052-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A053",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 130,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust",
+        "assertion": "Assert.Single(source.Urls);"
+      },
+      "inputs": "net11: untrusted\u21920, wildcard\u2192400, trusted\u2192400, trusted-credentials\u2192200; origin observations only for nonzero status",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 131,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust"
+      },
+      "classification": "auxiliary browser fetch CORS control (not htmx defaults)",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A053-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A054",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 135,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust",
+        "assertion": "Assert.Single(target.Urls);"
+      },
+      "inputs": "net11: untrusted\u21920, wildcard\u2192400, trusted\u2192400, trusted-credentials\u2192200; origin observations only for nonzero status",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 136,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust"
+      },
+      "classification": "auxiliary browser fetch CORS control (not htmx defaults)",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A054-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A055",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 150,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust",
+        "assertion": "Assert.Equal(expectedStatus, status);"
+      },
+      "inputs": "net11: untrusted\u21920, wildcard\u2192400, trusted\u2192400, trusted-credentials\u2192200; origin observations only for nonzero status",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 151,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust"
+      },
+      "classification": "auxiliary browser fetch CORS control (not htmx defaults)",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A055-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A056",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 151,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust",
+        "assertion": "Assert.Contains(\"OPTIONS\", probe.Requests);"
+      },
+      "inputs": "net11: untrusted\u21920, wildcard\u2192400, trusted\u2192400, trusted-credentials\u2192200; origin observations only for nonzero status",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 152,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust"
+      },
+      "classification": "auxiliary browser fetch CORS control (not htmx defaults)",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A056-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A057",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 152,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust",
+        "assertion": "Assert.Equal(expectedStatus != 0, probe.Requests.Contains(\"POST\"));"
+      },
+      "inputs": "net11: untrusted\u21920, wildcard\u2192400, trusted\u2192400, trusted-credentials\u2192200; origin observations only for nonzero status",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 153,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust"
+      },
+      "classification": "auxiliary browser fetch CORS control (not htmx defaults)",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A057-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A058",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 153,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust",
+        "assertion": "Assert.Equal(expectedStatus == 200 ? 1 : 0, probe.Callbacks.Count);"
+      },
+      "inputs": "net11: untrusted\u21920, wildcard\u2192400, trusted\u2192400, trusted-credentials\u2192200; origin observations only for nonzero status",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 154,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust"
+      },
+      "classification": "auxiliary browser fetch CORS control (not htmx defaults)",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A058-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 4,
+            "failed": 4,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A059",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 156,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust",
+        "assertion": "Assert.Single(probe.Origins);"
+      },
+      "inputs": "net11: untrusted\u21920, wildcard\u2192400, trusted\u2192400, trusted-credentials\u2192200; origin observations only for nonzero status",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 157,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust"
+      },
+      "classification": "auxiliary browser fetch CORS control (not htmx defaults)",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A059-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 4,
+            "failed": 3,
+            "passed": 1
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A060",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 157,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust",
+        "assertion": "Assert.Equal(sourceOrigin, origin.Origin);"
+      },
+      "inputs": "net11: untrusted\u21920, wildcard\u2192400, trusted\u2192400, trusted-credentials\u2192200; origin observations only for nonzero status",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 158,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust"
+      },
+      "classification": "auxiliary browser fetch CORS control (not htmx defaults)",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A060-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 4,
+            "failed": 3,
+            "passed": 1
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A061",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 158,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust",
+        "assertion": "Assert.Equal(\"same-site\", origin.FetchSite);"
+      },
+      "inputs": "net11: untrusted\u21920, wildcard\u2192400, trusted\u2192400, trusted-credentials\u2192200; origin observations only for nonzero status",
+      "tfms": [
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 159,
+        "method": "Browser_cors_control_distinguishes_preflight_prevention_native_rejection_and_explicit_trust"
+      },
+      "classification": "auxiliary browser fetch CORS control (not htmx defaults)",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A061-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net11.0",
+            "executed": 4,
+            "failed": 3,
+            "passed": 1
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A062",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template",
+        "line": 167,
+        "method": "SelectAsync",
+        "assertion": "Assert.Equal(\"same-origin\", await page.EvaluateAsync<string>(\"() => htmx.config.mode\"));"
+      },
+      "inputs": "all protection token rows plus same-origin prevention; no auxiliary CORS invocation",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue211BrowserTests.cs",
+        "line": 168,
+        "method": "SelectAsync"
+      },
+      "classification": "application-owned htmx default control",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A062-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 13,
+            "failed": 13,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 21,
+            "failed": 17,
+            "passed": 4
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A063",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue283TitleBrowserTests.cs.template",
+        "line": 17,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response",
+        "assertion": "Assert.Single(app.Urls) + \"/issue-283/title\");"
+      },
+      "inputs": "direct /issue-283/title-partial; net10 only",
+      "tfms": [
+        "net10.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue283TitleBrowserTests.cs",
+        "line": 19,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response"
+      },
+      "classification": "fixture control: isolated host URL",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A063-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A064",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue283TitleBrowserTests.cs.template",
+        "line": 23,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response",
+        "assertion": "Assert.Equal(200, response.Status);"
+      },
+      "inputs": "direct /issue-283/title-partial; net10 only",
+      "tfms": [
+        "net10.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue283TitleBrowserTests.cs",
+        "line": 25,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A064-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A065",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue283TitleBrowserTests.cs.template",
+        "line": 24,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response",
+        "assertion": "Assert.Contains(\"<title>Issue 283 partial title</title>\", await response.TextAsync(), StringComparison.Ordinal);"
+      },
+      "inputs": "direct /issue-283/title-partial; net10 only",
+      "tfms": [
+        "net10.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue283TitleBrowserTests.cs",
+        "line": 26,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A065-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A066",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue283TitleBrowserTests.cs.template",
+        "line": 25,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response",
+        "assertion": "Assert.Equal(\"partial\", (await response.Request.AllHeadersAsync())[\"hx-request-type\"]);"
+      },
+      "inputs": "direct /issue-283/title-partial; net10 only",
+      "tfms": [
+        "net10.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue283TitleBrowserTests.cs",
+        "line": 27,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A066-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A067",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue283TitleBrowserTests.cs.template",
+        "line": 26,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response",
+        "assertion": "await Assertions.Expect(page.Locator(\"#issue283-loaded\")).ToHaveTextAsync(\"loaded\");"
+      },
+      "inputs": "direct /issue-283/title-partial; net10 only",
+      "tfms": [
+        "net10.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue283TitleBrowserTests.cs",
+        "line": 28,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A067-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A068",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue283TitleBrowserTests.cs.template",
+        "line": 27,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response",
+        "assertion": "await Assertions.Expect(page).ToHaveTitleAsync(\"Issue 283 partial title\");"
+      },
+      "inputs": "direct /issue-283/title-partial; net10 only",
+      "tfms": [
+        "net10.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue283TitleBrowserTests.cs",
+        "line": 29,
+        "method": "Application_owned_htmx4_defaults_apply_title_from_direct_partial_response"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A068-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A069",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 182,
+        "method": "Output_cache_keeps_normal_direct_whole_and_named_fragment_representations_distinct",
+        "assertion": "Assert.Single(app.Urls)) };"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 25,
+        "method": "Output_cache_keeps_normal_direct_whole_and_named_fragment_representations_distinct"
+      },
+      "classification": "fixture control: isolated host URL",
+      "sensitivity": {
+        "kind": "Single\u2192Empty cardinality reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A069-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A070",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 190,
+        "method": "Output_cache_keeps_normal_direct_whole_and_named_fragment_representations_distinct",
+        "assertion": "Assert.Equal(Issue50Representations.Length, probe.RenderCount);"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 32,
+        "method": "Output_cache_keeps_normal_direct_whole_and_named_fragment_representations_distinct"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A070-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A071",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 3053,
+        "method": "AssertCachedRepresentationAsync",
+        "assertion": "Assert.Equal(HttpStatusCode.OK, first.StatusCode);"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 42,
+        "method": "AssertCachedRepresentationAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A071-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A072",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 3054,
+        "method": "AssertCachedRepresentationAsync",
+        "assertion": "Assert.Equal(HttpStatusCode.OK, second.StatusCode);"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 43,
+        "method": "AssertCachedRepresentationAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A072-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A073",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 3055,
+        "method": "AssertCachedRepresentationAsync",
+        "assertion": "Assert.False(first.Headers.Contains(\"Set-Cookie\"));"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 44,
+        "method": "AssertCachedRepresentationAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A073-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A074",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 3056,
+        "method": "AssertCachedRepresentationAsync",
+        "assertion": "Assert.False(second.Headers.Contains(\"Set-Cookie\"));"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 45,
+        "method": "AssertCachedRepresentationAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A074-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A075",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 3059,
+        "method": "AssertCachedRepresentationAsync",
+        "assertion": "Assert.Equal(firstBody, secondBody);"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 48,
+        "method": "AssertCachedRepresentationAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A075-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A076",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 3060,
+        "method": "AssertCachedRepresentationAsync",
+        "assertion": "Assert.Equal(\n\t\t\trepresentation.RequestType is not \"partial\",\n\t\t\tfirstBody.Contains(\"data-stock-shell\", StringComparison.Ordinal));"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 49,
+        "method": "AssertCachedRepresentationAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A076-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A077",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 3063,
+        "method": "AssertCachedRepresentationAsync",
+        "assertion": "Assert.Contains($\"data-representation=\\\"{representation.Selection}\\\"\", firstBody, StringComparison.Ordinal);"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 52,
+        "method": "AssertCachedRepresentationAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A077-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A078",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 3066,
+        "method": "AssertCachedRepresentationAsync",
+        "assertion": "Assert.Contains(\n\t\t\t\t$\"data-issue-50-fragment=\\\"{representation.Selection}\\\"\",\n\t\t\t\tfirstBody,\n\t\t\t\tStringComparison.Ordinal);"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 55,
+        "method": "AssertCachedRepresentationAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A078-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    },
+    {
+      "id": "A079",
+      "original": {
+        "file": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue56BrowserTests.cs.template",
+        "line": 3073,
+        "method": "AssertCachedRepresentationAsync",
+        "assertion": "Assert.Contains(\"data-issue-50-cache\", firstBody, StringComparison.Ordinal);"
+      },
+      "inputs": "both priming orders alpha-full and alpha-partial; normal/null, whole/partial, alpha/partial, beta/partial, alpha/full; repeated request",
+      "tfms": [
+        "net10.0",
+        "net11.0"
+      ],
+      "destination": {
+        "file": "test/Htmxor.AspNetCore10.Tests/Issue375/Browser/Issue50CacheTests.cs",
+        "line": 62,
+        "method": "AssertCachedRepresentationAsync"
+      },
+      "classification": "product",
+      "sensitivity": {
+        "kind": "test assertion reversal",
+        "rawDirectory": "artifacts/reviews/issue-375/migration/sensitivity/A079-<TFM>",
+        "status": "observed intended assertion failure on every applicable framework",
+        "results": [
+          {
+            "tfm": "net10.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          },
+          {
+            "tfm": "net11.0",
+            "executed": 1,
+            "failed": 1,
+            "passed": 0
+          }
+        ]
+      },
+      "restoredGreen": "migration/restored-green: complete original input matrix; final exact-HEAD profile evidence in verification receipt"
+    }
+  ],
+  "packageControls": [
+    {
+      "id": "P01",
+      "original": "Htmx4ProtectionBrowserTests.AssertConsumerAsync: exit code and 13/21 exact TRX rows",
+      "destination": "Issue211BrowserTests: 13 net10 / 21 net11 individually discovered rows; full profile TRX",
+      "classification": "execution control"
+    },
+    {
+      "id": "P02",
+      "original": "Htmx4ProtectionBrowserTests.AssertConsumerAsync: runtime target contains exactly lib/<TFM>/Htmxor.dll",
+      "destination": "PackedSuccessfulConsumerTests.Package_preserves_all_successful_compiler_and_runtime_claims -> NamedSelectionEvidence.AssertPackageTarget on both TFMs",
+      "classification": "retained package runtime/reference control"
+    },
+    {
+      "id": "P03",
+      "original": "Htmx4NamedSelectionBrowserTests.AssertConsumerAsync: exit code and four TRX rows per TFM",
+      "destination": "Issue171BrowserTests (1), Issue174BrowserTests (2), Issue50CacheTests (1), each TFM; full TRX and cache fast TRX",
+      "classification": "execution control"
+    },
+    {
+      "id": "P04",
+      "original": "Htmx4NamedSelectionBrowserTests.AssertConsumerAsync: PackageConsumerEvidence.AssertPackage",
+      "destination": "unchanged PackageConsumerEvidence.AssertPackage in PackedSuccessfulConsumerTests both TFMs and retained Htmx4PackageBrowserTests",
+      "classification": "retained package controls; all helper assertions unchanged"
+    },
+    {
+      "id": "P05",
+      "original": "Htmx4NamedSelectionBrowserTests.AssertConsumerAsync: NamedSelectionEvidence.AssertPackageTarget compile/runtime one-entry path checks",
+      "destination": "unchanged NamedSelectionEvidence.AssertPackageTarget in PackedSuccessfulConsumerTests both TFMs",
+      "classification": "retained package controls"
+    },
+    {
+      "id": "P06",
+      "original": "Htmx4LayoutTitleBrowserTests: exit code and one TRX row",
+      "destination": "Issue283TitleBrowserTests net10 only; full profile TRX",
+      "classification": "execution control"
+    },
+    {
+      "id": "P07",
+      "original": "Htmx4LayoutTitleBrowserTests: PackageConsumerEvidence.AssertPackage",
+      "destination": "unchanged PackageConsumerEvidence.AssertPackage in retained Htmx4PackageBrowserTests and PackedSuccessfulConsumerTests",
+      "classification": "retained package controls"
+    },
+    {
+      "id": "P08",
+      "original": "Htmx4LayoutTitleBrowserTests -> Htmx4PackageBrowserEvidence.AssertConsumer: single Htmxor PackageReference",
+      "destination": "same unmodified Htmx4PackageBrowserEvidence.AssertConsumer in retained production-publish carrier",
+      "classification": "retained package/reference/asset control"
+    },
+    {
+      "id": "P09",
+      "original": "Htmx4LayoutTitleBrowserTests -> Htmx4PackageBrowserEvidence.AssertConsumer: exact package version",
+      "destination": "same unmodified Htmx4PackageBrowserEvidence.AssertConsumer in retained production-publish carrier",
+      "classification": "retained package/reference/asset control"
+    },
+    {
+      "id": "P10",
+      "original": "Htmx4LayoutTitleBrowserTests -> Htmx4PackageBrowserEvidence.AssertConsumer: single TargetFramework equals net10.0",
+      "destination": "same unmodified Htmx4PackageBrowserEvidence.AssertConsumer in retained production-publish carrier",
+      "classification": "retained package/reference/asset control"
+    },
+    {
+      "id": "P11",
+      "original": "Htmx4LayoutTitleBrowserTests -> Htmx4PackageBrowserEvidence.AssertConsumer: single Microsoft.Playwright PackageReference",
+      "destination": "same unmodified Htmx4PackageBrowserEvidence.AssertConsumer in retained production-publish carrier",
+      "classification": "retained package/reference/asset control"
+    },
+    {
+      "id": "P12",
+      "original": "Htmx4LayoutTitleBrowserTests -> Htmx4PackageBrowserEvidence.AssertConsumer: Playwright version 1.62.0",
+      "destination": "same unmodified Htmx4PackageBrowserEvidence.AssertConsumer in retained production-publish carrier",
+      "classification": "retained package/reference/asset control"
+    },
+    {
+      "id": "P13",
+      "original": "Htmx4LayoutTitleBrowserTests -> Htmx4PackageBrowserEvidence.AssertConsumer: no ProjectReference",
+      "destination": "same unmodified Htmx4PackageBrowserEvidence.AssertConsumer in retained production-publish carrier",
+      "classification": "retained package/reference/asset control"
+    },
+    {
+      "id": "P14",
+      "original": "Htmx4LayoutTitleBrowserTests -> Htmx4PackageBrowserEvidence.AssertConsumer: no InternalsVisibleTo",
+      "destination": "same unmodified Htmx4PackageBrowserEvidence.AssertConsumer in retained production-publish carrier",
+      "classification": "retained package/reference/asset control"
+    },
+    {
+      "id": "P15",
+      "original": "Htmx4LayoutTitleBrowserTests -> Htmx4PackageBrowserEvidence.AssertConsumer: application htmx SHA256 E484D9171A9DB30A39C8F16E3D709D4137F3211C659F8E6125816635033D593F",
+      "destination": "same unmodified Htmx4PackageBrowserEvidence.AssertConsumer in retained production-publish carrier",
+      "classification": "retained package/reference/asset control"
+    },
+    {
+      "id": "P16",
+      "original": "Htmx4PackageBrowserTests: exit code, 43 nested rows, AssertPackage and AssertConsumer",
+      "destination": "retained Production-publish carrier: exit code, 39 nested rows after the four proven duplicates are excluded, all same package/consumer assertions",
+      "classification": "materially changed execution count; pending reversal",
+      "sensitivity": "P16: temporary expected count 40 vs observed 39/39 passed yielded one outer assertion failure; restored focused package+QualityPlan 9/9 passed. Exact nested names match RetainedPackageInventory.txt."
+    }
+  ],
+  "retainedPackageAssertions": [
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 862,
+      "assertion": "Assert.Contains(\"lib/net10.0/Htmxor.dll\", paths);",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    },
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 863,
+      "assertion": "Assert.Contains(\"lib/net11.0/Htmxor.dll\", paths);",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    },
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 864,
+      "assertion": "Assert.DoesNotContain(\"lib/net8.0/Htmxor.dll\", paths);",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    },
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 865,
+      "assertion": "Assert.Contains(\"analyzers/dotnet/cs/Htmxor.Generators.dll\", paths);",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    },
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 866,
+      "assertion": "Assert.Contains(\"analyzers/dotnet/cs/Htmxor.Generators.pdb\", paths);",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    },
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 867,
+      "assertion": "Assert.Contains(\"staticwebassets/htmxor.js\", paths);",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    },
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 868,
+      "assertion": "Assert.DoesNotContain(paths, IsHtmxRuntimeOrLegacyExtension);",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    },
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 869,
+      "assertion": "Assert.DoesNotContain(paths, IsForbiddenPackageAssembly);",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    },
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 918,
+      "assertion": "Assert.Single(package.Entries, entry => entry.FullName.EndsWith(\".nuspec\", StringComparison.Ordinal));",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    },
+    {
+      "originalFile": "test/Htmxor.Quality.Tests/PackedPackageConsumerTests.cs",
+      "originalLine": 926,
+      "assertion": "Assert.DoesNotContain(dependencies, IsBuildOnlyDependency);",
+      "destination": "Same unchanged helper; retained production-publish carrier plus PackedSuccessfulConsumerTests for both TFMs",
+      "classification": "package",
+      "sensitivity": "unchanged retained assertion; existing #363/#369 evidence; executed by final full profile"
+    }
+  ],
+  "hostControls": [
+    {
+      "id": "H01",
+      "original": "Issue56BrowserTests.cs.template CreateApplication: Assert.True(app.Environment.IsProduction())",
+      "inputs": "all named/lifecycle/cache host instances on net10 and net11",
+      "destination": "NamedSelectionHost.Create: same assertion and explicitly Production environment",
+      "classification": "fixture environment control",
+      "sensitivity": "H01: True\u2192False, one expected fixture-control failure per TFM; original assertion restored"
+    },
+    {
+      "id": "H02",
+      "original": "new regression guard for migrated in-process CORS host; discovered by existing Issue246ComponentEndpointMetadataTests during first full profile",
+      "inputs": "plain host plus Issue211 protection host; net10/net11",
+      "destination": "HostIsolationTests.Protection_host_keeps_CORS_metadata_local_to_its_endpoints: Assert.False(metadata.AcceptCorsPreflight)",
+      "classification": "fixture isolation control at real endpoint construction boundary",
+      "sensitivity": "host-isolation-red: failed False vs True on both TFMs before per-endpoint metadata copy; green in host-isolation-green and final profiles"
+    }
+  ],
+  "synchronizationControls": [
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template:36",
+      "statement": "runB.Summary.Rendered.Task, runB.Details.Rendered.Task).WaitAsync(TimeSpan.FromSeconds(30));",
+      "destination": "Issue171BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template:49",
+      "statement": ".WaitAsync(TimeSpan.FromSeconds(30));",
+      "destination": "Issue171BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template:95",
+      "statement": "page.WaitForResponseAsync(response => new Uri(response.Url).AbsolutePath == \"/issue-171/lifecycle\");",
+      "destination": "Issue171BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template:126",
+      "statement": "await page.Locator($\"#delivery-slot [data-issue-171-completed='{marker}:{requestId}:{selection}']\").WaitForAsync();",
+      "destination": "Issue171BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue171BrowserTests.cs.template:127",
+      "statement": "await page.WaitForFunctionAsync(\"() => window.issue171Events.length === 2\");",
+      "destination": "Issue171BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue174BrowserTests.cs.template:23",
+      "statement": "await page.WaitForFunctionAsync(\"() => window.htmx?.version === '4.0.0'\");",
+      "destination": "Issue174BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue174BrowserTests.cs.template:36",
+      "statement": "var responseTask = page.WaitForResponseAsync(response =>",
+      "destination": "Issue174BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue174BrowserTests.cs.template:52",
+      "statement": "await page.WaitForFunctionAsync(\"() => window.issue174Deliveries.length >= 3\");",
+      "destination": "Issue174BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template:37",
+      "statement": "var response = await page.RunAndWaitForResponseAsync(",
+      "destination": "Issue211BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template:81",
+      "statement": "var response = await page.RunAndWaitForResponseAsync(",
+      "destination": "Issue211BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template:111",
+      "statement": "await page.WaitForFunctionAsync(\"() => window.issue211Error !== null\");",
+      "destination": "Issue211BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue211BrowserTests.cs.template:166",
+      "statement": "await page.WaitForFunctionAsync(\"() => window.htmx?.version === '4.0.0'\");",
+      "destination": "Issue211BrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue283TitleBrowserTests.cs.template:18",
+      "statement": "await page.WaitForFunctionAsync(\"() => window.htmx?.version === '4.0.0'\");",
+      "destination": "Issue283TitleBrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    },
+    {
+      "original": "test/Htmxor.Quality.Tests/Htmx4PackageBrowser/Issue283TitleBrowserTests.cs.template:20",
+      "statement": "var response = await page.RunAndWaitForResponseAsync(",
+      "destination": "Issue283TitleBrowserTests.cs same method and predicate/gate",
+      "classification": "unchanged synchronization/observation control",
+      "evidence": "restored full replacement matrix; observed values additionally checked by mapped assertions"
+    }
+  ],
+  "sensitivitySummary": {
+    "sites": 79,
+    "frameworkVariants": 141,
+    "executed": 432,
+    "failed": 417,
+    "passed": 15,
+    "skipped": 0,
+    "unexpectedFailures": [],
+    "classification": "test assertion/cardinality reversals, not full-scope Stryker"
+  },
+  "representativeBehaviorInversions": [
+    {
+      "id": "B01",
+      "exitCode": 1,
+      "counts": [
+        {
+          "total": "8",
+          "executed": "8",
+          "passed": "4",
+          "failed": "4",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        {
+          "total": "4",
+          "executed": "4",
+          "passed": "0",
+          "failed": "4",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        }
+      ]
+    },
+    {
+      "id": "B02",
+      "exitCode": 1,
+      "counts": [
+        {
+          "total": "3",
+          "executed": "3",
+          "passed": "0",
+          "failed": "3",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        {
+          "total": "3",
+          "executed": "3",
+          "passed": "0",
+          "failed": "3",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        }
+      ]
+    },
+    {
+      "id": "B03",
+      "exitCode": 1,
+      "counts": [
+        {
+          "total": "1",
+          "executed": "1",
+          "passed": "0",
+          "failed": "1",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        }
+      ]
+    },
+    {
+      "id": "B04",
+      "exitCode": 1,
+      "counts": [
+        {
+          "total": "1",
+          "executed": "1",
+          "passed": "0",
+          "failed": "1",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        {
+          "total": "1",
+          "executed": "1",
+          "passed": "0",
+          "failed": "1",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        }
+      ]
+    },
+    {
+      "id": "H01",
+      "exitCode": 1,
+      "counts": [
+        {
+          "total": "1",
+          "executed": "1",
+          "passed": "0",
+          "failed": "1",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        {
+          "total": "1",
+          "executed": "1",
+          "passed": "0",
+          "failed": "1",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        }
+      ]
+    }
+  ],
+  "representativeBehaviorInversionDescriptions": {
+    "B01": "production adapter token corruption: protected requests return 400 instead of 200; tokenless net11 unaffected",
+    "B02": "production selected names erased: lifecycle selection and exact native-delivery bytes differ",
+    "B03": "test Razor title output perturbation: expected response title absent",
+    "B04": "test host output caching omitted: repeated response bodies differ in render count",
+    "H01": "fixture Production assertion True\u2192False"
+  },
+  "restoredReplacementCounts": {
+    "net10.0": 18,
+    "net11.0": 25,
+    "failed": 0,
+    "skipped": 0
+  }
+}

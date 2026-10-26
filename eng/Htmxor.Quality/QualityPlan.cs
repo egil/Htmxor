@@ -69,8 +69,8 @@ internal static class QualityPlanFactory
 		{
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.UpstreamMonitor.Tests/Htmxor.UpstreamMonitor.Tests.csproj", "upstream-fixtures", null, collectCoverage: false),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Quality.Tests/Htmxor.Quality.Tests.csproj", "quality", qualityFilter, collectCoverage: false),
-			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore10", null, collectCoverage: false, framework: "net10.0"),
-			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore11", null, collectCoverage: false, framework: "net11.0"),
+			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore10", qualityFilter, collectCoverage: false, framework: "net10.0"),
+			Test(repositoryRoot, resultsDirectory, "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj", "aspnetcore11", qualityFilter, collectCoverage: false, framework: "net11.0"),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Samples.Tests/Htmxor.Samples.Tests.csproj", "samples", null, collectCoverage: false),
 			Test(repositoryRoot, resultsDirectory, "test/Htmxor.Tests/Htmxor.Tests.csproj", "htmxor", htmxorFilter, collectCoverage),
 		};
