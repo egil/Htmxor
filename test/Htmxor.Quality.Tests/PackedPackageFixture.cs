@@ -11,6 +11,19 @@ public sealed class PackedConsumerCollection : ICollectionFixture<PackedPackageF
 public sealed class PackedPackageFixture : IAsyncLifetime
 {
 	private readonly TemporaryDirectory directory = new();
+	private readonly Dictionary<string, Task<PackedDiagnosticResult>> diagnostics = new(StringComparer.Ordinal);
+
+	internal Task<PackedDiagnosticResult> DiagnosticsAsync(string framework, string name)
+	{
+		var phase = PackedDiagnosticConsumers.Phase(name);
+		var key = framework + "/" + phase;
+		if (!diagnostics.TryGetValue(key, out var result))
+		{
+			result = PackedDiagnosticConsumers.BuildAsync(this, framework, phase);
+			diagnostics.Add(key, result);
+		}
+		return result;
+	}
 
 	public string PackageDirectory => directory.Path;
 
