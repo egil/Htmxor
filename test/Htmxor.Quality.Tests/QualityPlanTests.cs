@@ -108,6 +108,26 @@ public sealed class QualityPlanTests
 			command.Arguments);
 	}
 
+	[Theory]
+	[InlineData("net10.0")]
+	[InlineData("net11.0")]
+	public void Fast_excludes_browser_tests_on_each_AspNetCore_framework(string framework)
+	{
+		var test = AspNetCoreBoundary(QualityProfile.Fast, framework);
+
+		Assert.Equal(["--filter", "Category!=Browser"], test.Command.Arguments.TakeLast(2));
+	}
+
+	[Theory]
+	[InlineData("net10.0")]
+	[InlineData("net11.0")]
+	public void Full_keeps_each_AspNetCore_framework_unfiltered(string framework)
+	{
+		var test = AspNetCoreBoundary(QualityProfile.Full, framework);
+
+		Assert.DoesNotContain("--filter", test.Command.Arguments);
+	}
+
 	[Fact]
 	public void Fix_constructs_analyzer_then_style_commands_without_whitespace_formatting()
 	{
@@ -126,6 +146,11 @@ public sealed class QualityPlanTests
 	private QualityPlan Create(QualityAction action, QualityProfile profile) =>
 		QualityPlanFactory.Create(repositoryRoot, resultsDirectory, new(action, profile));
 
+	private TestCommand AspNetCoreBoundary(QualityProfile profile, string framework) =>
+		Assert.Single(Create(QualityAction.Check, profile).Tests,
+			test => test.Project == "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj"
+				&& ProcessCommandArguments.After(test.Command.Arguments, "--framework") == framework);
+
 	private void AssertAspNetCoreBoundaries(QualityPlan plan)
 	{
 		var tests = plan.Tests.Where(test => test.Project == "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj").ToArray();
@@ -142,7 +167,6 @@ public sealed class QualityPlanTests
 		Assert.Equal(Path.Combine(resultsDirectory, artifactName), arguments[Array.IndexOf(arguments, "--results-directory") + 1]);
 		Assert.Equal(Path.Combine(resultsDirectory, artifactName, $"{artifactName}.trx"), test.TrxPath);
 		Assert.DoesNotContain("--collect", test.Command.Arguments);
-		Assert.DoesNotContain("--filter", test.Command.Arguments);
 		Assert.False(test.RequiresCoverage);
 	}
 
