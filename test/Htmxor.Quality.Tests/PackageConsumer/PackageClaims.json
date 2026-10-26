@@ -1,0 +1,772 @@
+{
+  "behaviorStart": "5e6a239425b440f574328c8ace076fce2e6e35b6",
+  "comparisonBase": "8b6baa6b6ed1db1b93dc51c85b9e05eea60a6ab6",
+  "claims": [
+    {
+      "id": "P01",
+      "claim": "Both shipped framework DLL entries",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A01",
+        "A02"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P02",
+      "claim": "No net8 runtime DLL",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A06"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P03",
+      "claim": "Shipped generator DLL",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A03"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P04",
+      "claim": "Shipped generator PDB",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A04"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P05",
+      "claim": "Shipped htmxor.js",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A05"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P06",
+      "claim": "No embedded htmx/minified/types/legacy extension",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A07",
+        "A08",
+        "A09"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P07",
+      "claim": "No runtime/build-only generator assembly",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A10",
+        "A11",
+        "R-generator"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P08",
+      "claim": "No runtime/build-only Roslyn assembly",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A12",
+        "R-roslyn"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P09",
+      "claim": "No generator nuspec dependency",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A13"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P10",
+      "claim": "No Roslyn nuspec dependency",
+      "carrier": "PackageConsumerEvidence.AssertPackage / AssertNuspecDependencies",
+      "sensitivity": [
+        "A14"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P11",
+      "claim": "LICENSE presence and exact source bytes",
+      "carrier": "PackedPackageArchiveTests.Package_ships_the_exact_license_input",
+      "sensitivity": [
+        "L01",
+        "L02"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P12",
+      "claim": "ASP.NET Core license presence and exact source bytes (#370/PR371 replacement)",
+      "carrier": "PackedPackageArchiveTests.Package_ships_the_exact_license_input",
+      "sensitivity": [
+        "L03",
+        "L04"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P13",
+      "claim": "Complete public surface on both shipped DLLs, including signatures, field types and authoring parameter names",
+      "carrier": "PackedPackageConsumerTests.Package_only_public_surface_matches_retained_allow_list",
+      "sensitivity": [
+        "S-net10.0",
+        "S-net11.0",
+        "M-factory-return"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P14",
+      "claim": "No retired ConditionalComponentBase or IConditionalRender exports",
+      "carrier": "PackedPackageConsumerTests.Package_only_public_surface_does_not_export_retired_conditional_rendering_types",
+      "sensitivity": [
+        "S-retired-types"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P15",
+      "claim": "No retired request RoutingMode enum and RoutingMode/Method/Path exports or supported compilation",
+      "carrier": "PackedRequestApiConsumerTests public surface and independent rejected-consumer probes",
+      "sensitivity": [
+        "S-request-api"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P16",
+      "claim": "No public constructor on each of four wrappers",
+      "carrier": "Issue299ContextTests.Packed_wrapper_has_no_public_constructor (four independent rows)",
+      "sensitivity": [
+        "M-constructors"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P17",
+      "claim": "Factory presence, EditorBrowsable.Never and HtmxEventArgs return signature",
+      "carrier": "Issue299ContextTests.Generated_action_factory_is_hidden_and_declares_event_arguments; exact DLL surface",
+      "sensitivity": [
+        "M-browsable",
+        "M-factory-return"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P18",
+      "claim": "Integer StatusCode overload and typed Func delegate binding",
+      "carrier": "Issue293StatusCodeTests.Packed_integer_status_signature_is_available; Issue291Page.Apply",
+      "sensitivity": [
+        "M-integer-missing",
+        "M-delegate-return"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P19",
+      "claim": "Server registration AddHtmxor naming and absence of AddHtmx alias",
+      "carrier": "PackageConsumerTests.Service_registration_names_the_Htmxor_server_integration",
+      "sensitivity": [
+        "S-service-alias"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P20",
+      "claim": "Generated endpoint registration naming and no retired alias",
+      "carrier": "PackageConsumerTests.Endpoint_registration_names_the_Htmxor_server_integration",
+      "sensitivity": [
+        "G-endpoint-alias",
+        "G-discovery"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P21",
+      "claim": "No retired client authoring DSL/SwapStyle/AjaxContext/LocationTarget exports",
+      "carrier": "PackageConsumerTests.Package_removes_the_targeted_client_DSL_and_keeps_only_open_server_swap_values",
+      "sensitivity": [
+        "S-retired-types"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P22",
+      "claim": "Exactly string/Uri Location and string Reswap; no builder overloads",
+      "carrier": "PackageConsumerTests.Package_removes_the_targeted_client_DSL_and_keeps_only_open_server_swap_values",
+      "sensitivity": [
+        "S-location",
+        "S-reswap"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P23",
+      "claim": "No HtmxStatusCodes or StopPolling",
+      "carrier": "PackageConsumerTests.Package_removes_legacy_status_286_contract",
+      "sensitivity": [
+        "S-retired-types",
+        "S-stop-polling"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P24",
+      "claim": "Request/route/header CurrentUrl naming and complete request header fields",
+      "carrier": "PackageConsumerTests.Package_exposes_current_url_naming_and_core_request_surface; exact DLL surface",
+      "sensitivity": [
+        "S-net10.0",
+        "S-net11.0"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P25",
+      "claim": "Raw response-header constant values are strings (historical #359 A257)",
+      "carrier": "PackageConsumerTests.Package_exposes_current_url_naming_and_core_request_surface",
+      "sensitivity": [
+        "M-header-null"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P26",
+      "claim": "Selected compile/runtime framework assets and analyzer/package inventory",
+      "carrier": "NamedSelectionEvidence.AssertPackageTarget; PackageConsumerEvidence.AssertConsumerCompileBoundary",
+      "sensitivity": [
+        "T-net10.0",
+        "T-net11.0",
+        "A03",
+        "runtime-fallback-net10.0",
+        "runtime-fallback-net11.0"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P27",
+      "claim": "No runtime generator/Roslyn dependency-file or output assembly",
+      "carrier": "PackageConsumerEvidence.AssertConsumerPackageBoundary / AssertRuntimeDependencies",
+      "sensitivity": [
+        "R-generator",
+        "R-roslyn",
+        "output-only-net10.0",
+        "output-only-net11.0"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P28",
+      "claim": "Generated discovery: Issue168SelectionTests.Packed_component_route_is_discovered",
+      "carrier": "Issue168SelectionTests.Packed_component_route_is_discovered",
+      "sensitivity": [
+        "G-discovery"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P29",
+      "claim": "Generated discovery: Issue169SelectionTests.Packed_component_route_is_discovered",
+      "carrier": "Issue169SelectionTests.Packed_component_route_is_discovered",
+      "sensitivity": [
+        "G-discovery"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P30",
+      "claim": "Generated discovery: Issue287StatusCodeTests.Packed_form_component_route_is_discovered",
+      "carrier": "Issue287StatusCodeTests.Packed_form_component_route_is_discovered",
+      "sensitivity": [
+        "G-discovery"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P31",
+      "claim": "Generated discovery: Issue291StatusCodeTests.Packed_status_component_route_is_discovered (real Kestrel)",
+      "carrier": "Issue291StatusCodeTests.Packed_status_component_route_is_discovered (real Kestrel)",
+      "sensitivity": [
+        "G-discovery"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P32",
+      "claim": "Generated discovery: PackageDiscoveryTests.Package_discovers_each_original_component_authoring_shape (four independent rows)",
+      "carrier": "PackageDiscoveryTests.Package_discovers_each_original_component_authoring_shape (four independent rows)",
+      "sensitivity": [
+        "G-discovery"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P33",
+      "claim": "Generated discovery: Issue209GetTests.Packaged_generator_discovers_a_typed_GET (typed route/query and request DI output)",
+      "carrier": "Issue209GetTests.Packaged_generator_discovers_a_typed_GET (typed route/query and request DI output)",
+      "sensitivity": [
+        "G-discovery"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "P34",
+      "claim": "Plain/generic/handwritten bindings and all retained compiler topologies compile without unexpected build output",
+      "carrier": "PackedSuccessfulConsumerTests; PackageConsumerWorkspace.StageCompilerScenarios / StageRuntimeScenarios / StageComponentBindingScenarios",
+      "sensitivity": [
+        "B-notice",
+        "G-discovery"
+      ],
+      "kind": "packaging",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "C01",
+      "claim": "Selected actual core/framework runtime versions and exact SDK pins",
+      "carrier": "Issue209GetTests.Consumer_executes_the_selected_framework_runtime; UseFramework",
+      "sensitivity": [],
+      "kind": "unchanged dependency control",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "C02",
+      "claim": "Exact PackageReference/version/TFM, no project/friend access, and default-source topology/registration shape",
+      "carrier": "PackageConsumerEvidence.AssertConsumerReferences / AssertSourceBoundary",
+      "sensitivity": [],
+      "kind": "authored fixture control, unchanged assertions",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "C03",
+      "claim": "21 executed/passing cases and exact required class/cardinality map",
+      "carrier": "PackedSuccessfulConsumerTests Assert.Equal TrxTestRun and AssertNestedClaims",
+      "sensitivity": [
+        "C-total",
+        "C-map"
+      ],
+      "kind": "test-orchestration control",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "id": "C04",
+      "claim": "Generator-disabled configuration retains Razor compiler and fails for CS1061/AddHtmxorEndpoints",
+      "carrier": "PackageConsumerWorkspace.AssertGeneratorIsRequiredAsync",
+      "sensitivity": [],
+      "kind": "unchanged incompatible configuration, exercised on both frameworks",
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    }
+  ],
+  "historical359PackageAssertions": {
+    "A113": [
+      "P18"
+    ],
+    "A117": [
+      "P16"
+    ],
+    "A118": [
+      "P17"
+    ],
+    "A119": [
+      "P17"
+    ],
+    "A126": [
+      "P17"
+    ],
+    "A132": [
+      "P23"
+    ],
+    "A133": [
+      "P23"
+    ],
+    "A211": [
+      "P13",
+      "P24"
+    ],
+    "A212": [
+      "P13",
+      "P24"
+    ],
+    "A213": [
+      "P13",
+      "P24"
+    ],
+    "A214": [
+      "P13",
+      "P24"
+    ],
+    "A215": [
+      "P13",
+      "P24"
+    ],
+    "A216": [
+      "P13",
+      "P24"
+    ],
+    "A217": [
+      "P13",
+      "P24"
+    ],
+    "A218": [
+      "P13",
+      "P24"
+    ],
+    "A219": [
+      "P13",
+      "P24"
+    ],
+    "A220": [
+      "P13",
+      "P24"
+    ],
+    "A257": [
+      "P25"
+    ]
+  },
+  "removals": [
+    {
+      "removed": "Report_route_preserves_its_component_policy_and_metadata",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Report_route_preserves_its_component_policy_and_metadata"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Summary_route_preserves_its_component_policy_and_metadata",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Summary_route_preserves_its_component_policy_and_metadata"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Third_route_preserves_deterministic_identity_and_its_component_contract",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Third_route_preserves_deterministic_identity_and_its_component_contract"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Route_representation_filters_select_only_matching_packed_routes",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Matching_representation_selects_its_component",
+        "Mismatched_representation_cannot_select_its_component",
+        "Component_route_preserves_representation_policy_host_and_constraint_rejection"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Standard_group_owns_stock_and_generated_paths_without_unprefixed_duplicates",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Group_owns_stock_and_generated_paths_without_unprefixed_duplicates",
+        "Stock_page_keeps_the_groups_metadata",
+        "Generated_component_routes_keep_one_deterministic_identity_each"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Manual_render_tree_attributes_cannot_widen_the_explicit_get_allow_list",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Manual_render_tree_attributes_cannot_widen_the_explicit_get_allow_list"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Put_action_uses_the_authorized_request_component_and_renders_callback_state",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Put_action_uses_the_authorized_request_component_and_renders_callback_state"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Delete_action_uses_the_stock_page_request_component",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Delete_action_uses_the_stock_page_request_component"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Patch_action_uses_the_htmx_only_request_component_and_code_behind_handler",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Patch_action_uses_the_htmx_only_request_component_and_code_behind_handler"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Missing_or_invalid_antiforgery_rejects_before_binding_or_callback",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Missing_or_invalid_antiforgery_rejects_before_binding_or_callback"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Unauthorized_put_rejects_before_binding_or_callback",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Unauthorized_put_rejects_before_binding_or_callback"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Different_method_cannot_invoke_the_put_callback",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Different_method_cannot_invoke_the_put_callback"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Stock_put_cannot_invoke_the_htmx_only_patch_callback",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Stock_put_cannot_invoke_the_htmx_only_patch_callback"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Client_only_hx_put_on_htmx_only_report_cannot_invoke_stock_report_callback",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue362RoutingActionsTests.cs",
+      "replacementMethods": [
+        "Client_only_hx_put_on_htmx_only_report_cannot_invoke_stock_report_callback"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Issue145RootRegistrationTests runtime replay",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue145RootRegistrationTests.cs",
+      "replacementMethods": [
+        "Root_registration_preserves_stock_and_generated_component_endpoints"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    },
+    {
+      "removed": "Separate Issue103ActionlessUnsafe packed consumer",
+      "replacementPath": "test/Htmxor.AspNetCore10.Tests/Issue362/Routing/Issue103ActionlessUnsafeTests.cs + Issue103NativeProtectionTests.cs",
+      "replacementMethods": [
+        "Explicit_delete_without_an_action_validates_then_renders_the_request_component",
+        "Explicit_delete_without_an_action_can_suppress_its_rendered_body_for_navigation",
+        "Explicit_delete_without_an_action_rejects_antiforgery_before_component_lifecycle (net10)",
+        "Headerless_actionless_DELETE_preserves_native_allowance_despite_missing_or_invalid_token (net11)",
+        "Cross_site_actionless_DELETE_preserves_native_rejection_before_lifecycle (net11)"
+      ],
+      "frameworks": [
+        "net10.0",
+        "net11.0"
+      ]
+    }
+  ],
+  "frameworkScope": "Frameworks identify the protected shipped target matrix. Archive/license assertions run once against the dual-target package; runtime metadata/discovery trials execute separately on both frameworks."
+}
