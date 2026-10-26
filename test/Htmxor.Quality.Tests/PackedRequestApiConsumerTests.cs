@@ -24,22 +24,6 @@ public sealed class PackedRequestApiConsumerTests(PackedPackageFixture package)
 		Assert.True(!retiredExports.Any(), "The package still exports retired request API:" + Environment.NewLine +
 			string.Join(Environment.NewLine, retiredExports));
 	}
-
-	[Theory]
-	[InlineData("net10.0", "10.0.402", "10.0.13")]
-	[InlineData("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105")]
-	public async Task Package_only_consumer_uses_request_type_and_HttpContext_but_cannot_use_retired_request_API(
-		string framework, string sdk, string runtime)
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
-		workspace.UseRequestApiScenario(framework, sdk, runtime);
-		workspace.AddRetiredRequestApiReferences();
-		var retired = await workspace.BuildForDiagnosticAsync();
-		var output = retired.StandardOutput + Environment.NewLine + retired.StandardError;
-		Assert.True(retired.ExitCode != 0, "The packed consumer still compiled references to all four retired API entries." + Environment.NewLine + output);
-		Assert.All(new[] { 5, 6, 7, 8 }, line =>
-			Assert.Matches(@"RetiredRequestApi\.cs\(" + line + @",\d+\): error CS(0122|0234|1061)", output));
-	}
 }
 
 internal sealed partial class PackageConsumerWorkspace

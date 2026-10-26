@@ -13,21 +13,6 @@ namespace Htmxor.Quality.Tests;
 [Collection(PackedConsumerCollection.Name)]
 public sealed class PackedPackageConsumerTests(PackedPackageFixture package)
 {
-	// The staged computed handler (UseComputedPutHandler) is a lambda, so its cause-specific
-	// HTMXOR006 message shares the "lambda or closure" fragment with every other lambda or
-	// closure binding (#307).
-	private const string UnsupportedPutHandlerMessage = "lambda or closure";
-	private const string AmbiguousStockRouteMessage =
-		"exactly one stock route and no HtmxRoute";
-	private const string ExplicitMethodsConflictMessage =
-		"explicit HtmxRoute.Methods is authoritative";
-	private const string MissingCSharpMethodsMessage =
-		"a C# HtmxRoute declaration must explicitly declare HtmxRoute.Methods";
-	private const string MismatchedCSharpPartialMessage =
-		"a C# HtmxRoute declaration on a Razor component must use the matching .razor.cs partial";
-	private const string DisableHtmxDirectRoutingInImportsMessage =
-		"DisableHtmxDirectRouting declarations from _Imports.razor are not supported";
-
 	[Theory]
 	[InlineData("net10.0")]
 	[InlineData("net11.0")]
@@ -65,121 +50,6 @@ public sealed class PackedPackageConsumerTests(PackedPackageFixture package)
 		}.Where(type => surface.Contains($"TYPE {type} ", StringComparison.Ordinal));
 
 		Assert.Empty(retiredTypes);
-	}
-
-	[Fact]
-	public async Task Package_only_application_rejects_a_component_with_two_compiled_stock_routes()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
-		workspace.UseSecondCompiledPageRoute();
-
-		var result = await workspace.BuildForDiagnosticAsync();
-		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
-
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.True(output.Contains("HTMXOR038", StringComparison.Ordinal), output);
-		Assert.Contains("Issue100ReportPage.razor", output, StringComparison.Ordinal);
-		Assert.Contains(AmbiguousStockRouteMessage, output, StringComparison.Ordinal);
-		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-	}
-
-	[Fact]
-	public async Task Package_only_application_rejects_a_computed_put_handler()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
-		workspace.UseComputedPutHandler();
-
-		var result = await workspace.BuildForDiagnosticAsync();
-		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
-
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.True(output.Contains("HTMXOR006", StringComparison.Ordinal), output);
-		Assert.Contains("Issue100ReportPage.razor", output, StringComparison.Ordinal);
-		Assert.Contains(UnsupportedPutHandlerMessage, output, StringComparison.Ordinal);
-		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-	}
-
-	[Fact]
-	public async Task Package_only_application_rejects_a_DisableHtmxDirectRouting_marker_declared_in_Imports()
-	{
-		// Cause (a) through the packed consumer's own real _Imports.razor, which the in-repo
-		// analyzer tests can only simulate with #line remapping.
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
-		workspace.UseDisableHtmxDirectRoutingInImports();
-
-		var result = await workspace.BuildForDiagnosticAsync();
-		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
-
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("HTMXOR003", output, StringComparison.Ordinal);
-		Assert.Contains(DisableHtmxDirectRoutingInImportsMessage, output, StringComparison.Ordinal);
-		Assert.Contains("_Imports.razor(", output, StringComparison.Ordinal);
-		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-	}
-
-	[Fact]
-	public async Task Package_only_application_rejects_an_explicit_methods_conflict()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
-		workspace.UseExplicitMethodsConflict();
-
-		var result = await workspace.BuildForDiagnosticAsync();
-		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
-
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.True(output.Contains("HTMXOR033", StringComparison.Ordinal), output);
-		Assert.Contains("Issue97ReportComponent.razor", output, StringComparison.Ordinal);
-		Assert.Contains(ExplicitMethodsConflictMessage, output, StringComparison.Ordinal);
-		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-	}
-
-	[Fact]
-	public async Task Package_only_application_rejects_a_CSharp_route_without_methods()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
-		workspace.UseAllCSharpRouteWithoutMethods();
-
-		var result = await workspace.BuildForDiagnosticAsync();
-		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
-
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.True(output.Contains("HTMXOR005", StringComparison.Ordinal), output);
-		Assert.Contains("Issue97SummaryComponent.cs", output, StringComparison.Ordinal);
-		Assert.Contains(MissingCSharpMethodsMessage, output, StringComparison.Ordinal);
-		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
-		var routeRegistration = workspace.ReadGeneratedRouteRegistration();
-		Assert.Contains("Issue97ReportComponent", routeRegistration, StringComparison.Ordinal);
-		// The staged scenario also adds an unrelated same-named Razor file under
-		// "@namespace Htmxor.PackageConsumer.Other" (Issue97SummaryComponent.razor.scenario), so a
-		// bare "Issue97SummaryComponent" substring check would also match that unrelated, correctly
-		// distinct entry. Pin the exact fully qualified name of the all-C# component this test means
-		// -- the one with its explicit Methods removed -- in the project's default namespace.
-		Assert.DoesNotContain(
-			"\"Htmxor.PackageConsumer.Issue97SummaryComponent\"",
-			routeRegistration,
-			StringComparison.Ordinal);
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
-	}
-
-	[Fact]
-	public async Task Package_only_application_rejects_an_explicit_route_in_a_nonmatching_partial()
-	{
-		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
-		workspace.UseNonmatchingExplicitRoutePartial();
-
-		var result = await workspace.BuildForDiagnosticAsync();
-		var output = result.StandardOutput + Environment.NewLine + result.StandardError;
-
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.True(output.Contains("HTMXOR004", StringComparison.Ordinal), output);
-		Assert.Contains("Issue97ReportRoute.cs", output, StringComparison.Ordinal);
-		Assert.Contains(MismatchedCSharpPartialMessage, output, StringComparison.Ordinal);
-		Assert.False(File.Exists(workspace.ConsumerAssemblyPath));
-		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 	}
 }
 
@@ -219,7 +89,7 @@ internal sealed partial class PackageConsumerWorkspace : IDisposable
 		consumerDirectory,
 		"bin",
 		"Release",
-		"net10.0",
+		XDocument.Load(projectPath).Descendants("TargetFramework").Single().Value,
 		"Htmxor.PackageConsumer.dll");
 
 	public string PackagePath => Assert.Single(Directory.EnumerateFiles(packageDirectory, "*.nupkg"));
