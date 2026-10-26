@@ -116,6 +116,10 @@ public sealed partial class PackageConsumerTests
 	[Fact]
 	public void Package_exposes_current_url_naming_and_core_request_surface()
 	{
+		Assert.All(
+			typeof(HtmxResponseHeaderNames).GetFields(BindingFlags.Public | BindingFlags.Static),
+			static field => Assert.IsType<string>(field.GetRawConstantValue()));
+
 		var requestPropertyNames = typeof(HtmxRequest)
 			.GetProperties(BindingFlags.Public | BindingFlags.Instance)
 			.Select(static property => property.Name)
