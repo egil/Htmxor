@@ -259,9 +259,10 @@ prevent generator assembly needs from becoming accidental user promises.
 ### 8. Examples need honest status labels
 
 Discussion #143 currently mixes working beta syntax, planned v1 behavior, and
-ideas that still need API decisions. Registration syntax is now current and
-proved for the #145 cases, but its naming remains open. Multi-fragment
-selection, QUERY, and optional extension use still need explicit status labels.
+ideas that still need API decisions. Registration and QUERY now have bounded
+proof through #145 and #111, while registration naming remains open.
+Multi-fragment selection and optional extension use still need explicit status
+labels.
 
 The discussion should stay short and link to the repository guide for the full
 inventory. Examples should identify whether they show an accepted v1 contract,
