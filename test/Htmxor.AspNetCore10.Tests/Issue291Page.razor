@@ -1,0 +1,57 @@
+@page "/issue-291/status"
+@namespace Htmxor.AspNetCore10
+@using System.Net
+@inject Issue291Probe Probe
+
+<p data-status-body>Component output.</p>
+
+@code {
+    [CascadingParameter] public Microsoft.AspNetCore.Http.HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromQuery] public int Status { get; set; } = 200;
+    [SupplyParameterFromQuery] public string Mode { get; set; } = "api";
+    [SupplyParameterFromQuery] public int FinalStatus { get; set; } = 200;
+    [SupplyParameterFromQuery] public bool Empty { get; set; }
+    [SupplyParameterFromQuery] public string Seed { get; set; } = "visible";
+
+    protected override void OnParametersSet()
+    {
+        HttpContext.Response.Headers["X-Status-Probe"] = "retained";
+        if (Mode == "raw" || Mode == "raw-redirect")
+        {
+            HttpContext.Response.StatusCode = Status;
+            if (Mode == "raw-redirect") HttpContext.Response.Headers.Location = "/destination";
+            return;
+        }
+
+        var response = Microsoft.AspNetCore.Http.HttpContextExtensions.GetHtmxContext(HttpContext).Response;
+        if (Mode == "reject")
+        {
+            HttpContext.Response.StatusCode = 202;
+            HttpContext.Response.Headers["HX-Trigger"] = "existing-event";
+            if (Seed == "empty") response.EmptyBody();
+            if (Seed == "navigation") response.Location("/existing-location");
+            Probe.Before = Issue291State.Capture(HttpContext);
+            try { response.StatusCode((HttpStatusCode)Status); }
+            catch (Exception exception) { Probe.Rejection = exception; }
+            Probe.After = Issue291State.Capture(HttpContext);
+            return;
+        }
+
+        if (Mode == "transition" || Mode == "mixed")
+        {
+            if (Seed == "empty") response.EmptyBody();
+            if (Seed == "navigation") response.Location("/existing-location");
+            response.StatusCode((HttpStatusCode)Status);
+            if (Mode == "mixed") HttpContext.Response.StatusCode = FinalStatus;
+            else response.StatusCode((HttpStatusCode)FinalStatus);
+            return;
+        }
+
+        response.StatusCode((HttpStatusCode)Status);
+        if (Empty)
+        {
+            try { response.EmptyBody(); }
+            catch (InvalidOperationException exception) { Probe.EmptyBodyGuard = exception; }
+        }
+    }
+}
