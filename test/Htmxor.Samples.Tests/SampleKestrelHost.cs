@@ -6,10 +6,12 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 {
 	private const string ListeningPrefix = "Now listening on: ";
 	private readonly Process process;
+	private readonly Thread[] outputReaders;
 
-	private SampleKestrelHost(Process process, Uri address)
+	private SampleKestrelHost(Process process, Thread[] outputReaders, Uri address)
 	{
 		this.process = process;
+		this.outputReaders = outputReaders;
 		Address = address;
 		Client = new HttpClient { BaseAddress = address };
 	}
@@ -18,68 +20,116 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 
 	public HttpClient Client { get; }
 
-	public static async Task<SampleKestrelHost> StartAsync(string projectPath, IReadOnlyDictionary<string, string>? environment = null)
+	public static Task<SampleKestrelHost> StartAsync(string projectPath, IReadOnlyDictionary<string, string>? environment = null)
+	{
+		var completion = new TaskCompletionSource<SampleKestrelHost>(TaskCreationOptions.RunContinuationsAsynchronously);
+		// Pipe reads, the deadline and the returned task must progress even when the test pool is saturated.
+		var coordinator = new Thread(() =>
+		{
+			try
+			{
+				completion.SetResult(Start(projectPath, environment));
+			}
+			catch (Exception exception)
+			{
+				completion.SetException(exception);
+			}
+		}) { IsBackground = true, Name = "Sample startup" };
+		coordinator.Start();
+		return completion.Task;
+	}
+
+	private static SampleKestrelHost Start(string projectPath, IReadOnlyDictionary<string, string>? environment)
 	{
 		var address = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
 		var output = new List<string>();
 		var elapsed = Stopwatch.StartNew();
 		var process = Process.Start(CreateStartInfo(projectPath, environment)) ?? throw new InvalidOperationException($"Could not start {projectPath}.");
-		process.OutputDataReceived += (_, eventArgs) => ObserveOutput(eventArgs.Data, address, output, elapsed);
-		process.ErrorDataReceived += (_, eventArgs) => ObserveOutput(eventArgs.Data, address, output, elapsed);
-		process.EnableRaisingEvents = true;
-		process.Exited += (_, _) => address.TrySetException(new InvalidOperationException($"{projectPath} stopped before Kestrel started: {string.Join(Environment.NewLine, output)}"));
-		process.BeginOutputReadLine();
-		process.BeginErrorReadLine();
-
+		var readers = new List<Thread>();
+		var remainingReaders = 2;
 		try
 		{
-			return new SampleKestrelHost(process, await WaitForAddressAsync(address.Task, process, projectPath, output, elapsed));
+			foreach (var stream in new[] { process.StandardOutput, process.StandardError })
+			{
+				var reader = new Thread(() =>
+				{
+					ReadOutput(stream, address, output, elapsed);
+					if (Interlocked.Decrement(ref remainingReaders) == 0)
+					{
+						address.TrySetException(new InvalidOperationException($"{projectPath} closed its output before Kestrel started: {CapturedOutput(output)}"));
+					}
+				}) { IsBackground = true, Name = "Sample output" };
+				reader.Start();
+				readers.Add(reader);
+			}
+
+			return new SampleKestrelHost(process, readers.ToArray(), WaitForAddress(address.Task, process, projectPath, output, elapsed));
 		}
 		catch
 		{
-			if (!process.HasExited)
-			{
-				process.Kill(entireProcessTree: true);
-			}
-
-			await process.WaitForExitAsync();
-			process.Dispose();
+			Stop(process, readers);
 			throw;
 		}
 	}
 
-	private static async Task<Uri> WaitForAddressAsync(Task<Uri> address, Process process, string projectPath, List<string> output, Stopwatch elapsed)
+	private static Uri WaitForAddress(Task<Uri> address, Process process, string projectPath, List<string> output, Stopwatch elapsed)
 	{
-		try
+		if (Task.WaitAny([address], TimeSpan.FromSeconds(30)) >= 0)
 		{
-			return await address.WaitAsync(TimeSpan.FromSeconds(30));
+			return address.GetAwaiter().GetResult();
 		}
-		catch (TimeoutException exception)
-		{
-			var state = process.HasExited ? $"exited (code {process.ExitCode})" : "running";
-			string capturedOutput;
-			lock (output)
-			{
-				capturedOutput = string.Join(Environment.NewLine, output);
-			}
 
-			throw new TimeoutException(
-				$"Timed out starting {projectPath} after {elapsed.Elapsed.TotalSeconds:F3}s (readiness limit: 30s). " +
-				$"Process {process.Id}: {state}. " +
-				$"ThreadPool.ThreadCount={ThreadPool.ThreadCount}, PendingWorkItemCount={ThreadPool.PendingWorkItemCount}, CompletedWorkItemCount={ThreadPool.CompletedWorkItemCount}." +
-				$"{Environment.NewLine}Captured sample output (timestamps are observation times):{Environment.NewLine}{capturedOutput}", exception);
+		var state = process.HasExited ? $"exited (code {process.ExitCode})" : "running";
+		throw new TimeoutException(
+			$"Timed out starting {projectPath} after {elapsed.Elapsed.TotalSeconds:F3}s (readiness limit: 30s). " +
+			$"Process {process.Id}: {state}. " +
+			$"ThreadPool.ThreadCount={ThreadPool.ThreadCount}, PendingWorkItemCount={ThreadPool.PendingWorkItemCount}, CompletedWorkItemCount={ThreadPool.CompletedWorkItemCount}." +
+			$"{Environment.NewLine}Captured sample output (timestamps are observation times):{Environment.NewLine}{CapturedOutput(output)}");
+	}
+
+	private static string CapturedOutput(List<string> output)
+	{
+		lock (output)
+		{
+			return string.Join(Environment.NewLine, output);
 		}
 	}
 
-	public async ValueTask DisposeAsync()
+	private static void ReadOutput(StreamReader stream, TaskCompletionSource<Uri> address, List<string> output, Stopwatch elapsed)
+	{
+		try
+		{
+			while (stream.ReadLine() is { } line)
+			{
+				ObserveOutput(line, address, output, elapsed);
+			}
+		}
+		catch (Exception exception)
+		{
+			address.TrySetException(exception);
+		}
+	}
+
+	public ValueTask DisposeAsync()
 	{
 		Client.Dispose();
+		Stop(process, outputReaders);
+		return ValueTask.CompletedTask;
+	}
+
+	private static void Stop(Process process, IEnumerable<Thread> readers)
+	{
 		if (!process.HasExited)
 		{
 			process.Kill(entireProcessTree: true);
 		}
 
-		await process.WaitForExitAsync();
+		process.WaitForExit();
+		foreach (var reader in readers)
+		{
+			reader.Join();
+		}
+
 		process.Dispose();
 	}
 
@@ -105,19 +155,17 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 		return startInfo;
 	}
 
-	private static void ObserveOutput(string? line, TaskCompletionSource<Uri> address, List<string> output, Stopwatch elapsed)
+	private static void ObserveOutput(string line, TaskCompletionSource<Uri> address, List<string> output, Stopwatch elapsed)
 	{
-		if (line is { } value && value.IndexOf(ListeningPrefix, StringComparison.Ordinal) is var prefix && prefix >= 0)
+		lock (output)
 		{
-			address.TrySetResult(new Uri(value[(prefix + ListeningPrefix.Length)..]));
+			output.Add($"[{DateTimeOffset.UtcNow:O} +{elapsed.Elapsed.TotalSeconds:F3}s] {line}");
 		}
 
-		if (line is not null)
+		var prefix = line.IndexOf(ListeningPrefix, StringComparison.Ordinal);
+		if (prefix >= 0)
 		{
-			lock (output)
-			{
-				output.Add($"[{DateTimeOffset.UtcNow:O} +{elapsed.Elapsed.TotalSeconds:F3}s] {line}");
-			}
+			address.TrySetResult(new Uri(line[(prefix + ListeningPrefix.Length)..]));
 		}
 	}
 
