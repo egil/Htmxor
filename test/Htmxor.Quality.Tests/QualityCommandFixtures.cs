@@ -15,7 +15,7 @@ internal static class QualityPolicyFiles
 
 	public const string ValidMutationConfig =
 		"""
-		{"stryker-config":{"project":"src/Htmxor/Htmxor.csproj","configuration":"Release","reporters":["progress","json","html","markdown"],"report-file-name":"mutation-report","test-runner":"vstest","coverage-analysis":"perTest","additional-timeout":30000,"concurrency":1}}
+		{"stryker-config":{"project":"src/Htmxor/Htmxor.csproj","configuration":"Release","reporters":["progress","json","html","markdown"],"report-file-name":"mutation-report","target-framework":"net11.0","test-runner":"vstest","coverage-analysis":"perTest","additional-timeout":30000,"concurrency":1}}
 		""";
 
 	public static void WriteValid(string repositoryRoot)

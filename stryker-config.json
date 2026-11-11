@@ -9,6 +9,7 @@
       "markdown"
     ],
     "report-file-name": "mutation-report",
+    "target-framework": "net11.0",
     "test-runner": "vstest",
     "coverage-analysis": "perTest",
     "additional-timeout": 30000,

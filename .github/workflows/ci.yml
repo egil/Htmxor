@@ -98,7 +98,7 @@ jobs:
       run: dotnet build test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release
 
     - name: Ensure browsers are installed
-      run: pwsh test/Htmxor.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+      run: pwsh test/Htmxor.Tests/bin/Release/net11.0/playwright.ps1 install --with-deps chromium
 
     - name: Run repository full verification
       run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile full
@@ -155,7 +155,7 @@ jobs:
       run: dotnet build test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release
 
     - name: Ensure browsers are installed
-      run: pwsh test/Htmxor.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+      run: pwsh test/Htmxor.Tests/bin/Release/net11.0/playwright.ps1 install --with-deps chromium
 
     - name: Run repository mutation verification
       id: mutation
@@ -228,7 +228,7 @@ jobs:
       uses: microsoft/infersharpaction@v1.5
       id: runinfersharp
       with:
-        binary-path: ./src/Htmxor/bin/Release/net10.0
+        binary-path: ./src/Htmxor/bin/Release/net11.0
         github-sarif: true
 
     - name: Create step summary

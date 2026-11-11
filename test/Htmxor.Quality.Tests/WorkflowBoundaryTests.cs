@@ -12,7 +12,7 @@ public sealed class WorkflowBoundaryTests
 
 		Assert.Collection(checks, command => Assert.Equal(full, command));
 		var build = Array.IndexOf(commands, "dotnet build test/Htmxor.Tests/Htmxor.Tests.csproj --configuration Release");
-		var browsers = Array.IndexOf(commands, "pwsh test/Htmxor.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium");
+		var browsers = Array.IndexOf(commands, "pwsh test/Htmxor.Tests/bin/Release/net11.0/playwright.ps1 install --with-deps chromium");
 		Assert.True(build >= 0);
 		Assert.True(browsers > build);
 		Assert.True(Array.IndexOf(commands, full) > browsers);
