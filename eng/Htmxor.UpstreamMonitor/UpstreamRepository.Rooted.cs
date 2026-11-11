@@ -106,10 +106,12 @@ internal sealed partial class UpstreamRepository
 		return text.Length > 0;
 	}
 
+	// Git permits '#' and '?' in names and the shipped aspnetcore tree uses them; ContentsPath escapes
+	// every segment before a path reaches a URL.
 	private static bool SafeTreePath(string path, bool recursive) =>
 		(recursive || !path.Contains('/')) && path.Split('/').All(segment =>
 			segment.Length > 0 && segment is not ("." or "..") && !segment.Any(character =>
-				char.IsControl(character) || character is '\\' or '?' or '#'));
+				char.IsControl(character) || character is '\\'));
 
 	private static bool ValidTreeKind(string type, string mode) => type switch
 	{

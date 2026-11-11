@@ -128,6 +128,20 @@ public sealed class ReleasedSourceRootTests
     }
 
     [Theory]
+    [InlineData("src/Snapshots/Case#Generated.verified.cs")]
+    [InlineData("src/Snapshots/Case?Query.cs")]
+    [InlineData("src/Snapshots/M\u00fbltibyte\u00c7haracter.razor")]
+    public async Task Unwatched_released_file_with_URL_reserved_characters_does_not_block_drift(string path)
+    {
+        using var fixture = new ReleasedSourceFixture();
+        fixture.AddUnwatchedFile(path);
+        var result = await fixture.RunAsync();
+
+        Assert.Equal(MonitorStatus.Drift, result.Status);
+        Assert.Equal(new SourceChange("src/Widget.cs", ChangeKind.Changed, ReviewClassification.ParityRequired), Assert.Single(result.SourceChanges));
+    }
+
+    [Theory]
     [InlineData("truncated")]
     [InlineData("missing-truncated")]
     [InlineData("missing-tree")]
@@ -255,6 +269,16 @@ internal sealed class ReleasedSourceFixture : IDisposable
         // Keep unrooted downloads valid but distinguish their API delta from the shipped source.
         var decoy = Fixture.GitHubContentText(source.Replace("NewHook", "UnrootedDecoyHook", StringComparison.Ordinal));
         transport.AddRepeatingJson($"/repos/dotnet/dotnet/contents/{path}?ref={commit}", decoy);
+    }
+
+    // Git allows '#' and '?' in names, and the shipped aspnetcore tree contains snapshot files using them.
+    public void AddUnwatchedFile(string path)
+    {
+        foreach (var (subtree, src, blob) in new[] { (OldSubtree, new string('a', 40), OldBlob), (NewSubtree, new string('b', 40), NewBlob) })
+        {
+            Tree(subtree, [Entry("src", "tree", src, "040000"), Entry("src/Snapshots", "tree", new string('c', 40), "040000"),
+                Entry(path, "blob", new string('d', 40)), Entry("src/Widget.cs", "blob", blob)], recursive: true);
+        }
     }
 
     public void RemoveFromOneRevision(bool removed) => Tree(removed ? NewSubtree : OldSubtree,
