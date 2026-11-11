@@ -57,6 +57,26 @@ public sealed class ReleaseDiscoveryTests
 			transport.Requests.Select(request => (request.Method, request.PathAndQuery)));
 	}
 
+	// dotnet/aspnetcore published no v11.0.0 release for at least a day after .NET 11 shipped, while the
+	// reviewed baseline was already the stable VMR tag.
+	[Fact]
+	public async Task Release_catalog_lagging_the_reviewed_stable_tag_resolves_the_reviewed_tag()
+	{
+		var transport = new FakeGitHubTransport();
+		transport.AddJson("/repos/dotnet/aspnetcore/releases?per_page=100", """
+			[{"tag_name":"v10.0.11-rc.1","draft":false,"prerelease":true},
+			 {"tag_name":"v10.0.9","draft":false,"prerelease":false},
+			 {"tag_name":"v9.0.20","draft":false,"prerelease":false}]
+			""");
+		transport.AddJson("/repos/dotnet/aspnetcore/git/ref/tags/v10.0.11", Fixture.Read("github/ref-v10.0.11-direct.json"));
+
+		var result = await Fixture.Application(transport).RunAsync(new MonitorRequest(Fixture.Manifest(), 10));
+
+		Assert.Equal(MonitorStatus.Current, result.Status);
+		Assert.Equal(new UpstreamRevision("v10.0.11", Fixture.ReviewedCommit), result.Upstream);
+		Assert.Empty(result.Issues);
+	}
+
 	[Fact]
 	public async Task Newer_release_with_only_unwatched_changes_is_current_without_an_issue()
 	{
