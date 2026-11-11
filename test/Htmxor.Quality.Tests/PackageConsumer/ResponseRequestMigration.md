@@ -51,7 +51,7 @@ The complete old source-line/assertion → carrier/inversion ledger is retained 
 
 The destination project explicitly includes its C# and Razor sources on net11 and uses the real generator analyzer. Pure response/request operations use fresh direct contexts. Rendering and dispatch use real component endpoints. #291 and #293 retain real Kestrel, redirect following disabled, and `StopAsync` drainage before log absence is asserted. Hosts are shared where state permits; selection failure observations, form callback counters, and stopped Kestrel hosts retain request isolation.
 
-Root approved preserving dependency-only controls green when they anchor a paired Htmxor assertion. Each paired owned outcome has separate production-inversion evidence. The dependency pins are ASP.NET Core/.NET `10.0.13` and `11.0.0-rc.2.26504.105`.
+Root approved preserving dependency-only controls green when they anchor a paired Htmxor assertion. Each paired owned outcome has separate production-inversion evidence. The dependency pins are ASP.NET Core/.NET `10.0.15` and `11.0.0`.
 
 | Original control | Disposition / paired owned outcome |
 | --- | --- |

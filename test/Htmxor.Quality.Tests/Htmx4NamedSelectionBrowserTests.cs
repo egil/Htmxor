@@ -10,10 +10,10 @@ public sealed class Htmx4NamedSelectionBrowserTests
 	public async Task One_package_preserves_named_delivery_lifecycle_and_cache_isolation_on_both_frameworks()
 	{
 		using var net10 = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find());
-		net10.UseNamedSelectionScenario("net10.0", "10.0.402", "10.0.13");
+		net10.UseNamedSelectionScenario("net10.0", "10.0.404", "10.0.15");
 		await AssertConsumerAsync(net10, "net10.0");
 		using var net11 = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find());
-		net11.UseNamedSelectionScenario("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105");
+		net11.UseNamedSelectionScenario("net11.0", "11.0.100", "11.0.0");
 		net11.UseSharedPackage(net10);
 		await AssertConsumerAsync(net11, "net11.0");
 	}

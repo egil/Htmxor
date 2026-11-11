@@ -7,8 +7,8 @@ namespace Htmxor.Quality.Tests;
 public sealed class PackedSuccessfulConsumerTests(PackedPackageFixture package)
 {
 	[Theory]
-	[InlineData("net10.0", "10.0.402", "10.0.13")]
-	[InlineData("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105")]
+	[InlineData("net10.0", "10.0.404", "10.0.15")]
+	[InlineData("net11.0", "11.0.100", "11.0.0")]
 	public async Task Package_preserves_all_successful_compiler_and_runtime_claims(string framework, string sdk, string runtime)
 	{
 		using var workspace = new PackageConsumerWorkspace(RepositoryLocator.Find(), package);
@@ -83,14 +83,14 @@ internal sealed partial class PackageConsumerWorkspace
 			workspace => workspace.UseIssue175NormalOnlyScenario(),
 			workspace => workspace.UseIssue179StockFormsScenario(),
 			workspace => workspace.UseIssue180ExplicitActions(),
-			workspace => workspace.UseLayoutScenario("net10.0", "10.0.402", "10.0.13"),
+			workspace => workspace.UseLayoutScenario("net10.0", "10.0.404", "10.0.15"),
 			workspace => workspace.UseIssue284AuthorizationParityScenario(),
 			workspace => workspace.UseIssue285AnyFolderScenario(),
 			workspace => workspace.UseIssue286StockRouteTemplateScenario(),
 			workspace => workspace.UseIssue306BindingAnywhereScenario(),
 			workspace => workspace.UseIssue309MultiplicityScenario(),
 			workspace => workspace.UseIssue316ConventionsScenario(),
-			workspace => workspace.UseRequestApiScenario("net10.0", "10.0.402", "10.0.13"),
+			workspace => workspace.UseRequestApiScenario("net10.0", "10.0.404", "10.0.15"),
 		];
 		foreach (var scenario in scenarios)
 		{
@@ -102,10 +102,10 @@ internal sealed partial class PackageConsumerWorkspace
 	{
 		StageSuccessInputs(package, workspace => workspace.UseIssue168SelectionScenario());
 		StageSuccessInputs(package, workspace => workspace.UseIssue169SelectionScenario());
-		StageSuccessInputs(package, workspace => workspace.UseIssue287StatusCodeScenario("net10.0", "10.0.402", "10.0.13"));
-		StageSuccessInputs(package, workspace => workspace.UseIssue293ResponseAuthoringScenario("net10.0", "10.0.402", "10.0.13"));
-		StageSuccessInputs(package, workspace => workspace.UseIssue299ContextConstructionScenario("net10.0", "10.0.402", "10.0.13"));
-		StageSuccessInputs(package, workspace => workspace.UseGetScenario("net10.0", "10.0.402", "10.0.13"),
+		StageSuccessInputs(package, workspace => workspace.UseIssue287StatusCodeScenario("net10.0", "10.0.404", "10.0.15"));
+		StageSuccessInputs(package, workspace => workspace.UseIssue293ResponseAuthoringScenario("net10.0", "10.0.404", "10.0.15"));
+		StageSuccessInputs(package, workspace => workspace.UseIssue299ContextConstructionScenario("net10.0", "10.0.404", "10.0.15"));
+		StageSuccessInputs(package, workspace => workspace.UseGetScenario("net10.0", "10.0.404", "10.0.15"),
 			source => source.Replace("/reports/", "/issue-209/reports/", StringComparison.Ordinal));
 		var source = Path.Combine(repositoryRoot, "test", "Htmxor.Quality.Tests", "PackageConsumer", "Issue291StatusCodeTests.cs.scenario");
 		File.Copy(source, Path.Combine(consumerDirectory, "Issue291StatusCodeTests.cs"));

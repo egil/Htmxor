@@ -148,10 +148,10 @@ The source root for both shipped baselines is `src/aspnetcore`; watch paths rema
 relative to that root. Exact binary provenance and watched-source inventory are
 recorded in [the patched baseline review](../../engineering/patched-framework-baselines.md).
 
-The adapter baseline is ASP.NET Core v10.0.13, built from dotnet/dotnet VMR commit
-`4099f83977f4d29604a9aeb971fb0a7bc1d5f699`. The .NET 11 baseline is
-ASP.NET Core v11.0.0-rc.2.26504.105, commit
-`820230c386db5b0106c5430b3e5aee92a7826bf5` in that same repository, under the
+The adapter baseline is ASP.NET Core v10.0.15, built from dotnet/dotnet VMR commit
+`8e0f8ed2312954727f8919d7d1c2f78b483b4ee7`. The .NET 11 baseline is
+ASP.NET Core v11.0.0, commit
+`297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f` in that same repository, under the
 [approved patched-baseline prerequisite](https://github.com/egil/Htmxor/issues/329).
 The [baseline review](../../engineering/patched-framework-baselines.md) records
 upstream changes and retained boundaries. Inventory its exact assembly, type,

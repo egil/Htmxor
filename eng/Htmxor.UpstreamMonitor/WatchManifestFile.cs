@@ -98,6 +98,6 @@ internal static class WatchManifestFile
 	private static FrameworkBaseline ReadLegacyFramework(JsonElement manifest)
 	{
 		var reviewed = manifest.GetProperty("reviewed");
-		return new("net10.0", 10, false, "10.0.13", reviewed.GetProperty("tag").GetString()!, reviewed.GetProperty("commit").GetString()!);
+		return new("net10.0", 10, false, "10.0.15", reviewed.GetProperty("tag").GetString()!, reviewed.GetProperty("commit").GetString()!);
 	}
 }

@@ -2,8 +2,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v11.0.0-rc.2.26504.105 at
-// 820230c386db5b0106c5430b3e5aee92a7826bf5, synchronized 2026-09-13.
+// Adapted from ASP.NET Core v11.0.0 at
+// 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f, synchronized 2026-09-13.
 // Exact source inventory: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
 

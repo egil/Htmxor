@@ -66,9 +66,9 @@ public sealed class WatchFrameworkScopeTests
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
-			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.13",
+			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.15",
 			      "reviewed": { "tag": "v10.0.11", "commit": "{{Fixture.ReviewedCommit}}" } },
-			    { "targetFramework": "net11.0", "majorVersion": 11, "allowsPrerelease": true, "referencePackVersion": "11.0.0-rc.2.26504.105",
+			    { "targetFramework": "net11.0", "majorVersion": 11, "allowsPrerelease": true, "referencePackVersion": "11.0.0",
 			      "reviewed": { "tag": "{{Fixture.Net11ReviewedTag}}", "commit": "{{Fixture.Net11ReviewedCommit}}" } }
 			  ],
 			  "watches": [{
@@ -100,7 +100,7 @@ public sealed class WatchFrameworkScopeTests
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
-			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.13",
+			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.15",
 			      "reviewed": { "tag": "v10.0.11", "commit": "{{Fixture.ReviewedCommit}}" } }
 			  ],
 			  "watches": [{
@@ -147,7 +147,7 @@ public sealed class WatchFrameworkScopeTests
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
-			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.13",
+			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.15",
 			      "reviewed": { "tag": "v10.0.11", "commit": "{{Fixture.ReviewedCommit}}" } }
 			  ],
 			  "watches": [{
@@ -178,7 +178,7 @@ public sealed class WatchFrameworkScopeTests
 			{
 			  "repository": "dotnet/aspnetcore",
 			  "frameworks": [
-			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.13",
+			    { "targetFramework": "net10.0", "majorVersion": 10, "allowsPrerelease": false, "referencePackVersion": "10.0.15",
 			      "reviewed": { "tag": "v10.0.11", "commit": "{{Fixture.ReviewedCommit}}" } }
 			  ],
 			  "watches": [{

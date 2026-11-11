@@ -27,7 +27,7 @@ internal sealed partial class Htmx4PackageBrowserWorkspace
 {
 	public void UseLayoutTitleScenario()
 	{
-		UseFramework("net10.0", "10.0.402", "10.0.13");
+		UseFramework("net10.0", "10.0.404", "10.0.15");
 		testFilter = "FullyQualifiedName~Issue283TitleBrowserTests";
 	}
 }

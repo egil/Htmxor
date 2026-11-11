@@ -1,38 +1,38 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v10.0.13, commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699,
+// Adapted from ASP.NET Core v10.0.15, commit 8e0f8ed2312954727f8919d7d1c2f78b483b4ee7,
 // synchronized 2026-09-08. Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // Enhanced-navigation framing in InitializeStreamingRenderingFraming follows EndpointHtmlRenderer.Streaming.cs,
-// first for .NET 11 at v11.0.0-rc.2.26504.105 (820230c386db5b0106c5430b3e5aee92a7826bf5, #214, synchronized
-// 2026-09-13), and on both targets since #263 (synchronized 2026-10-01), identical at v10.0.13
-// (4099f83977f4d29604a9aeb971fb0a7bc1d5f699): every response that is not re-executed frames, error-handler
+// first for .NET 11 at v11.0.0 (297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f, #214, synchronized
+// 2026-09-13), and on both targets since #263 (synchronized 2026-10-01), identical at v10.0.15
+// (8e0f8ed2312954727f8919d7d1c2f78b483b4ee7): every response that is not re-executed frames, error-handler
 // responses included. Direct htmx responses never frame.
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
 // The stop gate in UpdateDisplayAsync (#264, synchronized 2026-09-30) reimplements EndpointHtmlRenderer.cs at
-// v10.0.13 (4099f83977f4d29604a9aeb971fb0a7bc1d5f699) and, identically, at v11.0.0-rc.2.26504.105
-// (820230c386db5b0106c5430b3e5aee92a7826bf5):
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// v10.0.15 (8e0f8ed2312954727f8919d7d1c2f78b483b4ee7) and, identically, at v11.0.0
+// (297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f):
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
 // Streaming classification and non-streaming quiescence (#260, synchronized 2026-09-30) reimplement
 // EndpointComponentState.cs (the inherited StreamRendering and its hot-reload cache), EndpointHtmlRenderer.cs
 // (AddPendingTask) and EndpointHtmlRenderer.Prerendering.cs (WaitForNonStreamingPendingTasks and
-// HandleNavigationException) at v10.0.13 (4099f83977f4d29604a9aeb971fb0a7bc1d5f699) and at
-// v11.0.0-rc.2.26504.105 (820230c386db5b0106c5430b3e5aee92a7826bf5); the two releases differ only where
-// v10.0.13 stops tracking re-executed work:
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// HandleNavigationException) at v10.0.15 (8e0f8ed2312954727f8919d7d1c2f78b483b4ee7) and at
+// v11.0.0 (297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f); the two releases differ only where
+// v10.0.15 stops tracking re-executed work:
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointComponentState.cs
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs | reimplements
@@ -186,7 +186,7 @@ internal partial class HtmxorEndpointCandidateRenderer
 	protected override void AddPendingTask(ComponentState? componentState, Task task)
 	{
 #if !NET11_0_OR_GREATER
-		// v10.0.13 does not track work on a re-executed request at all, so its response does not wait for it.
+		// v10.0.15 does not track work on a re-executed request at all, so its response does not wait for it.
 		if (isReexecuted)
 		{
 			return;

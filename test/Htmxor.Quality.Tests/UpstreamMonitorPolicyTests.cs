@@ -58,8 +58,8 @@ public sealed class UpstreamMonitorPolicyTests
 		Assert.Equal("dotnet/aspnetcore", manifest.GetProperty("releaseRepository").GetString());
 		Assert.Equal(
 			[
-				"net10.0|10|False|10.0.13|v10.0.13|4099f83977f4d29604a9aeb971fb0a7bc1d5f699",
-				"net11.0|11|True|11.0.0-rc.2.26504.105|v11.0.0-rc.2.26504.105|820230c386db5b0106c5430b3e5aee92a7826bf5",
+				"net10.0|10|False|10.0.15|v10.0.15|8e0f8ed2312954727f8919d7d1c2f78b483b4ee7",
+				"net11.0|11|False|11.0.0|v11.0.0|297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f",
 			],
 			manifest.GetProperty("frameworks").EnumerateArray().Select(framework =>
 			{
@@ -159,14 +159,14 @@ public sealed class UpstreamMonitorPolicyTests
 	}
 
 	[Fact]
-	public void Ordinary_CI_provisions_the_exact_RC_reference_pack_required_by_target_discovery()
+	public void Ordinary_CI_provisions_the_exact_reference_packs_required_by_target_discovery()
 	{
 		var root = RepositoryLocator.Find();
 		var path = Path.Combine(root, ".github", "workflows", "ci.yml");
 
 		Assert.True(File.Exists(path), "The ordinary CI workflow must be committed.");
 		Assert.Equal(
-			["10.0.402", "11.0.100-rc.2.26504.105"],
+			["10.0.404", "11.0.100"],
 			WorkflowPolicyProjection.DotnetVersionsForJob(File.ReadAllText(path), "run-test"));
 	}
 
@@ -190,9 +190,9 @@ public sealed class UpstreamMonitorPolicyTests
 			"inline workflow trigger" => workflow.Replace("  workflow_dispatch:\n", "  pull_request: {}\n  workflow_dispatch:\n", StringComparison.Ordinal),
 			"permission" => workflow.Replace("  issues: write\n", "  issues: write\n  packages: write\n", StringComparison.Ordinal),
 			"dispatch type" => workflow.Replace("types: [aspnetcore-release-published]\n", "types: [something-else]\n", StringComparison.Ordinal),
-			"sdk version" => workflow.Replace("11.0.100-rc.2.26504.105", "11.0.100", StringComparison.Ordinal),
-			"missing sdk version" => workflow.Replace("            11.0.100-rc.2.26504.105\n", string.Empty, StringComparison.Ordinal),
-			"missing net10 sdk version" => workflow.Replace("            10.0.402\n", string.Empty, StringComparison.Ordinal),
+			"sdk version" => workflow.Replace("11.0.100", "11.0.101", StringComparison.Ordinal),
+			"missing sdk version" => workflow.Replace("            11.0.100\n", string.Empty, StringComparison.Ordinal),
+			"missing net10 sdk version" => workflow.Replace("            10.0.404\n", string.Empty, StringComparison.Ordinal),
 			"upload condition" => workflow.Replace("if: always()\n", "if: success()\n", StringComparison.Ordinal),
 			"retention" => workflow.Replace("retention-days: 14", "retention-days: 0", StringComparison.Ordinal),
 			"report paths" => workflow.Replace("path: |\n            artifacts/upstream-monitor/*.json\n            artifacts/upstream-monitor/*.md\n", "path: reports/*.json\n", StringComparison.Ordinal),
@@ -289,7 +289,7 @@ public sealed class UpstreamMonitorPolicyTests
 		"17 * * * *",
 		"aspnetcore-release-published",
 		"contents=read,issues=write",
-		"10.0.402\n11.0.100-rc.2.26504.105",
+		"10.0.404\n11.0.100",
 		"dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile upstream",
 		"GH_TOKEN=${{ github.token }}",
 		"false",
@@ -320,8 +320,8 @@ public sealed class UpstreamMonitorPolicyTests
 		        with:
 		          global-json-file: global.json
 		          dotnet-version: |
-		            10.0.402
-		            11.0.100-rc.2.26504.105
+		            10.0.404
+		            11.0.100
 		      - name: Run upstream profile
 		        run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile upstream
 		        env:

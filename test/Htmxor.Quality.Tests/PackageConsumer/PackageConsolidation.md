@@ -29,8 +29,8 @@ cache. The Htmx4 browser/publish collection retains its existing lifecycle.
 ## Success consumers
 
 `PackedSuccessfulConsumerTests` performs one successful restore/build/test with
-SDK/runtime 10.0.402/10.0.13 and one with
-11.0.100-rc.2.26504.105/11.0.0-rc.2.26504.105; roll-forward is disabled.
+SDK/runtime 10.0.404/10.0.15 and one with
+11.0.100/11.0.0; roll-forward is disabled.
 Each nested run discovers the same 21 independently reported package tests.
 The existing failing configurations remain independent; #369 owns their grouping.
 

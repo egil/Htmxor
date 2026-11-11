@@ -1,5 +1,20 @@
 # Patched framework baseline review (#329)
 
+## GA rebaseline (2026-11-11)
+
+.NET 11 shipped on 2026-11-10 together with the .NET 10.0.15 servicing release. Both lanes now pin the shipped builds, and the .NET 11 lane uses the stable release channel instead of its reviewed prerelease tag.
+
+| Lane | SDK | Runtime and ASP.NET Core packages | Runtime tag | Built-source commit in dotnet/dotnet |
+| --- | --- | --- | --- | --- |
+| net10.0 | 10.0.404 | 10.0.15 | v10.0.15 | 8e0f8ed2312954727f8919d7d1c2f78b483b4ee7 |
+| net11.0 | 11.0.100 | 11.0.0 | v11.0.0 | 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f |
+
+Versions come from the [10.0](https://raw.githubusercontent.com/dotnet/core/main/release-notes/10.0/releases.json) and [11.0](https://raw.githubusercontent.com/dotnet/core/main/release-notes/11.0/releases.json) release metadata and the nuget.org `Microsoft.AspNetCore.App.Ref` package versions; the commits are the same-named tags in dotnet/dotnet.
+
+Upstream delta: compared the complete `src/aspnetcore` Git subtrees v10.0.13 → v10.0.15 (79 changed paths) and v11.0.0-rc.2.26504.105 → v11.0.0 (231 changed paths). None of them is a watched path or a source referenced by an adapter provenance header, so the adapter needed provenance updates only. Changes near the adapter that stock owns and Htmxor does not copy: `ClientValidationCache` stops caching unknown field names, and `CookieTempDataProvider` escapes the cookie path base. The sections below record the earlier 2026-10-15 review and are kept unchanged.
+
+The scheduled monitor started failing at the v10.0.15 release because the shipped subtree contains generator snapshot files whose names include `#`, which rooted-tree validation rejected. Validation now accepts `#` and `?`; `ContentsPath` already escapes every segment.
+
 Reviewed 2026-10-15 under the [owner-approved prerequisite](https://github.com/egil/Htmxor/issues/77#issuecomment-6180682303).
 
 When an application uses Htmxor on either pinned framework lane, Htmxor preserves paired stock component-endpoint behavior and validates its monitored adapter against that exact shipped baseline.

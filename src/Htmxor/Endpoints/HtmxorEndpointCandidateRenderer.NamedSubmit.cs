@@ -1,12 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v10.0.13, commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699,
+// Adapted from ASP.NET Core v10.0.15, commit 8e0f8ed2312954727f8919d7d1c2f78b483b4ee7,
 // synchronized 2026-09-05; OnNavigateTo added for #264, synchronized 2026-09-30, and
 // SetNotFoundWhenResponseHasStarted added for #261, synchronized 2026-10-01, both identical at
-// v11.0.0-rc.2.26504.105, commit 820230c386db5b0106c5430b3e5aee92a7826bf5:
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
+// v11.0.0, commit 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f:
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
 // Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs | reimplements
 

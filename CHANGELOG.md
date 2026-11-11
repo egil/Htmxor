@@ -1,5 +1,9 @@
 # Unreleased
 
+## Framework support
+
+- The `net11.0` asset is built and verified against the shipped .NET 11.0.0 (SDK 11.0.100) instead of RC2, and the `net10.0` asset against .NET 10.0.15. The framework adapter's watched upstream sources are unchanged between those builds.
+
 ## Breaking changes
 
 - `ConditionalComponentBase` and `IConditionalRender` have been removed, including `HtmxLayoutComponentBase.ShouldOutput`. Use plain components with named `HtmxFragment` content and select it through `HtmxContext.Response.SelectFragment` or `SelectFragments` on direct requests. No compatibility shim is provided; selection changes output, not component lifecycle work.
