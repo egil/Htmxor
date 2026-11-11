@@ -3,8 +3,11 @@
 The current patched baselines and complete watched-source delta assessment are
 recorded in [the #329 baseline review](patched-framework-baselines.md). All source
 links below identify the shipped dotnet/dotnet VMR under `src/aspnetcore` and were
-re-reviewed on 2026-10-15. Earlier synchronization dates identify
-the original adaptation; current links identify the verified patched source.
+re-reviewed on 2026-10-15, then moved to the v10.0.15 and v11.0.0 commits on
+2026-11-11 after confirming every linked source is byte-identical to the previously
+reviewed commits (see the GA rebaseline section of that review). Earlier synchronization
+and review dates identify the original adaptation; current links identify the verified
+shipped source.
 
 When an ordinary stock static SSR component POST runs through the endpoint
 candidate, Htmxor honors effective antiforgery policy before binding, lifecycle,
