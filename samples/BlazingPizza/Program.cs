@@ -50,9 +50,9 @@ var scopeFactory = app.Services.GetRequiredService<IServiceScopeFactory>();
 using (var scope = scopeFactory.CreateScope())
 {
 	var db = scope.ServiceProvider.GetRequiredService<PizzaStoreContext>();
+	// The sample has no migrations; EnsureCreated builds the schema, and EF Core 11 rejects Migrate without any.
 	if (db.Database.EnsureCreated())
 	{
-		await db.Database.MigrateAsync();
 		SeedData.Initialize(db);
 	}
 }

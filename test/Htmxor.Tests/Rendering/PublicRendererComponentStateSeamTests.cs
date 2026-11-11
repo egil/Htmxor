@@ -57,7 +57,8 @@ public sealed class PublicRendererComponentStateSeamTests
 	{
 		var probe = new RenderProbe();
 		var topology = new CompletedTopologyProbe();
-		var serviceCollection = new ServiceCollection().AddSingleton(probe);
+		var serviceCollection = new ServiceCollection().AddSingleton(probe)
+			.AddSingleton(HtmxorEndpointCandidateCacheViewServices.Create());
 		await using var services = serviceCollection.BuildServiceProvider();
 		await using var renderer = new ProductionProbeRenderer(services, topology);
 		var renderTask = renderer.Dispatcher.InvokeAsync(() =>
