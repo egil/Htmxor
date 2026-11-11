@@ -14,7 +14,9 @@ internal sealed partial class PackageConsumerWorkspace
 
 	public void UseFramework(string framework, string sdk, string runtime)
 	{
-		var source = File.ReadAllText(projectPath).Replace("net10.0", framework, StringComparison.Ordinal);
+		var source = File.ReadAllText(projectPath).Replace("net10.0", framework, StringComparison.Ordinal)
+			.Replace("Include=\"Microsoft.AspNetCore.TestHost\" Version=\"10.0.15\"",
+				$"Include=\"Microsoft.AspNetCore.TestHost\" Version=\"{runtime}\"", StringComparison.Ordinal);
 		source = source.Replace("<TargetFramework>" + framework + "</TargetFramework>",
 			$"<TargetFramework>{framework}</TargetFramework><RuntimeFrameworkVersion>{runtime}</RuntimeFrameworkVersion><RollForward>Disable</RollForward>", StringComparison.Ordinal);
 		File.WriteAllText(projectPath, source);
