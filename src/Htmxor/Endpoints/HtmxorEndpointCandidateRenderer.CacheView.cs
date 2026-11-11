@@ -2,8 +2,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// CacheView component-state coordination adapted from ASP.NET Core v11.0.0-rc.2.26504.105 at
-// commit 820230c386db5b0106c5430b3e5aee92a7826bf5, synchronized 2026-09-16; see
+// CacheView component-state coordination adapted from ASP.NET Core v11.0.0 at
+// commit 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f, synchronized 2026-09-16; see
 // docs/engineering/candidate-form-adapter.md for the approved #219 dependency inventory.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointComponentState.cs | reimplements
 

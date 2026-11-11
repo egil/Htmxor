@@ -5,7 +5,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v10.0.13, commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699,
+// Adapted from ASP.NET Core v10.0.15, commit 8e0f8ed2312954727f8919d7d1c2f78b483b4ee7,
 // synchronized 2026-09-06. Exact source inventory: docs/engineering/candidate-form-adapter.md.
 
 // Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.

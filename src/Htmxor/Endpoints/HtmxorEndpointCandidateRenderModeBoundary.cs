@@ -9,25 +9,25 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v10.0.13, commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699,
+// Adapted from ASP.NET Core v10.0.15, commit 8e0f8ed2312954727f8919d7d1c2f78b483b4ee7,
 // synchronized 2026-09-06. Exact source inventory: docs/engineering/candidate-form-adapter.md.
 // The marker payload serializer options (#275, synchronized 2026-10-04) reimplement
 // WebAssemblyComponentSerializationSettings.cs and ServerComponentSerializationSettings.cs, whose naming and null
-// handling are identical at v10.0.13 (4099f83977f4d29604a9aeb971fb0a7bc1d5f699) and v11.0.0-rc.2.26504.105
-// (820230c386db5b0106c5430b3e5aee92a7826bf5). NET11 adds a server source-generated resolver and freezes
+// handling are identical at v10.0.15 (8e0f8ed2312954727f8919d7d1c2f78b483b4ee7) and v11.0.0
+// (297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f). NET11 adds a server source-generated resolver and freezes
 // WebAssembly options at creation; this adapter freezes its private options on first serialization:
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Shared/Components/WebAssemblyComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Shared/Components/ServerComponentSerializationSettings.cs
 
-// CacheBehavior.Rerender follows SSRRenderModeBoundary.cs at v11.0.0-rc.2.26504.105,
-// commit 820230c386db5b0106c5430b3e5aee92a7826bf5, synchronized 2026-10-24 for #237.
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs
+// CacheBehavior.Rerender follows SSRRenderModeBoundary.cs at v11.0.0,
+// commit 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f, synchronized 2026-10-24 for #237.
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/SSRRenderModeBoundary.cs
 
 // Shipped VMR baselines re-reviewed 2026-10-15 for #329; source deltas: docs/engineering/patched-framework-baselines.md.
 

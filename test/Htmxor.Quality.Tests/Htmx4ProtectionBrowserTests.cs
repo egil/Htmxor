@@ -11,10 +11,10 @@ public sealed class Htmx4ProtectionBrowserTests
 	public async Task Issue211_one_package_preserves_application_owned_browser_protection_on_both_frameworks()
 	{
 		using var net10 = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find());
-		net10.UseProtectionScenario("net10.0", "10.0.402", "10.0.13");
+		net10.UseProtectionScenario("net10.0", "10.0.404", "10.0.15");
 		await AssertConsumerAsync(net10, "net10.0", 13);
 		using var net11 = new Htmx4PackageBrowserWorkspace(RepositoryLocator.Find());
-		net11.UseProtectionScenario("net11.0", "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105");
+		net11.UseProtectionScenario("net11.0", "11.0.100", "11.0.0");
 		net11.UseSharedPackage(net10);
 		await AssertConsumerAsync(net11, "net11.0", 21);
 	}

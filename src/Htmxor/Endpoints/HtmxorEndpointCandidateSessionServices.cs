@@ -2,7 +2,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v11.0.0-rc.2.26504.105, commit 820230c386db5b0106c5430b3e5aee92a7826bf5,
+// Adapted from ASP.NET Core v11.0.0, commit 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f,
 // synchronized 2026-09-13. Approved #212 dependencies and exact sources: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/SessionCascadingValueSupplier.cs | private-accesses
 
@@ -63,6 +63,6 @@ internal sealed class HtmxorEndpointCandidateSessionServices
 	}
 
 	private static InvalidOperationException IncompatibleFramework(string dependency)
-		=> new($"The Htmxor Session adapter is incompatible with installed '{EndpointAssembly.FullName}': expected {dependency}. Baseline: ASP.NET Core v11.0.0-rc.2.26504.105, commit 820230c386db5b0106c5430b3e5aee92a7826bf5. Review the upstream dependency and renew paired parity evidence before using this candidate.");
+		=> new($"The Htmxor Session adapter is incompatible with installed '{EndpointAssembly.FullName}': expected {dependency}. Baseline: ASP.NET Core v11.0.0, commit 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f. Review the upstream dependency and renew paired parity evidence before using this candidate.");
 }
 #endif

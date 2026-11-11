@@ -114,7 +114,7 @@ internal static class PackedDiagnosticCases
 	{
 		yield return new("stock-form", w => w.UseIssue179RejectedFormScenario(), "Issue179Rejected.razor", "HTMXOR033", ["Methods", "POST"]);
 		yield return new("route-template", w => { w.UseIssue286StockRouteTemplateScenario(); w.UseIssue286MalformedTemplate(); }, "Issue286StaticHtmxPage.razor", "ASP0017", ["There is an incomplete parameter in the route template. Check that each '{' character has a matching '}' character"]);
-		yield return new("wrappers", w => { w.UseIssue299ContextConstructionScenario("net10.0", "10.0.402", "10.0.13"); w.AddDetachedWrapperConstruction(); }, "DetachedWrappers.cs", "CS0122|CS1729", []);
-		yield return new("retired-api", w => { w.UseRequestApiScenario("net10.0", "10.0.402", "10.0.13"); w.AddRetiredRequestApiReferences(); }, "RetiredRequestApi.cs", "CS0122|CS0234|CS1061", []);
+		yield return new("wrappers", w => { w.UseIssue299ContextConstructionScenario("net10.0", "10.0.404", "10.0.15"); w.AddDetachedWrapperConstruction(); }, "DetachedWrappers.cs", "CS0122|CS1729", []);
+		yield return new("retired-api", w => { w.UseRequestApiScenario("net10.0", "10.0.404", "10.0.15"); w.AddRetiredRequestApiReferences(); }, "RetiredRequestApi.cs", "CS0122|CS0234|CS1061", []);
 	}
 }

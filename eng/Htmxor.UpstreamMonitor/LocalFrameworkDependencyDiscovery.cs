@@ -47,7 +47,7 @@ internal static partial class LocalFrameworkDependencyDiscovery
 	}
 
 	public static IEnumerable<LocalFrameworkDependency> Discover(string repositoryRoot) =>
-		Discover(repositoryRoot, new FrameworkBaseline("net10.0", 10, false, "10.0.13", "v10.0.13", "4099f83977f4d29604a9aeb971fb0a7bc1d5f699"));
+		Discover(repositoryRoot, new FrameworkBaseline("net10.0", 10, false, "10.0.15", "v10.0.15", "8e0f8ed2312954727f8919d7d1c2f78b483b4ee7"));
 
 	private static SyntaxTree[] ReadLocalSources(string repositoryRoot, string root, FrameworkBaseline framework) =>
 		Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)

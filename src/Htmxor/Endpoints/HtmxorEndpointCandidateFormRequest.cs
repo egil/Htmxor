@@ -1,10 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted from ASP.NET Core v10.0.13, commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699,
+// Adapted from ASP.NET Core v10.0.15, commit 8e0f8ed2312954727f8919d7d1c2f78b483b4ee7,
 // synchronized 2026-09-05. Exact sources and license: docs/engineering/candidate-form-adapter.md.
-// .NET 11 validation follows v11.0.0-rc.2.26504.105 at
-// 820230c386db5b0106c5430b3e5aee92a7826bf5, synchronized 2026-09-13; see that inventory.
+// .NET 11 validation follows v11.0.0 at
+// 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f, synchronized 2026-09-13; see that inventory.
 // PUT/PATCH action form mapping extends stock POST coordination for #318, reviewed 2026-10-23
 // against both baselines above; the stock mapper accepts an empty name for an unscoped form.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements

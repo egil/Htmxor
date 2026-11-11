@@ -3,21 +3,21 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Adapted for the endpoint candidate introduced in #188 from ASP.NET Core v10.0.13 at
-// commit 4099f83977f4d29604a9aeb971fb0a7bc1d5f699, synchronized 2026-09-05:
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
+// Adapted for the endpoint candidate introduced in #188 from ASP.NET Core v10.0.15 at
+// commit 8e0f8ed2312954727f8919d7d1c2f78b483b4ee7, synchronized 2026-09-05:
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/DependencyInjection/RazorComponentsServiceCollectionExtensions.cs
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/DependencyInjection/WebAssemblySettingsEmitter.cs
 // Form coordination added for #189; exact dependency inventory: docs/engineering/candidate-form-adapter.md.
-// .NET 11 protection, persisted state, and browser configuration follow v11.0.0-rc.2.26504.105 at
-// 820230c386db5b0106c5430b3e5aee92a7826bf5, synchronized 2026-09-13; see that inventory.
+// .NET 11 protection, persisted state, and browser configuration follow v11.0.0 at
+// 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f, synchronized 2026-09-13; see that inventory.
 // CacheView write-path coordination follows the same commit, synchronized 2026-09-16: the capture and
 // descendant-guard branches reimplement EndpointHtmlRenderer.WriteComponentHtml; approved #219 dependencies
 // and their exact sources are in docs/engineering/candidate-form-adapter.md.
@@ -28,22 +28,22 @@
 // #282 removes retired conditional-rendering commentary (2026-10-23); cache coordination
 // remains unchanged at the exact upstream commits above.
 // The started-response guard on the Server/Auto Cache-Control header (#269, synchronized 2026-10-02)
-// reimplements EndpointHtmlRenderer.Streaming.cs WriteComponentHtml, identical at v10.0.13
-// (4099f83977f4d29604a9aeb971fb0a7bc1d5f699) and v11.0.0-rc.2.26504.105 (820230c386db5b0106c5430b3e5aee92a7826bf5):
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// reimplements EndpointHtmlRenderer.Streaming.cs WriteComponentHtml, identical at v10.0.15
+// (8e0f8ed2312954727f8919d7d1c2f78b483b4ee7) and v11.0.0 (297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f):
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Streaming.cs
 // Non-throwing navigation (#264), synchronized 2026-09-30: the renderer stop and GetErrorHandledTask
-// reimplement EndpointHtmlRenderer.cs and EndpointHtmlRenderer.Prerendering.cs at v10.0.13
-// (4099f83977f4d29604a9aeb971fb0a7bc1d5f699) and, identically, at v11.0.0-rc.2.26504.105
-// (820230c386db5b0106c5430b3e5aee92a7826bf5):
-// https://github.com/dotnet/dotnet/blob/v10.0.13/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
-// https://github.com/dotnet/dotnet/blob/4099f83977f4d29604a9aeb971fb0a7bc1d5f699/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
-// https://github.com/dotnet/dotnet/blob/v11.0.0-rc.2.26504.105/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
-// https://github.com/dotnet/dotnet/blob/820230c386db5b0106c5430b3e5aee92a7826bf5/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// reimplement EndpointHtmlRenderer.cs and EndpointHtmlRenderer.Prerendering.cs at v10.0.15
+// (8e0f8ed2312954727f8919d7d1c2f78b483b4ee7) and, identically, at v11.0.0
+// (297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f):
+// https://github.com/dotnet/dotnet/blob/v10.0.15/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/dotnet/blob/8e0f8ed2312954727f8919d7d1c2f78b483b4ee7/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs
+// https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
+// https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.Prerendering.cs
 // First-render navigation (#266, synchronized 2026-10-05): the invoker's first-render catch answers non-htmx
 // requests through HandleNavigationBeforeResponseStarted, as RenderEndpointComponent's HandleNavigationException
 // does in the same EndpointHtmlRenderer.Prerendering.cs at both commits above.

@@ -100,7 +100,7 @@ internal sealed partial class PackageConsumerWorkspace
 		foreach (var path in Directory.EnumerateFiles(consumerDirectory).Where(static path => path.EndsWith(".cs", StringComparison.Ordinal) || path.EndsWith(".razor", StringComparison.Ordinal)))
 			File.Delete(path);
 		File.WriteAllText(Path.Combine(consumerDirectory, "_Imports.razor"), "@using Microsoft.AspNetCore.Components\n@using Microsoft.AspNetCore.Components.Routing\n@using Microsoft.AspNetCore.Components.Web\n@using Microsoft.AspNetCore.Http\n");
-		var (sdk, runtime) = framework == "net10.0" ? ("10.0.402", "10.0.13") : ("11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105");
+		var (sdk, runtime) = framework == "net10.0" ? ("10.0.404", "10.0.15") : ("11.0.100", "11.0.0");
 		UseFramework(framework, sdk, runtime);
 	}
 }
