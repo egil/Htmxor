@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 dotnet test test/Htmxor.Tests/Htmxor.Tests.csproj --filter "FullyQualifiedName~RequestRoutingTest"
 ```
 
-Browser tests are the exception: the `fast` profile excludes them (`Category!=Browser`, `FullyQualifiedName!~Htmxor.E2E`), and running them needs Chromium provisioned from the generated installer at `test/Htmxor.Tests/bin/<Configuration>/net10.0/playwright.ps1`.
+Browser tests are the exception: the `fast` profile excludes them (`Category!=Browser`, `FullyQualifiedName!~Htmxor.E2E`), and running them needs Chromium provisioned from the generated installer at `test/Htmxor.Tests/bin/<Configuration>/net11.0/playwright.ps1`.
 
 A filtered Debug run is a working signal, never the evidence a change is verified — that comes from the repository-owned quality command.
 

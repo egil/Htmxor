@@ -136,7 +136,7 @@ internal sealed class SampleKestrelHost : IAsyncDisposable
 	private static ProcessStartInfo CreateStartInfo(string projectPath, IReadOnlyDictionary<string, string>? environment)
 	{
 		var projectDirectory = Path.GetDirectoryName(Path.Combine(FindRepositoryRoot(), projectPath))!;
-		var assemblyPath = Path.Combine(projectDirectory, "bin", "Release", "net10.0", Path.GetFileNameWithoutExtension(projectPath) + ".dll");
+		var assemblyPath = Path.Combine(projectDirectory, "bin", "Release", "net11.0", Path.GetFileNameWithoutExtension(projectPath) + ".dll");
 		var startInfo = new ProcessStartInfo("dotnet")
 		{
 			WorkingDirectory = projectDirectory,

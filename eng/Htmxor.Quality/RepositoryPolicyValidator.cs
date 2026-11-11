@@ -14,6 +14,7 @@ internal static class RepositoryPolicyValidator
 			"project",
 			"report-file-name",
 			"reporters",
+			"target-framework",
 			"test-runner",
 		];
 	private static readonly string[] DisallowedMutationProperties =
@@ -53,6 +54,8 @@ internal static class RepositoryPolicyValidator
 		RequireString(config, "project", "src/Htmxor/Htmxor.csproj");
 		RequireString(config, "configuration", "Release");
 		RequireString(config, "report-file-name", "mutation-report");
+		// The runtime package multi-targets; mutate the asset the single-target test project loads.
+		RequireString(config, "target-framework", "net11.0");
 		RequireString(config, "test-runner", "vstest");
 		RequireString(config, "coverage-analysis", "perTest");
 		RequireNumber(config, "additional-timeout", 30000);
