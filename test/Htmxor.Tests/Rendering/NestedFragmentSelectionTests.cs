@@ -116,7 +116,8 @@ public sealed class NestedFragmentSelectionTests
 		http.Request.Headers["HX-Request-Type"] = "partial";
 		var context = http.GetHtmxContext();
 		context.UsesCompletedFragmentSelection = true;
-		await using var services = new ServiceCollection().AddSingleton(context).BuildServiceProvider();
+		await using var services = new ServiceCollection().AddSingleton(context)
+			.AddSingleton(HtmxorEndpointCandidateCacheViewServices.Create()).BuildServiceProvider();
 		await using var renderer = new HtmxorEndpointCandidateRenderer(services, NullLoggerFactory.Instance);
 		await renderer.Dispatcher.InvokeAsync(() => test(renderer, context));
 	}
