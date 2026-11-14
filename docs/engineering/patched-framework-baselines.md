@@ -2,7 +2,7 @@
 
 ## GA rebaseline (2026-11-11)
 
-.NET 11 shipped on 2026-11-10 together with the .NET 10.0.15 servicing release. Both lanes now pin the shipped builds, and the .NET 11 lane uses the stable release channel instead of its reviewed prerelease tag.
+.NET 11 shipped on 2026-11-10 together with the .NET 10.0.15 servicing release. Both lanes now pin the shipped builds, and the .NET 11 lane uses the stable release channel instead of its reviewed prerelease tag. Stable discovery treats the reviewed tag as a floor, because the dotnet/aspnetcore release catalog had not published v11.0.0 a day after the VMR tag shipped.
 
 | Lane | SDK | Runtime and ASP.NET Core packages | Runtime tag | Built-source commit in dotnet/dotnet |
 | --- | --- | --- | --- | --- |

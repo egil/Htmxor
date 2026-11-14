@@ -79,6 +79,8 @@ internal sealed partial class UpstreamRepository(GitHubApi api, WatchManifest ma
 		var releases = await api.GetPagesAsync($"/repos/{manifest.ReleaseRepository}/releases?per_page=100", cancellationToken);
 		var candidates = releases.Where(release => !release.GetProperty("draft").GetBoolean() && !release.GetProperty("prerelease").GetBoolean())
 			.Select(release => release.GetProperty("tag_name").GetString()!)
+			// The reviewed stable tag is a floor: the release catalog can lag the shipped VMR tag.
+			.Append(framework.ReviewedTag)
 			.Where(tag => SupportedTag(tag, framework));
 		return candidates.OrderByDescending(StableVersion).FirstOrDefault()
 			?? throw new MonitorFailure("No stable supported ASP.NET Core release was found.");
