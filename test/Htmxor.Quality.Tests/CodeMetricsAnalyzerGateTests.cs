@@ -2,92 +2,122 @@ using System.Diagnostics;
 
 namespace Htmxor.Quality.Tests;
 
-public sealed class CodeMetricsAnalyzerGateTests
+// Each fact runs a real MSBuild process in its own fixture directory. xUnit runs
+// the facts of one class serially, so each fact is its own class to let the
+// runner schedule them in parallel.
+public static class CodeMetricsAnalyzerGateTests
 {
-	[Fact]
-	public async Task Tests_profile_rejects_complexity_above_five()
+	public sealed class TestsProfileComplexity
 	{
-		var result = await CodeMetricsBuildFixture.BuildProfileAsync(
-			"tests",
-			CreateBranches(6));
+		[Fact]
+		public async Task Tests_profile_rejects_complexity_above_five()
+		{
+			var result = await CodeMetricsBuildFixture.BuildProfileAsync(
+				"tests",
+				CreateBranches(6));
 
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("error CA1502", result.Output, StringComparison.Ordinal);
+			Assert.NotEqual(0, result.ExitCode);
+			Assert.Contains("error CA1502", result.Output, StringComparison.Ordinal);
+		}
 	}
 
-	[Fact]
-	public async Task Production_profile_rejects_complexity_above_ten()
+	public sealed class ProductionProfileComplexity
 	{
-		var result = await CodeMetricsBuildFixture.BuildProfileAsync(
-			"production",
-			CreateBranches(11));
+		[Fact]
+		public async Task Production_profile_rejects_complexity_above_ten()
+		{
+			var result = await CodeMetricsBuildFixture.BuildProfileAsync(
+				"production",
+				CreateBranches(11));
 
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("error CA1502", result.Output, StringComparison.Ordinal);
+			Assert.NotEqual(0, result.ExitCode);
+			Assert.Contains("error CA1502", result.Output, StringComparison.Ordinal);
+		}
 	}
 
-	[Fact]
-	public async Task Strict_profiles_accept_focused_code()
+	public sealed class StrictProfilesAcceptance
 	{
-		const string source = "internal static class Fixture { public static int Double(int value) => value * 2; }";
+		[Fact]
+		public async Task Strict_profiles_accept_focused_code()
+		{
+			const string source = "internal static class Fixture { public static int Double(int value) => value * 2; }";
 
-		var test = await CodeMetricsBuildFixture.BuildProfileAsync("tests", source);
-		var tooling = await CodeMetricsBuildFixture.BuildProfileAsync("production", source);
+			var testBuild = CodeMetricsBuildFixture.BuildProfileAsync("tests", source);
+			var toolingBuild = CodeMetricsBuildFixture.BuildProfileAsync("production", source);
+			await Task.WhenAll(testBuild, toolingBuild);
+			var test = await testBuild;
+			var tooling = await toolingBuild;
 
-		Assert.True(test.ExitCode == 0, test.Output);
-		Assert.True(tooling.ExitCode == 0, tooling.Output);
+			Assert.True(test.ExitCode == 0, test.Output);
+			Assert.True(tooling.ExitCode == 0, tooling.Output);
+		}
 	}
 
-	[Fact]
-	public async Task Invalid_code_metrics_configuration_reports_CA1509()
+	public sealed class InvalidConfiguration
 	{
-		var result = await CodeMetricsBuildFixture.BuildInvalidConfigurationAsync("CA1502: invalid");
+		[Fact]
+		public async Task Invalid_code_metrics_configuration_reports_CA1509()
+		{
+			var result = await CodeMetricsBuildFixture.BuildInvalidConfigurationAsync("CA1502: invalid");
 
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("error CA1509", result.Output, StringComparison.Ordinal);
+			Assert.NotEqual(0, result.ExitCode);
+			Assert.Contains("error CA1509", result.Output, StringComparison.Ordinal);
+		}
 	}
 
-	[Fact]
-	public async Task Missing_profile_is_rejected_by_the_real_MSBuild_target()
+	public sealed class MissingProfile
 	{
-		var result = await CodeMetricsBuildFixture.BuildProfilesAsync([], "internal sealed class Fixture;");
+		[Fact]
+		public async Task Missing_profile_is_rejected_by_the_real_MSBuild_target()
+		{
+			var result = await CodeMetricsBuildFixture.BuildProfilesAsync([], "internal sealed class Fixture;");
 
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("must declare exactly one CodeMetricsProfile", result.Output, StringComparison.Ordinal);
+			Assert.NotEqual(0, result.ExitCode);
+			Assert.Contains("must declare exactly one CodeMetricsProfile", result.Output, StringComparison.Ordinal);
+		}
 	}
 
-	[Fact]
-	public async Task Duplicate_profiles_are_rejected_by_the_real_MSBuild_target()
+	public sealed class DuplicateProfiles
 	{
-		var result = await CodeMetricsBuildFixture.BuildProfilesAsync(
-			["production", "tests"],
-			"internal sealed class Fixture;");
+		[Fact]
+		public async Task Duplicate_profiles_are_rejected_by_the_real_MSBuild_target()
+		{
+			var result = await CodeMetricsBuildFixture.BuildProfilesAsync(
+				["production", "tests"],
+				"internal sealed class Fixture;");
 
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("must declare exactly one CodeMetricsProfile", result.Output, StringComparison.Ordinal);
+			Assert.NotEqual(0, result.ExitCode);
+			Assert.Contains("must declare exactly one CodeMetricsProfile", result.Output, StringComparison.Ordinal);
+		}
 	}
 
-	[Fact]
-	public async Task Declared_profile_cannot_be_overridden()
+	public sealed class ProfileOverride
 	{
-		var result = await CodeMetricsBuildFixture.BuildProfileWithOverrideAsync(
-			"tests",
-			"production",
-			"internal sealed class Fixture;");
+		[Fact]
+		public async Task Declared_profile_cannot_be_overridden()
+		{
+			var result = await CodeMetricsBuildFixture.BuildProfileWithOverrideAsync(
+				"tests",
+				"production",
+				"internal sealed class Fixture;");
 
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("must use its declared CodeMetricsProfile", result.Output, StringComparison.Ordinal);
+			Assert.NotEqual(0, result.ExitCode);
+			Assert.Contains("must use its declared CodeMetricsProfile", result.Output, StringComparison.Ordinal);
+		}
 	}
 
-	[Fact]
-	public async Task Legacy_profile_cannot_be_reused_by_a_new_project()
+	public sealed class LegacyProfileReuse
 	{
-		var result = await CodeMetricsBuildFixture.BuildProfileAsync(
-			"legacy-production-baseline",
-			"internal sealed class Fixture;");
+		[Fact]
+		public async Task Legacy_profile_cannot_be_reused_by_a_new_project()
+		{
+			var result = await CodeMetricsBuildFixture.BuildProfileAsync(
+				"legacy-production-baseline",
+				"internal sealed class Fixture;");
 
-		Assert.NotEqual(0, result.ExitCode);
-		Assert.Contains("is reserved for src/Htmxor/Htmxor.csproj", result.Output, StringComparison.Ordinal);
+			Assert.NotEqual(0, result.ExitCode);
+			Assert.Contains("is reserved for src/Htmxor/Htmxor.csproj", result.Output, StringComparison.Ordinal);
+		}
 	}
 
 	private static string CreateBranches(int count)
