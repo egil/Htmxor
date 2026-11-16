@@ -86,6 +86,20 @@ public sealed class Issue288VaryHeaderTests
 
 	[Theory]
 	[MemberData(nameof(OutputCacheModes))]
+	public async Task Dual_page_varies_its_own_404(bool useOutputCache)
+	{
+		await using var app = await StartAsync(useOutputCache);
+		using var client = app.GetTestClient();
+
+		using var normal = await client.GetAsync("/issue-288/dual?mode=not-found");
+		using var htmx = await client.SendAsync(Partial(HttpMethod.Get, "/issue-288/dual?mode=not-found"));
+
+		await AssertVaryAsync(normal, HttpStatusCode.NotFound, HtmxVary);
+		await AssertVaryAsync(htmx, HttpStatusCode.NotFound, HtmxVary);
+	}
+
+	[Theory]
+	[MemberData(nameof(OutputCacheModes))]
 	public async Task Dual_page_varies_its_own_antiforgery_400(bool useOutputCache)
 	{
 		await using var app = await StartAsync(useOutputCache);
