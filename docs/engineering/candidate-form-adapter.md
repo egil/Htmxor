@@ -232,13 +232,19 @@ answers as stock does, including stock's `400` when the abandoned render left no
 form to dispatch to. An htmx request gets `HX-Redirect` from every entry point,
 first render and non-throwing navigation callback included, so one representation
 rule covers them all, and a same-origin destination is request-relative from each
-of them, where a Direct-routed GET used to restate the origin; a destination
-Htmxor's own validator rejects keeps the stock representation rather than failing
-the request. A generated-action redirect is not a POST and is answered by
-the pending-work wait under the same rule. An explicit action is not dispatched
-after a first render that navigated, because no component instance remains to own
-it. `Issue230InitialRenderRedirectTests` pairs each entry point with a stock host on
-both target frameworks and reads the surviving values on a fresh following request.
+of them, where a Direct-routed GET used to restate the origin. A destination whose
+request-relative form Htmxor's own validator rejects is sent in its absolute form
+instead, and only one that validator rejects in both forms keeps the stock
+representation rather than failing the request. A GET whose first render navigated
+waits for none of the abandoned render's pending work, as stock's empty content is
+already quiescent, so that work can neither delay nor replace the redirect. A
+generated-action redirect is not a POST and is answered by the pending-work wait
+under the same rule. An explicit action is not dispatched after a first render that
+navigated, because no component instance remains to own it.
+`Issue230InitialRenderRedirectTests` pairs each stock-reachable entry point with a
+stock host on both target frameworks and reads the surviving values on a fresh
+following request; the generated-action and htmx-only cells have no stock
+counterpart and pin Htmxor's own output.
 
 Synchronized **2026-09-15**, ASP.NET Core **v11.0.0**, commit
 **297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f**. Exact monitored sources:

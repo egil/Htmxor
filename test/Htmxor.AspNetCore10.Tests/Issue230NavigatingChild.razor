@@ -1,0 +1,6 @@
+@inject NavigationManager Navigation
+
+@code {
+    // Throws synchronously inside the first render, after its parent has already started pending work.
+    protected override void OnInitialized() => Navigation.NavigateTo("/issue-230/read");
+}

@@ -60,7 +60,8 @@
 // that precedes submit dispatch share one guard, answer every request through HandleNavigationException and
 // continue to submit dispatch and Session and TempData write-back, as RenderEndpointComponent's try block and
 // RenderComponentCore do in the same EndpointHtmlRenderer.Prerendering.cs and RazorComponentEndpointInvoker.cs
-// at both commits above. This supersedes #266's htmx exception: an htmx request now gets HX-Redirect here too.
+// at both commits above. A first render that navigated waits for no pending work, as stock's empty content is
+// already quiescent. This supersedes #266's htmx exception: an htmx request now gets HX-Redirect here too.
 // Explicit callbacks (#180, reviewed 2026-10-12) also finish before ordinary response serialization;
 // supported event and pending-work dependencies are inventoried in the ExplicitActions partial.
 // Buffered response writing (#262, synchronized 2026-11-16): RenderComponentCore writes the page, streamed
@@ -254,33 +255,10 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		var (htmlContent, quiesceTask) = await BeginRenderAsync(rootComponent, dispatchesSubmit);
 		if (!dispatchesSubmit)
 		{
-			if (waitForQuiescence || renderer.HasPreparedExplicitAction)
+			if (await NavigatesBeforeResponseAsync(htmlContent is not null, quiesceTask, waitForQuiescence))
 			{
-				try
-				{
-					await quiesceTask;
-				}
-				catch (NavigationException navigationException)
-				{
-					// As stock's RenderEndpointComponent: a navigation from pending work during the full wait is
-					// answered before the response starts, with no page body and nothing left to stream.
-					renderer.HandleNavigationException(navigationException);
-					quiesceTask = Task.CompletedTask;
-					htmlContent = null;
-				}
-			}
-			else
-			{
-				try
-				{
-					await renderer.WaitForNonStreamingPendingTasks();
-				}
-				catch (NavigationException navigationException)
-				{
-					renderer.HandleNavigationException(navigationException);
-					quiesceTask = Task.CompletedTask;
-					htmlContent = null;
-				}
+				quiesceTask = Task.CompletedTask;
+				htmlContent = null;
 			}
 		}
 		else
@@ -416,14 +394,42 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 	}
 
+	// As stock's RenderEndpointComponent: a navigation from pending work, during the full wait or the non-streaming
+	// one, is answered before the response starts, with no page body and nothing left to stream. A first render
+	// that navigated has nothing left to wait for, as stock's empty content is already quiescent: the abandoned
+	// render's pending work must neither delay nor replace the redirect.
+	private async Task<bool> NavigatesBeforeResponseAsync(bool rendered, Task quiesceTask, bool waitForQuiescence)
+	{
+		if (!rendered)
+		{
+			return false;
+		}
+
+		try
+		{
+			await (waitForQuiescence || renderer.HasPreparedExplicitAction
+				? quiesceTask
+				: renderer.WaitForNonStreamingPendingTasks());
+			return false;
+		}
+		catch (NavigationException navigationException)
+		{
+			renderer.HandleNavigationException(navigationException);
+			return true;
+		}
+	}
+
 	// Mirrors stock EndpointHtmlRenderer.HandleNavigationBeforeResponseStarted, adding only the htmx branch:
 	// an htmx request cannot follow a 302 for a partial response, so Htmxor asks the client to navigate instead.
 	// Every navigation answered before the response starts takes this one representation rule.
 	internal static void HandleNavigationBeforeResponseStarted(HttpContext context, string destination)
 	{
 		var htmxContext = context.GetHtmxContext();
+		// The absolute form is the fallback for a destination whose request-relative form Htmxor's own validator
+		// rejects, so an htmx request is not left with a redirect it cannot follow.
 		if (htmxContext.Request.IsHtmxRequest && IsHttpDestination(destination) &&
-			htmxContext.Response.TryRedirect(ToClientDestination(context.Request, destination)))
+			(htmxContext.Response.TryRedirect(ToClientDestination(context.Request, destination)) ||
+				htmxContext.Response.TryRedirect(ToAbsoluteDestination(destination))))
 		{
 			return;
 		}
@@ -458,6 +464,9 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			absolute.Fragment.Length > 0
 				? destination
 				: absolute.PathAndQuery;
+
+	private static string ToAbsoluteDestination(string destination)
+		=> Uri.TryCreate(destination, UriKind.Absolute, out var absolute) ? absolute.AbsoluteUri : destination;
 
 	// HX-Redirect only accepts http(s); any other scheme keeps the stock representation instead of failing.
 	private static bool IsHttpDestination(string destination)
