@@ -225,7 +225,7 @@ public sealed class Issue219CacheConfigurationTests
 	private static async Task<string> ReadHeadersAsync(HttpClient client)
 	{
 		using var response = await client.GetAsync("/issue-219/configured");
-		var headers = response.Headers.Concat(response.Content.Headers)
+		var headers = Issue288ParityHeaders.Read(response)
 			.Where(header => !string.Equals(header.Key, "Date", StringComparison.OrdinalIgnoreCase))
 			.Select(header => $"{header.Key}: {string.Join(",", header.Value)}")
 			.OrderBy(header => header, StringComparer.Ordinal);

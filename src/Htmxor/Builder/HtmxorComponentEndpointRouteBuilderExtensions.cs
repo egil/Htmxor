@@ -349,6 +349,8 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		RequestDelegate stockRequestDelegate,
 		IReadOnlyList<HtmxorComponentActionDescriptor> endpointActions)
 	{
+		// A dual page answers one URL with a full and a direct representation, so every response from it varies.
+		HtmxRepresentationVary.Append(context.Response);
 		var action = endpointActions.SingleOrDefault(action =>
 			string.Equals(action.HttpMethod, context.Request.Method, StringComparison.OrdinalIgnoreCase));
 		if (action is not null)

@@ -128,7 +128,7 @@ public sealed class Issue272StateParityTests
 		using var response = await host.Client.SendAsync(request);
 		var body = await response.Content.ReadAsStringAsync();
 		var decoded = Issue272PersistedState.Decode(body, host.Services.GetRequiredService<IDataProtectionProvider>());
-		var headers = string.Join("\n", response.Headers.Concat(response.Content.Headers)
+		var headers = string.Join("\n", Issue288ParityHeaders.Read(response)
 			.OrderBy(header => header.Key, StringComparer.Ordinal)
 			.Select(header => $"{header.Key}: {NormalizeHeader(header.Key, string.Join(",", header.Value))}"));
 		return new(response.StatusCode, headers, decoded);

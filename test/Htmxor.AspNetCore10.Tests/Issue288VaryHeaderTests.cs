@@ -62,9 +62,9 @@ public sealed class Issue288VaryHeaderTests
 		using var htmx = await client.SendAsync(Partial(HttpMethod.Get, "/issue-288/dual?mode=redirect"));
 
 		await AssertVaryAsync(normal, HttpStatusCode.Redirect, HtmxVary);
-		Assert.Equal("/issue-288/plain", normal.Headers.Location?.OriginalString);
+		Assert.Equal("http://localhost/issue-288/plain", normal.Headers.Location?.OriginalString);
 		await AssertVaryAsync(htmx, HttpStatusCode.OK, HtmxVary);
-		Assert.Equal("/issue-288/plain", Assert.Single(htmx.Headers.GetValues("HX-Redirect")));
+		Assert.Equal("http://localhost/issue-288/plain", Assert.Single(htmx.Headers.GetValues("HX-Redirect")));
 	}
 
 	[Theory]
