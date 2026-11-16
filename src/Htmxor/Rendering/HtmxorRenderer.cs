@@ -29,11 +29,9 @@ namespace Htmxor.Rendering;
 /// </summary>
 internal partial class HtmxorRenderer : Renderer
 {
-	private static readonly Type HttpContextFormDataProviderType = AppDomain
-			.CurrentDomain
-			.GetAssemblies()
-			.SelectMany(assembly => assembly.GetTypes())
-			.First(t => string.Equals(t.FullName, "Microsoft.AspNetCore.Components.Endpoints.HttpContextFormDataProvider", StringComparison.Ordinal));
+	private static readonly Type HttpContextFormDataProviderType = typeof(IRazorComponentEndpointInvoker)
+		.Assembly
+		.GetType("Microsoft.AspNetCore.Components.Endpoints.HttpContextFormDataProvider", throwOnError: true)!;
 
 	private static readonly Task CanceledRenderTask = Task.FromCanceled(new CancellationToken(canceled: true));
 
