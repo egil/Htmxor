@@ -185,6 +185,12 @@ internal sealed class QualityCommand(
 		var process = await runner.RunAsync(command, cancellationToken);
 		var failures = new List<string>();
 		MutationCharacterization? characterization = null;
+		var baselineFailure = StrykerInitialTestRun.GetValidityFailure(process.StandardOutput);
+		if (baselineFailure is not null)
+		{
+			failures.Add(baselineFailure);
+		}
+
 		var jsonReportGenerated = false;
 		var reportFiles = MutationReportFile.DiscoverRequired(output);
 		failures.AddRange(reportFiles.Failures);

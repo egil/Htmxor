@@ -157,6 +157,32 @@ public sealed class QualityCommandTests
 	}
 
 	[Fact]
+	public async Task ExecuteAsync_rejects_a_valid_report_from_a_failing_initial_test_run()
+	{
+		using var repository = RepositoryPolicyFixture.CreateCurrent();
+		WriteValidPolicyFiles(repository.Path);
+		var command = new QualityCommand(
+			repository.Path,
+			new MutationArtifactRunner(
+				completeReports: true,
+				console: "[03:42:25 INF] Number of tests found: 2. Initial test run started.\n" +
+					"[03:43:18 DBG] Initial test run output: Htmxor.E2E.PizzaTests.Removes\n\nAssert.Equal() Failure.\n" +
+					"[03:43:18 WRN] 1 tests are failing. Stryker will continue but outcome will be impacted.\n"));
+
+		var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+			() => command.ExecuteAsync(new(QualityAction.Check, QualityProfile.Mutation)));
+
+		Assert.Contains("initial unmutated test run had 1 failing tests", exception.Message, StringComparison.Ordinal);
+		Assert.Contains("Htmxor.E2E.PizzaTests.Removes", exception.Message, StringComparison.Ordinal);
+		var output = Path.Combine(repository.Path, "artifacts", "results", "mutation");
+		using var summary = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "summary.json")));
+		Assert.False(summary.RootElement.GetProperty("valid").GetBoolean());
+		Assert.Contains(
+			summary.RootElement.GetProperty("failures").EnumerateArray(),
+			failure => failure.GetString()!.Contains("Htmxor.E2E.PizzaTests.Removes", StringComparison.Ordinal));
+	}
+
+	[Fact]
 	public async Task ExecuteAsync_full_retains_trx_counts_when_coverage_is_missing()
 	{
 		using var repository = RepositoryPolicyFixture.CreateCurrent(
@@ -245,7 +271,9 @@ public sealed class QualityCommandTests
 		}
 	}
 
-	private sealed class MutationArtifactRunner : IProcessRunner
+	private sealed class MutationArtifactRunner(
+		bool completeReports = false,
+		string console = "") : IProcessRunner
 	{
 		public Task<ProcessResult> RunAsync(
 			ProcessCommand command,
@@ -261,14 +289,24 @@ public sealed class QualityCommandTests
 
 			if (command.Arguments.Contains("dotnet-stryker", StringComparer.Ordinal))
 			{
-				var output = ProcessCommandArguments.After(command.Arguments, "--output");
-				Directory.CreateDirectory(output);
-				File.WriteAllText(
-					Path.Combine(output, "mutation-report.json"),
-					"{\"files\":{\"source\":{\"mutants\":[{\"status\":\"Killed\"},{\"status\":\"Survived\"}]}}}");
+				WriteStrykerArtifacts(ProcessCommandArguments.After(command.Arguments, "--output"));
+				return Task.FromResult(new ProcessResult(0, console, string.Empty));
 			}
 
 			return Task.FromResult(new ProcessResult(0, string.Empty, string.Empty));
+		}
+
+		private void WriteStrykerArtifacts(string output)
+		{
+			Directory.CreateDirectory(output);
+			File.WriteAllText(
+				Path.Combine(output, "mutation-report.json"),
+				"{\"files\":{\"source\":{\"mutants\":[{\"status\":\"Killed\"},{\"status\":\"Survived\"}]}}}");
+			if (completeReports)
+			{
+				File.WriteAllText(Path.Combine(output, "mutation-report.html"), "<html></html>");
+				File.WriteAllText(Path.Combine(output, "mutation-report.md"), "# Mutation report");
+			}
 		}
 	}
 
