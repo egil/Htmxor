@@ -51,7 +51,7 @@ public sealed class RepositoryPolicyTests
 	public void Mutation_job_is_bounded_below_the_hosted_limit_and_keeps_partial_results()
 	{
 		var root = RepositoryLocator.Find();
-		var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+		var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml")).ReplaceLineEndings("\n");
 		var job = workflow[workflow.IndexOf("  run-stryker:", StringComparison.Ordinal)..workflow.IndexOf("  dependency-review:", StringComparison.Ordinal)];
 
 		Assert.Contains("    timeout-minutes: 330\n", job, StringComparison.Ordinal);
