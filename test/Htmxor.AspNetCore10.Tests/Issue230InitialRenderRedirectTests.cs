@@ -12,14 +12,18 @@ public sealed class Issue230InitialRenderRedirectTests
 	private const string CrossOrigin = "https://idp.example/login";
 
 	// "sync" throws inside the first render; "async" throws from the pending work awaited before the response
-	// (a GET) or before submit dispatch (a POST). The synchronous POST pins whatever stock answers once the
-	// abandoned first render has left no form to dispatch to.
+	// (a GET) or before submit dispatch (a POST); "abandoned" throws inside the first render from a child whose
+	// parent has pending work that later fails, which stock never waits for. A synchronous POST leaves no form
+	// to dispatch to, so stock answers 400 and returns before write-back; an asynchronous POST still dispatches
+	// the submit, whose write is the one that survives.
 	[Theory]
-	[InlineData("GET", "sync")]
-	[InlineData("GET", "async")]
-	[InlineData("POST", "sync")]
-	[InlineData("POST", "async")]
-	public async Task Ordinary_initial_render_redirect_has_stock_response_and_write_back_parity(string method, string mode)
+	[InlineData("GET", "sync", HttpStatusCode.Found, "sync")]
+	[InlineData("GET", "async", HttpStatusCode.Found, "async")]
+	[InlineData("GET", "abandoned", HttpStatusCode.Found, "abandoned")]
+	[InlineData("POST", "sync", HttpStatusCode.BadRequest, null)]
+	[InlineData("POST", "async", HttpStatusCode.Found, "submit")]
+	public async Task Ordinary_initial_render_redirect_has_stock_response_and_write_back_parity(
+		string method, string mode, HttpStatusCode stockStatus, string? survivingWrite)
 	{
 		await using var stock = await Issue230Host.StartAsync(htmxor: false);
 		await using var candidate = await Issue230Host.StartAsync(htmxor: true);
@@ -30,13 +34,9 @@ public sealed class Issue230InitialRenderRedirectTests
 		var candidateSurvivors = await candidate.ReadAsync();
 
 		// Stock's own oracle, pinned so the comparison never passes vacuously.
+		Assert.Equal(stockStatus, stockResponse.Status);
 		Assert.Equal(Issue230Host.ReadPath, stockResponse.Location);
-		if (method == "GET")
-		{
-			Assert.Equal(HttpStatusCode.Found, stockResponse.Status);
-			Assert.Equal(Written(mode), stockSurvivors);
-		}
-
+		Assert.Equal(Written(survivingWrite), stockSurvivors);
 		Assert.Equal(stockResponse, candidateResponse);
 		Assert.Equal(stockSurvivors, candidateSurvivors);
 	}
@@ -45,10 +45,12 @@ public sealed class Issue230InitialRenderRedirectTests
 	// response, so every entry point answers 200 with HX-Redirect. What survives must still equal what stock
 	// keeps for the same journey.
 	[Theory]
-	[InlineData("GET", "sync")]
-	[InlineData("GET", "async")]
-	[InlineData("POST", "async")]
-	public async Task Htmx_initial_render_redirect_asks_the_client_to_navigate_and_keeps_stock_write_back(string method, string mode)
+	[InlineData("GET", "sync", "sync")]
+	[InlineData("GET", "async", "async")]
+	[InlineData("GET", "abandoned", "abandoned")]
+	[InlineData("POST", "async", "submit")]
+	public async Task Htmx_initial_render_redirect_asks_the_client_to_navigate_and_keeps_stock_write_back(
+		string method, string mode, string survivingWrite)
 	{
 		await using var stock = await Issue230Host.StartAsync(htmxor: false);
 		await using var candidate = await Issue230Host.StartAsync(htmxor: true);
@@ -62,7 +64,26 @@ public sealed class Issue230InitialRenderRedirectTests
 		Assert.Equal(Issue230Host.ReadPath, response.HxRedirect);
 		Assert.Null(response.Location);
 		Assert.Empty(response.Body);
+		Assert.Equal(Written(survivingWrite), stockSurvivors);
 		Assert.Equal(stockSurvivors, survivors);
+	}
+
+	// Stock's 400 for a POST whose abandoned first render left no form is kept for htmx too; the navigation
+	// itself was still answered in the htmx representation before dispatch rejected the submit.
+	[Fact]
+	public async Task Htmx_post_whose_first_render_navigated_keeps_stock_bad_request()
+	{
+		await using var stock = await Issue230Host.StartAsync(htmxor: false);
+		await using var candidate = await Issue230Host.StartAsync(htmxor: true);
+
+		var stockResponse = await stock.SendAsync("POST", "sync", htmx: false);
+		var response = await candidate.SendAsync("POST", "sync", htmx: true);
+
+		Assert.Equal(HttpStatusCode.BadRequest, stockResponse.Status);
+		Assert.Equal(stockResponse.Status, response.Status);
+		Assert.Equal(Issue230Host.ReadPath, response.HxRedirect);
+		Assert.Null(response.Location);
+		Assert.Equal(await stock.ReadAsync(), await candidate.ReadAsync());
 	}
 
 	// A generated action is not a POST, so its redirect never reaches the submit-dispatch guard. Stock maps no
@@ -121,34 +142,29 @@ public sealed class Issue230InitialRenderRedirectTests
 		Assert.Equal(stockSurvivors, candidateSurvivors);
 	}
 
-	// A percent-encoded non-ASCII path is not a well-formed URI reference to .NET 11's Uri, so Htmxor's own
-	// destination validator rejects it there and HX-Redirect cannot carry it. Such a destination keeps the stock
-	// representation rather than failing the request, as a non-HTTP destination does; .NET 10 accepts it.
+	// .NET 11's Uri does not accept the request-relative form of a percent-encoded non-ASCII path as well formed,
+	// so Htmxor's own destination validator rejects it there. The absolute form then carries the destination,
+	// so the htmx request still gets a redirect it can follow on both frameworks.
 	[Fact]
-	public async Task Htmx_redirect_to_a_non_ascii_destination_never_fails_the_request()
+	public async Task Htmx_redirect_to_a_non_ascii_destination_still_asks_the_client_to_navigate()
 	{
-		await using var stock = await Issue230Host.StartAsync(htmxor: false);
 		await using var candidate = await Issue230Host.StartAsync(htmxor: true);
 
-		var stockResponse = await stock.SendAsync("GET", "sync", htmx: true, destination: "/issue-230/é");
-		var candidateResponse = await candidate.SendAsync("GET", "sync", htmx: true, destination: "/issue-230/é");
+		var response = await candidate.SendAsync("GET", "sync", htmx: true, destination: "/issue-230/é");
 
-		Assert.Equal(HttpStatusCode.Found, stockResponse.Status);
-#if NET11_0_OR_GREATER
-		Assert.Equal(stockResponse, candidateResponse);
-#else
-		Assert.Equal(HttpStatusCode.OK, candidateResponse.Status);
-		Assert.Equal(stockResponse.Location, candidateResponse.HxRedirect);
-		Assert.Null(candidateResponse.Location);
-#endif
+		Assert.Equal(HttpStatusCode.OK, response.Status);
+		Assert.EndsWith("/issue-230/%C3%A9", response.HxRedirect, StringComparison.Ordinal);
+		Assert.Null(response.Location);
 	}
 
-	private static Issue230Survivors Written(string mode)
+	private static Issue230Survivors Written(string? write)
 	{
 #if NET11_0_OR_GREATER
-		var written = $"written-{mode}";
+		var written = write is null ? Issue230Carrier.Missing : $"written-{write}";
 #else
-		var written = mode.Length > 0 ? Issue230Carrier.Missing : mode;
+		// No TempData or Session parameter exists on .NET 10, so nothing a page writes can survive there.
+		_ = write;
+		var written = Issue230Carrier.Missing;
 #endif
 		return new(written, written);
 	}

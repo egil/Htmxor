@@ -5,6 +5,10 @@
 @inject NavigationManager Navigation
 
 <main data-issue-230-redirect>rendered</main>
+@if (Mode == "abandoned")
+{
+    <Issue230NavigatingChild />
+}
 <form method="post" @formname="issue-230-save" @onsubmit="Save">
     <AntiforgeryToken />
 </form>
@@ -32,6 +36,15 @@
             Write("written-async");
             await Task.Yield();
             Navigate();
+        }
+
+        // Leaves work pending when a child navigates inside the first render. Stock answers that navigation
+        // without waiting for this work, so its failure must not reach the response.
+        if (Mode == "abandoned")
+        {
+            Write("written-abandoned");
+            await Task.Yield();
+            throw new InvalidOperationException("The abandoned first render's pending work must not be awaited.");
         }
     }
 
