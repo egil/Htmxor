@@ -36,10 +36,36 @@ public sealed class ProcessRunnerTests
 	{
 		using var directory = new TemporaryDirectory();
 		var log = Path.Combine(directory.Path, "nested", "console.log");
-		var command = new ProcessCommand("dotnet", Directory.GetCurrentDirectory(), ["--version"]) { OutputLog = log };
+		var command = (OperatingSystem.IsWindows()
+			? new ProcessCommand("cmd", directory.Path, ["/c", "echo marker& ping -n 6 127.0.0.1 >NUL"])
+			: new ProcessCommand("sh", directory.Path, ["-c", "echo marker; sleep 5"])) with { OutputLog = log };
 
-		var result = await new ProcessRunner().RunAsync(command);
+		var run = new ProcessRunner().RunAsync(command);
+		var seenWhileRunning = await WaitForMarkerAsync(log, run);
 
-		Assert.Equal(result.StandardOutput, File.ReadAllText(log));
+		Assert.True(seenWhileRunning, "The output log did not contain the marker before the process exited.");
+		Assert.Equal((await run).StandardOutput, File.ReadAllText(log));
+	}
+
+	private static async Task<bool> WaitForMarkerAsync(string log, Task run)
+	{
+		while (!run.IsCompleted)
+		{
+			if (File.Exists(log) && ReadShared(log).Contains("marker", StringComparison.Ordinal))
+			{
+				return !run.IsCompleted;
+			}
+
+			await Task.Delay(50);
+		}
+
+		return false;
+	}
+
+	private static string ReadShared(string path)
+	{
+		using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+		using var reader = new StreamReader(stream);
+		return reader.ReadToEnd();
 	}
 }
