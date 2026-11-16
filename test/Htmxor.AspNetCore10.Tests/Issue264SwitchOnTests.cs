@@ -136,10 +136,11 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		var off = await SendAsync(fixture.CandidateSwitchOff, path, htmx: true);
 		var on = await SendAsync(fixture.Candidate, path, htmx: true);
 
-		AssertHtmxSwitchOffOracleIsBareRedirect(off);
+		// Since #230 the switch-off first render answers htmx with HX-Redirect, like every other entry point.
+		AssertHtmxSwitchOffOracleIsHxRedirect(off);
 		Assert.Equal(off.StatusCode, on.StatusCode);
-		Assert.Equal(RelativeToHost(fixture.CandidateSwitchOff, off.Location), RelativeToHost(fixture.Candidate, on.Location));
-		Assert.Null(on.HxRedirect);
+		Assert.Equal(off.HxRedirect, on.HxRedirect); // already request-relative on both sides; no host math needed
+		Assert.Null(on.Location);
 		await AssertNoUnobservedNavigationExceptionAsync(fixture.Candidate);
 	}
 
@@ -222,7 +223,8 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 	// defect (see #192 comment 5901861239), not a valid switch-off answer. This case therefore asserts the
 	// owner's decided output directly, per
 	// https://github.com/egil/Htmxor/issues/264#issuecomment-5902791174: htmx navigation from pending work
-	// gets HX-Redirect, the same as a completed submit; only first-render navigation keeps the bare 302.
+	// gets HX-Redirect, the same as a completed submit. That decision kept the bare 302 for first-render
+	// navigation until #230, which gave it HX-Redirect too.
 	[Fact]
 	public async Task Htmx_pending_work_navigation_gets_hx_redirect_per_decision()
 	{
@@ -294,13 +296,6 @@ public sealed class Issue264SwitchOnTests : IClassFixture<Issue264SwitchOnFixtur
 		Assert.Equal(HttpStatusCode.Found, stock.StatusCode);
 		Assert.NotNull(stock.Location);
 		Assert.Contains("data-issue-264", stock.Body, StringComparison.Ordinal);
-	}
-
-	private static void AssertHtmxSwitchOffOracleIsBareRedirect(Issue264Snapshot off)
-	{
-		Assert.Equal(HttpStatusCode.Found, off.StatusCode);
-		Assert.NotNull(off.Location);
-		Assert.Null(off.HxRedirect);
 	}
 
 	private static void AssertHtmxSwitchOffOracleIsHxRedirect(Issue264Snapshot off)

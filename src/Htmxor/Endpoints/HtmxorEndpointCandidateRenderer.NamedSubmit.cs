@@ -7,6 +7,8 @@
 // v11.0.0, commit 297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f:
 // https://github.com/dotnet/dotnet/blob/v11.0.0/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
 // https://github.com/dotnet/dotnet/blob/297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f/src/aspnetcore/src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs
+// #230 (synchronized 2026-11-16) answers a first-render OnNavigateTo through the same
+// HandleNavigationBeforeResponseStarted as every later one; the upstream relationship is unchanged.
 // Exact sources and license: docs/engineering/candidate-form-adapter.md.
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.EventDispatch.cs | reimplements
 
@@ -72,20 +74,15 @@ internal partial class HtmxorEndpointCandidateRenderer
 		SignalRendererToFinishRendering();
 	}
 
-	// Stock's navigation callback for non-throwing NavigateTo. Before the response starts, a navigation during the
-	// synchronous first render answers as the throwing path's first-render catch does; every later navigation takes
+	// Stock's navigation callback for non-throwing NavigateTo. Before the response starts, every navigation takes
 	// HandleNavigationBeforeResponseStarted, which answers htmx with HX-Redirect and otherwise matches stock. See
-	// #264's decisions on the htmx oracle and on navigation from pending work.
+	// #264's decision on navigation from pending work and #230's single representation rule.
 	private async Task OnNavigateTo(string uri)
 	{
 		if (httpContext.Response.HasStarted)
 		{
 			await WriteTemplateAfterResponseStartedAsync(template =>
 				WriteNavigationAfterResponseStarted(template, httpContext, uri));
-		}
-		else if (inFirstRender)
-		{
-			HtmxorEndpointCandidateInvoker.HandleFirstRenderNavigation(httpContext, uri);
 		}
 		else
 		{

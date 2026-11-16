@@ -93,20 +93,20 @@ public sealed class Issue266ExternalFirstRenderRedirectTests
 		AssertPairedSnapshotParity(stockSnapshot, candidateSnapshot);
 	}
 
-	// Guard: htmx has no stock counterpart (stock never inspects IsHtmxRequest), so, as #264 decided for its own
-	// htmx cases, this pins the candidate's own output instead of comparing to stock. A first-render htmx
-	// navigation keeps the bare redirect; sending it through HandleNavigationBeforeResponseStarted would answer
-	// 200 with HX-Redirect instead, and this case catches that rather than leaving it to a browser.
+	// htmx has no stock counterpart (stock never inspects IsHtmxRequest), so, as #264 decided for its own htmx
+	// cases, this pins the candidate's own output instead of comparing to stock. Since #230 a first-render htmx
+	// navigation takes the same representation rule as every other entry point: 200 with HX-Redirect, which an
+	// htmx client can follow, rather than the bare redirect it could not.
 	[Fact]
-	public async Task Htmx_external_destination_first_render_navigation_keeps_the_candidates_bare_redirect()
+	public async Task Htmx_external_destination_first_render_navigation_asks_the_client_to_navigate()
 	{
 		await using var candidate = await CreateHostAsync(htmxor: true);
 
 		var snapshot = await SendAsync(candidate, Issue190ExternalNavigationContract.Path, htmx: true);
 
-		Assert.Equal(HttpStatusCode.Found, snapshot.StatusCode);
-		Assert.Equal(Issue190ExternalNavigationContract.Destination, snapshot.Location?.OriginalString);
-		Assert.Null(snapshot.HxRedirect);
+		Assert.Equal(HttpStatusCode.OK, snapshot.StatusCode);
+		Assert.Equal(Issue190ExternalNavigationContract.Destination, snapshot.HxRedirect);
+		Assert.Null(snapshot.Location);
 		Assert.Null(snapshot.EnhancedNavigationLocation);
 	}
 

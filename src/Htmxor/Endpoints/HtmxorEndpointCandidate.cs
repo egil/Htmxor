@@ -56,6 +56,11 @@
 // Non-streaming quiescence in the invoker (#260, synchronized 2026-09-30): the full-quiescence wait and its
 // navigation handling reimplement WaitForResultReady and RenderEndpointComponent in the same
 // EndpointHtmlRenderer.Prerendering.cs at both commits above.
+// Initial-render navigation (#230, synchronized 2026-11-16): the invoker's first render and the quiescence wait
+// that precedes submit dispatch share one guard, answer every request through HandleNavigationException and
+// continue to submit dispatch and Session and TempData write-back, as RenderEndpointComponent's try block and
+// RenderComponentCore do in the same EndpointHtmlRenderer.Prerendering.cs and RazorComponentEndpointInvoker.cs
+// at both commits above. This supersedes #266's htmx exception: an htmx request now gets HX-Redirect here too.
 // Explicit callbacks (#180, reviewed 2026-10-12) also finish before ordinary response serialization;
 // supported event and pending-work dependencies are inventoried in the ExplicitActions partial.
 // Buffered response writing (#262, synchronized 2026-11-16): RenderComponentCore writes the page, streamed
@@ -244,23 +249,11 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 
 		await renderer.InitializeStandardComponentServicesAsync(context, pageComponent, request.HandlerName, request.Form);
 		renderer.PrepareExplicitAction(context);
-		HtmlRootComponent htmlContent;
-		try
+		var dispatchesSubmit = request.IsPost && !isReexecuted;
+		// Every navigation answered below discards the page, as stock's empty content does.
+		var (htmlContent, quiesceTask) = await BeginRenderAsync(rootComponent, dispatchesSubmit);
+		if (!dispatchesSubmit)
 		{
-			htmlContent = renderer.BeginRenderEndpointComponent(rootComponent, ParameterView.Empty);
-		}
-		catch (NavigationException navigationException)
-		{
-			// Still before write-back: continuing the pipeline also has to stop discarding Session and TempData
-			// values, which #230 owns.
-			HandleFirstRenderNavigation(context, navigationException.Location);
-			return;
-		}
-		Task quiesceTask;
-		var writesPage = true;
-		if (!request.IsPost || isReexecuted)
-		{
-			quiesceTask = renderer.CompleteExplicitActionAsync(htmlContent.QuiescenceTask);
 			if (waitForQuiescence || renderer.HasPreparedExplicitAction)
 			{
 				try
@@ -273,7 +266,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 					// answered before the response starts, with no page body and nothing left to stream.
 					renderer.HandleNavigationException(navigationException);
 					quiesceTask = Task.CompletedTask;
-					writesPage = false;
+					htmlContent = null;
 				}
 			}
 			else
@@ -286,13 +279,12 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 				{
 					renderer.HandleNavigationException(navigationException);
 					quiesceTask = Task.CompletedTask;
-					writesPage = false;
+					htmlContent = null;
 				}
 			}
 		}
 		else
 		{
-			await htmlContent.QuiescenceTask;
 			try
 			{
 				quiesceTask = renderer.DispatchSubmitEventAsync(request.HandlerName, out var isBadRequest);
@@ -309,7 +301,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 				// post-redirect-get message survives.
 				HandleNavigationBeforeResponseStarted(context, navigationException.Location);
 				quiesceTask = Task.CompletedTask;
-				writesPage = false;
+				htmlContent = null;
 			}
 			if (waitForQuiescence)
 			{
@@ -323,7 +315,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 				{
 					renderer.HandleNavigationException(navigationException);
 					quiesceTask = Task.CompletedTask;
-					writesPage = false;
+					htmlContent = null;
 				}
 			}
 		}
@@ -361,9 +353,9 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		// As stock: the renderer's synchronous writes below reach the response stream only through this writer's
 		// FlushAsync. The not-found and non-throwing navigation templates still use a writer of their own.
 		using var bufferWriter = new HtmxorEndpointCandidateBufferedTextWriter(writer);
-		if (writesPage)
+		if (htmlContent is { } page)
 		{
-			renderer.WriteResponseHtml(htmlContent, context.GetHtmxContext(), bufferWriter);
+			renderer.WriteResponseHtml(page, context.GetHtmxContext(), bufferWriter);
 		}
 		if (!quiesceTask.IsCompletedSuccessfully)
 		{
@@ -398,29 +390,41 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		await bufferWriter.FlushAsync();
 	}
 
-	// A navigation during the synchronous first render, from either the throwing or the non-throwing path. An htmx
-	// request keeps the bare redirect (#264's htmx oracle) until #230 gives every entry point one representation;
-	// every other request gets stock's representation, as stock's HandleNavigationException does, including the
-	// opaque enhanced-navigation redirect.
-	internal static void HandleFirstRenderNavigation(HttpContext context, string destination)
+	// As stock's RenderEndpointComponent: a navigation from the first render, or from the wait that precedes
+	// submit dispatch, is answered before the response starts, and the request then continues without a page, so
+	// Session and TempData write-back still runs. The returned task is the work the response waits for: nothing
+	// more before a submit, otherwise the first render's quiescence followed by any explicit action. A first
+	// render that navigated leaves no component for an explicit action to run on.
+	private async Task<(HtmlRootComponent? Content, Task Quiescence)> BeginRenderAsync(
+		Type rootComponent, bool dispatchesSubmit)
 	{
-		if (context.GetHtmxContext().Request.IsHtmxRequest)
+		try
 		{
-			context.Response.Redirect(destination);
-			return;
-		}
+			var content = renderer.BeginRenderEndpointComponent(rootComponent, ParameterView.Empty);
+			if (dispatchesSubmit)
+			{
+				await content.QuiescenceTask;
+				return (content, Task.CompletedTask);
+			}
 
-		HandleNavigationBeforeResponseStarted(context, destination);
+			return (content, renderer.CompleteExplicitActionAsync(content.QuiescenceTask));
+		}
+		catch (NavigationException navigationException)
+		{
+			renderer.HandleNavigationException(navigationException);
+			return (null, Task.CompletedTask);
+		}
 	}
 
 	// Mirrors stock EndpointHtmlRenderer.HandleNavigationBeforeResponseStarted, adding only the htmx branch:
 	// an htmx request cannot follow a 302 for a partial response, so Htmxor asks the client to navigate instead.
+	// Every navigation answered before the response starts takes this one representation rule.
 	internal static void HandleNavigationBeforeResponseStarted(HttpContext context, string destination)
 	{
 		var htmxContext = context.GetHtmxContext();
-		if (htmxContext.Request.IsHtmxRequest && IsHttpDestination(destination))
+		if (htmxContext.Request.IsHtmxRequest && IsHttpDestination(destination) &&
+			htmxContext.Response.TryRedirect(ToClientDestination(context.Request, destination)))
 		{
-			htmxContext.Response.Redirect(new Uri(ToClientDestination(context.Request, destination), UriKind.RelativeOrAbsolute));
 			return;
 		}
 
@@ -489,7 +493,6 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	private Guid invocationId;
 	private bool browserSettingsEmitted;
 	private bool rendererIsStopped;
-	private bool inFirstRender;
 	private ResourceAssetCollection? resourceCollection;
 
 	public HtmxorEndpointCandidateRenderer(IServiceProvider services, ILoggerFactory loggerFactory)
@@ -559,7 +562,6 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		invocationId = Guid.NewGuid();
 		browserSettingsEmitted = false;
 		rendererIsStopped = false;
-		inFirstRender = false;
 		services.GetRequiredService<HtmxorEndpointCandidateFormServices>().InitializeResourceCollection(context);
 		var navigationManager = services.GetRequiredService<NavigationManager>();
 		if (navigationManager is IHostEnvironmentNavigationManager hostNavigationManager)
@@ -604,19 +606,7 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 	internal HtmlRootComponent BeginRenderEndpointComponent(
 		Type rootComponent,
 		ParameterView parameters)
-	{
-		// Marks the synchronous first render, where OnNavigateTo answers a navigation the way the throwing path's
-		// first-render catch does (HandleFirstRenderNavigation).
-		inFirstRender = true;
-		try
-		{
-			return BeginRenderingComponent(rootComponent, parameters);
-		}
-		finally
-		{
-			inFirstRender = false;
-		}
-	}
+		=> BeginRenderingComponent(rootComponent, parameters);
 
 	internal async Task<HtmlRootComponent> RenderEndpointComponentAsync(
 		Type rootComponent,

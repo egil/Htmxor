@@ -1,0 +1,9 @@
+@page "/issue-230/token"
+@inherits Issue230Carrier
+@using Microsoft.AspNetCore.Components.Forms
+
+<form method="post"><AntiforgeryToken /></form>
+
+@code {
+    protected override void OnInitialized() => EstablishSession();
+}
