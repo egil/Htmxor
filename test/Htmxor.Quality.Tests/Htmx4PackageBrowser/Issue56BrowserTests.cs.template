@@ -3211,7 +3211,7 @@ public sealed partial class Issue56BrowserTests
 			}
 			""");
 
-		Assert.Equal("opaque-action-identity", headers[0]);
+		Assert.Null(headers[0]);
 		Assert.False(string.IsNullOrWhiteSpace(headers[1]));
 	}
 
