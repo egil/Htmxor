@@ -536,7 +536,7 @@ public sealed class Issue260ReexecutionParityTests
 internal static class Issue260Snapshot
 {
 	public static IReadOnlyDictionary<string, string> NormalizeHeaders(HttpResponseMessage response) =>
-		response.Headers.Concat(response.Content.Headers)
+		Issue288ParityHeaders.Read(response)
 			.GroupBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
 			.ToDictionary(
 				group => group.Key,

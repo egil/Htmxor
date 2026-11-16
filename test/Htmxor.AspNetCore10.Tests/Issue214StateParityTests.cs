@@ -180,7 +180,7 @@ public sealed class Issue214StateParityTests
 		using var response = await host.Client.SendAsync(request);
 		var body = await response.Content.ReadAsStringAsync();
 		var normalized = NormalizeBody(body, host.Protection);
-		var headers = string.Join("\n", response.Headers.Concat(response.Content.Headers)
+		var headers = string.Join("\n", Issue288ParityHeaders.Read(response)
 			.OrderBy(header => header.Key, StringComparer.Ordinal)
 			.Select(header => $"{header.Key}: {NormalizeHeader(header.Key, string.Join(",", header.Value))}"));
 		return new(response.StatusCode, headers, normalized);

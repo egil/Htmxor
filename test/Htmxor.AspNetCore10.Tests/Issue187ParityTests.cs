@@ -434,8 +434,7 @@ internal sealed record Issue187ResponseSnapshot(
 {
 	public static async Task<Issue187ResponseSnapshot> CreateAsync(HttpResponseMessage response)
 	{
-		var headers = response.Headers
-			.Concat(response.Content.Headers)
+		var headers = Issue288ParityHeaders.Read(response)
 			.GroupBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
 			.ToDictionary(
 				group => group.Key,

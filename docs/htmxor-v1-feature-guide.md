@@ -1378,6 +1378,23 @@ application headers may also matter. Unavailable variation is not equivalent to
 one cached representation being safe for all requests. Do not cache unsafe
 methods.
 
+### HTTP cache variation
+
+A dual `@page` (one without `[DisableHtmxDirectRouting]`) answers one URL with a
+full page and a direct representation, so Htmxor appends `HX-Request` and
+`HX-Request-Type` to the response `Vary` header on every response from it: normal
+and htmx renders, actions, redirects (`302` and `HX-Redirect`), and errors,
+including a `500` the exception handler re-executes onto a different endpoint.
+Values the application already set are kept, a name already present in any case
+is not repeated, and `Vary: *` is left alone. Normal-only pages, `HtmxRoute`
+(HTMX-only) components, and non-component endpoints get no added `Vary`.
+
+The header declares variation to browser and proxy caches; it does not configure
+the ASP.NET Core output cache key above. The application remains responsible for
+variation from target, history-restore, boosting, and extension headers, and from
+its own selection logic. Browser and proxy cache behavior itself is not exercised
+by Htmxor's evidence; the header contract is.
+
 ### .NET 11 `CacheView`
 
 On .NET 11, a stock `CacheView` boundary on an ordinary static-SSR page reuses its
