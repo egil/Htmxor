@@ -111,6 +111,7 @@ internal static class QualityPlanFactory
 			"debug") with
 		{
 			EnsureSuccess = false,
+			OutputLog = Path.Combine(resultsDirectory, "stryker-console.log"),
 		};
 		return new(CommonPreparation(repositoryRoot), [], command);
 	}

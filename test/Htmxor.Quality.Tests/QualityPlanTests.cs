@@ -94,6 +94,7 @@ public sealed class QualityPlanTests
 		AssertCommonPreparation(plan.Preparation);
 
 		Assert.Equal(Path.Combine(repositoryRoot, "test", "Htmxor.Tests"), command.WorkingDirectory);
+		Assert.Equal(Path.Combine(resultsDirectory, "stryker-console.log"), command.OutputLog);
 		Assert.Equal("dotnet", command.FileName);
 		Assert.False(command.EnsureSuccess);
 		Assert.Equal(
