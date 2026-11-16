@@ -1,0 +1,11 @@
+@namespace Htmxor.PackageConsumer
+@page "/issue-295/cached"
+@inject Issue295Probe Probe
+
+<main data-issue-295-render="@render">cached</main>
+
+@code {
+    private int render;
+
+    protected override void OnInitialized() => render = Probe.RecordRender();
+}
