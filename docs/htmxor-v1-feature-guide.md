@@ -1497,11 +1497,69 @@ Named `HtmxFragment` content caches normally on ordinary requests, including ben
 which are not cached.
 
 A component of your own that is **not** one of these, but still varies its output by the
-request — by injecting `HtmxContext` and reading the triggering element, say — is cached
-and replayed like any other content, because nothing in the cache key describes what it
-read. Mark such a component `[CacheBehavior(CacheBehavior.Throw)]` or
-`[CacheBehavior(CacheBehavior.Rerender)]`, exactly as you would for a framework component
-whose output depends on per-request state; Htmxor honours those the same way stock does.
+request, is cached and replayed like any other content, because nothing in the cache key
+describes what it read. That holds for any per-request state the boundary has not been told
+about: a cookie, a request header, a claim on `HttpContext.User`, a value read from
+`HttpContext` in any other way, or the triggering element read from `HtmxContext`. A cache
+hit does not invoke the component again, so the second visitor is served what the first
+visitor's request produced. This is stock ASP.NET Core behavior, inherited unchanged: stock
+`CacheView` replays such a component in exactly the same way, and Htmxor neither widens nor
+narrows the exposure.
+
+The obligation is therefore yours, and there are two remedies:
+
+- **Name the state in a `VaryBy*` dimension** on the `CacheView`, so each distinct value gets
+  its own entry: `VaryByCookie`, `VaryByHeader`, `VaryByUser`, `VaryByQuery`, `VaryByRoute`,
+  or `VaryBy` for a value you compute yourself.
+- **Mark the component** `[CacheBehavior(CacheBehavior.Throw)]` to have the framework refuse
+  to cache it with a descriptive error, or `[CacheBehavior(CacheBehavior.Rerender)]` to have
+  it rendered live on every hit instead of replayed. Htmxor honours these the same way stock
+  does.
+
+An illustrative example, not compiled by the repository: a component that greets the visitor
+by a cookie it reads. Left alone inside a `CacheView`, it shows the first visitor's name to
+everyone.
+
+```razor
+@* Illustrative only. *@
+<CacheView CacheKey="greeting">
+    <Greeting />
+</CacheView>
+
+@* Greeting.razor *@
+@code {
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+}
+<p>Hello, @HttpContext.Request.Cookies["name"]</p>
+```
+
+Remedy one names the cookie, so each value is cached separately:
+
+```razor
+@* Illustrative only. *@
+<CacheView CacheKey="greeting" VaryByCookie="name">
+    <Greeting />
+</CacheView>
+```
+
+Remedy two marks the component, so it is rendered live and the boundary around it can still
+cache everything else:
+
+```razor
+@* Illustrative only. *@
+@* Greeting.razor *@
+@attribute [CacheBehavior(CacheBehavior.Rerender)]
+<p>Hello, @HttpContext.Request.Cookies["name"]</p>
+@code {
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+}
+```
+
+Neither remedy is checked for you: Htmxor does not analyze what a component reads, because
+that analysis cannot be made sound once the read happens behind an injected service. Of the
+`VaryBy*` dimensions, Htmxor's own tests exercise `VaryByQuery` and `VaryByUser`;
+`VaryByCookie`, `VaryByHeader`, `VaryByRoute` and `VaryBy` are framework-owned and are
+used here as stock defines them.
 
 Keys are also deliberately not equal to stock's for the same component tree, because of
 the representation described above.
