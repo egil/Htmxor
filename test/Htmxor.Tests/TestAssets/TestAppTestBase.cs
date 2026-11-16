@@ -21,6 +21,7 @@ public class TestAppTestBase : IClassFixture<TestAppFixture>
                 <link rel="stylesheet" href="Htmxor.TestApp.styles.css">
                 <script defer src="htmx-4.0.0.min.js"></script>
                 <script defer src="_content/Htmxor/htmxor.js"></script>
+                <script defer src="legacy-eventid.js"></script>
                 {{{title}}}
             </head>
             <body>
