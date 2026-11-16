@@ -2,6 +2,6 @@
 
 namespace Htmxor;
 
-public interface IHtmxorComponentEndpointInvoker : IRazorComponentEndpointInvoker
+internal interface IHtmxorComponentEndpointInvoker : IRazorComponentEndpointInvoker
 {
 }

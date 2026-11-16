@@ -43,12 +43,6 @@ TYPE Htmxor.Components.HtmxHeadOutlet [kind=class;abstract=False;sealed=False;ge
   Method [visibility=public;static=False;abstract=False;virtual=True;final=True;genericArity=0;parameters=1] Void Attach(Microsoft.AspNetCore.Components.RenderHandle)
   Method [visibility=public;static=False;abstract=False;virtual=True;final=True;genericArity=0;parameters=1] System.Threading.Tasks.Task SetParametersAsync(Microsoft.AspNetCore.Components.ParameterView)
 TYPE Htmxor.Components.HtmxLayoutComponentBase [kind=class;abstract=True;sealed=False;genericArity=0;base=Microsoft.AspNetCore.Components.LayoutComponentBase]
-TYPE Htmxor.DependencyInjection.HtmxorNavigationException [kind=class;abstract=False;sealed=True;genericArity=0;base=Microsoft.AspNetCore.Components.NavigationException]
-  Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=3] Void .ctor(System.String, System.String, Microsoft.AspNetCore.Components.NavigationOptions ByRef)
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Microsoft.AspNetCore.Components.NavigationOptions get_Options()
-  Method [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] System.String get_RequestedLocation()
-  Property [visibility=public|none;static=False;get=public,instance;set=none] Microsoft.AspNetCore.Components.NavigationOptions Options
-  Property [visibility=public|none;static=False;get=public,instance;set=none] System.String RequestedLocation
 TYPE Htmxor.DisableHtmxDirectRoutingAttribute [kind=class;abstract=False;sealed=True;genericArity=0;base=System.Attribute]
   Constructor [visibility=public;static=False;abstract=False;virtual=False;final=False;genericArity=0;parameters=0] Void .ctor()
 TYPE Htmxor.Endpoints.IHtmxorGeneratedComponentActionRequest [kind=interface;abstract=True;sealed=False;genericArity=0;base=none]
@@ -164,7 +158,6 @@ TYPE Htmxor.Http.HtmxResponseHeaderNames [kind=class;abstract=True;sealed=True;g
   Field [visibility=public;static=True;literal=True;readonly=False] System.String Reswap
   Field [visibility=public;static=True;literal=True;readonly=False] System.String Retarget
   Field [visibility=public;static=True;literal=True;readonly=False] System.String Trigger
-TYPE Htmxor.IHtmxorComponentEndpointInvoker [kind=interface;abstract=True;sealed=False;genericArity=0;base=none]
 TYPE Microsoft.AspNetCore.Builder.HtmxorComponentEndpointRouteBuilderExtensions [kind=class;abstract=True;sealed=True;genericArity=0;base=System.Object]
   Method [visibility=public;static=True;abstract=False;virtual=False;final=False;genericArity=0;parameters=4] Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder, Microsoft.AspNetCore.Routing.IEndpointRouteBuilder, System.Reflection.Assembly, System.Collections.Generic.IReadOnlyList`1[System.String])
   Method [visibility=public;static=True;abstract=False;virtual=False;final=False;genericArity=0;parameters=5] Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder AddHtmxorAttributedComponentEndpoints(Microsoft.AspNetCore.Builder.RazorComponentsEndpointConventionBuilder, Microsoft.AspNetCore.Routing.IEndpointRouteBuilder, System.Reflection.Assembly, System.Collections.Generic.IReadOnlyList`1[System.String], System.Collections.Generic.IReadOnlyList`1[Htmxor.Builder.HtmxorGeneratedComponentAction])
