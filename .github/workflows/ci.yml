@@ -135,6 +135,8 @@ jobs:
 
   run-stryker:
     runs-on: ubuntu-latest
+    # Backstop above the mutation step limit, leaving time to summarize and upload partial results.
+    timeout-minutes: 330
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
@@ -160,6 +162,9 @@ jobs:
     - name: Run repository mutation verification
       id: mutation
       continue-on-error: true
+      # Above the longest completed run (4h32m in this step) so no complete report is discarded,
+      # and below the 6h hosted-job limit so a hung run still reaches the upload steps.
+      timeout-minutes: 300
       run: dotnet run --project eng/Htmxor.Quality/Htmxor.Quality.csproj -- check --profile mutation
 
     - name: Append mutation summaries
@@ -179,7 +184,7 @@ jobs:
       if: always()
       with:
         name: stryker-reports
-        if-no-files-found: error
+        if-no-files-found: warn
         retention-days: 3
         path: artifacts/results/
 

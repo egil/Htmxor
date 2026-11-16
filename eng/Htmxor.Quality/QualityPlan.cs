@@ -106,11 +106,13 @@ internal static class QualityPlanFactory
 			Path.Combine(repositoryRoot, "stryker-config.json"),
 			"--output",
 			resultsDirectory,
-			"--skip-version-check") with
+			"--skip-version-check",
+			"--verbosity",
+			"debug") with
 		{
 			EnsureSuccess = false,
 		};
-		return new([Restore(repositoryRoot), ToolRestore(repositoryRoot)], [], command);
+		return new(CommonPreparation(repositoryRoot), [], command);
 	}
 
 	private static IReadOnlyList<ProcessCommand> CommonPreparation(string repositoryRoot) =>

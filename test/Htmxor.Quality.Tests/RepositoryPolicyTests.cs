@@ -46,4 +46,18 @@ public sealed class RepositoryPolicyTests
 		Assert.Contains("github.event_name == 'release' && github.event.action == 'published'", workflow, StringComparison.Ordinal);
 		Assert.DoesNotContain("github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/main')", workflow, StringComparison.Ordinal);
 	}
+
+	[Fact]
+	public void Mutation_job_is_bounded_below_the_hosted_limit_and_keeps_partial_results()
+	{
+		var root = RepositoryLocator.Find();
+		var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+		var job = workflow[workflow.IndexOf("  run-stryker:", StringComparison.Ordinal)..workflow.IndexOf("  dependency-review:", StringComparison.Ordinal)];
+
+		Assert.Contains("    timeout-minutes: 330\n", job, StringComparison.Ordinal);
+		var step = job[job.IndexOf("- name: Run repository mutation verification", StringComparison.Ordinal)..job.IndexOf("- name: Append mutation summaries", StringComparison.Ordinal)];
+		Assert.Contains("continue-on-error: true", step, StringComparison.Ordinal);
+		Assert.Contains("timeout-minutes: 300\n", step, StringComparison.Ordinal);
+		Assert.Contains("if-no-files-found: warn", job, StringComparison.Ordinal);
+	}
 }

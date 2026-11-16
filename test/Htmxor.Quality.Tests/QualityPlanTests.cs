@@ -90,6 +90,9 @@ public sealed class QualityPlanTests
 		var plan = Create(QualityAction.Check, QualityProfile.Mutation);
 		var command = Assert.IsType<ProcessCommand>(plan.Mutation);
 
+		// Browser tests start sample apps from their Release output, which the Stryker test-project build omits.
+		AssertCommonPreparation(plan.Preparation);
+
 		Assert.Equal(Path.Combine(repositoryRoot, "test", "Htmxor.Tests"), command.WorkingDirectory);
 		Assert.Equal("dotnet", command.FileName);
 		Assert.False(command.EnsureSuccess);
@@ -104,6 +107,8 @@ public sealed class QualityPlanTests
 				"--output",
 				resultsDirectory,
 				"--skip-version-check",
+				"--verbosity",
+				"debug",
 			],
 			command.Arguments);
 	}
