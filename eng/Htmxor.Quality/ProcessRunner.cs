@@ -15,8 +15,9 @@ internal sealed class ProcessRunner : IProcessRunner
 		process.Start();
 
 		var label = OutputLabel(command);
-		var outputTask = PumpAsync(process.StandardOutput, Console.Out, label);
-		var errorTask = PumpAsync(process.StandardError, Console.Error, label);
+		await using var log = OpenLog(command.OutputLog);
+		var outputTask = PumpAsync(process.StandardOutput, Console.Out, label, log);
+		var errorTask = PumpAsync(process.StandardError, Console.Error, label, log);
 		await process.WaitForExitAsync(cancellationToken);
 		var output = await outputTask;
 		var error = await errorTask;
@@ -71,12 +72,24 @@ internal sealed class ProcessRunner : IProcessRunner
 		return framework is null ? label : $"{label}/{framework}";
 	}
 
-	private static async Task<string> PumpAsync(StreamReader reader, TextWriter writer, string? label)
+	private static TextWriter? OpenLog(string? path)
+	{
+		if (path is null)
+		{
+			return null;
+		}
+
+		Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+		return TextWriter.Synchronized(new StreamWriter(path, append: false) { AutoFlush = true });
+	}
+
+	private static async Task<string> PumpAsync(StreamReader reader, TextWriter writer, string? label, TextWriter? log)
 	{
 		var output = new StringBuilder();
 		while (await reader.ReadLineAsync() is { } line)
 		{
 			output.AppendLine(line);
+			log?.WriteLine(line);
 			await writer.WriteLineAsync(label is null ? line : $"[{label}] {line}");
 		}
 

@@ -14,6 +14,9 @@ internal sealed record ProcessCommand(
 	bool EnsureSuccess = true,
 	NetworkAccess NetworkAccess = NetworkAccess.Unknown)
 {
+	// Receives output as it arrives, so a process killed by an external limit still leaves evidence.
+	public string? OutputLog { get; init; }
+
 	public string Display =>
 		$"{FileName} {string.Join(' ', Arguments.Select(QuoteForDisplay))}";
 

@@ -30,4 +30,16 @@ public sealed class ProcessRunnerTests
 
 		Assert.NotEqual(0, result.ExitCode);
 	}
+
+	[Fact]
+	public async Task RunAsync_writes_output_to_its_log_while_the_process_runs()
+	{
+		using var directory = new TemporaryDirectory();
+		var log = Path.Combine(directory.Path, "nested", "console.log");
+		var command = new ProcessCommand("dotnet", Directory.GetCurrentDirectory(), ["--version"]) { OutputLog = log };
+
+		var result = await new ProcessRunner().RunAsync(command);
+
+		Assert.Equal(result.StandardOutput, File.ReadAllText(log));
+	}
 }
