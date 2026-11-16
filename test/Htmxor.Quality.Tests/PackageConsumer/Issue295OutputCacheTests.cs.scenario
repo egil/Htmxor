@@ -1,0 +1,110 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Xunit;
+
+namespace Htmxor.PackageConsumer;
+
+public sealed class Issue295OutputCacheTests
+{
+    private const string Path = "/issue-295/cached";
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Without_VaryByHtmx_one_entry_is_served_to_both_representations(bool htmxFirst)
+    {
+        await using var app = await StartAsync(static policy => policy);
+        using var client = app.GetTestClient();
+
+        var first = await GetAsync(client, Path, htmxFirst);
+        var second = await GetAsync(client, Path, !htmxFirst);
+
+        Assert.Equal(first, second);
+        Assert.Equal(1, app.Services.GetRequiredService<Issue295Probe>().RenderCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VaryByHtmx_serves_each_representation_from_its_own_entry(bool htmxFirst)
+    {
+        await using var app = await StartAsync(static policy => policy.VaryByHtmx());
+        using var client = app.GetTestClient();
+
+        var first = await GetAsync(client, Path, htmxFirst);
+        var second = await GetAsync(client, Path, !htmxFirst);
+
+        var (full, direct) = htmxFirst ? (second, first) : (first, second);
+        Assert.Contains("<html", full, StringComparison.Ordinal);
+        Assert.DoesNotContain("<html", direct, StringComparison.Ordinal);
+        Assert.Contains("data-issue-295-render", direct, StringComparison.Ordinal);
+        Assert.Equal(first, await GetAsync(client, Path, htmxFirst));
+        Assert.Equal(second, await GetAsync(client, Path, !htmxFirst));
+        Assert.Equal(2, app.Services.GetRequiredService<Issue295Probe>().RenderCount);
+    }
+
+    [Fact]
+    public async Task VaryByHtmx_preserves_the_policy_header_and_query_variation()
+    {
+        await using var app = await StartAsync(static policy =>
+            policy.SetVaryByHeader("Accept-Language").SetVaryByQuery("page").VaryByHtmx());
+        using var client = app.GetTestClient();
+
+        var cells = new[] { "en", "da" }.SelectMany(language => new[] { "1", "2" }
+            .SelectMany(page => new[] { (language, page, htmx: false), (language, page, htmx: true) })).ToArray();
+        var first = new List<string>();
+        foreach (var cell in cells) first.Add(await GetAsync(client, $"{Path}?page={cell.page}", cell.htmx, cell.language));
+        for (var i = 0; i < cells.Length; i++)
+        {
+            Assert.Equal(first[i], await GetAsync(client, $"{Path}?page={cells[i].page}", cells[i].htmx, cells[i].language));
+        }
+
+        Assert.Equal(cells.Length, first.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(cells.Length, app.Services.GetRequiredService<Issue295Probe>().RenderCount);
+    }
+
+    private static async Task<string> GetAsync(HttpClient client, string path, bool htmx, string? language = null)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        if (htmx)
+        {
+            request.Headers.Add("HX-Request", "true");
+            request.Headers.Add("HX-Request-Type", "partial");
+        }
+
+        if (language is not null) request.Headers.Add("Accept-Language", language);
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.True(response.IsSuccessStatusCode, $"{(int)response.StatusCode}: {body}");
+        return body;
+    }
+
+    private static async Task<WebApplication> StartAsync(Func<OutputCachePolicyBuilder, OutputCachePolicyBuilder> policy)
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Logging.ClearProviders();
+        builder.Services.AddSingleton<Issue295Probe>();
+        builder.Services.AddRazorComponents().AddHtmxor();
+        builder.Services.AddOutputCache(options => options.AddBasePolicy(policyBuilder => policy(policyBuilder)));
+        var app = builder.Build();
+        app.UseAntiforgery();
+        app.UseOutputCache();
+        app.MapRazorComponents<Issue295App>().AddHtmxorEndpoints();
+        await app.StartAsync();
+        return app;
+    }
+}
+
+public sealed class Issue295Probe
+{
+    private int renderCount;
+
+    public int RenderCount => Volatile.Read(ref renderCount);
+
+    public int RecordRender() => Interlocked.Increment(ref renderCount);
+}

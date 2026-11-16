@@ -352,11 +352,13 @@ For the bounded case where one component URL returns the stock full page when
 whitespace trimming, the stock htmx full representation when a valid marker has
 request type `full`, and the direct component representation when a valid marker
 has request type `partial`, include both `HX-Request` and `HX-Request-Type` in
-the ASP.NET Core OutputCache key. Configure the standard component attribute
-together with the OutputCache services and middleware:
+the ASP.NET Core OutputCache key. OutputCache keys entries on its configured
+policy, not on the response `Vary` header. Opt a policy in with `VaryByHtmx()`,
+which adds both headers to the policy's header variation and keeps every
+variation it already declares:
 
 ```csharp
-builder.Services.AddOutputCache();
+builder.Services.AddOutputCache(o => o.AddBasePolicy(p => p.VaryByHtmx()));
 
 // Authentication and authorization middleware must run before OutputCache.
 app.UseAuthentication();
@@ -364,19 +366,12 @@ app.UseAuthorization();
 app.UseOutputCache();
 ```
 
-```razor
-@using Microsoft.AspNetCore.OutputCaching
-@attribute [OutputCache(VaryByHeaderNames = ["HX-Request", "HX-Request-Type"])]
-@page "/cached-component"
-```
-
-The standard `VaryByHeaderNames` configuration distinguishes normal, htmx full,
-and htmx partial representations. `CacheOutput(policy =>
-policy.SetVaryByHeader("HX-Request", "HX-Request-Type"))` is its endpoint-
-policy equivalent. An application that also varies output for boosted requests,
-targets, history restoration, selected fragments, authentication, or other
-request data must add every such input to its cache policy. Htmxor does not infer
-an application's complete cache key.
+`VaryByHtmx()` is an `OutputCachePolicyBuilder` extension in the
+`Microsoft.AspNetCore.OutputCaching` namespace. Htmxor registers no output-cache
+policy itself. An application that also varies output for boosted requests,
+targets, history restoration, selected fragments, authentication, culture, or
+other request data must add every such input to its cache policy. Htmxor does not
+infer an application's complete cache key.
 
 ASP.NET Core OutputCache caches safe requests by default; do not opt unsafe
 component methods into output caching. Htmxor does not emit an antiforgery

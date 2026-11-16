@@ -487,22 +487,35 @@ all extended-selector cases.
 ### Cache a selected representation safely
 
 Output caching is application policy. Cache only safe requests, and make the
-cache key include every input that can change the component output. For example,
-this component chooses a named fragment from the `representation` query value:
+cache key include every input that can change the component output. ASP.NET Core
+output caching keys entries on its configured policy, not on the response `Vary`
+header, so a dual `@page` cached without variation serves one stored
+representation to both normal and htmx requests. Opt a policy in with
+`VaryByHtmx()`, which adds `HX-Request` and `HX-Request-Type` to the policy's
+header variation and keeps every variation the policy already declares:
 
-```razor
-@attribute [OutputCache(
-    VaryByHeaderNames = ["HX-Request", "HX-Request-Type"],
-    VaryByQueryKeys = ["representation"])]
+```csharp
+builder.Services.AddOutputCache(o => o.AddBasePolicy(p => p.VaryByHtmx()));
 ```
 
-`HX-Request` separates normal routing from a direct htmx response. Add every
-other request-mode input that the component uses, such as `HX-Request-Type`,
-boost, or history state, and each route value, query value, or request header
-that selects an output. Include culture, tenant, authentication and
-authorization-dependent identity, and any other application state in the cache
-policy whenever it affects the representation. If a safe per-representation key
-cannot be defined, do not place that response in a shared output cache.
+Htmxor registers no output-cache policy itself; a policy that does not call
+`VaryByHtmx()` keeps its own cache key. `VaryByHtmx()` separates only the full and
+direct representations. Header-driven fragment selection, `HX-Target`,
+`HX-Source`, boost, history-restore and extension headers, culture, tenant, and
+authentication or authorization-dependent identity remain the application's
+variation to add. For example, when components also choose a named fragment from
+the `representation` query value:
+
+```csharp
+builder.Services.AddOutputCache(o => o.AddBasePolicy(p => p
+    .SetVaryByQuery("representation")
+    .VaryByHtmx()));
+```
+
+Add each route value, query value, or request header that selects an output, and
+any other application state whenever it affects the representation. If a safe
+per-representation key cannot be defined, do not place that response in a shared
+output cache.
 
 HTMX headers describe an untrusted request representation; they do not authorize
 the request. The application retains responsibility for authorization and for
@@ -1393,7 +1406,8 @@ stores the headers as they are at the first body write. Normal-only pages, `Htmx
 (HTMX-only) components, and non-component endpoints get no added `Vary`.
 
 The header declares variation to browser and proxy caches; it does not configure
-the ASP.NET Core output cache key above. The application remains responsible for
+the ASP.NET Core output cache key above. Use `VaryByHtmx()` on the output-cache
+policy for that. The application remains responsible for
 variation from target, history-restore, boosting, and extension headers, and from
 its own selection logic. Browser and proxy cache behavior itself is not exercised
 by Htmxor's evidence; the header contract is.

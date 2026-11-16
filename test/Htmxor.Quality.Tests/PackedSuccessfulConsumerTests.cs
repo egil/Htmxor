@@ -21,7 +21,7 @@ public sealed class PackedSuccessfulConsumerTests(PackedPackageFixture package)
 
 		Assert.True(result.ExitCode == 0, result.StandardOutput + Environment.NewLine + result.StandardError);
 		Assert.DoesNotContain("HTMXOR", workspace.BuildResult.StandardOutput + workspace.BuildResult.StandardError, StringComparison.Ordinal);
-		Assert.Equal(new TrxTestRun(21, 21, 21, 0, 0, 0, 0), tests);
+		Assert.Equal(new TrxTestRun(26, 26, 26, 0, 0, 0, 0), tests);
 		AssertNestedClaims(workspace.TrxPath);
 		PackageConsumerEvidence.AssertPackage(workspace.PackagePath);
 		PackageConsumerEvidence.AssertConsumer(workspace.ConsumerDirectory, workspace.PackageVersion, framework);
@@ -46,6 +46,7 @@ public sealed class PackedSuccessfulConsumerTests(PackedPackageFixture package)
 			"Htmxor.PackageConsumer.Issue287StatusCodeTests:1",
 			"Htmxor.PackageConsumer.Issue291StatusCodeTests:1",
 			"Htmxor.PackageConsumer.Issue293StatusCodeTests:1",
+			"Htmxor.PackageConsumer.Issue295OutputCacheTests:5",
 			"Htmxor.PackageConsumer.Issue299ContextTests:5",
 			"Htmxor.PackageConsumer.PackageConsumerTests:5",
 			"Htmxor.PackageConsumer.PackageDiscoveryTests:4",
@@ -72,7 +73,7 @@ internal sealed partial class PackageConsumerWorkspace
 		{
 			"PackageConsumerTests.", "PackageDiscoveryTests.", "Issue168SelectionTests.", "Issue169SelectionTests.",
 			"Issue287StatusCodeTests.", "Issue291StatusCodeTests.", "Issue293StatusCodeTests.",
-			"Issue299ContextTests.", "Issue209GetTests.",
+			"Issue295OutputCacheTests.", "Issue299ContextTests.", "Issue209GetTests.",
 		}.Select(name => "FullyQualifiedName~Htmxor.PackageConsumer." + name));
 	}
 
@@ -104,6 +105,7 @@ internal sealed partial class PackageConsumerWorkspace
 		StageSuccessInputs(package, workspace => workspace.UseIssue169SelectionScenario());
 		StageSuccessInputs(package, workspace => workspace.UseIssue287StatusCodeScenario("net10.0", "10.0.404", "10.0.15"));
 		StageSuccessInputs(package, workspace => workspace.UseIssue293ResponseAuthoringScenario("net10.0", "10.0.404", "10.0.15"));
+		StageSuccessInputs(package, workspace => workspace.UseIssue295OutputCacheScenario("net10.0", "10.0.404", "10.0.15"));
 		StageSuccessInputs(package, workspace => workspace.UseIssue299ContextConstructionScenario("net10.0", "10.0.404", "10.0.15"));
 		StageSuccessInputs(package, workspace => workspace.UseGetScenario("net10.0", "10.0.404", "10.0.15"),
 			source => source.Replace("/reports/", "/issue-209/reports/", StringComparison.Ordinal));

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 
@@ -9,7 +10,7 @@ namespace Htmxor.Http;
 /// </summary>
 internal static class HtmxRepresentationVary
 {
-	private static readonly string[] RepresentationHeaders =
+	internal static readonly ImmutableArray<string> RepresentationHeaders =
 	[
 		HtmxRequestHeaderNames.HtmxRequest,
 		HtmxRequestHeaderNames.RequestType,
