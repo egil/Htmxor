@@ -172,7 +172,7 @@ public sealed class QualityCommandTests
 		var exception = await Assert.ThrowsAsync<InvalidOperationException>(
 			() => command.ExecuteAsync(new(QualityAction.Check, QualityProfile.Mutation)));
 
-		Assert.Contains("initial unmutated test run had 1 failing tests", exception.Message, StringComparison.Ordinal);
+		Assert.Contains("initial unmutated test run had 1 failing test", exception.Message, StringComparison.Ordinal);
 		Assert.Contains("Htmxor.E2E.PizzaTests.Removes", exception.Message, StringComparison.Ordinal);
 		var output = Path.Combine(repository.Path, "artifacts", "results", "mutation");
 		using var summary = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "summary.json")));

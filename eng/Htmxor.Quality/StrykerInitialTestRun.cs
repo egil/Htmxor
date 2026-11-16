@@ -20,7 +20,7 @@ internal static partial class StrykerInitialTestRun
 		var detail = names.Length == 0
 			? "no failing test names were found in Stryker's debug output"
 			: string.Join("; ", names);
-		return $"Stryker's initial unmutated test run had {count} failing tests, " +
+		return $"Stryker's initial unmutated test run had {count} failing {(count == 1 ? "test" : "tests")}, " +
 			$"so mutant outcomes are not trustworthy: {detail}.";
 	}
 

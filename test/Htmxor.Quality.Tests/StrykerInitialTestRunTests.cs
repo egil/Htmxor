@@ -50,7 +50,7 @@ public sealed class StrykerInitialTestRunTests
 		var console = Lines(Started, "[14:12:48 WRN] 1 tests are failing. Stryker will continue but outcome will be impacted.");
 
 		Assert.Equal(
-			"Stryker's initial unmutated test run had 1 failing tests, so mutant outcomes are not trustworthy: " +
+			"Stryker's initial unmutated test run had 1 failing test, so mutant outcomes are not trustworthy: " +
 			"no failing test names were found in Stryker's debug output.",
 			StrykerInitialTestRun.GetValidityFailure(console));
 	}
