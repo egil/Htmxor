@@ -48,7 +48,8 @@ public sealed class BehaviourDependencyTests
 		var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
 
 		var discovered = LocalFrameworkDependencyDiscovery.Discover(root, Framework(major))
-			.Where(dependency => dependency.LocalPath is Builder or PageAssembly);
+			.Where(dependency => dependency.LocalPath is Builder or PageAssembly)
+			.Where(dependency => dependency.Relationship is WatchRelationship.DependsOnBehaviour);
 
 		var expected = major == 11
 			? dependencies.Append((Upstream: "src/DefaultBuilder/src/Internal/DefaultCsrfProtection.cs", Local: Builder))

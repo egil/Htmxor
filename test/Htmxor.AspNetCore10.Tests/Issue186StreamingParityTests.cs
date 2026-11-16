@@ -77,8 +77,13 @@ public sealed class Issue186StreamingParityTests
 		var htmxorBody = await htmxorResponse.Content.ReadAsStringAsync();
 
 		Assert.Contains("<template type=\"redirection\"", stockBody, StringComparison.Ordinal);
-		Assert.Contains("<template type=\"redirection\"", htmxorBody, StringComparison.Ordinal);
 		Assert.Equal(stockResponse.StatusCode, htmxorResponse.StatusCode);
+		// The whole body (#262). Only the opaque-redirect payload is normalized: each host protects it with its
+		// own ephemeral data-protection keys, so it can never be equal across hosts. Issue262's navigation cases
+		// resolve that payload on each host and compare the destinations.
+		Assert.Equal(
+			Issue264Snapshot.NormalizeProtectedPayloads(stockBody),
+			Issue264Snapshot.NormalizeProtectedPayloads(htmxorBody));
 	}
 
 	[Fact]

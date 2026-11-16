@@ -27,6 +27,7 @@ internal static partial class LocalFrameworkDependencyDiscovery
 		["Microsoft.AspNetCore.Components.Routing.IHostEnvironmentNavigationManager"] = "src/Components/Components/src/Routing/IHostEnvironmentNavigationManager.cs",
 		["Microsoft.AspNetCore.Components.Routing.IRoutingStateProvider"] = "src/Components/Components/src/Routing/IRoutingStateProvider.cs",
 		["Microsoft.AspNetCore.Html.IHtmlAsyncContent"] = "src/Html.Abstractions/src/IHtmlAsyncContent.cs",
+		["Microsoft.AspNetCore.Http.StreamResponseBodyFeature"] = "src/Http/Http/src/StreamResponseBodyFeature.cs",
 		["Microsoft.AspNetCore.Routing.EndpointDataSource"] = "src/Http/Routing/src/EndpointDataSource.cs",
 		["Microsoft.AspNetCore.Routing.MatcherPolicy"] = "src/Http/Routing/src/Matching/MatcherPolicy.cs",
 		["Microsoft.AspNetCore.Routing.Matching.IEndpointSelectorPolicy"] = "src/Http/Routing/src/Matching/IEndpointSelectorPolicy.cs",
