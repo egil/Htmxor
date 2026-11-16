@@ -1385,8 +1385,11 @@ full page and a direct representation, so Htmxor appends `HX-Request` and
 `HX-Request-Type` to the response `Vary` header on every response from it: normal
 and htmx renders, actions, redirects (`302` and `HX-Redirect`), and errors,
 including a `500` the exception handler re-executes onto a different endpoint.
-Values the application already set are kept, a name already present in any case
-is not repeated, and `Vary: *` is left alone. Normal-only pages, `HtmxRoute`
+`Vary` values the application set before the page runs are kept, a name already
+present in any case is not repeated, and `Vary: *` is left alone. A page that sets
+`Vary` while rendering should add to the existing value rather than replace it:
+the live response is re-merged when it starts, but ASP.NET Core output caching
+stores the headers as they are at the first body write. Normal-only pages, `HtmxRoute`
 (HTMX-only) components, and non-component endpoints get no added `Vary`.
 
 The header declares variation to browser and proxy caches; it does not configure

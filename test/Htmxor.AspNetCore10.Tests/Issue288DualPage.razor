@@ -20,6 +20,10 @@
         {
             Navigation.NavigateTo("/issue-288/plain");
         }
+        else if (Mode == "not-found")
+        {
+            Navigation.NotFound();
+        }
         else if (Mode == "throw")
         {
             throw new InvalidOperationException("issue-288 dual endpoint failure");
