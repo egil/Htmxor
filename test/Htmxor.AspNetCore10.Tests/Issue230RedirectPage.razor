@@ -1,0 +1,43 @@
+@page "/issue-230/redirect"
+@inherits Issue230Carrier
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
+
+<main data-issue-230-redirect>rendered</main>
+<form method="post" @formname="issue-230-save" @onsubmit="Save">
+    <AntiforgeryToken />
+</form>
+
+@code {
+    [SupplyParameterFromQuery] public string? Mode { get; set; }
+    [SupplyParameterFromQuery] public string? Destination { get; set; }
+
+    // Throws synchronously inside the first render.
+    protected override void OnInitialized()
+    {
+        if (Mode == "sync")
+        {
+            Write("written-sync");
+            Navigate();
+        }
+    }
+
+    // Throws from pending work the invoker is already awaiting: the non-streaming wait on a GET, and the
+    // quiescence wait that precedes submit dispatch on a POST.
+    protected override async Task OnInitializedAsync()
+    {
+        if (Mode == "async")
+        {
+            Write("written-async");
+            await Task.Yield();
+            Navigate();
+        }
+    }
+
+    // Stock still dispatches the submit after an awaited initial-render navigation, so this write is part of
+    // the paired outcome.
+    private void Save() => Write("written-submit");
+
+    private void Navigate() => Navigation.NavigateTo(Destination ?? "/issue-230/read");
+}

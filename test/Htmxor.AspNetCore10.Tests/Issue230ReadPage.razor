@@ -1,0 +1,15 @@
+@page "/issue-230/read"
+@inherits Issue230Carrier
+
+<main data-issue-230-message="@message" data-issue-230-value="@value">read</main>
+
+@code {
+    private string message = Missing;
+    private string value = Missing;
+
+    protected override void OnInitialized()
+    {
+        message = ReadMessage();
+        value = ReadValue();
+    }
+}

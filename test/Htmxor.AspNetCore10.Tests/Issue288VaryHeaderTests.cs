@@ -64,7 +64,9 @@ public sealed class Issue288VaryHeaderTests
 		await AssertVaryAsync(normal, HttpStatusCode.Redirect, HtmxVary);
 		Assert.Equal("http://localhost/issue-288/plain", normal.Headers.Location?.OriginalString);
 		await AssertVaryAsync(htmx, HttpStatusCode.OK, HtmxVary);
-		Assert.Equal("http://localhost/issue-288/plain", Assert.Single(htmx.Headers.GetValues("HX-Redirect")));
+		// Request-relative since #230: the first render answers htmx through the same representation rule as a
+		// completed submit, before the Direct endpoint's local-redirect adaptation ever sees a 302.
+		Assert.Equal("/issue-288/plain", Assert.Single(htmx.Headers.GetValues("HX-Redirect")));
 	}
 
 	[Theory]
