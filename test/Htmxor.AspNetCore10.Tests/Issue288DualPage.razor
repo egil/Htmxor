@@ -1,0 +1,30 @@
+@page "/issue-288/dual"
+@using Microsoft.AspNetCore.Components.Forms
+@inject NavigationManager Navigation
+@inject Issue288Probe Probe
+
+<main data-issue-288-dual>@result</main>
+<button hx-post="/issue-288/dual" @onpost="Save">Save</button>
+<AntiforgeryToken />
+
+@code {
+    private string result = "rendered";
+
+    [SupplyParameterFromQuery(Name = "mode")]
+    public string? Mode { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Probe.RecordInitialization();
+        if (Mode == "redirect")
+        {
+            Navigation.NavigateTo("/issue-288/plain");
+        }
+        else if (Mode == "throw")
+        {
+            throw new InvalidOperationException("issue-288 dual endpoint failure");
+        }
+    }
+
+    private void Save(Htmxor.HtmxEventArgs _) => result = "saved";
+}

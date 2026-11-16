@@ -1,0 +1,9 @@
+@page "/issue-288/cached"
+@attribute [Microsoft.AspNetCore.OutputCaching.OutputCache]
+@inject Issue288Probe Probe
+
+<main data-issue-288-cached>cached</main>
+
+@code {
+    protected override void OnInitialized() => Probe.RecordInitialization();
+}
