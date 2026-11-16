@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Endpoints;
 using Microsoft.AspNetCore.Components.Endpoints.Infrastructure;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -584,7 +585,9 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 		var response = context.Response;
 		var originalBody = response.Body;
 		htmxContext.Response.BeginRenderExecution();
+		var serverBody = context.Features.GetRequiredFeature<IHttpResponseBodyFeature>();
 		response.Body = new ConditionalResponseBodyStream(originalBody, htmxContext.Response);
+		context.Features.Set<IHttpResponseBodyFeature>(new CompletingResponseBodyFeature(response.Body, serverBody));
 		try
 		{
 			await renderDelegate(context);
@@ -599,6 +602,19 @@ public static class HtmxorComponentEndpointRouteBuilderExtensions
 			{
 				response.Body = originalBody;
 			}
+		}
+	}
+
+	// The feature that assigning Response.Body installs completes only its own stream adapter, so a render that
+	// completes the response, as a streamed render does before it rethrows, would never complete the server's
+	// response. This replacement completes the server's too, as the framework's own body wrappers do.
+	private sealed class CompletingResponseBodyFeature(Stream stream, IHttpResponseBodyFeature serverBody)
+		: StreamResponseBodyFeature(stream, serverBody)
+	{
+		public override async Task CompleteAsync()
+		{
+			await base.CompleteAsync();
+			await PriorFeature!.CompleteAsync();
 		}
 	}
 

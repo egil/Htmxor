@@ -1,0 +1,28 @@
+@page "/issue-262/streaming-form"
+@attribute [StreamRendering]
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@inject Issue260Gate Gate
+@inject NavigationManager Navigation
+
+<main data-issue-262="@state">@state</main>
+<form method="post" @formname="@Issue262Outcome.FormName" @onsubmit="SubmitAsync">
+    <AntiforgeryToken />
+    <button type="submit">Submit</button>
+</form>
+
+@code {
+    private string state = "initial";
+
+    [SupplyParameterFromQuery] public string? Outcome { get; set; }
+
+    private async Task SubmitAsync()
+    {
+        // The submit's own pending work is what starts the streamed response; the test releases it only after
+        // it has read that response's initial render.
+        await Gate.WaitForReleaseAsync(Issue262Outcome.Waypoint);
+        state = Issue262Outcome.UpdatedState(Outcome);
+        await InvokeAsync(StateHasChanged);
+        Issue262Outcome.Raise(Outcome, Navigation);
+    }
+}

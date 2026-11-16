@@ -257,6 +257,15 @@
       ]
     },
     {
+      "path": "src/Components/Endpoints/src/Rendering/Buffering/BufferedTextWriter.cs",
+      "match": "file",
+      "api": "none",
+      "relationship": "reimplements",
+      "dependencies": [
+        "src/Htmxor/Endpoints/HtmxorEndpointCandidateBufferedTextWriter.cs"
+      ]
+    },
+    {
       "path": "src/Components/Endpoints/src/Builder/ConfiguredRenderModesMetadata.cs",
       "match": "file",
       "api": "none",
@@ -550,6 +559,15 @@
       "relationship": "implements",
       "dependencies": [
         "src/Htmxor/Rendering/RenderedComponentHtmlContent.cs"
+      ]
+    },
+    {
+      "path": "src/Http/Http/src/StreamResponseBodyFeature.cs",
+      "match": "file",
+      "api": "subclass",
+      "relationship": "subclasses",
+      "dependencies": [
+        "src/Htmxor/Builder/HtmxorComponentEndpointRouteBuilderExtensions.cs"
       ]
     },
     {

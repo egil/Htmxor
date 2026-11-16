@@ -1,0 +1,22 @@
+@page "/issue-262/streaming"
+@attribute [StreamRendering]
+@inject Issue260Gate Gate
+@inject NavigationManager Navigation
+
+<main data-issue-262="@state">@state</main>
+
+@code {
+    private string state = "initial";
+
+    [SupplyParameterFromQuery] public string? Outcome { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The test releases this only after it has read the initial render off the wire, so the outcome below
+        // is raised after the response has started rather than on a timing guess.
+        await Gate.WaitForReleaseAsync(Issue262Outcome.Waypoint);
+        state = Issue262Outcome.UpdatedState(Outcome);
+        await InvokeAsync(StateHasChanged);
+        Issue262Outcome.Raise(Outcome, Navigation);
+    }
+}

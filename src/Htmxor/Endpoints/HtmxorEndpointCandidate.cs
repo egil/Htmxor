@@ -58,6 +58,12 @@
 // EndpointHtmlRenderer.Prerendering.cs at both commits above.
 // Explicit callbacks (#180, reviewed 2026-10-12) also finish before ordinary response serialization;
 // supported event and pending-work dependencies are inventoried in the ExplicitActions partial.
+// Buffered response writing (#262, synchronized 2026-11-16): RenderComponentCore writes the page, streamed
+// updates, initializers and persisted state through one buffered writer and flushes that writer last, as
+// RenderComponentCore does in RazorComponentEndpointInvoker.cs at v10.0.15
+// (8e0f8ed2312954727f8919d7d1c2f78b483b4ee7) and, identically, at v11.0.0
+// (297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f). The writer's own source is recorded in
+// HtmxorEndpointCandidateBufferedTextWriter.cs.
 // Htmxor upstream dependency: src/Components/Endpoints/src/RazorComponentEndpointInvoker.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.cs | reimplements
 // Htmxor upstream dependency: src/Components/Endpoints/src/Rendering/EndpointHtmlRenderer.PrerenderingState.cs | reimplements
@@ -352,13 +358,16 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 			defaultBufferSize,
 			ArrayPool<byte>.Shared,
 			ArrayPool<char>.Shared);
+		// As stock: the renderer's synchronous writes below reach the response stream only through this writer's
+		// FlushAsync. The not-found and non-throwing navigation templates still use a writer of their own.
+		using var bufferWriter = new HtmxorEndpointCandidateBufferedTextWriter(writer);
 		if (writesPage)
 		{
-			renderer.WriteResponseHtml(htmlContent, context.GetHtmxContext(), writer);
+			renderer.WriteResponseHtml(htmlContent, context.GetHtmxContext(), bufferWriter);
 		}
 		if (!quiesceTask.IsCompletedSuccessfully)
 		{
-			await renderer.SendStreamingUpdatesAsync(context, quiesceTask, writer);
+			await renderer.SendStreamingUpdatesAsync(context, quiesceTask, bufferWriter);
 			if (renderer.NotFoundEventArgs is not null)
 			{
 				await renderer.SetNotFoundWhenResponseHasStarted();
@@ -366,7 +375,7 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 		}
 		else
 		{
-			renderer.EmitInitializersIfNecessary(context, writer);
+			renderer.EmitInitializersIfNecessary(context, bufferWriter);
 		}
 #if NET11_0_OR_GREATER
 		// Selection must not suppress write-back from completed component work outside the selected HTML.
@@ -383,10 +392,10 @@ internal sealed class HtmxorEndpointCandidateInvoker(HtmxorEndpointCandidateRend
 				.GetConfiguredRenderModes(endpoint);
 			if (modes.Length > 0)
 			{
-				await renderer.WritePersistedStateAsync(writer, modes);
+				await renderer.WritePersistedStateAsync(bufferWriter, modes);
 			}
 		}
-		await writer.FlushAsync();
+		await bufferWriter.FlushAsync();
 	}
 
 	// A navigation during the synchronous first render, from either the throwing or the non-throwing path. An htmx
@@ -690,12 +699,12 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 				case Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode:
 					var server = new HtmxorEndpointCandidateProtectedStateStore(services.GetRequiredService<IDataProtectionProvider>());
 					await manager.PersistStateAsync(server, this);
-					await WritePersistedStateMarkersAsync(writer, server, null);
+					WritePersistedStateMarkers(writer, server, null);
 					return;
 				case Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode:
 					var webAssembly = new HtmxorEndpointCandidateStateStore();
 					await manager.PersistStateAsync(webAssembly, this);
-					await WritePersistedStateMarkersAsync(writer, null, webAssembly);
+					WritePersistedStateMarkers(writer, null, webAssembly);
 					return;
 				default:
 					throw new InvalidOperationException("Invalid configured render mode.");
@@ -715,28 +724,28 @@ internal partial class HtmxorEndpointCandidateRenderer : StaticHtmlRenderer
 		await Task.WhenAll(
 			composite.Server.Saved.Count == 0 ? Task.CompletedTask : protectedStore.PersistStateAsync(composite.Server.Saved),
 			composite.WebAssembly.Saved.Count == 0 ? Task.CompletedTask : plainStore.PersistStateAsync(composite.WebAssembly.Saved));
-		await WritePersistedStateMarkersAsync(
+		WritePersistedStateMarkers(
 			writer,
 			composite.Server.Saved.Count == 0 ? null : protectedStore,
 			composite.WebAssembly.Saved.Count == 0 ? null : plainStore);
 	}
 
-	private static async Task WritePersistedStateMarkersAsync(
+	private static void WritePersistedStateMarkers(
 		TextWriter writer,
 		HtmxorEndpointCandidateProtectedStateStore? server,
 		HtmxorEndpointCandidateStateStore? webAssembly)
 	{
 		if (server?.PersistedState is not null)
 		{
-			await writer.WriteAsync("<!--Blazor-Server-Component-State:");
-			await writer.WriteAsync(server.PersistedState);
-			await writer.WriteAsync("-->");
+			writer.Write("<!--Blazor-Server-Component-State:");
+			writer.Write(server.PersistedState);
+			writer.Write("-->");
 		}
 		if (webAssembly?.PersistedState is not null)
 		{
-			await writer.WriteAsync("<!--Blazor-WebAssembly-Component-State:");
-			await writer.WriteAsync(webAssembly.PersistedState);
-			await writer.WriteAsync("-->");
+			writer.Write("<!--Blazor-WebAssembly-Component-State:");
+			writer.Write(webAssembly.PersistedState);
+			writer.Write("-->");
 		}
 	}
 
