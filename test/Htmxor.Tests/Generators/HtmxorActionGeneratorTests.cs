@@ -244,6 +244,7 @@ public sealed class HtmxorActionGeneratorTests
 		""";
 	private static readonly string ProjectDirectory = Path.GetFullPath(
 		Path.Combine(Path.GetTempPath(), "htmxor-action-generator-tests"));
+	private static readonly ImmutableArray<MetadataReference> References = CreateReferences();
 
 	[Theory]
 	[InlineData("@page \"/reports/{ReportId:int}\"", "button", "@onpost", "POST", "PostReport")]
@@ -2860,7 +2861,7 @@ public sealed class HtmxorActionGeneratorTests
 		var compilation = CSharpCompilation.Create(
 			"Htmxor.PutGenerator.Tests",
 			new[] { CSharpSyntaxTree.ParseText(RuntimeStubs, parseOptions) },
-			CreateReferences(),
+			References,
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 		GeneratorDriver driver = CSharpGeneratorDriver.Create(
 			new ISourceGenerator[]
