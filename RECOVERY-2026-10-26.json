@@ -1,0 +1,247 @@
+{
+  "purpose": "Recovery of unfinished local Claude/T3/Codex work before PC reinstallation; snapshots are not accepted or merge-ready implementation.",
+  "captured_at_utc": "2026-10-26T20:35:19.484421+00:00",
+  "repository": "egil/Htmxor",
+  "origin": "https://github.com/egil/Htmxor.git",
+  "scope": "Four requested repositories, all registered worktrees, stashes, and local branch histories missing from origin and not fully covered by merged PR source history.",
+  "preservation": "Original worktrees, branches, indexes, and stashes were retained. Recovery refs were pushed without force and remote SHAs checked. No merge, rebase, deployment, or application tests were performed.",
+  "active_sessions": [
+    {
+      "t3_thread_id": "import:codex:01a12a32-093a-7bd1-85d5-2618165f4131",
+      "title": "# Handover: deliver milestone 1 of egil/Htmxor",
+      "last_updated_at": "2026-10-26T02:56:16.088Z",
+      "provider": "claudeAgent",
+      "recorded_branch": null,
+      "recorded_worktree": null,
+      "note": "T3 branch/path metadata can be stale. Git snapshot and current remote PR head are authoritative."
+    }
+  ],
+  "continuation_notes": [
+    "Active milestone-1 work is already on origin in draft PR #377 at 8fca2c55e978... . All registered working trees were clean.",
+    "The last primary-session message is older than PR #377. It describes #375 slice A (move packed browser behavior in-process with fast-profile browser exclusion), #376 (parallel code-metrics facts), and hosted timing tracked by #357. Use current issue/PR checkpoints instead of assuming its waiting-for-Tester message is still current.",
+    "Two older stashes are saved in raw form and as linear snapshots including untracked files. They relate to merged PRs #365 and #150 and may be superseded. Compare with main before reuse.",
+    "An old issue-269 worktree has a leftover REBASE_HEAD ref but no active rebase directory or dirty files was detected."
+  ],
+  "existing_open_prs": [
+    {
+      "number": 377,
+      "title": "test(browser): move packed htmx4 behavior in-process",
+      "url": "https://github.com/egil/Htmxor/pull/377",
+      "isDraft": true,
+      "headRefName": "egil/issue-375-inprocess-browser-metrics",
+      "headRefOid": "8fca2c55e978be87fd3db916fecc8ce56535b98f",
+      "baseRefName": "main",
+      "mergeStateStatus": "CLEAN",
+      "observed_checks": [
+        {
+          "name": "Analyze (actions)",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "create-nuget",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "Analyze (csharp)",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "Analyze (javascript-typescript)",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "run-test",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "run-stryker",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED"
+        },
+        {
+          "name": "dependency-review",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "infer-sharp",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "validate-nuget",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED"
+        },
+        {
+          "name": "CodeQL",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        }
+      ],
+      "note": "Captured state only; recheck before continuing."
+    }
+  ],
+  "new_recovery_drafts": [
+    {
+      "repo": "Htmxor",
+      "branch": "recovery/pc-reinstall-2026-10-26/wip/stash-359-packed-tests",
+      "sha": "c936e64dd2c767360bc178551db5f8fcd29b0b7c",
+      "title": "test(recovery): preserve stashed packed-test migration",
+      "url": "https://github.com/egil/Htmxor/pull/378",
+      "number": 378,
+      "isDraft": true
+    },
+    {
+      "repo": "Htmxor",
+      "branch": "recovery/pc-reinstall-2026-10-26/wip/stash-v1-dx-review",
+      "sha": "e42a2e1d485ff8f27063cc8575e190865dcb053b",
+      "title": "docs(recovery): preserve stashed v1 DX review notes",
+      "url": "https://github.com/egil/Htmxor/pull/379",
+      "number": 379,
+      "isDraft": true
+    }
+  ],
+  "recovery_refs": [
+    {
+      "branch": "recovery/pc-reinstall-2026-10-26/original/egil/native-worktrees",
+      "sha": "4462a785c751db1b6942647bb00f6963a2560c5a",
+      "date": "2026-10-05 17:06:23 +0000",
+      "upstream": "origin/egil/native-worktrees",
+      "local_only_commits": 2,
+      "subject": "docs(agents): deliver issues in native worktrees",
+      "kind": "historical_branch",
+      "source_branch": "egil/native-worktrees",
+      "needs_draft": false,
+      "branch_url": "https://github.com/egil/Htmxor/tree/recovery/pc-reinstall-2026-10-26/original/egil/native-worktrees",
+      "commit_url": "https://github.com/egil/Htmxor/commit/4462a785c751db1b6942647bb00f6963a2560c5a"
+    },
+    {
+      "branch": "recovery/pc-reinstall-2026-10-26/original/egil/issue-111-query-actions",
+      "sha": "23feeb99c9cd793c1da6782ebdd242137626fd3a",
+      "date": "2026-08-30 18:59:49 +0000",
+      "upstream": "origin/egil/issue-111-query-actions",
+      "local_only_commits": 2,
+      "subject": "docs(v1): record mixed QUERY security proof",
+      "kind": "historical_branch",
+      "source_branch": "egil/issue-111-query-actions",
+      "needs_draft": false,
+      "branch_url": "https://github.com/egil/Htmxor/tree/recovery/pc-reinstall-2026-10-26/original/egil/issue-111-query-actions",
+      "commit_url": "https://github.com/egil/Htmxor/commit/23feeb99c9cd793c1da6782ebdd242137626fd3a"
+    },
+    {
+      "kind": "raw_stash",
+      "branch": "recovery/pc-reinstall-2026-10-26/stash-raw/stash-359-packed-tests",
+      "sha": "c0b67ee7c6324ab60df715401483e607dc9a9a6f",
+      "ordinal": 0,
+      "summary": "Saved pause before issue #359 completion; related merged PR #365. Includes 35 formerly untracked Razor/test files plus a project-file change. Compare against main before resuming.",
+      "needs_draft": false,
+      "branch_url": "https://github.com/egil/Htmxor/tree/recovery/pc-reinstall-2026-10-26/stash-raw/stash-359-packed-tests",
+      "commit_url": "https://github.com/egil/Htmxor/commit/c0b67ee7c6324ab60df715401483e607dc9a9a6f"
+    },
+    {
+      "kind": "stash_snapshot",
+      "branch": "recovery/pc-reinstall-2026-10-26/wip/stash-359-packed-tests",
+      "sha": "c936e64dd2c767360bc178551db5f8fcd29b0b7c",
+      "tree": "314a8c5509142dc7c7e8bdbcc40cec640a6e6950",
+      "source_head": "9b920c891f747d0bfd940fa1449bdefd6e47d7f3",
+      "source_stash": "c0b67ee7c6324ab60df715401483e607dc9a9a6f",
+      "raw_stash_branch": "recovery/pc-reinstall-2026-10-26/stash-raw/stash-359-packed-tests",
+      "files": [
+        "test/Htmxor.AspNetCore10.Tests/Htmxor.AspNetCore10.Tests.csproj",
+        "test/Htmxor.AspNetCore10.Tests/Issue168App.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue168Child.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue168Page.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue168SelectionTests.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue169App.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue169Child.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue169Page.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue169SelectionTests.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue287App.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue287Form.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue287Guard.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue287GuardTests.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue287StatusCodeTests.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue291App.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue291Host.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue291Page.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue291StatusCodeTests.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue299App.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue299ContextTests.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue299Page.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ClientMarkup.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue359MarkerPage.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue359MarkerReport.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue359NavigationPage.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ResponseApp.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ResponseHost.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ResponseTests.Markup.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ResponseTests.Navigation.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ResponseTests.Request.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ResponseTests.Status.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ResponseTests.SwapSelection.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ResponseTests.Trigger.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue359ResponseTests.cs",
+        "test/Htmxor.AspNetCore10.Tests/Issue359SwapSelectionPage.razor",
+        "test/Htmxor.AspNetCore10.Tests/Issue359TriggerPage.razor"
+      ],
+      "summary": "Saved pause before issue #359 completion; related merged PR #365. Includes 35 formerly untracked Razor/test files plus a project-file change. Compare against main before resuming.",
+      "needs_draft": true,
+      "branch_url": "https://github.com/egil/Htmxor/tree/recovery/pc-reinstall-2026-10-26/wip/stash-359-packed-tests",
+      "commit_url": "https://github.com/egil/Htmxor/commit/c936e64dd2c767360bc178551db5f8fcd29b0b7c",
+      "draft_pr_url": "https://github.com/egil/Htmxor/pull/378"
+    },
+    {
+      "kind": "raw_stash",
+      "branch": "recovery/pc-reinstall-2026-10-26/stash-raw/stash-v1-dx-review",
+      "sha": "a68291000473afd8e5aecb918911d8de0b2edf7b",
+      "ordinal": 1,
+      "summary": "Older v1 DX documentation stash; related merged PR #150. Compare against current documentation before resuming.",
+      "needs_draft": false,
+      "branch_url": "https://github.com/egil/Htmxor/tree/recovery/pc-reinstall-2026-10-26/stash-raw/stash-v1-dx-review",
+      "commit_url": "https://github.com/egil/Htmxor/commit/a68291000473afd8e5aecb918911d8de0b2edf7b"
+    },
+    {
+      "kind": "stash_snapshot",
+      "branch": "recovery/pc-reinstall-2026-10-26/wip/stash-v1-dx-review",
+      "sha": "e42a2e1d485ff8f27063cc8575e190865dcb053b",
+      "tree": "9bfed4100ef10cc458f860eeb90c2f29bbb620fe",
+      "source_head": "3da33857617bd34675687057dc8e9f7900c91ad7",
+      "source_stash": "a68291000473afd8e5aecb918911d8de0b2edf7b",
+      "raw_stash_branch": "recovery/pc-reinstall-2026-10-26/stash-raw/stash-v1-dx-review",
+      "files": [
+        "docs/htmxor-v1-feature-guide.md",
+        "docs/index.md",
+        "docs/research/discussion-143-amendment.md",
+        "docs/research/htmxor-v1-dx-review.md"
+      ],
+      "summary": "Older v1 DX documentation stash; related merged PR #150. Compare against current documentation before resuming.",
+      "needs_draft": true,
+      "branch_url": "https://github.com/egil/Htmxor/tree/recovery/pc-reinstall-2026-10-26/wip/stash-v1-dx-review",
+      "commit_url": "https://github.com/egil/Htmxor/commit/e42a2e1d485ff8f27063cc8575e190865dcb053b",
+      "draft_pr_url": "https://github.com/egil/Htmxor/pull/379"
+    }
+  ],
+  "restore_instructions": [
+    "Clone the repository normally.",
+    "Run: git fetch origin",
+    "For a recovery branch below, run: git switch --track origin/<recovery-branch>",
+    "For an exact raw stash, recover in an appropriate clean worktree: git stash apply <raw-stash-commit-sha>. Add --index if its saved staging is required.",
+    "Compare historical snapshots against current main and existing PRs before resuming; none is ready for automatic merge."
+  ],
+  "limits": [
+    "Full session databases, authentication data, machine-specific settings, generated caches, and local-only review artifacts were not uploaded.",
+    "Clean historical branches fully represented in a merged PR source history were not duplicated.",
+    "Recorded CI/session state may be stale. Reinspect the current remote head and linked issue/PR checkpoints."
+  ]
+}
